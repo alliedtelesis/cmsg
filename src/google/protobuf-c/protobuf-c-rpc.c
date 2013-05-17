@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <linux/tipc.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <stdarg.h>
@@ -284,13 +285,23 @@ begin_connecting (ProtobufC_RPC_Client *client,
   protobuf_c_assert (client->state == PROTOBUF_C_CLIENT_STATE_NAME_LOOKUP);
 
   client->state = PROTOBUF_C_CLIENT_STATE_CONNECTING;
-  client->fd = socket (address->sa_family, SOCK_STREAM, 0);
+
+  if (address->sa_family == AF_TIPC)
+     client->fd = socket (PF_TIPC, SOCK_STREAM, 0);
+  else
+    client->fd = socket (address->sa_family, SOCK_STREAM, 0);
+
   if (client->fd < 0)
     {
       client_failed (client, "error creating socket: %s", strerror (errno));
       return;
     }
-  set_fd_nonblocking (client->fd);
+
+  if (address->sa_family != AF_TIPC)
+    {
+      set_fd_nonblocking (client->fd);
+    }
+
   if (connect (client->fd, address, addr_len) < 0)
     {
       if (errno == EINPROGRESS)
@@ -311,6 +322,7 @@ begin_connecting (ProtobufC_RPC_Client *client,
 
   set_state_connected (client);
 }
+
 static void
 handle_name_lookup_success (const uint8_t *address,
                             void          *callback_data)
@@ -367,7 +379,6 @@ begin_name_lookup (ProtobufC_RPC_Client *client)
                           sizeof (addr));
         return;
       }
-
     case PROTOBUF_C_RPC_ADDRESS_TCP:
       {
         /* parse hostname:port from client->name */
@@ -397,6 +408,39 @@ begin_name_lookup (ProtobufC_RPC_Client *client)
 
         /* cleanup */
         client->allocator->free (client->allocator, host);
+        return;
+      }
+    case PROTOBUF_C_RPC_ADDRESS_TIPC:
+      {
+        /* parse port:member-id from client->name */
+        const char *colon = strchr (client->name, ':');
+        char *type_name;
+        unsigned instance;
+        unsigned type;
+        if (colon == NULL)
+          {
+            client_failed (client,
+                           "name '%s' does not have a : in it (supposed to be PORT:MEMBER_ID)",
+                           client->name);
+            return;
+          }
+        type_name = client->allocator->alloc (client->allocator, colon + 1 - client->name);
+        memcpy (type_name, client->name, colon - client->name);
+        type_name[colon - client->name] = 0;
+        instance = atoi (colon + 1);
+        type = atoi (type_name);
+
+        struct sockaddr_tipc topsrv;
+        memset(&topsrv, 0, sizeof(topsrv));
+        topsrv.family = AF_TIPC;
+        topsrv.addrtype = TIPC_ADDR_NAME;
+        topsrv.addr.name.name.type = type;          //tipc port
+        topsrv.addr.name.name.instance = instance;  //tipc member id
+        topsrv.addr.name.domain = 0;
+        topsrv.scope = TIPC_ZONE_SCOPE;
+
+        begin_connecting (client, (struct sockaddr *) &topsrv,
+                          sizeof (topsrv));
         return;
       }
     default:
@@ -736,10 +780,10 @@ trivial_sync_libc_resolver (ProtobufCDispatch *dispatch,
     found_func ((const uint8_t *) ent->h_addr_list[0], callback_data);
 }
 
-ProtobufCService *protobuf_c_rpc_client_new (ProtobufC_RPC_AddressType type,
-                                             const char               *name,
+ProtobufCService *protobuf_c_rpc_client_new (ProtobufC_RPC_AddressType         type,
+                                             const char                       *name,
                                              const ProtobufCServiceDescriptor *descriptor,
-                                             ProtobufCDispatch       *orig_dispatch)
+                                             ProtobufCDispatch                *orig_dispatch)
 {
   ProtobufCDispatch *dispatch = orig_dispatch ? orig_dispatch : protobuf_c_dispatch_default ();
   ProtobufCAllocator *allocator = protobuf_c_dispatch_peek_allocator (dispatch);
@@ -1133,17 +1177,17 @@ handle_server_connection_events (int fd,
             {
               server_connection_failed (conn,
                                         PROTOBUF_C_ERROR_CODE_CLIENT_TERMINATED,
-                                        "reading from file-descriptor: %s",
-                                        strerror (errno));
+                                        "reading from file-descriptor: %s (%d)",
+                                        strerror (errno), errno);
               return;
             }
         }
       else if (read_rv == 0)
         {
           if (conn->first_pending_request != NULL)
-            server_connection_failed (conn,
-                                      PROTOBUF_C_ERROR_CODE_CLIENT_TERMINATED,
-                                      "closed while calls pending");
+              server_connection_failed (conn,
+                                        PROTOBUF_C_ERROR_CODE_CLIENT_TERMINATED,
+                                        "closed while calls pending");
           else
             server_connection_close (conn);
           return;
@@ -1335,10 +1379,10 @@ _gsk_socket_address_local_maybe_delete_stale_socket (const char *path,
              path, strerror(errno));
 }
 ProtobufC_RPC_Server *
-protobuf_c_rpc_server_new       (ProtobufC_RPC_AddressType type,
-                                 const char               *name,
-                                 ProtobufCService         *service,
-                                 ProtobufCDispatch       *dispatch)
+protobuf_c_rpc_server_new       (ProtobufC_RPC_AddressType  type,
+                                 const char                *name,
+                                 ProtobufCService          *service,
+                                 ProtobufCDispatch         *dispatch)
 {
   int fd = -1;
   int protocol_family;
@@ -1346,6 +1390,7 @@ protobuf_c_rpc_server_new       (ProtobufC_RPC_AddressType type,
   socklen_t address_len;
   struct sockaddr_un addr_un;
   struct sockaddr_in addr_in;
+  struct sockaddr_tipc addr_tipc;
   switch (type)
     {
     case PROTOBUF_C_RPC_ADDRESS_LOCAL:
@@ -1370,8 +1415,41 @@ protobuf_c_rpc_server_new       (ProtobufC_RPC_AddressType type,
       address_len = sizeof (addr_in);
       address = (struct sockaddr *) (&addr_in);
       break;
+    case PROTOBUF_C_RPC_ADDRESS_TIPC:
+      {
+        /* parse port:member-id from name */
+        const char *colon = strchr (name, ':');
+        char *type_name = 0;
+        unsigned instance;
+        unsigned type;
+        if (colon == NULL)
+          {
+            fprintf (stderr, "protobuf_c_rpc_server_new: name '%s' does not have a : in it (supposed to be PORT:MEMBER_ID)\n",
+                     name);
+            return;
+          }
+        type_name = malloc(sizeof(char) *  (colon + 1 - name));
+        memcpy (type_name, name, colon - name);
+        type_name[colon - name] = 0;
+        instance = atoi (colon + 1);
+        type = atoi (type_name);
+        free(type_name);
+  
+        protocol_family = PF_TIPC;
+        memset (&addr_tipc, 0, sizeof (addr_tipc));
+        addr_tipc.family = AF_TIPC;
+        addr_tipc.addrtype = TIPC_ADDR_NAME;
+        addr_tipc.addr.name.name.type = type;         //TIPC PORT
+        addr_tipc.addr.name.name.instance = instance; //MEMBER ID
+        addr_tipc.addr.name.domain = 0;
+        addr_tipc.scope = TIPC_ZONE_SCOPE;
+        address_len = sizeof (addr_tipc);
+        address = (struct sockaddr *) (&addr_tipc);
+
+      }
+      break;
     default:
-    protobuf_c_assert (0);
+      protobuf_c_assert (0);
     }
 
   fd = socket (protocol_family, SOCK_STREAM, 0);

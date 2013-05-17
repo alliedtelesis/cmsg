@@ -16,8 +16,9 @@
 
 typedef enum
 {
-  PROTOBUF_C_RPC_ADDRESS_LOCAL,  /* unix-domain socket */
-  PROTOBUF_C_RPC_ADDRESS_TCP     /* host/port tcp socket */
+  PROTOBUF_C_RPC_ADDRESS_LOCAL,   // unix-domain socket
+  PROTOBUF_C_RPC_ADDRESS_TCP,     // host/port tcp socket
+  PROTOBUF_C_RPC_ADDRESS_TIPC     // port/member if tipc socket
 } ProtobufC_RPC_AddressType;
 
 typedef enum
@@ -100,10 +101,10 @@ protobuf_c_boolean protobuf_c_rpc_client_is_connected (ProtobufC_RPC_Client *cli
 /* --- Server API --- */
 typedef struct _ProtobufC_RPC_Server ProtobufC_RPC_Server;
 ProtobufC_RPC_Server *
-     protobuf_c_rpc_server_new        (ProtobufC_RPC_AddressType type,
-                                       const char               *name,
-                                       ProtobufCService         *service,
-                                       ProtobufCDispatch       *dispatch /* or NULL */
+     protobuf_c_rpc_server_new        (ProtobufC_RPC_AddressType  type,
+                                       const char                *name,
+                                       ProtobufCService          *service,
+                                       ProtobufCDispatch         *dispatch /* or NULL */
                                       );
 
 ProtobufCService *
