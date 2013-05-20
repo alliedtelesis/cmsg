@@ -76,8 +76,9 @@ void  protobuf_c_dispatch_watch_fd (ProtobufCDispatch *dispatch,
                                     unsigned            events,
                                     ProtobufCDispatchCallback callback,
                                     void               *callback_data);
-void  protobuf_c_dispatch_close_fd (ProtobufCDispatch *dispatch,
-                                    ProtobufC_FD        fd);
+void  protobuf_c_dispatch_close_fd (ProtobufCDispatch  *dispatch,
+                                    ProtobufC_FD        fd,
+                                    char                do_shutdown);
 void  protobuf_c_dispatch_fd_closed(ProtobufCDispatch *dispatch,
                                     ProtobufC_FD        fd);
 

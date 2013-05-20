@@ -78,6 +78,7 @@
 #include "protobuf-c-dispatch.h"
 #include "gskrbtreemacros.h"
 #include "gsklistmacros.h"
+#include <linux/tipc.h>
 
 #define DEBUG_DISPATCH_INTERNALS  0
 #define DEBUG_DISPATCH            0
@@ -532,9 +533,17 @@ protobuf_c_dispatch_watch_fd (ProtobufCDispatch *dispatch,
 
 void
 protobuf_c_dispatch_close_fd (ProtobufCDispatch *dispatch,
-                              ProtobufC_FD        fd)
+                              ProtobufC_FD       fd,
+                              char               do_shutdown)
 {
   protobuf_c_dispatch_fd_closed (dispatch, fd);
+  if(do_shutdown)
+  {
+    /* 2 means SHUT_RDWR.TIPC does not support partial shutdown of a connection.
+     * So we need to terminate both reading and writing
+     */
+    shutdown(fd, 2);
+  }
   close (fd);
 }
 

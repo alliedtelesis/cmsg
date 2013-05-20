@@ -143,6 +143,7 @@ client_failed (ProtobufC_RPC_Client *client,
   char *msg;
   size_t n_closures = 0;
   Closure *closures = NULL;
+  char shutdown = 0;
   switch (client->state)
     {
     case PROTOBUF_C_CLIENT_STATE_NAME_LOOKUP:
@@ -166,7 +167,11 @@ client_failed (ProtobufC_RPC_Client *client,
     }
   if (client->fd >= 0)
     {
-      protobuf_c_dispatch_close_fd (client->dispatch, client->fd);
+      if (client->address_type == PROTOBUF_C_RPC_ADDRESS_TIPC)
+        {
+          shutdown = 1;
+        }
+      protobuf_c_dispatch_close_fd (client->dispatch, client->fd, shutdown);
       client->fd = -1;
     }
   protobuf_c_data_buffer_reset (&client->incoming);
@@ -244,6 +249,7 @@ handle_client_fd_connect_events (int         fd,
   ProtobufC_RPC_Client *client = callback_data;
   socklen_t size_int = sizeof (int);
   int fd_errno = EINVAL;
+  char shutdown = 0;
   if (getsockopt (fd, SOL_SOCKET, SO_ERROR, &fd_errno, &size_int) < 0)
     {
       /* Note: this behavior is vaguely hypothetically broken,
@@ -270,7 +276,11 @@ handle_client_fd_connect_events (int         fd,
   else
     {
       /* Call error handler */
-      protobuf_c_dispatch_close_fd (client->dispatch, client->fd);
+      if (client->address_type == PROTOBUF_C_RPC_ADDRESS_TIPC)
+        {
+          shutdown = 1;
+        }
+      protobuf_c_dispatch_close_fd (client->dispatch, client->fd, shutdown);
       client_failed (client,
                      "failed connecting to server: %s",
                      strerror (fd_errno));
@@ -716,6 +726,7 @@ destroy_client_rpc (ProtobufCService *service)
   unsigned i;
   unsigned n_closures = 0;
   Closure *closures = NULL;
+  char shutdown = 0;
   switch (state)
     {
     case PROTOBUF_C_CLIENT_STATE_INIT:
@@ -747,7 +758,11 @@ destroy_client_rpc (ProtobufCService *service)
     }
   if (client->fd >= 0)
     {
-      protobuf_c_dispatch_close_fd (client->dispatch, client->fd);
+      if(client->address_type == PROTOBUF_C_RPC_ADDRESS_TIPC)
+      {
+        shutdown = 1;
+      }
+      protobuf_c_dispatch_close_fd (client->dispatch, client->fd, shutdown);
       client->fd = -1;
     }
   protobuf_c_data_buffer_clear (&client->incoming);
@@ -917,9 +932,14 @@ static void
 server_connection_close (ServerConnection *conn)
 {
   ProtobufCAllocator *allocator = conn->server->allocator;
+  char shutdown = 0;
 
   /* general cleanup */
-  protobuf_c_dispatch_close_fd (conn->server->dispatch, conn->fd);
+  if (conn->server->address_type == PROTOBUF_C_RPC_ADDRESS_TIPC)
+    {
+      shutdown = 1;
+    }
+  protobuf_c_dispatch_close_fd (conn->server->dispatch, conn->fd, shutdown);
   conn->fd = -1;
   protobuf_c_data_buffer_clear (&conn->incoming);
   protobuf_c_data_buffer_clear (&conn->outgoing);
@@ -1478,6 +1498,7 @@ ProtobufCService *
 protobuf_c_rpc_server_destroy (ProtobufC_RPC_Server *server,
                                protobuf_c_boolean    destroy_underlying)
 {
+  char shutdown = 0;
   ProtobufCService *rv = destroy_underlying ? NULL : server->underlying;
   while (server->first_connection != NULL)
     server_connection_close (server->first_connection);
@@ -1493,7 +1514,11 @@ protobuf_c_rpc_server_destroy (ProtobufC_RPC_Server *server,
       server->allocator->free (server->allocator, req);
     }
 
-  protobuf_c_dispatch_close_fd (server->dispatch, server->listening_fd);
+  if (server->address_type == PROTOBUF_C_RPC_ADDRESS_TIPC)
+    {
+      shutdown = 1;
+    }
+  protobuf_c_dispatch_close_fd (server->dispatch, server->listening_fd, shutdown);
 
   if (destroy_underlying)
     protobuf_c_service_destroy (server->underlying);
