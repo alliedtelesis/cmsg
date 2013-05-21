@@ -95,6 +95,9 @@ void protobuf_c_rpc_client_set_autoreconnect_period (ProtobufC_RPC_Client *clien
 /* checking the state of the client */
 protobuf_c_boolean protobuf_c_rpc_client_is_connected (ProtobufC_RPC_Client *client);
 
+/* helper function for connecting */
+protobuf_c_boolean protobuf_c_rpc_client_connect_blocking (ProtobufC_RPC_Client *client);
+
 /* NOTE: we don't actually start connecting til the main-loop runs,
    so you may configure the client immediately after creation */
 

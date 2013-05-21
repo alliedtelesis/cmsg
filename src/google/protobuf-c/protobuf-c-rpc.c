@@ -829,6 +829,16 @@ protobuf_c_rpc_client_is_connected (ProtobufC_RPC_Client *client)
   return client->state == PROTOBUF_C_CLIENT_STATE_CONNECTED;
 }
 
+protobuf_c_boolean
+protobuf_c_rpc_client_connect_blocking (ProtobufC_RPC_Client *client)
+{
+  while (!protobuf_c_rpc_client_is_connected (client))
+    protobuf_c_dispatch_run (protobuf_c_dispatch_default());
+
+  return TRUE;
+}
+
+
 void
 protobuf_c_rpc_client_set_autoreconnect_period (ProtobufC_RPC_Client *client,
                                             unsigned millis)
