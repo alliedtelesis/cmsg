@@ -114,6 +114,10 @@ ProtobufCService *
      protobuf_c_rpc_server_destroy    (ProtobufC_RPC_Server     *server,
                                        protobuf_c_boolean        free_underlying_service);
 
+protobuf_c_boolean
+     protobuf_c_rpc_server_get_fd    (ProtobufC_RPC_Server     *server,
+                                      int                      *fd);
+
 /* NOTE: these do not have guaranteed semantics if called after there are actually
    clients connected to the server!
    NOTE 2:  The purist in me has left the default of no-autotimeout.

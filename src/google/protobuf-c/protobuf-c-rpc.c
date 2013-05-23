@@ -1538,6 +1538,19 @@ protobuf_c_rpc_server_destroy (ProtobufC_RPC_Server *server,
   return rv;
 }
 
+protobuf_c_boolean
+     protobuf_c_rpc_server_get_fd    (ProtobufC_RPC_Server     *server,
+                                      int                      *fd)
+{
+  if (server->listening_fd)
+    {
+      *fd = server->listening_fd;
+      return TRUE;
+    }
+  else
+    return FALSE;
+}
+
 /* Number of proxied requests to try to grab in a single read */
 #define PROXY_BUF_SIZE   256
 static void
