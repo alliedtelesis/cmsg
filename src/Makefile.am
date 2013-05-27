@@ -29,6 +29,11 @@ libprotobuf_c_la_SOURCES = \
 google/protobuf-c/protobuf-c-dispatch.c \
 google/protobuf-c/protobuf-c-data-buffer.c \
 google/protobuf-c/protobuf-c-rpc.c \
+google/protobuf-c/protobuf-c-cmsg.c \
+google/protobuf-c/protobuf-c-cmsg-server.c \
+google/protobuf-c/protobuf-c-cmsg-client.c \
+google/protobuf-c/protobuf-c-cmsg-notification.c \
+google/protobuf-c/protobuf-c-cmsg-transport.c \
 google/protobuf-c/protobuf-c.c
 
 # ah, -no-undefined, goofball windows hack.
@@ -62,4 +67,9 @@ protobufcinclude_HEADERS = \
 google/protobuf-c/protobuf-c.h \
 google/protobuf-c/protobuf-c-private.h \
 google/protobuf-c/protobuf-c-dispatch.h \
+google/protobuf-c/protobuf-c-cmsg.h \
+google/protobuf-c/protobuf-c-cmsg-server.h \
+google/protobuf-c/protobuf-c-cmsg-client.h \
+google/protobuf-c/protobuf-c-cmsg-notification.h \
+google/protobuf-c/protobuf-c-cmsg-transport.h \
 google/protobuf-c/protobuf-c-rpc.h
