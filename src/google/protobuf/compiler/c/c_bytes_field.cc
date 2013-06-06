@@ -44,8 +44,8 @@ void SetBytesVariables(const FieldDescriptor* descriptor,
 // ===================================================================
 
 BytesFieldGenerator::
-BytesFieldGenerator(const FieldDescriptor* descriptor)
-  : FieldGenerator(descriptor) {
+BytesFieldGenerator(const FieldDescriptor* descriptor, bool addPbc)
+  : FieldGenerator(descriptor, addPbc) {
   SetBytesVariables(descriptor, &variables_);
   variables_["default_value"] = descriptor->has_default_value()
                               ? GetDefaultValue() 

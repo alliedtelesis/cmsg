@@ -31,8 +31,8 @@ namespace compiler {
 namespace c {
 
 PrimitiveFieldGenerator::
-PrimitiveFieldGenerator(const FieldDescriptor* descriptor)
-  : FieldGenerator(descriptor) {
+PrimitiveFieldGenerator(const FieldDescriptor* descriptor, bool addPbc)
+  : FieldGenerator(descriptor, addPbc) {
 }
 
 PrimitiveFieldGenerator::~PrimitiveFieldGenerator() {}
@@ -73,7 +73,10 @@ void PrimitiveFieldGenerator::GenerateStructMembers(io::Printer* printer) const
       printer->Print(vars, "$c_type$ $name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      printer->Print(vars, "protobuf_c_boolean has_$name$$deprecated$;\n");
+      if (addPbc_)
+      {
+        printer->Print(vars, "protobuf_c_boolean has_$name$$deprecated$;\n");
+      }
       printer->Print(vars, "$c_type$ $name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_REPEATED:

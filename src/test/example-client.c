@@ -72,7 +72,7 @@ static protobuf_c_boolean starts_with (const char *str, const char *prefix)
 }
 
 static void
-handle_query_response (const Foo__LookupResult *result,
+handle_query_response (const Foo__LookupResult_pbc *result,
                        void *closure_data)
 {
   if (result == NULL)
@@ -81,7 +81,7 @@ handle_query_response (const Foo__LookupResult *result,
     printf ("Not found.\n");
   else
     {
-      Foo__Person *person = result->person;
+      Foo__Person_pbc *person = result->person;
       unsigned i;
       printf ("%s\n"
               " %u\n", person->name, person->id);
@@ -164,7 +164,7 @@ int main(int argc, char**argv)
   for (;;)
     {
       char buf[1024];
-      Foo__Name query = FOO__NAME__INIT;
+      Foo__Name_pbc query = FOO__NAME__INIT;
       protobuf_c_boolean is_done = 0;
       fprintf (stderr, ">> ");
       if (fgets (buf, sizeof (buf), stdin) == NULL)

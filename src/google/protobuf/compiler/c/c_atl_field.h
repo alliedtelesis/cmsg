@@ -20,11 +20,12 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifndef GOOGLE_PROTOBUF_COMPILER_C_FIELD_H__
-#define GOOGLE_PROTOBUF_COMPILER_C_FIELD_H__
+#ifndef GOOGLE_PROTOBUF_COMPILER_C_ATL_FIELD_H__
+#define GOOGLE_PROTOBUF_COMPILER_C_ATL_FIELD_H__
 
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/descriptor.h>
+#include <google/protobuf/compiler/c/c_field.h>
 
 namespace google {
 namespace protobuf {
@@ -37,23 +38,23 @@ namespace protobuf {
 namespace compiler {
 namespace c {
 
-class FieldGenerator {
+class AtlFieldGenerator : public FieldGenerator {
  public:
-  explicit FieldGenerator(const FieldDescriptor *descriptor, bool addPbc) : descriptor_(descriptor), addPbc_(addPbc) {}
-  virtual ~FieldGenerator();
+  explicit AtlFieldGenerator(const FieldDescriptor *descriptor) : FieldGenerator(descriptor) {}
+  ~AtlFieldGenerator();
 
   // Generate definitions to be included in the structure.
-  virtual void GenerateStructMembers(io::Printer* printer) const = 0;
+  void GenerateStructMembers(io::Printer* printer) const = 0;
 
   // Generate a static initializer for this field.
-  virtual void GenerateDescriptorInitializer(io::Printer* printer) const = 0;
+  void GenerateDescriptorInitializer(io::Printer* printer) const = 0;
 
-  virtual void GenerateDefaultValueDeclarations(io::Printer* printer) const { }
-  virtual void GenerateDefaultValueImplementations(io::Printer* printer) const { }
-  virtual string GetDefaultValue() const = 0;
+  void GenerateDefaultValueDeclarations(io::Printer* printer) const { }
+  void GenerateDefaultValueImplementations(io::Printer* printer) const { }
+  string GetDefaultValue() const = 0;
 
   // Generate members to initialize this field from a static initializer
-  virtual void GenerateStaticInit(io::Printer* printer) const = 0;
+  void GenerateStaticInit(io::Printer* printer) const = 0;
 
 
  protected:
@@ -62,28 +63,26 @@ class FieldGenerator {
                                             const string &type_macro,
                                             const string &descriptor_addr) const;
   const FieldDescriptor *descriptor_;
-  bool addPbc_;
 
  private:
-  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(FieldGenerator);
+  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(AtlFieldGenerator);
 };
 
-// Convenience class which constructs FieldGenerators for a Descriptor.
-class FieldGeneratorMap {
+// Convenience class which constructs AtlFieldGenerators for a Descriptor.
+class AtlFieldGeneratorMap {
  public:
-  explicit FieldGeneratorMap(const Descriptor* descriptor, bool addPbc);
-  ~FieldGeneratorMap();
+  explicit AtlFieldGeneratorMap(const Descriptor* descriptor);
+  ~AtlFieldGeneratorMap();
 
-  const FieldGenerator& get(const FieldDescriptor* field) const;
+  const AtlFieldGenerator& get(const FieldDescriptor* field) const;
 
  private:
   const Descriptor* descriptor_;
-  scoped_array<scoped_ptr<FieldGenerator> > field_generators_;
-  bool addPbc_;
+  scoped_array<scoped_ptr<AtlFieldGenerator> > field_generators_;
 
-  static FieldGenerator* MakeGenerator(const FieldDescriptor* field, bool addPbc);
+  static AtlFieldGenerator* MakeGenerator(const FieldDescriptor* field);
 
-  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(FieldGeneratorMap);
+  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(AtlFieldGeneratorMap);
 };
 
 }  // namespace c
@@ -91,4 +90,4 @@ class FieldGeneratorMap {
 }  // namespace protobuf
 
 }  // namespace google
-#endif  // GOOGLE_PROTOBUF_COMPILER_C_FIELD_H__
+#endif  // GOOGLE_PROTOBUF_COMPILER_C_ATL_FIELD_H__

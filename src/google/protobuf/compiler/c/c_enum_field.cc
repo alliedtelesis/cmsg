@@ -51,8 +51,8 @@ void SetEnumVariables(const FieldDescriptor* descriptor,
 // ===================================================================
 
 EnumFieldGenerator::
-EnumFieldGenerator(const FieldDescriptor* descriptor)
-  : FieldGenerator(descriptor)
+EnumFieldGenerator(const FieldDescriptor* descriptor, bool addPbc)
+  : FieldGenerator(descriptor, addPbc)
 {
   SetEnumVariables(descriptor, &variables_);
 }
@@ -66,7 +66,10 @@ void EnumFieldGenerator::GenerateStructMembers(io::Printer* printer) const
       printer->Print(variables_, "$type$ $name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      printer->Print(variables_, "protobuf_c_boolean has_$name$$deprecated$;\n");
+      if (addPbc_)
+      {
+        printer->Print(variables_, "protobuf_c_boolean has_$name$$deprecated$;\n");
+      }
       printer->Print(variables_, "$type$ $name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_REPEATED:

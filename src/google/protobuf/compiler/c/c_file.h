@@ -43,6 +43,8 @@ namespace c {
 class EnumGenerator;           // enum.h
 class MessageGenerator;        // message.h
 class ServiceGenerator;        // service.h
+class AtlCodeGenerator;        // atl_generator.h
+class AtlMessageGenerator;     // atl_message.h
 class ExtensionGenerator;      // extension.h
 
 class FileGenerator {
@@ -61,6 +63,8 @@ class FileGenerator {
   scoped_array<scoped_ptr<MessageGenerator> > message_generators_;
   scoped_array<scoped_ptr<EnumGenerator> > enum_generators_;
   scoped_array<scoped_ptr<ServiceGenerator> > service_generators_;
+  scoped_array<scoped_ptr<AtlCodeGenerator> > atl_code_generators_;
+  scoped_array<scoped_ptr<AtlMessageGenerator> > atl_message_generators_;
   scoped_array<scoped_ptr<ExtensionGenerator> > extension_generators_;
 
   // E.g. if the package is foo.bar, package_parts_ is {"foo", "bar"}.

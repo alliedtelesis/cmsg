@@ -44,8 +44,8 @@ void SetStringVariables(const FieldDescriptor* descriptor,
 // ===================================================================
 
 StringFieldGenerator::
-StringFieldGenerator(const FieldDescriptor* descriptor)
-  : FieldGenerator(descriptor) {
+StringFieldGenerator(const FieldDescriptor* descriptor, bool addPbc)
+  : FieldGenerator(descriptor, addPbc) {
   SetStringVariables(descriptor, &variables_);
 }
 

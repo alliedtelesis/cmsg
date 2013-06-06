@@ -67,8 +67,8 @@ void ServiceGenerator::GenerateVfuncs(io::Printer* printer)
     string lcname = CamelToLower(method->name());
     vars_["method"] = lcname;
     vars_["metpad"] = ConvertToSpaces(lcname);
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
+    vars_["input_typename"] = FullNameToC(method->input_type()->full_name()) + "_pbc";
+    vars_["output_typename"] = FullNameToC(method->output_type()->full_name()) + "_pbc";
     printer->Print(vars_,
                    "  void (*$method$)($cname$_Service *service,\n"
                    "         $metpad$  const $input_typename$ *input,\n"
@@ -108,8 +108,8 @@ void ServiceGenerator::GenerateCallersDeclarations(io::Printer* printer)
     string lcfullname = FullNameToLower(descriptor_->full_name());
     vars_["method"] = lcname;
     vars_["metpad"] = ConvertToSpaces(lcname);
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
+    vars_["input_typename"] = FullNameToC(method->input_type()->full_name()) + "_pbc";
+    vars_["output_typename"] = FullNameToC(method->output_type()->full_name()) + "_pbc";
     vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "__" + lcname);
     printer->Print(vars_,
                    "void $lcfullname$__$method$(ProtobufCService *service,\n"
@@ -205,8 +205,8 @@ void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
     string lcfullname = FullNameToLower(descriptor_->full_name());
     vars_["method"] = lcname;
     vars_["metpad"] = ConvertToSpaces(lcname);
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
+    vars_["input_typename"] = FullNameToC(method->input_type()->full_name()) + "_pbc";
+    vars_["output_typename"] = FullNameToC(method->output_type()->full_name()) + "_pbc";
     vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "__" + lcname);
     vars_["index"] = SimpleItoa(i);
      

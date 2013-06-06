@@ -58,6 +58,27 @@ string SimpleDtoa(double f);
 void SplitStringUsing(const string &str, const char *delim, std::vector<string> *out);
 string CEscape(const string& src);
 string StringReplace(const string& s, const string& oldsub, const string& newsub, bool replace_all);
+// ----------------------------------------------------------------------
+// HasPrefixString()
+//    Check if a string begins with a given prefix.
+// StripPrefixString()
+//    Given a string and a putative prefix, returns the string minus the
+//    prefix string if the prefix matches, otherwise the original
+//    string.
+// ----------------------------------------------------------------------
+inline bool HasPrefixString(const string& str,
+                            const string& prefix) {
+  return str.size() >= prefix.size() &&
+         str.compare(0, prefix.size(), prefix) == 0;
+}
+
+inline string StripPrefixString(const string& str, const string& prefix) {
+  if (HasPrefixString(str, prefix)) {
+    return str.substr(prefix.size());
+  } else {
+    return str;
+  }
+}
 inline bool HasSuffixString(const string& str, const string& suffix) { return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0; }
 inline string StripSuffixString(const string& str, const string& suffix) { if (HasSuffixString(str, suffix)) { return str.substr(0, str.size() - suffix.size()); } else { return str; } }
 char* FastHexToBuffer(int i, char* buffer);

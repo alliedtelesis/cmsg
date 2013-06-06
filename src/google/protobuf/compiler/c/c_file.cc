@@ -23,6 +23,8 @@
 #include <google/protobuf/compiler/c/c_file.h>
 #include <google/protobuf/compiler/c/c_enum.h>
 #include <google/protobuf/compiler/c/c_service.h>
+#include <google/protobuf/compiler/c/c_atl_generator.h>
+#include <google/protobuf/compiler/c/c_atl_message.h>
 #include <google/protobuf/compiler/c/c_extension.h>
 #include <google/protobuf/compiler/c/c_helpers.h>
 #include <google/protobuf/compiler/c/c_message.h>
@@ -45,6 +47,10 @@ FileGenerator::FileGenerator(const FileDescriptor* file,
       new scoped_ptr<EnumGenerator>[file->enum_type_count()]),
     service_generators_(
       new scoped_ptr<ServiceGenerator>[file->service_count()]),
+    atl_code_generators_(
+      new scoped_ptr<AtlCodeGenerator>[file->service_count()]),
+    atl_message_generators_(
+      new scoped_ptr<AtlMessageGenerator>[file->message_type_count()]),
     extension_generators_(
       new scoped_ptr<ExtensionGenerator>[file->extension_count()]) {
 
@@ -61,6 +67,16 @@ FileGenerator::FileGenerator(const FileDescriptor* file,
   for (int i = 0; i < file->service_count(); i++) {
     service_generators_[i].reset(
       new ServiceGenerator(file->service(i), dllexport_decl));
+  }
+
+  for (int i = 0; i < file->service_count(); i++) {
+    atl_code_generators_[i].reset(
+      new AtlCodeGenerator(file->service(i), dllexport_decl));
+  }
+
+  for (int i = 0; i < file->message_type_count(); i++) {
+    atl_message_generators_[i].reset(
+      new AtlMessageGenerator(file->message_type(i), dllexport_decl));
   }
 
   for (int i = 0; i < file->extension_count(); i++) {
@@ -84,6 +100,7 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
     "#define PROTOBUF_C_$filename_identifier$__INCLUDED\n"
     "\n"
     "#include <google/protobuf-c/protobuf-c.h>\n"
+    "#include <google/protobuf-c/protobuf-c-rpc.h>\n"
     "\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
@@ -108,6 +125,12 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
       SimpleItoa(protobuf::internal::kMinHeaderVersionForProtoc),
     "protoc_version", SimpleItoa(GOOGLE_PROTOBUF_VERSION));
 #endif
+
+  //
+  // add some includes for the ATL generated code
+  //
+  printer->Print("#include <string.h>\n");
+  printer->Print("#include <stdlib.h>\n");
 
   for (int i = 0; i < file_->dependency_count(); i++) {
     printer->Print(
@@ -154,6 +177,22 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
     service_generators_[i]->GenerateMainHFile(printer);
   }
 
+  // Generate atl structure definitions.
+  printer->Print("\n/* --- atl generated structures --- */\n\n");
+  for (int i = 0; i < file_->message_type_count(); i++) {
+    atl_message_generators_[i]->GenerateStructTypedef(printer);
+  }
+  printer->Print("\n");
+  for (int i = 0; i < file_->message_type_count(); i++) {
+    atl_message_generators_[i]->GenerateStructDefinition(printer);
+  }
+
+  // Generate atl api definitions.
+  printer->Print("\n/* --- atl generated code --- */\n\n");
+  for (int i = 0; i < file_->service_count(); i++) {
+    atl_code_generators_[i]->GenerateMainHFile(printer);
+  }
+
   // Declare extension identifiers.
   for (int i = 0; i < file_->extension_count(); i++) {
     extension_generators_[i]->GenerateDeclaration(printer);
@@ -168,6 +207,9 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
   }
   for (int i = 0; i < file_->service_count(); i++) {
     service_generators_[i]->GenerateDescriptorDeclarations(printer);
+  }
+  for (int i = 0; i < file_->service_count(); i++) {
+    atl_code_generators_[i]->GenerateDescriptorDeclarations(printer);
   }
 
   printer->Print(
@@ -223,6 +265,9 @@ void FileGenerator::GenerateSource(io::Printer* printer) {
   }
   for (int i = 0; i < file_->service_count(); i++) {
     service_generators_[i]->GenerateCFile(printer);
+  }
+  for (int i = 0; i < file_->service_count(); i++) {
+    atl_code_generators_[i]->GenerateCFile(printer);
   }
 
 }

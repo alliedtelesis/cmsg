@@ -22,7 +22,7 @@
 
 #include <algorithm>
 #include <map>
-#include <google/protobuf/compiler/c/c_message.h>
+#include <google/protobuf/compiler/c/c_atl_message.h>
 #include <google/protobuf/compiler/c/c_enum.h>
 #include <google/protobuf/compiler/c/c_extension.h>
 #include <google/protobuf/compiler/c/c_helpers.h>
@@ -38,12 +38,12 @@ namespace c {
 
 // ===================================================================
 
-MessageGenerator::MessageGenerator(const Descriptor* descriptor,
+AtlMessageGenerator::AtlMessageGenerator(const Descriptor* descriptor,
                                    const string& dllexport_decl)
   : descriptor_(descriptor),
     dllexport_decl_(dllexport_decl),
-    field_generators_(descriptor, true),
-    nested_generators_(new scoped_ptr<MessageGenerator>[
+    field_generators_(descriptor, false),
+    nested_generators_(new scoped_ptr<AtlMessageGenerator>[
       descriptor->nested_type_count()]),
     enum_generators_(new scoped_ptr<EnumGenerator>[
       descriptor->enum_type_count()]),
@@ -52,7 +52,7 @@ MessageGenerator::MessageGenerator(const Descriptor* descriptor,
 
   for (int i = 0; i < descriptor->nested_type_count(); i++) {
     nested_generators_[i].reset(
-      new MessageGenerator(descriptor->nested_type(i), dllexport_decl));
+      new AtlMessageGenerator(descriptor->nested_type(i), dllexport_decl));
   }
 
   for (int i = 0; i < descriptor->enum_type_count(); i++) {
@@ -66,19 +66,19 @@ MessageGenerator::MessageGenerator(const Descriptor* descriptor,
   }
 }
 
-MessageGenerator::~MessageGenerator() {}
+AtlMessageGenerator::~AtlMessageGenerator() {}
 
-void MessageGenerator::
+void AtlMessageGenerator::
 GenerateStructTypedef(io::Printer* printer) {
   printer->Print("typedef struct _$classname$ $classname$;\n",
-                 "classname", FullNameToC(descriptor_->full_name()) + "_pbc");
+                 "classname", FullNameToC(descriptor_->full_name()));
 
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
     nested_generators_[i]->GenerateStructTypedef(printer);
   }
 }
 
-void MessageGenerator::
+void AtlMessageGenerator::
 GenerateEnumDefinitions(io::Printer* printer) {
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
     nested_generators_[i]->GenerateEnumDefinitions(printer);
@@ -90,14 +90,14 @@ GenerateEnumDefinitions(io::Printer* printer) {
 }
 
 
-void MessageGenerator::
+void AtlMessageGenerator::
 GenerateStructDefinition(io::Printer* printer) {
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
     nested_generators_[i]->GenerateStructDefinition(printer);
   }
 
   std::map<string, string> vars;
-  vars["classname"] = FullNameToC(descriptor_->full_name()) + "_pbc";
+  vars["classname"] = FullNameToC(descriptor_->full_name());
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
   vars["ucclassname"] = FullNameToUpper(descriptor_->full_name());
   vars["field_count"] = SimpleItoa(descriptor_->field_count());
@@ -109,13 +109,17 @@ GenerateStructDefinition(io::Printer* printer) {
 
   printer->Print(vars,
     "struct $dllexport$ _$classname$\n"
-    "{\n"
-    "  ProtobufCMessage base;\n");
+    "{\n");
 
   // Generate fields.
   printer->Indent();
   for (int i = 0; i < descriptor_->field_count(); i++) {
     const FieldDescriptor *field = descriptor_->field(i);
+    stringstream ss;
+    ss << field->type();
+    printer->Print("/* field type = $field_type$ */\n", "field_type", ss.str());
+    printer->Print("/* field name = $field_name$ */\n", "field_name", field->full_name());
+
     field_generators_.get(field).GenerateStructMembers(printer);
   }
   printer->Outdent();
@@ -140,7 +144,7 @@ GenerateStructDefinition(io::Printer* printer) {
 
 }
 
-void MessageGenerator::
+void AtlMessageGenerator::
 GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage)
 {
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
@@ -148,7 +152,7 @@ GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage)
   }
 
   std::map<string, string> vars;
-  vars["classname"] = FullNameToC(descriptor_->full_name()) + "_pbc";
+  vars["classname"] = FullNameToC(descriptor_->full_name());
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
   printer->Print(vars,
 		 "/* $classname$ methods */\n"
@@ -177,7 +181,7 @@ GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage)
   }
 }
 
-void MessageGenerator::
+void AtlMessageGenerator::
 GenerateDescriptorDeclarations(io::Printer* printer) {
   printer->Print("extern const ProtobufCMessageDescriptor $name$__descriptor;\n",
                  "name", FullNameToLower(descriptor_->full_name()));
@@ -190,13 +194,13 @@ GenerateDescriptorDeclarations(io::Printer* printer) {
     enum_generators_[i]->GenerateDescriptorDeclarations(printer);
   }
 }
-void MessageGenerator::GenerateClosureTypedef(io::Printer* printer)
+void AtlMessageGenerator::GenerateClosureTypedef(io::Printer* printer)
 {
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
     nested_generators_[i]->GenerateClosureTypedef(printer);
   }
   std::map<string, string> vars;
-  vars["name"] = FullNameToC(descriptor_->full_name()) + "_pbc";
+  vars["name"] = FullNameToC(descriptor_->full_name());
   printer->Print(vars,
                  "typedef void (*$name$_Closure)\n"
 		 "                 (const $name$ *message,\n"
@@ -213,7 +217,7 @@ compare_pfields_by_number (const void *a, const void *b)
   return 0;
 }
 
-void MessageGenerator::
+void AtlMessageGenerator::
 GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
 {
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
@@ -221,7 +225,7 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
   }
 
   std::map<string, string> vars;
-  vars["classname"] = FullNameToC(descriptor_->full_name()) + "_pbc";
+  vars["classname"] = FullNameToC(descriptor_->full_name());
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
   vars["ucclassname"] = FullNameToUpper(descriptor_->full_name());
   printer->Print(vars,
@@ -274,11 +278,11 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
   }
 }
 
-void MessageGenerator::
+void AtlMessageGenerator::
 GenerateMessageDescriptor(io::Printer* printer) {
     map<string, string> vars;
     vars["fullname"] = descriptor_->full_name();
-    vars["classname"] = FullNameToC(descriptor_->full_name()) + "_pbc";
+    vars["classname"] = FullNameToC(descriptor_->full_name());
     vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
     vars["shortname"] = ToCamel(descriptor_->name());
     vars["n_fields"] = SimpleItoa(descriptor_->field_count());
