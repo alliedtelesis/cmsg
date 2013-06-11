@@ -76,6 +76,9 @@ void ServiceGenerator::GenerateVfuncs(io::Printer* printer)
                    "         $metpad$  void *closure_data);\n");
   }
   printer->Print(vars_,
+                 "  void *closure;\n"
+                 "  void *closure_data;\n");
+  printer->Print(vars_,
 		 "};\n");
   printer->Print(vars_,
 		 "typedef void (*$cname$_ServiceDestroy)($cname$_Service *);\n"

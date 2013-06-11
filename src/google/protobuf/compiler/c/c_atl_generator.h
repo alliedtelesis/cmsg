@@ -66,9 +66,16 @@ class AtlCodeGenerator {
   void GenerateAtlApiDefinitions(io::Printer* printer, bool forHeader);
   void GenerateAtlApiDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateParameterListFromMessage(io::Printer* printer, const Descriptor *message, bool output);
+  void GenerateImplParameterListFromMessage(io::Printer* printer, const Descriptor *message, const string prefix, bool output);
 
   void GenerateAtlApiImplementation(io::Printer* printer);
   void GenerateAtlApiClosureFunction(const MethodDescriptor &method, io::Printer* printer);
+  void GenerateAtlServerDefinitions(io::Printer* printer, bool forHeader);
+  void GenerateAtlServerDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
+  void GenerateAtlServerImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
+  void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
+  void GenerateAtlServerImplementation(io::Printer* printer);
+  void GenerateAtlServerSendImplementation(const MethodDescriptor &method, io::Printer* printer);
   string GetAtlClosureFunctionName(const MethodDescriptor &method);
   void GenerateMessageCopyCode(const Descriptor *message, const string lhm, const string rhm, io::Printer *printer, bool allocate_memory, bool send = false);
   void GenerateSendMessageCopyCode(const Descriptor *message, const string message_name, io::Printer *printer);

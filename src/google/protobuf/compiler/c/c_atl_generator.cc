@@ -63,6 +63,11 @@ void AtlCodeGenerator::GenerateMainHFile(io::Printer* printer)
     GenerateAtlApiDefinitions(printer, true);
     printer->Print("\n/* End of API definition */\n");
 
+    // next, generate the server declaration
+    printer->Print("\n/* Start of Server definition */\n\n");
+    GenerateAtlServerDefinitions(printer, true);
+    printer->Print("\n/* End of Server definition */\n");
+
     // finally dump out the message structures to help with debug
     printer->Print("\n/* Start of Message description \n");
     DumpMessageDefinitions(printer);
@@ -307,6 +312,37 @@ void AtlCodeGenerator::GenerateParameterListFromMessage(io::Printer* printer, co
   //}
 }
 
+void AtlCodeGenerator::GenerateImplParameterListFromMessage(io::Printer* printer, const Descriptor *message, const string prefix, bool output)
+{
+    vars_["prefix"] = prefix;
+
+    for (int i = 0; i < message->field_count(); i++) {
+      const FieldDescriptor *field = message->field(i);
+
+      vars_["field_name"] = FieldName(field);
+      // if the field type is message we will print this out as a struct
+      // ie we will print field_type (struct), message_name (struct name), and field_name (variable name)
+      if (field->type() == FieldDescriptor::TYPE_MESSAGE) {
+        vars_["message_name"] = FullNameToC(field->message_type()->full_name());
+        printer->Print(vars_, "$prefix$$field_name$");
+      }
+      else
+      {
+        if (output)
+        {
+          printer->Print(vars_, "&"); //output parms are always pointers
+        }
+        printer->Print(vars_, "$prefix$$field_name$");
+      }
+
+      // if there are more fields to print, add a comma and space before the next one
+      if ( i < (message->field_count() - 1))
+      {
+        printer->Print(", ");
+      }
+    }
+}
+
 void AtlCodeGenerator::PrintMessageFields(io::Printer* printer, const Descriptor *message)
 {
 
@@ -447,9 +483,10 @@ void AtlCodeGenerator::GenerateCFile(io::Printer* printer)
   printer->Print("\n/* Start of API Implementation */\n\n");
   GenerateAtlApiImplementation(printer);
   printer->Print("\n/* End of API Implementation */\n");
-  //GenerateServiceDescriptor(printer);
-  //GenerateCallersImplementations(printer);
-  //GenerateInit(printer);
+
+  printer->Print("\n/* Start of Server Implementation */\n\n");
+  GenerateAtlServerImplementation(printer);
+  printer->Print("\n/* End of Server Implementation */\n");
 }
 
 void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
@@ -554,6 +591,189 @@ void AtlCodeGenerator::GenerateAtlApiClosureFunction(const MethodDescriptor &met
   printer->Print("}\n\n");
 
 }
+
+void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
+{
+  //
+  // Service initialization
+  //
+  printer->Print(vars_, "$cname$_Service $lcfullname$_service = $ucfullname$__INIT($lcfullname$_server_);\n\n");
+
+  //
+  // go through all rpc methods defined for this service and generate the server function
+  //
+  for (int i = 0; i < descriptor_->method_count(); i++)
+  {
+    const MethodDescriptor *method = descriptor_->method(i);
+    vars_["method"] = FullNameToC(method->full_name());
+    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
+    vars_["input_typename_upper"] = FullNameToUpper(method->input_type()->full_name());
+    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
+    vars_["output_typename_upper"] = FullNameToUpper(method->output_type()->full_name());
+
+    //
+    // Generate the server function
+    //
+    // get the definition
+    GenerateAtlServerDefinition(*method, printer, false);
+
+    // start filling it in
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print(vars_, "$input_typename$ user_input = $input_typename_upper$__INIT;\n");
+
+    printer->Print("\n");
+    printer->Print("if (input == NULL)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("closure(NULL, closure_data);\n");
+    printer->Print("return;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+
+    printer->Print("\n");
+    printer->Print("// these are needed in 'Send' function for sending reply back to the client\n");
+    printer->Print("service->closure = closure;\n");
+    printer->Print("service->closure_data = closure_data;\n");
+    printer->Print("\n");
+
+    //
+    // Prepare protobuf-c data struct to c for user impl
+    //
+    printer->Print("// convert input data from protobuf-c to pure user struct\n");
+    GenerateMessageCopyCode(method->input_type(), "user_input.", "input->", printer, false);
+
+    //
+    // call _impl user function
+    //
+    printer->Print("\n");
+    printer->Print("// call user-defined server implementation\n");
+    printer->Print(vars_, "$lcfullname$_impl_$method$(service, ");
+    GenerateImplParameterListFromMessage(printer, method->input_type(), "user_input.", false);
+    printer->Print(");\n");
+    printer->Print("\n");
+
+    //
+    // call closure()
+    //
+    printer->Print("// clean up\n");
+    printer->Print("service->closure = NULL;\n");
+    printer->Print("service->closure_data = NULL;\n");
+    printer->Print("\n");
+
+    // end of the function
+    printer->Outdent();
+    printer->Print("}\n\n");
+
+    // we need to generate a closure function for the api to call on return
+    // of the rpc call from the server
+    //
+    GenerateAtlServerSendImplementation(*method, printer);
+  }
+
+}
+
+void AtlCodeGenerator::GenerateAtlServerDefinitions(io::Printer* printer, bool forHeader)
+{
+  printer->Print(vars_, "extern $cname$_Service $lcfullname$_service;\n");
+
+  for (int i = 0; i < descriptor_->method_count(); i++) {
+    const MethodDescriptor *method = descriptor_->method(i);
+    GenerateAtlServerDefinition(*method, printer, forHeader);
+    GenerateAtlServerSendDefinition(*method, printer, forHeader);
+  }
+
+  printer->Print("\n");
+
+  for (int i = 0; i < descriptor_->method_count(); i++) {
+    const MethodDescriptor *method = descriptor_->method(i);
+    GenerateAtlServerImplDefinition(*method, printer, forHeader);
+  }
+}
+
+void AtlCodeGenerator::GenerateAtlServerDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)
+{
+  string lcname = CamelToLower(method.name());
+  string lcfullname = FullNameToLower(descriptor_->full_name());
+  vars_["method"] = lcname;
+  vars_["input_typename"] = FullNameToC(method.input_type()->full_name());
+  vars_["output_typename"] = FullNameToC(method.output_type()->full_name());
+  vars_["padddddddddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_server_" + lcname);
+
+  printer->Print(vars_,
+                 "void $lcfullname$_server_$method$($cname$_Service *service,\n"
+                 "     $padddddddddddddddddddddddd$ const $input_typename$_pbc *input,\n"
+                 "     $padddddddddddddddddddddddd$ $output_typename$_pbc_Closure closure,\n"
+                 "     $padddddddddddddddddddddddd$ void *closure_data)");
+  if (forHeader)
+  {
+    printer->Print(";");
+  }
+  printer->Print("\n");
+
+}
+
+void AtlCodeGenerator::GenerateAtlServerImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)
+{
+  string lcname = CamelToLower(method.name());
+  vars_["method"] = lcname;
+
+  printer->Print(vars_, "int $lcfullname$_impl_$method$(const void *service, ");
+  GenerateParameterListFromMessage(printer, method.input_type(), false);
+  printer->Print(")");
+  if (forHeader)
+  {
+    printer->Print(";");
+  }
+  printer->Print("\n");
+}
+
+void AtlCodeGenerator::GenerateAtlServerSendImplementation(const MethodDescriptor &method, io::Printer* printer)
+{
+  vars_["method"] = FullNameToLower(method.name());
+  vars_["input_typename"] = FullNameToC(method.input_type()->full_name());
+  vars_["output_typename"] = FullNameToC(method.output_type()->full_name());
+
+  GenerateAtlServerSendDefinition(method, printer, false);
+
+  printer->Print("{\n");
+  printer->Indent();
+
+  printer->Print(vars_, "$output_typename$_pbc_Closure closure = ((const $cname$_Service *)service)->closure;\n");
+  printer->Print(vars_, "void *closure_data = ((const $cname$_Service *)service)->closure_data;\n");
+  printer->Print(vars_, "$output_typename$_pbc result = $output_typename_upper$_PBC__INIT;\n");
+  printer->Print("\n");
+
+  //
+  // copy data from response message (result) to the closure data structure
+  //
+  GenerateMessageCopyCode(method.output_type(), "result.", "", printer, true, true);
+
+  printer->Print("\n");
+  printer->Print(vars_, "closure(&result, closure_data);\n");
+
+  printer->Print("\n");
+  GenerateCleanupMessageMemoryCode(method.output_type(), "result.", printer);
+
+  printer->Outdent();
+  printer->Print("}\n\n");
+}
+
+void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)
+{
+  string lcname = CamelToLower(method.name());
+  vars_["method"] = lcname;
+
+  printer->Print(vars_, "void $lcfullname$_server_$method$Send(const void *service, ");
+  GenerateParameterListFromMessage(printer, method.output_type(), false);
+  printer->Print(")");
+  if (forHeader)
+  {
+    printer->Print(";");
+  }
+  printer->Print("\n");
+}
+
 
 string AtlCodeGenerator::GetAtlClosureFunctionName(const MethodDescriptor &method)
 {

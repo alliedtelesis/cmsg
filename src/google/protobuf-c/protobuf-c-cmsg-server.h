@@ -5,6 +5,7 @@
 #include "protobuf-c-cmsg.h"
 #include "protobuf-c-cmsg-transport.h"
 
+#define CMSG_SERVICE(package,service)   ((ProtobufCService *)&package ## __ ## service ## _service)
 
 typedef struct _cmsg_server_request_s   cmsg_server_request;
 typedef struct _cmsg_server_s           cmsg_server;
