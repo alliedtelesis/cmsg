@@ -677,6 +677,19 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     // of the rpc call from the server
     //
     GenerateAtlServerSendImplementation(*method, printer);
+
+    // FIXME: This is for a temporary work around to compile client properly
+    // while client-side and server-side code is in the same file.
+    printer->Print("// user-defined server implementation (place holder)\n");
+    printer->Print("__attribute__ ((weak))\n");
+    GenerateAtlServerImplDefinition(*method, printer, false);
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return 0;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+    printer->Print("\n");
+
   }
 
 }
