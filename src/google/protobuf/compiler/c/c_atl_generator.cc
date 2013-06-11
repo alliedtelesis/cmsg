@@ -238,9 +238,13 @@ void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, 
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "int $lcfullname$_api_$method$(ProtobufC_RPC_Client *client, ");
+  printer->Print(vars_, "int $lcfullname$_api_$method$(ProtobufC_RPC_Client *client");
 
-  GenerateParameterListFromMessage(printer, method.input_type(), false);
+  if (method.input_type()->field_count() > 0)
+  {
+    printer->Print(", ");
+    GenerateParameterListFromMessage(printer, method.input_type(), false);
+  }
   //
   // only add the rpc return message to the parameter list if its not empty
   if (method.output_type()->field_count() > 0)
@@ -648,8 +652,12 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     //
     printer->Print("\n");
     printer->Print("// call user-defined server implementation\n");
-    printer->Print(vars_, "$lcfullname$_impl_$method$(service, ");
-    GenerateImplParameterListFromMessage(printer, method->input_type(), "user_input.", false);
+    printer->Print(vars_, "$lcfullname$_impl_$method$(service");
+    if (method->input_type()->field_count() > 0)
+    {
+      printer->Print(", ");
+      GenerateImplParameterListFromMessage(printer, method->input_type(), "user_input.", false);
+    }
     printer->Print(");\n");
     printer->Print("\n");
 
@@ -718,8 +726,12 @@ void AtlCodeGenerator::GenerateAtlServerImplDefinition(const MethodDescriptor &m
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "int $lcfullname$_impl_$method$(const void *service, ");
-  GenerateParameterListFromMessage(printer, method.input_type(), false);
+  printer->Print(vars_, "int $lcfullname$_impl_$method$(const void *service");
+  if (method.input_type()->field_count() > 0)
+  {
+    printer->Print(", ");
+    GenerateParameterListFromMessage(printer, method.input_type(), false);
+  }
   printer->Print(")");
   if (forHeader)
   {
@@ -764,8 +776,12 @@ void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &m
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "void $lcfullname$_server_$method$Send(const void *service, ");
-  GenerateParameterListFromMessage(printer, method.output_type(), false);
+  printer->Print(vars_, "void $lcfullname$_server_$method$Send(const void *service");
+  if (method.output_type()->field_count() > 0)
+  {
+    printer->Print(", ");
+    GenerateParameterListFromMessage(printer, method.output_type(), false);
+  }
   printer->Print(")");
   if (forHeader)
   {
