@@ -70,7 +70,7 @@ class AtlCodeGenerator {
   void GenerateAtlApiImplementation(io::Printer* printer);
   void GenerateAtlApiClosureFunction(const MethodDescriptor &method, io::Printer* printer);
   string GetAtlClosureFunctionName(const MethodDescriptor &method);
-  void GenerateMessageCopyCode(const Descriptor *message, const string lhm, const string rhm, io::Printer *printer, bool allocate_memory);
+  void GenerateMessageCopyCode(const Descriptor *message, const string lhm, const string rhm, io::Printer *printer, bool allocate_memory, bool send = false);
   void GenerateSendMessageCopyCode(const Descriptor *message, const string message_name, io::Printer *printer);
   void GenerateReceiveMessageCopyCode(const Descriptor *message, const string message_name, io::Printer *printer);
   void GenerateCleanupMessageMemoryCode(const Descriptor *message, const string lhm, io::Printer *printer);

@@ -101,11 +101,17 @@ void BytesFieldGenerator::GenerateStaticInit(io::Printer* printer) const
       printer->Print(variables_, "$default_value$");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      printer->Print(variables_, "0,$default_value$");
+      if (addPbc_)
+        printer->Print(variables_, "0,$default_value$");
+      else
+        printer->Print(variables_, "$default_value$");
       break;
     case FieldDescriptor::LABEL_REPEATED:
       // no support for default?
-      printer->Print("0,NULL");
+      if (addPbc_)
+        printer->Print("0,NULL");
+      else
+        printer->Print("NULL");
       break;
   }
 }

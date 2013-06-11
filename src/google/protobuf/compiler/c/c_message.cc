@@ -129,7 +129,7 @@ GenerateStructDefinition(io::Printer* printer) {
     }
   }
 
-  printer->Print(vars, "#define $ucclassname$__INIT \\\n"
+  printer->Print(vars, "#define $ucclassname$_PBC__INIT \\\n"
 		       " { PROTOBUF_C_MESSAGE_INIT (&$lcclassname$__descriptor) \\\n    ");
   for (int i = 0; i < descriptor_->field_count(); i++) {
     const FieldDescriptor *field = descriptor_->field(i);
@@ -228,7 +228,7 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
 		 "void   $lcclassname$__init\n"
 		 "                     ($classname$         *message)\n"
 		 "{\n"
-		 "  static $classname$ init_value = $ucclassname$__INIT;\n"
+		 "  static $classname$ init_value = $ucclassname$_PBC__INIT;\n"
 		 "  *message = init_value;\n"
 		 "}\n");
   if (!is_submessage) {

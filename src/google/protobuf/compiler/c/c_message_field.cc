@@ -80,7 +80,10 @@ void MessageFieldGenerator::GenerateStaticInit(io::Printer* printer) const
       printer->Print("NULL");
       break;
     case FieldDescriptor::LABEL_REPEATED:
-      printer->Print("0,NULL");
+      if (addPbc_)
+        printer->Print("0,NULL");
+      else
+        printer->Print("NULL");
       break;
   }
 }

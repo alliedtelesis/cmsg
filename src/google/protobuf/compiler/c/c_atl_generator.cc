@@ -59,7 +59,7 @@ void AtlCodeGenerator::GenerateMainHFile(io::Printer* printer)
     //printer->Print("\nEnd of Struct definitions */\n");
 
     // next, generate the api declaration
-    printer->Print("\n/* Start of API definition */\n");
+    printer->Print("\n/* Start of API definition */\n\n");
     GenerateAtlApiDefinitions(printer, true);
     printer->Print("\n/* End of API definition */\n");
 
@@ -176,11 +176,11 @@ void AtlCodeGenerator::GenerateStructDefinitionsFromMessage(io::Printer* printer
     if (field->type() == FieldDescriptor::TYPE_MESSAGE)
     {
       GenerateStructDefinitionsFromMessage(printer, field->message_type(), false);
-      vars_["sub_name"] = field->name();
+      vars_["sub_name"] = FieldName(field);
     }
     else
     {
-      vars_["field_name"] = field->name();
+      vars_["field_name"] = FieldName(field);
       vars_["field_type"] = TypeToString(field->type());
 
       printer->Print(vars_, "$field_type$ $field_name$;\n");
@@ -233,7 +233,7 @@ void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, 
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "int $lcfullname$_api__$method$(ProtobufC_RPC_Client *client, ");
+  printer->Print(vars_, "int $lcfullname$_api_$method$(ProtobufC_RPC_Client *client, ");
 
   GenerateParameterListFromMessage(printer, method.input_type(), false);
   //
@@ -259,10 +259,23 @@ void AtlCodeGenerator::GenerateParameterListFromMessage(io::Printer* printer, co
   //  printer->Print(vars_, "$message_name$");
   //}
   //else {
+
+    string prefix;
+    if (output)
+      prefix = "result_";
+    else
+      prefix = "";
+
     for (int i = 0; i < message->field_count(); i++) {
       const FieldDescriptor *field = message->field(i);
 
-      vars_["field_name"] = field->name();
+      if (!output)
+      {
+        if (field->type() == FieldDescriptor::TYPE_MESSAGE || field->type() == FieldDescriptor::TYPE_STRING)
+          printer->Print("const ");
+      }
+
+      vars_["field_name"] = prefix + FieldName(field);
       // if the field type is message we will print this out as a struct
       // ie we will print field_type (struct), message_name (struct name), and field_name (variable name)
       if (field->type() == FieldDescriptor::TYPE_MESSAGE) {
@@ -273,10 +286,14 @@ void AtlCodeGenerator::GenerateParameterListFromMessage(io::Printer* printer, co
       else
       {
         //vars_["field_type"] = TypeToString(field->type());
-        printer->Print("$field_type$ ", "field_type", TypeToString(field->type()));
+        printer->Print("$field_type$", "field_type", TypeToString(field->type()));
+        if (field->type() != FieldDescriptor::TYPE_STRING)
+        {
+          printer->Print(" ");
+        }
         if (output)
         {
-          printer->Print(vars_, "*"); //output parms are always pointers
+          printer->Print("*"); //output parms are always pointers
         }
         printer->Print(vars_, "$field_name$");
       }
@@ -312,7 +329,7 @@ void AtlCodeGenerator::PrintMessageFields(io::Printer* printer, const Descriptor
     }
     else
     {
-      vars_["field_name"] = field->name();
+      vars_["field_name"] = FieldName(field);
       vars_["field_type"] = TypeToString(field->type());
 
       printer->Print(vars_, "type = $field_type$, name = $field_name$\n");
@@ -427,7 +444,7 @@ void AtlCodeGenerator::GenerateDescriptorDeclarations(io::Printer* printer)
 // Source file stuff.
 void AtlCodeGenerator::GenerateCFile(io::Printer* printer)
 {
-  printer->Print("\n/* Start of API Implementation */\n");
+  printer->Print("\n/* Start of API Implementation */\n\n");
   GenerateAtlApiImplementation(printer);
   printer->Print("\n/* End of API Implementation */\n");
   //GenerateServiceDescriptor(printer);
@@ -462,7 +479,9 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print("{\n");
     printer->Indent();
     printer->Print(vars_, "$output_typename$_pbc msgR;\n");
-    printer->Print(vars_, "$input_typename$_pbc msgS = $input_typename_upper$__INIT;\n");
+    printer->Print(vars_, "$input_typename$_pbc msgS = $input_typename_upper$_PBC__INIT;\n");
+    printer->Print(vars_, "ProtobufCService *service = (ProtobufCService *)client;\n");
+
     //
     // if our return type has repeated fields, we'll need a counter to loop over the array of pointers
     //
@@ -475,39 +494,22 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     // copy the input parameters into the outgoing message
     //
     printer->Print("\n");
-    GenerateSendMessageCopyCode(method->input_type(), "msgS",  printer);
+    GenerateMessageCopyCode(method->input_type(), "msgS.", "", printer, false, true);
     printer->Print("\n");
+
     //
     // now send!
     //
-    printer->Print("while (!protobuf_c_rpc_client_is_connected (client))\n");
-    printer->Print("{\n");
-    printer->Indent();
-    printer->Print("protobuf_c_dispatch_run (protobuf_c_dispatch_default ());\n");
-    printer->Outdent();
-    printer->Print("}\n");
-    printer->Print("\n");
-
-    printer->Print("msgR.status = -1;\n");
     vars_["closure_name"] = GetAtlClosureFunctionName(*method);
     vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
     vars_["method_lcname"] = CamelToLower(method->name());
-    printer->Print(vars_, "$lcfullname$__$method_lcname$ (client, &msgS, $closure_name$, &msgR);\n");
-    //
-    // wait for a response
-    //
-    printer->Print("while (msgR.status == -1)\n");
-    printer->Print("{\n");
-    printer->Indent();
-    printer->Print("protobuf_c_dispatch_run (protobuf_c_dispatch_default ());\n");
-    printer->Outdent();
-    printer->Print("}\n\n");
+    printer->Print(vars_, "$lcfullname$__$method_lcname$ (service, &msgS, $closure_name$, &msgR);\n\n");
 
     //
     // copy the return values
     //
     //GenerateReceiveMessageCopyCode(method->output_type(), "msgR",  printer);
-    GenerateMessageCopyCode(method->output_type(), "", "msgR.", printer, false);
+    GenerateMessageCopyCode(method->output_type(), "*result_", "msgR.", printer, false);
     printer->Print("\n");
 
     //
@@ -568,7 +570,7 @@ void AtlCodeGenerator::GenerateSendMessageCopyCode(const Descriptor *message, co
   vars_["message_name"] = message_name;
   for (int i = 0; i < message->field_count(); i++) {
     const FieldDescriptor *field = message->field(i);
-    vars_["field_name"] = field->name();
+    vars_["field_name"] = FieldName(field);
     printer->Print(vars_, "$message_name$.$field_name$ = $field_name$;\n");
     if (field->is_optional() &&
         !((field->type() == FieldDescriptor::TYPE_MESSAGE) || (field->type() == FieldDescriptor::TYPE_STRING)))
@@ -578,7 +580,7 @@ void AtlCodeGenerator::GenerateSendMessageCopyCode(const Descriptor *message, co
   }
 }
 
-void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const string lhm, const string rhm, io::Printer *printer, bool allocate_memory)
+void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const string lhm, const string rhm, io::Printer *printer, bool allocate_memory, bool send)
 {
 
   //
@@ -588,8 +590,10 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
   for (int i = 0; i < message->field_count(); i++)
   {
     const FieldDescriptor *field = message->field(i);
-    vars_["left_field_name"] = lhm + field->name();
-    vars_["right_field_name"] = rhm + field->name();
+    string field_name = FieldName(field);
+
+    vars_["left_field_name"] = lhm + field_name;
+    vars_["right_field_name"] = rhm + field_name;
 
     if (field->is_repeated())
     {
@@ -598,8 +602,8 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       // ie an array of pointers to pointers of the type
       // we will need to loop the array and free each field
       //
-      vars_["left_field_count"] = lhm + "n_" + field->name();
-      vars_["right_field_count"] = rhm + "n_" + field->name();
+      vars_["left_field_count"] = lhm + "n_" + field_name;
+      vars_["right_field_count"] = rhm + "n_" + field_name;
       vars_["message_name"] = FullNameToC(field->message_type()->full_name());
 
       printer->Print(vars_, "$left_field_count$ = $right_field_count$;\n");
@@ -614,7 +618,7 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       //
       // now copy over each field in the structures in the repeated array
       //
-      GenerateMessageCopyCode(field->message_type(), lhm + field->name() + "[i]->", rhm + field->name() + "[i]->", printer, allocate_memory);
+      GenerateMessageCopyCode(field->message_type(), lhm + field_name + "[i]->", rhm + field_name + "[i]->", printer, allocate_memory, send);
       printer->Outdent();
       printer->Print("}\n");
 
@@ -624,24 +628,41 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       //
       // strings are represented as char* so we need to allocate memory
       // and then do a strcpy
+      printer->Print(vars_, "if ($right_field_name$ != NULL)\n");
+      printer->Print("{\n");
+      printer->Indent();
       if (allocate_memory)
       {
-        printer->Print(vars_, "\n$left_field_name$ = malloc (strlen ($right_field_name$) + 1);\n");
+        printer->Print(vars_, "$left_field_name$ = malloc (strlen ($right_field_name$) + 1);\n");
       }
       printer->Print(vars_, "strncpy ($left_field_name$, $right_field_name$, strlen($right_field_name$));\n");
+      printer->Outdent();
+      printer->Print("}\n");
     }
     else if (field->type() != FieldDescriptor::TYPE_MESSAGE)
     {
-      printer->Print("\n");
-      //
-      // if this is a primitive type its just a simple assignment
-      //
-      if (lhm.empty())
+      bool indented = false;
+
+      if (field->is_optional() &&
+          !((field->type() == FieldDescriptor::TYPE_MESSAGE) || (field->type() == FieldDescriptor::TYPE_STRING)))
       {
-        // put a star in front of all primitive types at the top level
-        printer->Print("*");
+        if (send)
+        {
+          vars_["has_field_name"] = lhm + "has_" + field_name;
+          printer->Print(vars_, "$has_field_name$ = 1;\n");
+        }
+        else
+        {
+          vars_["has_field_name"] = rhm + "has_" + field_name;
+          printer->Print(vars_, "if ($has_field_name$)\n");
+          printer->Indent();
+          indented = true;
+        }
       }
       printer->Print(vars_, "$left_field_name$ = $right_field_name$;\n");
+
+      if (indented)
+        printer->Outdent();
     }
     else
     {
@@ -653,7 +674,7 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       {
         printer->Print(vars_, "$left_field_name$ = malloc (sizeof ($message_name$));\n");
       }
-      GenerateMessageCopyCode(field->message_type(), lhm + field->name() + "->", rhm + field->name() + "->", printer, allocate_memory);
+      GenerateMessageCopyCode(field->message_type(), "(" + lhm + field_name + ")->", "(" + rhm + field_name + ")->", printer, allocate_memory, send);
     }
   }
 }
@@ -668,7 +689,8 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
   for (int i = 0; i < message->field_count(); i++)
   {
     const FieldDescriptor *field = message->field(i);
-    vars_["left_field_name"] = lhm + field->name();
+    string field_name = FieldName(field);
+    vars_["left_field_name"] = lhm + field_name;
 
     if (field->is_repeated())
     {
@@ -677,7 +699,7 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
       // ie an array of pointers to pointers of the type
       // we will need to loop the array and memcpy over each field
       //
-      vars_["left_field_count"] = lhm + "n_" + field->name();
+      vars_["left_field_count"] = lhm + "n_" + field_name;
       vars_["message_name"] = FullNameToC(field->message_type()->full_name());
 
       printer->Print(vars_, "for (i = 0; i < $left_field_count$; i++)\n");
@@ -687,10 +709,10 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
       //
       // now copy over each field in the structures in the repeated array
       //
-      GenerateCleanupMessageMemoryCode(field->message_type(), lhm + field->name() + "[i]->", printer);
+      GenerateCleanupMessageMemoryCode(field->message_type(), lhm + field_name + "[i]->", printer);
       printer->Outdent();
       printer->Print("}\n");
-      vars_["left_field_name"] = lhm + field->name();
+      vars_["left_field_name"] = lhm + field_name;
       printer->Print(vars_, "free ($left_field_name$);\n");
     }
     else if (field->type() == FieldDescriptor::TYPE_STRING)
@@ -705,8 +727,8 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
       // this is a sub message so we need to follow pointers into the sub structure.
       // TODO: do we need to allocate memory here?
       //
-      GenerateCleanupMessageMemoryCode(field->message_type(), lhm + field->name() + "->", printer);
-      vars_["left_field_name"] = lhm + field->name();
+      GenerateCleanupMessageMemoryCode(field->message_type(), lhm + field_name + "->", printer);
+      vars_["left_field_name"] = lhm + field_name;
       printer->Print(vars_, "free ($left_field_name$);\n");
     }
   }
@@ -722,7 +744,7 @@ void AtlCodeGenerator::GenerateReceiveMessageCopyCode(const Descriptor *message,
   vars_["message_name"] = message_name;
   for (int i = 0; i < message->field_count(); i++) {
     const FieldDescriptor *field = message->field(i);
-    vars_["field_name"] = field->name();
+    vars_["field_name"] = FieldName(field);
     printer->Print(vars_, "*$field_name$ = $message_name$.$field_name$;\n");
   }
 }

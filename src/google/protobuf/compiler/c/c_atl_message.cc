@@ -134,10 +134,12 @@ GenerateStructDefinition(io::Printer* printer) {
   }
 
   printer->Print(vars, "#define $ucclassname$__INIT \\\n"
-		       " { PROTOBUF_C_MESSAGE_INIT (&$lcclassname$__descriptor) \\\n    ");
+		       " { ");
+
   for (int i = 0; i < descriptor_->field_count(); i++) {
     const FieldDescriptor *field = descriptor_->field(i);
-    printer->Print(", ");
+	if (i != 0)
+      printer->Print(", ");
     field_generators_.get(field).GenerateStaticInit(printer);
   }
   printer->Print(" }\n\n\n");
