@@ -292,6 +292,34 @@ void AtlCodeGenerator::GenerateParameterListFromMessage(io::Printer* printer, co
         printer->Print(vars_, "$message_name$");
         printer->Print(vars_, " *$field_name$");
       }
+      else if (field->is_repeated())
+      {
+        // if field is repeated, need to add a count/size parameter
+        printer->Print(vars_, "size_t ");
+        if (output)
+        {
+          printer->Print("*");
+        }
+        printer->Print(vars_, "n_$field_name$, ");
+        //
+        // this will appear as a **
+        //
+        printer->Print("$field_type$", "field_type", TypeToString(field->type()));
+        if (field->type() == FieldDescriptor::TYPE_STRING)
+        {
+          printer->Print("*"); //repeated chars are always double pointers so add 1 to the char *
+        }
+        else if (output)
+        {
+          printer->Print(" **"); //repeated output fields are always double pointers
+        }
+        else
+        {
+          printer->Print(" *"); //repeated input fields are always single pointers
+        }
+
+        printer->Print(vars_, "$field_name$");
+      }
       else
       {
         //vars_["field_type"] = TypeToString(field->type());
@@ -535,21 +563,29 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     // copy the input parameters into the outgoing message
     //
     printer->Print("\n");
-    GenerateMessageCopyCode(method->input_type(), "msgS.", "", printer, false, true);
+    printer->Print("/* Copy input variables to pbc send message */\n");
+    GenerateMessageCopyCode(method->input_type(), "msgS.", "", printer, true, true);
     printer->Print("\n");
 
     //
     // now send!
     //
+    printer->Print("/* Send! */\n");
     vars_["closure_name"] = GetAtlClosureFunctionName(*method);
     vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
     vars_["method_lcname"] = CamelToLower(method->name());
     printer->Print(vars_, "$lcfullname$__$method_lcname$ (service, &msgS, $closure_name$, &msgR);\n\n");
 
     //
+    // to be tidy, cleanup the sent message memory
+    //
+    printer->Print("/* Free send message memory */\n");
+    GenerateCleanupMessageMemoryCode(method->input_type(), "msgS.", printer);
+    //
     // copy the return values
     //
     //GenerateReceiveMessageCopyCode(method->output_type(), "msgR",  printer);
+    printer->Print("/* Copy received message fields to output variables */\n");
     GenerateMessageCopyCode(method->output_type(), "*result_", "msgR.", printer, false);
     printer->Print("\n");
 
@@ -557,6 +593,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     // now the return values are copied we need to cleanup our temporary memory used to
     // transfer values in the closure function
     //
+    printer->Print("/* Free temporary receive message memory */\n");
     GenerateCleanupMessageMemoryCode(method->output_type(), "msgR.", printer);
     //
     // finally return something
@@ -851,9 +888,19 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       // ie an array of pointers to pointers of the type
       // we will need to loop the array and free each field
       //
+      printer->Print(vars_, "if ($right_field_name$ != NULL)\n");
+      printer->Print("{\n");
+      printer->Indent();
       vars_["left_field_count"] = lhm + "n_" + field_name;
       vars_["right_field_count"] = rhm + "n_" + field_name;
-      vars_["message_name"] = FullNameToC(field->message_type()->full_name());
+      if (field->type() == FieldDescriptor::TYPE_MESSAGE)
+      {
+        vars_["message_name"] = FullNameToC(field->message_type()->full_name());
+      }
+      else
+      {
+        vars_["message_name"] = TypeToString(field->type());
+      }
 
       printer->Print(vars_, "$left_field_count$ = $right_field_count$;\n");
       if (allocate_memory)
@@ -867,9 +914,23 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       //
       // now copy over each field in the structures in the repeated array
       //
-      GenerateMessageCopyCode(field->message_type(), lhm + field_name + "[i]->", rhm + field_name + "[i]->", printer, allocate_memory, send);
+      if (field->type() == FieldDescriptor::TYPE_MESSAGE)
+      {
+        GenerateMessageCopyCode(field->message_type(), lhm + field_name + "[i]->", rhm + field_name + "[i]->", printer, allocate_memory, send);
+      }
+      else
+      {
+        if (allocate_memory &&
+            ((field->type() == FieldDescriptor::TYPE_STRING) || (field->type() == FieldDescriptor::TYPE_MESSAGE)))
+        {
+          printer->Print(vars_, "$left_field_name$[i] = malloc(sizeof($message_name$));\n");
+        }
+        printer->Print(vars_, "$left_field_name$[i] = $right_field_name$[i];\n");
+      }
       printer->Outdent();
-      printer->Print("}\n");
+      printer->Print("}\n"); //for loop
+      printer->Outdent();
+      printer->Print("}\n"); //if right_field_name != NULL
 
     }
     else if (field->type() == FieldDescriptor::TYPE_STRING)
@@ -949,18 +1010,42 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
       // we will need to loop the array and memcpy over each field
       //
       vars_["left_field_count"] = lhm + "n_" + field_name;
-      vars_["message_name"] = FullNameToC(field->message_type()->full_name());
-
-      printer->Print(vars_, "for (i = 0; i < $left_field_count$; i++)\n");
-      printer->Print("{\n");
-      printer->Indent();
+      if (field->type() == FieldDescriptor::TYPE_MESSAGE)
+      {
+        vars_["message_name"] = FullNameToC(field->message_type()->full_name());
+      }
+      else
+      {
+        vars_["message_name"] = TypeToString(field->type());
+      }
 
       //
-      // now copy over each field in the structures in the repeated array
+      // now free each field in the structures in the repeated array or the char *s in the char**
+      // note: don't free the individual elements in a primitive repeated field
+      //   because we only allocate a single array not a double array.
       //
-      GenerateCleanupMessageMemoryCode(field->message_type(), lhm + field_name + "[i]->", printer);
-      printer->Outdent();
-      printer->Print("}\n");
+      if ((field->type() == FieldDescriptor::TYPE_MESSAGE) || (field->type() == FieldDescriptor::TYPE_STRING))
+      {
+        printer->Print(vars_, "for (i = 0; i < $left_field_count$; i++)\n");
+        printer->Print("{\n");
+        printer->Indent();
+
+
+        if (field->type() == FieldDescriptor::TYPE_MESSAGE)
+        {
+          GenerateCleanupMessageMemoryCode(field->message_type(), lhm + field_name + "[i]->", printer);
+        }
+        else if (field->type() == FieldDescriptor::TYPE_STRING)
+        {
+          vars_["left_field_name"] = lhm + field_name;
+          printer->Print(vars_, "free ($left_field_name$[i]);\n");
+        }
+        printer->Outdent();
+        printer->Print("}\n");
+      }
+      //
+      // finally cleanup the array
+      //
       vars_["left_field_name"] = lhm + field_name;
       printer->Print(vars_, "free ($left_field_name$);\n");
     }
