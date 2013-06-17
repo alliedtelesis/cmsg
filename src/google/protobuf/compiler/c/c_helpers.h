@@ -145,6 +145,11 @@ string GlobalBuildDescriptorsName(const string& filename);
 // return 'required', 'optional', or 'repeated'
 string GetLabelName(FieldDescriptor::Label label);
 
+string GetAtlFilename(const string &protoname, const string &filetype);
+string GetAtlTypesFilename(const string &protoname);
+string GetAtlApiFilename(const string &protoname);
+string GetAtlImplFilename(const string &protoname);
+
 
 // write IntRanges entries for a bunch of sorted values.
 // returns the number of ranges there are to bsearch.

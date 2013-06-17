@@ -49,7 +49,7 @@ AtlCodeGenerator::AtlCodeGenerator(const ServiceDescriptor* descriptor,
 AtlCodeGenerator::~AtlCodeGenerator() {}
 
 // Header stuff.
-void AtlCodeGenerator::GenerateMainHFile(io::Printer* printer)
+void AtlCodeGenerator::GenerateMainHFile(io::Printer* printer, bool api)
 {
   // first check if we need to generate any structs from the input and/or output messages
     // note: need to do this before the api is generated as the api will take these
@@ -58,20 +58,25 @@ void AtlCodeGenerator::GenerateMainHFile(io::Printer* printer)
     //GenerateAtlStructDefinitions(printer);
     //printer->Print("\nEnd of Struct definitions */\n");
 
+  if (api)
+  {
     // next, generate the api declaration
     printer->Print("\n/* Start of API definition */\n\n");
     GenerateAtlApiDefinitions(printer, true);
     printer->Print("\n/* End of API definition */\n");
-
+  }
+  else
+  {
     // next, generate the server declaration
     printer->Print("\n/* Start of Server definition */\n\n");
     GenerateAtlServerDefinitions(printer, true);
     printer->Print("\n/* End of Server definition */\n");
+  }
 
     // finally dump out the message structures to help with debug
-    printer->Print("\n/* Start of Message description \n");
-    DumpMessageDefinitions(printer);
-    printer->Print("\nEnd of Message description */\n");
+    //printer->Print("\n/* Start of Message description \n");
+    //DumpMessageDefinitions(printer);
+    //printer->Print("\nEnd of Message description */\n");
 
   //GenerateVfuncs(printer);
   //GenerateInitMacros(printer);
@@ -510,15 +515,24 @@ void AtlCodeGenerator::GenerateDescriptorDeclarations(io::Printer* printer)
 
 
 // Source file stuff.
-void AtlCodeGenerator::GenerateCFile(io::Printer* printer)
+void AtlCodeGenerator::GenerateCFile(io::Printer* printer, bool api)
 {
-  printer->Print("\n/* Start of API Implementation */\n\n");
-  GenerateAtlApiImplementation(printer);
-  printer->Print("\n/* End of API Implementation */\n");
+  if (api)
+  {
+    printer->Print("\n/* Start of API Implementation */\n\n");
+    GenerateAtlApiImplementation(printer);
+    printer->Print("\n/* End of API Implementation */\n");
+  }
+  else
+  {
+    printer->Print("\n/* Start of local server definitions */\n\n");
+    GenerateAtlServerCFileDefinitions(printer);
+    printer->Print("\n/* End of local server definitions */\n\n");
 
-  printer->Print("\n/* Start of Server Implementation */\n\n");
-  GenerateAtlServerImplementation(printer);
-  printer->Print("\n/* End of Server Implementation */\n");
+    printer->Print("\n/* Start of Server Implementation */\n\n");
+    GenerateAtlServerImplementation(printer);
+    printer->Print("\n/* End of Server Implementation */\n");
+  }
 }
 
 void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
@@ -714,19 +728,6 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     // of the rpc call from the server
     //
     GenerateAtlServerSendImplementation(*method, printer);
-
-    // FIXME: This is for a temporary work around to compile client properly
-    // while client-side and server-side code is in the same file.
-    printer->Print("// user-defined server implementation (place holder)\n");
-    printer->Print("__attribute__ ((weak))\n");
-    GenerateAtlServerImplDefinition(*method, printer, false);
-    printer->Print("{\n");
-    printer->Indent();
-    printer->Print("return 0;\n");
-    printer->Outdent();
-    printer->Print("}\n");
-    printer->Print("\n");
-
   }
 
 }
@@ -737,7 +738,7 @@ void AtlCodeGenerator::GenerateAtlServerDefinitions(io::Printer* printer, bool f
 
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
-    GenerateAtlServerDefinition(*method, printer, forHeader);
+    // only declare the server send in the header file
     GenerateAtlServerSendDefinition(*method, printer, forHeader);
   }
 
@@ -746,6 +747,14 @@ void AtlCodeGenerator::GenerateAtlServerDefinitions(io::Printer* printer, bool f
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
     GenerateAtlServerImplDefinition(*method, printer, forHeader);
+  }
+}
+
+void AtlCodeGenerator::GenerateAtlServerCFileDefinitions(io::Printer* printer)
+{
+  for (int i = 0; i < descriptor_->method_count(); i++) {
+    const MethodDescriptor *method = descriptor_->method(i);
+    GenerateAtlServerDefinition(*method, printer, true);
   }
 }
 

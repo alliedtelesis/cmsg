@@ -496,6 +496,30 @@ string CEscape(const string& src) {
   return string(dest.get(), len);
 }
 
+string GetAtlFilename(const string &protoname, const string &filetype)
+{
+  //
+  // we want to:
+  //    strip the .proto from the proto filename to get the basename
+  //    add the filetype after the basename
+  return StripProto(protoname) + "_" + filetype;
+}
+
+string GetAtlTypesFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "types_auto");
+}
+
+string GetAtlApiFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "api_auto");
+}
+
+string GetAtlImplFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "impl_auto");
+}
+
 }  // namespace c
 }  // namespace compiler
 }  // namespace protobuf

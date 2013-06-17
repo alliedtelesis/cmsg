@@ -46,14 +46,14 @@ class AtlCodeGenerator {
   ~AtlCodeGenerator();
 
   // Header stuff.
-  void GenerateMainHFile(io::Printer* printer);
+  void GenerateMainHFile(io::Printer* printer, bool api);
   void GenerateVfuncs(io::Printer* printer);
   void GenerateInitMacros(io::Printer* printer);
   void GenerateDescriptorDeclarations(io::Printer* printer);
   void GenerateCallersDeclarations(io::Printer* printer);
 
   // Source file stuff.
-  void GenerateCFile(io::Printer* printer);
+  void GenerateCFile(io::Printer* printer, bool api);
   void GenerateServiceDescriptor(io::Printer* printer);
   void GenerateInit(io::Printer* printer);
   void GenerateCallersImplementations(io::Printer* printer);
@@ -72,6 +72,7 @@ class AtlCodeGenerator {
   void GenerateAtlApiClosureFunction(const MethodDescriptor &method, io::Printer* printer);
   void GenerateAtlServerDefinitions(io::Printer* printer, bool forHeader);
   void GenerateAtlServerDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
+  void GenerateAtlServerCFileDefinitions(io::Printer* printer);
   void GenerateAtlServerImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateAtlServerImplementation(io::Printer* printer);

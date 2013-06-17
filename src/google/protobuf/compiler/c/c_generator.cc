@@ -123,6 +123,52 @@ bool CGenerator::Generate(const FileDescriptor* file,
     file_generator.GenerateSource(&printer);
   }
 
+  // generate the atl types header file
+  string types_basename = GetAtlTypesFilename(file->name());
+
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(types_basename + ".h"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlTypesHeader(&printer);
+  }
+
+  // generate the atl api header and source files
+  string api_basename = GetAtlApiFilename(file->name());
+
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(api_basename + ".h"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlApiHeader(&printer);
+  }
+
+  // Generate c file.
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(api_basename + ".c"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlApiSource(&printer);
+  }
+
+  // now generate the atl impl header and source files
+  string impl_basename = GetAtlImplFilename(file->name());
+
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(impl_basename + ".h"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlImplHeader(&printer);
+  }
+
+  // Generate c file.
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(impl_basename + ".c"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlImplSource(&printer);
+  }
+
   return true;
 }
 
