@@ -17,6 +17,11 @@ cmsg_client_new (cmsg_transport*                   transport,
   client->descriptor = descriptor;
   client->base_service.descriptor = descriptor;
 
+  client->invoke = transport->invoke;
+  client->base_service.invoke = transport->invoke;
+
+  /*
+  TODO remove code below
   if (transport->type == CMSG_TRANSPORT_RPC_TCP ||
       transport->type == CMSG_TRANSPORT_RPC_TIPC)
     {
@@ -45,6 +50,7 @@ cmsg_client_new (cmsg_transport*                   transport,
       client = 0;
       return 0;
     }
+  */
   return client;
 }
 
@@ -75,14 +81,15 @@ cmsg_client_destroy(cmsg_client *client)
 ProtobufCMessage*
 cmsg_client_response_receive (cmsg_client *client)
 {
+  ProtobufCMessage* ret = NULL;
+/*
   int32_t nbytes;
   int32_t dyn_len;
-  int32_t ret = 0;
   cmsg_header_response header_received;
   cmsg_header_response header_converted;
   uint8_t* buffer = 0;
   uint8_t buf_static[512];
-
+*/
   if (!client)
     {
       DEBUG ("[CLIENT] client not defined\n");
@@ -94,6 +101,11 @@ cmsg_client_response_receive (cmsg_client *client)
       DEBUG ("[CLIENT] socket not defined\n");
       return 0;
     }
+
+  ret = client->transport->client_recv (client);
+
+  return ret;
+/*
 
   nbytes = recv (client->socket, &header_received, sizeof (cmsg_header_response), MSG_WAITALL);
   if (nbytes == sizeof (cmsg_header_response))
@@ -195,6 +207,8 @@ cmsg_client_response_receive (cmsg_client *client)
       ret = 0;
     }
   return 0;
+
+  */
 }
 
 
@@ -214,6 +228,10 @@ cmsg_client_connect (cmsg_client *client)
       DEBUG ("[CLIENT] already connected\n");
       return 0;
     }
+
+ return (client->transport->connect(client));
+
+ /* TODO remove code below
 
   if (client->transport->type == CMSG_TRANSPORT_RPC_TCP ||
       client->transport->type == CMSG_TRANSPORT_ONEWAY_TCP)
@@ -273,6 +291,7 @@ cmsg_client_connect (cmsg_client *client)
         }
     }
   return 0;
+*/
 }
 
 
@@ -336,7 +355,7 @@ cmsg_client_invoke_rpc (ProtobufCService*       service,
   printf ("[CLIENT] packet data\n");
   cmsg_debug_buffer_print(buffer_data, packed_size);
 
-  ret = send (client->socket, buffer, packed_size + sizeof (header), 0);
+  ret = client->transport->send (client->socket, buffer, packed_size + sizeof (header), 0);
   if (ret < packed_size + sizeof (header))
     DEBUG ("[CLIENT] sending response failed send:%d of %ld\n", ret, packed_size + sizeof (header));
 
@@ -432,7 +451,7 @@ cmsg_client_invoke_oneway (ProtobufCService*       service,
   DEBUG ("[CLIENT] packet data\n");
   cmsg_debug_buffer_print (buffer_data, packed_size);
 
-  ret = send (client->socket, buffer, packed_size + sizeof (header), 0);
+  ret = client->transport->send (client->socket, buffer, packed_size + sizeof (header), 0);
   if (ret < packed_size + sizeof (header))
     DEBUG ("[CLIENT] sending response failed send:%d of %ld\n", ret, packed_size + sizeof (header));
 

@@ -27,6 +27,7 @@ struct _cmsg_server_s
   cmsg_transport* transport;
   int listening_socket;
   int client_socket;
+  cmsg_server_request* server_request;
 };
 
 
@@ -47,8 +48,7 @@ cmsg_server_receive (cmsg_server* server,
 
 int32_t
 cmsg_server_message_processor (cmsg_server*         server,
-                               uint8_t*             buffer_data,
-                               cmsg_server_request* server_request);
+                               uint8_t*             buffer_data);
 
 void
 cmsg_server_closure_rpc (const ProtobufCMessage* message,

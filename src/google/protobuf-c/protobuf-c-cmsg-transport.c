@@ -12,26 +12,24 @@ cmsg_transport_new (cmsg_transport_type type)
 
   switch (type)
   {
-    case CMSG_TRANSPORT_RPC_TCP:
-       transport->family = PF_INET;
-       transport->sockaddr.generic.sa_family = PF_INET;
-       break;
-    case CMSG_TRANSPORT_ONEWAY_TCP:
-       transport->family = PF_INET;
-       transport->sockaddr.generic.sa_family = PF_INET;
-       break;
-    case CMSG_TRANSPORT_RPC_TIPC:
-       transport->family = PF_TIPC;
-       transport->sockaddr.generic.sa_family  = PF_TIPC;
-       break;
-    case CMSG_TRANSPORT_ONEWAY_TIPC:
-       transport->family = PF_TIPC;
-       transport->sockaddr.generic.sa_family  = PF_TIPC;
-       break;
-    default:
-      DEBUG ("[TRANSPORT] transport type not supported\n");
-      free (transport);
-      transport = 0;
+  case CMSG_TRANSPORT_RPC_TCP:
+    cmsg_transport_tcp_init (transport);
+    break;
+  case CMSG_TRANSPORT_ONEWAY_TCP:
+    transport->family = PF_INET;
+    transport->sockaddr.generic.sa_family = PF_INET;
+    break;
+  case CMSG_TRANSPORT_RPC_TIPC:
+    cmsg_transport_tipc_init (transport);
+    break;
+  case CMSG_TRANSPORT_ONEWAY_TIPC:
+    transport->family = PF_TIPC;
+    transport->sockaddr.generic.sa_family  = PF_TIPC;
+    break;
+  default:
+    DEBUG ("[TRANSPORT] transport type not supported\n");
+    free (transport);
+    transport = 0;
   }
 
   return transport;
@@ -41,11 +39,11 @@ int32_t
 cmsg_transport_destroy (cmsg_transport *transport)
 {
   if (transport)
-    {
-      free (transport);
-      transport = 0;
-      return 0;
-    }
+  {
+    free (transport);
+    transport = 0;
+    return 0;
+  }
   else
     return 1;
 }

@@ -43,7 +43,7 @@ struct _cmsg_client_s
 
 
 cmsg_client*
-cmsg_client_new (cmsg_transport*                    transport,
+cmsg_client_new (cmsg_transport*             transport,
                  const ProtobufCServiceDescriptor*  descriptor);
 
 int32_t

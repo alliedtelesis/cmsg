@@ -36,6 +36,8 @@ google/protobuf-c/protobuf-c-cmsg-server.c \
 google/protobuf-c/protobuf-c-cmsg-client.c \
 google/protobuf-c/protobuf-c-cmsg-notification.c \
 google/protobuf-c/protobuf-c-cmsg-transport.c \
+google/protobuf-c/protobuf-c-cmsg-transport-tipc.c \
+google/protobuf-c/protobuf-c-cmsg-transport-tcp.c \
 google/protobuf-c/protobuf-c.c
 
 # ah, -no-undefined, goofball windows hack.
