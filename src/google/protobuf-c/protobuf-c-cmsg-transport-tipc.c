@@ -3,7 +3,7 @@
 #include "protobuf-c-cmsg-server.h"
 
 
-//This func can be used for ONEWAY_TIPC as well
+
 static int32_t
 cmsg_transport_tipc_connect (cmsg_client *client)
 {
@@ -14,7 +14,7 @@ cmsg_transport_tipc_connect (cmsg_client *client)
 
   if (client->socket < 0)
   {
-    DEBUG ("error creating socket: %s\n", strerror (errno));
+    DEBUG ("[TRANSPORT]error creating socket: %s\n", strerror (errno));
     return 0;
   }
   if (connect (client->socket, (struct sockaddr*)&client->transport->sockaddr.tipc, sizeof (client->transport->sockaddr.tipc)) < 0)
@@ -25,13 +25,13 @@ cmsg_transport_tipc_connect (cmsg_client *client)
     }
     close (client->socket);
     client->socket = 0;
-    DEBUG ("error connecting to remote host: %s\n", strerror (errno));
+    DEBUG ("[TRANSPORT]error connecting to remote host: %s\n", strerror (errno));
     return 0;
   }
   else
   {
     client->state = CMSG_CLIENT_STATE_CONNECTED;
-    DEBUG (" successfully connected\n");
+    DEBUG ("[TRANSPORT] successfully connected\n");
     return 0;
   }
 }
@@ -54,14 +54,14 @@ cmsg_transport_tipc_listen (cmsg_server* server)
   listening_socket = socket (transport->family, SOCK_STREAM, 0);
   if (listening_socket == -1 )
   {
-    DEBUG ("[SERVER] socket failed with: %s\n", strerror(errno));
+    DEBUG ("[TRANSPORT] socket failed with: %s\n", strerror(errno));
     return -1;
   }
 
   ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int32_t));
   if (ret == -1)
   {
-    DEBUG ("[SERVER] setsockopt failed with: %s\n", strerror(errno));
+    DEBUG ("[TRANSPORT] setsockopt failed with: %s\n", strerror(errno));
     close (listening_socket);
     return -1;
   }
@@ -69,7 +69,7 @@ cmsg_transport_tipc_listen (cmsg_server* server)
   ret = bind (listening_socket, &transport->sockaddr.generic, addrlen);
   if (ret < 0)
   {
-    DEBUG ("[SERVER] bind failed with: %s\n", strerror(errno));
+    DEBUG ("[TRANSPORT] bind failed with: %s\n", strerror(errno));
     close (listening_socket);
     return -1;
   }
@@ -77,18 +77,18 @@ cmsg_transport_tipc_listen (cmsg_server* server)
   ret = listen (listening_socket, 10);
   if (ret < 0)
   {
-    DEBUG ("[SERVER] listen failed with: %s\n", strerror(errno));
+    DEBUG ("[TRANSPORT] listen failed with: %s\n", strerror(errno));
     close (listening_socket);
     return -1;
   }
 
   server->listening_socket = listening_socket;
 
-  DEBUG ("[SERVER] listening on tipc socket: %d\n", listening_socket);
-  DEBUG ("[SERVER] listening on tipc type: %d\n", server->transport->sockaddr.tipc.addr.name.name.type);
-  DEBUG ("[SERVER] listening on tipc instance: %d\n", server->transport->sockaddr.tipc.addr.name.name.instance);
-  DEBUG ("[SERVER] listening on tipc domain: %d\n", server->transport->sockaddr.tipc.addr.name.domain);
-  DEBUG ("[SERVER] listening on tipc scope: %d\n", server->transport->sockaddr.tipc.scope);
+  DEBUG ("[TRANSPORT] listening on tipc socket: %d\n", listening_socket);
+  DEBUG ("[TRANSPORT] listening on tipc type: %d\n", server->transport->sockaddr.tipc.addr.name.name.type);
+  DEBUG ("[TRANSPORT] listening on tipc instance: %d\n", server->transport->sockaddr.tipc.addr.name.name.instance);
+  DEBUG ("[TRANSPORT] listening on tipc domain: %d\n", server->transport->sockaddr.tipc.addr.name.domain);
+  DEBUG ("[TRANSPORT] listening on tipc scope: %d\n", server->transport->sockaddr.tipc.scope);
   return 0;
 }
 
@@ -120,12 +120,12 @@ cmsg_transport_tipc_server_recv (int32_t socket, cmsg_server* server)
 
   if (server->client_socket <= 0)
   {
-    DEBUG ("accept failed\n");
-    DEBUG ("server->client_socket = %d\n", server->client_socket);
+    DEBUG ("[TRANSPORT]accept failed\n");
+    DEBUG ("[TRANSPORT]server->client_socket = %d\n", server->client_socket);
     return -1;
   }
 
-  DEBUG (" server->accecpted_client_socket %d\n", server->client_socket);
+  DEBUG ("[TRANSPORT] server->accecpted_client_socket %d\n", server->client_socket);
 
   nbytes = recv (server->client_socket, &header_received, sizeof (cmsg_header_request), MSG_WAITALL);
   if (nbytes == sizeof (cmsg_header_request))
@@ -140,12 +140,12 @@ cmsg_transport_tipc_server_recv (int32_t socket, cmsg_server* server)
     server_request.request_id = header_received.request_id;
     server_request.client_socket = server->client_socket;
 
-    DEBUG ("received header\n");
+    DEBUG ("[TRANSPORT]received header\n");
     cmsg_debug_buffer_print ((void*)&header_received, sizeof (cmsg_header_request));
 
-    DEBUG ("method_index   host: %d, wire: %d\n", header_converted.method_index, header_received.method_index);
-    DEBUG ("message_length host: %d, wire: %d\n", header_converted.message_length, header_received.message_length);
-    DEBUG ("request_id     host: %d, wire: %d\n", header_converted.request_id, header_received.request_id);
+    DEBUG ("[TRANSPORT]method_index   host: %d, wire: %d\n", header_converted.method_index, header_received.method_index);
+    DEBUG ("[TRANSPORT]message_length host: %d, wire: %d\n", header_converted.message_length, header_received.message_length);
+    DEBUG ("[TRANSPORT]request_id     host: %d, wire: %d\n", header_converted.request_id, header_received.request_id);
 
     // read the message
     dyn_len = header_converted.message_length;
@@ -161,16 +161,16 @@ cmsg_transport_tipc_server_recv (int32_t socket, cmsg_server* server)
     if (nbytes == dyn_len)
     {
 
-      DEBUG ("received data\n");
+      DEBUG ("[TRANSPORT]received data\n");
       cmsg_debug_buffer_print(buffer, dyn_len);
       server->server_request = &server_request;
 
       if (cmsg_server_message_processor (server, buffer))
-        DEBUG ("message processing returned an error\n");
+        DEBUG ("[TRANSPORT]message processing returned an error\n");
     }
     else
     {
-      DEBUG ("recv socket %d no data\n", server->client_socket);
+      DEBUG ("[TRANSPORT]recv socket %d no data\n", server->client_socket);
       ret = -1;
     }
     if (buffer != (void*)buf_static)
@@ -184,7 +184,7 @@ cmsg_transport_tipc_server_recv (int32_t socket, cmsg_server* server)
   }
   else if (nbytes > 0)
   {
-    DEBUG ("recv socket %d bad header nbytes %d\n", server->client_socket, nbytes );
+    DEBUG ("[TRANSPORT]recv socket %d bad header nbytes %d\n", server->client_socket, nbytes );
     // TEMP to keep things going
     buffer = malloc (nbytes);
     nbytes = recv (server->client_socket, buffer , nbytes, MSG_WAITALL);
@@ -203,7 +203,7 @@ cmsg_transport_tipc_server_recv (int32_t socket, cmsg_server* server)
     //Error while peeking at socket data.
     if (errno != ECONNRESET)
     {
-      DEBUG ("recv socket %d error: %s\n", server->client_socket, strerror(errno) );
+      DEBUG ("[TRANSPORT]recv socket %d error: %s\n", server->client_socket, strerror(errno) );
     }
     ret = 0;
   }
@@ -236,18 +236,18 @@ cmsg_transport_tipc_client_recv (cmsg_client* client)
     header_converted.message_length = cmsg_common_uint32_from_le (header_received.message_length);
     header_converted.request_id = header_received.request_id;
 
-    DEBUG (" received response header\n");
+    DEBUG ("[TRANSPORT] received response header\n");
     cmsg_debug_buffer_print ((void*)&header_received, sizeof (cmsg_header_response));
 
-    DEBUG (" status_code    host: %d, wire: %d\n", header_converted.status_code, header_received.status_code);
-    DEBUG (" method_index   host: %d, wire: %d\n", header_converted.method_index, header_received.method_index);
-    DEBUG (" message_length host: %d, wire: %d\n", header_converted.message_length, header_received.message_length);
-    DEBUG (" request_id     host: %d, wire: %d\n", header_converted.request_id, header_received.request_id);
+    DEBUG ("[TRANSPORT] status_code    host: %d, wire: %d\n", header_converted.status_code, header_received.status_code);
+    DEBUG ("[TRANSPORT] method_index   host: %d, wire: %d\n", header_converted.method_index, header_received.method_index);
+    DEBUG ("[TRANSPORT] message_length host: %d, wire: %d\n", header_converted.message_length, header_received.message_length);
+    DEBUG ("[TRANSPORT] request_id     host: %d, wire: %d\n", header_converted.request_id, header_received.request_id);
 
     if (header_converted.status_code != CMSG_STATUS_CODE_SUCCESS)
     {
-      DEBUG (" server could not process message correctly\n");
-      DEBUG (" todo: handle this case better\n");
+      DEBUG ("[TRANSPORT] server could not process message correctly\n");
+      DEBUG ("[TRANSPORT] todo: handle this case better\n");
     }
 
     // read the message
@@ -265,14 +265,14 @@ cmsg_transport_tipc_client_recv (cmsg_client* client)
 
     if (nbytes == dyn_len)
     {
-      DEBUG (" received response data\n");
+      DEBUG ("[TRANSPORT] received response data\n");
       cmsg_debug_buffer_print (buffer, dyn_len);
 
       //todo: call cmsg_client_response_message_processor
       ProtobufCMessage *message = 0;
       ProtobufCAllocator *allocator = (ProtobufCAllocator*)client->allocator;
 
-      DEBUG (" unpacking response message\n");
+      DEBUG ("[TRANSPORT] unpacking response message\n");
 
       message = protobuf_c_message_unpack (client->descriptor->methods[header_converted.method_index].output,
           allocator,
@@ -281,14 +281,14 @@ cmsg_transport_tipc_client_recv (cmsg_client* client)
 
       if (message == NULL)
       {
-        DEBUG ("[SERVER] error unpacking response message\n");
+        DEBUG ("[TRANSPORT] error unpacking response message\n");
         return NULL;
       }
       return message;
     }
     else
     {
-      DEBUG (" recv socket %d no data\n", client->socket);
+      DEBUG ("[TRANSPORT] recv socket %d no data\n", client->socket);
       ret = 0;
     }
     if (buffer != (void*)buf_static)
@@ -302,7 +302,7 @@ cmsg_transport_tipc_client_recv (cmsg_client* client)
   }
   else if (nbytes > 0)
   {
-    DEBUG (" recv socket %d bad header nbytes %d\n", client->socket, nbytes );
+    DEBUG ("[TRANSPORT] recv socket %d bad header nbytes %d\n", client->socket, nbytes );
 
     // TEMP to keep things going
     buffer = malloc (nbytes);
@@ -322,7 +322,7 @@ cmsg_transport_tipc_client_recv (cmsg_client* client)
     //Error while peeking at socket data.
     if (errno != ECONNRESET)
     {
-      DEBUG (" recv socket %d error: %s\n", client->socket, strerror(errno) );
+      DEBUG ("[TRANSPORT] recv socket %d error: %s\n", client->socket, strerror(errno) );
     }
     ret = 0;
   }
@@ -355,4 +355,22 @@ cmsg_transport_tipc_init(cmsg_transport *transport)
   transport->closure = cmsg_server_closure_rpc;
   transport->invoke = cmsg_client_invoke_rpc;
 }
+
+void
+cmsg_transport_oneway_tipc_init(cmsg_transport *transport)
+{
+  if (transport == NULL)
+    return;
+
+  transport->family = PF_TIPC;
+  transport->sockaddr.generic.sa_family = PF_TIPC;
+  transport->connect = cmsg_transport_tipc_connect;
+  transport->listen = cmsg_transport_tipc_listen;
+  transport->server_recv = cmsg_transport_tipc_server_recv;
+  transport->client_recv = cmsg_transport_tipc_client_recv;
+  transport->send = cmsg_transport_tipc_send;
+  transport->closure = cmsg_server_closure_oneway;
+  transport->invoke = cmsg_client_invoke_oneway;
+}
+
 

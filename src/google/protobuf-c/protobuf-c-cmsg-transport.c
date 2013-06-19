@@ -16,15 +16,13 @@ cmsg_transport_new (cmsg_transport_type type)
     cmsg_transport_tcp_init (transport);
     break;
   case CMSG_TRANSPORT_ONEWAY_TCP:
-    transport->family = PF_INET;
-    transport->sockaddr.generic.sa_family = PF_INET;
+    cmsg_transport_oneway_tcp_init (transport);
     break;
   case CMSG_TRANSPORT_RPC_TIPC:
     cmsg_transport_tipc_init (transport);
     break;
   case CMSG_TRANSPORT_ONEWAY_TIPC:
-    transport->family = PF_TIPC;
-    transport->sockaddr.generic.sa_family  = PF_TIPC;
+    cmsg_transport_oneway_tipc_init (transport);
     break;
   default:
     DEBUG ("[TRANSPORT] transport type not supported\n");
