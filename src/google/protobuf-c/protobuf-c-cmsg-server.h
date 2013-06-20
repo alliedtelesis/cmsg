@@ -20,6 +20,9 @@ struct _cmsg_server_request_s
   int32_t closure_response;
 };
 
+typedef int32_t (*server_message_processor_f)(cmsg_server* server,
+                                              uint8_t*     buffer_data);
+
 struct _cmsg_server_s
 {
   ProtobufCAllocator* allocator;
@@ -28,8 +31,9 @@ struct _cmsg_server_s
   int listening_socket;
   int client_socket;
   cmsg_server_request* server_request;
+  server_message_processor_f message_processor;
+  void* parent;
 };
-
 
 
 cmsg_server*

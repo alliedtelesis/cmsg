@@ -23,6 +23,7 @@ cmsg_server_new (cmsg_transport*   transport,
   server->listening_socket = 0;
   server->client_socket = 0;
   server->allocator = &protobuf_c_default_allocator; //initialize alloc and free for message_unpack() and message_free()
+  server->message_processor = cmsg_server_message_processor;
 
 
   DEBUG ("[SERVER] creating new server with type: %d\n", transport->type);
@@ -247,7 +248,12 @@ cmsg_server_closure_oneway (const ProtobufCMessage* message,
   cmsg_server_request* server_request = server->server_request;
   //we are not sending a response in this transport mode
   DEBUG ("[SERVER] invoking oneway method=%d\n", server_request->method_index);
-  DEBUG("[SERVER] nothing to do\n");
+
+  DEBUG ("[SERVER] shutting down socket\n");
+  shutdown(server_request->client_socket, 2);
+
+  DEBUG ("[SERVER] closing socket\n");
+  close(server_request->client_socket);
 
   server_request->closure_response = 0;
 }

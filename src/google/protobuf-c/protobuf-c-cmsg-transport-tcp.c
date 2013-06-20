@@ -159,7 +159,7 @@ cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server* server)
       cmsg_debug_buffer_print(buffer, dyn_len);
       server->server_request = &server_request;
 
-      if (cmsg_server_message_processor (server, buffer))
+      if (server->message_processor (server, buffer))
         DEBUG ("[TRANSPORT] message processing returned an error\n");
     }
     else

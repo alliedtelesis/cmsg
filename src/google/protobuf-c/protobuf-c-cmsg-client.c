@@ -5,6 +5,12 @@ cmsg_client*
 cmsg_client_new (cmsg_transport*                   transport,
                  const ProtobufCServiceDescriptor* descriptor)
 {
+  if (!transport)
+    {
+      DEBUG ("[CLIENT] error transport not defined\n");
+      return 0;
+    }
+
   cmsg_client* client = malloc (sizeof(cmsg_client));
   client->base_service.destroy = 0;
   client->allocator = &protobuf_c_default_allocator;
@@ -76,7 +82,7 @@ cmsg_client_connect (cmsg_client *client)
 {
   if  (!client)
     {
-      DEBUG ("[CLIENT] client not defined");
+      DEBUG ("[CLIENT] client not defined\n");
       return 0;
     }
 
@@ -150,9 +156,11 @@ cmsg_client_invoke_rpc (ProtobufCService*       service,
 
   memcpy ((void*)buffer + sizeof (header), (void*)buffer_data, packed_size);
 
-  printf ("[CLIENT] packet data\n");
+  DEBUG ("[CLIENT] packet data\n");
   cmsg_debug_buffer_print(buffer_data, packed_size);
 
+  DEBUG ("[CLIENT] sending on socket %d\n", client->socket);
+  
   ret = client->transport->send (client->socket, buffer, packed_size + sizeof (header), 0);
   if (ret < packed_size + sizeof (header))
     DEBUG ("[CLIENT] sending response failed send:%d of %ld\n", ret, packed_size + sizeof (header));

@@ -9,9 +9,8 @@
 
 
 //#define DEBUG_WORKSTATION
-#define DEBUG_SWITCH
-//#define DEBUG_DISABLED
-//#define cmsg_debug_buffer_print(fmt, ARGS...) (0)
+//#define DEBUG_SWITCH
+#define DEBUG_DISABLED
 
 #ifdef DEBUG_WORKSTATION
 #define DEBUG(...)  printf(__VA_ARGS__)

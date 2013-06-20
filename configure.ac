@@ -15,6 +15,13 @@ AC_CHECK_HEADERS(io.h)
 AC_CHECK_HEADERS(sys/uio.h)
 AC_CHECK_HEADERS(unistd.h)
 
+PKG_CHECK_MODULES(GLIB, glib-2.0 >=  2.2.0, HAVE_GLIB="yes", sweep_config_ok="no")
+AC_SUBST(GLIB_CFLAGS)
+AC_SUBST(GLIB_LIBS)
+if test "x$HAVE_GLIB" != xyes ; then
+  AC_CHECK_LIB(glib-2.0, g_list_append, HAVE_GLIB="maybe", sweep_config_ok="no")
+fi
+
 BUILD_PROTOC_C=1
 AC_ARG_ENABLE(protoc, [  --disable-protoc    Suppress build of protoc_c],
               if test "x$enableval" = xno ; then

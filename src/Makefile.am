@@ -1,3 +1,6 @@
+AM_CFLAGS = -I$(CROSS_DEV_ROOT_DIR)/usr/include/glib-2.0 \
+            -I$(CROSS_DEV_ROOT_DIR)/usr/lib/glib-2.0/include
+
 if BUILD_PROTOC_C
 SUBDIRS = . test
 bin_PROGRAMS = protoc-c
@@ -34,7 +37,9 @@ google/protobuf-c/protobuf-c-rpc.c \
 google/protobuf-c/protobuf-c-cmsg.c \
 google/protobuf-c/protobuf-c-cmsg-server.c \
 google/protobuf-c/protobuf-c-cmsg-client.c \
-google/protobuf-c/protobuf-c-cmsg-notification.c \
+google/protobuf-c/protobuf-c-cmsg-sub.c \
+google/protobuf-c/protobuf-c-cmsg-pub.c \
+google/protobuf-c/protobuf-c-cmsg-sub-service.pb-c.c \
 google/protobuf-c/protobuf-c-cmsg-transport.c \
 google/protobuf-c/protobuf-c-cmsg-transport-tipc.c \
 google/protobuf-c/protobuf-c-cmsg-transport-tcp.c \
@@ -48,6 +53,8 @@ google/protobuf-c/protobuf-c.c
 libprotobuf_c_la_LDFLAGS = \
 -no-undefined \
 -version-info 0:0:0
+
+libprotobuf_c_la_LIBADD = -lglib-2.0
 
 noinst_HEADERS = \
 google/protobuf/compiler/c/c_message_field.h \
@@ -76,6 +83,8 @@ google/protobuf-c/protobuf-c-dispatch.h \
 google/protobuf-c/protobuf-c-cmsg.h \
 google/protobuf-c/protobuf-c-cmsg-server.h \
 google/protobuf-c/protobuf-c-cmsg-client.h \
-google/protobuf-c/protobuf-c-cmsg-notification.h \
+google/protobuf-c/protobuf-c-cmsg-sub.h \
+google/protobuf-c/protobuf-c-cmsg-pub.h \
+google/protobuf-c/protobuf-c-cmsg-sub-service.pb-c.h \
 google/protobuf-c/protobuf-c-cmsg-transport.h \
 google/protobuf-c/protobuf-c-rpc.h

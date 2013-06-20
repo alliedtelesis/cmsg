@@ -10,6 +10,12 @@
 #include "protobuf-c.h"
 #include "protobuf-c-cmsg.h"
 
+
+//for types used in functions pointers below
+typedef struct _cmsg_client_s           cmsg_client;
+typedef struct _cmsg_server_s           cmsg_server;
+
+
 typedef union  _cmsg_socket_address_u   cmsg_socket_address;
 typedef enum   _cmsg_transport_type_e   cmsg_transport_type;
 typedef struct _cmsg_transport_s        cmsg_transport;
@@ -35,16 +41,20 @@ enum _cmsg_transport_type_e
 };
 
 
-typedef int (*client_conect_f)(void *client);
-typedef int (*server_listen_f)(void *server);
-typedef int (*server_recv_f)(int32_t socket, void  *server);
-typedef int (*client_recv_f)(void *client);
-typedef int (*send_f)(int32_t socket, void * buff, int length, int flag);
+typedef int (*client_conect_f)(cmsg_client* client);
+typedef int (*server_listen_f)(cmsg_server* server);
+typedef int (*server_recv_f)(int32_t      socket,
+                             cmsg_server* server);
+typedef ProtobufCMessage* (*client_recv_f)(cmsg_client* client);
+typedef int (*send_f)(int32_t socket,
+                      void*   buff,
+                      int     length,
+                      int     flag);
 typedef void (*invoke_f)(ProtobufCService*       service,
-    unsigned                method_index,
-    const ProtobufCMessage* input,
-    ProtobufCClosure        closure,
-    void*                   closure_data);
+                         unsigned                method_index,
+                         const ProtobufCMessage* input,
+                         ProtobufCClosure        closure,
+                         void*                   closure_data);
 
 
 struct _cmsg_transport_s

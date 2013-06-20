@@ -1,0 +1,28 @@
+package cmsg;
+
+message sub_entry
+{
+    required uint32 add = 1;
+    required string method_name = 2;
+    required uint32 transport_type = 3;
+
+    optional uint32 in_sin_addr_s_addr = 4;             //htonl(0x7f000001)
+    optional uint32 in_sin_port = 5;                    //htons((unsigned short)18888);
+
+    optional uint32 tipc_family = 6;                    //AF_TIPC
+    optional uint32 tipc_addrtype = 7;                  //TIPC_ADDR_NAME
+    optional uint32 tipc_addr_name_name_type = 8;       //TIPC PORT
+    optional uint32 tipc_addr_name_name_instance = 9;   //MEMBER ID
+    optional uint32 tipc_addr_name_domain = 10;         //0
+    optional uint32 tipc_scope = 11;                    //TIPC_ZONE_SCOPE
+}
+
+message sub_entry_response
+{
+    required int32 return_value = 1;
+}
+
+service sub_service
+{
+    rpc subscribe(sub_entry) returns (sub_entry_response);
+}
