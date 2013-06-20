@@ -583,7 +583,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     printer->Print("\n");
     printer->Print("/* Copy input variables to pbc send message */\n");
-    GenerateMessageCopyCode(method->input_type(), "msgS.", "", printer, true, true);
+    GenerateMessageCopyCode(method->input_type(), "msgS.", "", printer, true, true, true);
     printer->Print("\n");
 
     //
@@ -605,7 +605,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     //GenerateReceiveMessageCopyCode(method->output_type(), "msgR",  printer);
     printer->Print("/* Copy received message fields to output variables */\n");
-    GenerateMessageCopyCode(method->output_type(), "*result_", "msgR.", printer, false);
+    GenerateMessageCopyCode(method->output_type(), "*result_", "msgR.", printer, false, false, false);
     printer->Print("\n");
 
     //
@@ -646,7 +646,7 @@ void AtlCodeGenerator::GenerateAtlApiClosureFunction(const MethodDescriptor &met
   //
   // copy data from response message (result) to the closure data structure
   //
-  GenerateMessageCopyCode(method.output_type(), "cdata->", "result->", printer, true);
+  GenerateMessageCopyCode(method.output_type(), "cdata->", "result->", printer, true, false, true);
   printer->Outdent();
   printer->Print("}\n\n");
 
@@ -701,7 +701,7 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     // Prepare protobuf-c data struct to c for user impl
     //
     printer->Print("// convert input data from protobuf-c to pure user struct\n");
-    GenerateMessageCopyCode(method->input_type(), "user_input.", "input->", printer, false);
+    GenerateMessageCopyCode(method->input_type(), "user_input.", "input->", printer, true, false, false);
 
     //
     // call _impl user function
@@ -725,6 +725,7 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     printer->Print("service->closure_data = NULL;\n");
     printer->Print("\n");
 
+    GenerateCleanupMessageMemoryCode(method->input_type(), "user_input.", printer);
     // end of the function
     printer->Outdent();
     printer->Print("}\n\n");
@@ -823,7 +824,7 @@ void AtlCodeGenerator::GenerateAtlServerSendImplementation(const MethodDescripto
   //
   // copy data from response message (result) to the closure data structure
   //
-  GenerateMessageCopyCode(method.output_type(), "result.", "", printer, true, true);
+  GenerateMessageCopyCode(method.output_type(), "result.", "", printer, true, true, true);
 
   printer->Print("\n");
   printer->Print(vars_, "closure(&result, closure_data);\n");
@@ -880,7 +881,7 @@ void AtlCodeGenerator::GenerateSendMessageCopyCode(const Descriptor *message, co
   }
 }
 
-void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const string lhm, const string rhm, io::Printer *printer, bool allocate_memory, bool send)
+void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const string lhm, const string rhm, io::Printer *printer, bool allocate_memory, bool send, bool to_pbc)
 {
 
   //
@@ -910,6 +911,10 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       if (field->type() == FieldDescriptor::TYPE_MESSAGE)
       {
         vars_["message_name"] = FullNameToC(field->message_type()->full_name());
+        if (to_pbc)
+        {
+          vars_["message_name"] = vars_["message_name"] + "_pbc";
+        }
       }
       else
       {
@@ -924,18 +929,22 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       printer->Print(vars_, "for (i = 0; i < $left_field_count$; i++)\n");
       printer->Print("{\n");
       printer->Indent();
-
       //
       // now copy over each field in the structures in the repeated array
       //
       if (field->type() == FieldDescriptor::TYPE_MESSAGE)
       {
-        GenerateMessageCopyCode(field->message_type(), lhm + field_name + "[i]->", rhm + field_name + "[i]->", printer, allocate_memory, send);
+        // if this is a pbc struct, we need to init it before use
+        if (to_pbc)
+        {
+          vars_["lcclassname"] = FullNameToLower(field->message_type()->full_name());
+          printer->Print(vars_, "$lcclassname$__init($left_field_name$[i]);\n");
+        }
+        GenerateMessageCopyCode(field->message_type(), lhm + field_name + "[i]->", rhm + field_name + "[i]->", printer, allocate_memory, send, to_pbc);
       }
       else
       {
-        if (allocate_memory &&
-            ((field->type() == FieldDescriptor::TYPE_STRING) || (field->type() == FieldDescriptor::TYPE_MESSAGE)))
+        if (allocate_memory && (field->type() == FieldDescriptor::TYPE_STRING))
         {
           printer->Print(vars_, "$left_field_name$[i] = malloc(sizeof($message_name$));\n");
         }
@@ -993,12 +1002,33 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       // this is a sub message so we need to follow pointers into the sub structure.
       // first, we need to allocate memory here for this structure
       //
-      vars_["message_name"] = FullNameToC(field->message_type()->full_name());
       if (allocate_memory)
       {
-        printer->Print(vars_, "$left_field_name$ = malloc (sizeof ($message_name$));\n");
+        if (send || to_pbc)
+        {
+          // send messages are always _pbc structures, so make sure we allocate memory for
+          // a _pbc and not an ATL struct (_pbc are bigger than ATL structs)
+          vars_["message_name"] = FullNameToC(field->message_type()->full_name()) + "_pbc";
+          printer->Print(vars_, "$left_field_name$ = malloc (sizeof ($message_name$));\n");
+          // then if we are sending the struct we must init it
+          if (send)
+          {
+            vars_["lcclassname"] = FullNameToLower(field->message_type()->full_name());
+            printer->Print(vars_, "$lcclassname$__init($left_field_name$);\n");
+          }
+        }
+        else
+        {
+          vars_["message_name"] = FullNameToC(field->message_type()->full_name());
+          // no need to initialise the struct as the user has to provide values for all
+          // the fields anyway so just the malloc should be fine.
+          // note: we are not planning on sending this struct so lack of a pbc descriptor
+          // (provided by the INIT) shouldn't be a problem
+          printer->Print(vars_, "$left_field_name$ = malloc (sizeof ($message_name$));\n");
+        }
+
       }
-      GenerateMessageCopyCode(field->message_type(), "(" + lhm + field_name + ")->", "(" + rhm + field_name + ")->", printer, allocate_memory, send);
+      GenerateMessageCopyCode(field->message_type(), "(" + lhm + field_name + ")->", "(" + rhm + field_name + ")->", printer, allocate_memory, send, to_pbc);
     }
   }
 }
@@ -1038,7 +1068,8 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
       // note: don't free the individual elements in a primitive repeated field
       //   because we only allocate a single array not a double array.
       //
-      if ((field->type() == FieldDescriptor::TYPE_MESSAGE) || (field->type() == FieldDescriptor::TYPE_STRING))
+      if ((field->type() == FieldDescriptor::TYPE_MESSAGE && MessageContainsSubMessages(printer, field->message_type()))
+          || (field->type() == FieldDescriptor::TYPE_STRING))
       {
         printer->Print(vars_, "for (i = 0; i < $left_field_count$; i++)\n");
         printer->Print("{\n");
@@ -1073,7 +1104,6 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
     else if (field->type() == FieldDescriptor::TYPE_MESSAGE)
     {
       // this is a sub message so we need to follow pointers into the sub structure.
-      // TODO: do we need to allocate memory here?
       //
       GenerateCleanupMessageMemoryCode(field->message_type(), lhm + field_name + "->", printer);
       vars_["left_field_name"] = lhm + field_name;
