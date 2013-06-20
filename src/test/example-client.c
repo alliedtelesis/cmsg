@@ -164,7 +164,7 @@ int main(int argc, char**argv)
   for (;;)
     {
       char buf[1024];
-      Foo__Name_pbc query = FOO__NAME__INIT;
+      Foo__Name_pbc query = FOO__NAME_PBC__INIT;
       protobuf_c_boolean is_done = 0;
       fprintf (stderr, ">> ");
       if (fgets (buf, sizeof (buf), stdin) == NULL)

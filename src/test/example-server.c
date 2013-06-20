@@ -159,7 +159,7 @@ load_database (const char *filename)
               ||   starts_with (start, "work "))
             {
               Foo__Person__PhoneNumber_pbc *pn = xmalloc (sizeof (Foo__Person__PhoneNumber_pbc));
-              Foo__Person__PhoneNumber_pbc tmp = FOO__PERSON__PHONE_NUMBER__INIT;
+              Foo__Person__PhoneNumber_pbc tmp = FOO__PERSON__PHONE_NUMBER_PBC__INIT;
               tmp.has_type = 1;
               tmp.type = start[0] == 'm' ? FOO__PERSON__PHONE_TYPE__MOBILE
                        : start[0] == 'h' ? FOO__PERSON__PHONE_TYPE__HOME
@@ -211,7 +211,7 @@ example__by_name (Foo__DirLookup_Service    *service,
     closure (NULL, closure_data);
   else
     {
-      Foo__LookupResult_pbc result = FOO__LOOKUP_RESULT__INIT;
+      Foo__LookupResult_pbc result = FOO__LOOKUP_RESULT_PBC__INIT;
       Foo__Person_pbc *rv = bsearch (name->name, database, database_size,
                                  sizeof (Foo__Person_pbc), compare_name_to_person);
       if (rv != NULL)
