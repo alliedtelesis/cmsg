@@ -283,16 +283,21 @@ void AtlCodeGenerator::GenerateParameterListFromMessage(io::Printer* printer, co
     for (int i = 0; i < message->field_count(); i++) {
       const FieldDescriptor *field = message->field(i);
 
-      if (!output)
-      {
-        if (field->type() == FieldDescriptor::TYPE_MESSAGE || field->type() == FieldDescriptor::TYPE_STRING)
-          printer->Print("const ");
-      }
-
       vars_["field_name"] = prefix + FieldName(field);
       // if the field type is message we will print this out as a struct
       // ie we will print field_type (struct), message_name (struct name), and field_name (variable name)
-      if (field->type() == FieldDescriptor::TYPE_MESSAGE) {
+      if (field->type() == FieldDescriptor::TYPE_MESSAGE)
+      {
+        if (field->is_repeated())
+        {
+          // if field is repeated, need to add a count/size parameter
+          printer->Print(vars_, "size_t ");
+          if (output)
+          {
+            printer->Print("*");
+          }
+          printer->Print(vars_, "n_$field_name$, ");
+        }
         vars_["message_name"] = FullNameToC(field->message_type()->full_name());
         printer->Print(vars_, "$message_name$");
         printer->Print(vars_, " *$field_name$");
