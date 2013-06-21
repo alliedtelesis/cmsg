@@ -37,7 +37,7 @@ void SetStringVariables(const FieldDescriptor* descriptor,
                         map<string, string>* variables) {
   (*variables)["name"] = FieldName(descriptor);
   (*variables)["default"] = FullNameToLower(descriptor->full_name())
-	+ "__default_value";
+	+ "_default_value";
   (*variables)["deprecated"] = FieldDeprecated(descriptor);
 }
 

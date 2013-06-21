@@ -5,7 +5,7 @@
 #include "protobuf-c-cmsg.h"
 #include "protobuf-c-cmsg-transport.h"
 
-#define CMSG_DESCRIPTOR(package,service)  ((ProtobufCServiceDescriptor *)&package ## __ ## service ## __descriptor)
+#define CMSG_DESCRIPTOR(package,service)  ((ProtobufCServiceDescriptor *)&package ## _ ## service ## _descriptor)
 
 typedef enum   _cmsg_client_state_e     cmsg_client_state;
 typedef struct _cmsg_client_s           cmsg_client;

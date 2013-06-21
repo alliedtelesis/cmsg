@@ -89,7 +89,7 @@ void MessageFieldGenerator::GenerateStaticInit(io::Printer* printer) const
 }
 void MessageFieldGenerator::GenerateDescriptorInitializer(io::Printer* printer) const
 {
-  string addr = "&" + FullNameToLower(descriptor_->message_type()->full_name()) + "__descriptor";
+  string addr = "&" + FullNameToLower(descriptor_->message_type()->full_name()) + "_descriptor";
   GenerateDescriptorInitializerGeneric(printer, false, "MESSAGE", addr);
 }
 

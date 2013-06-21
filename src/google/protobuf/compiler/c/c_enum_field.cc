@@ -42,7 +42,7 @@ void SetEnumVariables(const FieldDescriptor* descriptor,
   if (descriptor->has_default_value()) {
     const EnumValueDescriptor* default_value = descriptor->default_value_enum();
     (*variables)["default"] = FullNameToUpper(default_value->type()->full_name())
-			    + "__" + ToUpper(default_value->name());
+			    + "_" + ToUpper(default_value->name());
   } else
     (*variables)["default"] = "0";
   (*variables)["deprecated"] = FieldDeprecated(descriptor);
@@ -107,7 +107,7 @@ void EnumFieldGenerator::GenerateStaticInit(io::Printer* printer) const
 
 void EnumFieldGenerator::GenerateDescriptorInitializer(io::Printer* printer) const
 {
-  string addr = "&" + FullNameToLower(descriptor_->enum_type()->full_name()) + "__descriptor";
+  string addr = "&" + FullNameToLower(descriptor_->enum_type()->full_name()) + "_descriptor";
   GenerateDescriptorInitializerGeneric(printer, true, "ENUM", addr);
 }
 

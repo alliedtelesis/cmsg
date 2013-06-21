@@ -18,17 +18,17 @@ message (const char *format, ...)
 
 /* --- A local service --- */
 static void
-test__by_name (Foo__DirLookup_Service *service,
-               const Foo__Name *name,
-               Foo__LookupResult_Closure closure,
-               void *closure_data)
+test_by_name (Foo_DirLookup_Service *service,
+              const Foo_Name *name,
+              Foo_LookupResult_Closure closure,
+              void *closure_data)
 {
-  Foo__LookupResult result = FOO__LOOKUP_RESULT__INIT;
-  Foo__Person__PhoneNumber pn = FOO__PERSON__PHONE_NUMBER__INIT;
-  Foo__Person__PhoneNumber *pns[] = { &pn };
-  Foo__Person person = FOO__PERSON__INIT;
+  Foo_LookupResult result = FOO_LOOKUP_RESULT_INIT;
+  Foo_Person_PhoneNumber pn = FOO_PERSON_PHONE_NUMBER_INIT;
+  Foo_Person_PhoneNumber *pns[] = { &pn };
+  Foo_Person person = FOO_PERSON_INIT;
   char *number = NULL;
-  Foo__Person__PhoneType type = FOO__PERSON__PHONE_TYPE__MOBILE;
+  Foo_Person_PhoneType type = FOO_PERSON_PHONE_TYPE_MOBILE;
   char *email = NULL;
   (void) service;
   if (name->name == NULL)
@@ -36,12 +36,12 @@ test__by_name (Foo__DirLookup_Service *service,
   else if (strcmp (name->name, "dave") == 0)
     {
       number = "555-1212";
-      type = FOO__PERSON__PHONE_TYPE__MOBILE;
+      type = FOO_PERSON_PHONE_TYPE_MOBILE;
     }
   else if (strcmp (name->name, "joe the plumber") == 0)
     {
       number = "976-PIPE";
-      type = FOO__PERSON__PHONE_TYPE__WORK;
+      type = FOO_PERSON_PHONE_TYPE_WORK;
       email = "joe@the-plumber.com";
     }
 
@@ -59,11 +59,11 @@ test__by_name (Foo__DirLookup_Service *service,
   closure (&result, closure_data);
 }
 
-static Foo__DirLookup_Service the_dir_lookup_service =
-  FOO__DIR_LOOKUP__INIT(test__);
+static Foo_DirLookup_Service the_dir_lookup_service =
+  FOO_DIR_LOOKUP_INIT(test_);
 
 static void
-test_dave_closure (const Foo__LookupResult *result,
+test_dave_closure (const Foo_LookupResult *result,
                    void *closure_data)
 {
   assert (result);
@@ -72,11 +72,11 @@ test_dave_closure (const Foo__LookupResult *result,
   assert (strcmp (result->person->name, "dave") == 0);
   assert (result->person->n_phone == 1);
   assert (strcmp (result->person->phone[0]->number, "555-1212") == 0);
-  assert (result->person->phone[0]->type == FOO__PERSON__PHONE_TYPE__MOBILE);
+  assert (result->person->phone[0]->type == FOO_PERSON_PHONE_TYPE_MOBILE);
   * (protobuf_c_boolean *) closure_data = 1;
 }
 static void
-test_joe_the_plumber_closure (const Foo__LookupResult *result,
+test_joe_the_plumber_closure (const Foo_LookupResult *result,
                               void *closure_data)
 {
   assert (result);
@@ -85,11 +85,11 @@ test_joe_the_plumber_closure (const Foo__LookupResult *result,
   assert (strcmp (result->person->name, "joe the plumber") == 0);
   assert (result->person->n_phone == 1);
   assert (strcmp (result->person->phone[0]->number, "976-PIPE") == 0);
-  assert (result->person->phone[0]->type == FOO__PERSON__PHONE_TYPE__WORK);
+  assert (result->person->phone[0]->type == FOO_PERSON_PHONE_TYPE_WORK);
   * (protobuf_c_boolean *) closure_data = 1;
 }
 static void
-test_not_found_closure (const Foo__LookupResult *result,
+test_not_found_closure (const Foo_LookupResult *result,
                         void *closure_data)
 {
   assert (result);
@@ -98,7 +98,7 @@ test_not_found_closure (const Foo__LookupResult *result,
 }
 
 static void
-test_defunct_closure (const Foo__LookupResult *result,
+test_defunct_closure (const Foo_LookupResult *result,
                         void *closure_data)
 {
   assert (result == NULL);
@@ -109,48 +109,48 @@ test_defunct_closure (const Foo__LookupResult *result,
 static void
 test_service (ProtobufCService *service)
 {
-  Foo__Name name = FOO__NAME__INIT;
+  Foo_Name name = FOO_NAME_INIT;
   protobuf_c_boolean is_done;
 
   name.name = "dave";
   is_done = 0;
-  foo__dir_lookup__by_name (service, &name, test_dave_closure, &is_done);
+  foo_dir_lookup_by_name (service, &name, test_dave_closure, &is_done);
   while (!is_done)
     protobuf_c_dispatch_run (protobuf_c_dispatch_default ());
 
   name.name = "joe the plumber";
   is_done = 0;
-  foo__dir_lookup__by_name (service, &name, test_joe_the_plumber_closure, &is_done);
+  foo_dir_lookup_by_name (service, &name, test_joe_the_plumber_closure, &is_done);
   while (!is_done)
     protobuf_c_dispatch_run (protobuf_c_dispatch_default ());
 
   name.name = "asdfvcvzxsa";
   is_done = 0;
-  foo__dir_lookup__by_name (service, &name, test_not_found_closure, &is_done);
+  foo_dir_lookup_by_name (service, &name, test_not_found_closure, &is_done);
   while (!is_done)
     protobuf_c_dispatch_run (protobuf_c_dispatch_default ());
 }
 static void
 test_defunct_client (ProtobufCService *service)
 {
-  Foo__Name name = FOO__NAME__INIT;
+  Foo_Name name = FOO_NAME_INIT;
   protobuf_c_boolean is_done;
 
   name.name = "dave";
   is_done = 0;
-  foo__dir_lookup__by_name (service, &name, test_defunct_closure, &is_done);
+  foo_dir_lookup_by_name (service, &name, test_defunct_closure, &is_done);
   while (!is_done)
     protobuf_c_dispatch_run (protobuf_c_dispatch_default ());
 
   name.name = "joe the plumber";
   is_done = 0;
-  foo__dir_lookup__by_name (service, &name, test_defunct_closure, &is_done);
+  foo_dir_lookup_by_name (service, &name, test_defunct_closure, &is_done);
   while (!is_done)
     protobuf_c_dispatch_run (protobuf_c_dispatch_default ());
 
   name.name = "asdfvcvzxsa";
   is_done = 0;
-  foo__dir_lookup__by_name (service, &name, test_defunct_closure, &is_done);
+  foo_dir_lookup_by_name (service, &name, test_defunct_closure, &is_done);
   while (!is_done)
     protobuf_c_dispatch_run (protobuf_c_dispatch_default ());
 }
@@ -190,7 +190,7 @@ int main()
      the client returns a failure immediately */
   remote_service = protobuf_c_rpc_client_new (PROTOBUF_C_RPC_ADDRESS_LOCAL,
                                        "test.socket",
-                                       &foo__dir_lookup__descriptor,
+                                       &foo_dir_lookup_descriptor,
                                        NULL);
   assert (remote_service != NULL);
   client = (ProtobufC_RPC_Client *) remote_service;

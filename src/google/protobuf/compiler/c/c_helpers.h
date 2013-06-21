@@ -40,7 +40,7 @@ namespace c {
 //   package foo.bar;
 //   message Baz { message Qux {} }
 // Then the qualified ClassName for Qux would be:
-//   Foo__Bar__Baz_Qux
+//   Foo_Bar_Baz_Qux
 // While the non-qualified version would be:
 //   Baz_Qux
 string ClassName(const Descriptor* descriptor, bool qualified);

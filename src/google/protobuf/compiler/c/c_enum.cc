@@ -54,7 +54,7 @@ void EnumGenerator::GenerateDefinition(io::Printer* printer) {
 
 
   vars["opt_comma"] = ",";
-  vars["prefix"] = FullNameToUpper(descriptor_->full_name()) + "__";
+  vars["prefix"] = FullNameToUpper(descriptor_->full_name()) + "_";
   for (int i = 0; i < descriptor_->value_count(); i++) {
     vars["name"] = descriptor_->value(i)->name();
     vars["number"] = SimpleItoa(descriptor_->value(i)->number());
@@ -87,7 +87,7 @@ void EnumGenerator::GenerateDescriptorDeclarations(io::Printer* printer) {
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
 
   printer->Print(vars,
-    "extern $dllexport$const ProtobufCEnumDescriptor    $lcclassname$__descriptor;\n");
+    "extern $dllexport$const ProtobufCEnumDescriptor    $lcclassname$_descriptor;\n");
 }
 
 struct ValueIndex
@@ -102,7 +102,7 @@ void EnumGenerator::GenerateValueInitializer(io::Printer *printer, int index)
   const EnumValueDescriptor *vd = descriptor_->value(index);
   map<string, string> vars;
   vars["enum_value_name"] = vd->name();
-  vars["c_enum_value_name"] = FullNameToUpper(descriptor_->full_name()) + "__" + ToUpper(vd->name());
+  vars["c_enum_value_name"] = FullNameToUpper(descriptor_->full_name()) + "_" + ToUpper(vd->name());
   vars["value"] = SimpleItoa(vd->number());
   printer->Print(vars,
    "  { \"$enum_value_name$\", \"$c_enum_value_name$\", $value$ },\n");
@@ -167,7 +167,7 @@ void EnumGenerator::GenerateEnumDescriptor(io::Printer* printer) {
 
   vars["unique_value_count"] = SimpleItoa(n_unique_values);
   printer->Print(vars,
-    "const ProtobufCEnumValue $lcclassname$__enum_values_by_number[$unique_value_count$] =\n"
+    "const ProtobufCEnumValue $lcclassname$_enum_values_by_number[$unique_value_count$] =\n"
     "{\n");
   if (descriptor_->value_count() > 0) {
     GenerateValueInitializer(printer, value_index[0].index);
@@ -178,7 +178,7 @@ void EnumGenerator::GenerateEnumDescriptor(io::Printer* printer) {
     }
   }
   printer->Print(vars, "};\n");
-  printer->Print(vars, "static const ProtobufCIntRange $lcclassname$__value_ranges[] = {\n");
+  printer->Print(vars, "static const ProtobufCIntRange $lcclassname$_value_ranges[] = {\n");
   unsigned n_ranges = 0;
   if (descriptor_->value_count() > 0) {
     unsigned range_start = 0;
@@ -220,7 +220,7 @@ void EnumGenerator::GenerateEnumDescriptor(io::Printer* printer) {
   qsort(value_index, descriptor_->value_count(),
         sizeof(ValueIndex), compare_value_indices_by_name);
   printer->Print(vars,
-    "const ProtobufCEnumValueIndex $lcclassname$__enum_values_by_name[$value_count$] =\n"
+    "const ProtobufCEnumValueIndex $lcclassname$_enum_values_by_name[$value_count$] =\n"
     "{\n");
   for (int j = 0; j < descriptor_->value_count(); j++) {
     vars["index"] = SimpleItoa(value_index[j].final_index);
@@ -230,7 +230,7 @@ void EnumGenerator::GenerateEnumDescriptor(io::Printer* printer) {
   printer->Print(vars, "};\n");
 
   printer->Print(vars,
-    "const ProtobufCEnumDescriptor $lcclassname$__descriptor =\n"
+    "const ProtobufCEnumDescriptor $lcclassname$_descriptor =\n"
     "{\n"
     "  PROTOBUF_C_ENUM_DESCRIPTOR_MAGIC,\n"
     "  \"$fullname$\",\n"
@@ -238,11 +238,11 @@ void EnumGenerator::GenerateEnumDescriptor(io::Printer* printer) {
     "  \"$cname$\",\n"
     "  \"$packagename$\",\n"
     "  $unique_value_count$,\n"
-    "  $lcclassname$__enum_values_by_number,\n"
+    "  $lcclassname$_enum_values_by_number,\n"
     "  $value_count$,\n"
-    "  $lcclassname$__enum_values_by_name,\n"
+    "  $lcclassname$_enum_values_by_name,\n"
     "  $n_ranges$,\n"
-    "  $lcclassname$__value_ranges,\n"
+    "  $lcclassname$_value_ranges,\n"
     "  NULL,NULL,NULL,NULL   /* reserved[1234] */\n"
     "};\n");
 }

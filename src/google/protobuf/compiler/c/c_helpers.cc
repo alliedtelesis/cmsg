@@ -142,7 +142,7 @@ string FullNameToLower(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
-    if (rv != "") rv += "__";
+    if (rv != "") rv += "_";
     rv += CamelToLower(pieces[i]);
   }
   return rv;
@@ -153,7 +153,7 @@ string FullNameToUpper(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
-    if (rv != "") rv += "__";
+    if (rv != "") rv += "_";
     rv += CamelToUpper(pieces[i]);
   }
   return rv;
@@ -164,7 +164,7 @@ string FullNameToC(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
-    if (rv != "") rv += "__";
+    if (rv != "") rv += "_";
     rv += ToCamel(pieces[i]);
   }
   return rv;

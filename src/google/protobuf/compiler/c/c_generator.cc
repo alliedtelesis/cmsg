@@ -86,8 +86,8 @@ bool CGenerator::Generate(const FileDescriptor* file,
   //   class FOO_EXPORT Foo {
   //     ...
   //   }
-  // FOO_EXPORT is a macro which should expand to __declspec(dllexport) or
-  // __declspec(dllimport) depending on what is being compiled.
+  // FOO_EXPORT is a macro which should expand to _declspec(dllexport) or
+  // _declspec(dllimport) depending on what is being compiled.
   string dllexport_decl;
 
   for (unsigned i = 0; i < options.size(); i++) {

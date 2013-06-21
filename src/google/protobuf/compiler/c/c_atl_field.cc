@@ -78,7 +78,7 @@ void AtlFieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printe
   if (descriptor_->has_default_value()) {
     variables["default_value"] = string("&")
                                + FullNameToLower(descriptor_->full_name())
-			       + "__default_value";
+			       + "_default_value";
   } else {
     variables["default_value"] = "NULL";
   }
