@@ -47,11 +47,11 @@ cmsg_sub_server_receive (cmsg_sub* subscriber,
                          int32_t   server_socket);
 
 int32_t
-cmsg_sub_register (cmsg_sub* subscriber,
-                   char*     method_name);
+cmsg_sub_subscribe (cmsg_sub* subscriber,
+                    char*     method_name);
 
 int32_t
-cmsg_sub_unregister (cmsg_sub* subscriber,
-                     char*     method_name);
+cmsg_sub_unsubscribe (cmsg_sub* subscriber,
+                      char*     method_name);
 
 #endif
