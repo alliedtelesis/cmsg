@@ -78,10 +78,10 @@ class AtlCodeGenerator {
   void GenerateAtlServerImplementation(io::Printer* printer);
   void GenerateAtlServerSendImplementation(const MethodDescriptor &method, io::Printer* printer);
   string GetAtlClosureFunctionName(const MethodDescriptor &method);
-  void GenerateMessageCopyCode(const Descriptor *message, const string lhm, const string rhm, io::Printer *printer, bool allocate_memory, bool send, bool to_pbc);
+  void GenerateMessageCopyCode(const Descriptor *message, const string lhm, const string rhm, io::Printer *printer, bool allocate_memory, bool send, bool to_pbc, int depth = 0);
   void GenerateSendMessageCopyCode(const Descriptor *message, const string message_name, io::Printer *printer);
   void GenerateReceiveMessageCopyCode(const Descriptor *message, const string message_name, io::Printer *printer);
-  void GenerateCleanupMessageMemoryCode(const Descriptor *message, const string lhm, io::Printer *printer);
+  void GenerateCleanupMessageMemoryCode(const Descriptor *message, const string lhm, io::Printer *printer, int depth = 0);
 
 
   void PrintMessageFields(io::Printer* printer, const Descriptor *message);
