@@ -554,9 +554,12 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
     //
     // we need to generate a closure function for the api to call on return
-    // of the rpc call from the server
+    // of the rpc call from the server just when we have a response with fields
     //
-    GenerateAtlApiClosureFunction(*method, printer);
+    if(method->output_type()->field_count() > 0)
+    {
+      GenerateAtlApiClosureFunction(*method, printer);
+    }
     //
     // next generate the api function
     //
@@ -566,7 +569,13 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //start filling it in
     printer->Print("{\n");
     printer->Indent();
-    printer->Print(vars_, "$output_typename$_pbc msgR;\n");
+    //
+    // don't create response when response has no fields
+    //
+    if(method->output_type()->field_count() > 0)
+    {
+      printer->Print(vars_, "$output_typename$_pbc msgR;\n");
+    }
     printer->Print(vars_, "$input_typename$_pbc msgS = $input_typename_upper$_PBC_INIT;\n");
     printer->Print(vars_, "ProtobufCService *service = (ProtobufCService *)client;\n");
 
@@ -585,7 +594,18 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     vars_["closure_name"] = GetAtlClosureFunctionName(*method);
     vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
     vars_["method_lcname"] = CamelToLower(method->name());
-    printer->Print(vars_, "$lcfullname$_$method_lcname$ (service, &msgS, $closure_name$, &msgR);\n\n");
+
+    //
+    // don't pass response callback and msg when response is empty
+    //
+    if(method->output_type()->field_count() > 0)
+    {
+      printer->Print(vars_, "$lcfullname$_$method_lcname$ (service, &msgS, $closure_name$, &msgR);\n\n");
+    }
+    else
+    {
+      printer->Print(vars_, "$lcfullname$_$method_lcname$ (service, &msgS, NULL, NULL);\n\n");
+    }
 
     //
     // to be tidy, cleanup the sent message memory
