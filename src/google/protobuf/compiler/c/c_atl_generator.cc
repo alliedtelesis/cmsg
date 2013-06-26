@@ -612,6 +612,8 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     printer->Print("/* Free send message memory */\n");
     GenerateCleanupMessageMemoryCode(method->input_type(), "msgS.", printer);
+    printer->Print("\n");
+
     //
     // copy the return values
     //
@@ -626,6 +628,8 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     printer->Print("/* Free temporary receive message memory */\n");
     GenerateCleanupMessageMemoryCode(method->output_type(), "msgR.", printer);
+    printer->Print("\n");
+
     //
     // finally return something
     //
@@ -967,11 +971,18 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       }
       else
       {
-        if (allocate_memory && (field->type() == FieldDescriptor::TYPE_STRING))
+        if (field->type() == FieldDescriptor::TYPE_STRING)
         {
-          printer->Print(vars_, "$left_field_name$[$i$] = malloc(sizeof($message_name$));\n");
+          if (allocate_memory)
+          {
+            printer->Print(vars_, "$left_field_name$[$i$] = malloc (strlen ($right_field_name$[$i$]) + 1);\n");
+          }
+          printer->Print(vars_, "strcpy ($left_field_name$[$i$], $right_field_name$[$i$]);\n");
         }
-        printer->Print(vars_, "$left_field_name$[$i$] = $right_field_name$[$i$];\n");
+        else
+        {
+          printer->Print(vars_, "$left_field_name$[$i$] = $right_field_name$[$i$];\n");
+        }
       }
       printer->Outdent();
       printer->Print("}\n"); //for loop
@@ -991,7 +1002,7 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       {
         printer->Print(vars_, "$left_field_name$ = malloc (strlen ($right_field_name$) + 1);\n");
       }
-      printer->Print(vars_, "strncpy ($left_field_name$, $right_field_name$, strlen($right_field_name$));\n");
+      printer->Print(vars_, "strcpy ($left_field_name$, $right_field_name$);\n");
       printer->Outdent();
       printer->Print("}\n");
     }
