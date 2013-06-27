@@ -314,6 +314,12 @@ cmsg_pub_invoke(ProtobufCService*       service,
                                 closure,
                                 closure_data);
 
+      if (publisher->pub_client->state == CMSG_CLIENT_STATE_FAILED)
+        {
+          DEBUG ("[PUB] warning subscriber not reachable, removing from list\n");
+          cmsg_pub_subscriber_remove (publisher, list_entry);
+        }
+
       cmsg_client_destroy(publisher->pub_client);
 
       subscriber_list = g_list_next (subscriber_list);

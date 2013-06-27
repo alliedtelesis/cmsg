@@ -16,6 +16,7 @@ cmsg_transport_tipc_connect (cmsg_client *client)
 
   if (client->connection.socket < 0)
   {
+    client->state = CMSG_CLIENT_STATE_FAILED;
     DEBUG ("[TRANSPORT]error creating socket: %s\n", strerror (errno));
     return 0;
   }
@@ -29,6 +30,7 @@ cmsg_transport_tipc_connect (cmsg_client *client)
     }
     close (client->connection.socket);
     client->connection.socket = 0;
+    client->state = CMSG_CLIENT_STATE_FAILED;
     DEBUG ("[TRANSPORT]error connecting to remote host: %s\n", strerror (errno));
     return 0;
   }
@@ -412,7 +414,6 @@ cmsg_transport_tipc_init(cmsg_transport *transport)
 
   transport->family = PF_TIPC;
   transport->sockaddr.generic.sa_family = PF_TIPC;
-//  transport->socket.client_socket = 0;
   transport->connect = cmsg_transport_tipc_connect;
   transport->listen = cmsg_transport_tipc_listen;
   transport->server_recv = cmsg_transport_tipc_server_recv;

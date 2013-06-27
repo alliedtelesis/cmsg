@@ -13,6 +13,7 @@ cmsg_transport_tcp_connect (cmsg_client *client)
 
   if (client->connection.socket < 0)
   {
+    client->state = CMSG_CLIENT_STATE_FAILED;
     DEBUG ("[TRANSPORT]error creating socket: %s\n", strerror (errno));
     return 0;
   }
@@ -26,6 +27,7 @@ cmsg_transport_tcp_connect (cmsg_client *client)
     }
     close (client->connection.socket);
     client->connection.socket = 0;
+    client->state = CMSG_CLIENT_STATE_FAILED;
     DEBUG ("[TRANSPORT]error connecting to remote host: %s\n", strerror (errno));
     return 0;
   }
@@ -44,7 +46,7 @@ cmsg_transport_tcp_listen (cmsg_server* server)
   int32_t yes = 1; // for setsockopt() SO_REUSEADDR, below
   int32_t listening_socket = -1;
   int32_t ret = 0;
-  socklen_t addrlen  = 0;
+  socklen_t addrlen = 0;
   cmsg_transport *transport = NULL;
 
   if (server == NULL)
@@ -110,6 +112,7 @@ cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server* server)
 
   if (!server || socket < 0)
   {
+    DEBUG ("[TRANSPORT] error server/socket invalid\n");
     return -1;
   }
 
@@ -120,7 +123,7 @@ cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server* server)
 
   if (server->connection.sockets.client_socket <= 0)
   {
-    DEBUG ("[TRANSPORT] accept failed\n");
+    DEBUG ("[TRANSPORT] error accept failed: %s\n", strerror (errno));
     DEBUG ("[TRANSPORT] server->connection.sockets.client_socket = %d\n", server->connection.sockets.client_socket);
     return -1;
   }
@@ -424,7 +427,6 @@ cmsg_transport_oneway_tcp_init(cmsg_transport *transport)
 
   transport->family = PF_INET;
   transport->sockaddr.generic.sa_family = PF_INET;
-//  transport->socket.client_socket = 0;
   transport->connect = cmsg_transport_tcp_connect;
   transport->listen = cmsg_transport_tcp_listen;
   transport->server_recv = cmsg_transport_tcp_server_recv;
