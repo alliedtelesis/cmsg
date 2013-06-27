@@ -4,7 +4,6 @@
 #include <glib.h>
 
 #include "protobuf-c-cmsg.h"
-#include "protobuf-c-cmsg-transport.h"
 #include "protobuf-c-cmsg-client.h"
 #include "protobuf-c-cmsg-server.h"
 #include "protobuf-c-cmsg-sub-service.pb-c.h"

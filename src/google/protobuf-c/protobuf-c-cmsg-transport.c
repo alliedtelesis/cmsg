@@ -24,6 +24,9 @@ cmsg_transport_new (cmsg_transport_type type)
   case CMSG_TRANSPORT_ONEWAY_TIPC:
     cmsg_transport_oneway_tipc_init (transport);
     break;
+  case CMSG_TRANSPORT_CPG:
+    cmsg_transport_cpg_init (transport);
+    break;
   default:
     DEBUG ("[TRANSPORT] transport type not supported\n");
     free (transport);

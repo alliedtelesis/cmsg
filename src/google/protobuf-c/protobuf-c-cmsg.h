@@ -6,6 +6,7 @@
 #include <errno.h>
 
 #include "protobuf-c.h"
+#include "protobuf-c-cmsg-transport.h"
 
 
 //#define DEBUG_WORKSTATION

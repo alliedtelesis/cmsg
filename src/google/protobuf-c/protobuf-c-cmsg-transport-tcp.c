@@ -3,28 +3,29 @@
 #include "protobuf-c-cmsg-server.h"
 
 
-
 static int32_t
 cmsg_transport_tcp_connect (cmsg_client *client)
 {
   if (client == NULL)
     return 0;
 
-  client->socket = socket (client->transport->family, SOCK_STREAM, 0);
+  client->connection.socket = socket (client->transport->family, SOCK_STREAM, 0);
 
-  if (client->socket < 0)
+  if (client->connection.socket < 0)
   {
     DEBUG ("[TRANSPORT]error creating socket: %s\n", strerror (errno));
     return 0;
   }
-  if (connect (client->socket, (struct sockaddr*)&client->transport->sockaddr.tipc, sizeof (client->transport->sockaddr.tipc)) < 0)
+  if (connect (client->connection.socket,
+               (struct sockaddr*)&client->transport->sockaddr.in,
+               sizeof (client->transport->sockaddr.in)) < 0)
   {
     if (errno == EINPROGRESS)
     {
       //?
     }
-    close (client->socket);
-    client->socket = 0;
+    close (client->connection.socket);
+    client->connection.socket = 0;
     DEBUG ("[TRANSPORT]error connecting to remote host: %s\n", strerror (errno));
     return 0;
   }
@@ -43,15 +44,18 @@ cmsg_transport_tcp_listen (cmsg_server* server)
   int32_t yes = 1; // for setsockopt() SO_REUSEADDR, below
   int32_t listening_socket = -1;
   int32_t ret = 0;
-  socklen_t addrlen  = sizeof (cmsg_socket_address);
+  socklen_t addrlen  = 0;
   cmsg_transport *transport = NULL;
 
   if (server == NULL)
     return 0;
 
+  server->connection.sockets.listening_socket = 0;
+  server->connection.sockets.client_socket = 0;
+
   transport = server->transport;
   listening_socket = socket (transport->family, SOCK_STREAM, 0);
-  if (listening_socket == -1 )
+  if (listening_socket == -1)
   {
     DEBUG ("[TRANSPORT] socket failed with: %s\n", strerror(errno));
     return -1;
@@ -60,15 +64,17 @@ cmsg_transport_tcp_listen (cmsg_server* server)
   ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int32_t));
   if (ret == -1)
   {
-    DEBUG ("[TRANSPORT] setsockopt failed with: %s\n", strerror(errno));
+    DEBUG ("[TRANSPORT] setsockopt failed with: %s\n", strerror (errno));
     close (listening_socket);
     return -1;
   }
 
+  addrlen = sizeof (transport->sockaddr.generic);
+
   ret = bind (listening_socket, &transport->sockaddr.generic, addrlen);
   if (ret < 0)
   {
-    DEBUG ("[TRANSPORT] bind failed with: %s\n", strerror(errno));
+    DEBUG ("[TRANSPORT] bind failed with: %s\n", strerror (errno));
     close (listening_socket);
     return -1;
   }
@@ -76,12 +82,12 @@ cmsg_transport_tcp_listen (cmsg_server* server)
   ret = listen (listening_socket, 10);
   if (ret < 0)
   {
-    DEBUG ("[TRANSPORT] listen failed with: %s\n", strerror(errno));
+    DEBUG ("[TRANSPORT] listen failed with: %s\n", strerror (errno));
     close (listening_socket);
     return -1;
   }
 
-  server->listening_socket = listening_socket;
+  server->connection.sockets.listening_socket = listening_socket;
 
   DEBUG ("[TRANSPORT] listening on tcp socket: %d\n", listening_socket);
   DEBUG ("[TRANSPORT] listening on port: %d\n", (int)ntohs(server->transport->sockaddr.in.sin_port));
@@ -108,20 +114,20 @@ cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server* server)
   }
 
   client_len = sizeof (client_transport.sockaddr.in);
-  server->client_socket = accept (socket,
-                                  (struct sockaddr *)&client_transport.sockaddr.in,
-                                   &client_len);
+  server->connection.sockets.client_socket = accept (socket,
+                                                     (struct sockaddr *)&client_transport.sockaddr.in,
+                                                     &client_len);
 
-  if (server->client_socket <= 0)
+  if (server->connection.sockets.client_socket <= 0)
   {
     DEBUG ("[TRANSPORT] accept failed\n");
-    DEBUG ("[TRANSPORT] server->client_socket = %d\n", server->client_socket);
+    DEBUG ("[TRANSPORT] server->connection.sockets.client_socket = %d\n", server->connection.sockets.client_socket);
     return -1;
   }
 
-  DEBUG ("[TRANSPORT] server->accecpted_client_socket %d\n", server->client_socket);
+  DEBUG ("[TRANSPORT] server->accecpted_client_socket %d\n", server->connection.sockets.client_socket);
 
-  nbytes = recv (server->client_socket, &header_received, sizeof (cmsg_header_request), MSG_WAITALL);
+  nbytes = recv (server->connection.sockets.client_socket, &header_received, sizeof (cmsg_header_request), MSG_WAITALL);
   if (nbytes == sizeof (cmsg_header_request))
   {
     //we have little endian on the wire
@@ -132,7 +138,6 @@ cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server* server)
     server_request.message_length = cmsg_common_uint32_from_le(header_received.message_length);
     server_request.method_index = cmsg_common_uint32_from_le(header_received.method_index);
     server_request.request_id = header_received.request_id;
-    server_request.client_socket = server->client_socket;
 
     DEBUG ("[TRANSPORT] received header\n");
     cmsg_debug_buffer_print ((void*)&header_received, sizeof (cmsg_header_request));
@@ -151,12 +156,12 @@ cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server* server)
     {
       buffer = (void*)buf_static;
     }
-    nbytes = recv (server->client_socket, buffer, dyn_len, MSG_WAITALL);
+    nbytes = recv (server->connection.sockets.client_socket, buffer, dyn_len, MSG_WAITALL);
     if (nbytes == dyn_len)
     {
 
       DEBUG ("[TRANSPORT] received data\n");
-      cmsg_debug_buffer_print(buffer, dyn_len);
+      cmsg_debug_buffer_print (buffer, dyn_len);
       server->server_request = &server_request;
 
       if (server->message_processor (server, buffer))
@@ -164,7 +169,7 @@ cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server* server)
     }
     else
     {
-      DEBUG ("[TRANSPORT] recv socket %d no data\n", server->client_socket);
+      DEBUG ("[TRANSPORT] recv socket %d no data\n", server->connection.sockets.client_socket);
       ret = -1;
     }
     if (buffer != (void*)buf_static)
@@ -178,10 +183,10 @@ cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server* server)
   }
   else if (nbytes > 0)
   {
-    DEBUG ("[TRANSPORT] recv socket %d bad header nbytes %d\n", server->client_socket, nbytes );
+    DEBUG ("[TRANSPORT] recv socket %d bad header nbytes %d\n", server->connection.sockets.client_socket, nbytes );
     // TEMP to keep things going
     buffer = malloc (nbytes);
-    nbytes = recv (server->client_socket, buffer , nbytes, MSG_WAITALL);
+    nbytes = recv (server->connection.sockets.client_socket, buffer, nbytes, MSG_WAITALL);
     free (buffer);
     buffer = 0;
     ret = 0;
@@ -197,7 +202,7 @@ cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server* server)
     //Error while peeking at socket data.
     if (errno != ECONNRESET)
     {
-      DEBUG ("[TRANSPORT] recv socket %d error: %s\n", server->client_socket, strerror(errno) );
+      DEBUG ("[TRANSPORT] recv socket %d error: %s\n", server->connection.sockets.client_socket, strerror(errno) );
     }
     ret = 0;
   }
@@ -219,7 +224,11 @@ cmsg_transport_tcp_client_recv (cmsg_client* client)
     return 0;
   }
 
-  nbytes = recv (client->socket, &header_received, sizeof (cmsg_header_response), MSG_WAITALL);
+  nbytes = recv (client->connection.socket,
+                 &header_received,
+                 sizeof (cmsg_header_response),
+                 MSG_WAITALL);
+
   if (nbytes == sizeof (cmsg_header_response))
   {
     //we have little endian on the wire
@@ -253,7 +262,7 @@ cmsg_transport_tcp_client_recv (cmsg_client* client)
     {
       buffer = (void*)buf_static;
     }
-    nbytes = recv (client->socket, buffer, dyn_len, MSG_WAITALL);
+    nbytes = recv (client->connection.socket, buffer, dyn_len, MSG_WAITALL);
 
     if (nbytes == dyn_len)
     {
@@ -280,7 +289,7 @@ cmsg_transport_tcp_client_recv (cmsg_client* client)
     }
     else
     {
-      DEBUG ("[TRANSPORT] recv socket %d no data\n", client->socket);
+      DEBUG ("[TRANSPORT] recv socket %d no data\n", client->connection.socket);
       ret = 0;
     }
     if (buffer != (void*)buf_static)
@@ -294,11 +303,11 @@ cmsg_transport_tcp_client_recv (cmsg_client* client)
   }
   else if (nbytes > 0)
   {
-    DEBUG ("[TRANSPORT]recv socket %d bad header nbytes %d\n", client->socket, nbytes );
+    DEBUG ("[TRANSPORT]recv socket %d bad header nbytes %d\n", client->connection.socket, nbytes );
 
     // TEMP to keep things going
     buffer = malloc (nbytes);
-    nbytes = recv (client->socket, buffer , nbytes, MSG_WAITALL);
+    nbytes = recv (client->connection.socket, buffer, nbytes, MSG_WAITALL);
     free (buffer);
     buffer = 0;
     ret = 0;
@@ -314,7 +323,7 @@ cmsg_transport_tcp_client_recv (cmsg_client* client)
     //Error while peeking at socket data.
     if (errno != ECONNRESET)
     {
-      DEBUG ("[TRANSPORT] recv socket %d error: %s\n", client->socket, strerror(errno) );
+      DEBUG ("[TRANSPORT] recv socket %d error: %s\n", client->connection.socket, strerror(errno) );
     }
     ret = 0;
   }
@@ -322,12 +331,60 @@ cmsg_transport_tcp_client_recv (cmsg_client* client)
 }
 
 
-static  int32_t
-cmsg_transport_tcp_send (int32_t socket, void *buff, int length, int flag)
+static int32_t
+cmsg_transport_tcp_client_send (cmsg_client *client, void *buff, int length, int flag)
 {
-  return (send (socket, buff, length, flag));
+  return (send (client->connection.socket, buff, length, flag));
 }
 
+static int32_t
+cmsg_transport_tcp_server_send (cmsg_server *server, void *buff, int length, int flag)
+{
+  return (send (server->connection.sockets.client_socket, buff, length, flag));
+}
+
+static void
+cmsg_transport_tcp_client_close (cmsg_client* client)
+{
+  DEBUG ("[TRANSPORT] shutting down socket\n");
+  shutdown (client->connection.socket, 2);
+
+  DEBUG ("[TRANSPORT] closing socket\n");
+  close (client->connection.socket);
+}
+
+static void
+cmsg_transport_tcp_server_close (cmsg_server* server)
+{
+  DEBUG ("[SERVER] shutting down socket\n");
+  shutdown (server->connection.sockets.client_socket, 2);
+
+  DEBUG ("[SERVER] closing socket\n");
+  close (server->connection.sockets.client_socket);
+}
+
+static int
+cmsg_transport_tcp_server_get_socket (cmsg_server* server)
+{
+  return server->connection.sockets.listening_socket;
+}
+
+
+static int
+cmsg_transport_tcp_client_get_socket (cmsg_client* client)
+{
+  return client->connection.socket;
+}
+
+static void
+cmsg_transport_tcp_server_destroy (cmsg_server* server)
+{
+  DEBUG ("[SERVER] Shutting down listening socket\n");
+  shutdown (server->connection.sockets.listening_socket, 2);
+
+  DEBUG ("[SERVER] Closing listening socket\n");
+  close (server->connection.sockets.listening_socket);
+}
 
 
 void
@@ -338,13 +395,24 @@ cmsg_transport_tcp_init(cmsg_transport *transport)
 
   transport->family = PF_INET;
   transport->sockaddr.generic.sa_family = PF_INET;
+
   transport->connect = cmsg_transport_tcp_connect;
   transport->listen = cmsg_transport_tcp_listen;
   transport->server_recv = cmsg_transport_tcp_server_recv;
   transport->client_recv = cmsg_transport_tcp_client_recv;
-  transport->send = cmsg_transport_tcp_send;
+  transport->client_send = cmsg_transport_tcp_client_send;
+  transport->server_send = cmsg_transport_tcp_server_send;
   transport->closure = cmsg_server_closure_rpc;
   transport->invoke = cmsg_client_invoke_rpc;
+  transport->client_close = cmsg_transport_tcp_client_close;
+  transport->server_close = cmsg_transport_tcp_server_close;
+
+  transport->s_socket = cmsg_transport_tcp_server_get_socket;
+  transport->c_socket = cmsg_transport_tcp_client_get_socket;
+
+  transport->server_destroy = cmsg_transport_tcp_server_destroy;
+
+  DEBUG ("%s: done", __FUNCTION__);
 }
 
 
@@ -356,13 +424,24 @@ cmsg_transport_oneway_tcp_init(cmsg_transport *transport)
 
   transport->family = PF_INET;
   transport->sockaddr.generic.sa_family = PF_INET;
+//  transport->socket.client_socket = 0;
   transport->connect = cmsg_transport_tcp_connect;
   transport->listen = cmsg_transport_tcp_listen;
   transport->server_recv = cmsg_transport_tcp_server_recv;
   transport->client_recv = cmsg_transport_tcp_client_recv;
-  transport->send = cmsg_transport_tcp_send;
+  transport->client_send = cmsg_transport_tcp_client_send;
+  transport->server_send = cmsg_transport_tcp_server_send;
   transport->closure = cmsg_server_closure_oneway;
   transport->invoke = cmsg_client_invoke_oneway;
+  transport->client_close = cmsg_transport_tcp_client_close;
+  transport->server_close = cmsg_transport_tcp_server_close;
+
+  transport->s_socket = cmsg_transport_tcp_server_get_socket;
+  transport->c_socket = cmsg_transport_tcp_client_get_socket;
+
+  transport->server_destroy = cmsg_transport_tcp_server_destroy;
+
+  DEBUG ("%s: done", __FUNCTION__);
 }
 
 

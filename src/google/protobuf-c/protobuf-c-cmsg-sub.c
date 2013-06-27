@@ -57,13 +57,7 @@ cmsg_sub_destroy (cmsg_sub* subscriber)
 int
 cmsg_sub_get_server_socket (cmsg_sub* subscriber)
 {
-  int socket = 0;
-
-  if (subscriber->pub_server->listening_socket)
-    {
-      socket = subscriber->pub_server->listening_socket;
-    }
-  return socket;
+  return (cmsg_server_get_socket (subscriber->pub_server));
 }
 
 

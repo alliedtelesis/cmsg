@@ -20,8 +20,6 @@ cmsg_server_new (cmsg_transport*   transport,
   server = malloc (sizeof(cmsg_server));
   server->transport = transport;
   server->service = service;
-  server->listening_socket = 0;
-  server->client_socket = 0;
   server->allocator = &protobuf_c_default_allocator; //initialize alloc and free for message_unpack() and message_free()
   server->message_processor = cmsg_server_message_processor;
 
@@ -56,6 +54,8 @@ cmsg_server_destroy (cmsg_server *server)
       return 0;
     }
 
+  server->transport->server_destroy (server);
+
   free (server);
   server = 0;
   return 0;
@@ -67,13 +67,12 @@ cmsg_server_get_socket (cmsg_server *server)
 {
   int socket = 0;
 
-  if (server->listening_socket)
-    {
-      socket = server->listening_socket;
-    }
+  socket = server->transport->s_socket (server);
 
+  DEBUG ("[SERVER] get socket: %d\n", socket);
   return socket;
 }
+
 
 
 int32_t
@@ -173,15 +172,11 @@ cmsg_server_closure_rpc (const ProtobufCMessage* message,
 
       cmsg_debug_buffer_print ((void*)&header, sizeof (header));
 
-      ret = server->transport->send (server_request->client_socket, &header, sizeof (header), 0);
+      ret = server->transport->server_send (server, &header, sizeof (header), 0);
       if (ret < sizeof (header))
         DEBUG ("[SERVER] sending if response failed send:%d of %ld\n", ret, sizeof (header));
 
-      DEBUG ("[SERVER] shutting down socket\n");
-      shutdown (server_request->client_socket, 2);
-
-      DEBUG ("[SERVER] closing socket\n");
-      close (server_request->client_socket);
+      server->transport->server_close (server);
     }
   else
     {
@@ -220,15 +215,11 @@ cmsg_server_closure_rpc (const ProtobufCMessage* message,
       DEBUG ("[SERVER] response data\n");
       cmsg_debug_buffer_print ((void*)buffer + sizeof (header), packed_size);
 
-      ret = server->transport->send (server_request->client_socket, buffer, packed_size + sizeof (header), 0);
+      ret = server->transport->server_send (server, buffer, packed_size + sizeof (header), 0);
       if (ret < packed_size + sizeof (header))
         DEBUG ("[SERVER] sending if response failed send:%d of %ld\n", ret, packed_size + sizeof (header));
-
-      DEBUG ("[SERVER] shutting down socket\n");
-      shutdown(server_request->client_socket, 2);
       
-      DEBUG ("[SERVER] closing socket\n");
-      close(server_request->client_socket);
+      server->transport->server_close (server);
 
       free (buffer);
       buffer = 0;
@@ -249,11 +240,7 @@ cmsg_server_closure_oneway (const ProtobufCMessage* message,
   //we are not sending a response in this transport mode
   DEBUG ("[SERVER] invoking oneway method=%d\n", server_request->method_index);
 
-  DEBUG ("[SERVER] shutting down socket\n");
-  shutdown(server_request->client_socket, 2);
-
-  DEBUG ("[SERVER] closing socket\n");
-  close(server_request->client_socket);
+  server->transport->server_close (server);
 
   server_request->closure_response = 0;
 }

@@ -3,7 +3,7 @@
 
 
 #include "protobuf-c-cmsg.h"
-#include "protobuf-c-cmsg-transport.h"
+
 
 #define CMSG_SERVICE(package,service)   ((ProtobufCService *)&package ## _ ## service ## _service)
 
@@ -28,11 +28,10 @@ struct _cmsg_server_s
   ProtobufCAllocator* allocator;
   ProtobufCService* service;
   cmsg_transport* transport;
-  int listening_socket;
-  int client_socket;
   cmsg_server_request* server_request;
   server_message_processor_f message_processor;
   void* parent;
+  cmsg_server_connection connection;
 };
 
 

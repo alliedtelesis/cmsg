@@ -15,7 +15,6 @@ cmsg_client_new (cmsg_transport*                   transport,
   client->base_service.destroy = 0;
   client->allocator = &protobuf_c_default_allocator;
   client->transport = transport;
-  client->socket = 0;
   client->request_id = 0;
 
   //for compatibility with current generated code
@@ -34,17 +33,10 @@ int32_t
 cmsg_client_destroy(cmsg_client *client)
 {
   if (!client)
-    {
-      DEBUG ("[CLIENT] client not defined\n");
-      return 0;
-    }
-
-  client->state = CMSG_CLIENT_STATE_DESTROYED;
-  DEBUG ("[CLIENT] shutting down socket\n");
-  shutdown (client->socket, 2);
-  
-  DEBUG ("[CLIENT] closing socket\n");
-  close (client->socket);
+  {
+    DEBUG ("[CLIENT] client not defined\n");
+    return 0;
+  }
 
   free (client);
   client = 0;
@@ -56,46 +48,34 @@ cmsg_client_destroy(cmsg_client *client)
 ProtobufCMessage*
 cmsg_client_response_receive (cmsg_client *client)
 {
-  ProtobufCMessage* ret = NULL;
-
   if (!client)
-    {
-      DEBUG ("[CLIENT] client not defined\n");
-      return 0;
-    }
+  {
+    DEBUG ("[CLIENT] client not defined\n");
+    return NULL;
+  }
 
-  if (!client->socket)
-    {
-      DEBUG ("[CLIENT] socket not defined\n");
-      return 0;
-    }
-
-  ret = client->transport->client_recv (client);
-
-  return ret;
-
+  return (client->transport->client_recv (client));
 }
 
 
 int32_t
 cmsg_client_connect (cmsg_client *client)
 {
-  if  (!client)
-    {
-      DEBUG ("[CLIENT] client not defined\n");
-      return 0;
-    }
+  if (!client)
+  {
+    DEBUG ("[CLIENT] client not defined\n");
+    return 0;
+  }
 
   DEBUG ("[CLIENT] connecting\n");
 
   if (client->state == CMSG_CLIENT_STATE_CONNECTED)
-    {
-      DEBUG ("[CLIENT] already connected\n");
-      return 0;
-    }
+  {
+    DEBUG ("[CLIENT] already connected\n");
+    return 0;
+  }
 
- return (client->transport->connect(client));
-
+  return (client->transport->connect (client));
 }
 
 
@@ -120,10 +100,10 @@ cmsg_client_invoke_rpc (ProtobufCService*       service,
   cmsg_client_connect (client);
   
   if (client->state != CMSG_CLIENT_STATE_CONNECTED)
-    {
-      DEBUG ("[CLIENT] error: client is not connected\n");
-      return;
-    }
+  {
+    DEBUG ("[CLIENT] error: client is not connected\n");
+    return;
+  }
 
   const ProtobufCServiceDescriptor *desc = service->descriptor;
   const ProtobufCMethodDescriptor *method = desc->methods + method_index;
@@ -145,23 +125,21 @@ cmsg_client_invoke_rpc (ProtobufCService*       service,
 
   ret = protobuf_c_message_pack (input, buffer_data);
   if (ret < packed_size)
-    {
-      DEBUG ("[CLIENT] packing message data failed packet:%d of %d\n", ret, packed_size);
-      free (buffer);
-      buffer = 0;
-      free (buffer_data);
-      buffer_data = 0;
-      return;
-    }
+  {
+    DEBUG ("[CLIENT] packing message data failed packet:%d of %d\n", ret, packed_size);
+    free (buffer);
+    buffer = 0;
+    free (buffer_data);
+    buffer_data = 0;
+    return;
+  }
 
   memcpy ((void*)buffer + sizeof (header), (void*)buffer_data, packed_size);
 
   DEBUG ("[CLIENT] packet data\n");
   cmsg_debug_buffer_print(buffer_data, packed_size);
 
-  DEBUG ("[CLIENT] sending on socket %d\n", client->socket);
-  
-  ret = client->transport->send (client->socket, buffer, packed_size + sizeof (header), 0);
+  ret = client->transport->client_send (client, buffer, packed_size + sizeof (header), 0);
   if (ret < packed_size + sizeof (header))
     DEBUG ("[CLIENT] sending response failed send:%d of %ld\n", ret, packed_size + sizeof (header));
 
@@ -171,11 +149,7 @@ cmsg_client_invoke_rpc (ProtobufCService*       service,
   ProtobufCMessage *message = cmsg_client_response_receive(client);
 
   client->state = CMSG_CLIENT_STATE_DESTROYED;
-  DEBUG ("[CLIENT] shutting down socket\n");
-  shutdown (client->socket, 2);
-
-  DEBUG ("[CLIENT] closing socket\n");
-  close (client->socket);
+  client->transport->client_close (client);
 
   free (buffer);
   buffer = 0;
@@ -183,10 +157,10 @@ cmsg_client_invoke_rpc (ProtobufCService*       service,
   buffer_data = 0;
 
   if (!message)
-    {
-      DEBUG ("[CLIENT] response message not valid\n");
-      return;
-    }
+  {
+    DEBUG ("[CLIENT] response message not valid\n");
+    return;
+  }
 
   //todo: call closure
   closure (message, closure_data);
@@ -212,15 +186,15 @@ cmsg_client_invoke_oneway (ProtobufCService*       service,
   /* unpack response */
   /* return response */
 
-  cmsg_client_connect(client);
+  cmsg_client_connect (client);
 
   DEBUG ("[CLIENT] cmsg_client_invoke_oneway\n");
 
   if (client->state != CMSG_CLIENT_STATE_CONNECTED)
-    {
-      DEBUG ("[CLIENT] error: client is not connected\n");
-      return;
-    }
+  {
+    DEBUG ("[CLIENT] error: client is not connected\n");
+    return;
+  }
 
   const ProtobufCServiceDescriptor *desc = service->descriptor;
   const ProtobufCMethodDescriptor *method = desc->methods + method_index;
@@ -243,30 +217,26 @@ cmsg_client_invoke_oneway (ProtobufCService*       service,
 
   ret = protobuf_c_message_pack (input, buffer_data);
   if (ret < packed_size)
-    {
-      DEBUG ("[CLIENT] packing message data failed packet:%d of %d\n", ret, packed_size);
-      free (buffer);
-      buffer = 0;
-      free (buffer_data);
-      buffer_data = 0;
-      return;
-    }
+  {
+    DEBUG ("[CLIENT] packing message data failed packet:%d of %d\n", ret, packed_size);
+    free (buffer);
+    buffer = 0;
+    free (buffer_data);
+    buffer_data = 0;
+    return;
+  }
 
   memcpy ((void*)buffer + sizeof (header), (void*)buffer_data, packed_size);
 
   DEBUG ("[CLIENT] packet data\n");
   cmsg_debug_buffer_print (buffer_data, packed_size);
 
-  ret = client->transport->send (client->socket, buffer, packed_size + sizeof (header), 0);
+  ret = client->transport->client_send (client, buffer, packed_size + sizeof (header), 0);
   if (ret < packed_size + sizeof (header))
     DEBUG ("[CLIENT] sending response failed send:%d of %ld\n", ret, packed_size + sizeof (header));
 
   client->state = CMSG_CLIENT_STATE_DESTROYED;
-  DEBUG ("[CLIENT] shutting down socket\n");
-  shutdown (client->socket, 2);
-
-  DEBUG ("[CLIENT] closing socket\n");
-  close (client->socket);
+  client->transport->client_close (client);
 
   free (buffer);
   buffer = 0;

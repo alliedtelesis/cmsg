@@ -72,13 +72,7 @@ cmsg_pub_destroy (cmsg_pub* publisher)
 int
 cmsg_pub_get_server_socket (cmsg_pub* publisher)
 {
-  int socket = 0;
-
-  if (publisher->sub_server->listening_socket)
-    {
-      socket = publisher->sub_server->listening_socket;
-    }
-  return socket;
+  return (cmsg_server_get_socket (publisher->sub_server));
 }
 
 

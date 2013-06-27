@@ -23,10 +23,10 @@ cxx_generate_packed_data_LDADD = -lprotobuf
 cxx_generate_packed_data_LDFLAGS = -pthread
 example_server_SOURCES = \
 example-server.c generated-code/test.pb-c.c
-example_server_LDADD = ../libprotobuf-c.la
+example_server_LDADD = ../libprotobuf-c.la -lcpg -lcoroipcc
 example_client_SOURCES = \
 example-client.c generated-code/test.pb-c.c
-example_client_LDADD = ../libprotobuf-c.la
+example_client_LDADD = ../libprotobuf-c.la -lcpg -lcoroipcc
 
 generated-code/test.pb-c.c generated-code/test.pb-c.h: ../protoc-c$(EXEEXT) $(srcdir)/test.proto
 	mkdir -p generated-code
