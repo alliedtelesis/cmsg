@@ -140,12 +140,14 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
 
   // Add global header file for this .proto if the file "<proto>_proto_global.h" exists
   string proto_global_h = StripProto(file_->name()) + "_proto_global.h";
-  if (access(proto_global_h.c_str(), F_OK) == 0) {
+  std::ifstream f(proto_global_h.c_str());
+  if (f.good()) {
     printer->Print("#include \"$proto_global_h$\"\n", "proto_global_h", basename(proto_global_h.c_str()));
   }
   else {
     printer->Print("//#include \"$proto_global_h$\"\n", "proto_global_h", basename(proto_global_h.c_str()));
   }
+  f.close();
 
 
   printer->Print("\n");

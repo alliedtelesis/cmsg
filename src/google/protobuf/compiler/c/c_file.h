@@ -25,6 +25,7 @@
 
 #include <string>
 #include <vector>
+#include <fstream>
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/compiler/c/c_field.h>
 
