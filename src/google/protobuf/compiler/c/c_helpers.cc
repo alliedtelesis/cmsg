@@ -115,7 +115,8 @@ string ToLower(const string &name) {
   string rv = "";
   int len = name.length();
   for (int i = 0; i < len; i++) {
-    rv += tolower(name[i]);
+    //rv += tolower(name[i]);
+    rv += name[i];
   }
   return rv;
 }
@@ -127,7 +128,8 @@ string ToCamel(const string &name) {
     if (name[i] == '_') {
       next_is_upper = true;
     } else if (next_is_upper) {
-      rv += toupper (name[i]);
+      //rv += toupper (name[i]);
+      rv += name[i];
       next_is_upper = false;
     } else {
       rv += name[i];
@@ -143,7 +145,8 @@ string FullNameToLower(const string &full_name) {
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
     if (rv != "") rv += "_";
-    rv += CamelToLower(pieces[i]);
+    //rv += CamelToLower(pieces[i]);
+    rv += pieces[i];
   }
   return rv;
 }
@@ -165,7 +168,8 @@ string FullNameToC(const string &full_name) {
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
     if (rv != "") rv += "_";
-    rv += ToCamel(pieces[i]);
+    //rv += ToCamel(pieces[i]);
+    rv += pieces[i];
   }
   return rv;
 }
