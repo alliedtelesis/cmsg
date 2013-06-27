@@ -72,7 +72,7 @@ static protobuf_c_boolean starts_with (const char *str, const char *prefix)
 }
 
 static void
-handle_query_response (const Foo_LookupResult_pbc *result,
+handle_query_response (const foo_LookupResult_pbc *result,
                        void *closure_data)
 {
   if (result == NULL)
@@ -81,7 +81,7 @@ handle_query_response (const Foo_LookupResult_pbc *result,
     printf ("Not found.\n");
   else
     {
-      Foo_Person_pbc *person = result->person;
+      foo_Person_pbc *person = result->person;
       unsigned i;
       printf ("%s\n"
               " %u\n", person->name, person->id);
@@ -90,7 +90,7 @@ handle_query_response (const Foo_LookupResult_pbc *result,
       for (i = 0; i < person->n_phone; i++)
         {
           const ProtobufCEnumValue *ev;
-          ev = protobuf_c_enum_descriptor_get_value (&foo_person_phone_type_descriptor, person->phone[i]->type);
+          ev = protobuf_c_enum_descriptor_get_value (&foo_Person_PhoneType_descriptor, person->phone[i]->type);
           printf (" %s %s\n",
                   ev ? ev->name : "???",
                   person->phone[i]->number);
@@ -148,7 +148,7 @@ int main(int argc, char**argv)
 
   signal (SIGPIPE, SIG_IGN);
   
-  service = protobuf_c_rpc_client_new (address_type, name, &foo_dir_lookup_descriptor, NULL);
+  service = protobuf_c_rpc_client_new (address_type, name, &foo_DirLookup_descriptor, NULL);
   if (service == NULL)
     die ("error creating client");
   client = (ProtobufC_RPC_Client *) service;
@@ -164,7 +164,7 @@ int main(int argc, char**argv)
   for (;;)
     {
       char buf[1024];
-      Foo_Name_pbc query = FOO_NAME_PBC_INIT;
+      foo_Name_pbc query = FOO_NAME_PBC_INIT;
       protobuf_c_boolean is_done = 0;
       fprintf (stderr, ">> ");
       if (fgets (buf, sizeof (buf), stdin) == NULL)
@@ -179,7 +179,7 @@ int main(int argc, char**argv)
         continue;
       chomp_trailing_whitespace (buf);
       query.name = buf;
-      foo_dir_lookup_by_name (service, &query, handle_query_response, &is_done);
+      foo_DirLookup_ByName (service, &query, handle_query_response, &is_done);
       while (!is_done)
         protobuf_c_dispatch_run (protobuf_c_dispatch_default ());
     }

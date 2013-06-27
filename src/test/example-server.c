@@ -9,7 +9,7 @@
 #include <google/protobuf-c/protobuf-c-rpc.h>
 
 static unsigned database_size;
-static Foo_Person_pbc *database;		/* sorted by name */
+static foo_Person_pbc *database;		/* sorted by name */
 
 static void
 die (const char *format, ...)
@@ -118,7 +118,7 @@ static protobuf_c_boolean starts_with (const char *str, const char *prefix)
 static int
 compare_persons_by_name (const void *a, const void *b)
 {
-  return strcmp (((const Foo_Person_pbc*)a)->name, ((const Foo_Person_pbc*)b)->name);
+  return strcmp (((const foo_Person_pbc*)a)->name, ((const foo_Person_pbc*)b)->name);
 }
 static void
 load_database (const char *filename)
@@ -128,7 +128,7 @@ load_database (const char *filename)
   unsigned n_people = 0;
   unsigned people_alloced = 32;
   unsigned line_no;
-  Foo_Person_pbc *people = xmalloc (sizeof (Foo_Person_pbc) * people_alloced);
+  foo_Person_pbc *people = xmalloc (sizeof (foo_Person_pbc) * people_alloced);
   if (fp == NULL)
     die ("error opening %s: %s", filename, strerror (errno));
   line_no = 0;
@@ -142,7 +142,7 @@ load_database (const char *filename)
       chomp_trailing_whitespace (buf);
       if (isspace (buf[0]))
         {
-	  Foo_Person_pbc *person;
+	  foo_Person_pbc *person;
           char *start = buf + 1;
 	  if (n_people == 0)
 	    die ("error on %s, line %u: line began with a space, but no person's name preceded it",
@@ -158,14 +158,14 @@ load_database (const char *filename)
               ||   starts_with (start, "home ")
               ||   starts_with (start, "work "))
             {
-              Foo_Person_PhoneNumber_pbc *pn = xmalloc (sizeof (Foo_Person_PhoneNumber_pbc));
-              Foo_Person_PhoneNumber_pbc tmp = FOO_PERSON_PHONE_NUMBER_PBC_INIT;
+              foo_Person_PhoneNumber_pbc *pn = xmalloc (sizeof (foo_Person_PhoneNumber_pbc));
+              foo_Person_PhoneNumber_pbc tmp = FOO_PERSON_PHONE_NUMBER_PBC_INIT;
               tmp.has_type = 1;
               tmp.type = start[0] == 'm' ? FOO_PERSON_PHONE_TYPE_MOBILE
                        : start[0] == 'h' ? FOO_PERSON_PHONE_TYPE_HOME
                        : FOO_PERSON_PHONE_TYPE_WORK;
               tmp.number = xstrdup (peek_next_token (start));
-              person->phone = xrealloc (person->phone, sizeof (Foo_Person_PhoneNumber_pbc*) * (person->n_phone+1));
+              person->phone = xrealloc (person->phone, sizeof (foo_Person_PhoneNumber_pbc*) * (person->n_phone+1));
               *pn = tmp;
               person->phone[person->n_phone++] = pn;
             }
@@ -174,21 +174,21 @@ load_database (const char *filename)
 	}
       else
         {
-	  Foo_Person_pbc *person;
+	  foo_Person_pbc *person;
 	  if (n_people == people_alloced)
 	    {
               people_alloced *= 2;
-              people = xrealloc (people, people_alloced * sizeof (Foo_Person_pbc));
+              people = xrealloc (people, people_alloced * sizeof (foo_Person_pbc));
 	    }
 	  person = people + n_people++;
-	  foo_person_init (person);
+	  foo_Person_init (person);
 	  person->name = xstrdup (buf);
 	}
     }
   if (n_people == 0)
     die ("empty database: insufficiently interesting to procede");
   
-  qsort (people, n_people, sizeof (Foo_Person_pbc), compare_persons_by_name);
+  qsort (people, n_people, sizeof (foo_Person_pbc), compare_persons_by_name);
 
   database = people;
   database_size = n_people;
@@ -198,12 +198,12 @@ load_database (const char *filename)
 static int
 compare_name_to_person (const void *a, const void *b)
 {
-  return strcmp (a, ((const Foo_Person_pbc*)b)->name);
+  return strcmp (a, ((const foo_Person_pbc*)b)->name);
 }
 static void
-example_by_name (Foo_DirLookup_Service    *service,
-                 const Foo_Name_pbc           *name,
-                 Foo_LookupResult_pbc_Closure  closure,
+example_ByName (foo_DirLookup_Service    *service,
+                 const foo_Name_pbc           *name,
+                 foo_LookupResult_pbc_Closure  closure,
                  void                      *closure_data)
 {
   (void) service;
@@ -211,16 +211,16 @@ example_by_name (Foo_DirLookup_Service    *service,
     closure (NULL, closure_data);
   else
     {
-      Foo_LookupResult_pbc result = FOO_LOOKUP_RESULT_PBC_INIT;
-      Foo_Person_pbc *rv = bsearch (name->name, database, database_size,
-                                 sizeof (Foo_Person_pbc), compare_name_to_person);
+      foo_LookupResult_pbc result = FOO_LOOKUP_RESULT_PBC_INIT;
+      foo_Person_pbc *rv = bsearch (name->name, database, database_size,
+                                 sizeof (foo_Person_pbc), compare_name_to_person);
       if (rv != NULL)
         result.person = rv;
       closure (&result, closure_data);
     }
 }
 
-static Foo_DirLookup_Service the_dir_lookup_service =
+static foo_DirLookup_Service the_dir_lookup_service =
   FOO_DIR_LOOKUP_INIT(example_);
 
 int main(int argc, char**argv)

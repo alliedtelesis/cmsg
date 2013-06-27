@@ -91,9 +91,10 @@ string CamelToLower(const string &name) {
   for (int i = 0; i < len; i++) {
     bool is_upper = isupper(name[i]);
     if (is_upper) {
-      if (!was_upper)
-	rv += '_';
-      rv += tolower(name[i]);
+      //if (!was_upper)
+      //  rv += '_';
+      //rv += tolower(name[i]);
+      rv += name[i];
     } else {
       rv += name[i];
     }
