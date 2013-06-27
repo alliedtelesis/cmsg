@@ -43,7 +43,6 @@ google/protobuf-c/protobuf-c-cmsg-sub-service.pb-c.c \
 google/protobuf-c/protobuf-c-cmsg-transport.c \
 google/protobuf-c/protobuf-c-cmsg-transport-tipc.c \
 google/protobuf-c/protobuf-c-cmsg-transport-tcp.c \
-google/protobuf-c/protobuf-c-cmsg-transport-cpg.c \
 google/protobuf-c/protobuf-c.c
 
 # ah, -no-undefined, goofball windows hack.
@@ -55,7 +54,12 @@ libprotobuf_c_la_LDFLAGS = \
 -no-undefined \
 -version-info 0:0:0
 
-libprotobuf_c_la_LIBADD = -lglib-2.0 -lcpg -lcoroipcc
+libprotobuf_c_la_LIBADD = -lglib-2.0
+
+if HAVE_VCSTACK
+libprotobuf_c_la_SOURCES += google/protobuf-c/protobuf-c-cmsg-transport-cpg.c
+libprotobuf_c_la_LIBADD  += -lcpg -lcoroipcc
+endif
 
 noinst_HEADERS = \
 google/protobuf/compiler/c/c_message_field.h \

@@ -29,6 +29,15 @@ AC_ARG_ENABLE(protoc, [  --disable-protoc    Suppress build of protoc_c],
               fi)
 AM_CONDITIONAL(BUILD_PROTOC_C, test $BUILD_PROTOC_C = 1)
 
+# --- Check VCStack is enabled
+HAVE_VCSTACK=0
+AC_ARG_ENABLE(vcstack, [  --enable-vcstack    Enable VCStack],
+              if test "x$enableval" = xyes ; then
+	        HAVE_VCSTACK=1
+              fi)
+AM_CONDITIONAL(HAVE_VCSTACK, test $HAVE_VCSTACK = 1)
+
+
 # --- Check for the protobuf library. ---
 if test $BUILD_PROTOC_C = 1; then
   AC_LANG_PUSH([C++])
