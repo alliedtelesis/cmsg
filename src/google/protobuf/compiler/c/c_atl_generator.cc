@@ -319,6 +319,10 @@ void AtlCodeGenerator::GenerateParameterListFromMessage(io::Printer* printer, co
         {
           printer->Print("*"); //repeated chars are always double pointers so add 1 to the char *
         }
+        else if (field->type() == FieldDescriptor::TYPE_BYTES)
+        {
+          printer->Print(" **");  // same as message with ProtobufCBinaryData
+        }
         else if (output)
         {
           printer->Print(" **"); //repeated output fields are always double pointers
@@ -329,6 +333,18 @@ void AtlCodeGenerator::GenerateParameterListFromMessage(io::Printer* printer, co
         }
 
         printer->Print(vars_, "$field_name$");
+      }
+      else if (field->type() == FieldDescriptor::TYPE_BYTES)
+      {
+        // use "field_name_len" and "field" for "bytes" type
+        if (output)
+        {
+          printer->Print(vars_, "size_t *$field_name$_len, uint8_t **$field_name$");
+        }
+        else
+        {
+          printer->Print(vars_, "size_t $field_name$_len, uint8_t *$field_name$");
+        }
       }
       else
       {
@@ -366,6 +382,11 @@ void AtlCodeGenerator::GenerateImplParameterListFromMessage(io::Printer* printer
       {
         // if field is repeated, need to add a count/size parameter
         printer->Print(vars_, "$n_field_name$, ");
+      }
+      else if (field->type() == FieldDescriptor::TYPE_BYTES)
+      {
+        // use "field_name_len" and "field" for "bytes" type
+        printer->Print(vars_, "$field_name$_len, ");
       }
 
       printer->Print(vars_, "$field_name$");
@@ -447,7 +468,7 @@ string AtlCodeGenerator::TypeToString(FieldDescriptor::Type type)
     	description = "struct";
     	break;
     case FieldDescriptor::TYPE_BYTES:
-    	description = "uint8_t *";
+    	description = "ProtobufCBinaryData";
     	break;
     case FieldDescriptor::TYPE_UINT32:
     	description = "uint32_t";
@@ -989,6 +1010,15 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
           }
           printer->Print(vars_, "strcpy ($left_field_name$[$i$], $right_field_name$[$i$]);\n");
         }
+        else if (field->type() == FieldDescriptor::TYPE_BYTES)
+        {
+          if (allocate_memory)
+          {
+            printer->Print(vars_, "($left_field_name$)[$i$]->data = malloc ($right_field_name$[$i$]->len * sizeof(uint8_t));\n");
+          }
+          printer->Print(vars_, "memcpy (($left_field_name$)[$i$]->data, $right_field_name$[$i$]->data, $right_field_name$[$i$]->len);\n");
+          printer->Print(vars_, "($left_field_name$)[$i$]->len = $right_field_name$[$i$]->len;\n");
+        }
         else
         {
           printer->Print(vars_, "$result_ref$$left_field_name$[$i$] = $right_field_name$[$i$];\n");
@@ -1013,6 +1043,20 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
         printer->Print(vars_, "$left_field_name$ = malloc (strlen ($right_field_name$) + 1);\n");
       }
       printer->Print(vars_, "strcpy ($result_ref$$left_field_name$, $right_field_name$);\n");
+      printer->Outdent();
+      printer->Print("}\n");
+    }
+    else if (field->type() == FieldDescriptor::TYPE_BYTES)
+    {
+      printer->Print(vars_, "if ($right_field_name$ != NULL)\n");
+      printer->Print("{\n");
+      printer->Indent();
+      if (allocate_memory)
+      {
+        printer->Print(vars_, "$left_field_name$ = malloc ($right_field_name$_len * sizeof(uint8_t));\n");
+      }
+      printer->Print(vars_, "memcpy ($left_field_name$, $right_field_name$, $right_field_name$_len);\n");
+      printer->Print(vars_, "$result_ref$$left_field_name$_len = $right_field_name$_len;\n");
       printer->Outdent();
       printer->Print("}\n");
     }
@@ -1113,7 +1157,9 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
       //
       // now free each field in the structures in the repeated array or the char *s in the char**
       //
-      if (field->type() == FieldDescriptor::TYPE_MESSAGE || field->type() == FieldDescriptor::TYPE_STRING)
+      if (field->type() == FieldDescriptor::TYPE_MESSAGE ||
+          field->type() == FieldDescriptor::TYPE_STRING ||
+          field->type() == FieldDescriptor::TYPE_BYTES)
       {
         printer->Print(vars_, "if ($left_field_name$ != NULL)\n");
         printer->Print("{\n");
@@ -1151,6 +1197,10 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
       //
       // strings are represented as char* so we need to delete the memory we allocated
       //
+      printer->Print(vars_, "free ($left_field_name$);\n");
+    }
+    else if (field->type() == FieldDescriptor::TYPE_BYTES)
+    {
       printer->Print(vars_, "free ($left_field_name$);\n");
     }
     else if (field->type() == FieldDescriptor::TYPE_MESSAGE)

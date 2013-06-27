@@ -49,7 +49,7 @@ BytesFieldGenerator(const FieldDescriptor* descriptor, bool addPbc)
   SetBytesVariables(descriptor, &variables_);
   variables_["default_value"] = descriptor->has_default_value()
                               ? GetDefaultValue() 
-			      : string("{0,NULL}");
+			      : string("0,NULL");
 }
 
 BytesFieldGenerator::~BytesFieldGenerator() {}
@@ -58,15 +58,20 @@ void BytesFieldGenerator::GenerateStructMembers(io::Printer* printer) const
 {
   switch (descriptor_->label()) {
     case FieldDescriptor::LABEL_REQUIRED:
-      printer->Print(variables_, "ProtobufCBinaryData $name$$deprecated$;\n");
+      printer->Print(variables_, "size_t $name$_len$deprecated$;\n");
+      printer->Print(variables_, "uint8_t *$name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      printer->Print(variables_, "protobuf_c_boolean has_$name$$deprecated$;\n");
-      printer->Print(variables_, "ProtobufCBinaryData $name$$deprecated$;\n");
+      if (addPbc_)
+      {
+        printer->Print(variables_, "protobuf_c_boolean has_$name$$deprecated$;\n");
+      }
+      printer->Print(variables_, "size_t $name$_len$deprecated$;\n");
+      printer->Print(variables_, "uint8_t *$name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_REPEATED:
       printer->Print(variables_, "size_t n_$name$$deprecated$;\n");
-      printer->Print(variables_, "ProtobufCBinaryData *$name$$deprecated$;\n");
+      printer->Print(variables_, "ProtobufCBinaryData **$name$$deprecated$;\n");
       break;
   }
 }
