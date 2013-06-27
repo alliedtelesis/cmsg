@@ -97,7 +97,7 @@ void StringFieldGenerator::GenerateStaticInit(io::Printer* printer) const
       if (addPbc_)
         printer->Print(vars, "0,NULL");
       else
-        printer->Print(vars, "NULL");
+        printer->Print(vars, "0,NULL");
       break;
   }
 }

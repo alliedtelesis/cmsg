@@ -111,7 +111,7 @@ void BytesFieldGenerator::GenerateStaticInit(io::Printer* printer) const
       if (addPbc_)
         printer->Print("0,NULL");
       else
-        printer->Print("NULL");
+        printer->Print("0,NULL");
       break;
   }
 }
