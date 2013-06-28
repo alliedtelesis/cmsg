@@ -138,18 +138,6 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
       "dependency", StripProto(file_->dependency(i)->name()));
   }
 
-  // Add global header file for this .proto if the file "<proto>_proto_global.h" exists
-  string proto_global_h = StripProto(file_->name()) + "_proto_global.h";
-  std::ifstream f(proto_global_h.c_str());
-  if (f.good()) {
-    printer->Print("#include \"$proto_global_h$\"\n", "proto_global_h", basename(proto_global_h.c_str()));
-  }
-  else {
-    printer->Print("//#include \"$proto_global_h$\"\n", "proto_global_h", basename(proto_global_h.c_str()));
-  }
-  f.close();
-
-
   printer->Print("\n");
 
   // Generate forward declarations of classes.
@@ -278,11 +266,29 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
     "\n",
     "filename_identifier", filename_identifier);
 
+  // Include dependent types header files
+  for (int i = 0; i < file_->dependency_count(); i++) {
+    printer->Print(
+      "#include \"$dependency$.h\"\n",
+      "dependency", GetAtlTypesFilename(StripProto(file_->dependency(i)->name())));
+  }
+
   //
   // include the protobuf generated header
   //
   printer->Print("#include \"$pbh$.pb-c.h\"\n", "pbh", filename_identifier);
+  printer->Print("\n");
 
+  // Add global header file for this .proto if the file "<proto>_proto_global.h" exists
+  string proto_global_h = StripProto(file_->name()) + "_proto_global.h";
+  std::ifstream f(proto_global_h.c_str());
+  if (f.good()) {
+    printer->Print("#include \"$proto_global_h$\"\n", "proto_global_h", basename(proto_global_h.c_str()));
+  }
+  else {
+    printer->Print("//#include \"$proto_global_h$\"\n", "proto_global_h", basename(proto_global_h.c_str()));
+  }
+  f.close();
   printer->Print("\n");
 
   // Generate atl structure definitions.
