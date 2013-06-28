@@ -1,0 +1,30 @@
+
+package my.package;
+
+message PingResponse
+{
+  required int32 return_code = 1;
+  required int32 random = 2;
+}
+
+message PingRequest {
+  required int32 random = 1;
+  required int32 randomm = 2;
+}
+
+message poe_priority
+{
+  required int32 port = 1;
+  required int32 priority = 2;
+}
+
+message poe_send_status
+{
+  required int32 status = 1;
+}
+
+service my_service {
+  rpc Ping (PingRequest) returns (PingResponse);
+  rpc SetPriority (poe_priority) returns (poe_send_status);
+}
+
