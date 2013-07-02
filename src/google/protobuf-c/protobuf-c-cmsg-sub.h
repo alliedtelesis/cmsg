@@ -22,13 +22,11 @@ struct _cmsg_sub_s
                  void*                   closure_data);
   
   cmsg_server* pub_server;   //receiving messages
-  cmsg_client* sub_client;   //registering
 };
 
 
 cmsg_sub*
-cmsg_sub_new (cmsg_transport*   sub_client_transport,
-              cmsg_transport*   pub_server_transport,
+cmsg_sub_new (cmsg_transport*   pub_server_transport,
               ProtobufCService* pub_service);
 
 int32_t
@@ -46,11 +44,13 @@ cmsg_sub_server_receive (cmsg_sub* subscriber,
                          int32_t   server_socket);
 
 int32_t
-cmsg_sub_subscribe (cmsg_sub* subscriber,
-                    char*     method_name);
+cmsg_sub_subscribe (cmsg_sub*       subscriber,
+                    cmsg_transport* sub_client_transport,
+                    char*           method_name);
 
 int32_t
-cmsg_sub_unsubscribe (cmsg_sub* subscriber,
-                      char*     method_name);
+cmsg_sub_unsubscribe (cmsg_sub*       subscriber,
+                      cmsg_transport* sub_client_transport,
+                      char*           method_name);
 
 #endif

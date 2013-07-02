@@ -2,8 +2,7 @@
 
 
 cmsg_sub*
-cmsg_sub_new (cmsg_transport*   sub_client_transport,
-              cmsg_transport*   pub_server_transport,
+cmsg_sub_new (cmsg_transport*   pub_server_transport,
               ProtobufCService* pub_service)
 {
   cmsg_sub *subscriber = 0;
@@ -17,15 +16,6 @@ cmsg_sub_new (cmsg_transport*   sub_client_transport,
       return 0;
     }
 
-  subscriber->sub_client = cmsg_client_new(sub_client_transport,
-                                           &cmsg__sub_service__descriptor);
-  if (!subscriber->sub_client)
-    {
-      DEBUG ("[SUB] error could not create client\n");
-      free(subscriber);
-      return 0;
-    }
-
   return subscriber;
 }
 
@@ -35,12 +25,6 @@ cmsg_sub_destroy (cmsg_sub* subscriber)
 {
   if (!subscriber)
     return 1;
-
-  if (subscriber->sub_client)
-    {
-      cmsg_client_destroy(subscriber->sub_client);
-      subscriber->sub_client = 0;
-    }
 
   if (subscriber->pub_server)
     {
@@ -93,9 +77,11 @@ cmsg_sub_subscribe_response_handler (const Cmsg__SubEntryResponse *response,
 
 
 int32_t
-cmsg_sub_subscribe (cmsg_sub* subscriber,
-                    char*     method_name)
+cmsg_sub_subscribe (cmsg_sub*       subscriber,
+                    cmsg_transport* sub_client_transport,
+                    char*           method_name)
 {
+  cmsg_client* register_client = 0;
   u_int32_t return_value;
   Cmsg__SubEntry register_entry = CMSG__SUB_ENTRY__INIT;
 
@@ -127,19 +113,38 @@ cmsg_sub_subscribe (cmsg_sub* subscriber,
       register_entry.tipc_addr_name_name_type = subscriber->pub_server->transport->sockaddr.tipc.addr.name.name.type;
       register_entry.tipc_scope = subscriber->pub_server->transport->sockaddr.tipc.scope;
     }
+  else
+    {
+      DEBUG ("[SUB] error cmsg_sub_subscribe transport incorrect: %d\n", subscriber->pub_server->transport->type);
+      return -1;
+    }
 
-  cmsg__sub_service__subscribe((ProtobufCService*)subscriber->sub_client,
+  register_client = cmsg_client_new(sub_client_transport,
+                                    &cmsg__sub_service__descriptor);
+  if (!register_client)
+    {
+      DEBUG ("[SUB] error could not create register client\n");
+      free(register_client);
+      return 0;
+    }
+
+  cmsg__sub_service__subscribe((ProtobufCService*)register_client,
                                &register_entry,
                                cmsg_sub_subscribe_response_handler,
                                &return_value);
+
+  cmsg_client_destroy(register_client);
+
   return return_value;
 }
 
 
 int32_t
-cmsg_sub_unsubscribe (cmsg_sub* subscriber,
-                      char*     method_name)
+cmsg_sub_unsubscribe (cmsg_sub*       subscriber,
+                      cmsg_transport* sub_client_transport,
+                      char*           method_name)
 {
+  cmsg_client* register_client = 0;
   u_int32_t return_value;
   Cmsg__SubEntry register_entry = CMSG__SUB_ENTRY__INIT;
 
@@ -171,10 +176,27 @@ cmsg_sub_unsubscribe (cmsg_sub* subscriber,
       register_entry.tipc_addr_name_name_type = subscriber->pub_server->transport->sockaddr.tipc.addr.name.name.type;
       register_entry.tipc_scope = subscriber->pub_server->transport->sockaddr.tipc.scope;
     }
+  else
+    {
+      DEBUG ("[SUB] error cmsg_sub_subscribe transport incorrect: %d\n", subscriber->pub_server->transport->type);
+      return -1;
+    }
 
-  cmsg__sub_service__subscribe((ProtobufCService*)subscriber->sub_client,
+  register_client = cmsg_client_new(sub_client_transport,
+                                    &cmsg__sub_service__descriptor);
+  if (!register_client)
+    {
+      DEBUG ("[SUB] error could not create register client\n");
+      free(register_client);
+      return 0;
+    }
+
+  cmsg__sub_service__subscribe((ProtobufCService*)register_client,
                                &register_entry,
                                cmsg_sub_subscribe_response_handler,
                                &return_value);
+
+  cmsg_client_destroy(register_client);
+
   return return_value;
 }
