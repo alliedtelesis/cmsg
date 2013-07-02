@@ -967,11 +967,11 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       {
         if (field->type() == FieldDescriptor::TYPE_STRING)
         {
-          printer->Print(vars_, "$left_field_name$ = malloc ($left_field_count$ * sizeof($message_name$));\n");
+          printer->Print(vars_, "$left_field_name$ = malloc ($result_ref$$left_field_count$ * sizeof($message_name$));\n");
         }
         else
         {
-          printer->Print(vars_, "$left_field_name$ = malloc ($left_field_count$ * sizeof($message_name$ *));\n");
+          printer->Print(vars_, "$left_field_name$ = malloc ($result_ref$$left_field_count$ * sizeof($message_name$ *));\n");
         }
       }
       printer->Print(vars_, "for ($i$ = 0; $i$ < $result_ref$$left_field_count$; $i$++) // repeated \"$field_name$\"\n");
@@ -985,7 +985,7 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       {
         if (allocate_memory)
         {
-          printer->Print(vars_, "$left_field_name$[$i$] = malloc (1 * sizeof($message_name$));\n");
+          printer->Print(vars_, "$left_field_name$[$i$] = malloc (sizeof($message_name$));\n");
         }
 
         // if this is a pbc struct, we need to init it before use
