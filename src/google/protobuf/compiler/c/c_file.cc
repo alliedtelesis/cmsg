@@ -270,7 +270,7 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
   for (int i = 0; i < file_->dependency_count(); i++) {
     printer->Print(
       "#include \"$dependency$.h\"\n",
-      "dependency", GetAtlTypesFilename(StripProto(file_->dependency(i)->name())));
+      "dependency", GetAtlTypesFilename(file_->dependency(i)->name()));
   }
 
   //
@@ -280,13 +280,13 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
   printer->Print("\n");
 
   // Add global header file for this .proto if the file "<proto>_proto_global.h" exists
-  string proto_global_h = StripProto(file_->name()) + "_proto_global.h";
+  string proto_global_h = GetAtlGlobalFilename(file_->name()) + ".h";
   std::ifstream f(proto_global_h.c_str());
   if (f.good()) {
-    printer->Print("#include \"$proto_global_h$\"\n", "proto_global_h", basename(proto_global_h.c_str()));
+    printer->Print("#include \"$proto_global_h$\"\n", "proto_global_h", proto_global_h);
   }
   else {
-    printer->Print("//#include \"$proto_global_h$\"\n", "proto_global_h", basename(proto_global_h.c_str()));
+    printer->Print("//#include \"$proto_global_h$\"\n", "proto_global_h", proto_global_h);
   }
   f.close();
   printer->Print("\n");

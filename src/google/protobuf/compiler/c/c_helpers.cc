@@ -525,6 +525,11 @@ string GetAtlImplFilename(const string &protoname)
   return GetAtlFilename(protoname, "impl_auto");
 }
 
+string GetAtlGlobalFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "proto_global");
+}
+
 }  // namespace c
 }  // namespace compiler
 }  // namespace protobuf

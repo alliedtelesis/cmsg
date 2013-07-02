@@ -149,6 +149,7 @@ string GetAtlFilename(const string &protoname, const string &filetype);
 string GetAtlTypesFilename(const string &protoname);
 string GetAtlApiFilename(const string &protoname);
 string GetAtlImplFilename(const string &protoname);
+string GetAtlGlobalFilename(const string &protoname);
 
 
 // write IntRanges entries for a bunch of sorted values.
