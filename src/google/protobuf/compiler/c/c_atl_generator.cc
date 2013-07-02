@@ -243,7 +243,7 @@ void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, 
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "int $lcfullname$_api_$method$(ProtobufC_RPC_Client *client");
+  printer->Print(vars_, "int $lcfullname$_api_$method$(ProtobufC_RPC_Client *_client");
 
   if (method.input_type()->field_count() > 0)
   {
@@ -588,17 +588,17 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     if(method->output_type()->field_count() > 0)
     {
-      printer->Print(vars_, "$output_typename$_pbc msgR;\n");
+      printer->Print(vars_, "$output_typename$_pbc _msgR;\n");
     }
-    printer->Print(vars_, "$input_typename$_pbc msgS = $input_typename_upper$_PBC_INIT;\n");
-    printer->Print(vars_, "ProtobufCService *service = (ProtobufCService *)client;\n");
+    printer->Print(vars_, "$input_typename$_pbc _msgS = $input_typename_upper$_PBC_INIT;\n");
+    printer->Print(vars_, "ProtobufCService *_service = (ProtobufCService *)_client;\n");
 
     //
     // copy the input parameters into the outgoing message
     //
     printer->Print("\n");
     printer->Print("/* Copy input variables to pbc send message */\n");
-    GenerateMessageCopyCode(method->input_type(), "msgS.", "", printer, true, true, true, false);
+    GenerateMessageCopyCode(method->input_type(), "_msgS.", "", printer, true, true, true, false);
     printer->Print("\n");
 
     //
@@ -614,26 +614,26 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     if(method->output_type()->field_count() > 0)
     {
-      printer->Print(vars_, "$lcfullname$_$method_lcname$ (service, &msgS, $closure_name$, &msgR);\n\n");
+      printer->Print(vars_, "$lcfullname$_$method_lcname$ (_service, &_msgS, $closure_name$, &_msgR);\n\n");
     }
     else
     {
-      printer->Print(vars_, "$lcfullname$_$method_lcname$ (service, &msgS, NULL, NULL);\n\n");
+      printer->Print(vars_, "$lcfullname$_$method_lcname$ (_service, &_msgS, NULL, NULL);\n\n");
     }
 
     //
     // to be tidy, cleanup the sent message memory
     //
     printer->Print("/* Free send message memory */\n");
-    GenerateCleanupMessageMemoryCode(method->input_type(), "msgS.", printer);
+    GenerateCleanupMessageMemoryCode(method->input_type(), "_msgS.", printer);
     printer->Print("\n");
 
     //
     // copy the return values
     //
-    //GenerateReceiveMessageCopyCode(method->output_type(), "msgR",  printer);
+    //GenerateReceiveMessageCopyCode(method->output_type(), "_msgR",  printer);
     printer->Print("/* Copy received message fields to output variables */\n");
-    GenerateMessageCopyCode(method->output_type(), "result_", "msgR.", printer, false, false, false, true);
+    GenerateMessageCopyCode(method->output_type(), "result_", "_msgR.", printer, false, false, false, true);
     printer->Print("\n");
 
     //
@@ -641,7 +641,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     // transfer values in the closure function
     //
     printer->Print("/* Free temporary receive message memory */\n");
-    GenerateCleanupMessageMemoryCode(method->output_type(), "msgR.", printer);
+    GenerateCleanupMessageMemoryCode(method->output_type(), "_msgR.", printer);
     printer->Print("\n");
 
     //
@@ -720,15 +720,15 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     printer->Print("if (input == NULL)\n");
     printer->Print("{\n");
     printer->Indent();
-    printer->Print("closure(NULL, closure_data);\n");
+    printer->Print("_closure(NULL, _closure_data);\n");
     printer->Print("return;\n");
     printer->Outdent();
     printer->Print("}\n");
 
     printer->Print("\n");
     printer->Print("// these are needed in 'Send' function for sending reply back to the client\n");
-    printer->Print("service->closure = closure;\n");
-    printer->Print("service->closure_data = closure_data;\n");
+    printer->Print("_service->closure = _closure;\n");
+    printer->Print("_service->closure_data = _closure_data;\n");
     printer->Print("\n");
 
     //
@@ -742,7 +742,7 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     //
     printer->Print("\n");
     printer->Print("// call user-defined server implementation\n");
-    printer->Print(vars_, "$lcfullname$_impl_$method$(service");
+    printer->Print(vars_, "$lcfullname$_impl_$method$(_service");
     if (method->input_type()->field_count() > 0)
     {
       printer->Print(", ");
@@ -755,8 +755,8 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     // call closure()
     //
     printer->Print("// clean up\n");
-    printer->Print("service->closure = NULL;\n");
-    printer->Print("service->closure_data = NULL;\n");
+    printer->Print("_service->closure = NULL;\n");
+    printer->Print("_service->closure_data = NULL;\n");
     printer->Print("\n");
 
     GenerateCleanupMessageMemoryCode(method->input_type(), "user_input.", printer);
@@ -808,10 +808,10 @@ void AtlCodeGenerator::GenerateAtlServerDefinition(const MethodDescriptor &metho
   vars_["padddddddddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_server_" + lcname);
 
   printer->Print(vars_,
-                 "void $lcfullname$_server_$method$($cname$_Service *service,\n"
+                 "void $lcfullname$_server_$method$($cname$_Service *_service,\n"
                  "     $padddddddddddddddddddddddd$ const $input_typename$_pbc *input,\n"
-                 "     $padddddddddddddddddddddddd$ $output_typename$_pbc_Closure closure,\n"
-                 "     $padddddddddddddddddddddddd$ void *closure_data)");
+                 "     $padddddddddddddddddddddddd$ $output_typename$_pbc_Closure _closure,\n"
+                 "     $padddddddddddddddddddddddd$ void *_closure_data)");
   if (forHeader)
   {
     printer->Print(";");
@@ -825,7 +825,7 @@ void AtlCodeGenerator::GenerateAtlServerImplDefinition(const MethodDescriptor &m
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "int $lcfullname$_impl_$method$(const void *service");
+  printer->Print(vars_, "int $lcfullname$_impl_$method$(const void *_service");
   if (method.input_type()->field_count() > 0)
   {
     printer->Print(", ");
@@ -850,21 +850,21 @@ void AtlCodeGenerator::GenerateAtlServerSendImplementation(const MethodDescripto
   printer->Print("{\n");
   printer->Indent();
 
-  printer->Print(vars_, "$output_typename$_pbc_Closure closure = ((const $cname$_Service *)service)->closure;\n");
-  printer->Print(vars_, "void *closure_data = ((const $cname$_Service *)service)->closure_data;\n");
-  printer->Print(vars_, "$output_typename$_pbc result = $output_typename_upper$_PBC_INIT;\n");
+  printer->Print(vars_, "$output_typename$_pbc_Closure _closure = ((const $cname$_Service *)_service)->closure;\n");
+  printer->Print(vars_, "void *_closure_data = ((const $cname$_Service *)_service)->closure_data;\n");
+  printer->Print(vars_, "$output_typename$_pbc _result = $output_typename_upper$_PBC_INIT;\n");
   printer->Print("\n");
 
   //
-  // copy data from response message (result) to the closure data structure
+  // copy data from response message (_result) to the closure data structure
   //
-  GenerateMessageCopyCode(method.output_type(), "result.", "", printer, true, true, true, false);
+  GenerateMessageCopyCode(method.output_type(), "_result.", "", printer, true, true, true, false);
 
   printer->Print("\n");
-  printer->Print(vars_, "closure(&result, closure_data);\n");
+  printer->Print(vars_, "_closure(&_result, _closure_data);\n");
 
   printer->Print("\n");
-  GenerateCleanupMessageMemoryCode(method.output_type(), "result.", printer);
+  GenerateCleanupMessageMemoryCode(method.output_type(), "_result.", printer);
 
   printer->Outdent();
   printer->Print("}\n\n");
@@ -875,7 +875,7 @@ void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &m
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "void $lcfullname$_server_$method$Send(const void *service");
+  printer->Print(vars_, "void $lcfullname$_server_$method$Send(const void *_service");
   if (method.output_type()->field_count() > 0)
   {
     printer->Print(", ");
@@ -944,7 +944,7 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       printer->Print("{\n");
       printer->Indent();
 
-      vars_["i"] = "i" + ((depth > 0) ? SimpleItoa(depth) : "");
+      vars_["i"] = "_i" + ((depth > 0) ? SimpleItoa(depth) : "");
       printer->Print(vars_, "int $i$ = 0;\n");
 
       vars_["left_field_count"] = lhm + "n_" + field_name;
@@ -1164,7 +1164,7 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
         printer->Print(vars_, "if ($left_field_name$ != NULL)\n");
         printer->Print("{\n");
         printer->Indent();
-        vars_["i"] = "i" + ((depth > 0) ? SimpleItoa(depth) : "");
+        vars_["i"] = "_i" + ((depth > 0) ? SimpleItoa(depth) : "");
         printer->Print(vars_, "int $i$ = 0;\n");
         printer->Print(vars_, "for ($i$ = 0; $i$ < $left_field_count$; $i$++) // sub-message \"$field_name$\"\n");
         printer->Print("{\n");
