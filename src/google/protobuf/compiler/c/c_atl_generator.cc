@@ -1178,7 +1178,7 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
             vars_["left_field_name"] = lhm + field_name;
           }
         }
-        vars_["i"] = "i" + ((depth > 0) ? SimpleItoa(depth) : "");
+        vars_["i"] = "_i" + ((depth > 0) ? SimpleItoa(depth) : "");
         printer->Print(vars_, "free (($left_field_name$)[$i$]);\n");
 
         printer->Outdent();
