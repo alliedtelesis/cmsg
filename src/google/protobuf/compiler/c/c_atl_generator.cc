@@ -243,7 +243,7 @@ void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, 
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "int $lcfullname$_api_$method$(ProtobufC_RPC_Client *_client");
+  printer->Print(vars_, "int $lcfullname$_api_$method$(cmsg_client *_client");
 
   if (method.input_type()->field_count() > 0)
   {

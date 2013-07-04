@@ -332,6 +332,8 @@ void FileGenerator::GenerateAtlApiHeader(io::Printer* printer) {
   printer->Print("#include <stdlib.h>\n");
   // include the ATL types header which will also include the pbc header
   printer->Print("#include \"$pbh$.h\"\n", "pbh", GetAtlTypesFilename(file_->name()));
+  printer->Print("/* include the cmsg_client definition for the api function */\n");
+  printer->Print("#include <google/protobuf-c/protobuf-c-cmsg-client.h>\n");
 
   printer->Print("\n");
 
