@@ -280,9 +280,10 @@ void AtlCodeGenerator::GenerateParameterListFromMessage(io::Printer* printer, co
       vars_["field_name"] = (output ? "result_" : "") + FieldName(field);
       vars_["n_field_name"] = (output ? "result_n_" : "n_") + FieldName(field);
 
-      // if the field type is message we will print this out as a struct
-      // ie we will print field_type (struct), message_name (struct name), and field_name (variable name)
-      if (field->type() == FieldDescriptor::TYPE_MESSAGE)
+      // need special handling for enums and messages as the type name we print isn't one
+      // of the primitive types, but the type name given in the proto file
+      if ((field->type() == FieldDescriptor::TYPE_MESSAGE) ||
+          (field->type() == FieldDescriptor::TYPE_ENUM))
       {
         if (field->is_repeated())
         {
@@ -294,7 +295,14 @@ void AtlCodeGenerator::GenerateParameterListFromMessage(io::Printer* printer, co
           }
           printer->Print(vars_, "$n_field_name$, ");
         }
-        vars_["message_name"] = FullNameToC(field->message_type()->full_name());
+        if (field->type() == FieldDescriptor::TYPE_MESSAGE)
+        {
+          vars_["message_name"] = FullNameToC(field->message_type()->full_name());
+        }
+        else if (field->type() == FieldDescriptor::TYPE_ENUM)
+        {
+          vars_["message_name"] = FullNameToC(field->enum_type()->full_name());
+        }
         printer->Print(vars_, "$message_name$ *");
         if (output || field->is_repeated())
         {
