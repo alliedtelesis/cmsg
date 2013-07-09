@@ -303,8 +303,12 @@ void AtlCodeGenerator::GenerateParameterListFromMessage(io::Printer* printer, co
         {
           vars_["message_name"] = FullNameToC(field->enum_type()->full_name());
         }
-        printer->Print(vars_, "$message_name$ *");
-        if (output || field->is_repeated())
+        printer->Print(vars_, "$message_name$ ");
+        if (output)
+        {
+          printer->Print("*");
+        }
+        if (field->is_repeated())
         {
           printer->Print("*");
         }
