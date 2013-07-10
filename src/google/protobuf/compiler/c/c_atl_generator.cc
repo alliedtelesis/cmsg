@@ -1128,8 +1128,15 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
         }
 
       }
-
-      GenerateMessageCopyCode(field->message_type(), "(" + vars_["result_ref"] + lhm + field_name + ")->", "(" + rhm + field_name + ")->", printer, allocate_memory, send, to_pbc, false, depth);
+      // for sub structures, access the sub fields using an arrow _unless_ the name has
+      // already dereferenced the structure pointer (ie blah->field or *blah.field _NOT_ *blah->field)
+      //
+      string arrow = ")->";
+      if (vars_["result_ref"] == "*")
+      {
+        arrow = ").";
+      }
+      GenerateMessageCopyCode(field->message_type(), "(" + vars_["result_ref"] + lhm + field_name + arrow, "(" + rhm + field_name + ")->", printer, allocate_memory, send, to_pbc, false, depth);
     }
   }
 }
