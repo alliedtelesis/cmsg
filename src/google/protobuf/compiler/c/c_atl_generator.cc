@@ -304,7 +304,7 @@ void AtlCodeGenerator::GenerateParameterListFromMessage(io::Printer* printer, co
           vars_["message_name"] = FullNameToC(field->enum_type()->full_name());
         }
         printer->Print(vars_, "$message_name$ ");
-        if (output)
+        if (output || (field->type() == FieldDescriptor::TYPE_MESSAGE))
         {
           printer->Print("*");
         }
