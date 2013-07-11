@@ -578,6 +578,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
     vars_["input_typename_upper"] = FullNameToUpper(method->input_type()->full_name());
     vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
+    vars_["output_typename_upper"] = FullNameToUpper(method->output_type()->full_name());
     //
     // we need to generate a closure function for the api to call on return
     // of the rpc call from the server just when we have a response with fields
@@ -600,7 +601,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     if(method->output_type()->field_count() > 0)
     {
-      printer->Print(vars_, "$output_typename$_pbc _msgR;\n");
+      printer->Print(vars_, "$output_typename$_pbc _msgR = $output_typename_upper$_PBC_INIT;\n");
     }
     printer->Print(vars_, "$input_typename$_pbc _msgS = $input_typename_upper$_PBC_INIT;\n");
     printer->Print(vars_, "ProtobufCService *_service = (ProtobufCService *)_client;\n");
@@ -1079,28 +1080,41 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       if (field->is_optional() &&
           !((field->type() == FieldDescriptor::TYPE_MESSAGE) || (field->type() == FieldDescriptor::TYPE_STRING)))
       {
+        vars_["lhm_has_field_name"] = lhm + "has_" + field_name;
+        vars_["rhm_has_field_name"] = rhm + "has_" + field_name;
         if (send)
         {
-          vars_["has_field_name"] = lhm + "has_" + field_name;
-          printer->Print(vars_, "$has_field_name$ = 1;\n");
+          printer->Print(vars_, "$lhm_has_field_name$ = 1;\n");
         }
         else
         {
-          vars_["has_field_name"] = rhm + "has_" + field_name;
-          printer->Print(vars_, "if ($has_field_name$)\n");
+          printer->Print(vars_, "if ($rhm_has_field_name$)\n");
+          printer->Print("{\n");
           printer->Indent();
           indented = true;
+          // update the "has_' field if copying to a pbc message
+          if (to_pbc)
+          {
+            printer->Print(vars_, "$lhm_has_field_name$ = $rhm_has_field_name$;\n");
+          }
         }
       }
       printer->Print(vars_, "$result_ref$$left_field_name$ = $right_field_name$;\n");
 
       if (indented)
+      {
         printer->Outdent();
+        printer->Print("}\n");
+      }
     }
     else
     {
       // this is a sub message so we need to follow pointers into the sub structure.
-      // first, we need to allocate memory here for this structure
+      // first do a sanity check that we have something to copy
+      printer->Print(vars_, "if ($right_field_name$ != NULL)\n");
+      printer->Print("{\n");
+      printer->Indent();
+      // next we need to allocate memory here for this structure
       //
       if (allocate_memory)
       {
@@ -1137,6 +1151,9 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
         arrow = ").";
       }
       GenerateMessageCopyCode(field->message_type(), "(" + vars_["result_ref"] + lhm + field_name + arrow, "(" + rhm + field_name + ")->", printer, allocate_memory, send, to_pbc, false, depth);
+
+      printer->Outdent();
+      printer->Print("}\n");
     }
   }
 }
