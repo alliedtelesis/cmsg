@@ -130,7 +130,21 @@ int main(int argc, char**argv)
     	  transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
     	  strcpy (transport->sockaddr.group_name.value, "cpg_bm");
     	  transport->sockaddr.group_name.length = 6;
+          break;
         }
+      else if (starts_with (argv[arg_i], "--broadcast"))
+      {
+          int my_id = 4; //Stack member id
+          int stack_tipc_port = 9500; //Stack topology sending port
+          transport = cmsg_transport_new (CMSG_TRANSPORT_BROADCAST);
+
+          transport->sockaddr.tipc.addrtype = TIPC_ADDR_NAMESEQ;
+          transport->sockaddr.tipc.scope = TIPC_CLUSTER_SCOPE;
+          transport->sockaddr.tipc.addr.nameseq.type = stack_tipc_port;
+          transport->sockaddr.tipc.addr.nameseq.lower = my_id;
+          transport->sockaddr.tipc.addr.nameseq.upper = my_id;
+          break;
+      }
       else
         {
           printf("missing --tcp=PORT or --unix=PATH or --tipc=PORT:MEMBER --cpg --oneway\n");

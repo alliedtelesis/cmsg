@@ -71,7 +71,8 @@ enum _cmsg_transport_type_e
   CMSG_TRANSPORT_ONEWAY_TCP,
   CMSG_TRANSPORT_ONEWAY_TIPC,
   CMSG_TRANSPORT_CPG,
-  CMSG_TRANSPORT_ONEWAY_CPUMAIL
+  CMSG_TRANSPORT_ONEWAY_CPUMAIL,
+  CMSG_TRANSPORT_BROADCAST,
 };
 
 typedef int (*client_conect_f)(cmsg_client* client);
@@ -133,6 +134,8 @@ void
 cmsg_transport_cpg_init(cmsg_transport* transport);
 void
 cmsg_transport_oneway_cpumail_init(cmsg_transport* transport);
+void
+cmsg_transport_tipc_broadcast_init(cmsg_transport* transport);
 
 
 int32_t

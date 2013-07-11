@@ -27,6 +27,9 @@ cmsg_transport_new (cmsg_transport_type type)
   case CMSG_TRANSPORT_CPG:
     cmsg_transport_cpg_init (transport);
     break;
+  case CMSG_TRANSPORT_BROADCAST:
+      cmsg_transport_tipc_broadcast_init (transport);
+      break;
   default:
     DEBUG ("[TRANSPORT] transport type not supported\n");
     free (transport);

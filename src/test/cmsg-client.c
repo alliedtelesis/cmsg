@@ -53,7 +53,7 @@ int main(int argc, char**argv)
   srand (time(NULL));
   cmsg_client* torusclient = 0;
   cmsg_transport* transport = 0;
-  int is_tcp_tipc_cpg;// tcp:1, tipc:2, cpg:3
+  int is_tcp_tipc_cpg = 0;// tcp:1, tipc:2, cpg:3, tipc broadcast:4
   int is_one_way = 0; //0: no, 1:yes
   int arg_i;
 
@@ -67,6 +67,9 @@ int main(int argc, char**argv)
 
       if (starts_with (argv[arg_i], "--cpg"))
     	  is_tcp_tipc_cpg = 3;
+
+      if (starts_with (argv[arg_i], "--broadcast"))
+    	  is_tcp_tipc_cpg = 4;
 
       if (starts_with (argv[arg_i], "--oneway"))
     	  is_one_way = 1;
@@ -102,6 +105,17 @@ int main(int argc, char**argv)
 	  transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
 	  strcpy (transport->sockaddr.group_name.value, "cpg_bm");
 	  transport->sockaddr.group_name.length = 6;
+  }
+  else if (is_tcp_tipc_cpg == 4)
+  {
+      int my_id = 1; //Stack member id
+      int stack_tipc_port = 9500; //Stack topology sending port
+      transport = cmsg_transport_new (CMSG_TRANSPORT_BROADCAST);
+
+      transport->sockaddr.tipc.addrtype = TIPC_ADDR_MCAST;
+      transport->sockaddr.tipc.addr.nameseq.type = stack_tipc_port;
+      transport->sockaddr.tipc.addr.nameseq.lower = 1;
+      transport->sockaddr.tipc.addr.nameseq.upper = 8;
   }
   else
   {

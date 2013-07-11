@@ -57,7 +57,9 @@ libprotobuf_c_la_LDFLAGS = \
 libprotobuf_c_la_LIBADD = -lglib-2.0
 
 if HAVE_VCSTACK
-libprotobuf_c_la_SOURCES += google/protobuf-c/protobuf-c-cmsg-transport-cpg.c
+libprotobuf_c_la_SOURCES += \ 
+google/protobuf-c/protobuf-c-cmsg-transport-cpg.c \
+google/protobuf-c/protobuf-c-cmsg-transport-tipc-broadcast.c
 libprotobuf_c_la_LIBADD  += -lcpg -lcoroipcc
 endif
 
