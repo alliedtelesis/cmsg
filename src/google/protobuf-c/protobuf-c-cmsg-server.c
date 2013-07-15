@@ -113,18 +113,23 @@ cmsg_server_message_processor (cmsg_server*         server,
       return 0;
    }
 
-  if (!buffer_data)
+  if (buffer_data)
     {
-    DEBUG ("[SERVER] buffer not defined");
-    return 0;
+      DEBUG ("[SERVER] processsing message with data\n");
+      DEBUG ("[SERVER] unpacking message\n");
+
+      //unpack the message
+      message = protobuf_c_message_unpack (server->service->descriptor->methods[server_request->method_index].input,
+                                           allocator,
+                                           server_request->message_length,
+                                           buffer_data);
     }
-
-  DEBUG ("[SERVER] unpacking message\n");
-
-  message = protobuf_c_message_unpack (server->service->descriptor->methods[server_request->method_index].input,
-                                       allocator,
-                                       server_request->message_length,
-                                       buffer_data);
+  else
+    {
+      DEBUG ("[SERVER] processsing message without data\n");
+      //create a new empty message
+      protobuf_c_message_init(server->service->descriptor->methods[server_request->method_index].input, message);
+    }
 
   if (message == 0)
     {

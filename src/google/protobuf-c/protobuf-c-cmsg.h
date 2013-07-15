@@ -26,6 +26,8 @@
   #define DEBUG(ARGS...) (0)
 #endif
 
+#define RECV_TIMEOUT 10
+
 
 // Protocol is:
 //    client requests with header:

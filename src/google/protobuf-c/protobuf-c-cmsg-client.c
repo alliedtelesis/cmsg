@@ -158,12 +158,13 @@ cmsg_client_invoke_rpc (ProtobufCService*       service,
 
   if (!message)
   {
-    DEBUG ("[CLIENT] response message not valid\n");
+    DEBUG ("[CLIENT] response message not valid or empty\n");
     return;
   }
 
-  //todo: call closure
-  closure (message, closure_data);
+  //call closure
+  if(closure) //check if closure is not zero, can be the case when we use empty messages
+    closure (message, closure_data);
 
   protobuf_c_message_free_unpacked (message, client->allocator);
   return;
