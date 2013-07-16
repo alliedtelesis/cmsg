@@ -20,7 +20,9 @@ typedef struct _cmsg_client_s           cmsg_client;
 typedef struct _cmsg_server_s           cmsg_server;
 
 
-typedef union  _cmsg_socket_address_u        cmsg_socket_address;
+typedef struct _cmsg_socket_address_s        cmsg_socket_address;
+typedef struct _cmsg_udt_functions_s         cmsg_udt_functions;
+typedef struct _cmsg_transport_arguments_s   cmsg_transport_arguments;
 typedef enum   _cmsg_transport_type_e        cmsg_transport_type;
 typedef struct _cmsg_transport_s             cmsg_transport;
 typedef union  _client_connection_u          cmsg_client_connection;
@@ -72,7 +74,17 @@ union _cmsg_socket_address_u
 #endif
 };
 
+typedef int (*udt_connect_f)(cmsg_client *client);
+typedef int (*udt_send_f)(void *udf_data,
+                      void*   buff,
+                      int     length,
+                      int     flag);
 
+struct _cmsg_udt_functions_s
+{
+    udt_connect_f connect;
+    udt_send_f send;
+};
 
 enum _cmsg_transport_type_e
 {
@@ -82,7 +94,7 @@ enum _cmsg_transport_type_e
   CMSG_TRANSPORT_ONEWAY_TCP,
   CMSG_TRANSPORT_ONEWAY_TIPC,
   CMSG_TRANSPORT_CPG,
-  CMSG_TRANSPORT_ONEWAY_CPUMAIL,
+  CMSG_TRANSPORT_ONEWAY_USERDEFINED,
   CMSG_TRANSPORT_BROADCAST,
 };
 
@@ -116,6 +128,7 @@ struct _cmsg_transport_s
   cmsg_transport_type type;
   int family;
   cmsg_socket_address sockaddr;
+  cmsg_udt_functions udt_funcs; // Functions for userdefined transport functionality
   client_conect_f connect;    //client connect function
   server_listen_f listen;     //server listen function
   server_recv_f server_recv;  //server receive function

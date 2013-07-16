@@ -32,6 +32,10 @@ cmsg_transport_new (cmsg_transport_type type)
       cmsg_transport_tipc_broadcast_init (transport);
       break;
 #endif
+  case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
+    cmsg_transport_oneway_udt_init (transport);
+    break;
+
   default:
     DEBUG ("[TRANSPORT] transport type not supported\n");
     free (transport);

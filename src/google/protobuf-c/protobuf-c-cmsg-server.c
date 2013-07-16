@@ -240,12 +240,12 @@ void
 cmsg_server_closure_oneway (const ProtobufCMessage* message,
                             void*                   closure_data)
 {
-  cmsg_server* server = ( cmsg_server* )closure_data;
-  cmsg_server_request* server_request = server->server_request;
-  //we are not sending a response in this transport mode
-  DEBUG ("[SERVER] invoking oneway method=%d\n", server_request->method_index);
+    cmsg_server* server = ( cmsg_server* )closure_data;
+    cmsg_server_request* server_request = server->server_request;
+    //we are not sending a response in this transport mode
+    DEBUG ("[SERVER] invoking oneway method=%d\n", server_request->method_index);
 
-  server->transport->server_close (server);
+    server->transport->server_close (server);
 
-  server_request->closure_response = 0;
+    server_request->closure_response = 0;
 }

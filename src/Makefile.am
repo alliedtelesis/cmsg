@@ -43,6 +43,7 @@ google/protobuf-c/protobuf-c-cmsg-sub-service.pb-c.c \
 google/protobuf-c/protobuf-c-cmsg-transport.c \
 google/protobuf-c/protobuf-c-cmsg-transport-tipc.c \
 google/protobuf-c/protobuf-c-cmsg-transport-tcp.c \
+google/protobuf-c/protobuf-c-cmsg-transport-udt.c \
 google/protobuf-c/protobuf-c.c
 
 # ah, -no-undefined, goofball windows hack.
