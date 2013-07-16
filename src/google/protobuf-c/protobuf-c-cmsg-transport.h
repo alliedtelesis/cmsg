@@ -74,8 +74,14 @@ union _cmsg_socket_address_u
 #endif
 };
 
+struct _cmsg_socket_address_s
+{
+    int family;
+    union _cmsg_socket_address_u addr;
+};
+
 typedef int (*udt_connect_f)(cmsg_client *client);
-typedef int (*udt_send_f)(void *udf_data,
+typedef int (*udt_send_f)(void *udt_data,
                       void*   buff,
                       int     length,
                       int     flag);
@@ -126,8 +132,11 @@ typedef void (*server_destroy_f)(cmsg_server* server);
 struct _cmsg_transport_s
 {
   cmsg_transport_type type;
-  int family;
-  cmsg_socket_address sockaddr;
+  union
+  {
+      cmsg_socket_address sockaddr;
+      void *udt_data;
+  } connection_info;
   cmsg_udt_functions udt_funcs; // Functions for userdefined transport functionality
   client_conect_f connect;    //client connect function
   server_listen_f listen;     //server listen function

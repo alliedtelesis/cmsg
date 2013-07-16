@@ -101,7 +101,7 @@ cmsg_transport_oneway_udt_client_send (cmsg_client *client, void *buff, int leng
 
     if (client->transport->udt_funcs.send)
     {
-        return (client->transport->udt_funcs.send (buff, length, flag));
+        return (client->transport->udt_funcs.send (client->transport->connection_info.udt_data, buff, length, flag));
     }
 
     // Function isn't defined so just pretend the message was sent.
@@ -139,8 +139,8 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
         return;
     }
 
-    transport->family = 0;
-    transport->sockaddr.generic.sa_family = 0;
+    transport->connection_info.sockaddr.family = 0;
+    transport->connection_info.sockaddr.addr.generic.sa_family = 0;
 
     memset(&transport->udt_funcs, 0, sizeof (transport->udt_funcs));
     transport->connect = cmsg_transport_oneway_udt_connect;

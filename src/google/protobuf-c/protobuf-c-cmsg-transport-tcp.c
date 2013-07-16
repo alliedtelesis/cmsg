@@ -9,7 +9,7 @@ cmsg_transport_tcp_connect (cmsg_client *client)
   if (client == NULL)
     return 0;
 
-  client->connection.socket = socket (client->transport->family, SOCK_STREAM, 0);
+  client->connection.socket = socket (client->transport->connection_info.sockaddr.family, SOCK_STREAM, 0);
 
   if (client->connection.socket < 0)
   {
@@ -18,8 +18,8 @@ cmsg_transport_tcp_connect (cmsg_client *client)
     return 0;
   }
   if (connect (client->connection.socket,
-               (struct sockaddr*)&client->transport->sockaddr.in,
-               sizeof (client->transport->sockaddr.in)) < 0)
+               (struct sockaddr*)&client->transport->connection_info.sockaddr.addr.in,
+               sizeof (client->transport->connection_info.sockaddr.addr.in)) < 0)
   {
     if (errno == EINPROGRESS)
     {
@@ -56,7 +56,7 @@ cmsg_transport_tcp_listen (cmsg_server* server)
   server->connection.sockets.client_socket = 0;
 
   transport = server->transport;
-  listening_socket = socket (transport->family, SOCK_STREAM, 0);
+  listening_socket = socket (transport->connection_info.sockaddr.family, SOCK_STREAM, 0);
   if (listening_socket == -1)
   {
     DEBUG ("[TRANSPORT] socket failed with: %s\n", strerror(errno));
@@ -71,9 +71,9 @@ cmsg_transport_tcp_listen (cmsg_server* server)
     return -1;
   }
 
-  addrlen = sizeof (transport->sockaddr.generic);
+  addrlen = sizeof (transport->connection_info.sockaddr.addr.generic);
 
-  ret = bind (listening_socket, &transport->sockaddr.generic, addrlen);
+  ret = bind (listening_socket, &transport->connection_info.sockaddr.addr.generic, addrlen);
   if (ret < 0)
   {
     DEBUG ("[TRANSPORT] bind failed with: %s\n", strerror (errno));
@@ -92,7 +92,7 @@ cmsg_transport_tcp_listen (cmsg_server* server)
   server->connection.sockets.listening_socket = listening_socket;
 
   DEBUG ("[TRANSPORT] listening on tcp socket: %d\n", listening_socket);
-  DEBUG ("[TRANSPORT] listening on port: %d\n", (int)ntohs(server->transport->sockaddr.in.sin_port));
+  DEBUG ("[TRANSPORT] listening on port: %d\n", (int)ntohs(server->transport->connection_info.sockaddr.addr.in.sin_port));
   return 0;
 }
 
@@ -123,9 +123,9 @@ cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server* server)
     return -1;
   }
 
-  client_len = sizeof (client_transport.sockaddr.in);
+  client_len = sizeof (client_transport.connection_info.sockaddr.addr.in);
   server->connection.sockets.client_socket = accept (socket,
-                                                     (struct sockaddr *)&client_transport.sockaddr.in,
+                                                     (struct sockaddr *)&client_transport.connection_info.sockaddr.addr.in,
                                                      &client_len);
 
   if (server->connection.sockets.client_socket <= 0)
@@ -453,8 +453,8 @@ cmsg_transport_tcp_init(cmsg_transport *transport)
   if (transport == NULL)
     return;
 
-  transport->family = PF_INET;
-  transport->sockaddr.generic.sa_family = PF_INET;
+  transport->connection_info.sockaddr.family = PF_INET;
+  transport->connection_info.sockaddr.addr.generic.sa_family = PF_INET;
 
   transport->connect = cmsg_transport_tcp_connect;
   transport->listen = cmsg_transport_tcp_listen;
@@ -482,8 +482,8 @@ cmsg_transport_oneway_tcp_init(cmsg_transport *transport)
   if (transport == NULL)
     return;
 
-  transport->family = PF_INET;
-  transport->sockaddr.generic.sa_family = PF_INET;
+  transport->connection_info.sockaddr.family = PF_INET;
+  transport->connection_info.sockaddr.addr.generic.sa_family = PF_INET;
   transport->connect = cmsg_transport_tcp_connect;
   transport->listen = cmsg_transport_tcp_listen;
   transport->server_recv = cmsg_transport_tcp_server_recv;

@@ -5,18 +5,18 @@ int32_t
 cmsg_sub_entry_compare(cmsg_sub_entry* one,
                        cmsg_sub_entry* two)
 {
-  if (one->transport.family == two->transport.family &&
+  if (one->transport.connection_info.sockaddr.family == two->transport.connection_info.sockaddr.family &&
       one->transport.type == two->transport.type &&
-      one->transport.sockaddr.in.sin_addr.s_addr == two->transport.sockaddr.in.sin_addr.s_addr &&
-      one->transport.sockaddr.in.sin_port == two->transport.sockaddr.in.sin_port &&
-      one->transport.family == two->transport.family &&
+      one->transport.connection_info.sockaddr.addr.in.sin_addr.s_addr == two->transport.connection_info.sockaddr.addr.in.sin_addr.s_addr &&
+      one->transport.connection_info.sockaddr.addr.in.sin_port == two->transport.connection_info.sockaddr.addr.in.sin_port &&
+      one->transport.connection_info.sockaddr.family == two->transport.connection_info.sockaddr.family &&
       one->transport.type == two->transport.type &&
-      one->transport.sockaddr.tipc.family == two->transport.sockaddr.tipc.family &&
-      one->transport.sockaddr.tipc.addrtype == two->transport.sockaddr.tipc.addrtype &&
-      one->transport.sockaddr.tipc.addr.name.domain == two->transport.sockaddr.tipc.addr.name.domain &&
-      one->transport.sockaddr.tipc.addr.name.name.instance == two->transport.sockaddr.tipc.addr.name.name.instance &&
-      one->transport.sockaddr.tipc.addr.name.name.type == two->transport.sockaddr.tipc.addr.name.name.type &&
-      one->transport.sockaddr.tipc.scope == two->transport.sockaddr.tipc.scope &&
+      one->transport.connection_info.sockaddr.addr.tipc.family == two->transport.connection_info.sockaddr.addr.tipc.family &&
+      one->transport.connection_info.sockaddr.addr.tipc.addrtype == two->transport.connection_info.sockaddr.addr.tipc.addrtype &&
+      one->transport.connection_info.sockaddr.addr.tipc.addr.name.domain == two->transport.connection_info.sockaddr.addr.tipc.addr.name.domain &&
+      one->transport.connection_info.sockaddr.addr.tipc.addr.name.name.instance == two->transport.connection_info.sockaddr.addr.tipc.addr.name.name.instance &&
+      one->transport.connection_info.sockaddr.addr.tipc.addr.name.name.type == two->transport.connection_info.sockaddr.addr.tipc.addr.name.name.type &&
+      one->transport.connection_info.sockaddr.addr.tipc.scope == two->transport.connection_info.sockaddr.addr.tipc.scope &&
       !strcmp(one->method_name, two->method_name))
     {
       return 1;
@@ -105,19 +105,19 @@ cmsg_pub_subscriber_add (cmsg_pub*       publisher,
       cmsg_sub_entry* list_entry = g_malloc (sizeof (cmsg_sub_entry));
       strcpy(list_entry->method_name, entry->method_name);
 
-      list_entry->transport.family = entry->transport.family;
+      list_entry->transport.connection_info.sockaddr.family = entry->transport.connection_info.sockaddr.family;
       list_entry->transport.type = entry->transport.type;
-      list_entry->transport.sockaddr.in.sin_addr.s_addr = entry->transport.sockaddr.in.sin_addr.s_addr;
-      list_entry->transport.sockaddr.in.sin_port = entry->transport.sockaddr.in.sin_port;
+      list_entry->transport.connection_info.sockaddr.addr.in.sin_addr.s_addr = entry->transport.connection_info.sockaddr.addr.in.sin_addr.s_addr;
+      list_entry->transport.connection_info.sockaddr.addr.in.sin_port = entry->transport.connection_info.sockaddr.addr.in.sin_port;
 
-      list_entry->transport.family = entry->transport.family;
+      list_entry->transport.connection_info.sockaddr.family = entry->transport.connection_info.sockaddr.family;
       list_entry->transport.type = entry->transport.type;
-      list_entry->transport.sockaddr.tipc.family = entry->transport.sockaddr.tipc.family;
-      list_entry->transport.sockaddr.tipc.addrtype = entry->transport.sockaddr.tipc.addrtype;
-      list_entry->transport.sockaddr.tipc.addr.name.domain = entry->transport.sockaddr.tipc.addr.name.domain;
-      list_entry->transport.sockaddr.tipc.addr.name.name.instance = entry->transport.sockaddr.tipc.addr.name.name.instance;
-      list_entry->transport.sockaddr.tipc.addr.name.name.type = entry->transport.sockaddr.tipc.addr.name.name.type;
-      list_entry->transport.sockaddr.tipc.scope = entry->transport.sockaddr.tipc.scope;
+      list_entry->transport.connection_info.sockaddr.addr.tipc.family = entry->transport.connection_info.sockaddr.addr.tipc.family;
+      list_entry->transport.connection_info.sockaddr.addr.tipc.addrtype = entry->transport.connection_info.sockaddr.addr.tipc.addrtype;
+      list_entry->transport.connection_info.sockaddr.addr.tipc.addr.name.domain = entry->transport.connection_info.sockaddr.addr.tipc.addr.name.domain;
+      list_entry->transport.connection_info.sockaddr.addr.tipc.addr.name.name.instance = entry->transport.connection_info.sockaddr.addr.tipc.addr.name.name.instance;
+      list_entry->transport.connection_info.sockaddr.addr.tipc.addr.name.name.type = entry->transport.connection_info.sockaddr.addr.tipc.addr.name.name.type;
+      list_entry->transport.connection_info.sockaddr.addr.tipc.scope = entry->transport.connection_info.sockaddr.addr.tipc.scope;
 
       publisher->subscriber_list = g_list_append (publisher->subscriber_list, list_entry);
 
@@ -346,25 +346,25 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service,
   
   if (input->transport_type == CMSG_TRANSPORT_ONEWAY_TCP)
     {
-      subscriber_entry.transport.sockaddr.generic.sa_family = PF_INET;
-      subscriber_entry.transport.family = PF_INET;
+      subscriber_entry.transport.connection_info.sockaddr.addr.generic.sa_family = PF_INET;
+      subscriber_entry.transport.connection_info.sockaddr.family = PF_INET;
       
       subscriber_entry.transport.type = input->transport_type;
-      subscriber_entry.transport.sockaddr.in.sin_addr.s_addr = input->in_sin_addr_s_addr;
-      subscriber_entry.transport.sockaddr.in.sin_port = input->in_sin_port;
+      subscriber_entry.transport.connection_info.sockaddr.addr.in.sin_addr.s_addr = input->in_sin_addr_s_addr;
+      subscriber_entry.transport.connection_info.sockaddr.addr.in.sin_port = input->in_sin_port;
     }
   else if (input->transport_type == CMSG_TRANSPORT_ONEWAY_TIPC)
     {
-      subscriber_entry.transport.sockaddr.generic.sa_family = PF_TIPC;
-      subscriber_entry.transport.family = PF_TIPC;
+      subscriber_entry.transport.connection_info.sockaddr.addr.generic.sa_family = PF_TIPC;
+      subscriber_entry.transport.connection_info.sockaddr.family = PF_TIPC;
       
       subscriber_entry.transport.type = input->transport_type;
-      subscriber_entry.transport.sockaddr.tipc.family = input->tipc_family;
-      subscriber_entry.transport.sockaddr.tipc.addrtype = input->tipc_addrtype;
-      subscriber_entry.transport.sockaddr.tipc.addr.name.domain = input->tipc_addr_name_domain;
-      subscriber_entry.transport.sockaddr.tipc.addr.name.name.instance = input->tipc_addr_name_name_instance;
-      subscriber_entry.transport.sockaddr.tipc.addr.name.name.type = input->tipc_addr_name_name_type;
-      subscriber_entry.transport.sockaddr.tipc.scope = input->tipc_scope;
+      subscriber_entry.transport.connection_info.sockaddr.addr.tipc.family = input->tipc_family;
+      subscriber_entry.transport.connection_info.sockaddr.addr.tipc.addrtype = input->tipc_addrtype;
+      subscriber_entry.transport.connection_info.sockaddr.addr.tipc.addr.name.domain = input->tipc_addr_name_domain;
+      subscriber_entry.transport.connection_info.sockaddr.addr.tipc.addr.name.name.instance = input->tipc_addr_name_name_instance;
+      subscriber_entry.transport.connection_info.sockaddr.addr.tipc.addr.name.name.type = input->tipc_addr_name_name_type;
+      subscriber_entry.transport.connection_info.sockaddr.addr.tipc.scope = input->tipc_scope;
     }
   else
       DEBUG ("[PUB] error: subscriber transport not supported\n");

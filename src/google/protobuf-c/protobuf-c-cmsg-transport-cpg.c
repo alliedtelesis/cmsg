@@ -91,13 +91,13 @@ cmsg_transport_cpg_connect (cmsg_client *client)
 {
   unsigned int res;
 
-  if (!client || !client->transport || client->transport->sockaddr.group_name.value[0] == '\0')
+  if (!client || !client->transport || client->transport->connection_info.sockaddr.addr.group_name.value[0] == '\0')
   {
     DEBUG ("[TRANPORT]cpg connect sanity check failed\n");
   }
   else
   {
-    DEBUG ("[TRANPORT]cpg connect group name: %s\n", client->transport->sockaddr.group_name.value);
+    DEBUG ("[TRANPORT]cpg connect group name: %s\n", client->transport->connection_info.sockaddr.addr.group_name.value);
   }
 
 
@@ -108,7 +108,7 @@ cmsg_transport_cpg_connect (cmsg_client *client)
     return -1;
   }
 
-  res = cpg_join (client->connection.handle, &(client->transport->sockaddr.group_name));
+  res = cpg_join (client->connection.handle, &(client->transport->connection_info.sockaddr.addr.group_name));
 
   if (res != CPG_OK)
   {
@@ -131,13 +131,13 @@ cmsg_transport_cpg_listen (cmsg_server* server)
   unsigned int res;
   int fd = 0;
 
-  if (!server || !server->transport || server->transport->sockaddr.group_name.value[0] == '\0')
+  if (!server || !server->transport || server->transport->connection_info.sockaddr.addr.group_name.value[0] == '\0')
   {
     DEBUG ("[TRANPORT]cpg listen sanity check failed\n");
   }
   else
   {
-    DEBUG ("[TRANPORT]cpg listen group name: %s\n", server->transport->sockaddr.group_name.value);
+    DEBUG ("[TRANPORT]cpg listen group name: %s\n", server->transport->connection_info.sockaddr.addr.group_name.value);
   }
 
   server->connection.cpg.callbacks.cpg_deliver_fn = (void*)cpg_bm_deliver_fn;
@@ -157,7 +157,7 @@ cmsg_transport_cpg_listen (cmsg_server* server)
   DEBUG ("[TRANPORT]cpg handle added %lu\n", server->connection.cpg.handle);
   DEBUG ("[TRANPORT]cpg listen result %d\n", res);
 
-  res = cpg_join (server->connection.cpg.handle, &(server->transport->sockaddr.group_name));
+  res = cpg_join (server->connection.cpg.handle, &(server->transport->connection_info.sockaddr.addr.group_name));
 
   if (res != CPG_OK)
   {
