@@ -6,8 +6,11 @@
 #include <sys/socket.h>
 #include <linux/tipc.h>
 #include <sys/un.h>
-#include <corosync/cpg.h>
 #include <glib.h>
+
+#ifdef HAVE_VCSTACK
+#include <corosync/cpg.h>
+#endif
 
 #include "protobuf-c-cmsg.h"
 
@@ -26,12 +29,14 @@ typedef struct _cpg_server_connection_s      cmsg_cpg_server_connection;
 typedef struct _generic_server_connection_s  cmsg_generic_sever_connection;
 
 
+#ifdef HAVE_VCSTACK
 struct _cpg_server_connection_s
 {
   cpg_handle_t handle;
   cpg_callbacks_t callbacks;
   int fd;                     //file descriptor for listening
 };
+#endif
 
 struct _generic_server_connection_s
 {
@@ -41,13 +46,17 @@ struct _generic_server_connection_s
 
 union _client_connection_u
 {
+#ifdef HAVE_VCSTACK
   cpg_handle_t handle;
+#endif
   int socket;
 };
 
 union _server_connection_u
 {
+#ifdef HAVE_VCSTACK
   cmsg_cpg_server_connection cpg;
+#endif
   cmsg_generic_sever_connection sockets;
 };
 
@@ -58,7 +67,9 @@ union _cmsg_socket_address_u
   struct sockaddr_in     in;          // INET socket address, for TCP based transport.
   struct sockaddr_tipc   tipc;        // TIPC socket address, for TIPC based IPC transport.
   struct sockaddr_un     un;          // UNIX socket address, for Unix-domain socket transport.
+#ifdef HAVE_VCSTACK
   struct cpg_name        group_name;  // CPG address structure
+#endif
 };
 
 
@@ -131,12 +142,14 @@ cmsg_transport_oneway_tipc_init(cmsg_transport* transport);
 void
 cmsg_transport_oneway_tcp_init(cmsg_transport* transport);
 void
-cmsg_transport_cpg_init(cmsg_transport* transport);
-void
 cmsg_transport_oneway_cpumail_init(cmsg_transport* transport);
+
+#ifdef HAVE_VCSTACK
+void
+cmsg_transport_cpg_init (cmsg_transport* transport);
 void
 cmsg_transport_tipc_broadcast_init(cmsg_transport* transport);
-
+#endif
 
 int32_t
 cmsg_transport_destroy (cmsg_transport* transport);
