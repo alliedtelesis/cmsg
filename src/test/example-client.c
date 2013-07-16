@@ -179,7 +179,7 @@ int main(int argc, char**argv)
         continue;
       chomp_trailing_whitespace (buf);
       query.name = buf;
-      foo_DirLookup_ByName (service, &query, handle_query_response, &is_done);
+      foo_DirLookup_ByName_pbc (service, &query, handle_query_response, &is_done);
       while (!is_done)
         protobuf_c_dispatch_run (protobuf_c_dispatch_default ());
     }

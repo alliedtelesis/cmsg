@@ -64,7 +64,7 @@ void ServiceGenerator::GenerateVfuncs(io::Printer* printer)
 		 "  ProtobufCService base;\n");
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
-    string lcname = CamelToLower(method->name());
+    string lcname = CamelToLower(method->name()) + "_pbc";
     vars_["method"] = lcname;
     vars_["metpad"] = ConvertToSpaces(lcname);
     vars_["input_typename"] = FullNameToC(method->input_type()->full_name()) + "_pbc";
@@ -107,7 +107,7 @@ void ServiceGenerator::GenerateCallersDeclarations(io::Printer* printer)
 {
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
-    string lcname = CamelToLower(method->name());
+    string lcname = CamelToLower(method->name()) + "_pbc";
     string lcfullname = FullNameToLower(descriptor_->full_name());
     vars_["method"] = lcname;
     vars_["metpad"] = ConvertToSpaces(lcname);
@@ -166,7 +166,7 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
                        "{\n");
   for (int i = 0; i < n_methods; i++) {
     const MethodDescriptor *method = descriptor_->method(i);
-    vars_["method"] = method->name();
+    vars_["method"] = method->name() + "_pbc";
     vars_["input_descriptor"] = "&" + FullNameToLower(method->input_type()->full_name()) + "_descriptor";
     vars_["output_descriptor"] = "&" + FullNameToLower(method->output_type()->full_name()) + "_descriptor";
     printer->Print(vars_,
@@ -182,6 +182,7 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
   for (int i = 0; i < n_methods; i++) {
     vars_["i"] = SimpleItoa(mi_array[i].i);
     vars_["name"] = mi_array[i].name;
+    vars_["name"] = vars_["name"] + "_pbc";
     vars_["comma"] = (i + 1 < n_methods) ? "," : " ";
     printer->Print(vars_, "  $i$$comma$        /* $name$ */\n");
   }
@@ -204,7 +205,7 @@ void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
 {
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
-    string lcname = CamelToLower(method->name());
+    string lcname = CamelToLower(method->name()) + "_pbc";
     string lcfullname = FullNameToLower(descriptor_->full_name());
     vars_["method"] = lcname;
     vars_["metpad"] = ConvertToSpaces(lcname);

@@ -620,7 +620,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print("/* Send! */\n");
     vars_["closure_name"] = GetAtlClosureFunctionName(*method);
     vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
-    vars_["method_lcname"] = CamelToLower(method->name());
+    vars_["method_lcname"] = CamelToLower(method->name()) + "_pbc";
 
     //
     // don't pass response callback and msg when response is empty
