@@ -8,21 +8,23 @@
 #include "protobuf-c.h"
 #include "protobuf-c-cmsg-transport.h"
 
+#define CMSG_ERROR 1
+#define CMSG_WARN  2
+#define CMSG_INFO  3
 
 //#define DEBUG_WORKSTATION
 //#define DEBUG_SWITCH
 #define DEBUG_DISABLED
 
-#ifdef DEBUG_WORKSTATION
-#define DEBUG(...)  printf(__VA_ARGS__)
-#endif
+#define DEBUG_BUFFER 0
+#define DEBUG_LEVEL  1
 
-#ifdef DEBUG_SWITCH
-#include <syslog.h>
-#define DEBUG(fmt, ARGS...) syslog(LOG_CRIT | LOG_LOCAL6, fmt, ##ARGS)
-#endif
-
-#ifdef DEBUG_DISABLED
+#if defined DEBUG_WORKSTATION
+  #define DEBUG(level, ...) (level <= DEBUG_LEVEL) ? 0 : printf(__VA_ARGS__)
+#elif defined DEBUG_SWITCH
+  #include <syslog.h>
+  #define DEBUG(level, fmt, ARGS...) (level <= DEBUG_LEVEL) ? 0 : syslog(LOG_CRIT | LOG_LOCAL6, fmt, ##ARGS)
+#elif defined DEBUG_DISABLED
   #define DEBUG(ARGS...) (0)
 #endif
 
@@ -86,7 +88,6 @@ cmsg_common_uint32_to_le (uint32_t le);
 #define cmsg_common_uint32_from_le cmsg_common_uint32_to_le
 
 void
-cmsg_debug_buffer_print (void*         buffer,
-                         unsigned int  size);
+cmsg_buffer_print (void* buffer, unsigned int size);
 
 #endif

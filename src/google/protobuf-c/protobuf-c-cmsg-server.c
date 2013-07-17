@@ -13,7 +13,7 @@ cmsg_server_new (cmsg_transport*   transport,
 
   if (!transport || !service)
     {
-      DEBUG ("[SERVER] transport / service not defined\n");
+      DEBUG (CMSG_ERROR, "[SERVER] transport / service not defined\n");
       return NULL;
     }
   
@@ -24,7 +24,7 @@ cmsg_server_new (cmsg_transport*   transport,
   server->message_processor = cmsg_server_message_processor;
 
 
-  DEBUG ("[SERVER] creating new server with type: %d\n", transport->type);
+  DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n", transport->type);
 
   ret = transport->listen (server);
 
@@ -44,13 +44,13 @@ cmsg_server_destroy (cmsg_server *server)
 {
   if (!server)
     {
-      DEBUG ("[SERVER] server not defined\n");
+      DEBUG (CMSG_ERROR,"[SERVER] server not defined\n");
       return 0;
     }
 
   if (!server->service)
     {
-      DEBUG ("[SERVER] service not defined\n");
+      DEBUG (CMSG_ERROR,"[SERVER] service not defined\n");
       return 0;
     }
 
@@ -69,7 +69,7 @@ cmsg_server_get_socket (cmsg_server *server)
 
   socket = server->transport->s_socket (server);
 
-  DEBUG ("[SERVER] get socket: %d\n", socket);
+  DEBUG (CMSG_INFO, "[SERVER] get socket: %d\n", socket);
   return socket;
 }
 
@@ -84,7 +84,7 @@ cmsg_server_receive (cmsg_server* server,
 
   if (server_socket <= 0 || !server )
     {
-      DEBUG("[SERVER] socket/server not defined\n");
+      DEBUG (CMSG_ERROR, "[SERVER] socket/server not defined\n");
       return 0;
     }
 
@@ -93,7 +93,7 @@ cmsg_server_receive (cmsg_server* server,
 
   if (ret < 0)
     {
-      DEBUG ("[SERVER] server receive failed\n");
+      DEBUG (CMSG_ERROR, "[SERVER] server receive failed\n");
       return 0;
     }
 }
@@ -109,14 +109,15 @@ cmsg_server_message_processor (cmsg_server*         server,
 
   if (server_request->method_index >= server->service->descriptor->n_methods)
     {
-      DEBUG ("[SERVER] the method index from read from the header seems to be to high\n");
+      DEBUG (CMSG_ERROR,
+             "[SERVER] the method index from read from the header seems to be to high\n");
       return 0;
    }
 
   if (buffer_data)
     {
-      DEBUG ("[SERVER] processsing message with data\n");
-      DEBUG ("[SERVER] unpacking message\n");
+      DEBUG (CMSG_INFO, "[SERVER] processsing message with data\n");
+      DEBUG (CMSG_INFO, "[SERVER] unpacking message\n");
 
       //unpack the message
       message = protobuf_c_message_unpack (server->service->descriptor->methods[server_request->method_index].input,
@@ -126,14 +127,14 @@ cmsg_server_message_processor (cmsg_server*         server,
     }
   else
     {
-      DEBUG ("[SERVER] processsing message without data\n");
+      DEBUG (CMSG_INFO, "[SERVER] processsing message without data\n");
       //create a new empty message
       protobuf_c_message_init(server->service->descriptor->methods[server_request->method_index].input, message);
     }
 
   if (message == 0)
     {
-      DEBUG ("[SERVER] error unpacking message\n");
+      DEBUG (CMSG_ERROR, "[SERVER] error unpacking message\n");
       return 0;
     }
 
@@ -148,7 +149,7 @@ cmsg_server_message_processor (cmsg_server*         server,
 
   protobuf_c_message_free_unpacked (message, allocator);
 
-  DEBUG ("[SERVER] end of message processor\n");
+  DEBUG (CMSG_INFO, "[SERVER] end of message processor\n");
   return 0;
 }
 
@@ -162,10 +163,10 @@ cmsg_server_closure_rpc (const ProtobufCMessage* message,
   cmsg_server_request* server_request = server->server_request;
   int ret = 0;
 
-  DEBUG ("[SERVER] invoking rpc method=%d\n", server_request->method_index);
+  DEBUG (CMSG_INFO, "[SERVER] invoking rpc method=%d\n", server_request->method_index);
   if(!message)
     {
-      DEBUG ("[SERVER] sending response without data\n");
+      DEBUG (CMSG_INFO, "[SERVER] sending response without data\n");
 
       uint32_t header[4];
       header[0] = cmsg_common_uint32_to_le (CMSG_STATUS_CODE_SERVICE_FAILED);
@@ -173,19 +174,21 @@ cmsg_server_closure_rpc (const ProtobufCMessage* message,
       header[2] = 0;            /* no message */
       header[3] = server_request->request_id;
 
-      DEBUG ("[SERVER] response header\n");
+      DEBUG (CMSG_INFO, "[SERVER] response header\n");
 
-      cmsg_debug_buffer_print ((void*)&header, sizeof (header));
+      cmsg_buffer_print ((void*)&header, sizeof (header));
 
       ret = server->transport->server_send (server, &header, sizeof (header), 0);
       if (ret < sizeof (header))
-        DEBUG ("[SERVER] sending if response failed send:%d of %ld\n", ret, sizeof (header));
+        DEBUG (CMSG_ERROR,
+               "[SERVER] sending if response failed send:%d of %ld\n",
+               ret, sizeof (header));
 
       server->transport->server_close (server);
     }
   else
     {
-      DEBUG ("[SERVER] sending response with data\n");
+      DEBUG (CMSG_INFO, "[SERVER] sending response with data\n");
 
       uint32_t packed_size = protobuf_c_message_get_packed_size(message);
       uint32_t header[4];
@@ -199,12 +202,15 @@ cmsg_server_closure_rpc (const ProtobufCMessage* message,
 
       memcpy ((void*)buffer, &header, sizeof (header));
 
-      DEBUG("[SERVER] packing message\n");
+      DEBUG (CMSG_INFO, "[SERVER] packing message\n");
 
       ret = protobuf_c_message_pack(message, buffer_data);
       if (ret < packed_size)
         {
-          DEBUG ("[SERVER] packing response data failed packet:%d of %d\n", ret, packed_size);
+          DEBUG (CMSG_ERROR,
+                 "[SERVER] packing response data failed packet:%d of %d\n",
+                 ret, packed_size);
+
           free (buffer);
           buffer = 0;
           free (buffer_data);
@@ -214,15 +220,17 @@ cmsg_server_closure_rpc (const ProtobufCMessage* message,
 
       memcpy ((void*)buffer + sizeof (header), (void*)buffer_data, packed_size);
 
-      DEBUG ("[SERVER] response header\n");
-      cmsg_debug_buffer_print ((void*)&header, sizeof (header));
+      DEBUG (CMSG_INFO, "[SERVER] response header\n");
+      cmsg_buffer_print ((void*)&header, sizeof (header));
 
-      DEBUG ("[SERVER] response data\n");
-      cmsg_debug_buffer_print ((void*)buffer + sizeof (header), packed_size);
+      DEBUG (CMSG_INFO, "[SERVER] response data\n");
+      cmsg_buffer_print ((void*)buffer + sizeof (header), packed_size);
 
       ret = server->transport->server_send (server, buffer, packed_size + sizeof (header), 0);
       if (ret < packed_size + sizeof (header))
-        DEBUG ("[SERVER] sending if response failed send:%d of %ld\n", ret, packed_size + sizeof (header));
+        DEBUG (CMSG_ERROR,
+               "[SERVER] sending if response failed send:%d of %ld\n",
+               ret, packed_size + sizeof (header));
       
       server->transport->server_close (server);
 
@@ -243,7 +251,9 @@ cmsg_server_closure_oneway (const ProtobufCMessage* message,
     cmsg_server* server = ( cmsg_server* )closure_data;
     cmsg_server_request* server_request = server->server_request;
     //we are not sending a response in this transport mode
-    DEBUG ("[SERVER] invoking oneway method=%d\n", server_request->method_index);
+    DEBUG (CMSG_INFO,
+           "[SERVER] invoking oneway method=%d\n",
+           server_request->method_index);
 
     server->transport->server_close (server);
 

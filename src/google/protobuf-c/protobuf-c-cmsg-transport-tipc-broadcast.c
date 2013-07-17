@@ -9,7 +9,7 @@
 static int32_t
 cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
 {
-    DEBUG ("[TRANSPORT] cmsg_transport_tipc_broadcast_connect\n");
+    DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_broadcast_connect\n");
 
     if (client == NULL)
       return 0;
@@ -19,12 +19,12 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
     if (client->connection.socket < 0)
     {
       client->state = CMSG_CLIENT_STATE_FAILED;
-      DEBUG ("[TRANSPORT]error creating socket: %s\n", strerror (errno));
+      DEBUG (CMSG_ERROR, "[TRANSPORT] error creating socket: %s\n", strerror (errno));
       return 0;
     }
 
     client->state = CMSG_CLIENT_STATE_CONNECTED;
-    DEBUG ("[TRANSPORT] successfully connected\n");
+    DEBUG (CMSG_INFO, "[TRANSPORT] successfully connected\n");
 
     return 0;
 }
@@ -43,14 +43,17 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server* server)
   if (server == NULL)
     return 0;
 
-  DEBUG ("[TRANSPORT] Creating listen socket\n");
+  DEBUG (CMSG_INFO,"[TRANSPORT] Creating listen socket\n");
   server->connection.sockets.listening_socket = 0;
   transport = server->transport;
 
   listening_socket = socket (transport->connection_info.sockaddr.family, SOCK_RDM, 0);
   if (listening_socket == -1 )
   {
-    DEBUG ("[TRANSPORT] socket failed with: %s\n", strerror (errno));
+    DEBUG (CMSG_ERROR,
+           "[TRANSPORT] socket failed with: %s\n",
+           strerror (errno));
+
     return -1;
   }
 
@@ -60,7 +63,7 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server* server)
   /* bind the socket address (publishes the TIPC port name) */
   if (bind (listening_socket, &transport->connection_info.sockaddr.addr.generic, addrlen) != 0)
   {
-    perror ("[TRANSPORT] TIPC port could not be created\n");
+    DEBUG (CMSG_ERROR, "[TRANSPORT] TIPC port could not be created\n");
     return -1;
   }
 
@@ -105,7 +108,9 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server* server)
                      (struct sockaddr *) &transport->connection_info.sockaddr.addr.tipc,
                      &addrlen);
 
-  DEBUG ("[TRANSPORT] Peeked at message, received %d bytes\n", nbytes);
+  DEBUG (CMSG_INFO,
+         "[TRANSPORT] Peeked at message, received %d bytes\n",
+         nbytes);
 
   if (nbytes == sizeof (cmsg_header_request))
   {
@@ -118,23 +123,28 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server* server)
     server_request.method_index = cmsg_common_uint32_from_le (header_received.method_index);
     server_request.request_id = header_received.request_id;
 
-    DEBUG ("[TRANSPORT]received header\n");
-    cmsg_debug_buffer_print ((void*) &header_received,
+    DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
+    cmsg_buffer_print ((void*) &header_received,
                              sizeof (cmsg_header_request));
 
-    DEBUG ("[TRANSPORT]method_index   host: %d, wire: %d\n",
+    DEBUG (CMSG_INFO,
+           "[TRANSPORT] method_index   host: %d, wire: %d\n",
            header_converted.method_index,
            header_received.method_index);
-    DEBUG ("[TRANSPORT]message_length host: %d, wire: %d\n",
+
+    DEBUG (CMSG_INFO,
+           "[TRANSPORT] message_length host: %d, wire: %d\n",
            header_converted.message_length,
            header_received.message_length);
-    DEBUG ("[TRANSPORT]request_id     host: %d, wire: %d\n",
+
+    DEBUG (CMSG_INFO,
+           "[TRANSPORT] request_id     host: %d, wire: %d\n",
            header_converted.request_id,
            header_received.request_id);
 
     // read the message
     dyn_len = header_converted.message_length + sizeof (cmsg_header_request);
-    DEBUG ("[TRANSPORT] Data length: %d\n", dyn_len);
+    DEBUG (CMSG_INFO, "[TRANSPORT] Data length: %d\n", dyn_len);
     if (dyn_len > sizeof (buf_static))
     {
       buffer = malloc (dyn_len);
@@ -153,20 +163,24 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server* server)
 
     if (nbytes == dyn_len)
     {
-      DEBUG ("[TRANSPORT]received data\n");
-      cmsg_debug_buffer_print (buffer, dyn_len);
+      DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
+      cmsg_buffer_print (buffer, dyn_len);
       server->server_request = &server_request;
 
       //TODO: Check sender id to see if valid sender
       //TODO: Do some virtual link checking
       if (server->message_processor (server, buffer + sizeof (cmsg_header_request)))
       {
-        DEBUG ("[TRANSPORT]message processing returned an error\n");
+        DEBUG (CMSG_ERROR,
+               "[TRANSPORT] message processing returned an error\n");
       }
     }
     else
     {
-      DEBUG ("[TRANSPORT]recv socket %d no data\n", server->connection.sockets.client_socket);
+      DEBUG (CMSG_INFO,
+             "[TRANSPORT] recv socket %d no data\n",
+             server->connection.sockets.client_socket);
+
       ret = -1;
     }
 
@@ -182,7 +196,10 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server* server)
 
   else if (nbytes > 0)
   {
-    DEBUG ("[TRANSPORT]recv socket %d bad header nbytes %d\n", server->connection.sockets.listening_socket, nbytes);
+    DEBUG (CMSG_ERROR,
+           "[TRANSPORT] recv socket %d bad header nbytes %d\n",
+           server->connection.sockets.listening_socket, nbytes);
+
     // TEMP to keep things going
     buffer = malloc (nbytes);
     nbytes = recvfrom (server->connection.sockets.listening_socket,
@@ -206,7 +223,9 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server* server)
     //Error while peeking at socket data.
     if (errno != ECONNRESET)
     {
-      DEBUG ("[TRANSPORT]recv socket %d error: %s\n", server->connection.sockets.client_socket, strerror(errno));
+      DEBUG (CMSG_ERROR,
+             "[TRANSPORT] recv socket %d error: %s\n",
+             server->connection.sockets.client_socket, strerror (errno));
     }
     ret = 0;
   }
@@ -262,10 +281,10 @@ cmsg_transport_tipc_broadcast_server_send (cmsg_server *server, void *buff, int 
 static void
 cmsg_transport_tipc_broadcast_client_close (cmsg_client* client)
 {
-    DEBUG ("[TRANSPORT] shutting down socket\n");
+    DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
     shutdown (client->connection.socket, 2);
 
-    DEBUG ("[TRANSPORT] closing socket\n");
+    DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
     close (client->connection.socket);
 }
 
@@ -309,10 +328,10 @@ cmsg_transport_tipc_broadcast_client_get_socket (cmsg_client* client)
 static void
 cmsg_transport_tipc_broadcast_server_destroy (cmsg_server* server)
 {
-    DEBUG ("[SERVER] Shutting down listening socket\n");
+    DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
     shutdown (server->connection.sockets.listening_socket, 2);
 
-    DEBUG ("[SERVER] Closing listening socket\n");
+    DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
     close (server->connection.sockets.listening_socket);
 }
 

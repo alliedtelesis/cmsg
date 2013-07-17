@@ -11,7 +11,7 @@ cmsg_sub_new (cmsg_transport*   pub_server_transport,
   subscriber->pub_server = cmsg_server_new(pub_server_transport, pub_service);
   if (!subscriber->pub_server)
     {
-      DEBUG ("[SUB] error could not create server\n");
+      DEBUG (CMSG_ERROR, "[SUB] error could not create server\n");
       free(subscriber);
       return 0;
     }
@@ -49,7 +49,7 @@ int32_t
 cmsg_sub_server_receive (cmsg_sub* subscriber,
                          int32_t   server_socket)
 {
-  DEBUG ("[SUB] cmsg_sub_server_receive\n");
+  DEBUG (CMSG_INFO, "[SUB] cmsg_sub_server_receive\n");
   
   return cmsg_server_receive(subscriber->pub_server,
                              server_socket);
@@ -65,12 +65,12 @@ cmsg_sub_subscribe_response_handler (const Cmsg__SubEntryResponse *response,
 
   if (response == 0)
     {
-      DEBUG("[SUB] [Error] processing register response\n");
+      DEBUG (CMSG_ERROR, "[SUB] [Error] processing register response\n");
       *return_value = CMSG_STATUS_CODE_SERVICE_FAILED;
     }
   else
     {
-      DEBUG("[SUB] register response received\n");
+      DEBUG (CMSG_INFO, "[SUB] register response received\n");
       *return_value = response->return_value;
     }
 }
@@ -115,7 +115,10 @@ cmsg_sub_subscribe (cmsg_sub*       subscriber,
     }
   else
     {
-      DEBUG ("[SUB] error cmsg_sub_subscribe transport incorrect: %d\n", subscriber->pub_server->transport->type);
+      DEBUG (CMSG_ERROR,
+             "[SUB] error cmsg_sub_subscribe transport incorrect: %d\n",
+             subscriber->pub_server->transport->type);
+
       return -1;
     }
 
@@ -123,7 +126,7 @@ cmsg_sub_subscribe (cmsg_sub*       subscriber,
                                     &cmsg__sub_service__descriptor);
   if (!register_client)
     {
-      DEBUG ("[SUB] error could not create register client\n");
+      DEBUG (CMSG_WARN, "[SUB] error could not create register client\n");
       free(register_client);
       return 0;
     }
@@ -178,7 +181,10 @@ cmsg_sub_unsubscribe (cmsg_sub*       subscriber,
     }
   else
     {
-      DEBUG ("[SUB] error cmsg_sub_subscribe transport incorrect: %d\n", subscriber->pub_server->transport->type);
+      DEBUG (CMSG_ERROR,
+             "[SUB] error cmsg_sub_subscribe transport incorrect: %d\n",
+             subscriber->pub_server->transport->type);
+
       return -1;
     }
 
@@ -186,7 +192,7 @@ cmsg_sub_unsubscribe (cmsg_sub*       subscriber,
                                     &cmsg__sub_service__descriptor);
   if (!register_client)
     {
-      DEBUG ("[SUB] error could not create register client\n");
+      DEBUG (CMSG_ERROR, "[SUB] error could not create register client\n");
       free(register_client);
       return 0;
     }

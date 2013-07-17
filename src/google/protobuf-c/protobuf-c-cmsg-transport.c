@@ -37,7 +37,7 @@ cmsg_transport_new (cmsg_transport_type type)
     break;
 
   default:
-    DEBUG ("[TRANSPORT] transport type not supported\n");
+    DEBUG (CMSG_ERROR, "[TRANSPORT] transport type not supported\n");
     free (transport);
     transport = 0;
   }

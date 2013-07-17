@@ -14,9 +14,9 @@ cmsg_common_uint32_to_le (uint32_t le)
 }
 
 void
-cmsg_debug_buffer_print (void         *buffer,
-                                         unsigned int  size)
+cmsg_buffer_print (void *buffer, unsigned int  size)
 {
+#if DEBUG_BUFFER
   char output_str[1024*4];
   char* output_ptr = (char*)&output_str;
   output_ptr += sprintf (output_ptr, "[Buffer] #################################\n");
@@ -72,5 +72,6 @@ cmsg_debug_buffer_print (void         *buffer,
     }
 
   output_ptr += sprintf (output_ptr, "[Buffer] #################################\n");
-  DEBUG ("%s", output_str);
+  DEBUG (CMSG_INFO, "%s", output_str);
+#endif
 }

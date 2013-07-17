@@ -7,7 +7,7 @@ cmsg_client_new (cmsg_transport*                   transport,
 {
   if (!transport)
     {
-      DEBUG ("[CLIENT] error transport not defined\n");
+      DEBUG (CMSG_ERROR, "[CLIENT] error transport not defined\n");
       return 0;
     }
 
@@ -34,7 +34,7 @@ cmsg_client_destroy(cmsg_client *client)
 {
   if (!client)
   {
-    DEBUG ("[CLIENT] client not defined\n");
+    DEBUG (CMSG_ERROR, "[CLIENT] client not defined\n");
     return 0;
   }
 
@@ -50,7 +50,7 @@ cmsg_client_response_receive (cmsg_client *client)
 {
   if (!client)
   {
-    DEBUG ("[CLIENT] client not defined\n");
+    DEBUG (CMSG_ERROR, "[CLIENT] client not defined\n");
     return NULL;
   }
 
@@ -63,15 +63,15 @@ cmsg_client_connect (cmsg_client *client)
 {
   if (!client)
   {
-    DEBUG ("[CLIENT] client not defined\n");
+    DEBUG (CMSG_ERROR, "[CLIENT] client not defined\n");
     return 0;
   }
 
-  DEBUG ("[CLIENT] connecting\n");
+  DEBUG (CMSG_INFO, "[CLIENT] connecting\n");
 
   if (client->state == CMSG_CLIENT_STATE_CONNECTED)
   {
-    DEBUG ("[CLIENT] already connected\n");
+    DEBUG (CMSG_INFO, "[CLIENT] already connected\n");
     return 0;
   }
 
@@ -95,13 +95,13 @@ cmsg_client_invoke_rpc (ProtobufCService*       service,
   /* unpack response */
   /* return response */
 
-  DEBUG ("[CLIENT] cmsg_client_invoke_rpc\n");
+  DEBUG (CMSG_INFO, "[CLIENT] cmsg_client_invoke_rpc\n");
 
   cmsg_client_connect (client);
   
   if (client->state != CMSG_CLIENT_STATE_CONNECTED)
   {
-    DEBUG ("[CLIENT] error: client is not connected\n");
+    DEBUG (CMSG_ERROR, "[CLIENT] error: client is not connected\n");
     return;
   }
 
@@ -120,13 +120,16 @@ cmsg_client_invoke_rpc (ProtobufCService*       service,
   uint8_t* buffer_data = malloc (packed_size);
   memcpy ((void*)buffer, &header, sizeof (header));
 
-  DEBUG ("[CLIENT] header\n");
-  cmsg_debug_buffer_print (&header, sizeof (header));
+  DEBUG (CMSG_INFO, "[CLIENT] header\n");
+  cmsg_buffer_print (&header, sizeof (header));
 
   ret = protobuf_c_message_pack (input, buffer_data);
   if (ret < packed_size)
   {
-    DEBUG ("[CLIENT] packing message data failed packet:%d of %d\n", ret, packed_size);
+    DEBUG (CMSG_ERROR,
+           "[CLIENT] packing message data failed packet:%d of %d\n",
+           ret, packed_size);
+
     free (buffer);
     buffer = 0;
     free (buffer_data);
@@ -136,12 +139,14 @@ cmsg_client_invoke_rpc (ProtobufCService*       service,
 
   memcpy ((void*)buffer + sizeof (header), (void*)buffer_data, packed_size);
 
-  DEBUG ("[CLIENT] packet data\n");
-  cmsg_debug_buffer_print(buffer_data, packed_size);
+  DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
+  cmsg_buffer_print (buffer_data, packed_size);
 
   ret = client->transport->client_send (client, buffer, packed_size + sizeof (header), 0);
   if (ret < packed_size + sizeof (header))
-    DEBUG ("[CLIENT] sending response failed send:%d of %ld\n", ret, packed_size + sizeof (header));
+    DEBUG (CMSG_ERROR,
+           "[CLIENT] sending response failed send:%d of %ld\n",
+           ret, packed_size + sizeof (header));
 
   //lets go hackety hack
   //todo: recv response
@@ -158,7 +163,7 @@ cmsg_client_invoke_rpc (ProtobufCService*       service,
 
   if (!message)
   {
-    DEBUG ("[CLIENT] response message not valid or empty\n");
+    DEBUG (CMSG_ERROR, "[CLIENT] response message not valid or empty\n");
     return;
   }
 
@@ -189,11 +194,11 @@ cmsg_client_invoke_oneway (ProtobufCService*       service,
 
   cmsg_client_connect (client);
 
-  DEBUG ("[CLIENT] cmsg_client_invoke_oneway\n");
+  DEBUG (CMSG_INFO, "[CLIENT] cmsg_client_invoke_oneway\n");
 
   if (client->state != CMSG_CLIENT_STATE_CONNECTED)
   {
-    DEBUG ("[CLIENT] error: client is not connected\n");
+    DEBUG (CMSG_ERROR, "[CLIENT] error: client is not connected\n");
     return;
   }
 
@@ -213,13 +218,16 @@ cmsg_client_invoke_oneway (ProtobufCService*       service,
   uint8_t *buffer_data = malloc (packed_size);
   memcpy ((void*)buffer, &header, sizeof (header));
 
-  DEBUG ("[CLIENT] header\n");
-  cmsg_debug_buffer_print (&header, sizeof (header));
+  DEBUG (CMSG_INFO, "[CLIENT] header\n");
+  cmsg_buffer_print (&header, sizeof (header));
 
   ret = protobuf_c_message_pack (input, buffer_data);
   if (ret < packed_size)
   {
-    DEBUG ("[CLIENT] packing message data failed packet:%d of %d\n", ret, packed_size);
+    DEBUG (CMSG_ERROR,
+           "[CLIENT] packing message data failed packet:%d of %d\n",
+           ret, packed_size);
+
     free (buffer);
     buffer = 0;
     free (buffer_data);
@@ -229,12 +237,14 @@ cmsg_client_invoke_oneway (ProtobufCService*       service,
 
   memcpy ((void*)buffer + sizeof (header), (void*)buffer_data, packed_size);
 
-  DEBUG ("[CLIENT] packet data\n");
-  cmsg_debug_buffer_print (buffer_data, packed_size);
+  DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
+  cmsg_buffer_print (buffer_data, packed_size);
 
   ret = client->transport->client_send (client, buffer, packed_size + sizeof (header), 0);
   if (ret < packed_size + sizeof (header))
-    DEBUG ("[CLIENT] sending response failed send:%d of %ld\n", ret, packed_size + sizeof (header));
+    DEBUG (CMSG_ERROR,
+           "[CLIENT] sending response failed send:%d of %ld\n",
+           ret, packed_size + sizeof (header));
 
   client->state = CMSG_CLIENT_STATE_DESTROYED;
   client->transport->client_close (client);

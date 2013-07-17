@@ -13,7 +13,7 @@ void cpg_bm_confchg_fn (
 	struct cpg_address *left_list, int left_list_entries,
 	struct cpg_address *joined_list, int joined_list_entries)
 {
-  DEBUG ("[TRANSPORT]%s\n", __FUNCTION__);
+  DEBUG (CMSG_INFO, "[TRANSPORT] %s\n", __FUNCTION__);
 }
 
 
@@ -42,12 +42,20 @@ void cpg_bm_deliver_fn (cpg_handle_t handle,
   header_converted.message_length = cmsg_common_uint32_from_le (header_received.message_length);
   header_converted.request_id = header_received.request_id;
 
-  DEBUG ("[TRANPORT]cpg received header\n");
-  cmsg_debug_buffer_print ((void*)&header_received, sizeof (cmsg_header_request));
+  DEBUG (CMSG_INFO, "[TRANPORT] cpg received header\n");
+  cmsg_buffer_print ((void*)&header_received, sizeof (cmsg_header_request));
 
-  DEBUG ("[TRANPORT]cpg method_index   host: %d, wire: %d\n", header_converted.method_index, header_received.method_index);
-  DEBUG ("[TRANPORT]cpg message_length host: %d, wire: %d\n", header_converted.message_length, header_received.message_length);
-  DEBUG ("[TRANPORT]cpg request_id     host: %d, wire: %d\n", header_converted.request_id, header_received.request_id);
+  DEBUG (CMSG_INFO,
+         "[TRANPORT] cpg method_index   host: %d, wire: %d\n",
+         header_converted.method_index, header_received.method_index);
+
+  DEBUG (CMSG_INFO,
+         "[TRANPORT] cpg message_length host: %d, wire: %d\n",
+         header_converted.message_length, header_received.message_length);
+
+  DEBUG (CMSG_INFO,
+         "[TRANPORT] cpg request_id     host: %d, wire: %d\n",
+         header_converted.request_id, header_received.request_id);
 
   server_request.message_length = cmsg_common_uint32_from_le (header_received.message_length);
   server_request.method_index = cmsg_common_uint32_from_le (header_received.method_index);
@@ -55,34 +63,36 @@ void cpg_bm_deliver_fn (cpg_handle_t handle,
 
   dyn_len = header_converted.message_length;
 
-  DEBUG ("[TRANSPORT] cpg msg len = %d, header length = %d, data length = %d\n",
+  DEBUG (CMSG_INFO,
+         "[TRANSPORT] cpg msg len = %d, header length = %ld, data length = %d\n",
          msg_len, sizeof (cmsg_header_request), dyn_len);
 
   if (msg_len < sizeof (cmsg_header_request) + dyn_len)
   {
-    DEBUG ("[TRANSPORT] cpg Message larger than data buffer passed in\n");
+    DEBUG (CMSG_ERROR,
+           "[TRANSPORT] cpg Message larger than data buffer passed in\n");
     return;
   }
 
   buffer = msg + sizeof (cmsg_header_request);
 
-  DEBUG ("[TRANSPORT] received data\n");
-  cmsg_debug_buffer_print (buffer, dyn_len);
+  DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
+  cmsg_buffer_print (buffer, dyn_len);
 
 
-  DEBUG ("[TRANSPORT] Handle used for lookup: %lu\n", handle);
+  DEBUG (CMSG_INFO, "[TRANSPORT] Handle used for lookup: %lu\n", handle);
   server = (cmsg_server*)g_hash_table_lookup (server_hash_table_h, (gconstpointer)handle);
 
   if (!server)
   {
-    DEBUG ("[TRANSPORT] Server lookup failed\n");
+    DEBUG (CMSG_ERROR, "[TRANSPORT] Server lookup failed\n");
     return;
   }
 
   server->server_request = &server_request;
 
   if (server->message_processor (server, buffer))
-    DEBUG ("[TRANSPORT] message processing returned an error\n");
+    DEBUG (CMSG_ERROR, "[TRANSPORT] message processing returned an error\n");
 }
 
 
@@ -93,18 +103,20 @@ cmsg_transport_cpg_connect (cmsg_client *client)
 
   if (!client || !client->transport || client->transport->connection_info.sockaddr.addr.group_name.value[0] == '\0')
   {
-    DEBUG ("[TRANPORT]cpg connect sanity check failed\n");
+    DEBUG (CMSG_ERROR, "[TRANPORT] cpg connect sanity check failed\n");
   }
   else
   {
-    DEBUG ("[TRANPORT]cpg connect group name: %s\n", client->transport->connection_info.sockaddr.addr.group_name.value);
+    DEBUG (CMSG_INFO,
+           "[TRANPORT] cpg connect group name: %s\n",
+           client->transport->connection_info.sockaddr.addr.group_name.value);
   }
 
 
   res = cpg_initialize (&(client->connection.handle), NULL);
   if (res != CPG_OK)
   {
-    DEBUG ("[TRANPORT]cpg connect init failed, result %d\n", res);
+    DEBUG (CMSG_ERROR, "[TRANPORT] cpg connect init failed, result %d\n", res);
     return -1;
   }
 
@@ -113,13 +125,15 @@ cmsg_transport_cpg_connect (cmsg_client *client)
   if (res != CPG_OK)
   {
     client->state = CMSG_CLIENT_STATE_FAILED;
-    DEBUG ("[TRANPORT]cpg connect join failed, result %d\n", res);
+    DEBUG (CMSG_ERROR, "[TRANPORT] cpg connect join failed, result %d\n", res);
     return -1;
   }
   else
   {
     client->state = CMSG_CLIENT_STATE_CONNECTED;
-    DEBUG ("[TRANSPORT] CPG connect connected, handle = %lu\n", (uint64_t) client->connection.handle);
+    DEBUG (CMSG_INFO,
+           "[TRANSPORT] CPG connect connected, handle = %lu\n",
+           (uint64_t) client->connection.handle);
   }
   return 0;
 }
@@ -133,11 +147,13 @@ cmsg_transport_cpg_listen (cmsg_server* server)
 
   if (!server || !server->transport || server->transport->connection_info.sockaddr.addr.group_name.value[0] == '\0')
   {
-    DEBUG ("[TRANPORT]cpg listen sanity check failed\n");
+    DEBUG (CMSG_ERROR, "[TRANPORT] cpg listen sanity check failed\n");
   }
   else
   {
-    DEBUG ("[TRANPORT]cpg listen group name: %s\n", server->transport->connection_info.sockaddr.addr.group_name.value);
+    DEBUG (CMSG_INFO,
+           "[TRANPORT] cpg listen group name: %s\n",
+           server->transport->connection_info.sockaddr.addr.group_name.value);
   }
 
   server->connection.cpg.callbacks.cpg_deliver_fn = (void*)cpg_bm_deliver_fn;
@@ -146,7 +162,7 @@ cmsg_transport_cpg_listen (cmsg_server* server)
   res = cpg_initialize (&(server->connection.cpg.handle), &(server->connection.cpg.callbacks));
   if (res != CPG_OK)
   {
-    DEBUG ("[TRANPORT]cpg listen init failed, result %d\n", res);
+    DEBUG (CMSG_ERROR, "[TRANPORT] cpg listen init failed, result %d\n", res);
     return -1;
   }
 
@@ -154,26 +170,29 @@ cmsg_transport_cpg_listen (cmsg_server* server)
                        (gpointer)server->connection.cpg.handle,
                        (gpointer)server);
 
-  DEBUG ("[TRANPORT]cpg handle added %lu\n", server->connection.cpg.handle);
-  DEBUG ("[TRANPORT]cpg listen result %d\n", res);
+  DEBUG (CMSG_INFO,
+         "[TRANPORT] cpg handle added %lu\n",
+         server->connection.cpg.handle);
+
+  DEBUG (CMSG_INFO, "[TRANPORT] cpg listen result %d\n", res);
 
   res = cpg_join (server->connection.cpg.handle, &(server->transport->connection_info.sockaddr.addr.group_name));
 
   if (res != CPG_OK)
   {
-    DEBUG ("[TRANPORT]cpg listen join failed, result %d\n", res);
+    DEBUG (CMSG_ERROR, "[TRANPORT] cpg listen join failed, result %d\n", res);
     return -1;
   }
 
   if (cpg_fd_get (server->connection.cpg.handle, &fd) == CPG_OK )
   {
     server->connection.cpg.fd = fd;
-    DEBUG ("[TRANPORT]cpg listen got fd: %d\n", fd);
+    DEBUG (CMSG_INFO, "[TRANPORT] cpg listen got fd: %d\n", fd);
   }
   else
   {
     server->connection.cpg.fd = 0;
-    DEBUG ("[TRANPORT]cpg listen cannot get fd\n");
+    DEBUG (CMSG_ERROR, "[TRANPORT] cpg listen cannot get fd\n");
   }
 
   return 0;
@@ -188,7 +207,7 @@ cmsg_transport_cpg_server_recv (int32_t socket, cmsg_server* server)
 
   if (ret != CPG_OK)
   {
-    DEBUG ("[TRANPORT]cpg sev recv dispatch returned error %d\n", ret);
+    DEBUG (CMSG_ERROR, "[TRANPORT] cpg sev recv dispatch returned error %d\n", ret);
     return -1;
   }
 }
@@ -210,17 +229,20 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
   iov.iov_len = length;
   iov.iov_base = buff;
 
-  DEBUG ("[TRANSPORT] cpg send message to handle  %lu\n", client->connection.handle);
+  DEBUG (CMSG_INFO,
+         "[TRANSPORT] cpg send message to handle  %lu\n",
+         client->connection.handle);
+
   res = cpg_mcast_joined (client->connection.handle, CPG_TYPE_AGREED, &iov, 1);
-  DEBUG ("[TRANSPORT] cpg message sent: %i\n", res);
+  DEBUG (CMSG_INFO, "[TRANSPORT] cpg message sent: %i\n", res);
 
   if (res == CPG_ERR_TRY_AGAIN)
   {
-    DEBUG ("[TRANSPORT] CPG_ERR_TRY_AGAIN\n");
+    DEBUG (CMSG_ERROR, "[TRANSPORT] CPG_ERR_TRY_AGAIN\n");
   }
   else if (res == CPG_OK)
   {
-    DEBUG ("[TRANSPORT] CPG_OK\n");
+    DEBUG (CMSG_INFO, "[TRANSPORT] CPG_OK\n");
   }
   usleep (10000);
 
@@ -242,17 +264,17 @@ cmsg_transport_cpg_client_close (cmsg_client* client)
   res = cpg_finalize (client->connection.handle);
   if (res != CPG_OK)
   {
-    DEBUG ("[TRANSPORT]cpg close failed, result %d\n", res);
+    DEBUG (CMSG_ERROR, "[TRANSPORT] cpg close failed, result %d\n", res);
     return;
   }
 
-  DEBUG ("[TRANSPORT]cpg close done\n");
+  DEBUG (CMSG_INFO, "[TRANSPORT] cpg close done\n");
 }
 
 static void
 cmsg_transport_cpg_server_close (cmsg_server* server)
 {
-  DEBUG ("[TRANSPORT]cpg close done nothing\n");
+  DEBUG (CMSG_INFO, "[TRANSPORT] cpg close done nothing\n");
 }
 
 
@@ -264,16 +286,16 @@ cmsg_transport_cpg_server_destroy (cmsg_server* server)
 
   ret = g_hash_table_remove (server_hash_table_h, (gpointer *) server->connection.cpg.handle);
 
-  DEBUG ("[TRANSPORT]cpg hash table remove, result %d\n", ret);
+  DEBUG (CMSG_INFO, "[TRANSPORT] cpg hash table remove, result %d\n", ret);
 
   res = cpg_finalize (server->connection.cpg.handle);
 
   if (res != CPG_OK)
   {
-    DEBUG ("[TRANSPORT]cpg close failed, result %d\n", res);
+    DEBUG (CMSG_ERROR, "[TRANSPORT] cpg close failed, result %d\n", res);
   }
 
-  DEBUG ("[TRANSPORT]cpg destroy done\n");
+  DEBUG (CMSG_INFO, "[TRANSPORT] cpg destroy done\n");
 }
 
 
@@ -333,6 +355,6 @@ cmsg_transport_cpg_init(cmsg_transport *transport)
                                             cmsg_transport_equal_function);
   }
 
-  DEBUG ("%s: done\n", __FUNCTION__);
+  DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
 

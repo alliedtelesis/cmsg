@@ -80,8 +80,8 @@ int32_t
 cmsg_pub_subscriber_add (cmsg_pub*       publisher,
                          cmsg_sub_entry* entry)
 {
-  DEBUG ("[PUB] [LIST] adding subscriber to list\n");
-  DEBUG ("[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
+  DEBUG (CMSG_INFO, "[PUB] [LIST] adding subscriber to list\n");
+  DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
 
   int add = 1;
 
@@ -100,7 +100,7 @@ cmsg_pub_subscriber_add (cmsg_pub*       publisher,
   
   if (add)
     {
-      DEBUG ("[PUB] [LIST] adding new entry\n");
+      DEBUG (CMSG_INFO, "[PUB] [LIST] adding new entry\n");
 
       cmsg_sub_entry* list_entry = g_malloc (sizeof (cmsg_sub_entry));
       strcpy(list_entry->method_name, entry->method_name);
@@ -125,16 +125,16 @@ cmsg_pub_subscriber_add (cmsg_pub*       publisher,
     }
   else
     {
-      DEBUG ("[PUB] [LIST] not a new entry doing nothing\n");
+      DEBUG (CMSG_INFO, "[PUB] [LIST] not a new entry doing nothing\n");
     }
 
-#ifndef DEBUG_DISABLED
-  DEBUG ("[PUB] [LIST] listing all list entries\n");
+#ifndef CMSG_DISABLED
+  DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
   GList *print_subscriber_list = g_list_first(publisher->subscriber_list);
   while (print_subscriber_list != NULL)
     {
       cmsg_sub_entry *print_list_entry = (cmsg_sub_entry*)print_subscriber_list->data;
-      DEBUG ("[PUB] [LIST] print_list_entry->method_name: %s\n", print_list_entry->method_name);
+      DEBUG (CMSG_INFO, "[PUB] [LIST] print_list_entry->method_name: %s\n", print_list_entry->method_name);
       print_subscriber_list = g_list_next (print_subscriber_list);
     }
 #endif
@@ -147,8 +147,8 @@ int32_t
 cmsg_pub_subscriber_remove (cmsg_pub*       publisher,
                             cmsg_sub_entry* entry)
 {
-  DEBUG ("[PUB] [LIST] removing subscriber from list\n");
-  DEBUG ("[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
+  DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
+  DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
   
   GList *subscriber_list = g_list_first(publisher->subscriber_list);
   while (subscriber_list)
@@ -156,7 +156,7 @@ cmsg_pub_subscriber_remove (cmsg_pub*       publisher,
       cmsg_sub_entry *list_entry = (cmsg_sub_entry*)subscriber_list->data;
       if (cmsg_sub_entry_compare(entry, list_entry))
         {
-          DEBUG ("[PUB] [LIST] deleting entry\n");
+          DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
           publisher->subscriber_list = g_list_remove (publisher->subscriber_list, list_entry);
           g_free (list_entry);
           publisher->subscriber_count--;
@@ -164,18 +164,21 @@ cmsg_pub_subscriber_remove (cmsg_pub*       publisher,
         }
       else
         {
-          DEBUG ("[PUB] [LIST] entry not found, nothing to delete\n");
+          DEBUG (CMSG_INFO, "[PUB] [LIST] entry not found, nothing to delete\n");
         }
       subscriber_list = g_list_next (subscriber_list);
     }
 
-#ifndef DEBUG_DISABLED
-  DEBUG ("[PUB] [LIST] listing all list entries\n");
+#ifndef CMSG_DISABLED
+  DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
   GList *print_subscriber_list = g_list_first(publisher->subscriber_list);
   while (print_subscriber_list != NULL)
     {
       cmsg_sub_entry *print_list_entry = (cmsg_sub_entry*)print_subscriber_list->data;
-      DEBUG ("[PUB] [LIST] print_list_entry->method_name: %s\n", print_list_entry->method_name);
+      DEBUG (CMSG_INFO,
+             "[PUB] [LIST] print_list_entry->method_name: %s\n",
+             print_list_entry->method_name);
+
       print_subscriber_list = g_list_next (print_subscriber_list);
     }
 #endif
@@ -188,14 +191,14 @@ int32_t
 cmsg_pub_server_receive (cmsg_pub* publisher,
                         int32_t    server_socket)
 {
-  DEBUG ("[PUB] cmsg_pub_server_receive\n");
+  DEBUG (CMSG_INFO, "[PUB] cmsg_pub_server_receive\n");
 
   cmsg_server* server = publisher->sub_server;
   int32_t ret = 0;
 
   if (server_socket <= 0 || !publisher->sub_server )
     {
-      DEBUG("[SERVER] socket/server not defined\n");
+      DEBUG (CMSG_ERROR, "[SERVER] socket/server not defined\n");
       return 0;
     }
 
@@ -203,7 +206,7 @@ cmsg_pub_server_receive (cmsg_pub* publisher,
 
   if (ret < 0)
     {
-      DEBUG ("[SERVER] server receive failed\n");
+      DEBUG (CMSG_ERROR, "[SERVER] server receive failed\n");
       return 0;
     }
 
@@ -220,17 +223,17 @@ cmsg_pub_message_processor (cmsg_server* server,
 
   if (server_request->method_index >= server->service->descriptor->n_methods)
     {
-      DEBUG ("[PUB] the method index from read from the header seems to be to high\n");
+      DEBUG (CMSG_ERROR, "[PUB] the method index from read from the header seems to be to high\n");
       return 0;
    }
 
   if (!buffer_data)
     {
-    DEBUG ("[PUB] buffer not defined");
+    DEBUG (CMSG_ERROR, "[PUB] buffer not defined");
     return 0;
     }
 
-  DEBUG ("[PUB] unpacking message\n");
+  DEBUG (CMSG_INFO, "[PUB] unpacking message\n");
 
   message = protobuf_c_message_unpack (server->service->descriptor->methods[server_request->method_index].input,
                                        allocator,
@@ -239,7 +242,7 @@ cmsg_pub_message_processor (cmsg_server* server,
 
   if (message == 0)
     {
-      DEBUG ("[PUB] error unpacking message\n");
+      DEBUG (CMSG_ERROR, "[PUB] error unpacking message\n");
       return 0;
     }
 
@@ -252,7 +255,7 @@ cmsg_pub_message_processor (cmsg_server* server,
 
   protobuf_c_message_free_unpacked (message, allocator);
 
-  DEBUG ("[PUB] end of message processor\n");
+  DEBUG (CMSG_INFO, "[PUB] end of message processor\n");
   return 0;
 }
 
@@ -266,7 +269,9 @@ cmsg_pub_invoke(ProtobufCService*       service,
   int ret = 0;
   cmsg_pub* publisher = (cmsg_pub*)service;
   
-  DEBUG ("[PUB] publisher sending notification for: %s\n", service->descriptor->methods[method_index].name);
+  DEBUG (CMSG_INFO,
+         "[PUB] publisher sending notification for: %s\n",
+         service->descriptor->methods[method_index].name);
 
   //for each entry in pub->subscriber_entry
   GList *subscriber_list = g_list_first(publisher->subscriber_list);
@@ -277,30 +282,35 @@ cmsg_pub_invoke(ProtobufCService*       service,
       //just send to this client if it has subscribed for this notification before
       if ( strcmp(service->descriptor->methods[method_index].name, list_entry->method_name))
         {
-          DEBUG ("[PUB] subscriber has not subscribed to: %s, skipping\n", service->descriptor->methods[method_index].name);
+          DEBUG (CMSG_INFO,
+                 "[PUB] subscriber has not subscribed to: %s, skipping\n",
+                 service->descriptor->methods[method_index].name);
+
           subscriber_list = g_list_next (subscriber_list);
           continue;
         }
       else
         {
-          DEBUG ("[PUB] subscriber has subscribed to: %s\n", service->descriptor->methods[method_index].name);
+          DEBUG (CMSG_INFO,
+                 "[PUB] subscriber has subscribed to: %s\n",
+                 service->descriptor->methods[method_index].name);
         }
       
       
-      DEBUG ("[PUB] sending notification\n");
+      DEBUG (CMSG_INFO, "[PUB] sending notification\n");
       if (list_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TCP)
         {
-          DEBUG ("[PUB] [LIST]  tcp address: %x, port: %d\n", 
-                 ntohl(list_entry->transport.sockaddr.in.sin_addr.s_addr),
-                 ntohs(list_entry->transport.sockaddr.in.sin_port));
+          DEBUG (CMSG_INFO, "[PUB] [LIST]  tcp address: %x, port: %d\n",
+                 ntohl(list_entry->transport.connection_info.sockaddr.addr.in.sin_addr.s_addr),
+                 ntohs(list_entry->transport.connection_info.sockaddr.addr.in.sin_port));
 
           cmsg_transport_oneway_tcp_init(&list_entry->transport);
         }
       else if (list_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TIPC)
         {
-          DEBUG ("[PUB] [LIST]  tipc type: %d, instance: %d\n",
-                 list_entry->transport.sockaddr.tipc.addr.name.name.type,
-                 list_entry->transport.sockaddr.tipc.addr.name.name.instance);
+          DEBUG (CMSG_INFO, "[PUB] [LIST]  tipc type: %d, instance: %d\n",
+                 list_entry->transport.connection_info.sockaddr.addr.tipc.addr.name.name.type,
+                 list_entry->transport.connection_info.sockaddr.addr.tipc.addr.name.name.instance);
 
           cmsg_transport_oneway_tipc_init(&list_entry->transport);
         }
@@ -316,7 +326,7 @@ cmsg_pub_invoke(ProtobufCService*       service,
 
       if (publisher->pub_client->state == CMSG_CLIENT_STATE_FAILED)
         {
-          DEBUG ("[PUB] warning subscriber not reachable, removing from list\n");
+          DEBUG (CMSG_WARN, "[PUB] warning subscriber not reachable, removing from list\n");
           cmsg_pub_subscriber_remove (publisher, list_entry);
         }
 
@@ -333,7 +343,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service,
                     Cmsg__SubEntryResponse_Closure closure,
                     void*                               closure_data)
 {
-  DEBUG ("[PUB] cmsg_notification_subscriber_server_register_handler\n");
+  DEBUG (CMSG_INFO, "[PUB] cmsg_notification_subscriber_server_register_handler\n");
   cmsg_server* server = (cmsg_server*)closure_data;
   cmsg_pub* publisher = (cmsg_pub*)server->parent;
   
@@ -367,7 +377,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service,
       subscriber_entry.transport.connection_info.sockaddr.addr.tipc.scope = input->tipc_scope;
     }
   else
-      DEBUG ("[PUB] error: subscriber transport not supported\n");
+      DEBUG (CMSG_ERROR, "[PUB] error: subscriber transport not supported\n");
 
   if (input->add)
     {
