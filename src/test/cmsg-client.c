@@ -82,8 +82,8 @@ int main(int argc, char**argv)
     else
       transport = cmsg_transport_new(CMSG_TRANSPORT_RPC_TCP);
 
-    transport->sockaddr.in.sin_addr.s_addr = htonl(0x7f000001);
-    transport->sockaddr.in.sin_port = htons((unsigned short)18888);
+    transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (0x7f000001);
+    transport->config.socket.sockaddr.in.sin_port = htons ((unsigned short)18888);
   }
   else if (is_tcp_tipc_cpg == 2)
   {
@@ -93,18 +93,18 @@ int main(int argc, char**argv)
 	else
 	  transport = cmsg_transport_new(CMSG_TRANSPORT_RPC_TIPC);
 
-    transport->sockaddr.tipc.family = AF_TIPC;
-    transport->sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
-    transport->sockaddr.tipc.addr.name.name.type = 18888;    //TIPC PORT
-    transport->sockaddr.tipc.addr.name.name.instance = 1;    //MEMBER ID
-    transport->sockaddr.tipc.addr.name.domain = 0;
-    transport->sockaddr.tipc.scope = TIPC_ZONE_SCOPE;
+    transport->config.socket.sockaddr.tipc.family = AF_TIPC;
+    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
+    transport->config.socket.sockaddr.tipc.addr.name.name.type = 18888;    //TIPC PORT
+    transport->config.socket.sockaddr.tipc.addr.name.name.instance = 1;    //MEMBER ID
+    transport->config.socket.sockaddr.tipc.addr.name.domain = 0;
+    transport->config.socket.sockaddr.tipc.scope = TIPC_ZONE_SCOPE;
   }
   else if (is_tcp_tipc_cpg == 3)
   {
 	  transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
-	  strcpy (transport->sockaddr.group_name.value, "cpg_bm");
-	  transport->sockaddr.group_name.length = 6;
+	  strcpy (transport->config.cpg.group_name.value, "cpg_bm");
+	  transport->config.cpg.group_name.length = 6;
   }
   else if (is_tcp_tipc_cpg == 4)
   {
@@ -112,10 +112,10 @@ int main(int argc, char**argv)
       int stack_tipc_port = 9500; //Stack topology sending port
       transport = cmsg_transport_new (CMSG_TRANSPORT_BROADCAST);
 
-      transport->sockaddr.tipc.addrtype = TIPC_ADDR_MCAST;
-      transport->sockaddr.tipc.addr.nameseq.type = stack_tipc_port;
-      transport->sockaddr.tipc.addr.nameseq.lower = 1;
-      transport->sockaddr.tipc.addr.nameseq.upper = 8;
+      transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_MCAST;
+      transport->config.socket.sockaddr.tipc.addr.nameseq.type = stack_tipc_port;
+      transport->config.socket.sockaddr.tipc.addr.nameseq.lower = 1;
+      transport->config.socket.sockaddr.tipc.addr.nameseq.upper = 8;
   }
   else
   {

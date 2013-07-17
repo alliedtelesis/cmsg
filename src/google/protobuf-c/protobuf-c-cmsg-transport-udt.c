@@ -99,9 +99,9 @@ static int32_t
 cmsg_transport_oneway_udt_client_send (cmsg_client *client, void *buff, int length, int flag)
 {
 
-    if (client->transport->udt_funcs.send)
+    if (client->transport->config.udt.send)
     {
-        return (client->transport->udt_funcs.send (client->transport->connection_info.udt_data, buff, length, flag));
+        return (client->transport->config.udt.send (client->transport->config.udt.udt_data, buff, length, flag));
     }
 
     // Function isn't defined so just pretend the message was sent.
@@ -117,9 +117,9 @@ static int32_t
 cmsg_transport_oneway_udt_connect (cmsg_client *client)
 {
     int32_t ret = 0;
-    if (client->transport->udt_funcs.connect)
+    if (client->transport->config.udt.connect)
     {
-        ret = client->transport->udt_funcs.connect (client);
+        ret = client->transport->config.udt.connect (client);
     }
     client->state = CMSG_CLIENT_STATE_CONNECTED;
 
@@ -139,10 +139,10 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
         return;
     }
 
-    transport->connection_info.sockaddr.family = 0;
-    transport->connection_info.sockaddr.addr.generic.sa_family = 0;
+    transport->config.socket.family = PF_INET;
+    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
 
-    memset(&transport->udt_funcs, 0, sizeof (transport->udt_funcs));
+    memset (&transport->config.udt, 0, sizeof (transport->config.udt));
     transport->connect = cmsg_transport_oneway_udt_connect;
     transport->listen = cmsg_transport_oneway_udt_listen;
     transport->server_recv = cmsg_transport_oneway_udt_server_recv;

@@ -14,7 +14,7 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
     if (client == NULL)
       return 0;
 
-    client->connection.socket = socket (client->transport->connection_info.sockaddr.family, SOCK_RDM, 0);
+    client->connection.socket = socket (client->transport->config.socket.family, SOCK_RDM, 0);
 
     if (client->connection.socket < 0)
     {
@@ -47,7 +47,7 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server* server)
   server->connection.sockets.listening_socket = 0;
   transport = server->transport;
 
-  listening_socket = socket (transport->connection_info.sockaddr.family, SOCK_RDM, 0);
+  listening_socket = socket (transport->config.socket.family, SOCK_RDM, 0);
   if (listening_socket == -1 )
   {
     DEBUG (CMSG_ERROR,
@@ -59,9 +59,9 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server* server)
 
   //TODO: stk_tipc.c adds the addressing information here
 
-  addrlen  = sizeof (transport->connection_info.sockaddr.addr.generic);
+  addrlen  = sizeof (transport->config.socket.sockaddr.generic);
   /* bind the socket address (publishes the TIPC port name) */
-  if (bind (listening_socket, &transport->connection_info.sockaddr.addr.generic, addrlen) != 0)
+  if (bind (listening_socket, &transport->config.socket.sockaddr.generic, addrlen) != 0)
   {
     DEBUG (CMSG_ERROR, "[TRANSPORT] TIPC port could not be created\n");
     return -1;
@@ -105,7 +105,7 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server* server)
                      &header_received,
                      sizeof (cmsg_header_request),
                      MSG_PEEK,
-                     (struct sockaddr *) &transport->connection_info.sockaddr.addr.tipc,
+                     (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                      &addrlen);
 
   DEBUG (CMSG_INFO,
@@ -158,7 +158,7 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server* server)
                        buffer,
                        dyn_len,
                        0,
-                       (struct sockaddr *) &transport->connection_info.sockaddr.addr.tipc,
+                       (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                        &addrlen);
 
     if (nbytes == dyn_len)
@@ -206,7 +206,7 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server* server)
                        &buffer,
                        nbytes,
                        0,
-                       (struct sockaddr *) &transport->connection_info.sockaddr.addr.tipc,
+                       (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                        &addrlen);
     free (buffer);
     buffer = 0;
@@ -257,7 +257,7 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
                     buff,
                     length,
                     MSG_DONTWAIT,
-                    (struct sockaddr *) &client->transport->connection_info.sockaddr.addr.tipc,
+                    (struct sockaddr *) &client->transport->config.socket.sockaddr.tipc,
                     sizeof (struct sockaddr_tipc)));
 }
 
@@ -346,8 +346,8 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     if (transport == NULL)
         return;
 
-    transport->connection_info.sockaddr.family = AF_TIPC;
-    transport->connection_info.sockaddr.addr.tipc.family = AF_TIPC;
+    transport->config.socket.family = AF_TIPC;
+    transport->config.socket.sockaddr.tipc.family = AF_TIPC;
 
     transport->connect = cmsg_transport_tipc_broadcast_connect;
     transport->listen = cmsg_transport_tipc_broadcast_listen;

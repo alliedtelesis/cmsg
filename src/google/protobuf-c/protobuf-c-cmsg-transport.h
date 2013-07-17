@@ -19,10 +19,11 @@
 typedef struct _cmsg_client_s           cmsg_client;
 typedef struct _cmsg_server_s           cmsg_server;
 
-
-typedef struct _cmsg_socket_address_s        cmsg_socket_address;
-typedef struct _cmsg_udt_functions_s         cmsg_udt_functions;
-typedef struct _cmsg_transport_arguments_s   cmsg_transport_arguments;
+typedef struct _cmsg_cpg_s                   cmsg_cpg;
+typedef union  _cmsg_transport_config_u      cmsg_transport_config;
+typedef struct _cmsg_socket_s                cmsg_socket;
+typedef struct _cmsg_udt_s                   cmsg_udt;
+typedef union  _cmsg_socket_address_u        cmsg_socket_address;
 typedef enum   _cmsg_transport_type_e        cmsg_transport_type;
 typedef struct _cmsg_transport_s             cmsg_transport;
 typedef union  _client_connection_u          cmsg_client_connection;
@@ -57,9 +58,9 @@ union _client_connection_u
 union _server_connection_u
 {
 #ifdef HAVE_VCSTACK
-  cmsg_cpg_server_connection cpg;
+    cmsg_cpg_server_connection cpg;
 #endif
-  cmsg_generic_sever_connection sockets;
+    cmsg_generic_sever_connection sockets;
 };
 
 
@@ -69,28 +70,42 @@ union _cmsg_socket_address_u
   struct sockaddr_in     in;          // INET socket address, for TCP based transport.
   struct sockaddr_tipc   tipc;        // TIPC socket address, for TIPC based IPC transport.
   struct sockaddr_un     un;          // UNIX socket address, for Unix-domain socket transport.
-#ifdef HAVE_VCSTACK
-  struct cpg_name        group_name;  // CPG address structure
-#endif
 };
 
-struct _cmsg_socket_address_s
+struct _cmsg_socket_s
 {
     int family;
-    union _cmsg_socket_address_u addr;
+    cmsg_socket_address sockaddr;
+};
+
+struct _cmsg_cpg_s
+{
+#ifdef HAVE_VCSTACK
+    struct cpg_name group_name;  // CPG address structure
+#endif
 };
 
 typedef int (*udt_connect_f)(cmsg_client *client);
 typedef int (*udt_send_f)(void *udt_data,
-                      void*   buff,
-                      int     length,
-                      int     flag);
+                          void *buff,
+                          int   length,
+                          int   flag);
 
-struct _cmsg_udt_functions_s
+struct _cmsg_udt_s
 {
+    void *udt_data;
+    // Functions for userdefined transport functionality
     udt_connect_f connect;
     udt_send_f send;
 };
+
+union _cmsg_transport_config_u
+{
+    cmsg_socket socket;
+    cmsg_cpg cpg;
+    cmsg_udt udt;
+};
+
 
 enum _cmsg_transport_type_e
 {
@@ -110,13 +125,13 @@ typedef int (*server_recv_f)(int32_t      socket,
                              cmsg_server* server);
 typedef ProtobufCMessage* (*client_recv_f)(cmsg_client* client);
 typedef int (*client_send_f)(cmsg_client *client,
-                      void*   buff,
-                      int     length,
-                      int     flag);
+                             void*   buff,
+                             int     length,
+                             int     flag);
 typedef int (*server_send_f)(cmsg_server *server,
-                      void*   buff,
-                      int     length,
-                      int     flag);
+                             void*   buff,
+                             int     length,
+                             int     flag);
 typedef void (*invoke_f)(ProtobufCService*       service,
                          unsigned                method_index,
                          const ProtobufCMessage* input,
@@ -131,26 +146,24 @@ typedef void (*server_destroy_f)(cmsg_server* server);
 
 struct _cmsg_transport_s
 {
-  cmsg_transport_type type;
-  union
-  {
-      cmsg_socket_address sockaddr;
-      void *udt_data;
-  } connection_info;
-  cmsg_udt_functions udt_funcs; // Functions for userdefined transport functionality
-  client_conect_f connect;    //client connect function
-  server_listen_f listen;     //server listen function
-  server_recv_f server_recv;  //server receive function
-  client_recv_f client_recv;  //receive function
-  client_send_f client_send;  //client send function
-  server_send_f server_send;  //server send function
-  ProtobufCClosure closure;   //rpc closure function
-  invoke_f invoke;            //invoke function
-  client_close_f client_close;//client close socket function
-  server_close_f server_close;//server close socket function
-  s_get_socket_f s_socket;    //
-  c_get_socket_f c_socket;    //
-  server_destroy_f server_destroy; //Server destroy function
+    //transport information
+    cmsg_transport_type   type;
+    cmsg_transport_config config;
+
+    //transport function pointers
+    client_conect_f    connect;        // client connect function
+    server_listen_f    listen;         // server listen function
+    server_recv_f      server_recv;    // server receive function
+    client_recv_f      client_recv;    // receive function
+    client_send_f      client_send;    // client send function
+    server_send_f      server_send;    // server send function
+    ProtobufCClosure   closure;        // rpc closure function
+    invoke_f           invoke;         // invoke function
+    client_close_f     client_close;   // client close socket function
+    server_close_f     server_close;   // server close socket function
+    s_get_socket_f     s_socket;       //
+    c_get_socket_f     c_socket;       //
+    server_destroy_f   server_destroy; // Server destroy function
 };
 
 cmsg_transport*

@@ -94,8 +94,8 @@ cmsg_sub_subscribe (cmsg_sub*       subscriber,
       register_entry.has_in_sin_addr_s_addr = 1;
       register_entry.has_in_sin_port = 1;
       
-      register_entry.in_sin_addr_s_addr = subscriber->pub_server->transport->connection_info.sockaddr.addr.in.sin_addr.s_addr;
-      register_entry.in_sin_port = subscriber->pub_server->transport->connection_info.sockaddr.addr.in.sin_port;
+      register_entry.in_sin_addr_s_addr = subscriber->pub_server->transport->config.socket.sockaddr.in.sin_addr.s_addr;
+      register_entry.in_sin_port = subscriber->pub_server->transport->config.socket.sockaddr.in.sin_port;
     }
   else if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_TIPC)
     {
@@ -106,12 +106,12 @@ cmsg_sub_subscribe (cmsg_sub*       subscriber,
       register_entry.has_tipc_addr_name_name_type = 1;
       register_entry.has_tipc_scope = 1;
 
-      register_entry.tipc_family = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.family;
-      register_entry.tipc_addrtype = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.addrtype;
-      register_entry.tipc_addr_name_domain = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.addr.name.domain;
-      register_entry.tipc_addr_name_name_instance = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.addr.name.name.instance;
-      register_entry.tipc_addr_name_name_type = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.addr.name.name.type;
-      register_entry.tipc_scope = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.scope;
+      register_entry.tipc_family = subscriber->pub_server->transport->config.socket.sockaddr.tipc.family;
+      register_entry.tipc_addrtype = subscriber->pub_server->transport->config.socket.sockaddr.tipc.addrtype;
+      register_entry.tipc_addr_name_domain = subscriber->pub_server->transport->config.socket.sockaddr.tipc.addr.name.domain;
+      register_entry.tipc_addr_name_name_instance = subscriber->pub_server->transport->config.socket.sockaddr.tipc.addr.name.name.instance;
+      register_entry.tipc_addr_name_name_type = subscriber->pub_server->transport->config.socket.sockaddr.tipc.addr.name.name.type;
+      register_entry.tipc_scope = subscriber->pub_server->transport->config.socket.sockaddr.tipc.scope;
     }
   else
     {
@@ -160,8 +160,8 @@ cmsg_sub_unsubscribe (cmsg_sub*       subscriber,
       register_entry.has_in_sin_addr_s_addr = 1;
       register_entry.has_in_sin_port = 1;
       
-      register_entry.in_sin_addr_s_addr = subscriber->pub_server->transport->connection_info.sockaddr.addr.in.sin_addr.s_addr;
-      register_entry.in_sin_port = subscriber->pub_server->transport->connection_info.sockaddr.addr.in.sin_port;
+      register_entry.in_sin_addr_s_addr = subscriber->pub_server->transport->config.socket.sockaddr.in.sin_addr.s_addr;
+      register_entry.in_sin_port = subscriber->pub_server->transport->config.socket.sockaddr.in.sin_port;
     }
   else if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_TIPC)
     {
@@ -172,12 +172,12 @@ cmsg_sub_unsubscribe (cmsg_sub*       subscriber,
       register_entry.has_tipc_addr_name_name_type = 1;
       register_entry.has_tipc_scope = 1;
 
-      register_entry.tipc_family = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.family;
-      register_entry.tipc_addrtype = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.addrtype;
-      register_entry.tipc_addr_name_domain = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.addr.name.domain;
-      register_entry.tipc_addr_name_name_instance = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.addr.name.name.instance;
-      register_entry.tipc_addr_name_name_type = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.addr.name.name.type;
-      register_entry.tipc_scope = subscriber->pub_server->transport->connection_info.sockaddr.addr.tipc.scope;
+      register_entry.tipc_family = subscriber->pub_server->transport->config.socket.sockaddr.tipc.family;
+      register_entry.tipc_addrtype = subscriber->pub_server->transport->config.socket.sockaddr.tipc.addrtype;
+      register_entry.tipc_addr_name_domain = subscriber->pub_server->transport->config.socket.sockaddr.tipc.addr.name.domain;
+      register_entry.tipc_addr_name_name_instance = subscriber->pub_server->transport->config.socket.sockaddr.tipc.addr.name.name.instance;
+      register_entry.tipc_addr_name_name_type = subscriber->pub_server->transport->config.socket.sockaddr.tipc.addr.name.name.type;
+      register_entry.tipc_scope = subscriber->pub_server->transport->config.socket.sockaddr.tipc.scope;
     }
   else
     {

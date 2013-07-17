@@ -86,8 +86,8 @@ int main(int argc, char**argv)
           else
             transport = cmsg_transport_new(CMSG_TRANSPORT_RPC_TCP);
 
-          transport->sockaddr.in.sin_addr.s_addr = htonl(INADDR_ANY);
-          transport->sockaddr.in.sin_port = htons((unsigned short)port);
+          transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_ANY);
+          transport->config.socket.sockaddr.in.sin_port = htons ((unsigned short)port);
 
           break;
         }
@@ -116,20 +116,20 @@ int main(int argc, char**argv)
           else
         	transport = cmsg_transport_new(CMSG_TRANSPORT_RPC_TIPC);
 
-          transport->sockaddr.tipc.family = AF_TIPC;
-          transport->sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
-          transport->sockaddr.tipc.addr.name.name.type = type;    //TIPC PORT
-          transport->sockaddr.tipc.addr.name.name.instance = instance;    //MEMBER ID
-          transport->sockaddr.tipc.addr.name.domain = 0;
-          transport->sockaddr.tipc.scope = TIPC_ZONE_SCOPE;
+          transport->config.socket.sockaddr.tipc.family = AF_TIPC;
+          transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
+          transport->config.socket.sockaddr.tipc.addr.name.name.type = type;    //TIPC PORT
+          transport->config.socket.sockaddr.tipc.addr.name.name.instance = instance;    //MEMBER ID
+          transport->config.socket.sockaddr.tipc.addr.name.domain = 0;
+          transport->config.socket.sockaddr.tipc.scope = TIPC_ZONE_SCOPE;
 
           break;
         }
       else if (starts_with (argv[arg_i], "--cpg"))
         {
     	  transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
-    	  strcpy (transport->sockaddr.group_name.value, "cpg_bm");
-    	  transport->sockaddr.group_name.length = 6;
+          strcpy (transport->config.cpg.group_name.value, "cpg_bm");
+          transport->config.cpg.group_name.length = 6;
           break;
         }
       else if (starts_with (argv[arg_i], "--broadcast"))
@@ -138,11 +138,11 @@ int main(int argc, char**argv)
           int stack_tipc_port = 9500; //Stack topology sending port
           transport = cmsg_transport_new (CMSG_TRANSPORT_BROADCAST);
 
-          transport->sockaddr.tipc.addrtype = TIPC_ADDR_NAMESEQ;
-          transport->sockaddr.tipc.scope = TIPC_CLUSTER_SCOPE;
-          transport->sockaddr.tipc.addr.nameseq.type = stack_tipc_port;
-          transport->sockaddr.tipc.addr.nameseq.lower = my_id;
-          transport->sockaddr.tipc.addr.nameseq.upper = my_id;
+          transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAMESEQ;
+          transport->config.socket.sockaddr.tipc.scope = TIPC_CLUSTER_SCOPE;
+          transport->config.socket.sockaddr.tipc.addr.nameseq.type = stack_tipc_port;
+          transport->config.socket.sockaddr.tipc.addr.nameseq.lower = my_id;
+          transport->config.socket.sockaddr.tipc.addr.nameseq.upper = my_id;
           break;
       }
       else

@@ -101,7 +101,7 @@ cmsg_transport_cpg_connect (cmsg_client *client)
 {
   unsigned int res;
 
-  if (!client || !client->transport || client->transport->connection_info.sockaddr.addr.group_name.value[0] == '\0')
+  if (!client || !client->transport || client->transport->config.cpg.group_name.value[0] == '\0')
   {
     DEBUG (CMSG_ERROR, "[TRANPORT] cpg connect sanity check failed\n");
   }
@@ -109,7 +109,7 @@ cmsg_transport_cpg_connect (cmsg_client *client)
   {
     DEBUG (CMSG_INFO,
            "[TRANPORT] cpg connect group name: %s\n",
-           client->transport->connection_info.sockaddr.addr.group_name.value);
+           client->transport->config.cpg.group_name.value);
   }
 
 
@@ -120,7 +120,7 @@ cmsg_transport_cpg_connect (cmsg_client *client)
     return -1;
   }
 
-  res = cpg_join (client->connection.handle, &(client->transport->connection_info.sockaddr.addr.group_name));
+  res = cpg_join (client->connection.handle, &(client->transport->config.cpg.group_name));
 
   if (res != CPG_OK)
   {
@@ -145,7 +145,7 @@ cmsg_transport_cpg_listen (cmsg_server* server)
   unsigned int res;
   int fd = 0;
 
-  if (!server || !server->transport || server->transport->connection_info.sockaddr.addr.group_name.value[0] == '\0')
+  if (!server || !server->transport || server->transport->config.cpg.group_name.value[0] == '\0')
   {
     DEBUG (CMSG_ERROR, "[TRANPORT] cpg listen sanity check failed\n");
   }
@@ -153,7 +153,7 @@ cmsg_transport_cpg_listen (cmsg_server* server)
   {
     DEBUG (CMSG_INFO,
            "[TRANPORT] cpg listen group name: %s\n",
-           server->transport->connection_info.sockaddr.addr.group_name.value);
+           server->transport->config.cpg.group_name.value);
   }
 
   server->connection.cpg.callbacks.cpg_deliver_fn = (void*)cpg_bm_deliver_fn;
@@ -176,7 +176,7 @@ cmsg_transport_cpg_listen (cmsg_server* server)
 
   DEBUG (CMSG_INFO, "[TRANPORT] cpg listen result %d\n", res);
 
-  res = cpg_join (server->connection.cpg.handle, &(server->transport->connection_info.sockaddr.addr.group_name));
+  res = cpg_join (server->connection.cpg.handle, &(server->transport->config.cpg.group_name));
 
   if (res != CPG_OK)
   {
