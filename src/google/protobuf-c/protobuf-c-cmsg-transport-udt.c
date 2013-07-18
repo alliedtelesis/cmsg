@@ -25,7 +25,7 @@
  *
  */
 static int32_t
-cmsg_transport_oneway_udt_listen (cmsg_server* server)
+cmsg_transport_oneway_udt_listen (cmsg_server *server)
 {
     // Function isn't needed for User Defined so nothing happens.
     return 0;
@@ -34,15 +34,15 @@ cmsg_transport_oneway_udt_listen (cmsg_server* server)
 
 
 static int32_t
-cmsg_transport_oneway_udt_server_recv (int32_t socket, cmsg_server* server)
+cmsg_transport_oneway_udt_server_recv (int32_t socket, cmsg_server *server)
 {
     // Function isn't needed for User Defined so nothing happens.
     return 0;
 }
 
 
-static ProtobufCMessage*
-cmsg_transport_oneway_udt_client_recv (cmsg_client* client)
+static ProtobufCMessage *
+cmsg_transport_oneway_udt_client_recv (cmsg_client *client)
 {
     // Function isn't needed for User Defined so nothing happens.
     return 0;
@@ -58,7 +58,7 @@ cmsg_transport_oneway_udt_server_send (cmsg_server *server, void *buff, int leng
 
 
 static void
-cmsg_transport_oneway_udt_client_close (cmsg_client* client)
+cmsg_transport_oneway_udt_client_close (cmsg_client *client)
 {
     // Function isn't needed for User Defined so nothing happens.
     return;
@@ -66,7 +66,7 @@ cmsg_transport_oneway_udt_client_close (cmsg_client* client)
 
 
 static void
-cmsg_transport_oneway_udt_server_close (cmsg_server* server)
+cmsg_transport_oneway_udt_server_close (cmsg_server *server)
 {
     // Function isn't needed for User Defined so nothing happens.
     return;
@@ -74,7 +74,7 @@ cmsg_transport_oneway_udt_server_close (cmsg_server* server)
 
 
 static int
-cmsg_transport_oneway_udt_server_get_socket (cmsg_server* server)
+cmsg_transport_oneway_udt_server_get_socket (cmsg_server *server)
 {
     // Function isn't needed for User Defined so nothing happens.
     return 0;
@@ -82,14 +82,14 @@ cmsg_transport_oneway_udt_server_get_socket (cmsg_server* server)
 
 
 static int
-cmsg_transport_oneway_udt_client_get_socket (cmsg_client* client)
+cmsg_transport_oneway_udt_client_get_socket (cmsg_client *client)
 {
     // Function isn't needed for User Defined so nothing happens.
     return 0;
 }
 
 static void
-cmsg_transport_oneway_udt_server_destroy (cmsg_server* server)
+cmsg_transport_oneway_udt_server_destroy (cmsg_server *server)
 {
     // Function isn't needed for User Defined so nothing happens.
     return;

@@ -35,24 +35,24 @@ typedef struct _generic_server_connection_s  cmsg_generic_sever_connection;
 #ifdef HAVE_VCSTACK
 struct _cpg_server_connection_s
 {
-  cpg_handle_t handle;
-  cpg_callbacks_t callbacks;
-  int fd;                     //file descriptor for listening
+    cpg_handle_t handle;
+    cpg_callbacks_t callbacks;
+    int fd;                     //file descriptor for listening
 };
 #endif
 
 struct _generic_server_connection_s
 {
-  int listening_socket;
-  int client_socket;
+    int listening_socket;
+    int client_socket;
 };
 
 union _client_connection_u
 {
 #ifdef HAVE_VCSTACK
-  cpg_handle_t handle;
+    cpg_handle_t handle;
 #endif
-  int socket;
+    int socket;
 };
 
 union _server_connection_u
@@ -66,10 +66,10 @@ union _server_connection_u
 
 union _cmsg_socket_address_u
 {
-  struct sockaddr        generic;     // Generic socket address. Used for determining Address Family.
-  struct sockaddr_in     in;          // INET socket address, for TCP based transport.
-  struct sockaddr_tipc   tipc;        // TIPC socket address, for TIPC based IPC transport.
-  struct sockaddr_un     un;          // UNIX socket address, for Unix-domain socket transport.
+    struct sockaddr        generic;     // Generic socket address. Used for determining Address Family.
+    struct sockaddr_in     in;          // INET socket address, for TCP based transport.
+    struct sockaddr_tipc   tipc;        // TIPC socket address, for TIPC based IPC transport.
+    struct sockaddr_un     un;          // UNIX socket address, for Unix-domain socket transport.
 };
 
 struct _cmsg_socket_s
@@ -85,11 +85,11 @@ struct _cmsg_cpg_s
 #endif
 };
 
-typedef int (*udt_connect_f)(cmsg_client *client);
-typedef int (*udt_send_f)(void *udt_data,
-                          void *buff,
-                          int   length,
-                          int   flag);
+typedef int (*udt_connect_f) (cmsg_client *client);
+typedef int (*udt_send_f) (void *udt_data,
+                           void *buff,
+                           int   length,
+                           int   flag);
 
 struct _cmsg_udt_s
 {
@@ -109,39 +109,39 @@ union _cmsg_transport_config_u
 
 enum _cmsg_transport_type_e
 {
-  CMSG_TRANSPORT_RPC_LOCAL,
-  CMSG_TRANSPORT_RPC_TCP,
-  CMSG_TRANSPORT_RPC_TIPC,
-  CMSG_TRANSPORT_ONEWAY_TCP,
-  CMSG_TRANSPORT_ONEWAY_TIPC,
-  CMSG_TRANSPORT_CPG,
-  CMSG_TRANSPORT_ONEWAY_USERDEFINED,
-  CMSG_TRANSPORT_BROADCAST,
+    CMSG_TRANSPORT_RPC_LOCAL,
+    CMSG_TRANSPORT_RPC_TCP,
+    CMSG_TRANSPORT_RPC_TIPC,
+    CMSG_TRANSPORT_ONEWAY_TCP,
+    CMSG_TRANSPORT_ONEWAY_TIPC,
+    CMSG_TRANSPORT_CPG,
+    CMSG_TRANSPORT_ONEWAY_USERDEFINED,
+    CMSG_TRANSPORT_BROADCAST,
 };
 
-typedef int (*client_conect_f)(cmsg_client* client);
-typedef int (*server_listen_f)(cmsg_server* server);
-typedef int (*server_recv_f)(int32_t      socket,
-                             cmsg_server* server);
-typedef ProtobufCMessage* (*client_recv_f)(cmsg_client* client);
-typedef int (*client_send_f)(cmsg_client *client,
-                             void*   buff,
-                             int     length,
-                             int     flag);
-typedef int (*server_send_f)(cmsg_server *server,
-                             void*   buff,
-                             int     length,
-                             int     flag);
-typedef void (*invoke_f)(ProtobufCService*       service,
-                         unsigned                method_index,
-                         const ProtobufCMessage* input,
-                         ProtobufCClosure        closure,
-                         void*                   closure_data);
-typedef void (*client_close_f)(cmsg_client* client);
-typedef void (*server_close_f)(cmsg_server* server);
-typedef int  (*s_get_socket_f)(cmsg_server* server);
-typedef int  (*c_get_socket_f)(cmsg_client* client);
-typedef void (*server_destroy_f)(cmsg_server* server);
+typedef int (*client_conect_f) (cmsg_client *client);
+typedef int (*server_listen_f) (cmsg_server *server);
+typedef int (*server_recv_f) (int32_t      socket,
+                              cmsg_server *server);
+typedef ProtobufCMessage * (*client_recv_f) (cmsg_client *client);
+typedef int (*client_send_f) (cmsg_client *client,
+                              void   *buff,
+                              int     length,
+                              int     flag);
+typedef int (*server_send_f) (cmsg_server *server,
+                              void   *buff,
+                              int     length,
+                              int     flag);
+typedef void (*invoke_f) (ProtobufCService       *service,
+                          unsigned                method_index,
+                          const ProtobufCMessage *input,
+                          ProtobufCClosure        closure,
+                          void                   *closure_data);
+typedef void (*client_close_f) (cmsg_client *client);
+typedef void (*server_close_f) (cmsg_server *server);
+typedef int (*s_get_socket_f) (cmsg_server *server);
+typedef int (*c_get_socket_f) (cmsg_client *client);
+typedef void (*server_destroy_f) (cmsg_server *server);
 
 
 struct _cmsg_transport_s
@@ -166,27 +166,27 @@ struct _cmsg_transport_s
     server_destroy_f   server_destroy; // Server destroy function
 };
 
-cmsg_transport*
+cmsg_transport *
 cmsg_transport_new (cmsg_transport_type type);
 void
-cmsg_transport_tipc_init(cmsg_transport* transport);
+cmsg_transport_tipc_init (cmsg_transport *transport);
 void
-cmsg_transport_tcp_init(cmsg_transport* transport);
+cmsg_transport_tcp_init (cmsg_transport *transport);
 void
-cmsg_transport_oneway_tipc_init(cmsg_transport* transport);
+cmsg_transport_oneway_tipc_init (cmsg_transport *transport);
 void
-cmsg_transport_oneway_tcp_init(cmsg_transport* transport);
+cmsg_transport_oneway_tcp_init (cmsg_transport *transport);
 void
-cmsg_transport_oneway_cpumail_init(cmsg_transport* transport);
+cmsg_transport_oneway_cpumail_init (cmsg_transport *transport);
 
 #ifdef HAVE_VCSTACK
 void
-cmsg_transport_cpg_init (cmsg_transport* transport);
+cmsg_transport_cpg_init (cmsg_transport *transport);
 void
-cmsg_transport_tipc_broadcast_init(cmsg_transport* transport);
+cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
 #endif
 
 int32_t
-cmsg_transport_destroy (cmsg_transport* transport);
+cmsg_transport_destroy (cmsg_transport *transport);
 
 #endif

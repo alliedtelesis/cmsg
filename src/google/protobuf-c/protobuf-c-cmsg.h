@@ -20,12 +20,12 @@
 #define DEBUG_LEVEL  1
 
 #if defined DEBUG_WORKSTATION
-  #define DEBUG(level, ...) (level <= DEBUG_LEVEL) ? 0 : printf(__VA_ARGS__)
+#define DEBUG(level, ...) (level <= DEBUG_LEVEL) ? 0 : printf(__VA_ARGS__)
 #elif defined DEBUG_SWITCH
-  #include <syslog.h>
-  #define DEBUG(level, fmt, ARGS...) (level <= DEBUG_LEVEL) ? 0 : syslog(LOG_CRIT | LOG_LOCAL6, fmt, ##ARGS)
+#include <syslog.h>
+#define DEBUG(level, fmt, ARGS...) (level <= DEBUG_LEVEL) ? 0 : syslog(LOG_CRIT | LOG_LOCAL6, fmt, ##ARGS)
 #elif defined DEBUG_DISABLED
-  #define DEBUG(ARGS...) (0)
+#define DEBUG(ARGS...) (0)
 #endif
 
 #define RECV_TIMEOUT 10
@@ -52,42 +52,42 @@ typedef enum   _cmsg_error_code_e       cmsg_error_code;
 
 struct _cmsg_header_request_s
 {
-  uint32_t method_index;
-  uint32_t message_length;
-  uint32_t request_id;
+    uint32_t method_index;
+    uint32_t message_length;
+    uint32_t request_id;
 };
 
 struct _cmsg_header_response_s
 {
-  uint32_t status_code;
-  uint32_t method_index;
-  uint32_t message_length;
-  uint32_t request_id;
+    uint32_t status_code;
+    uint32_t method_index;
+    uint32_t message_length;
+    uint32_t request_id;
 };
 
 enum _cmsg_status_code_e
 {
-  CMSG_STATUS_CODE_SUCCESS,
-  CMSG_STATUS_CODE_SERVICE_FAILED,
-  CMSG_STATUS_CODE_TOO_MANY_PENDING
+    CMSG_STATUS_CODE_SUCCESS,
+    CMSG_STATUS_CODE_SERVICE_FAILED,
+    CMSG_STATUS_CODE_TOO_MANY_PENDING
 };
 
 enum _cmsg_error_code_e
 {
-  CMSG_ERROR_CODE_HOST_NOT_FOUND,
-  CMSG_ERROR_CODE_CONNECTION_REFUSED,
-  CMSG_ERROR_CODE_CLIENT_TERMINATED,
-  CMSG_ERROR_CODE_BAD_REQUEST,
-  CMSG_ERROR_CODE_PROXY_PROBLEM
+    CMSG_ERROR_CODE_HOST_NOT_FOUND,
+    CMSG_ERROR_CODE_CONNECTION_REFUSED,
+    CMSG_ERROR_CODE_CLIENT_TERMINATED,
+    CMSG_ERROR_CODE_BAD_REQUEST,
+    CMSG_ERROR_CODE_PROXY_PROBLEM
 };
 
 
-uint32_t 
+uint32_t
 cmsg_common_uint32_to_le (uint32_t le);
 
 #define cmsg_common_uint32_from_le cmsg_common_uint32_to_le
 
 void
-cmsg_buffer_print (void* buffer, unsigned int size);
+cmsg_buffer_print (void *buffer, unsigned int size);
 
 #endif
