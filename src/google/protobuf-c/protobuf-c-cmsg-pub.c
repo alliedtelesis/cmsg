@@ -352,7 +352,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service       *service,
     //read the message
     cmsg_sub_entry subscriber_entry;
     memset (&subscriber_entry, 0, sizeof (cmsg_sub_entry));
-    strcpy (subscriber_entry.method_name, input->method_name);
+    sprintf (subscriber_entry.method_name, "%s_pbc", input->method_name);
 
     if (input->transport_type == CMSG_TRANSPORT_ONEWAY_TCP)
     {
