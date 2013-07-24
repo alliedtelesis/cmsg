@@ -74,6 +74,15 @@ cmsg_server_get_socket (cmsg_server *server)
 }
 
 
+/**
+ * cmsg_server_receive_poll
+ *
+ * Calls the transport receive function.
+ * The expectation of the transport receive function is that it will return
+ * <0 on failure & 0=< on success.
+ *
+ * On success returns 0, failure returns -1.
+ */
 int32_t
 cmsg_server_receive_poll (cmsg_server *server,
                          int32_t timeout_ms)
@@ -99,27 +108,34 @@ cmsg_server_receive_poll (cmsg_server *server,
     }
     else if (ret == 0)
     {
-        // poll timed out, so allow processing to continue
+        // poll timed out, so func success but nothing received, early return
         return 0;
     }
 
     // there is something happening on the socket so receive it.
-    cmsg_server_receive (server, poll_list[0].fd);
-    return 0;
+    return cmsg_server_receive (server, poll_list[0].fd);
 }
 
 
+/**
+ * cmsg_server_receive
+ *
+ * Calls the transport receive function.
+ * The expectation of the transport receive function is that it will return
+ * <0 on failure & 0=< on success.
+ *
+ * On success returns 0, failure returns -1.
+ */
 int32_t
 cmsg_server_receive (cmsg_server *server,
                      int32_t      server_socket)
 {
     int32_t ret = 0;
 
-
     if (server_socket <= 0 || !server)
     {
         DEBUG (CMSG_ERROR, "[SERVER] socket/server not defined\n");
-        return 0;
+        return -1;
     }
 
 
@@ -128,8 +144,10 @@ cmsg_server_receive (cmsg_server *server,
     if (ret < 0)
     {
         DEBUG (CMSG_ERROR, "[SERVER] server receive failed\n");
-        return 0;
+        return -1;
     }
+
+    return 0;
 }
 
 
