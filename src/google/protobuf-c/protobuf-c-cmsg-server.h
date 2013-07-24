@@ -46,6 +46,10 @@ int
 cmsg_server_get_socket (cmsg_server *server);
 
 int32_t
+cmsg_server_receive_poll (cmsg_server *server,
+                         int32_t timeout_ms);
+
+int32_t
 cmsg_server_receive (cmsg_server *server,
                      int32_t      server_socket);
 

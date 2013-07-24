@@ -1,3 +1,4 @@
+#include <poll.h>
 #include "protobuf-c-cmsg-server.h"
 
 
@@ -72,6 +73,40 @@ cmsg_server_get_socket (cmsg_server *server)
     return socket;
 }
 
+
+int32_t
+cmsg_server_receive_poll (cmsg_server *server,
+                         int32_t timeout_ms)
+{
+    int ret = 0;
+    struct pollfd poll_list[1];
+
+    if (!server)
+    {
+        DEBUG (CMSG_ERROR, "[SERVER] socket not defined\n");
+        return 0;
+    }
+
+    poll_list[0].fd = cmsg_server_get_socket (server);
+    poll_list[0].events = POLLIN;
+
+    ret = poll (poll_list, (unsigned long)1, timeout_ms /* milliseconds */);
+
+    if (ret == -1)
+    {
+        DEBUG (CMSG_ERROR, "[SERVER] poll error occurred: %s ", strerror (errno));
+        return -1;
+    }
+    else if (ret == 0)
+    {
+        // poll timed out, so allow processing to continue
+        return 0;
+    }
+
+    // there is something happening on the socket so receive it.
+    cmsg_server_receive (server, poll_list[0].fd);
+    return 0;
+}
 
 
 int32_t
