@@ -1237,15 +1237,20 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
     }
     else if (field->type() == FieldDescriptor::TYPE_BYTES)
     {
-      printer->Print(vars_, "free ($left_field_name$);\n");
+      printer->Print(vars_, "free ($left_field_name$.data);\n");
     }
     else if (field->type() == FieldDescriptor::TYPE_MESSAGE)
     {
+      printer->Print(vars_, "if ($left_field_name$)\n");
+      printer->Print("{\n");
+      printer->Indent();
       // this is a sub message so we need to follow pointers into the sub structure.
       //
       GenerateCleanupMessageMemoryCode(field->message_type(), lhm + field_name + "->", printer, depth);
       vars_["left_field_name"] = lhm + field_name;
       printer->Print(vars_, "free ($left_field_name$);\n");
+      printer->Outdent();
+      printer->Print("}\n");
     }
   }
 }
