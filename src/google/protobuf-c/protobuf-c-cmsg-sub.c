@@ -60,8 +60,7 @@ void
 cmsg_sub_subscribe_response_handler (const Cmsg__SubEntryResponse *response,
                                      void *closure_data)
 {
-    uint32_t *return_value;
-    cmsg_sub *subscriber = (cmsg_sub *)closure_data;
+    uint32_t *return_value = (uint32_t *)closure_data;
 
     if (response == 0)
     {
