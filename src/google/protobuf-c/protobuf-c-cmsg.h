@@ -17,13 +17,13 @@
 #define DEBUG_DISABLED
 
 #define DEBUG_BUFFER 0
-#define DEBUG_LEVEL  1
+#define DEBUG_LEVEL  CMSG_ERROR
 
 #if defined DEBUG_WORKSTATION
-#define DEBUG(level, ...) (level <= DEBUG_LEVEL) ? 0 : printf(__VA_ARGS__)
+#define DEBUG(level, ...) (level <= DEBUG_LEVEL) ? printf(__VA_ARGS__) : 0
 #elif defined DEBUG_SWITCH
 #include <syslog.h>
-#define DEBUG(level, fmt, ARGS...) (level <= DEBUG_LEVEL) ? 0 : syslog(LOG_CRIT | LOG_LOCAL6, fmt, ##ARGS)
+#define DEBUG(level, fmt, ARGS...) (level <= DEBUG_LEVEL) ? syslog(LOG_CRIT | LOG_LOCAL6, fmt, ##ARGS) : 0
 #elif defined DEBUG_DISABLED
 #define DEBUG(ARGS...) (0)
 #endif
