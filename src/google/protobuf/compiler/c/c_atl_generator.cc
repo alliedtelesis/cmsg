@@ -1237,7 +1237,7 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
     }
     else if (field->type() == FieldDescriptor::TYPE_BYTES)
     {
-      printer->Print(vars_, "free ($left_field_name$.data);\n");
+      printer->Print(vars_, "free ($left_field_name$);\n");
     }
     else if (field->type() == FieldDescriptor::TYPE_MESSAGE)
     {
