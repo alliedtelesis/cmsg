@@ -53,6 +53,13 @@ struct _cmsg_pub_s
     GList *subscriber_list;
     uint32_t subscriber_count;
     cmsg_publisher_request *publisher_request;
+
+
+    int queue_timeouts;
+    pthread_mutex_t queue_mutex;
+    int queue_enabled;
+    GQueue* queue;
+    uint32_t queue_total_size;
 };
 
 
@@ -96,7 +103,17 @@ cmsg_pub_subscribe (Cmsg__SubService_Service      *service,
                     Cmsg__SubEntryResponse_Closure closure,
                     void                          *closure_data);
 
-//macro for register handler implentation
-Cmsg__SubService_Service cmsg_pub_subscriber_service = CMSG__SUB_SERVICE__INIT (cmsg_pub_);
+//queueing api
+int32_t
+cmsg_pub_queue_process_one (cmsg_pub *publisher);
+
+int32_t
+cmsg_pub_queue_process_all (cmsg_pub *publisher);
+
+int32_t
+cmsg_pub_queue_enable (cmsg_pub *publisher);
+
+int32_t
+cmsg_pub_queue_disable (cmsg_pub *publisher);
 
 #endif

@@ -25,14 +25,12 @@ cmsg_transport_tipc_connect (cmsg_client *client)
 
         return 0;
     }
+
     if (connect (client->connection.socket,
                  (struct sockaddr *)&client->transport->config.socket.sockaddr.tipc,
                  sizeof (client->transport->config.socket.sockaddr.tipc)) < 0)
     {
-        if (errno == EINPROGRESS)
-        {
-            //TODO
-        }
+        shutdown (client->connection.socket, 2);
         close (client->connection.socket);
         client->connection.socket = 0;
         client->state = CMSG_CLIENT_STATE_FAILED;
@@ -147,9 +145,9 @@ cmsg_transport_tipc_server_recv (int32_t socket, cmsg_server *server)
         return -1;
     }
 
-    client_len = sizeof (client_transport.config.socket.sockaddr.in);
+    client_len = sizeof (client_transport.config.socket.sockaddr.tipc);
     server->connection.sockets.client_socket = accept (socket,
-                                                       (struct sockaddr *)&client_transport.config.socket.sockaddr.in,
+                                                       (struct sockaddr *)&client_transport.config.socket.sockaddr.tipc,
                                                        &client_len);
 
     if (server->connection.sockets.client_socket <= 0)
@@ -158,6 +156,9 @@ cmsg_transport_tipc_server_recv (int32_t socket, cmsg_server *server)
         DEBUG (CMSG_INFO,
                "[TRANSPORT] server->connection.sockets.client_socket = %d\n",
                server->connection.sockets.client_socket);
+
+        shutdown (server->connection.sockets.client_socket, 2);
+        close (server->connection.sockets.client_socket);
 
         return -1;
     }

@@ -30,7 +30,10 @@ struct _cmsg_server_s
     cmsg_transport *transport;
     cmsg_server_request *server_request;
     server_message_processor_f message_processor;
+
+    cmsg_parent_type parent_type;
     void *parent;
+
     cmsg_server_connection connection;
 };
 

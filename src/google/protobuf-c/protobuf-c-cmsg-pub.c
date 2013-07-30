@@ -1,5 +1,8 @@
 #include "protobuf-c-cmsg-pub.h"
 
+//macro for register handler implentation
+Cmsg__SubService_Service cmsg_pub_subscriber_service = CMSG__SUB_SERVICE__INIT (cmsg_pub_);
+
 
 int32_t
 cmsg_sub_entry_compare (cmsg_sub_entry *one,
@@ -43,6 +46,21 @@ cmsg_pub_new (cmsg_transport                   *sub_server_transport,
     publisher->invoke = &cmsg_pub_invoke;
     publisher->subscriber_list = 0;
     publisher->subscriber_count = 0;
+
+    publisher->queue_enabled = 0;
+
+    if (pthread_mutex_init (&publisher->queue_mutex, NULL) != 0)
+    {
+        DEBUG (CMSG_ERROR, "[CLIENT] queue mutex init failed\n");
+        return 0;
+    }
+
+    publisher->queue_timeouts = 0;
+    publisher->queue = g_queue_new ();
+    g_queue_init (publisher->queue);
+    publisher->queue_total_size = 0;
+
+    srand (time (NULL));
 
     return publisher;
 }
@@ -315,22 +333,37 @@ cmsg_pub_invoke (ProtobufCService       *service,
             cmsg_transport_oneway_tipc_init (&list_entry->transport);
         }
 
-        publisher->pub_client = cmsg_client_new (&list_entry->transport, publisher->descriptor);
+        cmsg_client *client = cmsg_client_new (&list_entry->transport, publisher->descriptor);
+
+        //tell the client if we have to queue messages
+        if (publisher->queue_enabled == 1)
+        {
+            DEBUG (CMSG_ERROR, "[PUB] queueing is enabled\n");
+        }
+        else
+        {
+            DEBUG (CMSG_ERROR, "[PUB] queueing is disabled");
+        }
+
+        client->queue_enabled = publisher->queue_enabled;
+        //pass parent to client for queueing
+        client->parent_type = CMSG_PARENT_TYPE_PUB;
+        client->parent = (void *)publisher;
 
         //todo: remove client from subscriber list when connection failed
-        cmsg_client_invoke_oneway ((ProtobufCService *)publisher->pub_client,
+        cmsg_client_invoke_oneway ((ProtobufCService *)client,
                                    method_index,
                                    input,
                                    closure,
                                    closure_data);
 
-        if (publisher->pub_client->state == CMSG_CLIENT_STATE_FAILED)
+        if (client->state == CMSG_CLIENT_STATE_FAILED)
         {
             DEBUG (CMSG_WARN, "[PUB] warning subscriber not reachable, removing from list\n");
             cmsg_pub_subscriber_remove (publisher, list_entry);
         }
 
-        cmsg_client_destroy (publisher->pub_client);
+        cmsg_client_destroy (client);
 
         subscriber_list = g_list_next (subscriber_list);
     }
@@ -391,4 +424,183 @@ cmsg_pub_subscribe (Cmsg__SubService_Service       *service,
     }
 
     closure (&response, closure_data);
+}
+
+int32_t
+cmsg_pub_queue_process_one (cmsg_pub *publisher)
+{
+    uint32_t processed = 0;
+    pthread_mutex_lock (&publisher->queue_mutex);
+
+    cmsg_queue_entry *queue_entry = g_queue_pop_tail (publisher->queue);
+
+    if (queue_entry)
+    {
+        //init transport
+        if (queue_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TIPC)
+        {
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue_entry: transport tipc_init");
+            cmsg_transport_oneway_tipc_init (&queue_entry->transport);
+        }
+        else if (queue_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TCP)
+        {
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue_entry: transport tcp_init");
+            cmsg_transport_oneway_tcp_init (&queue_entry->transport);
+        }
+        else
+        {
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue_entry: transport unknown");
+        }
+
+        cmsg_client *client = cmsg_client_new (&queue_entry->transport, publisher->descriptor);
+
+        cmsg_client_connect (client);
+
+        if (client->state == CMSG_CLIENT_STATE_CONNECTED)
+        {
+            DEBUG (CMSG_INFO, "[PUB QUEUE] sending message to server\n");
+            int ret = client->transport->client_send (client,
+                                                      queue_entry->queue_buffer,
+                                                      queue_entry->queue_buffer_size,
+                                                      0);
+
+            if (ret < queue_entry->queue_buffer_size)
+                DEBUG (CMSG_ERROR,
+                       "[PUB QUEUE] sending response failed send:%d of %ld\n",
+                       ret, queue_entry->queue_buffer_size);
+
+            client->state = CMSG_CLIENT_STATE_DESTROYED;
+            client->transport->client_close (client);
+
+            publisher->queue_total_size -= queue_entry->queue_buffer_size;
+
+            free (queue_entry->queue_buffer);
+            g_free (queue_entry);
+
+            processed++;
+        }
+        else
+        {
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] error: client is not connected, requeueing message\n");
+            g_queue_push_head (publisher->queue, queue_entry);
+            publisher->queue_timeouts++;
+        }
+        cmsg_client_destroy (client);
+    }
+
+    pthread_mutex_unlock (&publisher->queue_mutex);
+    return processed;
+}
+
+
+int32_t
+cmsg_pub_queue_process_all (cmsg_pub *publisher)
+{
+    uint32_t processed = 0;
+    pthread_mutex_lock (&publisher->queue_mutex);
+
+    cmsg_queue_entry *queue_entry = g_queue_pop_tail (publisher->queue);
+
+    while (queue_entry)
+    {
+        //init transport
+        if (queue_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TIPC)
+        {
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue_entry: transport tipc_init");
+            cmsg_transport_oneway_tipc_init (&queue_entry->transport);
+        }
+        else if (queue_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TCP)
+        {
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue_entry: transport tipc_init");
+            cmsg_transport_oneway_tcp_init (&queue_entry->transport);
+        }
+        else
+        {
+            DEBUG (CMSG_ERROR,
+                   "[PUB QUEUE] queue_entry: transport unknown, transport: %d",
+                   queue_entry->transport.type);
+        }
+
+        cmsg_client *client = cmsg_client_new (&queue_entry->transport, publisher->descriptor);
+
+        cmsg_client_connect (client);
+
+        if (client->state == CMSG_CLIENT_STATE_CONNECTED)
+        {
+            DEBUG (CMSG_INFO, "[PUB QUEUE] sending message to server\n");
+            int ret = client->transport->client_send (client,
+                                                      queue_entry->queue_buffer,
+                                                      queue_entry->queue_buffer_size,
+                                                      0);
+
+            if (ret < queue_entry->queue_buffer_size)
+            {
+                DEBUG (CMSG_ERROR,
+                       "[PUB QUEUE] sending response failed send:%d of %ld, queue message dropped\n",
+                       ret, queue_entry->queue_buffer_size);
+            }
+
+            client->state = CMSG_CLIENT_STATE_DESTROYED;
+            client->transport->client_close (client);
+
+            publisher->queue_total_size -= queue_entry->queue_buffer_size;
+
+            free (queue_entry->queue_buffer);
+            g_free (queue_entry);
+
+            processed++;
+        }
+        else
+        {
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] error: client is not connected, requeueing message\n");
+            g_queue_push_head (publisher->queue, queue_entry);
+
+            unsigned int queue_length = g_queue_get_length (publisher->queue);
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue length: %d\n", queue_length);
+
+            cmsg_client_destroy (client);
+
+            publisher->queue_timeouts++;
+
+            //UNLOOCK in all cases when leaving
+            pthread_mutex_unlock (&publisher->queue_mutex);
+
+            int sleep_time = rand () % 5 + 1;
+
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] retrying in: %d seconds\n", sleep_time);
+            sleep (sleep_time);
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] sleeping done\n");
+            return -1;
+        }
+        cmsg_client_destroy (client);
+
+        //get the next entry
+        queue_entry = g_queue_pop_tail (publisher->queue);
+    }
+
+    pthread_mutex_unlock (&publisher->queue_mutex);
+
+    //todo: add thread signal
+    sleep (1);
+
+    return processed;
+}
+
+
+int32_t
+cmsg_pub_queue_enable (cmsg_pub *publisher)
+{
+    publisher->queue_enabled = 1;
+    return 0;
+}
+
+
+int32_t
+cmsg_pub_queue_disable (cmsg_pub *publisher)
+{
+    publisher->queue_enabled = 0;
+
+    cmsg_pub_queue_process_all (publisher);
+
+    return 0;
 }

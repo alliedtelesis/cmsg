@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <pthread.h>
+#include <time.h>
+#include <glib.h>
 
 #include "protobuf-c.h"
 #include "protobuf-c-cmsg-transport.h"
@@ -44,11 +47,19 @@
 //         request_id                32-bit any-endian
 
 
+typedef enum   _cmsg_parent_type_e      cmsg_parent_type;
 typedef struct _cmsg_header_request_s   cmsg_header_request;
 typedef struct _cmsg_header_response_s  cmsg_header_response;
 typedef enum   _cmsg_status_code_e      cmsg_status_code;
 typedef enum   _cmsg_error_code_e       cmsg_error_code;
 
+enum _cmsg_parent_type_e
+{
+    CMSG_PARENT_TYPE_CLIENT,
+    CMSG_PARENT_TYPE_SERVER,
+    CMSG_PARENT_TYPE_PUB,
+    CMSG_PARENT_TYPE_SUB,
+};
 
 struct _cmsg_header_request_s
 {
@@ -80,7 +91,6 @@ enum _cmsg_error_code_e
     CMSG_ERROR_CODE_BAD_REQUEST,
     CMSG_ERROR_CODE_PROXY_PROBLEM
 };
-
 
 uint32_t
 cmsg_common_uint32_to_le (uint32_t le);
