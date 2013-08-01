@@ -5,42 +5,51 @@ cmsg_sub *
 cmsg_sub_new (cmsg_transport   *pub_server_transport,
               ProtobufCService *pub_service)
 {
-    cmsg_sub *subscriber = 0;
+    CMSG_ASSERT (pub_server_transport);
+    CMSG_ASSERT (pub_service);
 
-    subscriber = malloc (sizeof (cmsg_sub));
+    cmsg_sub *subscriber = malloc (sizeof (cmsg_sub));
+    if (!subscriber)
+    {
+	syslog(LOG_CRIT | LOG_LOCAL6, "[SUB] error: unable to allocate buffer. line(%d)\n",__LINE__);
+        return NULL;
+    }
+
     subscriber->pub_server = cmsg_server_new (pub_server_transport, pub_service);
     if (!subscriber->pub_server)
     {
-        DEBUG (CMSG_ERROR, "[SUB] error could not create server\n");
+        DEBUG (CMSG_ERROR, "[SUB] error: could not create server\n");
         free (subscriber);
-        return 0;
+        return NULL;
     }
 
     return subscriber;
 }
 
 
-int32_t
-cmsg_sub_destroy (cmsg_sub *subscriber)
+void
+cmsg_sub_destroy (cmsg_sub **subscriber)
 {
-    if (!subscriber)
-        return 1;
+    CMSG_ASSERT (subscriber);
 
-    if (subscriber->pub_server)
+    if ((*subscriber)->pub_server)
     {
-        cmsg_server_destroy (subscriber->pub_server);
-        subscriber->pub_server = 0;
+        cmsg_server_destroy (&(*subscriber)->pub_server);
+        (*subscriber)->pub_server = NULL;
     }
 
-    free (subscriber);
-    subscriber = 0;
-    return 0;
+    free (*subscriber);
+    *subscriber = NULL;
+
+    return;
 }
 
 
 int
 cmsg_sub_get_server_socket (cmsg_sub *subscriber)
 {
+    CMSG_ASSERT (subscriber);
+
     return (cmsg_server_get_socket (subscriber->pub_server));
 }
 
@@ -49,7 +58,10 @@ int32_t
 cmsg_sub_server_receive (cmsg_sub *subscriber,
                          int32_t   server_socket)
 {
-    DEBUG (CMSG_INFO, "[SUB] cmsg_sub_server_receive\n");
+    DEBUG (CMSG_INFO, "[SUB]\n");
+
+    CMSG_ASSERT (subscriber);
+    CMSG_ASSERT (server_socket > 0);
 
     return cmsg_server_receive (subscriber->pub_server,
                                 server_socket);
@@ -64,7 +76,7 @@ cmsg_sub_subscribe_response_handler (const Cmsg__SubEntryResponse *response,
 
     if (response == 0)
     {
-        DEBUG (CMSG_ERROR, "[SUB] [Error] processing register response\n");
+        DEBUG (CMSG_ERROR, "[SUB] error: processing register response\n");
         *return_value = CMSG_STATUS_CODE_SERVICE_FAILED;
     }
     else
@@ -80,8 +92,14 @@ cmsg_sub_subscribe (cmsg_sub       *subscriber,
                     cmsg_transport *sub_client_transport,
                     char           *method_name)
 {
-    cmsg_client *register_client = 0;
-    u_int32_t return_value;
+    CMSG_ASSERT (subscriber);
+    CMSG_ASSERT (subscriber->pub_server);
+    CMSG_ASSERT (subscriber->pub_server->transport);
+    CMSG_ASSERT (sub_client_transport);
+    CMSG_ASSERT (method_name);
+
+    cmsg_client *register_client = NULL;
+    u_int32_t return_value = CMSG_RET_OK;
     Cmsg__SubEntry register_entry = CMSG__SUB_ENTRY__INIT;
 
     register_entry.add = 1;
@@ -118,7 +136,7 @@ cmsg_sub_subscribe (cmsg_sub       *subscriber,
                "[SUB] error cmsg_sub_subscribe transport incorrect: %d\n",
                subscriber->pub_server->transport->type);
 
-        return -1;
+        return CMSG_RET_ERR;
     }
 
     register_client = cmsg_client_new (sub_client_transport,
@@ -127,7 +145,7 @@ cmsg_sub_subscribe (cmsg_sub       *subscriber,
     {
         DEBUG (CMSG_WARN, "[SUB] error could not create register client\n");
         free (register_client);
-        return 0;
+        return CMSG_RET_OK;
     }
 
     cmsg__sub_service__subscribe ((ProtobufCService *)register_client,
@@ -135,7 +153,7 @@ cmsg_sub_subscribe (cmsg_sub       *subscriber,
                                   cmsg_sub_subscribe_response_handler,
                                   &return_value);
 
-    cmsg_client_destroy (register_client);
+    cmsg_client_destroy (&register_client);
 
     return return_value;
 }
@@ -147,8 +165,14 @@ cmsg_sub_unsubscribe (cmsg_sub       *subscriber,
                       char           *method_name)
 {
     cmsg_client *register_client = 0;
-    u_int32_t return_value;
+    u_int32_t return_value = CMSG_RET_OK;
     Cmsg__SubEntry register_entry = CMSG__SUB_ENTRY__INIT;
+
+    CMSG_ASSERT (subscriber);
+    CMSG_ASSERT (subscriber->pub_server);
+    CMSG_ASSERT (subscriber->pub_server->transport);
+    CMSG_ASSERT (sub_client_transport);
+    CMSG_ASSERT (method_name);
 
     register_entry.add = 1;
     register_entry.method_name = method_name;
@@ -181,19 +205,19 @@ cmsg_sub_unsubscribe (cmsg_sub       *subscriber,
     else
     {
         DEBUG (CMSG_ERROR,
-               "[SUB] error cmsg_sub_subscribe transport incorrect: %d\n",
+               "[SUB] error: cmsg_sub_subscribe transport incorrect: %d\n",
                subscriber->pub_server->transport->type);
 
-        return -1;
+        return CMSG_RET_ERR;
     }
 
     register_client = cmsg_client_new (sub_client_transport,
                                        &cmsg__sub_service__descriptor);
     if (!register_client)
     {
-        DEBUG (CMSG_ERROR, "[SUB] error could not create register client\n");
+        DEBUG (CMSG_ERROR, "[SUB] error: could not create register client\n");
         free (register_client);
-        return 0;
+        return CMSG_RET_OK;
     }
 
     cmsg__sub_service__subscribe ((ProtobufCService *)register_client,
@@ -201,7 +225,7 @@ cmsg_sub_unsubscribe (cmsg_sub       *subscriber,
                                   cmsg_sub_subscribe_response_handler,
                                   &return_value);
 
-    cmsg_client_destroy (register_client);
+    cmsg_client_destroy (&register_client);
 
     return return_value;
 }

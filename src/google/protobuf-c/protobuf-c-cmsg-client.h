@@ -63,8 +63,8 @@ cmsg_client *
 cmsg_client_new (cmsg_transport                   *transport,
                  const ProtobufCServiceDescriptor *descriptor);
 
-int32_t
-cmsg_client_destroy (cmsg_client *client);
+void
+cmsg_client_destroy (cmsg_client **client);
 
 int32_t
 cmsg_client_connect (cmsg_client *client);

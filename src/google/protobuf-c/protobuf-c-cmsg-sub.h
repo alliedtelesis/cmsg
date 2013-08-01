@@ -29,8 +29,8 @@ cmsg_sub *
 cmsg_sub_new (cmsg_transport   *pub_server_transport,
               ProtobufCService *pub_service);
 
-int32_t
-cmsg_sub_destroy (cmsg_sub *subscriber);
+void
+cmsg_sub_destroy (cmsg_sub **subscriber);
 
 int
 cmsg_sub_get_server_socket (cmsg_sub *subscriber);

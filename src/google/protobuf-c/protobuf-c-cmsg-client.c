@@ -5,68 +5,61 @@ cmsg_client *
 cmsg_client_new (cmsg_transport                   *transport,
                  const ProtobufCServiceDescriptor *descriptor)
 {
-    if (!transport)
-    {
-        DEBUG (CMSG_ERROR, "[CLIENT] error transport not defined\n");
-        return 0;
-    }
+    CMSG_ASSERT (transport);
+    CMSG_ASSERT (descriptor);
 
     cmsg_client *client = malloc (sizeof (cmsg_client));
-    client->base_service.destroy = 0;
-    client->allocator = &protobuf_c_default_allocator;
-    client->transport = transport;
-    client->request_id = 0;
-
-    //for compatibility with current generated code
-    //this is a hack to get around a check when a client method is called
-    client->descriptor = descriptor;
-    client->base_service.descriptor = descriptor;
-
-    client->invoke = transport->invoke;
-    client->base_service.invoke = transport->invoke;
-
-
-    client->parent = 0;
-
-    client->queue_enabled = 0;
-
-    if (pthread_mutex_init (&client->queue_mutex, NULL) != 0)
+    if (client)
     {
-        DEBUG (CMSG_ERROR, "[CLIENT] queue mutex init failed\n");
-        return 0;
-    }
+        client->base_service.destroy = NULL;
+        client->allocator = &protobuf_c_default_allocator;
+        client->transport = transport;
+        client->request_id = 0;
 
-    client->queue = g_queue_new ();
-    g_queue_init (client->queue);
+        //for compatibility with current generated code
+        //this is a hack to get around a check when a client method is called
+        client->descriptor = descriptor;
+        client->base_service.descriptor = descriptor;
+
+        client->invoke = transport->invoke;
+        client->base_service.invoke = transport->invoke;
+        client->parent = NULL;
+        client->queue_enabled = 0;
+
+        if (pthread_mutex_init (&client->queue_mutex, NULL) != 0)
+        {
+            DEBUG (CMSG_ERROR, "[CLIENT] error: queue mutex init failed\n");
+            free (client);
+            return NULL;
+        }
+
+        client->queue = g_queue_new ();
+        g_queue_init (client->queue);
+    }
+    else
+    {
+        syslog(LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to create client. line(%d)\n",__LINE__);
+    }
 
     return client;
 }
 
 
-int32_t
-cmsg_client_destroy (cmsg_client *client)
+void
+cmsg_client_destroy (cmsg_client **client)
 {
-    if (!client)
-    {
-        DEBUG (CMSG_ERROR, "[CLIENT] client not defined\n");
-        return 0;
-    }
+    CMSG_ASSERT (client);
 
-    free (client);
-    client = 0;
-
-    return 1;
+    free (*client);
+    *client = NULL;
 }
 
 
 ProtobufCMessage *
 cmsg_client_response_receive (cmsg_client *client)
 {
-    if (!client)
-    {
-        DEBUG (CMSG_ERROR, "[CLIENT] client not defined\n");
-        return NULL;
-    }
+    CMSG_ASSERT (client);
+    CMSG_ASSERT (client->transport);
 
     return (client->transport->client_recv (client));
 }
@@ -75,21 +68,23 @@ cmsg_client_response_receive (cmsg_client *client)
 int32_t
 cmsg_client_connect (cmsg_client *client)
 {
-    if (!client)
-    {
-        DEBUG (CMSG_ERROR, "[CLIENT] client not defined\n");
-        return 0;
-    }
+    int32_t ret;
+
+    CMSG_ASSERT (client);
 
     DEBUG (CMSG_INFO, "[CLIENT] connecting\n");
 
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
         DEBUG (CMSG_INFO, "[CLIENT] already connected\n");
-        return 0;
+        ret = CMSG_RET_OK;
+    }
+    else
+    {
+        ret = client->transport->connect (client);
     }
 
-    return (client->transport->connect (client));
+    return ret;
 }
 
 
@@ -109,7 +104,10 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
     /* unpack response */
     /* return response */
 
-    DEBUG (CMSG_INFO, "[CLIENT] cmsg_client_invoke_rpc: %s\n",
+    CMSG_ASSERT (client);
+    CMSG_ASSERT (input);
+
+    DEBUG (CMSG_INFO, "[CLIENT] method: %s\n",
            service->descriptor->methods[method_index].name);
 
     cmsg_client_connect (client);
@@ -132,7 +130,18 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
     header.message_length = cmsg_common_uint32_to_le (packed_size);
     header.request_id = client->request_id;
     uint8_t *buffer = malloc (packed_size + sizeof (header));
+    if (!buffer)
+    {
+        syslog(LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to allocate buffer. line(%d)\n", __LINE__);
+        return;
+    }
     uint8_t *buffer_data = malloc (packed_size);
+    if (!buffer_data)
+    {
+        free (buffer);
+        syslog(LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to allocate data buffer. line(%d)\n", __LINE__);
+        return;
+    }
     memcpy ((void *)buffer, &header, sizeof (header));
 
     DEBUG (CMSG_INFO, "[CLIENT] header\n");
@@ -142,13 +151,11 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
     if (ret < packed_size)
     {
         DEBUG (CMSG_ERROR,
-               "[CLIENT] packing message data failed packet:%d of %d\n",
+               "[CLIENT] error: packing message data failed packet:%d of %d\n",
                ret, packed_size);
 
         free (buffer);
-        buffer = 0;
         free (buffer_data);
-        buffer_data = 0;
         return;
     }
 
@@ -159,9 +166,15 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
 
     ret = client->transport->client_send (client, buffer, packed_size + sizeof (header), 0);
     if (ret < packed_size + sizeof (header))
+    {
         DEBUG (CMSG_ERROR,
-               "[CLIENT] sending response failed send:%d of %d\n",
+               "[CLIENT] error: sending response failed send:%d of %d\n",
                ret, packed_size + sizeof (header));
+
+        free (buffer);
+        free (buffer_data);
+        return;
+    }
 
     //lets go hackety hack
     //todo: recv response
@@ -172,13 +185,11 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
     client->transport->client_close (client);
 
     free (buffer);
-    buffer = 0;
     free (buffer_data);
-    buffer_data = 0;
 
     if (!message)
     {
-        DEBUG (CMSG_ERROR, "[CLIENT] response message not valid or empty\n");
+        DEBUG (CMSG_ERROR, "[CLIENT] error: response message not valid or empty\n");
         return;
     }
 
@@ -187,6 +198,7 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
         closure (message, closure_data);
 
     protobuf_c_message_free_unpacked (message, client->allocator);
+
     return;
 }
 
@@ -207,13 +219,16 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
     /* unpack response */
     /* return response */
 
-    DEBUG (CMSG_INFO, "[CLIENT] cmsg_client_invoke_oneway: %s\n",
+    CMSG_ASSERT (client);
+    CMSG_ASSERT (input);
+
+    DEBUG (CMSG_INFO, "[CLIENT] method: %s\n",
            service->descriptor->methods[method_index].name);
 
     //we don't connect to the server when we queue messages
     if (!client->queue_enabled)
     {
-        DEBUG (CMSG_ERROR, "[CLIENT] queueing is disabled, connecting\n");
+        DEBUG (CMSG_ERROR, "[CLIENT] error: queueing is disabled, connecting\n");
         cmsg_client_connect (client);
 
         if (client->state != CMSG_CLIENT_STATE_CONNECTED)
@@ -236,7 +251,18 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
     header.message_length = cmsg_common_uint32_to_le (packed_size);
     header.request_id = client->request_id;
     uint8_t *buffer = malloc (packed_size + sizeof (header));
+    if (!buffer)
+    {
+        syslog(LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to allocate buffer. line(%d)\n", __LINE__);
+        return;
+    }
     uint8_t *buffer_data = malloc (packed_size);
+    if (!buffer_data)
+    {
+        syslog(LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to allocate data buffer. line(%d)\n", __LINE__);
+        free (buffer);
+        return;
+    }
     memcpy ((void *)buffer, &header, sizeof (header));
 
     DEBUG (CMSG_INFO, "[CLIENT] header\n");
@@ -246,13 +272,11 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
     if (ret < packed_size)
     {
         DEBUG (CMSG_ERROR,
-               "[CLIENT] packing message data failed packet:%d of %d\n",
+               "[CLIENT] error: packing message data failed packet:%d of %d\n",
                ret, packed_size);
 
         free (buffer);
-        buffer = 0;
         free (buffer_data);
-        buffer_data = 0;
         return;
     }
 
@@ -264,12 +288,18 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
     //we don't connect to the server when we queue messages
     if (!client->queue_enabled)
     {
-        DEBUG (CMSG_ERROR, "[CLIENT] sending message to server\n");
+        DEBUG (CMSG_ERROR, "[CLIENT] error: sending message to server\n");
         ret = client->transport->client_send (client, buffer, packed_size + sizeof (header), 0);
         if (ret < packed_size + sizeof (header))
+        {
             DEBUG (CMSG_ERROR,
-                   "[CLIENT] sending response failed send:%d of %ld\n",
+               "[CLIENT] error: sending response failed send:%d of %d\n",
                    ret, packed_size + sizeof (header));
+
+            free (buffer);
+            free (buffer_data);
+            return;
+        }
 
         client->state = CMSG_CLIENT_STATE_DESTROYED;
         client->transport->client_close (client);
@@ -295,10 +325,27 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
             pthread_mutex_lock (&publisher->queue_mutex);
 
             cmsg_queue_entry *queue_entry = g_malloc (sizeof (cmsg_queue_entry));
+            if (!queue_entry)
+            {
+		syslog(LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to allocate queue entry. line(%d)\n", __LINE__);
+                free (buffer);
+                free (buffer_data);
+                pthread_mutex_unlock (&publisher->queue_mutex);
+                return;
+            }
 
             //copy buffer
             queue_entry->queue_buffer_size = packed_size + sizeof (header);
             queue_entry->queue_buffer = malloc (queue_entry->queue_buffer_size);
+            if (!queue_entry->queue_buffer)
+            {
+		syslog(LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to allocate queue buffer. line(%d)\n", __LINE__);
+                free (buffer);
+                free (buffer_data);
+                g_free (queue_entry);
+                pthread_mutex_unlock (&publisher->queue_mutex);
+                return;
+            }
             memcpy ((void *)queue_entry->queue_buffer, (void *)buffer, queue_entry->queue_buffer_size);
 
             //copy client transport config
@@ -318,9 +365,7 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
     }
 
     free (buffer);
-    buffer = 0;
     free (buffer_data);
-    buffer_data = 0;
 
     return;
 }
@@ -345,7 +390,7 @@ cmsg_client_queue_process_one (cmsg_client *client)
             if (ret < queue_entry->queue_buffer_size)
             {
                 DEBUG (CMSG_ERROR,
-                       "[CLIENT] sending response failed send:%d of %d\n, queue message dropped\n",
+                       "[CLIENT] error: sending response failed send:%d of %d\n, queue message dropped\n",
                        ret, queue_entry->queue_buffer_size);
             }
 
@@ -392,7 +437,7 @@ cmsg_client_queue_process_all (cmsg_client *client)
             if (ret < queue_entry->queue_buffer_size)
             {
                 DEBUG (CMSG_ERROR,
-                       "[CLIENT] sending response failed send:%d of %ld, queue message dropped\n",
+                       "[CLIENT] error: sending response failed send:%d of %d, queue message dropped\n",
                        ret, queue_entry->queue_buffer_size);
             }
 
@@ -414,12 +459,12 @@ cmsg_client_queue_process_all (cmsg_client *client)
 
             int sleep_time = rand () % 5 + 1;
 
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] retrying in: %d seconds\n", sleep_time);
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] error: retrying in: %d seconds\n", sleep_time);
             sleep (sleep_time);
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] sleeping done\n");
+            DEBUG (CMSG_ERROR, "[PUB QUEUE] error: sleeping done\n");
             return -1;
         }
-        cmsg_client_destroy (client);
+        cmsg_client_destroy (&client);
 
         //get the next entry
         queue_entry = g_queue_pop_tail (client->queue);

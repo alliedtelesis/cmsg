@@ -7,10 +7,13 @@
 #include <pthread.h>
 #include <time.h>
 #include <glib.h>
+#include <syslog.h>
 
 #include "protobuf-c.h"
 #include "protobuf-c-cmsg-transport.h"
 
+// TODO: Perhaps we can refactor the logic around the debug below
+// The logic around when the debug is on/off is a little convoluted.
 #define CMSG_ERROR 1
 #define CMSG_WARN  2
 #define CMSG_INFO  3
@@ -23,16 +26,25 @@
 #define DEBUG_LEVEL  CMSG_ERROR
 
 #if defined DEBUG_WORKSTATION
-#define DEBUG(level, ...) (level <= DEBUG_LEVEL) ? printf(__VA_ARGS__) : 0
+#define DEBUG(level, fmt, ARGS...) (level <= DEBUG_LEVEL) ? printf("%s:%d "fmt, __FUNCTION__, __LINE__, ##ARGS) : 0
 #elif defined DEBUG_SWITCH
-#include <syslog.h>
-#define DEBUG(level, fmt, ARGS...) (level <= DEBUG_LEVEL) ? syslog(LOG_CRIT | LOG_LOCAL6, fmt, ##ARGS) : 0
+#define DEBUG(level, fmt, ARGS...) (level <= DEBUG_LEVEL) ? syslog(LOG_CRIT | LOG_LOCAL6, "%s:%d "fmt, __FUNCTION__, __LINE__, ##ARGS) : 0
 #elif defined DEBUG_DISABLED
 #define DEBUG(ARGS...) (0)
 #endif
 
-#define RECV_TIMEOUT 10
+#ifdef DEBUG_DISABLED
+#define CMSG_ASSERT(E) do {;} while(0)
+#else
+#define CMSG_ASSERT(E) (assert (E))
+#endif
 
+#define CMSG_RECV_BUFFER_SZ         512
+#define CMSG_RECV_TIMEOUT           10
+
+// Return codes
+#define CMSG_RET_OK   0
+#define CMSG_RET_ERR -1
 
 // Protocol is:
 //    client requests with header:

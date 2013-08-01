@@ -8,6 +8,9 @@ int32_t
 cmsg_sub_entry_compare (cmsg_sub_entry *one,
                         cmsg_sub_entry *two)
 {
+    CMSG_ASSERT (one);
+    CMSG_ASSERT (two);
+
     if ((one->transport.config.socket.family == two->transport.config.socket.family) &&
         (one->transport.type == two->transport.type) &&
         (one->transport.config.socket.sockaddr.in.sin_addr.s_addr == two->transport.config.socket.sockaddr.in.sin_addr.s_addr) &&
@@ -33,18 +36,30 @@ cmsg_pub *
 cmsg_pub_new (cmsg_transport                   *sub_server_transport,
               const ProtobufCServiceDescriptor *pub_service)
 {
-    cmsg_pub *publisher = 0;
-    publisher = malloc (sizeof (cmsg_pub));
+    CMSG_ASSERT (sub_server_transport);
+
+    cmsg_pub *publisher = malloc (sizeof (cmsg_pub));
+    if (!publisher)
+    {
+	syslog(LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] error: unable to create publisher. line(%d)\n",__LINE__);
+        return NULL;
+    }
 
     publisher->sub_server = cmsg_server_new (sub_server_transport,
                                              (ProtobufCService *)&cmsg_pub_subscriber_service);
+    if (!publisher->sub_server)
+    {
+        DEBUG (CMSG_ERROR, "[PUB] [LIST] error: unable to create publisher->sub_server\n");
+        free (publisher);
+        return NULL;
+    }
 
     publisher->sub_server->message_processor = cmsg_pub_message_processor;
     publisher->sub_server->parent = publisher;
 
     publisher->descriptor = pub_service;
     publisher->invoke = &cmsg_pub_invoke;
-    publisher->subscriber_list = 0;
+    publisher->subscriber_list = NULL;
     publisher->subscriber_count = 0;
 
     publisher->queue_enabled = 0;
@@ -66,30 +81,32 @@ cmsg_pub_new (cmsg_transport                   *sub_server_transport,
 }
 
 
-int32_t
-cmsg_pub_destroy (cmsg_pub *publisher)
+void
+cmsg_pub_destroy (cmsg_pub **publisher)
 {
-    if (!publisher)
-        return 1;
+    CMSG_ASSERT (publisher);
 
-    if (publisher->sub_server)
+    if ((*publisher)->sub_server)
     {
-        cmsg_server_destroy (publisher->sub_server);
-        publisher->sub_server = 0;
+        cmsg_server_destroy (&(*publisher)->sub_server);
+        (*publisher)->sub_server = NULL;
     }
 
-    g_list_free (publisher->subscriber_list);
-    publisher->subscriber_list = 0;
+    g_list_free ((*publisher)->subscriber_list);
+    (*publisher)->subscriber_list = NULL;
 
-    free (publisher);
-    publisher = 0;
-    return 0;
+    free (*publisher);
+    *publisher = NULL;
+
+    return;
 }
 
 
 int
 cmsg_pub_get_server_socket (cmsg_pub *publisher)
 {
+    CMSG_ASSERT (publisher);
+
     return (cmsg_server_get_socket (publisher->sub_server));
 }
 
@@ -98,6 +115,9 @@ int32_t
 cmsg_pub_subscriber_add (cmsg_pub       *publisher,
                          cmsg_sub_entry *entry)
 {
+    CMSG_ASSERT (publisher);
+    CMSG_ASSERT (entry);
+
     DEBUG (CMSG_INFO, "[PUB] [LIST] adding subscriber to list\n");
     DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
 
@@ -121,6 +141,11 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
         DEBUG (CMSG_INFO, "[PUB] [LIST] adding new entry\n");
 
         cmsg_sub_entry *list_entry = g_malloc (sizeof (cmsg_sub_entry));
+        if (!list_entry)
+        {
+	    syslog(LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] error: unable to create list entry. line(%d)\n",__LINE__);
+            return CMSG_RET_ERR;
+        }
         strcpy (list_entry->method_name, entry->method_name);
 
         list_entry->transport.config.socket.family = entry->transport.config.socket.family;
@@ -157,7 +182,7 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
     }
 #endif
 
-    return 0;
+    return CMSG_RET_OK;
 }
 
 
@@ -165,6 +190,9 @@ int32_t
 cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
                             cmsg_sub_entry *entry)
 {
+    CMSG_ASSERT (publisher);
+    CMSG_ASSERT (entry);
+
     DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
     DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
 
@@ -201,7 +229,7 @@ cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
     }
 #endif
 
-    return 0;
+    return CMSG_RET_OK;
 }
 
 
@@ -209,16 +237,14 @@ int32_t
 cmsg_pub_server_receive (cmsg_pub *publisher,
                          int32_t   server_socket)
 {
-    DEBUG (CMSG_INFO, "[PUB] cmsg_pub_server_receive\n");
-
-    cmsg_server *server = publisher->sub_server;
     int32_t ret = 0;
 
-    if (server_socket <= 0 || !publisher->sub_server)
-    {
-        DEBUG (CMSG_ERROR, "[SERVER] socket/server not defined\n");
-        return 0;
-    }
+    CMSG_ASSERT (publisher);
+    CMSG_ASSERT (server_socket > 0);
+
+    DEBUG (CMSG_INFO, "[PUB]\n");
+
+    cmsg_server *server = publisher->sub_server;
 
     ret = publisher->sub_server->transport->server_recv (server_socket, publisher->sub_server);
 
@@ -235,8 +261,15 @@ int32_t
 cmsg_pub_message_processor (cmsg_server *server,
                             uint8_t     *buffer_data)
 {
+    CMSG_ASSERT (server);
+    CMSG_ASSERT (server->transport);
+    CMSG_ASSERT (server->service);
+    CMSG_ASSERT (server->service->descriptor);
+    CMSG_ASSERT (server->server_request);
+    CMSG_ASSERT (buffer_data);
+
     cmsg_server_request *server_request = server->server_request;
-    ProtobufCMessage *message = 0;
+    ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *)server->allocator;
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
@@ -286,6 +319,10 @@ cmsg_pub_invoke (ProtobufCService       *service,
 {
     int ret = 0;
     cmsg_pub *publisher = (cmsg_pub *)service;
+
+    CMSG_ASSERT (service);
+    CMSG_ASSERT (service->descriptor);
+    CMSG_ASSERT (input);
 
     DEBUG (CMSG_INFO,
            "[PUB] publisher sending notification for: %s\n",
@@ -363,19 +400,23 @@ cmsg_pub_invoke (ProtobufCService       *service,
             cmsg_pub_subscriber_remove (publisher, list_entry);
         }
 
-        cmsg_client_destroy (client);
+        cmsg_client_destroy (&publisher->pub_client);
 
         subscriber_list = g_list_next (subscriber_list);
     }
     return;
 }
 
-void
+int32_t
 cmsg_pub_subscribe (Cmsg__SubService_Service       *service,
                     const Cmsg__SubEntry           *input,
                     Cmsg__SubEntryResponse_Closure  closure,
                     void                           *closure_data)
 {
+    CMSG_ASSERT (service);
+    CMSG_ASSERT (input);
+    CMSG_ASSERT (closure_data);
+
     DEBUG (CMSG_INFO, "[PUB] cmsg_notification_subscriber_server_register_handler\n");
     cmsg_server *server = (cmsg_server *)closure_data;
     cmsg_pub *publisher = (cmsg_pub *)server->parent;
@@ -410,7 +451,11 @@ cmsg_pub_subscribe (Cmsg__SubService_Service       *service,
         subscriber_entry.transport.config.socket.sockaddr.tipc.scope = input->tipc_scope;
     }
     else
+    {
         DEBUG (CMSG_ERROR, "[PUB] error: subscriber transport not supported\n");
+
+	return CMSG_RET_ERR;
+    }
 
     if (input->add)
     {
@@ -424,6 +469,8 @@ cmsg_pub_subscribe (Cmsg__SubService_Service       *service,
     }
 
     closure (&response, closure_data);
+
+    return CMSG_RET_OK;
 }
 
 int32_t

@@ -12,53 +12,47 @@ cmsg_server_new (cmsg_transport   *transport,
     socklen_t addrlen  = sizeof (cmsg_socket_address);
     cmsg_server *server = 0;
 
-    if (!transport || !service)
-    {
-        DEBUG (CMSG_ERROR, "[SERVER] transport / service not defined\n");
-        return NULL;
-    }
+    CMSG_ASSERT (transport);
+    CMSG_ASSERT (service);
 
     server = malloc (sizeof (cmsg_server));
-    server->transport = transport;
-    server->service = service;
-    server->allocator = &protobuf_c_default_allocator; //initialize alloc and free for message_unpack() and message_free()
-    server->message_processor = cmsg_server_message_processor;
-
-
-    DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n", transport->type);
-
-    ret = transport->listen (server);
-
-    if (ret < 0)
+    if (server)
     {
-        free (server);
-        return NULL;
+        server->transport = transport;
+        server->service = service;
+        server->allocator = &protobuf_c_default_allocator; //initialize alloc and free for message_unpack() and message_free()
+        server->message_processor = cmsg_server_message_processor;
+
+
+        DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n", transport->type);
+
+        ret = transport->listen (server);
+
+        if (ret < 0)
+        {
+            free (server);
+            server = NULL;
+        }
+    }
+    else
+    {
+	syslog(LOG_CRIT | LOG_LOCAL6, "[SERVER] error: unable to create server. line(%d)\n",__LINE__);
     }
 
     return server;
 }
 
 
-int32_t
-cmsg_server_destroy (cmsg_server *server)
+void
+cmsg_server_destroy (cmsg_server **server)
 {
-    if (!server)
-    {
-        DEBUG (CMSG_ERROR, "[SERVER] server not defined\n");
-        return 0;
-    }
+    CMSG_ASSERT (server);
+    CMSG_ASSERT ((*server)->transport);
 
-    if (!server->service)
-    {
-        DEBUG (CMSG_ERROR, "[SERVER] service not defined\n");
-        return 0;
-    }
+    (*server)->transport->server_destroy (*server);
 
-    server->transport->server_destroy (server);
-
-    free (server);
-    server = 0;
-    return 0;
+    free (*server);
+    *server = NULL;
 }
 
 
@@ -67,9 +61,13 @@ cmsg_server_get_socket (cmsg_server *server)
 {
     int socket = 0;
 
+    CMSG_ASSERT (server);
+    CMSG_ASSERT (server->transport);
+
     socket = server->transport->s_socket (server);
 
-    DEBUG (CMSG_INFO, "[SERVER] get socket: %d\n", socket);
+    DEBUG (CMSG_INFO, "[SERVER] done. socket: %d\n", socket);
+
     return socket;
 }
 
@@ -90,11 +88,7 @@ cmsg_server_receive_poll (cmsg_server *server,
     int ret = 0;
     struct pollfd poll_list[1];
 
-    if (!server)
-    {
-        DEBUG (CMSG_ERROR, "[SERVER] socket not defined\n");
-        return 0;
-    }
+    CMSG_ASSERT (server);
 
     poll_list[0].fd = cmsg_server_get_socket (server);
     poll_list[0].events = POLLIN;
@@ -104,12 +98,12 @@ cmsg_server_receive_poll (cmsg_server *server,
     if (ret == -1)
     {
         DEBUG (CMSG_ERROR, "[SERVER] poll error occurred: %s ", strerror (errno));
-        return -1;
+        return CMSG_RET_ERR;
     }
     else if (ret == 0)
     {
         // poll timed out, so func success but nothing received, early return
-        return 0;
+        return CMSG_RET_OK;
     }
 
     // there is something happening on the socket so receive it.
@@ -132,22 +126,19 @@ cmsg_server_receive (cmsg_server *server,
 {
     int32_t ret = 0;
 
-    if (server_socket <= 0 || !server)
-    {
-        DEBUG (CMSG_ERROR, "[SERVER] socket/server not defined\n");
-        return -1;
-    }
-
+    CMSG_ASSERT (server);
+    CMSG_ASSERT (server->transport);
+    CMSG_ASSERT (server_socket > 0);
 
     ret = server->transport->server_recv (server_socket, server);
 
     if (ret < 0)
     {
         DEBUG (CMSG_ERROR, "[SERVER] server receive failed\n");
-        return -1;
+        return CMSG_RET_ERR;
     }
 
-    return 0;
+    return CMSG_RET_OK;
 }
 
 
@@ -155,6 +146,12 @@ int32_t
 cmsg_server_message_processor (cmsg_server *server,
                                uint8_t     *buffer_data)
 {
+    CMSG_ASSERT (server);
+    CMSG_ASSERT (server->transport);
+    CMSG_ASSERT (server->service);
+    CMSG_ASSERT (server->service->descriptor);
+    CMSG_ASSERT (server->server_request);
+
     cmsg_server_request *server_request = server->server_request;
     ProtobufCMessage *message = 0;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *)server->allocator;
@@ -162,8 +159,8 @@ cmsg_server_message_processor (cmsg_server *server,
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
         DEBUG (CMSG_ERROR,
-               "[SERVER] the method index from read from the header seems to be to high\n");
-        return 0;
+               "[SERVER] error: the method index from read from the header seems to be to high\n");
+        return CMSG_RET_ERR;
     }
 
     if (buffer_data)
@@ -186,8 +183,8 @@ cmsg_server_message_processor (cmsg_server *server,
 
     if (message == 0)
     {
-        DEBUG (CMSG_ERROR, "[SERVER] error unpacking message\n");
-        return 0;
+        DEBUG (CMSG_ERROR, "[SERVER] error: unpacking message\n");
+        return CMSG_RET_ERR;
     }
 
     server->service->invoke (server->service,
@@ -202,16 +199,22 @@ cmsg_server_message_processor (cmsg_server *server,
     protobuf_c_message_free_unpacked (message, allocator);
 
     DEBUG (CMSG_INFO, "[SERVER] end of message processor\n");
-    return 0;
+
+    return CMSG_RET_OK;
 }
 
 
-void
+int32_t
 cmsg_server_closure_rpc (const ProtobufCMessage *message,
                          void                   *closure_data)
 {
 
     cmsg_server *server = (cmsg_server *)closure_data;
+
+    CMSG_ASSERT (server);
+    CMSG_ASSERT (server->transport);
+    CMSG_ASSERT (server->server_request);
+
     cmsg_server_request *server_request = server->server_request;
     int ret = 0;
 
@@ -232,11 +235,13 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
 
         ret = server->transport->server_send (server, &header, sizeof (header), 0);
         if (ret < sizeof (header))
+        {
             DEBUG (CMSG_ERROR,
-                   "[SERVER] sending if response failed send:%d of %ld\n",
+                   "[SERVER] error: sending if response failed send:%d of %ld\n",
                    ret, sizeof (header));
+            return CMSG_RET_ERR;
+        }
 
-        server->transport->server_close (server);
     }
     else
     {
@@ -250,7 +255,18 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
         header[3] = server_request->request_id;
 
         uint8_t *buffer = malloc (packed_size + sizeof (header));
+        if (!buffer)
+        {
+	    syslog(LOG_CRIT | LOG_LOCAL6, "[SERVER] error: unable to allocate buffer. line(%d)\n",__LINE__);
+            return CMSG_RET_ERR;
+        }
         uint8_t *buffer_data = malloc (packed_size);
+        if (!buffer_data)
+        {
+	    syslog(LOG_CRIT | LOG_LOCAL6, "[SERVER] error: unable to allocate data buffer. line(%d)\n",__LINE__);
+            free (buffer);
+            return CMSG_RET_ERR;
+        }
 
         memcpy ((void *)buffer, &header, sizeof (header));
 
@@ -264,10 +280,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
                    ret, packed_size);
 
             free (buffer);
-            buffer = 0;
             free (buffer_data);
-            buffer_data = 0;
-            return;
+            return CMSG_RET_ERR;
         }
 
         memcpy ((void *)buffer + sizeof (header), (void *)buffer_data, packed_size);
@@ -287,12 +301,13 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
         server->transport->server_close (server);
 
         free (buffer);
-        buffer = 0;
         free (buffer_data);
-        buffer_data = 0;
     }
 
+    server->transport->server_close (server);
     server_request->closure_response = 0;
+
+    return CMSG_RET_OK;
 }
 
 
@@ -300,6 +315,8 @@ void
 cmsg_server_closure_oneway (const ProtobufCMessage *message,
                             void                   *closure_data)
 {
+    CMSG_ASSERT (closure_data);
+
     cmsg_server *server = (cmsg_server *)closure_data;
     cmsg_server_request *server_request = server->server_request;
     //we are not sending a response in this transport mode

@@ -76,7 +76,7 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int32_t));
     if (ret == -1)
     {
-        DEBUG ("[TRANSPORT] setsockopt failed with: %s\n", strerror (errno));
+        DEBUG (CMSG_ERROR, "[TRANSPORT] setsockopt failed with: %s\n", strerror (errno));
         close (listening_socket);
         return -1;
     }

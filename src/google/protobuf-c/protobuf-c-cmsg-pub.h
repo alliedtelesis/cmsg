@@ -67,8 +67,8 @@ cmsg_pub *
 cmsg_pub_new (cmsg_transport                   *sub_server_transport,
               const ProtobufCServiceDescriptor *pub_service);
 
-int32_t
-cmsg_pub_destroy (cmsg_pub *publisher);
+void
+cmsg_pub_destroy (cmsg_pub **publisher);
 
 int
 cmsg_pub_get_server_socket (cmsg_pub *publisher);
@@ -97,7 +97,7 @@ cmsg_pub_invoke (ProtobufCService       *service,
                  void                   *closure_data);
 
 //service implementation for handling register messages from the subscriber
-void
+int32_t
 cmsg_pub_subscribe (Cmsg__SubService_Service      *service,
                     const Cmsg__SubEntry          *input,
                     Cmsg__SubEntryResponse_Closure closure,

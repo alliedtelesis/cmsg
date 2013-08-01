@@ -42,8 +42,8 @@ cmsg_server *
 cmsg_server_new (cmsg_transport   *transport,
                  ProtobufCService *service);
 
-int32_t
-cmsg_server_destroy (cmsg_server *server);
+void
+cmsg_server_destroy (cmsg_server **server);
 
 int
 cmsg_server_get_socket (cmsg_server *server);
@@ -60,7 +60,7 @@ int32_t
 cmsg_server_message_processor (cmsg_server *server,
                                uint8_t     *buffer_data);
 
-void
+int32_t
 cmsg_server_closure_rpc (const ProtobufCMessage *message,
                          void                   *closure_data);
 

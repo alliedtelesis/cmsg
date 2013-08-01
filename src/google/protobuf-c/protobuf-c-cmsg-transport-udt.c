@@ -159,7 +159,7 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
 
     transport->server_destroy = cmsg_transport_oneway_udt_server_destroy;
 
-    DEBUG ("%s: done", __FUNCTION__);
+    DEBUG (CMSG_INFO, "%s: done", __FUNCTION__);
 }
 
 
