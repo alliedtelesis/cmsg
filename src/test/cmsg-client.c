@@ -102,9 +102,18 @@ int main(int argc, char**argv)
   }
   else if (is_tcp_tipc_cpg == 3)
   {
+      cmsg_transport * server_transport;
+
 	  transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
 	  strcpy (transport->config.cpg.group_name.value, "cpg_bm");
 	  transport->config.cpg.group_name.length = 6;
+
+	  /* create server to create connection to the executable
+	   */
+	  server_transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
+      strcpy (server_transport->config.cpg.group_name.value, "cpg_bm");
+      server_transport->config.cpg.group_name.length = 6;
+	  cpg_server = cmsg_server_new (server_transport);
   }
   else if (is_tcp_tipc_cpg == 4)
   {
