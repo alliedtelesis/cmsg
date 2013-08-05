@@ -36,8 +36,105 @@ cmsg_transport_oneway_udt_listen (cmsg_server *server)
 static int32_t
 cmsg_transport_oneway_udt_server_recv (int32_t socket, cmsg_server *server)
 {
-    // Function isn't needed for User Defined so nothing happens.
-    return 0;
+    cmsg_transport *transport;
+    udt_recv_f udt_recv;
+	void *udt_data;
+    int32_t nbytes = 0;
+    int32_t dyn_len = 0;
+    cmsg_header_request header_received;
+    cmsg_header_request header_converted;
+    cmsg_server_request server_request;
+    uint8_t *buffer = 0;
+    uint8_t buf_static[512];
+    int32_t ret = 0;
+
+    transport = server->transport;
+    udt_recv = transport->config.udt.recv;
+    udt_data = transport->config.udt.udt_data;
+
+    if (udt_recv == NULL)
+    {
+        return -1;
+    }
+
+    nbytes = udt_recv (udt_data, &header_received, sizeof (cmsg_header_request), 0);
+
+    if (nbytes == sizeof (cmsg_header_request))
+    {
+        //we have little endian on the wire
+        header_converted.method_index = cmsg_common_uint32_from_le (header_received.method_index);
+        header_converted.message_length = cmsg_common_uint32_from_le (header_received.message_length);
+        header_converted.request_id = header_received.request_id;
+
+        server_request.message_length = cmsg_common_uint32_from_le (header_received.message_length);
+        server_request.method_index = cmsg_common_uint32_from_le (header_received.method_index);
+        server_request.request_id = header_received.request_id;
+
+        DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
+        cmsg_buffer_print ((void *)&header_received, sizeof (cmsg_header_request));
+
+        DEBUG (CMSG_INFO,
+               "[TRANSPORT] method_index   host: %d, wire: %d\n",
+               header_converted.method_index, header_received.method_index);
+
+        DEBUG (CMSG_INFO,
+               "[TRANSPORT] message_length host: %d, wire: %d\n",
+               header_converted.message_length, header_received.message_length);
+
+        DEBUG (CMSG_INFO,
+               "[TRANSPORT] request_id     host: %d, wire: %d\n",
+               header_converted.request_id, header_received.request_id);
+
+        // read the message
+        dyn_len = header_converted.message_length;
+        if (dyn_len > sizeof buf_static)
+        {
+            buffer = malloc (dyn_len);
+        }
+        else
+        {
+            buffer = (void *) buf_static;
+        }
+
+        //just recv more data when the packed message length is greater zero
+        if (header_converted.message_length)
+        {
+            nbytes = udt_recv (udt_data, buffer, dyn_len, 0);
+        }
+        else
+        {
+            nbytes = 0;
+        }
+
+        if (nbytes == dyn_len)
+        {
+
+            DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
+            cmsg_buffer_print (buffer, dyn_len);
+            server->server_request = &server_request;
+
+            if (server->message_processor (server, buffer))
+                DEBUG (CMSG_ERROR, "[TRANSPORT] message processing returned an error\n");
+        }
+        else
+        {
+            DEBUG (CMSG_INFO,
+                   "[TRANSPORT] recv socket %d no data\n",
+                   server->connection.sockets.client_socket);
+
+            ret = -1;
+        }
+        if (buffer != (void *) buf_static)
+        {
+            free (buffer);
+        }
+    }
+    else
+    {
+        ret = 0;
+    }
+
+    return ret;
 }
 
 
@@ -49,7 +146,7 @@ cmsg_transport_oneway_udt_client_recv (cmsg_client *client)
 }
 
 
-static  int32_t
+static int32_t
 cmsg_transport_oneway_udt_server_send (cmsg_server *server, void *buff, int length, int flag)
 {
     // Function isn't needed for User Defined so nothing happens.

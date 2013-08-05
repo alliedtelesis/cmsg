@@ -90,6 +90,10 @@ typedef int (*udt_send_f) (void *udt_data,
                            void *buff,
                            int   length,
                            int   flag);
+typedef int (*udt_recv_f) (void *udt_data,
+                           void *buff,
+                           int   length,
+                           int   flag);
 
 struct _cmsg_udt_s
 {
@@ -97,6 +101,7 @@ struct _cmsg_udt_s
     // Functions for userdefined transport functionality
     udt_connect_f connect;
     udt_send_f send;
+    udt_recv_f recv;
 };
 
 union _cmsg_transport_config_u
