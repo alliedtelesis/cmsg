@@ -141,6 +141,8 @@ typedef enum
 
 
 typedef int protobuf_c_boolean;
+typedef protobuf_c_boolean bool_t;
+
 #define PROTOBUF_C_OFFSETOF(struct, member) offsetof(struct, member)
 
 #define PROTOBUF_C_ASSERT(condition) assert(condition)

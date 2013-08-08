@@ -54,7 +54,12 @@ void PrimitiveFieldGenerator::GenerateStructMembers(io::Printer* printer) const
     case FieldDescriptor::TYPE_FIXED64 : c_type = "uint64_t"; break;
     case FieldDescriptor::TYPE_FLOAT   : c_type = "float"; break;
     case FieldDescriptor::TYPE_DOUBLE  : c_type = "double"; break;
-    case FieldDescriptor::TYPE_BOOL    : c_type = "protobuf_c_boolean"; break;
+    case FieldDescriptor::TYPE_BOOL    :
+      if (addPbc_)
+        c_type = "protobuf_c_boolean";
+      else
+        c_type = "bool_t";
+      break;
     case FieldDescriptor::TYPE_ENUM    : 
     case FieldDescriptor::TYPE_STRING  :
     case FieldDescriptor::TYPE_BYTES   :
