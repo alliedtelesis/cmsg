@@ -58,7 +58,7 @@ void PrimitiveFieldGenerator::GenerateStructMembers(io::Printer* printer) const
       if (addPbc_)
         c_type = "protobuf_c_boolean";
       else
-        c_type = "bool_t";
+        c_type = "cmsg_bool_t";
       break;
     case FieldDescriptor::TYPE_ENUM    : 
     case FieldDescriptor::TYPE_STRING  :
