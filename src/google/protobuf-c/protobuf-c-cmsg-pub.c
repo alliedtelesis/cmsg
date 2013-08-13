@@ -400,7 +400,7 @@ cmsg_pub_invoke (ProtobufCService       *service,
             cmsg_pub_subscriber_remove (publisher, list_entry);
         }
 
-        cmsg_client_destroy (&publisher->pub_client);
+        cmsg_client_destroy (&client);
 
         subscriber_list = g_list_next (subscriber_list);
     }
@@ -532,7 +532,7 @@ cmsg_pub_queue_process_one (cmsg_pub *publisher)
             g_queue_push_head (publisher->queue, queue_entry);
             publisher->queue_timeouts++;
         }
-        cmsg_client_destroy (client);
+        cmsg_client_destroy (&client);
     }
 
     pthread_mutex_unlock (&publisher->queue_mutex);
@@ -605,7 +605,7 @@ cmsg_pub_queue_process_all (cmsg_pub *publisher)
             unsigned int queue_length = g_queue_get_length (publisher->queue);
             DEBUG (CMSG_ERROR, "[PUB QUEUE] queue length: %d\n", queue_length);
 
-            cmsg_client_destroy (client);
+            cmsg_client_destroy (&client);
 
             publisher->queue_timeouts++;
 
@@ -619,7 +619,7 @@ cmsg_pub_queue_process_all (cmsg_pub *publisher)
             DEBUG (CMSG_ERROR, "[PUB QUEUE] sleeping done\n");
             return -1;
         }
-        cmsg_client_destroy (client);
+        cmsg_client_destroy (&client);
 
         //get the next entry
         queue_entry = g_queue_pop_tail (publisher->queue);

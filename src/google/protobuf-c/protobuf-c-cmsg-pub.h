@@ -48,7 +48,6 @@ struct _cmsg_pub_s
                     void                   *closure_data);
 
     cmsg_server *sub_server;  //registering subscriber
-    cmsg_client *pub_client;  //sending messages
     const ProtobufCServiceDescriptor *registration_notify_client_service; //for calling notification methods in notify
     GList *subscriber_list;
     uint32_t subscriber_count;
