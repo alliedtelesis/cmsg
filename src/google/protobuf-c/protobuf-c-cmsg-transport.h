@@ -86,14 +86,8 @@ struct _cmsg_cpg_s
 };
 
 typedef int (*udt_connect_f) (cmsg_client *client);
-typedef int (*udt_send_f) (void *udt_data,
-                           void *buff,
-                           int   length,
-                           int   flag);
-typedef int (*udt_recv_f) (void *udt_data,
-                           void *buff,
-                           int   length,
-                           int   flag);
+typedef int (*udt_send_f) (void *udt_data, void *buff, int length, int flag);
+typedef int (*cmsg_recv_func) (void *handle, void *buff, int len, int flags);
 
 struct _cmsg_udt_s
 {
@@ -101,7 +95,7 @@ struct _cmsg_udt_s
     // Functions for userdefined transport functionality
     udt_connect_f connect;
     udt_send_f send;
-    udt_recv_f recv;
+    cmsg_recv_func recv;
 };
 
 union _cmsg_transport_config_u
@@ -191,6 +185,12 @@ void
 cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
 #endif
 
+int32_t
+cmsg_transport_server_process_message (cmsg_recv_func recv, void *handle,
+                                       cmsg_server *server);
+int32_t
+cmsg_transport_server_process_message_with_peek (cmsg_recv_func recv, void *handle,
+                                                 cmsg_server *server);
 int32_t
 cmsg_transport_destroy (cmsg_transport *transport);
 

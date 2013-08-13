@@ -125,20 +125,23 @@ cmsg_transport_tipc_listen (cmsg_server *server)
 }
 
 
+/* Wrapper function to call "recv" on a TIPC socket */
+int
+cmsg_transport_tipc_recv (void *handle, void *buff, int len, int flags)
+{
+    int sock = (int) handle;
+
+    return recv (sock, buff, len, flags);
+}
+
 
 static int32_t
 cmsg_transport_tipc_server_recv (int32_t socket, cmsg_server *server)
 {
     int32_t client_len;
     cmsg_transport client_transport;
-    int32_t nbytes = 0;
-    int32_t dyn_len = 0;
+    int sock;
     int32_t ret = 0;
-    cmsg_header_request header_received;
-    cmsg_header_request header_converted;
-    cmsg_server_request server_request;
-    uint8_t *buffer = 0;
-    uint8_t buf_static[512];
 
     if (!server || socket < 0)
     {
@@ -146,138 +149,23 @@ cmsg_transport_tipc_server_recv (int32_t socket, cmsg_server *server)
     }
 
     client_len = sizeof (client_transport.config.socket.sockaddr.tipc);
-    server->connection.sockets.client_socket = accept (socket,
-                                                       (struct sockaddr *)&client_transport.config.socket.sockaddr.tipc,
-                                                       &client_len);
+    sock = accept (socket,
+                   (struct sockaddr *) &client_transport.config.socket.sockaddr.tipc,
+                   &client_len);
+    server->connection.sockets.client_socket = sock;
 
-    if (server->connection.sockets.client_socket <= 0)
+    if (sock < 0)
     {
         DEBUG (CMSG_ERROR, "[TRANSPORT] accept failed\n");
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] server->connection.sockets.client_socket = %d\n",
-               server->connection.sockets.client_socket);
-
-        shutdown (server->connection.sockets.client_socket, 2);
-        close (server->connection.sockets.client_socket);
+        DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
 
         return -1;
     }
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] server->accecpted_client_socket %d\n",
-           server->connection.sockets.client_socket);
 
-    nbytes = recv (server->connection.sockets.client_socket,
-                   &header_received,
-                   sizeof (cmsg_header_request),
-                   MSG_WAITALL);
+    DEBUG (CMSG_INFO, "[TRANSPORT] server->accecpted_client_socket %d\n", sock);
 
-    if (nbytes == sizeof (cmsg_header_request))
-    {
-        //we have little endian on the wire
-        header_converted.method_index = cmsg_common_uint32_from_le (header_received.method_index);
-        header_converted.message_length = cmsg_common_uint32_from_le (header_received.message_length);
-        header_converted.request_id = header_received.request_id;
-
-        server_request.message_length = cmsg_common_uint32_from_le (header_received.message_length);
-        server_request.method_index = cmsg_common_uint32_from_le (header_received.method_index);
-        server_request.request_id = header_received.request_id;
-
-        DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
-        cmsg_buffer_print ((void *)&header_received, sizeof (cmsg_header_request));
-
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] method_index   host: %d, wire: %d\n",
-               header_converted.method_index, header_received.method_index);
-
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] message_length host: %d, wire: %d\n",
-               header_converted.message_length, header_received.message_length);
-
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] request_id     host: %d, wire: %d\n",
-               header_converted.request_id, header_received.request_id);
-
-        // read the message
-        dyn_len = header_converted.message_length;
-        if (dyn_len > sizeof buf_static)
-        {
-            buffer = malloc (dyn_len);
-        }
-        else
-        {
-            buffer = (void *)buf_static;
-        }
-
-        //just recv more data when the packed message length is greater zero
-        if (header_converted.message_length)
-            nbytes = recv (server->connection.sockets.client_socket,
-                           buffer,
-                           dyn_len,
-                           MSG_WAITALL);
-        else
-            nbytes = 0;
-
-        if (nbytes == dyn_len)
-        {
-
-            DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
-            cmsg_buffer_print (buffer, dyn_len);
-            server->server_request = &server_request;
-
-            if (server->message_processor (server, buffer))
-                DEBUG (CMSG_ERROR, "[TRANSPORT] message processing returned an error\n");
-        }
-        else
-        {
-            DEBUG (CMSG_INFO,
-                   "[TRANSPORT] recv socket %d no data\n",
-                   server->connection.sockets.client_socket);
-
-            ret = -1;
-        }
-        if (buffer != (void *)buf_static)
-        {
-            if (buffer)
-            {
-                free (buffer);
-                buffer = 0;
-            }
-        }
-    }
-    else if (nbytes > 0)
-    {
-        DEBUG (CMSG_ERROR,
-               "[TRANSPORT] recv socket %d bad header nbytes %d\n",
-               server->connection.sockets.client_socket, nbytes);
-
-        // TEMP to keep things going
-        buffer = malloc (nbytes);
-        nbytes = recv (server->connection.sockets.client_socket,
-                       buffer,
-                       nbytes,
-                       MSG_WAITALL);
-        free (buffer);
-        buffer = 0;
-        ret = 0;
-    }
-    else if (nbytes == 0)
-    {
-        //Normal socket shutdown case. Return other than TRANSPORT_OK to
-        //have socket removed from select set.
-        ret = 0;
-    }
-    else
-    {
-        //Error while peeking at socket data.
-        if (errno != ECONNRESET)
-        {
-            DEBUG (CMSG_ERROR,
-                   "[TRANSPORT] recv socket %d error: %s\n",
-                   server->connection.sockets.client_socket, strerror (errno));
-        }
-        ret = 0;
-    }
+    ret = cmsg_transport_server_recv (cmsg_transport_tipc_recv, (void *) sock, server);
 
     return ret;
 }
@@ -300,9 +188,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client)
     }
 
     nbytes = recv (client->connection.socket,
-                   &header_received,
-                   sizeof (cmsg_header_response),
-                   MSG_WAITALL);
+                   &header_received, sizeof (cmsg_header_response), MSG_WAITALL);
 
     if (nbytes == sizeof (cmsg_header_response))
     {
