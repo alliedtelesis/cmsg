@@ -1,3 +1,4 @@
+#include <poll.h>
 #include "protobuf-c-cmsg-pub.h"
 
 //macro for register handler implentation
@@ -232,6 +233,43 @@ cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
     return CMSG_RET_OK;
 }
 
+/**
+ * cmsg_publisher_receive_poll
+ *
+ * Calls the transport receive function.
+ * The expectation of the transport receive function is that it will return
+ * <0 on failure & 0=< on success.
+ *
+ * On success returns 0, failure returns -1.
+ */
+int32_t
+cmsg_publisher_receive_poll (cmsg_pub *publisher,
+                             int32_t timeout_ms)
+{
+    int ret = 0;
+    struct pollfd poll_list[1];
+
+    CMSG_ASSERT (publisher);
+
+    poll_list[0].fd = cmsg_pub_get_server_socket (publisher);
+    poll_list[0].events = POLLIN;
+
+    ret = poll (poll_list, (unsigned long)1, timeout_ms /* milliseconds */);
+
+    if (ret == -1)
+    {
+        DEBUG (CMSG_ERROR, "[SERVER] poll error occurred: %s ", strerror (errno));
+        return CMSG_RET_ERR;
+    }
+    else if (ret == 0)
+    {
+        // poll timed out, so func success but nothing received, early return
+        return CMSG_RET_OK;
+    }
+
+    // there is something happening on the socket so receive it.
+    return cmsg_pub_server_receive (publisher, poll_list[0].fd);
+}
 
 int32_t
 cmsg_pub_server_receive (cmsg_pub *publisher,

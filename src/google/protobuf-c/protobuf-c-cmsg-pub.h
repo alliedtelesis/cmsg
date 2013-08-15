@@ -79,6 +79,9 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
 int32_t
 cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
                             cmsg_sub_entry *entry);
+int32_t
+cmsg_publisher_receive_poll (cmsg_pub *publisher,
+                             int32_t timeout_ms);
 
 int32_t
 cmsg_pub_server_receive (cmsg_pub *publisher,
