@@ -41,7 +41,7 @@ struct _cmsg_client_s
 
     ProtobufCAllocator    *allocator;
     ProtobufCService       base_service;
-    cmsg_transport        *transport;
+    cmsg_transport        *_transport;
     uint32_t               request_id;
     cmsg_client_state      state;
     cmsg_client_connection connection;

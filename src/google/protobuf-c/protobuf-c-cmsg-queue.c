@@ -55,7 +55,7 @@ cmsg_send_queue_process_one (GQueue *queue,
         if (client->state == CMSG_CLIENT_STATE_CONNECTED)
         {
             DEBUG (CMSG_INFO, "[PUB QUEUE] sending message to server\n");
-            int ret = client->transport->client_send (client,
+            int ret = client->_transport->client_send (client,
                                                       queue_entry->queue_buffer,
                                                       queue_entry->queue_buffer_size,
                                                       0);
@@ -66,7 +66,7 @@ cmsg_send_queue_process_one (GQueue *queue,
                        ret, queue_entry->queue_buffer_size);
 
             client->state = CMSG_CLIENT_STATE_DESTROYED;
-            client->transport->client_close (client);
+            client->_transport->client_close (client);
 
             free (queue_entry->queue_buffer);
             g_free (queue_entry);
@@ -138,7 +138,7 @@ cmsg_send_queue_process_all (GQueue *queue,
         if (client->state == CMSG_CLIENT_STATE_CONNECTED)
         {
             DEBUG (CMSG_INFO, "[PUB QUEUE] sending message to server\n");
-            int ret = client->transport->client_send (client,
+            int ret = client->_transport->client_send (client,
                                                       queue_entry->queue_buffer,
                                                       queue_entry->queue_buffer_size,
                                                       0);
@@ -151,7 +151,7 @@ cmsg_send_queue_process_all (GQueue *queue,
             }
 
             client->state = CMSG_CLIENT_STATE_DESTROYED;
-            client->transport->client_close (client);
+            client->_transport->client_close (client);
 
             free (queue_entry->queue_buffer);
             g_free (queue_entry);

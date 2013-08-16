@@ -13,7 +13,7 @@ cmsg_client_new (cmsg_transport                   *transport,
     {
         client->base_service.destroy = NULL;
         client->allocator = &protobuf_c_default_allocator;
-        client->transport = transport;
+        client->_transport = transport;
         client->request_id = 0;
         client->state = CMSG_CLIENT_STATE_INIT;
 
@@ -84,6 +84,8 @@ cmsg_client_destroy (cmsg_client *client)
 
     pthread_mutex_destroy (&client->queue_mutex);
 
+    client->_transport->client_destroy (client);
+
     free (client);
 }
 
@@ -94,7 +96,7 @@ cmsg_client_response_receive (cmsg_client *client)
     CMSG_ASSERT (client);
     CMSG_ASSERT (client->transport);
 
-    return (client->transport->client_recv (client));
+    return (client->_transport->client_recv (client));
 }
 
 
@@ -114,7 +116,7 @@ cmsg_client_connect (cmsg_client *client)
     }
     else
     {
-        ret = client->transport->connect (client);
+        ret = client->_transport->connect (client);
     }
 
     return ret;
@@ -197,7 +199,7 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
     DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
     cmsg_buffer_print (buffer_data, packed_size);
 
-    ret = client->transport->client_send (client, buffer, packed_size + sizeof (header), 0);
+    ret = client->_transport->client_send (client, buffer, packed_size + sizeof (header), 0);
     if (ret < packed_size + sizeof (header))
     {
         DEBUG (CMSG_ERROR,
@@ -215,7 +217,7 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
     ProtobufCMessage *message = cmsg_client_response_receive (client);
 
     client->state = CMSG_CLIENT_STATE_DESTROYED;
-    client->transport->client_close (client);
+    client->_transport->client_close (client);
 
     free (buffer);
     free (buffer_data);
@@ -358,7 +360,7 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
     //we don't connect to the server when we queue messages
     if (!do_queue)
     {
-        ret = client->transport->client_send (client, buffer, packed_size + sizeof (header), 0);
+        ret = client->_transport->client_send (client, buffer, packed_size + sizeof (header), 0);
         if (ret < packed_size + sizeof (header))
         {
             DEBUG (CMSG_ERROR,
@@ -371,7 +373,7 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
         }
 
         client->state = CMSG_CLIENT_STATE_DESTROYED;
-        client->transport->client_close (client);
+        client->_transport->client_close (client);
     }
     else
     {
@@ -387,7 +389,7 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
             cmsg_send_queue_push (publisher->queue,
                                   buffer,
                                   packed_size + sizeof (header),
-                                  client->transport);
+                                  client->_transport);
 
             pthread_mutex_unlock (&publisher->queue_mutex);
 
@@ -409,7 +411,7 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
             cmsg_send_queue_push (client->queue,
                                   buffer,
                                   packed_size + sizeof (header),
-                                  client->transport);
+                                  client->_transport);
 
             pthread_mutex_unlock (&client->queue_mutex);
 

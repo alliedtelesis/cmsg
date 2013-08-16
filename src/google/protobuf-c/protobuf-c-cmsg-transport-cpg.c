@@ -152,7 +152,7 @@ cmsg_transport_cpg_client_connect (cmsg_client *client)
 {
     cpg_handle_t *handlePt = NULL;
 
-    if (!client || !client->transport || client->transport->config.cpg.group_name.value[0] == '\0')
+    if (!client || !client->_transport || client->_transport->config.cpg.group_name.value[0] == '\0')
     {
         DEBUG (CMSG_ERROR, "[TRANSPORT] cpg connect sanity check failed\n");
     }
@@ -160,7 +160,7 @@ cmsg_transport_cpg_client_connect (cmsg_client *client)
     {
         DEBUG (CMSG_INFO,
                "[TRANSPORT] cpg connect group name: %s\n",
-               client->transport->config.cpg.group_name.value);
+               client->_transport->config.cpg.group_name.value);
     }
 
     if (cmsg_cpg_handle == 0)
@@ -233,7 +233,7 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
 
     do
     {
-        result = cpg_join (server->connection.cpg.handle, &server->transport->config.cpg.group_name);
+        result = cpg_join (server->connection.cpg.handle, &server->_transport->config.cpg.group_name);
 
         if (result == CPG_OK)
         {
@@ -251,7 +251,7 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
 
     DEBUG (CMSG_ERROR,
            "Couldn't join CPG group %s, result:%d, waited:%ums",
-           server->transport->config.cpg.group_name.value, result, slept_us / 1000);
+           server->_transport->config.cpg.group_name.value, result, slept_us / 1000);
 
     return -1;
 }
@@ -269,7 +269,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     unsigned int res;
     int fd = 0;
 
-    if (!server || !server->transport || server->transport->config.cpg.group_name.value[0] == '\0')
+    if (!server || !server->_transport || server->_transport->config.cpg.group_name.value[0] == '\0')
     {
         DEBUG (CMSG_ERROR, "[TRANSPORT] cpg listen sanity check failed\n");
     }
@@ -277,7 +277,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     {
         DEBUG (CMSG_INFO,
                "[TRANSPORT] cpg listen group name: %s\n",
-               server->transport->config.cpg.group_name.value);
+               server->_transport->config.cpg.group_name.value);
     }
 
     server->connection.cpg.callbacks.cpg_deliver_fn = (void *)cpg_deliver_fn;
@@ -298,7 +298,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     /* Add entry into the hash table for the server to be found by cpg group name.
      */
     g_hash_table_insert (cpg_group_name_to_server_hash_table_h,
-                         (gpointer)server->transport->config.cpg.group_name.value,
+                         (gpointer)server->_transport->config.cpg.group_name.value,
                          (gpointer)server);
 
     DEBUG (CMSG_INFO,
@@ -443,6 +443,11 @@ cmsg_transport_cpg_server_close (cmsg_server *server)
     DEBUG (CMSG_INFO, "[TRANSPORT] server cpg close done nothing\n");
 }
 
+static void
+cmsg_transport_cpg_client_destroy (cmsg_client *cmsg_client)
+{
+    //placeholder to make sure destroy functions are called in the right order
+}
 
 static void
 cmsg_transport_cpg_server_destroy (cmsg_server *server)
@@ -452,12 +457,12 @@ cmsg_transport_cpg_server_destroy (cmsg_server *server)
 
     /* Cleanup our entries in the hash table.
      */
-    ret = g_hash_table_remove (cpg_group_name_to_server_hash_table_h, (gpointer *) server->transport->config.cpg.group_name.value);
+    ret = g_hash_table_remove (cpg_group_name_to_server_hash_table_h, (gpointer *) server->_transport->config.cpg.group_name.value);
     DEBUG (CMSG_INFO, "[TRANSPORT] cpg group name hash table remove, result %d\n", ret);
 
     /* Leave the CPG group.
      */
-    cpg_leave (cmsg_cpg_handle, &(server->transport->config.cpg.group_name));
+    cpg_leave (cmsg_cpg_handle, &(server->_transport->config.cpg.group_name));
 
     /* If there are no more servers then finalize the cpg connection.
      * Finalize sends the right things to other CPG members, and frees memory.
@@ -549,6 +554,7 @@ cmsg_transport_cpg_init (cmsg_transport *transport)
     transport->s_socket = cmsg_transport_cpg_server_get_socket;
     transport->c_socket = cmsg_transport_cpg_client_get_socket;
 
+    transport->client_destroy = cmsg_transport_cpg_client_destroy;
     transport->server_destroy = cmsg_transport_cpg_server_destroy;
 
     if (cpg_group_name_to_server_hash_table_h == NULL)

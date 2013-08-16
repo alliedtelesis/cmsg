@@ -14,7 +14,7 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
     if (client == NULL)
         return 0;
 
-    client->connection.socket = socket (client->transport->config.socket.family, SOCK_RDM, 0);
+    client->connection.socket = socket (client->_transport->config.socket.family, SOCK_RDM, 0);
 
     if (client->connection.socket < 0)
     {
@@ -45,7 +45,7 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
 
     DEBUG (CMSG_INFO, "[TRANSPORT] Creating listen socket\n");
     server->connection.sockets.listening_socket = 0;
-    transport = server->transport;
+    transport = server->_transport;
 
     listening_socket = socket (transport->config.socket.family, SOCK_RDM, 0);
     if (listening_socket == -1)
@@ -85,7 +85,7 @@ cmsg_transport_tipc_broadcast_recv (void *handle, void *buff, int len, int flags
 
     server = handle;
     addrlen = sizeof (struct sockaddr_tipc);
-    transport = server->transport;
+    transport = server->_transport;
 
     nbytes = recvfrom (server->connection.sockets.listening_socket, buff, len, flags,
                        (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
@@ -141,7 +141,7 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client,
                     buff,
                     length,
                     MSG_DONTWAIT,
-                    (struct sockaddr *) &client->transport->config.socket.sockaddr.tipc,
+                    (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
                     sizeof (struct sockaddr_tipc)));
 }
 
@@ -208,6 +208,15 @@ cmsg_transport_tipc_broadcast_client_get_socket (cmsg_client *client)
     return client->connection.socket;
 }
 
+/**
+ * Close the client
+ */
+static void
+cmsg_transport_tipc_broadcast_client_destroy (cmsg_client *cmsg_client)
+{
+    //placeholder to make sure destroy functions are called in the right order
+}
+
 
 /**
  * Close the servers listening socket
@@ -246,6 +255,7 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->server_close = cmsg_transport_tipc_broadcast_server_close;
     transport->s_socket = cmsg_transport_tipc_broadcast_server_get_socket;
     transport->c_socket = cmsg_transport_tipc_broadcast_client_get_socket;
+    transport->client_destroy = cmsg_transport_tipc_broadcast_client_destroy;
     transport->server_destroy = cmsg_transport_tipc_broadcast_server_destroy;
 
     transport->closure = cmsg_server_closure_oneway;

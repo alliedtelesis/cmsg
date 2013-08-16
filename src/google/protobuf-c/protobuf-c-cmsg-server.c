@@ -18,7 +18,7 @@ cmsg_server_new (cmsg_transport   *transport,
     server = malloc (sizeof (cmsg_server));
     if (server)
     {
-        server->transport = transport;
+        server->_transport = transport;
         server->service = service;
         server->allocator = &protobuf_c_default_allocator; //initialize alloc and free for message_unpack() and message_free()
         server->message_processor = cmsg_server_message_processor;
@@ -53,7 +53,7 @@ cmsg_server_destroy (cmsg_server *server)
     CMSG_ASSERT (server);
     CMSG_ASSERT (server->transport);
 
-    server->transport->server_destroy (server);
+    server->_transport->server_destroy (server);
 
     free (server);
 }
@@ -65,9 +65,9 @@ cmsg_server_get_socket (cmsg_server *server)
     int socket = 0;
 
     CMSG_ASSERT (server);
-    CMSG_ASSERT (server->transport);
+    CMSG_ASSERT (server->_transport);
 
-    socket = server->transport->s_socket (server);
+    socket = server->_transport->s_socket (server);
 
     DEBUG (CMSG_INFO, "[SERVER] done. socket: %d\n", socket);
 
@@ -130,10 +130,10 @@ cmsg_server_receive (cmsg_server *server,
     int32_t ret = 0;
 
     CMSG_ASSERT (server);
-    CMSG_ASSERT (server->transport);
+    CMSG_ASSERT (server->_transport);
     CMSG_ASSERT (server_socket > 0);
 
-    ret = server->transport->server_recv (server_socket, server);
+    ret = server->_transport->server_recv (server_socket, server);
 
     if (ret < 0)
     {
@@ -193,7 +193,7 @@ cmsg_server_message_processor (cmsg_server *server,
     server->service->invoke (server->service,
                              server_request->method_index,
                              message,
-                             server->transport->closure,
+                             server->_transport->closure,
                              (void *)server);
 
     //todo: we need to handle errors from closure data
@@ -236,7 +236,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
 
         cmsg_buffer_print ((void *)&header, sizeof (header));
 
-        ret = server->transport->server_send (server, &header, sizeof (header), 0);
+        ret = server->_transport->server_send (server, &header, sizeof (header), 0);
         if (ret < sizeof (header))
         {
             DEBUG (CMSG_ERROR,
@@ -295,19 +295,19 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
         DEBUG (CMSG_INFO, "[SERVER] response data\n");
         cmsg_buffer_print ((void *)buffer + sizeof (header), packed_size);
 
-        ret = server->transport->server_send (server, buffer, packed_size + sizeof (header), 0);
+        ret = server->_transport->server_send (server, buffer, packed_size + sizeof (header), 0);
         if (ret < packed_size + sizeof (header))
             DEBUG (CMSG_ERROR,
                    "[SERVER] sending if response failed send:%d of %ld\n",
                    ret, packed_size + sizeof (header));
 
-        server->transport->server_close (server);
+        server->_transport->server_close (server);
 
         free (buffer);
         free (buffer_data);
     }
 
-    server->transport->server_close (server);
+    server->_transport->server_close (server);
     server_request->closure_response = 0;
 
     return;
@@ -327,7 +327,7 @@ cmsg_server_closure_oneway (const ProtobufCMessage *message,
            "[SERVER] invoking oneway method=%d\n",
            server_request->method_index);
 
-    server->transport->server_close (server);
+    server->_transport->server_close (server);
 
     server_request->closure_response = 0;
 }

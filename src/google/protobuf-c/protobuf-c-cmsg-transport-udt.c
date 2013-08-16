@@ -41,7 +41,7 @@ cmsg_transport_oneway_udt_server_recv (int32_t socket, cmsg_server *server)
     void *udt_data;
     int32_t ret = 0;
 
-    transport = server->transport;
+    transport = server->_transport;
     udt_recv = transport->config.udt.recv;
     udt_data = transport->config.udt.udt_data;
 
@@ -104,6 +104,12 @@ cmsg_transport_oneway_udt_client_get_socket (cmsg_client *client)
 }
 
 static void
+cmsg_transport_oneway_udt_client_destroy (cmsg_client *cmsg_client)
+{
+    //placeholder to make sure destroy functions are called in the right order
+}
+
+static void
 cmsg_transport_oneway_udt_server_destroy (cmsg_server *server)
 {
     // Function isn't needed for User Defined so nothing happens.
@@ -114,9 +120,9 @@ static int32_t
 cmsg_transport_oneway_udt_client_send (cmsg_client *client, void *buff, int length, int flag)
 {
 
-    if (client->transport->config.udt.send)
+    if (client->_transport->config.udt.send)
     {
-        return (client->transport->config.udt.send (client->transport->config.udt.udt_data, buff, length, flag));
+        return (client->_transport->config.udt.send (client->_transport->config.udt.udt_data, buff, length, flag));
     }
 
     // Function isn't defined so just pretend the message was sent.
@@ -132,9 +138,9 @@ static int32_t
 cmsg_transport_oneway_udt_connect (cmsg_client *client)
 {
     int32_t ret = 0;
-    if (client->transport->config.udt.connect)
+    if (client->_transport->config.udt.connect)
     {
-        ret = client->transport->config.udt.connect (client);
+        ret = client->_transport->config.udt.connect (client);
     }
     client->state = CMSG_CLIENT_STATE_CONNECTED;
 
@@ -172,6 +178,7 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
     transport->s_socket = 0;
     transport->c_socket = 0;
 
+    transport->client_destroy = cmsg_transport_oneway_udt_client_destroy;
     transport->server_destroy = cmsg_transport_oneway_udt_server_destroy;
 
     DEBUG (CMSG_INFO, "%s: done", __FUNCTION__);

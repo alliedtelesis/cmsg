@@ -336,7 +336,7 @@ cmsg_pub_server_receive (cmsg_pub *publisher,
 
     cmsg_server *server = publisher->sub_server;
 
-    ret = publisher->sub_server->transport->server_recv (server_socket, publisher->sub_server);
+    ret = publisher->sub_server->_transport->server_recv (server_socket, publisher->sub_server);
 
     if (ret < 0)
     {
@@ -391,7 +391,7 @@ cmsg_pub_message_processor (cmsg_server *server,
     server->service->invoke (server->service,
                              server_request->method_index,
                              message,
-                             server->transport->closure,
+                             server->_transport->closure,
                              (void *)server);
 
     protobuf_c_message_free_unpacked (message, allocator);

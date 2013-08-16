@@ -140,6 +140,7 @@ typedef void (*client_close_f) (cmsg_client *client);
 typedef void (*server_close_f) (cmsg_server *server);
 typedef int (*s_get_socket_f) (cmsg_server *server);
 typedef int (*c_get_socket_f) (cmsg_client *client);
+typedef void (*client_destroy_f) (cmsg_client *client);
 typedef void (*server_destroy_f) (cmsg_server *server);
 
 
@@ -163,6 +164,7 @@ struct _cmsg_transport_s
     s_get_socket_f     s_socket;       //
     c_get_socket_f     c_socket;       //
     server_destroy_f   server_destroy; // Server destroy function
+    client_destroy_f   client_destroy; // Client destroy function
 };
 
 cmsg_transport *

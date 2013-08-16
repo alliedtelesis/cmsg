@@ -27,7 +27,7 @@ struct _cmsg_server_s
 {
     ProtobufCAllocator *allocator;
     ProtobufCService *service;
-    cmsg_transport *transport;
+    cmsg_transport *_transport;
     cmsg_server_request *server_request;
     server_message_processor_f message_processor;
 

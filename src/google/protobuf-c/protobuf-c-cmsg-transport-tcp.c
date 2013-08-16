@@ -9,7 +9,7 @@ cmsg_transport_tcp_connect (cmsg_client *client)
     if (client == NULL)
         return 0;
 
-    client->connection.socket = socket (client->transport->config.socket.family,
+    client->connection.socket = socket (client->_transport->config.socket.family,
                                         SOCK_STREAM,
                                         0);
 
@@ -20,8 +20,8 @@ cmsg_transport_tcp_connect (cmsg_client *client)
         return 0;
     }
     if (connect (client->connection.socket,
-                 (struct sockaddr *)&client->transport->config.socket.sockaddr.in,
-                 sizeof (client->transport->config.socket.sockaddr.in)) < 0)
+                 (struct sockaddr *)&client->_transport->config.socket.sockaddr.in,
+                 sizeof (client->_transport->config.socket.sockaddr.in)) < 0)
     {
         if (errno == EINPROGRESS)
         {
@@ -60,7 +60,7 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     server->connection.sockets.listening_socket = 0;
     server->connection.sockets.client_socket = 0;
 
-    transport = server->transport;
+    transport = server->_transport;
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
     {
@@ -353,6 +353,12 @@ cmsg_transport_tcp_client_get_socket (cmsg_client *client)
 }
 
 static void
+cmsg_transport_tcp_client_destroy (cmsg_client *cmsg_client)
+{
+    //placeholder to make sure destroy functions are called in the right order
+}
+
+static void
 cmsg_transport_tcp_server_destroy (cmsg_server *server)
 {
     DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
@@ -386,6 +392,7 @@ cmsg_transport_tcp_init (cmsg_transport *transport)
     transport->s_socket = cmsg_transport_tcp_server_get_socket;
     transport->c_socket = cmsg_transport_tcp_client_get_socket;
 
+    transport->client_destroy = cmsg_transport_tcp_client_destroy;
     transport->server_destroy = cmsg_transport_tcp_server_destroy;
 
     DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
@@ -415,6 +422,7 @@ cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
     transport->s_socket = cmsg_transport_tcp_server_get_socket;
     transport->c_socket = cmsg_transport_tcp_client_get_socket;
 
+    transport->client_destroy = cmsg_transport_tcp_client_destroy;
     transport->server_destroy = cmsg_transport_tcp_server_destroy;
 
     DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
