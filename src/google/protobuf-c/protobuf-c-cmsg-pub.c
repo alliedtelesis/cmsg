@@ -1,4 +1,3 @@
-#include <poll.h>
 #include "protobuf-c-cmsg-pub.h"
 
 //macro for register handler implentation

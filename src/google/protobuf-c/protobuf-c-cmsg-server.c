@@ -1,4 +1,3 @@
-#include <poll.h>
 #include "protobuf-c-cmsg-server.h"
 
 
