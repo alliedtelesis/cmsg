@@ -23,6 +23,10 @@ cmsg_server_new (cmsg_transport   *transport,
         server->allocator = &protobuf_c_default_allocator; //initialize alloc and free for message_unpack() and message_free()
         server->message_processor = cmsg_server_message_processor;
 
+        server->self.object_type = CMSG_OBJ_TYPE_SERVER;
+        server->self.object = server;
+        server->parent.object_type = CMSG_OBJ_TYPE_NONE;
+        server->parent.object = NULL;
 
         DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n", transport->type);
 
@@ -36,7 +40,7 @@ cmsg_server_new (cmsg_transport   *transport,
     }
     else
     {
-	syslog(LOG_CRIT | LOG_LOCAL6, "[SERVER] error: unable to create server. line(%d)\n",__LINE__);
+        syslog (LOG_CRIT | LOG_LOCAL6, "[SERVER] error: unable to create server. line(%d)\n", __LINE__);
     }
 
     return server;
@@ -44,15 +48,14 @@ cmsg_server_new (cmsg_transport   *transport,
 
 
 void
-cmsg_server_destroy (cmsg_server **server)
+cmsg_server_destroy (cmsg_server *server)
 {
     CMSG_ASSERT (server);
-    CMSG_ASSERT ((*server)->transport);
+    CMSG_ASSERT (server->transport);
 
-    (*server)->transport->server_destroy (*server);
+    server->transport->server_destroy (server);
 
-    free (*server);
-    *server = NULL;
+    free (server);
 }
 
 
@@ -83,7 +86,7 @@ cmsg_server_get_socket (cmsg_server *server)
  */
 int32_t
 cmsg_server_receive_poll (cmsg_server *server,
-                         int32_t timeout_ms)
+                          int32_t timeout_ms)
 {
     int ret = 0;
     struct pollfd poll_list[1];
@@ -204,7 +207,7 @@ cmsg_server_message_processor (cmsg_server *server,
 }
 
 
-int32_t
+void
 cmsg_server_closure_rpc (const ProtobufCMessage *message,
                          void                   *closure_data)
 {
@@ -239,7 +242,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
             DEBUG (CMSG_ERROR,
                    "[SERVER] error: sending if response failed send:%d of %ld\n",
                    ret, sizeof (header));
-            return CMSG_RET_ERR;
+            return;
         }
 
     }
@@ -257,15 +260,15 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
         uint8_t *buffer = malloc (packed_size + sizeof (header));
         if (!buffer)
         {
-	    syslog(LOG_CRIT | LOG_LOCAL6, "[SERVER] error: unable to allocate buffer. line(%d)\n",__LINE__);
-            return CMSG_RET_ERR;
+            syslog (LOG_CRIT | LOG_LOCAL6, "[SERVER] error: unable to allocate buffer. line(%d)\n", __LINE__);
+            return;
         }
         uint8_t *buffer_data = malloc (packed_size);
         if (!buffer_data)
         {
-	    syslog(LOG_CRIT | LOG_LOCAL6, "[SERVER] error: unable to allocate data buffer. line(%d)\n",__LINE__);
+            syslog (LOG_CRIT | LOG_LOCAL6, "[SERVER] error: unable to allocate data buffer. line(%d)\n", __LINE__);
             free (buffer);
-            return CMSG_RET_ERR;
+            return;
         }
 
         memcpy ((void *)buffer, &header, sizeof (header));
@@ -281,7 +284,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
 
             free (buffer);
             free (buffer_data);
-            return CMSG_RET_ERR;
+            return;
         }
 
         memcpy ((void *)buffer + sizeof (header), (void *)buffer_data, packed_size);
@@ -307,7 +310,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
     server->transport->server_close (server);
     server_request->closure_response = 0;
 
-    return CMSG_RET_OK;
+    return;
 }
 
 

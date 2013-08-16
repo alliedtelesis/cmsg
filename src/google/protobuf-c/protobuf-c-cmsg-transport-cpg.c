@@ -168,7 +168,7 @@ cmsg_transport_cpg_client_connect (cmsg_client *client)
         /* CPG handle hasn't been created yet.
          */
         client->state = CMSG_CLIENT_STATE_FAILED;
-        DEBUG (CMSG_ERROR, "[TRANSPORT] Couldn't find matching handle for group %s\n", client->transport->config.cpg.group_name);
+        DEBUG (CMSG_ERROR, "[TRANSPORT] Couldn't find matching handle for group %s\n", client->transport->config.cpg.group_name.value);
         return -1;
     }
 
@@ -251,7 +251,7 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
 
     DEBUG (CMSG_ERROR,
            "Couldn't join CPG group %s, result:%d, waited:%ums",
-           server->transport->config.cpg.group_name, result, slept_us / 1000);
+           server->transport->config.cpg.group_name.value, result, slept_us / 1000);
 
     return -1;
 }
@@ -381,7 +381,9 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
 
     if (client->state != CMSG_CLIENT_STATE_CONNECTED)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] CPG Client is not connected prior to attempting to send to group %s\n", client->transport->config );
+        DEBUG (CMSG_ERROR,
+               "[TRANSPORT] CPG Client is not connected prior to attempting to send to group %s\n",
+               client->transport->config.cpg.group_name.value);
         return -1;
     }
 
@@ -503,7 +505,14 @@ static
 guint
 cmsg_transport_cpg_group_hash_function (gconstpointer key)
 {
-    return (guint)key;
+    char *string = (char *)key;
+    guint hash = 0;
+    int i = 0;
+
+    for (i = 0; string[i] != 0; i++)
+        hash += (guint)string[i];
+
+    return (guint)hash;
 }
 
 

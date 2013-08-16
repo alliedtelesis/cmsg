@@ -42,7 +42,7 @@ cmsg_pub_new (cmsg_transport                   *sub_server_transport,
     cmsg_pub *publisher = malloc (sizeof (cmsg_pub));
     if (!publisher)
     {
-	syslog(LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] error: unable to create publisher. line(%d)\n",__LINE__);
+        syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] error: unable to create publisher. line(%d)\n", __LINE__);
         return NULL;
     }
 
@@ -56,26 +56,47 @@ cmsg_pub_new (cmsg_transport                   *sub_server_transport,
     }
 
     publisher->sub_server->message_processor = cmsg_pub_message_processor;
-    publisher->sub_server->parent = publisher;
+
+    publisher->self.object_type = CMSG_OBJ_TYPE_PUB;
+    publisher->self.object = publisher;
+
+    publisher->sub_server->parent = publisher->self;
+
+    publisher->parent.object_type = CMSG_OBJ_TYPE_NONE;
+    publisher->parent.object = NULL;
 
     publisher->descriptor = pub_service;
     publisher->invoke = &cmsg_pub_invoke;
     publisher->subscriber_list = NULL;
     publisher->subscriber_count = 0;
 
-    publisher->queue_enabled = 0;
-
     if (pthread_mutex_init (&publisher->queue_mutex, NULL) != 0)
     {
-        DEBUG (CMSG_ERROR, "[CLIENT] queue mutex init failed\n");
+        DEBUG (CMSG_ERROR, "[PUBLISHER] error: queue mutex init failed\n");
         return 0;
     }
 
-    publisher->queue_timeouts = 0;
     publisher->queue = g_queue_new ();
-    g_queue_init (publisher->queue);
-    publisher->queue_total_size = 0;
+    publisher->queue_filter_hash_table = g_hash_table_new (cmsg_queue_filter_hash_function,
+                                                           cmsg_queue_filter_hash_equal_function);
 
+    if (pthread_cond_init (&publisher->queue_process_cond, NULL) != 0)
+    {
+        DEBUG (CMSG_ERROR, "[PUBLISHER] error: queue_process_cond init failed\n");
+        return 0;
+    }
+
+    if (pthread_mutex_init (&publisher->queue_process_mutex, NULL) != 0)
+    {
+        DEBUG (CMSG_ERROR, "[PUBLISHER] error: queue_process_mutex init failed\n");
+        return 0;
+    }
+
+    publisher->self_thread_id = pthread_self ();
+
+    cmsg_pub_queue_filter_init (publisher);
+
+    //init random for publishing reconnection sleep
     srand (time (NULL));
 
     return publisher;
@@ -83,21 +104,36 @@ cmsg_pub_new (cmsg_transport                   *sub_server_transport,
 
 
 void
-cmsg_pub_destroy (cmsg_pub **publisher)
+cmsg_pub_destroy (cmsg_pub *publisher)
 {
     CMSG_ASSERT (publisher);
 
-    if ((*publisher)->sub_server)
+    if (publisher->sub_server)
     {
-        cmsg_server_destroy (&(*publisher)->sub_server);
-        (*publisher)->sub_server = NULL;
+        cmsg_server_destroy (publisher->sub_server);
+        publisher->sub_server = NULL;
     }
 
-    g_list_free ((*publisher)->subscriber_list);
-    (*publisher)->subscriber_list = NULL;
+    cmsg_pub_subscriber_remove_all (publisher);
 
-    free (*publisher);
-    *publisher = NULL;
+    g_list_free (publisher->subscriber_list);
+
+    publisher->subscriber_list = NULL;
+
+    cmsg_queue_filter_free (publisher->queue_filter_hash_table,
+                            publisher->descriptor);
+
+    g_hash_table_destroy (publisher->queue_filter_hash_table);
+
+    cmsg_send_queue_free_all (publisher->queue);
+
+    pthread_mutex_destroy (&publisher->queue_mutex);
+
+    pthread_mutex_destroy (&publisher->queue_process_mutex);
+
+    pthread_cond_destroy (&publisher->queue_process_cond);
+
+    free (publisher);
 
     return;
 }
@@ -144,7 +180,7 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
         cmsg_sub_entry *list_entry = g_malloc (sizeof (cmsg_sub_entry));
         if (!list_entry)
         {
-	    syslog(LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] error: unable to create list entry. line(%d)\n",__LINE__);
+            syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] error: unable to create list entry. line(%d)\n", __LINE__);
             return CMSG_RET_ERR;
         }
         strcpy (list_entry->method_name, entry->method_name);
@@ -271,6 +307,22 @@ cmsg_publisher_receive_poll (cmsg_pub *publisher,
     return cmsg_pub_server_receive (publisher, poll_list[0].fd);
 }
 
+
+void
+cmsg_pub_subscriber_remove_all (cmsg_pub *publisher)
+{
+    GList *subscriber_list = g_list_first (publisher->subscriber_list);
+    while (subscriber_list)
+    {
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *)subscriber_list->data;
+        publisher->subscriber_list = g_list_remove (publisher->subscriber_list, list_entry);
+        g_free (list_entry);
+
+        subscriber_list = g_list_first (publisher->subscriber_list);
+    }
+}
+
+
 int32_t
 cmsg_pub_server_receive (cmsg_pub *publisher,
                          int32_t   server_socket)
@@ -355,7 +407,6 @@ cmsg_pub_invoke (ProtobufCService       *service,
                  ProtobufCClosure        closure,
                  void                   *closure_data)
 {
-    int ret = 0;
     cmsg_pub *publisher = (cmsg_pub *)service;
 
     CMSG_ASSERT (service);
@@ -366,6 +417,25 @@ cmsg_pub_invoke (ProtobufCService       *service,
            "[PUB] publisher sending notification for: %s\n",
            service->descriptor->methods[method_index].name);
 
+    cmsg_queue_filter_type action = cmsg_pub_queue_filter_lookup (publisher,
+                                                                  service->descriptor->methods[method_index].name);
+
+    if (action == CMSG_QUEUE_FILTER_ERROR)
+    {
+        DEBUG (CMSG_ERROR,
+               "[PUB] error: queue_lookup_filter returned CMSG_QUEUE_FILTER_ERROR for: %s\n",
+               service->descriptor->methods[method_index].name);
+        return;
+    }
+
+    if (action == CMSG_QUEUE_FILTER_DROP)
+    {
+        DEBUG (CMSG_ERROR,
+               "[PUB] dropping message: %s\n",
+               service->descriptor->methods[method_index].name);
+        return;
+    }
+
     //for each entry in pub->subscriber_entry
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
@@ -375,10 +445,7 @@ cmsg_pub_invoke (ProtobufCService       *service,
         //just send to this client if it has subscribed for this notification before
         if (strcmp (service->descriptor->methods[method_index].name, list_entry->method_name))
         {
-            DEBUG (CMSG_INFO,
-                   "[PUB] subscriber has not subscribed to: %s, skipping\n",
-                   service->descriptor->methods[method_index].name);
-
+            //skip this entry is not what we want
             subscriber_list = g_list_next (subscriber_list);
             continue;
         }
@@ -410,22 +477,28 @@ cmsg_pub_invoke (ProtobufCService       *service,
 
         cmsg_client *client = cmsg_client_new (&list_entry->transport, publisher->descriptor);
 
-        //tell the client if we have to queue messages
-        if (publisher->queue_enabled == 1)
+
+
+        if (action == CMSG_QUEUE_FILTER_PROCESS)
         {
-            DEBUG (CMSG_ERROR, "[PUB] queueing is enabled\n");
+            //dont queue, process directly
+            client->queue_enabled_from_parent = 0;
         }
-        else
+        else if (action == CMSG_QUEUE_FILTER_QUEUE)
         {
-            DEBUG (CMSG_ERROR, "[PUB] queueing is disabled");
+            //tell client to queue
+            client->queue_enabled_from_parent = 1;
+        }
+        else //global queue settings
+        {
+            DEBUG (CMSG_ERROR, "[PUB] error: queue filter action: %d wrong\n", action);
+            return;
         }
 
-        client->queue_enabled = publisher->queue_enabled;
-        //pass parent to client for queueing
-        client->parent_type = CMSG_PARENT_TYPE_PUB;
-        client->parent = (void *)publisher;
 
-        //todo: remove client from subscriber list when connection failed
+        //pass parent to client for queueing using correct queue
+        client->parent = publisher->self;
+
         cmsg_client_invoke_oneway ((ProtobufCService *)client,
                                    method_index,
                                    input,
@@ -438,16 +511,16 @@ cmsg_pub_invoke (ProtobufCService       *service,
             cmsg_pub_subscriber_remove (publisher, list_entry);
         }
 
-        cmsg_client_destroy (&client);
+        cmsg_client_destroy (client);
 
         subscriber_list = g_list_next (subscriber_list);
     }
     return;
 }
 
-int32_t
-cmsg_pub_subscribe (Cmsg__SubService_Service       *service,
-                    const Cmsg__SubEntry           *input,
+void
+cmsg_pub_subscribe (Cmsg__SubService_Service        *service,
+                    const Cmsg__SubEntry            *input,
                     Cmsg__SubEntryResponse_Closure  closure,
                     void                           *closure_data)
 {
@@ -457,7 +530,10 @@ cmsg_pub_subscribe (Cmsg__SubService_Service       *service,
 
     DEBUG (CMSG_INFO, "[PUB] cmsg_notification_subscriber_server_register_handler\n");
     cmsg_server *server = (cmsg_server *)closure_data;
-    cmsg_pub *publisher = (cmsg_pub *)server->parent;
+    cmsg_pub *publisher = NULL;
+
+    if (server->parent.object_type == CMSG_OBJ_TYPE_PUB)
+        publisher = server->parent.object;
 
     Cmsg__SubEntryResponse response = CMSG__SUB_ENTRY_RESPONSE__INIT;
 
@@ -492,7 +568,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service       *service,
     {
         DEBUG (CMSG_ERROR, "[PUB] error: subscriber transport not supported\n");
 
-	return CMSG_RET_ERR;
+        return;
     }
 
     if (input->add)
@@ -508,73 +584,33 @@ cmsg_pub_subscribe (Cmsg__SubService_Service       *service,
 
     closure (&response, closure_data);
 
-    return CMSG_RET_OK;
+    return;
+}
+
+void
+cmsg_pub_queue_enable (cmsg_pub *publisher)
+{
+    cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_QUEUE);
+}
+
+int32_t
+cmsg_pub_queue_disable (cmsg_pub *publisher)
+{
+    cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_PROCESS);
+
+    return cmsg_pub_queue_process_all (publisher);
+}
+
+unsigned int
+cmsg_pub_queue_get_length (cmsg_pub *publisher)
+{
+    return cmsg_queue_get_length (publisher->queue);
 }
 
 int32_t
 cmsg_pub_queue_process_one (cmsg_pub *publisher)
 {
-    uint32_t processed = 0;
-    pthread_mutex_lock (&publisher->queue_mutex);
-
-    cmsg_queue_entry *queue_entry = g_queue_pop_tail (publisher->queue);
-
-    if (queue_entry)
-    {
-        //init transport
-        if (queue_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TIPC)
-        {
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue_entry: transport tipc_init");
-            cmsg_transport_oneway_tipc_init (&queue_entry->transport);
-        }
-        else if (queue_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TCP)
-        {
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue_entry: transport tcp_init");
-            cmsg_transport_oneway_tcp_init (&queue_entry->transport);
-        }
-        else
-        {
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue_entry: transport unknown");
-        }
-
-        cmsg_client *client = cmsg_client_new (&queue_entry->transport, publisher->descriptor);
-
-        cmsg_client_connect (client);
-
-        if (client->state == CMSG_CLIENT_STATE_CONNECTED)
-        {
-            DEBUG (CMSG_INFO, "[PUB QUEUE] sending message to server\n");
-            int ret = client->transport->client_send (client,
-                                                      queue_entry->queue_buffer,
-                                                      queue_entry->queue_buffer_size,
-                                                      0);
-
-            if (ret < queue_entry->queue_buffer_size)
-                DEBUG (CMSG_ERROR,
-                       "[PUB QUEUE] sending response failed send:%d of %ld\n",
-                       ret, queue_entry->queue_buffer_size);
-
-            client->state = CMSG_CLIENT_STATE_DESTROYED;
-            client->transport->client_close (client);
-
-            publisher->queue_total_size -= queue_entry->queue_buffer_size;
-
-            free (queue_entry->queue_buffer);
-            g_free (queue_entry);
-
-            processed++;
-        }
-        else
-        {
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] error: client is not connected, requeueing message\n");
-            g_queue_push_head (publisher->queue, queue_entry);
-            publisher->queue_timeouts++;
-        }
-        cmsg_client_destroy (&client);
-    }
-
-    pthread_mutex_unlock (&publisher->queue_mutex);
-    return processed;
+    return cmsg_send_queue_process_one (publisher->queue, publisher->queue_mutex, publisher->descriptor, NULL);
 }
 
 
@@ -582,110 +618,80 @@ int32_t
 cmsg_pub_queue_process_all (cmsg_pub *publisher)
 {
     uint32_t processed = 0;
-    pthread_mutex_lock (&publisher->queue_mutex);
 
-    cmsg_queue_entry *queue_entry = g_queue_pop_tail (publisher->queue);
-
-    while (queue_entry)
+    //if the we run do api calls and processing in different threads wait
+    //for a signal from the api thread to start processing
+    if (! (publisher->self_thread_id == pthread_self ()))
     {
-        //init transport
-        if (queue_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TIPC)
+        pthread_mutex_lock (&publisher->queue_process_mutex);
+        pthread_cond_wait (&publisher->queue_process_cond, &publisher->queue_process_mutex);
+        pthread_mutex_unlock (&publisher->queue_process_mutex);
+
+        while (processed <= 0)
         {
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue_entry: transport tipc_init");
-            cmsg_transport_oneway_tipc_init (&queue_entry->transport);
+            processed = cmsg_send_queue_process_all (publisher->queue, publisher->queue_mutex, publisher->descriptor, NULL);
         }
-        else if (queue_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TCP)
-        {
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue_entry: transport tipc_init");
-            cmsg_transport_oneway_tcp_init (&queue_entry->transport);
-        }
-        else
-        {
-            DEBUG (CMSG_ERROR,
-                   "[PUB QUEUE] queue_entry: transport unknown, transport: %d",
-                   queue_entry->transport.type);
-        }
-
-        cmsg_client *client = cmsg_client_new (&queue_entry->transport, publisher->descriptor);
-
-        cmsg_client_connect (client);
-
-        if (client->state == CMSG_CLIENT_STATE_CONNECTED)
-        {
-            DEBUG (CMSG_INFO, "[PUB QUEUE] sending message to server\n");
-            int ret = client->transport->client_send (client,
-                                                      queue_entry->queue_buffer,
-                                                      queue_entry->queue_buffer_size,
-                                                      0);
-
-            if (ret < queue_entry->queue_buffer_size)
-            {
-                DEBUG (CMSG_ERROR,
-                       "[PUB QUEUE] sending response failed send:%d of %ld, queue message dropped\n",
-                       ret, queue_entry->queue_buffer_size);
-            }
-
-            client->state = CMSG_CLIENT_STATE_DESTROYED;
-            client->transport->client_close (client);
-
-            publisher->queue_total_size -= queue_entry->queue_buffer_size;
-
-            free (queue_entry->queue_buffer);
-            g_free (queue_entry);
-
-            processed++;
-        }
-        else
-        {
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] error: client is not connected, requeueing message\n");
-            g_queue_push_head (publisher->queue, queue_entry);
-
-            unsigned int queue_length = g_queue_get_length (publisher->queue);
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] queue length: %d\n", queue_length);
-
-            cmsg_client_destroy (&client);
-
-            publisher->queue_timeouts++;
-
-            //UNLOOCK in all cases when leaving
-            pthread_mutex_unlock (&publisher->queue_mutex);
-
-            int sleep_time = rand () % 5 + 1;
-
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] retrying in: %d seconds\n", sleep_time);
-            sleep (sleep_time);
-            DEBUG (CMSG_ERROR, "[PUB QUEUE] sleeping done\n");
-            return -1;
-        }
-        cmsg_client_destroy (&client);
-
-        //get the next entry
-        queue_entry = g_queue_pop_tail (publisher->queue);
     }
-
-    pthread_mutex_unlock (&publisher->queue_mutex);
-
-    //todo: add thread signal
-    sleep (1);
+    else
+        processed = cmsg_send_queue_process_all (publisher->queue, publisher->queue_mutex, publisher->descriptor, NULL);
 
     return processed;
 }
 
 
-int32_t
-cmsg_pub_queue_enable (cmsg_pub *publisher)
+
+void
+cmsg_pub_queue_filter_set_all (cmsg_pub *publisher,
+                               cmsg_queue_filter_type filter_type)
 {
-    publisher->queue_enabled = 1;
-    return 0;
+    cmsg_queue_filter_set_all (publisher->queue_filter_hash_table,
+                               publisher->descriptor,
+                               filter_type);
 }
 
+void
+cmsg_pub_queue_filter_clear_all (cmsg_pub *publisher)
+{
+    cmsg_queue_filter_clear_all (publisher->queue_filter_hash_table,
+                                 publisher->descriptor);
+}
 
 int32_t
-cmsg_pub_queue_disable (cmsg_pub *publisher)
+cmsg_pub_queue_filter_set (cmsg_pub *publisher,
+                           const char *method,
+                           cmsg_queue_filter_type filter_type)
 {
-    publisher->queue_enabled = 0;
+    return cmsg_queue_filter_set (publisher->queue_filter_hash_table,
+                                  method,
+                                  filter_type);
+}
 
-    cmsg_pub_queue_process_all (publisher);
+int32_t
+cmsg_pub_queue_filter_clear (cmsg_pub *publisher,
+                             const char *method)
+{
+    return cmsg_queue_filter_clear (publisher->queue_filter_hash_table,
+                                    method);
+}
 
-    return 0;
+void
+cmsg_pub_queue_filter_init (cmsg_pub *publisher)
+{
+    cmsg_queue_filter_init (publisher->queue_filter_hash_table,
+                            publisher->descriptor);
+}
+
+cmsg_queue_filter_type
+cmsg_pub_queue_filter_lookup (cmsg_pub *publisher,
+                              const char *method)
+{
+    return cmsg_queue_filter_lookup (publisher->queue_filter_hash_table,
+                                     method);
+}
+
+void
+cmsg_pub_queue_filter_show (cmsg_pub *publisher)
+{
+    cmsg_queue_filter_show (publisher->queue_filter_hash_table,
+                            publisher->descriptor);
 }

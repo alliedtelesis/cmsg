@@ -75,3 +75,14 @@ cmsg_buffer_print (void *buffer, unsigned int  size)
     DEBUG (CMSG_INFO, "%s", output_str);
 #endif
 }
+
+cmsg_header_request
+cmsg_request_header_create (uint32_t method_index, uint32_t packed_size, uint32_t request_id)
+{
+    cmsg_header_request header;
+    header.method_index = cmsg_common_uint32_to_le (method_index);
+    header.message_length = cmsg_common_uint32_to_le (packed_size);
+    header.request_id = request_id;
+
+    return header;
+}

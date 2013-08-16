@@ -30,7 +30,7 @@ cmsg_sub_new (cmsg_transport   *pub_server_transport,
               ProtobufCService *pub_service);
 
 void
-cmsg_sub_destroy (cmsg_sub **subscriber);
+cmsg_sub_destroy (cmsg_sub *subscriber);
 
 int
 cmsg_sub_get_server_socket (cmsg_sub *subscriber);

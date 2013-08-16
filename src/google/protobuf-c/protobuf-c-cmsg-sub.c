@@ -28,18 +28,17 @@ cmsg_sub_new (cmsg_transport   *pub_server_transport,
 
 
 void
-cmsg_sub_destroy (cmsg_sub **subscriber)
+cmsg_sub_destroy (cmsg_sub *subscriber)
 {
     CMSG_ASSERT (subscriber);
 
-    if ((*subscriber)->pub_server)
+    if (subscriber->pub_server)
     {
-        cmsg_server_destroy (&(*subscriber)->pub_server);
-        (*subscriber)->pub_server = NULL;
+        cmsg_server_destroy (subscriber->pub_server);
+        subscriber->pub_server = NULL;
     }
 
-    free (*subscriber);
-    *subscriber = NULL;
+    free (subscriber);
 
     return;
 }
@@ -153,7 +152,7 @@ cmsg_sub_subscribe (cmsg_sub       *subscriber,
                                   cmsg_sub_subscribe_response_handler,
                                   &return_value);
 
-    cmsg_client_destroy (&register_client);
+    cmsg_client_destroy (register_client);
 
     return return_value;
 }
@@ -225,7 +224,7 @@ cmsg_sub_unsubscribe (cmsg_sub       *subscriber,
                                   cmsg_sub_subscribe_response_handler,
                                   &return_value);
 
-    cmsg_client_destroy (&register_client);
+    cmsg_client_destroy (register_client);
 
     return return_value;
 }

@@ -58,19 +58,32 @@
 //         message_length            32-bit little-endian
 //         request_id                32-bit any-endian
 
+//forward declarations
+typedef struct _cmsg_client_s   cmsg_client;
+typedef struct _cmsg_server_s   cmsg_server;
+typedef struct _cmsg_sub_s      cmsg_sub;
+typedef struct _cmsg_pub_s      cmsg_pub;
 
-typedef enum   _cmsg_parent_type_e      cmsg_parent_type;
+typedef struct _cmsg_object_s           cmsg_object;
+typedef enum   _cmsg_object_type_e      cmsg_object_type;
 typedef struct _cmsg_header_request_s   cmsg_header_request;
 typedef struct _cmsg_header_response_s  cmsg_header_response;
 typedef enum   _cmsg_status_code_e      cmsg_status_code;
 typedef enum   _cmsg_error_code_e       cmsg_error_code;
 
-enum _cmsg_parent_type_e
+enum _cmsg_object_type_e
 {
-    CMSG_PARENT_TYPE_CLIENT,
-    CMSG_PARENT_TYPE_SERVER,
-    CMSG_PARENT_TYPE_PUB,
-    CMSG_PARENT_TYPE_SUB,
+    CMSG_OBJ_TYPE_NONE,
+    CMSG_OBJ_TYPE_CLIENT,
+    CMSG_OBJ_TYPE_SERVER,
+    CMSG_OBJ_TYPE_PUB,
+    CMSG_OBJ_TYPE_SUB,
+};
+
+struct _cmsg_object_s
+{
+    cmsg_object_type object_type;
+    void *object;
 };
 
 struct _cmsg_header_request_s
@@ -92,7 +105,8 @@ enum _cmsg_status_code_e
 {
     CMSG_STATUS_CODE_SUCCESS,
     CMSG_STATUS_CODE_SERVICE_FAILED,
-    CMSG_STATUS_CODE_TOO_MANY_PENDING
+    CMSG_STATUS_CODE_TOO_MANY_PENDING,
+    CMSG_STATUS_CODE_SERVICE_QUEUED,
 };
 
 enum _cmsg_error_code_e
@@ -111,5 +125,10 @@ cmsg_common_uint32_to_le (uint32_t le);
 
 void
 cmsg_buffer_print (void *buffer, unsigned int size);
+
+cmsg_header_request
+cmsg_request_header_create (uint32_t method_index,
+                            uint32_t packed_size,
+                            uint32_t request_id);
 
 #endif

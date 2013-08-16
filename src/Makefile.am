@@ -44,6 +44,7 @@ google/protobuf-c/protobuf-c-cmsg-transport.c \
 google/protobuf-c/protobuf-c-cmsg-transport-tipc.c \
 google/protobuf-c/protobuf-c-cmsg-transport-tcp.c \
 google/protobuf-c/protobuf-c-cmsg-transport-udt.c \
+google/protobuf-c/protobuf-c-cmsg-queue.c \
 google/protobuf-c/protobuf-c.c
 
 # ah, -no-undefined, goofball windows hack.
@@ -95,6 +96,7 @@ google/protobuf-c/protobuf-c-cmsg-sub.h \
 google/protobuf-c/protobuf-c-cmsg-pub.h \
 google/protobuf-c/protobuf-c-cmsg-sub-service.pb-c.h \
 google/protobuf-c/protobuf-c-cmsg-transport.h \
+google/protobuf-c/protobuf-c-cmsg-queue.h \
 google/protobuf-c/protobuf-c-rpc.h
 
 
