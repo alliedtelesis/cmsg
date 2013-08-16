@@ -129,9 +129,9 @@ cmsg_transport_tipc_listen (cmsg_server *server)
 int
 cmsg_transport_tipc_recv (void *handle, void *buff, int len, int flags)
 {
-    int sock = (int) handle;
+    int *sock = (int *) handle;
 
-    return recv (sock, buff, len, flags);
+    return recv (*sock, buff, len, flags);
 }
 
 
@@ -165,7 +165,7 @@ cmsg_transport_tipc_server_recv (int32_t socket, cmsg_server *server)
 
     DEBUG (CMSG_INFO, "[TRANSPORT] server->accecpted_client_socket %d\n", sock);
 
-    ret = cmsg_transport_server_recv (cmsg_transport_tipc_recv, (void *) sock, server);
+    ret = cmsg_transport_server_recv (cmsg_transport_tipc_recv, (void *) &sock, server);
 
     return ret;
 }
