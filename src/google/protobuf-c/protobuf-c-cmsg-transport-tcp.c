@@ -119,24 +119,43 @@ cmsg_transport_tcp_recv (void *handle, void *buff, int len, int flags)
 
 
 static int32_t
-cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server *server)
+cmsg_transport_tcp_server_recv (int32_t server_socket, cmsg_server *server)
+{
+    int32_t ret = 0;
+
+    if (!server || server_socket < 0)
+    {
+        DEBUG (CMSG_ERROR, "[TRANSPORT] error server/socket invalid\n");
+        return -1;
+    }
+
+    /* Remember the client socket to use when send reply */
+    server->connection.sockets.client_socket = server_socket;
+
+    ret = cmsg_transport_server_recv (cmsg_transport_tcp_recv, (void *) &server_socket, server);
+
+    return ret;
+}
+
+
+static int32_t
+cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
 {
     int32_t client_len;
     cmsg_transport client_transport;
     int sock;
     int32_t ret = 0;
 
-    if (!server || socket < 0)
+    if (!server || listen_socket < 0)
     {
         DEBUG (CMSG_ERROR, "[TRANSPORT] error server/socket invalid\n");
         return -1;
     }
 
     client_len = sizeof (client_transport.config.socket.sockaddr.in);
-    sock = accept (socket,
+    sock = accept (listen_socket,
                    (struct sockaddr *) &client_transport.config.socket.sockaddr.in,
                    &client_len);
-    server->connection.sockets.client_socket = sock;
 
     if (sock < 0)
     {
@@ -146,12 +165,9 @@ cmsg_transport_tcp_server_recv (int32_t socket, cmsg_server *server)
         return -1;
     }
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] server->accecpted_client_socket %d\n", sock);
-
-    ret = cmsg_transport_server_recv (cmsg_transport_tcp_recv, (void *) &sock, server);
-
-    return ret;
+    return sock;
 }
+
 
 static ProtobufCMessage *
 cmsg_transport_tcp_client_recv (cmsg_client *client)
@@ -380,6 +396,7 @@ cmsg_transport_tcp_init (cmsg_transport *transport)
 
     transport->connect = cmsg_transport_tcp_connect;
     transport->listen = cmsg_transport_tcp_listen;
+    transport->server_accept = cmsg_transport_tcp_server_accept;
     transport->server_recv = cmsg_transport_tcp_server_recv;
     transport->client_recv = cmsg_transport_tcp_client_recv;
     transport->client_send = cmsg_transport_tcp_client_send;
@@ -410,6 +427,7 @@ cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
 
     transport->connect = cmsg_transport_tcp_connect;
     transport->listen = cmsg_transport_tcp_listen;
+    transport->server_accept = cmsg_transport_tcp_server_accept;
     transport->server_recv = cmsg_transport_tcp_server_recv;
     transport->client_recv = cmsg_transport_tcp_client_recv;
     transport->client_send = cmsg_transport_tcp_client_send;

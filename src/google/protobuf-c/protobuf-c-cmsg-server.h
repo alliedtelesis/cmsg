@@ -55,6 +55,8 @@ cmsg_server_receive_poll (cmsg_server *server,
 int32_t
 cmsg_server_receive (cmsg_server *server,
                      int32_t      server_socket);
+int32_t cmsg_server_accept (cmsg_server *server,
+                            int32_t listen_socket);
 
 int32_t
 cmsg_server_message_processor (cmsg_server *server,

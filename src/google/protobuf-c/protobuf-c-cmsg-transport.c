@@ -197,18 +197,14 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     {
         //Normal socket shutdown case. Return other than TRANSPORT_OK to
         //have socket removed from select set.
-        ret = CMSG_RET_OK;
+        ret = CMSG_RET_ERR;
     }
     else
     {
-        //Error while peeking at socket data.
-        if (errno != ECONNRESET)
-        {
             DEBUG (CMSG_ERROR,
                    "[TRANSPORT] recv socket %d error: %s\n",
                    server->connection.sockets.client_socket, strerror (errno));
-        }
-        ret = CMSG_RET_OK;
+        ret = CMSG_RET_ERR;
     }
 
     return ret;

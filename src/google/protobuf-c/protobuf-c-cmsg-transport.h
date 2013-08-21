@@ -122,6 +122,7 @@ typedef int (*client_conect_f) (cmsg_client *client);
 typedef int (*server_listen_f) (cmsg_server *server);
 typedef int (*server_recv_f) (int32_t      socket,
                               cmsg_server *server);
+typedef int (*server_accept_f) (int32_t socket, cmsg_server *server);
 typedef ProtobufCMessage * (*client_recv_f) (cmsg_client *client);
 typedef int (*client_send_f) (cmsg_client *client,
                               void   *buff,
@@ -153,6 +154,7 @@ struct _cmsg_transport_s
     //transport function pointers
     client_conect_f    connect;        // client connect function
     server_listen_f    listen;         // server listen function
+    server_accept_f    server_accept;    // server accept
     server_recv_f      server_recv;    // server receive function
     client_recv_f      client_recv;    // receive function
     client_send_f      client_send;    // client send function

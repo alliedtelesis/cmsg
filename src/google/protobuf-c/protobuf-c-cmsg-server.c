@@ -89,6 +89,7 @@ cmsg_server_receive_poll (cmsg_server *server,
 {
     int ret = 0;
     struct pollfd poll_list[1];
+    int sock;
 
     CMSG_ASSERT (server);
 
@@ -108,8 +109,16 @@ cmsg_server_receive_poll (cmsg_server *server,
         return CMSG_RET_OK;
     }
 
+    sock = cmsg_server_accept (server, poll_list[0].fd);
+
     // there is something happening on the socket so receive it.
-    return cmsg_server_receive (server, poll_list[0].fd);
+    if (sock > 0)
+    {
+        cmsg_server_receive (server, sock);
+        server->_transport->server_close (server);
+    }
+
+    return 0;
 }
 
 
@@ -124,15 +133,15 @@ cmsg_server_receive_poll (cmsg_server *server,
  */
 int32_t
 cmsg_server_receive (cmsg_server *server,
-                     int32_t      server_socket)
+                     int32_t      socket)
 {
     int32_t ret = 0;
 
     CMSG_ASSERT (server);
     CMSG_ASSERT (server->_transport);
-    CMSG_ASSERT (server_socket > 0);
+    CMSG_ASSERT (socket > 0);
 
-    ret = server->_transport->server_recv (server_socket, server);
+    ret = server->_transport->server_recv (socket, server);
 
     if (ret < 0)
     {
@@ -141,6 +150,21 @@ cmsg_server_receive (cmsg_server *server,
     }
 
     return CMSG_RET_OK;
+}
+
+
+/* Accept an incoming socket from a client */
+int32_t
+cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
+{
+    int sock = 0;
+
+    if (server->_transport->server_accept != NULL)
+    {
+        sock = server->_transport->server_accept (listen_socket, server);
+    }
+
+    return sock;
 }
 
 
@@ -300,13 +324,10 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
                    "[SERVER] sending if response failed send:%d of %ld\n",
                    ret, packed_size + sizeof (header));
 
-        server->_transport->server_close (server);
-
         free (buffer);
         free (buffer_data);
     }
 
-    server->_transport->server_close (server);
     server_request->closure_response = 0;
 
     return;
@@ -325,8 +346,6 @@ cmsg_server_closure_oneway (const ProtobufCMessage *message,
     DEBUG (CMSG_INFO,
            "[SERVER] invoking oneway method=%d\n",
            server_request->method_index);
-
-    server->_transport->server_close (server);
 
     server_request->closure_response = 0;
 }

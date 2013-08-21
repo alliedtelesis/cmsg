@@ -42,6 +42,7 @@ cmsg_sub_subscribe_response_handler (const Cmsg__SubEntryResponse *response,
 int32_t
 cmsg_sub_server_receive (cmsg_sub *subscriber,
                          int32_t   server_socket);
+int32_t cmsg_sub_server_accept (cmsg_sub *subscriber, int32_t listen_socket);
 
 int32_t
 cmsg_sub_subscribe (cmsg_sub       *subscriber,

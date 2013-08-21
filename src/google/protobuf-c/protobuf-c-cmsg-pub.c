@@ -340,7 +340,7 @@ cmsg_pub_server_receive (cmsg_pub *publisher,
     if (ret < 0)
     {
         DEBUG (CMSG_ERROR, "[SERVER] server receive failed\n");
-        return 0;
+        return -1;
     }
 
     return ret;
