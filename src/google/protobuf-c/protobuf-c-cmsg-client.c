@@ -216,7 +216,7 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
     //todo: process response
     ProtobufCMessage *message = cmsg_client_response_receive (client);
 
-    client->state = CMSG_CLIENT_STATE_DESTROYED;
+    client->state = CMSG_CLIENT_STATE_CLOSED;
     client->_transport->client_close (client);
 
     free (buffer);
@@ -372,12 +372,13 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
             return;
         }
 
-        client->state = CMSG_CLIENT_STATE_DESTROYED;
+        client->state = CMSG_CLIENT_STATE_CLOSED;
         client->_transport->client_close (client);
     }
     else
     {
         //add to queue
+        client->state = CMSG_CLIENT_STATE_QUEUED;
 
         if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
         {
@@ -393,14 +394,16 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
 
             pthread_mutex_unlock (&publisher->queue_mutex);
 
-            //send signal
+            //send signal to  cmsg_pub_queue_process_all
             pthread_mutex_lock (&publisher->queue_process_mutex);
-            pthread_cond_signal (&publisher->queue_process_cond);
+            if (client->queue_process_count == 0)
+                pthread_cond_signal (&publisher->queue_process_cond);
+            publisher->queue_process_count = publisher->queue_process_count + 1;
             pthread_mutex_unlock (&publisher->queue_process_mutex);
 
 
             unsigned int queue_length = g_queue_get_length (publisher->queue);
-            DEBUG (CMSG_ERROR, "[PUBLISHER] queue length: %d\n", queue_length);
+            DEBUG (CMSG_INFO, "[PUBLISHER] queue length: %d\n", queue_length);
 
         }
         else if (client->parent.object_type == CMSG_OBJ_TYPE_NONE)
@@ -415,14 +418,15 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
 
             pthread_mutex_unlock (&client->queue_mutex);
 
-            //send signal
+            //send signal to cmsg_client_queue_process_all
             pthread_mutex_lock (&client->queue_process_mutex);
-            pthread_cond_signal (&client->queue_process_cond);
+            if (client->queue_process_count == 0)
+                pthread_cond_signal (&client->queue_process_cond);
+            client->queue_process_count = client->queue_process_count + 1;
             pthread_mutex_unlock (&client->queue_process_mutex);
 
             unsigned int queue_length = g_queue_get_length (client->queue);
-            DEBUG (CMSG_ERROR, "[CLIENT] queue length: %d\n", queue_length);
-
+            DEBUG (CMSG_INFO, "[CLIENT] queue length: %d\n", queue_length);
         }
     }
 
@@ -454,32 +458,29 @@ cmsg_client_queue_get_length (cmsg_client *client)
 
 
 int32_t
-cmsg_client_queue_process_one (cmsg_client *client)
-{
-    return cmsg_send_queue_process_one (client->queue, client->queue_mutex, client->descriptor, client);
-}
-
-
-int32_t
 cmsg_client_queue_process_all (cmsg_client *client)
 {
+    static struct timespec time_to_wait = {1, 0};
     uint32_t processed = 0;
+    cmsg_object obj;
+    obj.object_type = CMSG_OBJ_TYPE_CLIENT;
+    obj.object = client;
 
     //if the we run do api calls and processing in different threads wait
     //for a signal from the api thread to start processing
     if (! (client->self_thread_id == pthread_self ()))
     {
         pthread_mutex_lock (&client->queue_process_mutex);
-        pthread_cond_wait (&client->queue_process_cond, &client->queue_process_mutex);
+        while (client->queue_process_count == 0)
+            pthread_cond_timedwait (&client->queue_process_cond, &client->queue_process_mutex, &time_to_wait);
+
+        processed = cmsg_send_queue_process_all (obj);
+        client->queue_process_count = client->queue_process_count - 1;
         pthread_mutex_unlock (&client->queue_process_mutex);
 
-        while (processed <= 0)
-        {
-            processed = cmsg_send_queue_process_all (client->queue, client->queue_mutex, client->descriptor, client);
-        }
     }
     else
-        processed = cmsg_send_queue_process_all (client->queue, client->queue_mutex, client->descriptor, client);
+        processed = cmsg_send_queue_process_all (obj);
 
     return processed;
 }

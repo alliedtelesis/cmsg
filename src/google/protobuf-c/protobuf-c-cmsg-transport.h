@@ -167,6 +167,9 @@ struct _cmsg_transport_s
     c_get_socket_f     c_socket;       //
     server_destroy_f   server_destroy; // Server destroy function
     client_destroy_f   client_destroy; // Client destroy function
+
+    //transport statistics
+    uint32_t client_send_tries;
 };
 
 cmsg_transport *

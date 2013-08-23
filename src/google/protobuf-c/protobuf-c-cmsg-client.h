@@ -19,13 +19,11 @@ typedef struct _cmsg_client_s              cmsg_client;
 
 enum _cmsg_client_state_e
 {
-    CMSG_CLIENT_STATE_INIT,
-    CMSG_CLIENT_STATE_NAME_LOOKUP,
-    CMSG_CLIENT_STATE_CONNECTING,
-    CMSG_CLIENT_STATE_CONNECTED,
-    CMSG_CLIENT_STATE_FAILED_WAITING,
-    CMSG_CLIENT_STATE_FAILED,
-    CMSG_CLIENT_STATE_DESTROYED
+    CMSG_CLIENT_STATE_INIT,         //after creating a new client
+    CMSG_CLIENT_STATE_CONNECTED,    //after succesful connect
+    CMSG_CLIENT_STATE_FAILED,       //after unsuccessful connect (todo: or unsuccessful send)
+    CMSG_CLIENT_STATE_CLOSED,       //after successful send
+    CMSG_CLIENT_STATE_QUEUED,       //after successful adding a packet to the queue
 };
 
 struct _cmsg_client_s
@@ -61,6 +59,7 @@ struct _cmsg_client_s
     //thread signaling for queuing
     pthread_cond_t      queue_process_cond;
     pthread_mutex_t     queue_process_mutex;
+    uint32_t            queue_process_count;
     pthread_t           self_thread_id;
 };
 
@@ -102,8 +101,6 @@ cmsg_client_queue_disable (cmsg_client *client);
 unsigned int
 cmsg_client_queue_get_length (cmsg_client *client);
 
-int32_t
-cmsg_client_queue_process_one (cmsg_client *client);
 
 int32_t
 cmsg_client_queue_process_all (cmsg_client *client);

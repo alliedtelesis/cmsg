@@ -39,16 +39,7 @@ cmsg_queue_get_length (GQueue *queue);
 
 
 int32_t
-cmsg_send_queue_process_one (GQueue *queue,
-                             pthread_mutex_t queue_mutex,
-                             const ProtobufCServiceDescriptor *descriptor,
-                             cmsg_client *client);
-
-int32_t
-cmsg_send_client_process_all (GQueue *queue,
-                              pthread_mutex_t queue_mutex,
-                              const ProtobufCServiceDescriptor *descriptor,
-                              cmsg_client *client);
+cmsg_send_client_process_all (cmsg_object obj);
 
 int32_t
 cmsg_send_queue_push (GQueue *queue,
@@ -58,6 +49,10 @@ cmsg_send_queue_push (GQueue *queue,
 
 void
 cmsg_send_queue_free_all (GQueue *queue);
+
+void
+cmsg_send_queue_free_all_by_transport (GQueue *queue,
+                                       cmsg_transport *transport);
 
 guint
 cmsg_queue_filter_hash_function (gconstpointer key);

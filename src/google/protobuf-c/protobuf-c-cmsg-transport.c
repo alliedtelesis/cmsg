@@ -43,6 +43,8 @@ cmsg_transport_new (cmsg_transport_type type)
             transport = 0;
     }
 
+    transport->client_send_tries = 0;
+
     return transport;
 }
 

@@ -40,6 +40,14 @@ int32_t
 cmsg_sub_entry_compare (cmsg_sub_entry *one,
                         cmsg_sub_entry *two);
 
+int32_t
+cmsg_sub_entry_compare_transport (cmsg_sub_entry *one,
+                                  cmsg_transport *transport);
+
+int32_t
+cmsg_transport_compare (cmsg_transport *one,
+                        cmsg_transport *two);
+
 struct _cmsg_pub_s
 {
     //this is a hack to get around a check when a client method is called
@@ -54,6 +62,7 @@ struct _cmsg_pub_s
     cmsg_server *sub_server;  //registering subscriber
     const ProtobufCServiceDescriptor *registration_notify_client_service; //for calling notification methods in notify
     GList *subscriber_list;
+    pthread_mutex_t     subscriber_list_mutex;
     uint32_t subscriber_count;
     cmsg_publisher_request *publisher_request;
 
@@ -68,6 +77,7 @@ struct _cmsg_pub_s
     //thread signaling for queuing
     pthread_cond_t      queue_process_cond;
     pthread_mutex_t     queue_process_mutex;
+    uint32_t            queue_process_count;
     pthread_t           self_thread_id;
 };
 
@@ -89,6 +99,11 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
 int32_t
 cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
                             cmsg_sub_entry *entry);
+
+int32_t
+cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub       *publisher,
+                                               cmsg_transport *transport);
+
 int32_t
 cmsg_publisher_receive_poll (cmsg_pub *publisher,
                              int32_t timeout_ms);
@@ -127,9 +142,6 @@ cmsg_pub_queue_disable (cmsg_pub *publisher);
 
 unsigned int
 cmsg_pub_queue_get_length (cmsg_pub *publisher);
-
-int32_t
-cmsg_pub_queue_process_one (cmsg_pub *publisher);
 
 int32_t
 cmsg_pub_queue_process_all (cmsg_pub *publisher);

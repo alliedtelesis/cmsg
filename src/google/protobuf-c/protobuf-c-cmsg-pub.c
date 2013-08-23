@@ -31,6 +31,72 @@ cmsg_sub_entry_compare (cmsg_sub_entry *one,
     return 0;
 }
 
+int32_t
+cmsg_sub_entry_compare_transport (cmsg_sub_entry *one,
+                                  cmsg_transport *transport)
+{
+    CMSG_ASSERT (one);
+    CMSG_ASSERT (transport);
+
+    if ((one->transport.config.socket.family == transport->config.socket.family) &&
+        (one->transport.type == transport->type) &&
+        (one->transport.config.socket.sockaddr.in.sin_addr.s_addr ==
+         transport->config.socket.sockaddr.in.sin_addr.s_addr) &&
+        (one->transport.config.socket.sockaddr.in.sin_port ==
+         transport->config.socket.sockaddr.in.sin_port) &&
+        (one->transport.config.socket.family == transport->config.socket.family) &&
+        (one->transport.type == transport->type) &&
+        (one->transport.config.socket.sockaddr.tipc.family ==
+         transport->config.socket.sockaddr.tipc.family) &&
+        (one->transport.config.socket.sockaddr.tipc.addrtype ==
+         transport->config.socket.sockaddr.tipc.addrtype) &&
+        (one->transport.config.socket.sockaddr.tipc.addr.name.domain ==
+         transport->config.socket.sockaddr.tipc.addr.name.domain) &&
+        (one->transport.config.socket.sockaddr.tipc.addr.name.name.instance ==
+         transport->config.socket.sockaddr.tipc.addr.name.name.instance) &&
+        (one->transport.config.socket.sockaddr.tipc.addr.name.name.type ==
+         transport->config.socket.sockaddr.tipc.addr.name.name.type) &&
+        (one->transport.config.socket.sockaddr.tipc.scope ==
+         transport->config.socket.sockaddr.tipc.scope))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+int32_t
+cmsg_transport_compare (cmsg_transport *one,
+                        cmsg_transport *two)
+{
+    CMSG_ASSERT (one);
+    CMSG_ASSERT (two);
+
+    if ((one->config.socket.family == two->config.socket.family) &&
+        (one->type == two->type) &&
+        (one->config.socket.sockaddr.in.sin_addr.s_addr ==
+         two->config.socket.sockaddr.in.sin_addr.s_addr) &&
+        (one->config.socket.sockaddr.in.sin_port ==
+         two->config.socket.sockaddr.in.sin_port) &&
+        (one->config.socket.family == two->config.socket.family) &&
+        (one->type == two->type) &&
+        (one->config.socket.sockaddr.tipc.family ==
+         two->config.socket.sockaddr.tipc.family) &&
+        (one->config.socket.sockaddr.tipc.addrtype ==
+         two->config.socket.sockaddr.tipc.addrtype) &&
+        (one->config.socket.sockaddr.tipc.addr.name.domain ==
+         two->config.socket.sockaddr.tipc.addr.name.domain) &&
+        (one->config.socket.sockaddr.tipc.addr.name.name.instance ==
+         two->config.socket.sockaddr.tipc.addr.name.name.instance) &&
+        (one->config.socket.sockaddr.tipc.addr.name.name.type ==
+         two->config.socket.sockaddr.tipc.addr.name.name.type) &&
+        (one->config.socket.sockaddr.tipc.scope == two->config.socket.sockaddr.tipc.scope))
+    {
+        return 1;
+    }
+
+    return 0;
+}
 
 cmsg_pub *
 cmsg_pub_new (cmsg_transport                   *sub_server_transport,
@@ -91,6 +157,12 @@ cmsg_pub_new (cmsg_transport                   *sub_server_transport,
         return 0;
     }
 
+    if (pthread_mutex_init (&publisher->subscriber_list_mutex, NULL) != 0)
+    {
+        DEBUG (CMSG_ERROR, "[PUBLISHER] error: subscriber_list_mutex init failed\n");
+        return 0;
+    }
+
     publisher->self_thread_id = pthread_self ();
 
     cmsg_pub_queue_filter_init (publisher);
@@ -132,6 +204,8 @@ cmsg_pub_destroy (cmsg_pub *publisher)
 
     pthread_cond_destroy (&publisher->queue_process_cond);
 
+    pthread_mutex_destroy (&publisher->subscriber_list_mutex);
+
     free (publisher);
 
     return;
@@ -159,6 +233,8 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
 
     int add = 1;
 
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
@@ -180,23 +256,11 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
         if (!list_entry)
         {
             syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] error: unable to create list entry. line(%d)\n", __LINE__);
+            pthread_mutex_unlock (&publisher->subscriber_list_mutex);
             return CMSG_RET_ERR;
         }
         strcpy (list_entry->method_name, entry->method_name);
-
-        list_entry->transport.config.socket.family = entry->transport.config.socket.family;
-        list_entry->transport.type = entry->transport.type;
-        list_entry->transport.config.socket.sockaddr.in.sin_addr.s_addr = entry->transport.config.socket.sockaddr.in.sin_addr.s_addr;
-        list_entry->transport.config.socket.sockaddr.in.sin_port = entry->transport.config.socket.sockaddr.in.sin_port;
-
-        list_entry->transport.config.socket.family = entry->transport.config.socket.family;
-        list_entry->transport.type = entry->transport.type;
-        list_entry->transport.config.socket.sockaddr.tipc.family = entry->transport.config.socket.sockaddr.tipc.family;
-        list_entry->transport.config.socket.sockaddr.tipc.addrtype = entry->transport.config.socket.sockaddr.tipc.addrtype;
-        list_entry->transport.config.socket.sockaddr.tipc.addr.name.domain = entry->transport.config.socket.sockaddr.tipc.addr.name.domain;
-        list_entry->transport.config.socket.sockaddr.tipc.addr.name.name.instance = entry->transport.config.socket.sockaddr.tipc.addr.name.name.instance;
-        list_entry->transport.config.socket.sockaddr.tipc.addr.name.name.type = entry->transport.config.socket.sockaddr.tipc.addr.name.name.type;
-        list_entry->transport.config.socket.sockaddr.tipc.scope = entry->transport.config.socket.sockaddr.tipc.scope;
+        list_entry->transport = entry->transport;
 
         publisher->subscriber_list = g_list_append (publisher->subscriber_list, list_entry);
 
@@ -218,6 +282,8 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
     }
 #endif
 
+    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
+
     return CMSG_RET_OK;
 }
 
@@ -232,11 +298,13 @@ cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
     DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
     DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
 
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *)subscriber_list->data;
-        if (cmsg_sub_entry_compare (entry, list_entry))
+        if (cmsg_sub_entry_compare (list_entry, entry))
         {
             DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
             publisher->subscriber_list = g_list_remove (publisher->subscriber_list, list_entry);
@@ -264,6 +332,58 @@ cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
         print_subscriber_list = g_list_next (print_subscriber_list);
     }
 #endif
+
+    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
+
+    return CMSG_RET_OK;
+}
+
+int32_t
+cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub       *publisher,
+                                               cmsg_transport *transport)
+{
+    CMSG_ASSERT (publisher);
+    CMSG_ASSERT (transport);
+
+    DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
+    DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
+
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
+    GList *subscriber_list = g_list_first (publisher->subscriber_list);
+    while (subscriber_list)
+    {
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *)subscriber_list->data;
+        if (cmsg_sub_entry_compare_transport (list_entry, transport))
+        {
+            DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
+            syslog (LOG_CRIT | LOG_LOCAL6, "[PUB LIST] deleting entry for %s\n", list_entry->method_name);
+            publisher->subscriber_list = g_list_remove (publisher->subscriber_list, list_entry);
+            g_free (list_entry);
+            publisher->subscriber_count--;
+        }
+        else
+        {
+            DEBUG (CMSG_INFO, "[PUB] [LIST] entry not found, nothing to delete\n");
+        }
+        subscriber_list = g_list_next (subscriber_list);
+    }
+
+#ifndef CMSG_DISABLED
+    DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
+    GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
+    while (print_subscriber_list != NULL)
+    {
+        cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *)print_subscriber_list->data;
+        DEBUG (CMSG_INFO,
+               "[PUB] [LIST] print_list_entry->method_name: %s\n",
+               print_list_entry->method_name);
+
+        print_subscriber_list = g_list_next (print_subscriber_list);
+    }
+#endif
+
+    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 
     return CMSG_RET_OK;
 }
@@ -310,6 +430,8 @@ cmsg_publisher_receive_poll (cmsg_pub *publisher,
 void
 cmsg_pub_subscriber_remove_all (cmsg_pub *publisher)
 {
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
@@ -319,6 +441,8 @@ cmsg_pub_subscriber_remove_all (cmsg_pub *publisher)
 
         subscriber_list = g_list_first (publisher->subscriber_list);
     }
+
+    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 }
 
 
@@ -406,6 +530,8 @@ cmsg_pub_invoke (ProtobufCService       *service,
                  ProtobufCClosure        closure,
                  void                   *closure_data)
 {
+    int tries = CMSG_TRANSPORT_CLIENT_SEND_TRIES;
+    int remove_entry = 0;
     cmsg_pub *publisher = (cmsg_pub *)service;
 
     CMSG_ASSERT (service);
@@ -436,6 +562,7 @@ cmsg_pub_invoke (ProtobufCService       *service,
     }
 
     //for each entry in pub->subscriber_entry
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
@@ -476,8 +603,6 @@ cmsg_pub_invoke (ProtobufCService       *service,
 
         cmsg_client *client = cmsg_client_new (&list_entry->transport, publisher->descriptor);
 
-
-
         if (action == CMSG_QUEUE_FILTER_PROCESS)
         {
             //dont queue, process directly
@@ -487,33 +612,68 @@ cmsg_pub_invoke (ProtobufCService       *service,
         {
             //tell client to queue
             client->queue_enabled_from_parent = 1;
+            tries = 1;
         }
         else //global queue settings
         {
             DEBUG (CMSG_ERROR, "[PUB] error: queue filter action: %d wrong\n", action);
+            pthread_mutex_unlock (&publisher->subscriber_list_mutex);
             return;
         }
-
 
         //pass parent to client for queueing using correct queue
         client->parent = publisher->self;
 
-        cmsg_client_invoke_oneway ((ProtobufCService *)client,
-                                   method_index,
-                                   input,
-                                   closure,
-                                   closure_data);
-
-        if (client->state == CMSG_CLIENT_STATE_FAILED)
+        int c = 0;
+        for (c = 0; c <= tries; c++)
         {
-            DEBUG (CMSG_WARN, "[PUB] warning subscriber not reachable, removing from list\n");
-            cmsg_pub_subscriber_remove (publisher, list_entry);
+            cmsg_client_invoke_oneway ((ProtobufCService *)client,
+                                       method_index,
+                                       input,
+                                       closure,
+                                       closure_data);
+
+            if (client->state == CMSG_CLIENT_STATE_FAILED)
+            {
+                if (list_entry->transport.client_send_tries >= CMSG_TRANSPORT_CLIENT_SEND_TRIES)
+                {
+
+                    // error: subscriber not reachable after 10 tries, removing subscriber from list
+                    remove_entry = 1;
+                }
+
+                list_entry->transport.client_send_tries++;
+                // couldn't sent retry
+            }
+            else if (client->state == CMSG_CLIENT_STATE_CLOSED)
+            {
+                // sent successful after %d tries
+                list_entry->transport.client_send_tries = 0;
+                break;
+            }
+            else if (client->state == CMSG_CLIENT_STATE_QUEUED)
+            {
+                // message queued successful
+                list_entry->transport.client_send_tries = 0;
+                break;
+            }
+            else
+            {
+                syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] error: unknown client->state=%d\n", client->state);
+            }
         }
 
         cmsg_client_destroy (client);
 
+        if (remove_entry)
+        {
+            cmsg_pub_subscriber_remove (publisher, list_entry);
+            remove_entry = 0;
+        }
+
         subscriber_list = g_list_next (subscriber_list);
     }
+    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
     return;
 }
 
@@ -607,32 +767,29 @@ cmsg_pub_queue_get_length (cmsg_pub *publisher)
 }
 
 int32_t
-cmsg_pub_queue_process_one (cmsg_pub *publisher)
-{
-    return cmsg_send_queue_process_one (publisher->queue, publisher->queue_mutex, publisher->descriptor, NULL);
-}
-
-
-int32_t
 cmsg_pub_queue_process_all (cmsg_pub *publisher)
 {
+    struct timespec time_to_wait = {1, 0};
     uint32_t processed = 0;
+    cmsg_object obj;
+    obj.object_type = CMSG_OBJ_TYPE_PUB;
+    obj.object = publisher;
 
     //if the we run do api calls and processing in different threads wait
     //for a signal from the api thread to start processing
     if (! (publisher->self_thread_id == pthread_self ()))
     {
         pthread_mutex_lock (&publisher->queue_process_mutex);
-        pthread_cond_wait (&publisher->queue_process_cond, &publisher->queue_process_mutex);
+        while (publisher->queue_process_count == 0)
+            pthread_cond_timedwait (&publisher->queue_process_cond, &publisher->queue_process_mutex, &time_to_wait);
+
+        publisher->queue_process_count = publisher->queue_process_count - 1;
         pthread_mutex_unlock (&publisher->queue_process_mutex);
 
-        while (processed <= 0)
-        {
-            processed = cmsg_send_queue_process_all (publisher->queue, publisher->queue_mutex, publisher->descriptor, NULL);
-        }
+        processed = cmsg_send_queue_process_all (obj);
     }
     else
-        processed = cmsg_send_queue_process_all (publisher->queue, publisher->queue_mutex, publisher->descriptor, NULL);
+        processed = cmsg_send_queue_process_all (obj);
 
     return processed;
 }

@@ -26,6 +26,16 @@ cmsg_transport_tipc_connect (cmsg_client *client)
         return 0;
     }
 
+    if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
+    {
+        int tipc_timeout = CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT;
+        setsockopt (client->connection.socket,
+                    SOL_TIPC,
+                    TIPC_CONN_TIMEOUT,
+                    &tipc_timeout,
+                    sizeof (int));
+    }
+
     if (connect (client->connection.socket,
                  (struct sockaddr *)&client->_transport->config.socket.sockaddr.tipc,
                  sizeof (client->_transport->config.socket.sockaddr.tipc)) < 0)
