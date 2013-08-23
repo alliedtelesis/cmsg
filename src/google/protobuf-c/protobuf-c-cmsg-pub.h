@@ -106,7 +106,9 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub       *publisher,
 
 int32_t
 cmsg_publisher_receive_poll (cmsg_pub *publisher,
-                             int32_t timeout_ms);
+                             int32_t timeout_ms,
+                             fd_set *master_fdset,
+                             int *fdmax);
 
 void
 cmsg_pub_subscriber_remove_all (cmsg_pub *publisher);

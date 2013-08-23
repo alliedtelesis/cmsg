@@ -399,31 +399,14 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub       *publisher,
  */
 int32_t
 cmsg_publisher_receive_poll (cmsg_pub *publisher,
-                             int32_t timeout_ms)
+                             int32_t timeout_ms,
+                             fd_set *master_fdset,
+                             int *fdmax)
 {
-    int ret = 0;
-    struct pollfd poll_list[1];
-
     CMSG_ASSERT (publisher);
 
-    poll_list[0].fd = cmsg_pub_get_server_socket (publisher);
-    poll_list[0].events = POLLIN;
-
-    ret = poll (poll_list, (unsigned long)1, timeout_ms /* milliseconds */);
-
-    if (ret == -1)
-    {
-        DEBUG (CMSG_ERROR, "[SERVER] poll error occurred: %s ", strerror (errno));
-        return CMSG_RET_ERR;
-    }
-    else if (ret == 0)
-    {
-        // poll timed out, so func success but nothing received, early return
-        return CMSG_RET_OK;
-    }
-
-    // there is something happening on the socket so receive it.
-    return cmsg_pub_server_receive (publisher, poll_list[0].fd);
+    return cmsg_server_receive_poll (publisher->sub_server, timeout_ms,
+                                     master_fdset, fdmax);
 }
 
 

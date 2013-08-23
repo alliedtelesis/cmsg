@@ -77,27 +77,33 @@ cmsg_server_get_socket (cmsg_server *server)
 /**
  * cmsg_server_receive_poll
  *
- * Calls the transport receive function.
- * The expectation of the transport receive function is that it will return
- * <0 on failure & 0=< on success.
- *
+ * Wait for any data on a list of sockets or until timeout expires.
+ * Timeout is specified in 'timeout_ms' (0: return immediately,
+ * negative number: no timeout).
  * On success returns 0, failure returns -1.
  */
 int32_t
 cmsg_server_receive_poll (cmsg_server *server,
-                          int32_t timeout_ms)
+                          int32_t timeout_ms,
+                          fd_set *master_fdset,
+                          int *fdmax)
 {
     int ret = 0;
     struct pollfd poll_list[1];
     int sock;
+    fd_set read_fds = *master_fdset;
+    int nfds = *fdmax;
+    struct timeval timeout = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
+    int fd;
+    int newfd;
+    int check_fdmax = FALSE;
+    int listen_socket;
 
     CMSG_ASSERT (server);
 
-    poll_list[0].fd = cmsg_server_get_socket (server);
-    poll_list[0].events = POLLIN;
+    listen_socket = cmsg_server_get_socket (server);
 
-    ret = poll (poll_list, (unsigned long)1, timeout_ms /* milliseconds */);
-
+    ret = select (nfds + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
     if (ret == -1)
     {
         DEBUG (CMSG_ERROR, "[SERVER] poll error occurred: %s ", strerror (errno));
@@ -105,20 +111,49 @@ cmsg_server_receive_poll (cmsg_server *server,
     }
     else if (ret == 0)
     {
-        // poll timed out, so func success but nothing received, early return
+        // timed out, so func success but nothing received, early return
         return CMSG_RET_OK;
     }
 
-    sock = cmsg_server_accept (server, poll_list[0].fd);
-
-    // there is something happening on the socket so receive it.
-    if (sock > 0)
+    // run through the existing connections looking for data to read
+    for (fd = 0; fd <= nfds; fd++)
     {
-        cmsg_server_receive (server, sock);
-        server->_transport->server_close (server);
+        if (FD_ISSET (fd, &read_fds))
+        {
+            if (fd == listen_socket)
+            {
+                newfd = cmsg_server_accept (server, fd);
+                if (newfd >= 0)
+                {
+                    FD_SET (newfd, master_fdset);
+                    *fdmax = MAX (newfd, *fdmax);
+                }
+            }
+            else
+            {
+                // there is something happening on the socket so receive it.
+                cmsg_server_receive (server, fd);
+                server->_transport->server_close (server);
+                FD_CLR (fd, master_fdset);
+                check_fdmax = TRUE;
+            }
+        }
     }
 
-    return 0;
+    // Check the largest file descriptor
+    if (check_fdmax)
+    {
+        for (fd = *fdmax; fd >= 0; fd--)
+        {
+            if (FD_ISSET (fd, master_fdset))
+            {
+                *fdmax = fd;
+                break;
+            }
+        }
+    }
+
+    return CMSG_RET_OK;
 }
 
 
