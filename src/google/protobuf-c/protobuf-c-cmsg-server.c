@@ -50,7 +50,7 @@ void
 cmsg_server_destroy (cmsg_server *server)
 {
     CMSG_ASSERT (server);
-    CMSG_ASSERT (server->transport);
+    CMSG_ASSERT (server->_transport);
 
     server->_transport->server_destroy (server);
 
@@ -208,7 +208,7 @@ cmsg_server_message_processor (cmsg_server *server,
                                uint8_t     *buffer_data)
 {
     CMSG_ASSERT (server);
-    CMSG_ASSERT (server->transport);
+    CMSG_ASSERT (server->_transport);
     CMSG_ASSERT (server->service);
     CMSG_ASSERT (server->service->descriptor);
     CMSG_ASSERT (server->server_request);
@@ -273,7 +273,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message,
     cmsg_server *server = (cmsg_server *)closure_data;
 
     CMSG_ASSERT (server);
-    CMSG_ASSERT (server->transport);
+    CMSG_ASSERT (server->_transport);
     CMSG_ASSERT (server->server_request);
 
     cmsg_server_request *server_request = server->server_request;

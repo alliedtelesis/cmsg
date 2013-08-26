@@ -168,7 +168,8 @@ cmsg_transport_cpg_client_connect (cmsg_client *client)
         /* CPG handle hasn't been created yet.
          */
         client->state = CMSG_CLIENT_STATE_FAILED;
-        DEBUG (CMSG_ERROR, "[TRANSPORT] Couldn't find matching handle for group %s\n", client->transport->config.cpg.group_name.value);
+        DEBUG (CMSG_ERROR, "[TRANSPORT] Couldn't find matching handle for group %s\n",
+               client->_transport->config.cpg.group_name.value);
         return -1;
     }
 
@@ -383,7 +384,7 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
     {
         DEBUG (CMSG_ERROR,
                "[TRANSPORT] CPG Client is not connected prior to attempting to send to group %s\n",
-               client->transport->config.cpg.group_name.value);
+               client->_transport->config.cpg.group_name.value);
         return -1;
     }
 

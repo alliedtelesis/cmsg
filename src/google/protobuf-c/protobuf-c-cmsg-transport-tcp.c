@@ -102,7 +102,7 @@ cmsg_transport_tcp_listen (cmsg_server *server)
 
     DEBUG (CMSG_INFO,
            "[TRANSPORT] listening on port: %d\n",
-           (int) (ntohs (server->transport->config.socket.sockaddr.in.sin_port)));
+           (int) (ntohs (server->_transport->config.socket.sockaddr.in.sin_port)));
 
     return 0;
 }

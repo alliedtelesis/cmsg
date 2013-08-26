@@ -117,19 +117,19 @@ cmsg_transport_tipc_listen (cmsg_server *server)
 
     DEBUG (CMSG_INFO,
            "[TRANSPORT] listening on tipc type: %d\n",
-           server->transport->config.socket.sockaddr.tipc.addr.name.name.type);
+           server->_transport->config.socket.sockaddr.tipc.addr.name.name.type);
 
     DEBUG (CMSG_INFO,
            "[TRANSPORT] listening on tipc instance: %d\n",
-           server->transport->config.socket.sockaddr.tipc.addr.name.name.instance);
+           server->_transport->config.socket.sockaddr.tipc.addr.name.name.instance);
 
     DEBUG (CMSG_INFO,
            "[TRANSPORT] listening on tipc domain: %d\n",
-           server->transport->config.socket.sockaddr.tipc.addr.name.domain);
+           server->_transport->config.socket.sockaddr.tipc.addr.name.domain);
 
     DEBUG (CMSG_INFO,
            "[TRANSPORT] listening on tipc scope: %d\n",
-           server->transport->config.socket.sockaddr.tipc.scope);
+           server->_transport->config.socket.sockaddr.tipc.scope);
 
     return 0;
 }

@@ -458,7 +458,7 @@ cmsg_pub_message_processor (cmsg_server *server,
                             uint8_t     *buffer_data)
 {
     CMSG_ASSERT (server);
-    CMSG_ASSERT (server->transport);
+    CMSG_ASSERT (server->_transport);
     CMSG_ASSERT (server->service);
     CMSG_ASSERT (server->service->descriptor);
     CMSG_ASSERT (server->server_request);

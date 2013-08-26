@@ -94,7 +94,7 @@ ProtobufCMessage *
 cmsg_client_response_receive (cmsg_client *client)
 {
     CMSG_ASSERT (client);
-    CMSG_ASSERT (client->transport);
+    CMSG_ASSERT (client->_transport);
 
     return (client->_transport->client_recv (client));
 }

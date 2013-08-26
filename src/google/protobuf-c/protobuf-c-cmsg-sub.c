@@ -100,7 +100,7 @@ cmsg_sub_subscribe (cmsg_sub       *subscriber,
 {
     CMSG_ASSERT (subscriber);
     CMSG_ASSERT (subscriber->pub_server);
-    CMSG_ASSERT (subscriber->pub_server->transport);
+    CMSG_ASSERT (subscriber->pub_server->_transport);
     CMSG_ASSERT (sub_client_transport);
     CMSG_ASSERT (method_name);
 
@@ -140,7 +140,7 @@ cmsg_sub_subscribe (cmsg_sub       *subscriber,
     {
         DEBUG (CMSG_ERROR,
                "[SUB] error cmsg_sub_subscribe transport incorrect: %d\n",
-               subscriber->pub_server->transport->type);
+               subscriber->pub_server->_transport->type);
 
         return CMSG_RET_ERR;
     }
@@ -176,7 +176,7 @@ cmsg_sub_unsubscribe (cmsg_sub       *subscriber,
 
     CMSG_ASSERT (subscriber);
     CMSG_ASSERT (subscriber->pub_server);
-    CMSG_ASSERT (subscriber->pub_server->transport);
+    CMSG_ASSERT (subscriber->pub_server->_transport);
     CMSG_ASSERT (sub_client_transport);
     CMSG_ASSERT (method_name);
 
@@ -212,7 +212,7 @@ cmsg_sub_unsubscribe (cmsg_sub       *subscriber,
     {
         DEBUG (CMSG_ERROR,
                "[SUB] error: cmsg_sub_subscribe transport incorrect: %d\n",
-               subscriber->pub_server->transport->type);
+               subscriber->pub_server->_transport->type);
 
         return CMSG_RET_ERR;
     }
