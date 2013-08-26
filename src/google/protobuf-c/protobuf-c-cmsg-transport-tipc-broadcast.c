@@ -59,9 +59,9 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
 
     //TODO: stk_tipc.c adds the addressing information here
 
-    addrlen  = sizeof (transport->config.socket.sockaddr.generic);
+    addrlen  = sizeof (transport->config.socket.sockaddr.tipc);
     /* bind the socket address (publishes the TIPC port name) */
-    if (bind (listening_socket, &transport->config.socket.sockaddr.generic, addrlen) != 0)
+    if (bind (listening_socket, &transport->config.socket.sockaddr.tipc, addrlen) != 0)
     {
         DEBUG (CMSG_ERROR, "[TRANSPORT] TIPC port could not be created\n");
         return -1;
