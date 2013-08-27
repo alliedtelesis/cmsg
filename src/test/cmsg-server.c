@@ -23,7 +23,7 @@ static protobuf_c_boolean starts_with (const char *str, const char *prefix)
   return memcmp (str, prefix, strlen (prefix)) == 0;
 }
 
-int
+void
 my_package_my_service_impl_Ping(const void *service, int32_t random, int32_t randomm)
 {
   int code;
@@ -35,11 +35,9 @@ my_package_my_service_impl_Ping(const void *service, int32_t random, int32_t ran
   printf("[SERVER]: %s : send code=%d, value=%d\n", __func__, code, value);
   
   my_package_my_service_server_PingSend(service, code, value);
-  
-  return 0;
 }
 
-int
+void
 my_package_my_service_impl_SetPriority(const void *service, int32_t port, int32_t priority)
 {
   static int status = 0;
@@ -49,8 +47,6 @@ my_package_my_service_impl_SetPriority(const void *service, int32_t port, int32_
   printf("[SERVER]: %s : port=%d, priority=%d --> send status=%d\n", __func__, port, priority, status);
 
   my_package_my_service_server_SetPrioritySend(service, status);
-
-  return 0;
 }
 
 

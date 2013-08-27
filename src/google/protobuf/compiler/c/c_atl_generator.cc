@@ -860,7 +860,7 @@ void AtlCodeGenerator::GenerateAtlServerImplDefinition(const MethodDescriptor &m
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "int $lcfullname$_impl_$method$(const void *_service");
+  printer->Print(vars_, "void $lcfullname$_impl_$method$(const void *_service");
   if (method.input_type()->field_count() > 0)
   {
     printer->Print(", ");
