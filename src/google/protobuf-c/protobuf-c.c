@@ -391,13 +391,13 @@ required_field_get_packed_size (const ProtobufCFieldDescriptor *field,
         return rv + uint32_size (subrv) + subrv;
       }
     case PROTOBUF_C_TYPE_INT8:
-      return rv + uint32_size (*(const uint32_t *) member);
+      return rv + int32_size (*(const int8_t *) member);
     case PROTOBUF_C_TYPE_UINT8:
-      return rv + uint32_size (*(const uint32_t *) member);
+      return rv + uint32_size (*(const uint8_t *) member);
     case PROTOBUF_C_TYPE_INT16:
-      return rv + uint32_size (*(const uint32_t *) member);
+      return rv + int32_size (*(const int16_t *) member);
     case PROTOBUF_C_TYPE_UINT16:
-      return rv + uint32_size (*(const uint32_t *) member);
+      return rv + uint32_size (*(const uint16_t *) member);
     }
   PROTOBUF_C_ASSERT_NOT_REACHED ();
   return 0;
@@ -505,11 +505,20 @@ repeated_field_get_packed_size (const ProtobufCFieldDescriptor *field,
       break;
     //case PROTOBUF_C_TYPE_GROUP:          // NOT SUPPORTED
     case PROTOBUF_C_TYPE_INT8:
+      for (i = 0; i < count; i++)
+        rv += int32_size (((int8_t *)array)[i]);
+      break;
     case PROTOBUF_C_TYPE_UINT8:
+      for (i = 0; i < count; i++)
+        rv += uint32_size (((uint8_t *)array)[i]);
+      break;
     case PROTOBUF_C_TYPE_INT16:
+      for (i = 0; i < count; i++)
+        rv += int32_size (((int16_t *)array)[i]);
+      break;
     case PROTOBUF_C_TYPE_UINT16:
       for (i = 0; i < count; i++)
-        rv += int32_size (((uint32_t*)array)[i]);
+        rv += uint32_size (((uint16_t *)array)[i]);
       break;
     }
   if (field->packed)
@@ -820,13 +829,17 @@ required_field_pack (const ProtobufCFieldDescriptor *field,
                                            out + rv);
       }
     case PROTOBUF_C_TYPE_INT8:
+      out[0] |= PROTOBUF_C_WIRE_TYPE_VARINT;
+      return rv + int32_pack (*(const int8_t *) member, out + rv);
     case PROTOBUF_C_TYPE_INT16:
       out[0] |= PROTOBUF_C_WIRE_TYPE_VARINT;
-      return rv + int32_pack (*(const uint32_t *) member, out + rv);
+      return rv + int32_pack (*(const int16_t *) member, out + rv);
     case PROTOBUF_C_TYPE_UINT8:
+      out[0] |= PROTOBUF_C_WIRE_TYPE_VARINT;
+      return rv + uint32_pack (*(const uint8_t *) member, out + rv);
     case PROTOBUF_C_TYPE_UINT16:
       out[0] |= PROTOBUF_C_WIRE_TYPE_VARINT;
-      return rv + uint32_pack (*(const uint32_t *) member, out + rv);
+      return rv + uint32_pack (*(const uint16_t *) member, out + rv);
     }
   PROTOBUF_C_ASSERT_NOT_REACHED ();
   return 0;
@@ -883,9 +896,10 @@ sizeof_elt_in_repeated_array (ProtobufCType type)
       return sizeof (ProtobufCBinaryData);
     case PROTOBUF_C_TYPE_INT8:
     case PROTOBUF_C_TYPE_UINT8:
+      return 1;
     case PROTOBUF_C_TYPE_INT16:
     case PROTOBUF_C_TYPE_UINT16:
-      return 4;
+      return 2;
     }
   PROTOBUF_C_ASSERT_NOT_REACHED ();
   return 0;
@@ -1019,17 +1033,28 @@ repeated_field_pack (const ProtobufCFieldDescriptor *field,
           }
           break;
         case PROTOBUF_C_TYPE_INT8:
+          {
+            const int8_t *arr = (const int8_t *) array;
+            for (i = 0; i < count; i++)
+              payload_at += int32_pack (arr[i], payload_at);
+          }
+          break;
         case PROTOBUF_C_TYPE_INT16:
           {
-            const int32_t *arr = (const int32_t *) array;
+            const int16_t *arr = (const int16_t *) array;
             for (i = 0; i < count; i++)
               payload_at += int32_pack (arr[i], payload_at);
           }
           break;
         case PROTOBUF_C_TYPE_UINT8:
+          {
+            const uint8_t *arr = (const uint8_t *) array;
+            for (i = 0; i < count; i++)
+              payload_at += uint32_pack (arr[i], payload_at);
+          }
         case PROTOBUF_C_TYPE_UINT16:
           {
-            const uint32_t *arr = (const uint32_t *) array;
+            const uint16_t *arr = (const uint16_t *) array;
             for (i = 0; i < count; i++)
               payload_at += uint32_pack (arr[i], payload_at);
           }
@@ -1206,15 +1231,23 @@ required_field_pack_to_buffer (const ProtobufCFieldDescriptor *field,
         break;
       }
     case PROTOBUF_C_TYPE_INT8:
+      scratch[0] |= PROTOBUF_C_WIRE_TYPE_VARINT;
+      rv += int32_pack (*(const int8_t *) member, scratch + rv);
+      buffer->append (buffer, rv, scratch);
+      break;
     case PROTOBUF_C_TYPE_INT16:
       scratch[0] |= PROTOBUF_C_WIRE_TYPE_VARINT;
-      rv += int32_pack (*(const uint32_t *) member, scratch + rv);
+      rv += int32_pack (*(const int16_t *) member, scratch + rv);
       buffer->append (buffer, rv, scratch);
       break;
     case PROTOBUF_C_TYPE_UINT8:
+      scratch[0] |= PROTOBUF_C_WIRE_TYPE_VARINT;
+      rv += uint32_pack (*(const uint8_t *) member, scratch + rv);
+      buffer->append (buffer, rv, scratch);
+      break;
     case PROTOBUF_C_TYPE_UINT16:
       scratch[0] |= PROTOBUF_C_WIRE_TYPE_VARINT;
-      rv += uint32_pack (*(const uint32_t *) member, scratch + rv);
+      rv += uint32_pack (*(const uint16_t *) member, scratch + rv);
       buffer->append (buffer, rv, scratch);
       break;
     default:
@@ -1305,17 +1338,29 @@ get_packed_payload_length (const ProtobufCFieldDescriptor *field,
     case PROTOBUF_C_TYPE_BOOL:
       return count;
     case PROTOBUF_C_TYPE_INT8:
+      {
+        const int8_t *arr = (const int8_t *) array;
+        for (i = 0; i < count; i++)
+          rv += int32_size (arr[i]);
+      }
+      break;
     case PROTOBUF_C_TYPE_INT16:
       {
-        const int32_t *arr = (const int32_t *) array;
+        const int16_t *arr = (const int16_t *) array;
         for (i = 0; i < count; i++)
           rv += int32_size (arr[i]);
       }
       break;
     case PROTOBUF_C_TYPE_UINT8:
+      {
+        const uint8_t *arr = (const uint8_t *) array;
+        for (i = 0; i < count; i++)
+          rv += uint32_size (arr[i]);
+      }
+      break;
     case PROTOBUF_C_TYPE_UINT16:
       {
-        const uint32_t *arr = (const uint32_t *) array;
+        const uint16_t *arr = (const uint16_t *) array;
         for (i = 0; i < count; i++)
           rv += uint32_size (arr[i]);
       }
@@ -1419,19 +1464,33 @@ pack_buffer_packed_payload (const ProtobufCFieldDescriptor *field,
           }
         return count;
       case PROTOBUF_C_TYPE_INT8:
+        for (i = 0; i < count; i++)
+          {
+            unsigned len = int32_pack (((int8_t*)array)[i], scratch);
+            buffer->append (buffer, len, scratch);
+            rv += len;
+          }
+        break;
       case PROTOBUF_C_TYPE_INT16:
         for (i = 0; i < count; i++)
           {
-            unsigned len = int32_pack (((int32_t*)array)[i], scratch);
+            unsigned len = int32_pack (((int16_t*)array)[i], scratch);
             buffer->append (buffer, len, scratch);
             rv += len;
           }
         break;
       case PROTOBUF_C_TYPE_UINT8:
+        for (i = 0; i < count; i++)
+          {
+            unsigned len = uint32_pack (((uint8_t*)array)[i], scratch);
+            buffer->append (buffer, len, scratch);
+            rv += len;
+          }
+        break;
       case PROTOBUF_C_TYPE_UINT16:
         for (i = 0; i < count; i++)
           {
-            unsigned len = uint32_pack (((uint32_t*)array)[i], scratch);
+            unsigned len = uint32_pack (((uint16_t*)array)[i], scratch);
             buffer->append (buffer, len, scratch);
             rv += len;
           }
@@ -1925,16 +1984,24 @@ parse_required_member (ScannedMember *scanned_member,
         return 1;
       }
     case PROTOBUF_C_TYPE_INT8:
+      if (wire_type != PROTOBUF_C_WIRE_TYPE_VARINT)
+        return 0;
+      *(int8_t*)member = (int8_t) parse_int32 (len, data);
+      return 1;
     case PROTOBUF_C_TYPE_INT16:
       if (wire_type != PROTOBUF_C_WIRE_TYPE_VARINT)
         return 0;
-      *(uint32_t*)member = parse_int32 (len, data);
+      *(int16_t*)member = (int16_t) parse_int32 (len, data);
       return 1;
     case PROTOBUF_C_TYPE_UINT8:
+      if (wire_type != PROTOBUF_C_WIRE_TYPE_VARINT)
+        return 0;
+      *(uint8_t*)member = (uint8_t) parse_uint32 (len, data);
+      return 1;
     case PROTOBUF_C_TYPE_UINT16:
       if (wire_type != PROTOBUF_C_WIRE_TYPE_VARINT)
         return 0;
-      *(uint32_t*)member = parse_uint32 (len, data);
+      *(uint16_t*)member = (uint16_t) parse_uint32 (len, data);
       return 1;
     }
   return 0;
@@ -2117,31 +2184,57 @@ parse_packed_repeated_member (ScannedMember *scanned_member,
           }
         break;
       case PROTOBUF_C_TYPE_INT8:
+        while (rem > 0)
+          {
+            unsigned s = scan_varint (rem, at);
+            if (s == 0)
+              {
+                UNPACK_ERROR (("bad packed-repeated int8"));
+                return FALSE;
+              }
+            ((int8_t*)array)[count++] = (int8_t) parse_int32 (s, at);
+            at += s;
+            rem -= s;
+          }
+        break;
       case PROTOBUF_C_TYPE_INT16:
         while (rem > 0)
           {
             unsigned s = scan_varint (rem, at);
             if (s == 0)
               {
-                UNPACK_ERROR (("bad packed-repeated int8 or int16 value"));
+                UNPACK_ERROR (("bad packed-repeated int16 value"));
                 return FALSE;
               }
-            ((int32_t*)array)[count++] = parse_int32 (s, at);
+            ((int16_t*)array)[count++] = (int16_t) parse_int32 (s, at);
             at += s;
             rem -= s;
           }
         break;
       case PROTOBUF_C_TYPE_UINT8:
+        while (rem > 0)
+          {
+            unsigned s = scan_varint (rem, at);
+            if (s == 0)
+              {
+                UNPACK_ERROR (("bad packed-repeated uint8"));
+                return FALSE;
+              }
+            ((uint8_t*)array)[count++] = (uint8_t) parse_uint32 (s, at);
+            at += s;
+            rem -= s;
+          }
+        break;
       case PROTOBUF_C_TYPE_UINT16:
         while (rem > 0)
           {
             unsigned s = scan_varint (rem, at);
             if (s == 0)
               {
-                UNPACK_ERROR (("bad packed-repeated uint8 or uint16 value"));
+                UNPACK_ERROR (("bad packed-repeated uint16 value"));
                 return FALSE;
               }
-            ((uint32_t*)array)[count++] = parse_uint32 (s, at);
+            ((uint16_t*)array)[count++] = (uint16_t) parse_uint32 (s, at);
             at += s;
             rem -= s;
           }
@@ -2255,9 +2348,11 @@ protobuf_c_message_init_generic (const ProtobufCMessageDescriptor *desc,
           break;
         case PROTOBUF_C_TYPE_INT8:
         case PROTOBUF_C_TYPE_UINT8:
+          memcpy (field, dv, 1);
+          break;
         case PROTOBUF_C_TYPE_INT16:
         case PROTOBUF_C_TYPE_UINT16:
-          memcpy (field, dv, 4);
+          memcpy (field, dv, 2);
           break;
         }
       }
