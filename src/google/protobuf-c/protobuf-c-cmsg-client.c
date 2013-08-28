@@ -460,19 +460,26 @@ cmsg_client_queue_get_length (cmsg_client *client)
 int32_t
 cmsg_client_queue_process_all (cmsg_client *client)
 {
-    static struct timespec time_to_wait = {1, 0};
+    struct timespec time_to_wait;
     uint32_t processed = 0;
     cmsg_object obj;
+
+    clock_gettime (CLOCK_REALTIME, &time_to_wait);
+
     obj.object_type = CMSG_OBJ_TYPE_CLIENT;
     obj.object = client;
 
     //if the we run do api calls and processing in different threads wait
     //for a signal from the api thread to start processing
-    if (! (client->self_thread_id == pthread_self ()))
+    if (client->self_thread_id != pthread_self ())
     {
         pthread_mutex_lock (&client->queue_process_mutex);
         while (client->queue_process_count == 0)
-            pthread_cond_timedwait (&client->queue_process_cond, &client->queue_process_mutex, &time_to_wait);
+        {
+            time_to_wait.tv_sec++;
+            pthread_cond_timedwait (&client->queue_process_cond,
+                                    &client->queue_process_mutex, &time_to_wait);
+        }
 
         processed = cmsg_send_queue_process_all (obj);
         client->queue_process_count = client->queue_process_count - 1;
@@ -480,7 +487,9 @@ cmsg_client_queue_process_all (cmsg_client *client)
 
     }
     else
+    {
         processed = cmsg_send_queue_process_all (obj);
+    }
 
     return processed;
 }

@@ -752,19 +752,26 @@ cmsg_pub_queue_get_length (cmsg_pub *publisher)
 int32_t
 cmsg_pub_queue_process_all (cmsg_pub *publisher)
 {
-    struct timespec time_to_wait = {1, 0};
+    struct timespec time_to_wait;
     uint32_t processed = 0;
     cmsg_object obj;
+
+    clock_gettime (CLOCK_REALTIME, &time_to_wait);
+
     obj.object_type = CMSG_OBJ_TYPE_PUB;
     obj.object = publisher;
 
     //if the we run do api calls and processing in different threads wait
     //for a signal from the api thread to start processing
-    if (! (publisher->self_thread_id == pthread_self ()))
+    if (publisher->self_thread_id != pthread_self ())
     {
         pthread_mutex_lock (&publisher->queue_process_mutex);
         while (publisher->queue_process_count == 0)
-            pthread_cond_timedwait (&publisher->queue_process_cond, &publisher->queue_process_mutex, &time_to_wait);
+        {
+            time_to_wait.tv_sec++;
+            pthread_cond_timedwait (&publisher->queue_process_cond,
+                                    &publisher->queue_process_mutex, &time_to_wait);
+        }
 
         publisher->queue_process_count = publisher->queue_process_count - 1;
         pthread_mutex_unlock (&publisher->queue_process_mutex);
@@ -772,7 +779,9 @@ cmsg_pub_queue_process_all (cmsg_pub *publisher)
         processed = cmsg_send_queue_process_all (obj);
     }
     else
+    {
         processed = cmsg_send_queue_process_all (obj);
+    }
 
     return processed;
 }
