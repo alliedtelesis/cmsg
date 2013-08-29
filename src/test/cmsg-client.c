@@ -155,8 +155,8 @@ int main(int argc, char**argv)
       port = rand() % 100;;
       priority = rand() % 100;;
 
-      printf("[CLIENT] calling set priority: port=%d, priority=%d\n", port, priority);
-      ret = my_package_my_service_api_SetPriority((ProtobufC_RPC_Client *)torusclient, port, priority, &result_status);
+      printf("[CLIENT] calling set priority: port=%d, priority=%d, enum=%d\n", port, priority, MY_PACKAGE_FOUR);
+      ret = my_package_my_service_api_SetPriority(torusclient, port, priority, MY_PACKAGE_FOUR, &result_status);
       printf("[CLIENT] calling set priority done: ret=%d, result_status=%d\n", ret, result_status);
 
       sleep(1);

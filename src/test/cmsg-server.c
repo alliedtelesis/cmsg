@@ -38,13 +38,13 @@ my_package_my_service_impl_Ping(const void *service, int32_t random, int32_t ran
 }
 
 void
-my_package_my_service_impl_SetPriority(const void *service, int32_t port, int32_t priority)
+my_package_my_service_impl_SetPriority(const void *service, int32_t port, int32_t priority, my_package_some_numbers count)
 {
   static int status = 0;
 
   status++;
   
-  printf("[SERVER]: %s : port=%d, priority=%d --> send status=%d\n", __func__, port, priority, status);
+  printf("[SERVER]: %s : port=%d, priority=%d, enum=%d --> send status=%d\n", __func__, port, priority, count, status);
 
   my_package_my_service_server_SetPrioritySend(service, status);
 }
@@ -163,6 +163,7 @@ int main(int argc, char**argv)
   //poll test
   int ret;
   int fd = 0;
+  int accept_fd = 0;
   struct pollfd poll_list[1];
 
   fd = cmsg_server_get_socket(server);
@@ -190,7 +191,9 @@ int main(int argc, char**argv)
           if((poll_list[0].revents & POLLIN) == POLLIN)
             {
               printf("[torusserver] calling cmsg_server_receive\n");
-              cmsg_server_receive(server, fd);
+              accept_fd = cmsg_server_accept(server, fd);
+              cmsg_server_receive(server, accept_fd);
+              server->_transport->server_close(server);
             }
         }
 //      if(count >= 1)

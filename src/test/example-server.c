@@ -161,9 +161,9 @@ load_database (const char *filename)
               foo_Person_PhoneNumber_pbc *pn = xmalloc (sizeof (foo_Person_PhoneNumber_pbc));
               foo_Person_PhoneNumber_pbc tmp = FOO_PERSON_PHONE_NUMBER_PBC_INIT;
               tmp.has_type = 1;
-              tmp.type = start[0] == 'm' ? FOO_PERSON_PHONE_TYPE_MOBILE
-                       : start[0] == 'h' ? FOO_PERSON_PHONE_TYPE_HOME
-                       : FOO_PERSON_PHONE_TYPE_WORK;
+              tmp.type = start[0] == 'm' ? FOO_MOBILE
+                       : start[0] == 'h' ? FOO_HOME
+                       : FOO_WORK;
               tmp.number = xstrdup (peek_next_token (start));
               person->phone = xrealloc (person->phone, sizeof (foo_Person_PhoneNumber_pbc*) * (person->n_phone+1));
               *pn = tmp;

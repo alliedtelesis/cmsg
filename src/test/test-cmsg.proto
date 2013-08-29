@@ -1,5 +1,12 @@
 
-package my.package;
+package my_package;
+
+enum some_numbers
+{
+  ONE = 1;
+  TWO = 2;
+  FOUR = 4;
+}
 
 message PingResponse
 {
@@ -16,6 +23,7 @@ message poe_priority
 {
   required int32 port = 1;
   required int32 priority = 2;
+  required some_numbers count = 3;
 }
 
 message poe_send_status

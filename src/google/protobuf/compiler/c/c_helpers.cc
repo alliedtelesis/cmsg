@@ -530,6 +530,31 @@ string GetAtlGlobalFilename(const string &protoname)
   return GetAtlFilename(protoname, "proto_global");
 }
 
+string GetPackageName(const string &full_name) {
+  vector<string> pieces;
+  SplitStringUsing(full_name, ".", &pieces);
+  string rv = "";
+  //loop through the pieces of the string until we get find
+  //the first one that isn't empty.
+  for (unsigned i = 0; i < pieces.size(); i++) {
+    if (pieces[i] == "")
+    {
+      continue;
+    }
+    else
+    {
+      rv = pieces[i];
+      break;
+    }
+  }
+  // return the first non-empty piece of the name
+  return rv;
+}
+
+string GetPackageNameUpper(const string &full_name) {
+  return ToUpper(GetPackageName(full_name));
+}
+
 }  // namespace c
 }  // namespace compiler
 }  // namespace protobuf
