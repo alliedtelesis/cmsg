@@ -288,17 +288,20 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
 }
 
 
-int32_t
-cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
-                            cmsg_sub_entry *entry)
+/**
+ * This function is not thread-safe. If you want to safely remove a subscriber,
+ * use cmsg_pub_subscriber_remove ().
+ * Only call this function if you already have the lock on subscriber_list_mutex.
+ */
+static void
+_cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
+                             cmsg_sub_entry *entry)
 {
     CMSG_ASSERT (publisher);
     CMSG_ASSERT (entry);
 
     DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
     DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
-
-    pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
@@ -332,6 +335,18 @@ cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
         print_subscriber_list = g_list_next (print_subscriber_list);
     }
 #endif
+}
+
+int32_t
+cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
+                            cmsg_sub_entry *entry)
+{
+    CMSG_ASSERT (publisher);
+    CMSG_ASSERT (entry);
+
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
+    _cmsg_pub_subscriber_remove (publisher, entry);
 
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 
@@ -648,14 +663,19 @@ cmsg_pub_invoke (ProtobufCService       *service,
 
         cmsg_client_destroy (client);
 
+        subscriber_list = g_list_next (subscriber_list);
+
         if (remove_entry)
         {
-            cmsg_pub_subscriber_remove (publisher, list_entry);
+            /* We already have the lock on subscriber_list_mutex. Therefore we should
+             * use the thread unsafe subscriber remove function.
+             */
+            _cmsg_pub_subscriber_remove (publisher, list_entry);
+
             remove_entry = 0;
         }
-
-        subscriber_list = g_list_next (subscriber_list);
     }
+
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
     return;
 }
