@@ -436,6 +436,14 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
     return;
 }
 
+
+int32_t
+cmsg_client_transport_is_congested (cmsg_client *client)
+{
+    return client->_transport->is_congested (client);
+}
+
+
 void
 cmsg_client_queue_enable (cmsg_client *client)
 {

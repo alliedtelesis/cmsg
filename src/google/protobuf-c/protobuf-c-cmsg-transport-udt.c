@@ -149,6 +149,32 @@ cmsg_transport_oneway_udt_connect (cmsg_client *client)
 
 
 /**
+ * Can't work out whether the UDT is congested
+ */
+uint32_t
+cmsg_transport_oneway_udt_is_congested (cmsg_client *client)
+{
+    return FALSE;
+}
+
+
+int32_t
+cmsg_transport_udt_send_called_multi_threads_enable (cmsg_transport *transport, uint32_t enable)
+{
+    // Don't support sending from multiple threads
+    return -1;
+}
+
+
+int32_t
+cmsg_transport_udt_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
+{
+    // Don't support send blocking
+    return -1;
+}
+
+
+/**
  * Initialise the function pointers that oneway userdefined transport type
  * will use.
  */
@@ -180,6 +206,11 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
 
     transport->client_destroy = cmsg_transport_oneway_udt_client_destroy;
     transport->server_destroy = cmsg_transport_oneway_udt_server_destroy;
+
+    transport->is_congested = cmsg_transport_oneway_udt_is_congested;
+    transport->send_called_multi_threads_enable = cmsg_transport_udt_send_called_multi_threads_enable;
+    transport->send_called_multi_enabled = FALSE;
+    transport->send_can_block_enable = cmsg_transport_udt_send_can_block_enable;
 
     DEBUG (CMSG_INFO, "%s: done", __FUNCTION__);
 }

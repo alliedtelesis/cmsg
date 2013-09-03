@@ -35,6 +35,7 @@ cmsg_server_new (cmsg_transport   *transport,
         {
             free (server);
             server = NULL;
+            return NULL;
         }
     }
     else
@@ -214,7 +215,7 @@ cmsg_server_message_processor (cmsg_server *server,
     CMSG_ASSERT (server->server_request);
 
     cmsg_server_request *server_request = server->server_request;
-    ProtobufCMessage *message = 0;
+    ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *)server->allocator;
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
@@ -239,10 +240,11 @@ cmsg_server_message_processor (cmsg_server *server,
     {
         DEBUG (CMSG_INFO, "[SERVER] processsing message without data\n");
         //create a new empty message
+        // ATL_1716_TODO need to allocate message before init'ing it
         protobuf_c_message_init (server->service->descriptor->methods[server_request->method_index].input, message);
     }
 
-    if (message == 0)
+    if (message == NULL)
     {
         DEBUG (CMSG_ERROR, "[SERVER] error: unpacking message\n");
         return CMSG_RET_ERR;

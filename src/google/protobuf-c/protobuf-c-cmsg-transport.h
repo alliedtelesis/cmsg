@@ -78,10 +78,18 @@ struct _cmsg_socket_s
     cmsg_socket_address sockaddr;
 };
 
+typedef void (*cpg_configchg_cb_f) (cmsg_server *server, const struct cpg_address *member_list,
+        int member_list_entries,
+        const struct cpg_address *left_list,
+        int left_list_entries,
+        const struct cpg_address *joined_list,
+        int joined_list_entries);
+
 struct _cmsg_cpg_s
 {
 #ifdef HAVE_VCSTACK
     struct cpg_name group_name;  // CPG address structure
+    cpg_configchg_cb_f configchg_cb;
 #endif
 };
 
@@ -143,13 +151,23 @@ typedef int (*s_get_socket_f) (cmsg_server *server);
 typedef int (*c_get_socket_f) (cmsg_client *client);
 typedef void (*client_destroy_f) (cmsg_client *client);
 typedef void (*server_destroy_f) (cmsg_server *server);
-
+typedef uint32_t (*is_congested_f) (cmsg_client *);
+typedef int32_t (*send_called_multi_threads_enable_f) (cmsg_transport *, uint32_t enable);
+typedef int32_t (*send_can_block_enable_f) (cmsg_transport *, uint32_t enable);
 
 struct _cmsg_transport_s
 {
     //transport information
     cmsg_transport_type   type;
     cmsg_transport_config config;
+
+    // send features
+    // lock - to allow send to be called from multiple threads
+    uint32_t send_called_multi_enabled;
+    pthread_mutex_t send_lock;
+
+    // send to block if message cannot be sent
+    uint32_t send_can_block;
 
     //transport function pointers
     client_conect_f    connect;        // client connect function
@@ -167,6 +185,9 @@ struct _cmsg_transport_s
     c_get_socket_f     c_socket;       //
     server_destroy_f   server_destroy; // Server destroy function
     client_destroy_f   client_destroy; // Client destroy function
+    is_congested_f     is_congested;   // Check whether transport is congested
+    send_called_multi_threads_enable_f send_called_multi_threads_enable; // Sets whether the send functionality handles being called from multiple threads
+    send_can_block_enable_f send_can_block_enable;
 
     //transport statistics
     uint32_t client_send_tries;
@@ -200,5 +221,11 @@ cmsg_transport_server_process_message_with_peek (cmsg_recv_func recv, void *hand
                                                  cmsg_server *server);
 int32_t
 cmsg_transport_destroy (cmsg_transport *transport);
+
+int32_t
+cmsg_transport_send_called_multi_threads_enable (cmsg_transport *transport, uint32_t enable);
+
+int32_t
+cmsg_transport_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block);
 
 #endif

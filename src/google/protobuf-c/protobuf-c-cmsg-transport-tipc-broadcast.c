@@ -233,6 +233,32 @@ cmsg_transport_tipc_broadcast_server_destroy (cmsg_server *server)
 
 
 /**
+ * TIPC BC can be congested but we don't check for it
+ */
+uint32_t
+cmsg_transport_tipc_broadcast_is_congested (cmsg_client *client)
+{
+    return FALSE;
+}
+
+
+int32_t
+cmsg_transport_tipc_broadcast_send_called_multi_threads_enable (cmsg_transport *transport, uint32_t enable)
+{
+    // Don't support sending from multiple threads
+    return -1;
+}
+
+
+int32_t
+cmsg_transport_tipc_broadcast_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
+{
+    // Don't support send blocking
+    return -1;
+}
+
+
+/**
  * Setup the transport structure with the appropriate function pointers for
  * TIPC broadcast, and transport family.
  */
@@ -257,6 +283,11 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->c_socket = cmsg_transport_tipc_broadcast_client_get_socket;
     transport->client_destroy = cmsg_transport_tipc_broadcast_client_destroy;
     transport->server_destroy = cmsg_transport_tipc_broadcast_server_destroy;
+
+    transport->is_congested = cmsg_transport_tipc_broadcast_is_congested;
+    transport->send_called_multi_threads_enable = cmsg_transport_tipc_broadcast_send_called_multi_threads_enable;
+    transport->send_called_multi_enabled = FALSE;
+    transport->send_can_block_enable = cmsg_transport_tipc_broadcast_send_can_block_enable;
 
     transport->closure = cmsg_server_closure_oneway;
     transport->invoke = cmsg_client_invoke_oneway;

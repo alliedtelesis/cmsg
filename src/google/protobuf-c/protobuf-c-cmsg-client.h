@@ -91,6 +91,9 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
                            ProtobufCClosure        closure,
                            void                   *closure_data);
 
+int32_t
+cmsg_client_transport_is_congested (cmsg_client *client);
+
 //queue api
 void
 cmsg_client_queue_enable (cmsg_client *client);

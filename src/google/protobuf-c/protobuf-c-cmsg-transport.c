@@ -228,3 +228,25 @@ cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
 {
     return _cmsg_transport_server_recv (recv, handle, server, TRUE);
 }
+
+
+/**
+ *  Configure the transport to be safe when using the send functionality from multiple threads.
+ *
+ */
+int32_t
+cmsg_transport_send_called_multi_threads_enable (cmsg_transport *transport, uint32_t enable_multi_threaded_send_safe)
+{
+
+    return transport->send_called_multi_threads_enable (transport, enable_multi_threaded_send_safe);
+}
+
+/**
+ * Configure the transport to allow blocking if send cannot send it straight away
+ *
+ */
+int32_t
+cmsg_transport_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
+{
+    return transport->send_can_block_enable (transport, send_can_block);
+}

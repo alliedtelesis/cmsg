@@ -385,6 +385,31 @@ cmsg_transport_tcp_server_destroy (cmsg_server *server)
 }
 
 
+/**
+ * TCP is never congested
+ */
+uint32_t
+cmsg_transport_tcp_is_congested (cmsg_client *client)
+{
+    return FALSE;
+}
+
+int32_t
+cmsg_transport_tcp_send_called_multi_threads_enable (cmsg_transport *transport, uint32_t enable)
+{
+    // Don't support sending from multiple threads
+    return -1;
+}
+
+
+int32_t
+cmsg_transport_tcp_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
+{
+    transport->send_can_block = send_can_block;
+    return 0;
+}
+
+
 void
 cmsg_transport_tcp_init (cmsg_transport *transport)
 {
@@ -411,6 +436,11 @@ cmsg_transport_tcp_init (cmsg_transport *transport)
 
     transport->client_destroy = cmsg_transport_tcp_client_destroy;
     transport->server_destroy = cmsg_transport_tcp_server_destroy;
+
+    transport->is_congested = cmsg_transport_tcp_is_congested;
+    transport->send_called_multi_threads_enable = cmsg_transport_tcp_send_called_multi_threads_enable;
+    transport->send_called_multi_enabled = FALSE;
+    transport->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
 
     DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
@@ -442,6 +472,11 @@ cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
 
     transport->client_destroy = cmsg_transport_tcp_client_destroy;
     transport->server_destroy = cmsg_transport_tcp_server_destroy;
+
+    transport->is_congested = cmsg_transport_tcp_is_congested;
+    transport->send_called_multi_threads_enable = cmsg_transport_tcp_send_called_multi_threads_enable;
+    transport->send_called_multi_enabled = FALSE;
+    transport->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
 
     DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
