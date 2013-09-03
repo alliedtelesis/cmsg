@@ -4,8 +4,9 @@
 
 #include "protobuf-c-cmsg.h"
 
-
 #define CMSG_SERVICE(package,service)   ((ProtobufCService *)&package ## _ ## service ## _service)
+
+typedef enum   _cmsg_queue_filter_type_e   cmsg_queue_filter_type;
 
 typedef struct _cmsg_server_request_s   cmsg_server_request;
 typedef struct _cmsg_server_s           cmsg_server;
@@ -35,6 +36,19 @@ struct _cmsg_server_s
     cmsg_object parent;
 
     cmsg_server_connection connection;
+
+    int queue_enabled_from_parent;
+
+    //queuing
+    pthread_mutex_t queue_mutex;
+    GQueue *queue;
+    uint32_t maxQueueLength;
+    GHashTable *queue_filter_hash_table;
+
+    //thread signaling for queuing
+    pthread_cond_t      queue_process_cond;
+    pthread_mutex_t     queue_process_mutex;
+    pthread_t           self_thread_id;
 };
 
 
@@ -70,5 +84,21 @@ void cmsg_server_closure_rpc (const ProtobufCMessage *message,
 void
 cmsg_server_closure_oneway (const ProtobufCMessage *message,
                             void                   *closure_data);
+
+int32_t
+cmsg_server_queue_filter_set (cmsg_server *server,
+                              const char *method,
+                              cmsg_queue_filter_type filter_type);
+
+void
+cmsg_server_queue_filter_set_all (cmsg_server *server,
+                                  cmsg_queue_filter_type filter_type);
+
+int32_t
+cmsg_server_queue_process_all (cmsg_server *server);
+
+uint32_t cmsg_server_queue_max_length_get (cmsg_server *server);
+
+uint32_t cmsg_server_queue_current_length_get (cmsg_server *server);
 
 #endif

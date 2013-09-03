@@ -10,7 +10,8 @@
 
 typedef enum   _cmsg_queue_filter_type_e   cmsg_queue_filter_type;
 typedef struct _cmsg_queue_filter_entry_s  cmsg_queue_filter_entry;
-typedef struct _cmsg_queue_entry_s         cmsg_queue_entry;
+typedef struct _cmsg_send_queue_entry_s    cmsg_send_queue_entry;
+typedef struct _cmsg_receive_queue_entry_s    cmsg_receive_queue_entry;
 
 
 enum _cmsg_queue_filter_type_e
@@ -27,9 +28,16 @@ struct _cmsg_queue_filter_entry_s
     cmsg_queue_filter_type type;
 };
 
-struct _cmsg_queue_entry_s
+struct _cmsg_send_queue_entry_s
 {
     cmsg_transport transport;
+    uint32_t queue_buffer_size;
+    uint8_t *queue_buffer;
+};
+
+struct _cmsg_receive_queue_entry_s
+{
+    uint32_t method_index;
     uint32_t queue_buffer_size;
     uint8_t *queue_buffer;
 };

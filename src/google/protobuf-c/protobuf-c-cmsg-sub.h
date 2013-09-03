@@ -22,6 +22,7 @@ struct _cmsg_sub_s
                     void                   *closure_data);
 
     cmsg_server *pub_server;   //receiving messages
+
 };
 
 
@@ -54,4 +55,29 @@ cmsg_sub_unsubscribe (cmsg_sub       *subscriber,
                       cmsg_transport *sub_client_transport,
                       char           *method_name);
 
+/*
+ * Filtering and Queuing Functions
+ */
+int32_t
+cmsg_sub_queue_process_all (cmsg_sub *sub);
+
+void
+cmsg_sub_queue_filter_set_all (cmsg_sub *sub,
+                                  cmsg_queue_filter_type filter_type);
+
+void
+cmsg_sub_queue_filter_clear_all (cmsg_sub *sub);
+
+int32_t
+cmsg_sub_queue_filter_set (cmsg_sub *sub,
+                              const char *method,
+                              cmsg_queue_filter_type filter_type);
+
+int32_t
+cmsg_sub_queue_filter_clear (cmsg_sub *sub,
+                                const char *method);
+
+uint32_t cmsg_sub_queue_max_length_get (cmsg_sub *sub);
+
+uint32_t cmsg_sub_queue_current_length_get (cmsg_sub *sub);
 #endif

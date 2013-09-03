@@ -11,7 +11,7 @@ cmsg_sub_new (cmsg_transport   *pub_server_transport,
     cmsg_sub *subscriber = malloc (sizeof (cmsg_sub));
     if (!subscriber)
     {
-	syslog(LOG_CRIT | LOG_LOCAL6, "[SUB] error: unable to allocate buffer. line(%d)\n",__LINE__);
+        syslog (LOG_CRIT | LOG_LOCAL6, "[SUB] error: unable to allocate buffer. line(%d)\n",__LINE__);
         return NULL;
     }
 
@@ -234,4 +234,111 @@ cmsg_sub_unsubscribe (cmsg_sub       *subscriber,
     cmsg_client_destroy (register_client);
 
     return return_value;
+}
+
+
+/*****************************************************************************/
+/****************** Filtering & Queuing functions ****************************/
+/*****************************************************************************/
+void
+cmsg_sub_drop_all (cmsg_sub *sub)
+{
+    cmsg_server_queue_filter_set_all (sub->pub_server, CMSG_QUEUE_FILTER_DROP);
+}
+
+void
+cmsg_sub_queue_enable (cmsg_sub *sub)
+{
+    cmsg_server_queue_filter_set_all (sub->pub_server, CMSG_QUEUE_FILTER_QUEUE);
+}
+
+int32_t
+cmsg_sub_queue_disable (cmsg_sub *sub)
+{
+    cmsg_server_queue_filter_set_all (sub->pub_server, CMSG_QUEUE_FILTER_PROCESS);
+
+    return cmsg_server_queue_process_all (sub->pub_server);
+}
+
+
+int32_t
+cmsg_sub_queue_process_one (cmsg_sub *sub)
+{
+    return cmsg_receive_queue_process_one (sub->pub_server->queue, sub->pub_server->queue_mutex, sub->pub_server->service->descriptor, sub->pub_server);
+}
+
+
+/**
+ * Processes the upto the given number of items to process out of the queue
+ */
+int32_t
+cmsg_sub_queue_process_some (cmsg_sub *sub,
+                             uint32_t num_to_process)
+{
+    return cmsg_receive_queue_process_some (sub->pub_server->queue, sub->pub_server->queue_mutex,
+                        sub->pub_server->service->descriptor, sub->pub_server,
+                        num_to_process);
+}
+
+
+/**
+ * Processes all the items in the queue.
+ *
+ * @returns the number of items processed off the queue
+ */
+int32_t
+cmsg_sub_queue_process_all (cmsg_sub *sub)
+{
+    return cmsg_server_queue_process_all (sub->pub_server);
+}
+
+void
+cmsg_sub_queue_filter_set_all (cmsg_sub *sub,
+                                  cmsg_queue_filter_type filter_type)
+{
+    cmsg_queue_filter_set_all (sub->pub_server->queue_filter_hash_table,
+                               sub->pub_server->service->descriptor,
+                               filter_type);
+}
+
+void
+cmsg_sub_queue_filter_clear_all (cmsg_sub *sub)
+{
+    cmsg_queue_filter_clear_all (sub->pub_server->queue_filter_hash_table,
+                                 sub->pub_server->service->descriptor);
+}
+
+int32_t
+cmsg_sub_queue_filter_set (cmsg_sub *sub,
+                              const char *method,
+                              cmsg_queue_filter_type filter_type)
+{
+    return cmsg_queue_filter_set (sub->pub_server->queue_filter_hash_table,
+                                  method,
+                                  filter_type);
+}
+
+int32_t
+cmsg_sub_queue_filter_clear (cmsg_sub *sub,
+                                const char *method)
+{
+    return cmsg_queue_filter_clear (sub->pub_server->queue_filter_hash_table,
+                                    method);
+}
+
+void
+cmsg_sub_queue_filter_show (cmsg_sub *sub)
+{
+    cmsg_queue_filter_show (sub->pub_server->queue_filter_hash_table,
+                            sub->pub_server->service->descriptor);
+}
+
+uint32_t cmsg_sub_queue_max_length_get (cmsg_sub *sub)
+{
+    return sub->pub_server->maxQueueLength;
+}
+
+uint32_t cmsg_sub_queue_current_length_get (cmsg_sub *sub)
+{
+    return g_queue_get_length (sub->pub_server->queue);
 }

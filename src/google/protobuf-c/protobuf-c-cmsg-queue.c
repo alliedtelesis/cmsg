@@ -7,13 +7,16 @@ cmsg_queue_get_length (GQueue *queue)
     return g_queue_get_length (queue);
 }
 
+/*****************************************************************************/
+/*****************************************************************************/
+/*****************************************************************************/
 
 int32_t
 cmsg_send_queue_process_all (cmsg_object obj)
 {
     uint32_t processed = 0;
     uint32_t create_client = 0;
-    cmsg_queue_entry *queue_entry = 0;
+    cmsg_send_queue_entry *queue_entry = 0;
     GQueue *queue;
     pthread_mutex_t queue_mutex;
     const ProtobufCServiceDescriptor *descriptor;
@@ -164,7 +167,7 @@ cmsg_send_queue_push (GQueue *queue,
                       uint32_t buffer_size,
                       cmsg_transport *transport)
 {
-    cmsg_queue_entry *queue_entry = g_malloc (sizeof (cmsg_queue_entry));
+    cmsg_send_queue_entry *queue_entry = g_malloc (sizeof (cmsg_send_queue_entry));
     if (!queue_entry)
     {
         syslog (LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to allocate queue entry. line(%d)\n", __LINE__);
@@ -197,7 +200,7 @@ cmsg_send_queue_push (GQueue *queue,
 void
 cmsg_send_queue_free_all (GQueue *queue)
 {
-    cmsg_queue_entry *queue_entry = 0;
+    cmsg_send_queue_entry *queue_entry = 0;
 
     queue_entry = g_queue_pop_tail (queue);
 
@@ -216,7 +219,7 @@ void
 cmsg_send_queue_free_all_by_transport (GQueue *queue,
                                        cmsg_transport *transport)
 {
-    cmsg_queue_entry *queue_entry = 0;
+    cmsg_send_queue_entry *queue_entry = 0;
     unsigned int queue_length = g_queue_get_length (queue);
     int i = 0;
 
@@ -243,6 +246,153 @@ cmsg_send_queue_free_all_by_transport (GQueue *queue,
         queue_entry = g_queue_pop_tail (queue);
     }
 }
+
+
+/*****************************************************************************/
+/*****************  Receive Queue Functions  *********************************/
+/*****************************************************************************/
+
+int32_t
+cmsg_receive_queue_process_one (GQueue *queue,
+                             pthread_mutex_t queue_mutex,
+                             const ProtobufCServiceDescriptor *descriptor,
+                             cmsg_server *server)
+{
+
+    // NOT IMPLEMENTED YET
+    syslog (LOG_ERR|LOG_LOCAL6, "%s: not implemented yet", __FUNCTION__);
+
+    return 0;
+}
+
+
+/**
+ * Process a given number of items on the queue
+ */
+int32_t
+cmsg_receive_queue_process_some (GQueue *queue,
+                             pthread_mutex_t queue_mutex,
+                             const ProtobufCServiceDescriptor *descriptor,
+                             cmsg_server *server,
+                             uint32_t num_to_process)
+{
+    uint32_t processed = 0;
+    uint32_t create_client = 0;
+    cmsg_receive_queue_entry *queue_entry = 0;
+
+    if (num_to_process == 0)
+    {
+        return 0;
+    }
+
+    if (g_queue_get_length (queue) == 0)
+    {
+        return 0;
+    }
+
+    // Go through the whole list invoke the server method for the message,
+    // freeing the message and moving to the next.
+    while (processed < num_to_process)
+    {
+        //get the first entry
+        pthread_mutex_lock (&queue_mutex);
+        queue_entry = g_queue_pop_tail (queue);
+        pthread_mutex_unlock (&queue_mutex);
+
+        if (queue_entry == NULL)
+        {
+            break;
+        }
+
+        processed++;
+
+       // Invoke the method index
+        server->service->invoke (server->service,
+                 queue_entry->method_index,
+                 (ProtobufCMessage *)queue_entry->queue_buffer,
+                 server->_transport->closure,
+                 (void *)server);
+
+        // Free the queue_buffer (allocated from message_processor) and the entry
+        protobuf_c_message_free_unpacked ((ProtobufCMessage *)queue_entry->queue_buffer, server->allocator);
+        g_free (queue_entry);
+        queue_entry = NULL;
+    }
+
+    return processed;
+}
+
+
+int32_t
+cmsg_receive_queue_process_all (GQueue *queue,
+                             pthread_mutex_t queue_mutex,
+                             const ProtobufCServiceDescriptor *descriptor,
+                             cmsg_server *server)
+{
+    int32_t processed = -1;
+    int32_t total_processed = 0;
+
+    while (processed != 0)
+    {
+        processed = cmsg_receive_queue_process_some (queue, queue_mutex, descriptor, server, 50);
+        total_processed  += processed;
+    }
+    return total_processed;
+}
+
+
+/**
+ * Must be called with the queue lock already held.
+ */
+int32_t
+cmsg_receive_queue_push (GQueue *queue,
+                      uint8_t *buffer,
+                      uint32_t method_index)
+{
+    cmsg_receive_queue_entry *queue_entry = g_malloc (sizeof (cmsg_receive_queue_entry));
+    if (!queue_entry)
+    {
+        syslog (LOG_CRIT | LOG_LOCAL6, "[SERVER] error: unable to allocate queue entry. line(%d)\n", __LINE__);
+        return CMSG_RET_ERR;
+    }
+
+    queue_entry->queue_buffer_size = 0; // Unused field
+
+    // Point to the buffer - it will stay allocated until the processor deallocates it.
+    queue_entry->queue_buffer = buffer;
+
+    queue_entry->method_index = method_index;
+
+    g_queue_push_head (queue, queue_entry);
+
+    return CMSG_RET_OK;
+}
+
+
+void
+cmsg_receive_queue_free_all (GQueue *queue)
+{
+    cmsg_send_queue_entry *queue_entry = 0;
+
+    queue_entry = g_queue_pop_tail (queue);
+
+    while (queue_entry)
+    {
+        // ATL_1716_TODO queue_buffer should be freed by the server->allocator as this
+        // is how it was done originally
+        free (queue_entry->queue_buffer);  // free the buffer as it won't be processed
+
+        g_free (queue_entry);
+        //get the next entry
+        queue_entry = g_queue_pop_tail (queue);
+    }
+
+    g_queue_free (queue);
+}
+
+/*****************************************************************************/
+/*****************************************************************************/
+/*****************************************************************************/
 
 guint
 cmsg_queue_filter_hash_function (gconstpointer key)
