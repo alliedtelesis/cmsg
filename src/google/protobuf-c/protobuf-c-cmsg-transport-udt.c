@@ -65,7 +65,8 @@ cmsg_transport_oneway_udt_client_recv (cmsg_client *client)
 
 
 static int32_t
-cmsg_transport_oneway_udt_server_send (cmsg_server *server, void *buff, int length, int flag)
+cmsg_transport_oneway_udt_server_send (cmsg_server *server, void *buff, int length,
+                                       int flag)
 {
     // Function isn't needed for User Defined so nothing happens.
     return 0;
@@ -117,12 +118,14 @@ cmsg_transport_oneway_udt_server_destroy (cmsg_server *server)
 }
 
 static int32_t
-cmsg_transport_oneway_udt_client_send (cmsg_client *client, void *buff, int length, int flag)
+cmsg_transport_oneway_udt_client_send (cmsg_client *client, void *buff, int length,
+                                       int flag)
 {
 
     if (client->_transport->config.udt.send)
     {
-        return (client->_transport->config.udt.send (client->_transport->config.udt.udt_data, buff, length, flag));
+        return (client->_transport->config.udt.send
+                (client->_transport->config.udt.udt_data, buff, length, flag));
     }
 
     // Function isn't defined so just pretend the message was sent.
@@ -159,7 +162,8 @@ cmsg_transport_oneway_udt_is_congested (cmsg_client *client)
 
 
 int32_t
-cmsg_transport_udt_send_called_multi_threads_enable (cmsg_transport *transport, uint32_t enable)
+cmsg_transport_udt_send_called_multi_threads_enable (cmsg_transport *transport,
+                                                     uint32_t enable)
 {
     // Don't support sending from multiple threads
     return -1;
@@ -167,7 +171,8 @@ cmsg_transport_udt_send_called_multi_threads_enable (cmsg_transport *transport, 
 
 
 int32_t
-cmsg_transport_udt_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
+cmsg_transport_udt_send_can_block_enable (cmsg_transport *transport,
+                                          uint32_t send_can_block)
 {
     // Don't support send blocking
     return -1;
@@ -208,11 +213,10 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
     transport->server_destroy = cmsg_transport_oneway_udt_server_destroy;
 
     transport->is_congested = cmsg_transport_oneway_udt_is_congested;
-    transport->send_called_multi_threads_enable = cmsg_transport_udt_send_called_multi_threads_enable;
+    transport->send_called_multi_threads_enable =
+        cmsg_transport_udt_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_udt_send_can_block_enable;
 
     DEBUG (CMSG_INFO, "%s: done", __FUNCTION__);
 }
-
-

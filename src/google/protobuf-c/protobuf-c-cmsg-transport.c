@@ -13,34 +13,34 @@ cmsg_transport_new (cmsg_transport_type type)
 
     switch (type)
     {
-        case CMSG_TRANSPORT_RPC_TCP:
-            cmsg_transport_tcp_init (transport);
-            break;
-        case CMSG_TRANSPORT_ONEWAY_TCP:
-            cmsg_transport_oneway_tcp_init (transport);
-            break;
-        case CMSG_TRANSPORT_RPC_TIPC:
-            cmsg_transport_tipc_init (transport);
-            break;
-        case CMSG_TRANSPORT_ONEWAY_TIPC:
-            cmsg_transport_oneway_tipc_init (transport);
-            break;
+    case CMSG_TRANSPORT_RPC_TCP:
+        cmsg_transport_tcp_init (transport);
+        break;
+    case CMSG_TRANSPORT_ONEWAY_TCP:
+        cmsg_transport_oneway_tcp_init (transport);
+        break;
+    case CMSG_TRANSPORT_RPC_TIPC:
+        cmsg_transport_tipc_init (transport);
+        break;
+    case CMSG_TRANSPORT_ONEWAY_TIPC:
+        cmsg_transport_oneway_tipc_init (transport);
+        break;
 #ifdef HAVE_VCSTACK
-        case CMSG_TRANSPORT_CPG:
-            cmsg_transport_cpg_init (transport);
-            break;
-        case CMSG_TRANSPORT_BROADCAST:
-            cmsg_transport_tipc_broadcast_init (transport);
-            break;
+    case CMSG_TRANSPORT_CPG:
+        cmsg_transport_cpg_init (transport);
+        break;
+    case CMSG_TRANSPORT_BROADCAST:
+        cmsg_transport_tipc_broadcast_init (transport);
+        break;
 #endif
-        case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
-            cmsg_transport_oneway_udt_init (transport);
-            break;
+    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
+        cmsg_transport_oneway_udt_init (transport);
+        break;
 
-        default:
-            DEBUG (CMSG_ERROR, "[TRANSPORT] transport type not supported\n");
-            free (transport);
-            transport = 0;
+    default:
+        DEBUG (CMSG_ERROR, "[TRANSPORT] transport type not supported\n");
+        free (transport);
+        transport = 0;
     }
 
     transport->client_send_tries = 0;
@@ -203,9 +203,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     }
     else
     {
-            DEBUG (CMSG_ERROR,
-                   "[TRANSPORT] recv socket %d error: %s\n",
-                   server->connection.sockets.client_socket, strerror (errno));
+        DEBUG (CMSG_ERROR, "[TRANSPORT] recv socket %d error: %s\n",
+               server->connection.sockets.client_socket, strerror (errno));
         ret = CMSG_RET_ERR;
     }
 
@@ -235,10 +234,12 @@ cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
  *
  */
 int32_t
-cmsg_transport_send_called_multi_threads_enable (cmsg_transport *transport, uint32_t enable_multi_threaded_send_safe)
+cmsg_transport_send_called_multi_threads_enable (cmsg_transport *transport,
+                                                 uint32_t enable_multi_threaded_send_safe)
 {
 
-    return transport->send_called_multi_threads_enable (transport, enable_multi_threaded_send_safe);
+    return transport->send_called_multi_threads_enable (transport,
+                                                        enable_multi_threaded_send_safe);
 }
 
 /**

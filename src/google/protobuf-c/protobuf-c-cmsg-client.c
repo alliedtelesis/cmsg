@@ -2,8 +2,7 @@
 
 
 cmsg_client *
-cmsg_client_new (cmsg_transport                   *transport,
-                 const ProtobufCServiceDescriptor *descriptor)
+cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *descriptor)
 {
     CMSG_ASSERT (transport);
     CMSG_ASSERT (descriptor);
@@ -63,7 +62,8 @@ cmsg_client_new (cmsg_transport                   *transport,
     }
     else
     {
-        syslog (LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to create client. line(%d)\n", __LINE__);
+        syslog (LOG_CRIT | LOG_LOCAL6,
+                "[CLIENT] error: unable to create client. line(%d)\n", __LINE__);
     }
 
     return client;
@@ -75,8 +75,7 @@ cmsg_client_destroy (cmsg_client *client)
 {
     CMSG_ASSERT (client);
 
-    cmsg_queue_filter_free (client->queue_filter_hash_table,
-                            client->descriptor);
+    cmsg_queue_filter_free (client->queue_filter_hash_table, client->descriptor);
 
     g_hash_table_destroy (client->queue_filter_hash_table);
 
@@ -124,14 +123,12 @@ cmsg_client_connect (cmsg_client *client)
 
 
 void
-cmsg_client_invoke_rpc (ProtobufCService       *service,
-                        unsigned                method_index,
-                        const ProtobufCMessage *input,
-                        ProtobufCClosure        closure,
-                        void                   *closure_data)
+cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
+                        const ProtobufCMessage *input, ProtobufCClosure closure,
+                        void *closure_data)
 {
     int ret = 0;
-    cmsg_client *client = (cmsg_client *)service;
+    cmsg_client *client = (cmsg_client *) service;
 
     /* pack the data */
     /* send */
@@ -167,17 +164,19 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
     uint8_t *buffer = malloc (packed_size + sizeof (header));
     if (!buffer)
     {
-        syslog (LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to allocate buffer. line(%d)\n", __LINE__);
+        syslog (LOG_CRIT | LOG_LOCAL6,
+                "[CLIENT] error: unable to allocate buffer. line(%d)\n", __LINE__);
         return;
     }
     uint8_t *buffer_data = malloc (packed_size);
     if (!buffer_data)
     {
         free (buffer);
-        syslog (LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to allocate data buffer. line(%d)\n", __LINE__);
+        syslog (LOG_CRIT | LOG_LOCAL6,
+                "[CLIENT] error: unable to allocate data buffer. line(%d)\n", __LINE__);
         return;
     }
-    memcpy ((void *)buffer, &header, sizeof (header));
+    memcpy ((void *) buffer, &header, sizeof (header));
 
     DEBUG (CMSG_INFO, "[CLIENT] header\n");
     cmsg_buffer_print (&header, sizeof (header));
@@ -194,12 +193,13 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
         return;
     }
 
-    memcpy ((void *)buffer + sizeof (header), (void *)buffer_data, packed_size);
+    memcpy ((void *) buffer + sizeof (header), (void *) buffer_data, packed_size);
 
     DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
     cmsg_buffer_print (buffer_data, packed_size);
 
-    ret = client->_transport->client_send (client, buffer, packed_size + sizeof (header), 0);
+    ret = client->_transport->client_send (client, buffer, packed_size + sizeof (header),
+                                           0);
     if (ret < packed_size + sizeof (header))
     {
         DEBUG (CMSG_ERROR,
@@ -229,7 +229,7 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
     }
 
     //call closure
-    if (closure) //check if closure is not zero, can be the case when we use empty messages
+    if (closure)    //check if closure is not zero, can be the case when we use empty messages
         closure (message, closure_data);
 
     protobuf_c_message_free_unpacked (message, client->allocator);
@@ -239,14 +239,12 @@ cmsg_client_invoke_rpc (ProtobufCService       *service,
 
 
 void
-cmsg_client_invoke_oneway (ProtobufCService       *service,
-                           unsigned                method_index,
-                           const ProtobufCMessage *input,
-                           ProtobufCClosure        closure,
-                           void                   *closure_data)
+cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
+                           const ProtobufCMessage *input, ProtobufCClosure closure,
+                           void *closure_data)
 {
     int ret = 0;
-    cmsg_client *client = (cmsg_client *)service;
+    cmsg_client *client = (cmsg_client *) service;
     int do_queue = 0;
 
     /* pack the data */
@@ -325,17 +323,19 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
     uint8_t *buffer = malloc (packed_size + sizeof (header));
     if (!buffer)
     {
-        syslog (LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to allocate buffer. line(%d)\n", __LINE__);
+        syslog (LOG_CRIT | LOG_LOCAL6,
+                "[CLIENT] error: unable to allocate buffer. line(%d)\n", __LINE__);
         return;
     }
     uint8_t *buffer_data = malloc (packed_size);
     if (!buffer_data)
     {
-        syslog (LOG_CRIT | LOG_LOCAL6, "[CLIENT] error: unable to allocate data buffer. line(%d)\n", __LINE__);
+        syslog (LOG_CRIT | LOG_LOCAL6,
+                "[CLIENT] error: unable to allocate data buffer. line(%d)\n", __LINE__);
         free (buffer);
         return;
     }
-    memcpy ((void *)buffer, &header, sizeof (header));
+    memcpy ((void *) buffer, &header, sizeof (header));
 
     DEBUG (CMSG_INFO, "[CLIENT] header\n");
     cmsg_buffer_print (&header, sizeof (header));
@@ -352,7 +352,7 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
         return;
     }
 
-    memcpy ((void *)buffer + sizeof (header), (void *)buffer_data, packed_size);
+    memcpy ((void *) buffer + sizeof (header), (void *) buffer_data, packed_size);
 
     DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
     cmsg_buffer_print (buffer_data, packed_size);
@@ -360,7 +360,8 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
     //we don't connect to the server when we queue messages
     if (!do_queue)
     {
-        ret = client->_transport->client_send (client, buffer, packed_size + sizeof (header), 0);
+        ret = client->_transport->client_send (client, buffer,
+                                               packed_size + sizeof (header), 0);
         if (ret < packed_size + sizeof (header))
         {
             DEBUG (CMSG_ERROR,
@@ -382,15 +383,13 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
 
         if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
         {
-            cmsg_pub *publisher = (cmsg_pub *)client->parent.object;
+            cmsg_pub *publisher = (cmsg_pub *) client->parent.object;
 
             pthread_mutex_lock (&publisher->queue_mutex);
 
             //todo: check return
-            cmsg_send_queue_push (publisher->queue,
-                                  buffer,
-                                  packed_size + sizeof (header),
-                                  client->_transport);
+            cmsg_send_queue_push (publisher->queue, buffer,
+                                  packed_size + sizeof (header), client->_transport);
 
             pthread_mutex_unlock (&publisher->queue_mutex);
 
@@ -411,10 +410,8 @@ cmsg_client_invoke_oneway (ProtobufCService       *service,
             pthread_mutex_lock (&client->queue_mutex);
 
             //todo: check return
-            cmsg_send_queue_push (client->queue,
-                                  buffer,
-                                  packed_size + sizeof (header),
-                                  client->_transport);
+            cmsg_send_queue_push (client->queue, buffer,
+                                  packed_size + sizeof (header), client->_transport);
 
             pthread_mutex_unlock (&client->queue_mutex);
 
@@ -503,58 +500,45 @@ cmsg_client_queue_process_all (cmsg_client *client)
 }
 
 void
-cmsg_client_queue_filter_set_all (cmsg_client *client,
-                                  cmsg_queue_filter_type filter_type)
+cmsg_client_queue_filter_set_all (cmsg_client *client, cmsg_queue_filter_type filter_type)
 {
-    cmsg_queue_filter_set_all (client->queue_filter_hash_table,
-                               client->descriptor,
+    cmsg_queue_filter_set_all (client->queue_filter_hash_table, client->descriptor,
                                filter_type);
 }
 
 void
 cmsg_client_queue_filter_clear_all (cmsg_client *client)
 {
-    cmsg_queue_filter_clear_all (client->queue_filter_hash_table,
-                                 client->descriptor);
+    cmsg_queue_filter_clear_all (client->queue_filter_hash_table, client->descriptor);
 }
 
 int32_t
-cmsg_client_queue_filter_set (cmsg_client *client,
-                              const char *method,
+cmsg_client_queue_filter_set (cmsg_client *client, const char *method,
                               cmsg_queue_filter_type filter_type)
 {
-    return cmsg_queue_filter_set (client->queue_filter_hash_table,
-                                  method,
-                                  filter_type);
+    return cmsg_queue_filter_set (client->queue_filter_hash_table, method, filter_type);
 }
 
 int32_t
-cmsg_client_queue_filter_clear (cmsg_client *client,
-                                const char *method)
+cmsg_client_queue_filter_clear (cmsg_client *client, const char *method)
 {
-    return cmsg_queue_filter_clear (client->queue_filter_hash_table,
-                                    method);
+    return cmsg_queue_filter_clear (client->queue_filter_hash_table, method);
 }
 
 void
 cmsg_client_queue_filter_init (cmsg_client *client)
 {
-    cmsg_queue_filter_init (client->queue_filter_hash_table,
-                            client->descriptor);
+    cmsg_queue_filter_init (client->queue_filter_hash_table, client->descriptor);
 }
 
 cmsg_queue_filter_type
-cmsg_client_queue_filter_lookup (cmsg_client *client,
-                                 const char *method)
+cmsg_client_queue_filter_lookup (cmsg_client *client, const char *method)
 {
-    return cmsg_queue_filter_lookup (client->queue_filter_hash_table,
-                                     method);
+    return cmsg_queue_filter_lookup (client->queue_filter_hash_table, method);
 }
 
 void
 cmsg_client_queue_filter_show (cmsg_client *client)
 {
-    cmsg_queue_filter_show (client->queue_filter_hash_table,
-                            client->descriptor);
+    cmsg_queue_filter_show (client->queue_filter_hash_table, client->descriptor);
 }
-

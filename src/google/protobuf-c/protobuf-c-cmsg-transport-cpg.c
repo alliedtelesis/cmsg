@@ -36,22 +36,12 @@
 #define TV_USEC_PER_SEC 1000000
 #define SLEEP_TIME_us ((TV_USEC_PER_SEC) / 10)
 
-static void
-_cmsg_cpg_confchg_fn (cpg_handle_t handle,
-                      struct cpg_name *group_name,
-                      struct cpg_address *member_list,
-                      int member_list_entries,
-                      struct cpg_address *left_list,
-                      int left_list_entries,
-                      struct cpg_address *joined_list,
-                      int joined_list_entries);
-static void
-_cmsg_cpg_deliver_fn (cpg_handle_t handle,
-                      const struct cpg_name *group_name,
-                      uint32_t nodeid,
-                      uint32_t pid,
-                      void *msg,
-                      int msg_len);
+static void _cmsg_cpg_confchg_fn (cpg_handle_t handle, struct cpg_name *group_name,
+                                  struct cpg_address *member_list, int member_list_entries,
+                                  struct cpg_address *left_list, int left_list_entries,
+                                  struct cpg_address *joined_list, int joined_list_entries);
+static void _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
+                                  uint32_t nodeid, uint32_t pid, void *msg, int msg_len);
 
 /*
  * Global variables
@@ -60,29 +50,26 @@ static GHashTable *cpg_group_name_to_server_hash_table_h = NULL;
 static cpg_handle_t cmsg_cpg_handle = 0;
 
 cpg_callbacks_t cmsg_cpg_callbacks = {
-    (cpg_deliver_fn_t ) _cmsg_cpg_deliver_fn,
-    (cpg_confchg_fn_t ) _cmsg_cpg_confchg_fn
+    (cpg_deliver_fn_t) _cmsg_cpg_deliver_fn,
+    (cpg_confchg_fn_t) _cmsg_cpg_confchg_fn
 };
 
 /*****************************************************************************/
 /******************* Functions ***********************************************/
 /*****************************************************************************/
 static void
-_cmsg_cpg_confchg_fn (cpg_handle_t handle,
-                   struct cpg_name *group_name,
-                   struct cpg_address *member_list,
-                   int member_list_entries,
-                   struct cpg_address *left_list,
-                   int left_list_entries,
-                   struct cpg_address *joined_list,
-                   int joined_list_entries)
+_cmsg_cpg_confchg_fn (cpg_handle_t handle, struct cpg_name *group_name,
+                      struct cpg_address *member_list, int member_list_entries,
+                      struct cpg_address *left_list, int left_list_entries,
+                      struct cpg_address *joined_list, int joined_list_entries)
 {
     cmsg_server *server;
 
     /* Find the server matching this group.
      */
     DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n", group_name->value);
-    server = (cmsg_server *)g_hash_table_lookup (cpg_group_name_to_server_hash_table_h, (gconstpointer)group_name->value);
+    server = (cmsg_server *) g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
+                                                  (gconstpointer) group_name->value);
 
     if (!server)
     {
@@ -92,7 +79,10 @@ _cmsg_cpg_confchg_fn (cpg_handle_t handle,
 
     if (server->_transport->config.cpg.configchg_cb != NULL)
     {
-        server->_transport->config.cpg.configchg_cb (server, member_list, member_list_entries, left_list, left_list_entries, joined_list, joined_list_entries);
+        server->_transport->config.cpg.configchg_cb (server, member_list,
+                                                     member_list_entries, left_list,
+                                                     left_list_entries, joined_list,
+                                                     joined_list_entries);
     }
     DEBUG (CMSG_INFO, "[TRANSPORT] %s\n", __FUNCTION__);
 }
@@ -103,12 +93,8 @@ _cmsg_cpg_confchg_fn (cpg_handle_t handle,
  * The callback that receives a message.
  */
 static void
-_cmsg_cpg_deliver_fn (cpg_handle_t handle,
-                   const struct cpg_name *group_name,
-                   uint32_t nodeid,
-                   uint32_t pid,
-                   void *msg,
-                   int msg_len)
+_cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
+                      uint32_t nodeid, uint32_t pid, void *msg, int msg_len)
 {
     cmsg_header_request header_received;
     cmsg_header_request header_converted;
@@ -123,12 +109,14 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle,
 
     memcpy (&header_received, msg, sizeof (cmsg_header_request));
 
-    header_converted.method_index = cmsg_common_uint32_from_le (header_received.method_index);
-    header_converted.message_length = cmsg_common_uint32_from_le (header_received.message_length);
+    header_converted.method_index =
+        cmsg_common_uint32_from_le (header_received.method_index);
+    header_converted.message_length =
+        cmsg_common_uint32_from_le (header_received.message_length);
     header_converted.request_id = header_received.request_id;
 
     DEBUG (CMSG_INFO, "[TRANSPORT] cpg received header\n");
-    cmsg_buffer_print ((void *)&header_received, sizeof (cmsg_header_request));
+    cmsg_buffer_print ((void *) &header_received, sizeof (cmsg_header_request));
 
     DEBUG (CMSG_INFO,
            "[TRANSPORT] cpg method_index   host: %d, wire: %d\n",
@@ -142,7 +130,8 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle,
            "[TRANSPORT] cpg request_id     host: %d, wire: %d\n",
            header_converted.request_id, header_received.request_id);
 
-    server_request.message_length = cmsg_common_uint32_from_le (header_received.message_length);
+    server_request.message_length =
+        cmsg_common_uint32_from_le (header_received.message_length);
     server_request.method_index = cmsg_common_uint32_from_le (header_received.method_index);
     server_request.request_id = header_received.request_id;
 
@@ -154,8 +143,7 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle,
 
     if (msg_len < sizeof (cmsg_header_request) + dyn_len)
     {
-        DEBUG (CMSG_ERROR,
-               "[TRANSPORT] cpg Message larger than data buffer passed in\n");
+        DEBUG (CMSG_ERROR, "[TRANSPORT] cpg Message larger than data buffer passed in\n");
         return;
     }
 
@@ -165,7 +153,8 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle,
     cmsg_buffer_print (buffer, dyn_len);
 
     DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n", group_name->value);
-    server = (cmsg_server *)g_hash_table_lookup (cpg_group_name_to_server_hash_table_h, (gconstpointer)group_name->value);
+    server = (cmsg_server *) g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
+                                                  (gconstpointer) group_name->value);
 
     if (!server)
     {
@@ -192,7 +181,8 @@ cmsg_transport_cpg_client_connect (cmsg_client *client)
 {
     cpg_handle_t *handlePt = NULL;
 
-    if (!client || !client->_transport || client->_transport->config.cpg.group_name.value[0] == '\0')
+    if (!client || !client->_transport ||
+        client->_transport->config.cpg.group_name.value[0] == '\0')
     {
         DEBUG (CMSG_ERROR, "[TRANSPORT] cpg connect sanity check failed\n");
     }
@@ -240,7 +230,7 @@ _cmsg_transport_cpg_init_exe_connection (void)
 
         if (result == CPG_OK)
         {
-          return 0;
+            return 0;
         }
 
         if (!(result == CPG_ERR_TRY_AGAIN || result == CPG_ERR_NOT_EXIST))
@@ -250,7 +240,8 @@ _cmsg_transport_cpg_init_exe_connection (void)
 
         usleep (SLEEP_TIME_us);
         slept_us += SLEEP_TIME_us;
-    } while (slept_us <= (TV_USEC_PER_SEC * 10));
+    }
+    while (slept_us <= (TV_USEC_PER_SEC * 10));
 
     DEBUG (CMSG_ERROR,
            "Couldn't initialize CPG service result:%d, waited:%ums",
@@ -273,7 +264,8 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
 
     do
     {
-        result = cpg_join (server->connection.cpg.handle, &server->_transport->config.cpg.group_name);
+        result = cpg_join (server->connection.cpg.handle,
+                           &server->_transport->config.cpg.group_name);
 
         if (result == CPG_OK)
         {
@@ -287,7 +279,8 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
 
         usleep (SLEEP_TIME_us);
         slept_us += SLEEP_TIME_us;
-    } while (slept_us <= (TV_USEC_PER_SEC * 10));
+    }
+    while (slept_us <= (TV_USEC_PER_SEC * 10));
 
     DEBUG (CMSG_ERROR,
            "Couldn't join CPG group %s, result:%d, waited:%ums",
@@ -309,7 +302,8 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     int res = 0;
     int fd = 0;
 
-    if (!server || !server->_transport || server->_transport->config.cpg.group_name.value[0] == '\0')
+    if (!server || !server->_transport ||
+        server->_transport->config.cpg.group_name.value[0] == '\0')
     {
         DEBUG (CMSG_ERROR, "[TRANSPORT] cpg listen sanity check failed\n");
         return -1;
@@ -338,11 +332,10 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     /* Add entry into the hash table for the server to be found by cpg group name.
      */
     g_hash_table_insert (cpg_group_name_to_server_hash_table_h,
-                         (gpointer)server->_transport->config.cpg.group_name.value,
-                         (gpointer)server);
+                         (gpointer) server->_transport->config.cpg.group_name.value,
+                         (gpointer) server);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] server added %lu to hash table\n",
+    DEBUG (CMSG_INFO, "[TRANSPORT] server added %lu to hash table\n",
            server->connection.cpg.handle);
 
     res = _cmsg_transport_cpg_join_group (server);
@@ -388,7 +381,7 @@ cmsg_transport_cpg_server_recv (int32_t socket, cmsg_server *server)
         return -1;
     }
 
-    return 0; // Success
+    return 0;   // Success
 }
 
 
@@ -412,7 +405,9 @@ cmsg_transport_cpg_is_congested (cmsg_client *client)
     {
         if ((cpg_error_count % 16) == 0)
         {
-            DEBUG (CMSG_ERROR, "[TRANSPORT] Unable to get CPG flow control state - hndl %#llx %u", client->connection.handle, cpg_rc);
+            DEBUG (CMSG_ERROR,
+                   "[TRANSPORT] Unable to get CPG flow control state - hndl %#llx %u",
+                   client->connection.handle, cpg_rc);
         }
         cpg_error_count++;
         return TRUE;
@@ -432,7 +427,7 @@ cmsg_transport_cpg_is_congested (cmsg_client *client)
  *
  * Returns
  */
-static  int32_t
+static int32_t
 cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int flag)
 {
     struct iovec iov;
@@ -467,8 +462,7 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
         usleep (1000);
     }
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] cpg send message to handle  %lu\n",
+    DEBUG (CMSG_INFO, "[TRANSPORT] cpg send message to handle  %lu\n",
            client->connection.handle);
 
     /* Keep trying to send the message until it succeeds (e.g. blocks)
@@ -478,7 +472,7 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
         /* Attempt to send message. */
         res = cpg_mcast_joined (client->connection.handle, CPG_TYPE_AGREED, &iov, 1);
         if (res != CPG_ERR_TRY_AGAIN)
-            break;      /* message sent, or failure, quit loop now. */
+            break;  /* message sent, or failure, quit loop now. */
 
         /* Give CPG a chance to relieve the congestion */
         usleep (100000);
@@ -545,7 +539,8 @@ cmsg_transport_cpg_server_destroy (cmsg_server *server)
 
     /* Cleanup our entries in the hash table.
      */
-    ret = g_hash_table_remove (cpg_group_name_to_server_hash_table_h, (gpointer *) server->_transport->config.cpg.group_name.value);
+    ret = g_hash_table_remove (cpg_group_name_to_server_hash_table_h,
+                               (gpointer *) server->_transport->config.cpg.group_name.value);
     DEBUG (CMSG_INFO, "[TRANSPORT] cpg group name hash table remove, result %d\n", ret);
 
     /* Leave the CPG group.
@@ -602,34 +597,33 @@ cmsg_transport_cpg_client_get_socket (cmsg_client *client)
  *
  * Name is a string so add all characters together to generate a hash
  */
-static
-guint
+static guint
 cmsg_transport_cpg_group_hash_function (gconstpointer key)
 {
-    char *string = (char *)key;
+    char *string = (char *) key;
     guint hash = 0;
     int i = 0;
 
     for (i = 0; string[i] != 0; i++)
-        hash += (guint)string[i];
+        hash += (guint) string[i];
 
-    return (guint)hash;
+    return (guint) hash;
 }
 
 
 /**
  * Private function used by the hash table for cpg handles.
  */
-static
-gboolean
+static gboolean
 cmsg_transport_cpg_group_equal_function (gconstpointer a, gconstpointer b)
 {
-    return (strcmp ((char *)a, (char *)b) == 0);
+    return (strcmp ((char *) a, (char *) b) == 0);
 }
 
 
 int32_t
-cmsg_transport_cpg_send_called_multi_threads_enable (cmsg_transport *transport, uint32_t enable)
+cmsg_transport_cpg_send_called_multi_threads_enable (cmsg_transport *transport,
+                                                     uint32_t enable)
 {
     if (enable)
     {
@@ -646,7 +640,8 @@ cmsg_transport_cpg_send_called_multi_threads_enable (cmsg_transport *transport, 
 
 
 int32_t
-cmsg_transport_cpg_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
+cmsg_transport_cpg_send_can_block_enable (cmsg_transport *transport,
+                                          uint32_t send_can_block)
 {
     transport->send_can_block = send_can_block;
     return 0;
@@ -681,16 +676,17 @@ cmsg_transport_cpg_init (cmsg_transport *transport)
     transport->server_destroy = cmsg_transport_cpg_server_destroy;
 
     transport->is_congested = cmsg_transport_cpg_is_congested;
-    transport->send_called_multi_threads_enable = cmsg_transport_cpg_send_called_multi_threads_enable;
+    transport->send_called_multi_threads_enable =
+        cmsg_transport_cpg_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_cpg_send_can_block_enable;
 
     if (cpg_group_name_to_server_hash_table_h == NULL)
     {
-        cpg_group_name_to_server_hash_table_h = g_hash_table_new (cmsg_transport_cpg_group_hash_function,
-                cmsg_transport_cpg_group_equal_function);
+        cpg_group_name_to_server_hash_table_h =
+            g_hash_table_new (cmsg_transport_cpg_group_hash_function,
+                              cmsg_transport_cpg_group_equal_function);
     }
 
     DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
-

@@ -6,10 +6,10 @@
 
 #define CMSG_SERVICE(package,service)   ((ProtobufCService *)&package ## _ ## service ## _service)
 
-typedef enum   _cmsg_queue_filter_type_e   cmsg_queue_filter_type;
+typedef enum _cmsg_queue_filter_type_e cmsg_queue_filter_type;
 
-typedef struct _cmsg_server_request_s   cmsg_server_request;
-typedef struct _cmsg_server_s           cmsg_server;
+typedef struct _cmsg_server_request_s cmsg_server_request;
+typedef struct _cmsg_server_s cmsg_server;
 
 
 struct _cmsg_server_request_s
@@ -21,8 +21,7 @@ struct _cmsg_server_request_s
     int32_t closure_response;
 };
 
-typedef int32_t (*server_message_processor_f) (cmsg_server *server,
-                                               uint8_t     *buffer_data);
+typedef int32_t (*server_message_processor_f) (cmsg_server *server, uint8_t *buffer_data);
 
 struct _cmsg_server_s
 {
@@ -46,56 +45,38 @@ struct _cmsg_server_s
     GHashTable *queue_filter_hash_table;
 
     //thread signaling for queuing
-    pthread_cond_t      queue_process_cond;
-    pthread_mutex_t     queue_process_mutex;
-    pthread_t           self_thread_id;
+    pthread_cond_t queue_process_cond;
+    pthread_mutex_t queue_process_mutex;
+    pthread_t self_thread_id;
 };
 
 
-cmsg_server *
-cmsg_server_new (cmsg_transport   *transport,
-                 ProtobufCService *service);
+cmsg_server *cmsg_server_new (cmsg_transport *transport, ProtobufCService *service);
 
-void
-cmsg_server_destroy (cmsg_server *server);
+void cmsg_server_destroy (cmsg_server *server);
 
-int
-cmsg_server_get_socket (cmsg_server *server);
+int cmsg_server_get_socket (cmsg_server *server);
 
-int32_t
-cmsg_server_receive_poll (cmsg_server *server,
-                          int32_t timeout_ms,
-                          fd_set *master_fdset,
-                          int *fdmax);
+int32_t cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms,
+                                  fd_set *master_fdset, int *fdmax);
 
-int32_t
-cmsg_server_receive (cmsg_server *server,
-                     int32_t      server_socket);
-int32_t cmsg_server_accept (cmsg_server *server,
-                            int32_t listen_socket);
+int32_t cmsg_server_receive (cmsg_server *server, int32_t server_socket);
+int32_t cmsg_server_accept (cmsg_server *server, int32_t listen_socket);
 
-int32_t
-cmsg_server_message_processor (cmsg_server *server,
-                               uint8_t     *buffer_data);
+int32_t cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data);
 
-void cmsg_server_closure_rpc (const ProtobufCMessage *message,
-                              void                   *closure_data);
+void cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data);
 
-void
-cmsg_server_closure_oneway (const ProtobufCMessage *message,
-                            void                   *closure_data);
+void cmsg_server_closure_oneway (const ProtobufCMessage *message, void *closure_data);
 
-int32_t
-cmsg_server_queue_filter_set (cmsg_server *server,
-                              const char *method,
-                              cmsg_queue_filter_type filter_type);
+int32_t cmsg_server_queue_filter_set (cmsg_server *server,
+                                      const char *method,
+                                      cmsg_queue_filter_type filter_type);
 
-void
-cmsg_server_queue_filter_set_all (cmsg_server *server,
-                                  cmsg_queue_filter_type filter_type);
+void cmsg_server_queue_filter_set_all (cmsg_server *server,
+                                       cmsg_queue_filter_type filter_type);
 
-int32_t
-cmsg_server_queue_process_all (cmsg_server *server);
+int32_t cmsg_server_queue_process_all (cmsg_server *server);
 
 uint32_t cmsg_server_queue_max_length_get (cmsg_server *server);
 

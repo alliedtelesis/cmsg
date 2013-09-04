@@ -5,24 +5,31 @@ Cmsg__SubService_Service cmsg_pub_subscriber_service = CMSG__SUB_SERVICE__INIT (
 
 
 int32_t
-cmsg_sub_entry_compare (cmsg_sub_entry *one,
-                        cmsg_sub_entry *two)
+cmsg_sub_entry_compare (cmsg_sub_entry *one, cmsg_sub_entry *two)
 {
     CMSG_ASSERT (one);
     CMSG_ASSERT (two);
 
     if ((one->transport.config.socket.family == two->transport.config.socket.family) &&
         (one->transport.type == two->transport.type) &&
-        (one->transport.config.socket.sockaddr.in.sin_addr.s_addr == two->transport.config.socket.sockaddr.in.sin_addr.s_addr) &&
-        (one->transport.config.socket.sockaddr.in.sin_port == two->transport.config.socket.sockaddr.in.sin_port) &&
+        (one->transport.config.socket.sockaddr.in.sin_addr.s_addr ==
+         two->transport.config.socket.sockaddr.in.sin_addr.s_addr) &&
+        (one->transport.config.socket.sockaddr.in.sin_port ==
+         two->transport.config.socket.sockaddr.in.sin_port) &&
         (one->transport.config.socket.family == two->transport.config.socket.family) &&
         (one->transport.type == two->transport.type) &&
-        (one->transport.config.socket.sockaddr.tipc.family == two->transport.config.socket.sockaddr.tipc.family) &&
-        (one->transport.config.socket.sockaddr.tipc.addrtype == two->transport.config.socket.sockaddr.tipc.addrtype) &&
-        (one->transport.config.socket.sockaddr.tipc.addr.name.domain == two->transport.config.socket.sockaddr.tipc.addr.name.domain) &&
-        (one->transport.config.socket.sockaddr.tipc.addr.name.name.instance == two->transport.config.socket.sockaddr.tipc.addr.name.name.instance) &&
-        (one->transport.config.socket.sockaddr.tipc.addr.name.name.type == two->transport.config.socket.sockaddr.tipc.addr.name.name.type) &&
-        (one->transport.config.socket.sockaddr.tipc.scope == two->transport.config.socket.sockaddr.tipc.scope) &&
+        (one->transport.config.socket.sockaddr.tipc.family ==
+         two->transport.config.socket.sockaddr.tipc.family) &&
+        (one->transport.config.socket.sockaddr.tipc.addrtype ==
+         two->transport.config.socket.sockaddr.tipc.addrtype) &&
+        (one->transport.config.socket.sockaddr.tipc.addr.name.domain ==
+         two->transport.config.socket.sockaddr.tipc.addr.name.domain) &&
+        (one->transport.config.socket.sockaddr.tipc.addr.name.name.instance ==
+         two->transport.config.socket.sockaddr.tipc.addr.name.name.instance) &&
+        (one->transport.config.socket.sockaddr.tipc.addr.name.name.type ==
+         two->transport.config.socket.sockaddr.tipc.addr.name.name.type) &&
+        (one->transport.config.socket.sockaddr.tipc.scope ==
+         two->transport.config.socket.sockaddr.tipc.scope) &&
         !strcmp (one->method_name, two->method_name))
     {
         return 1;
@@ -32,8 +39,7 @@ cmsg_sub_entry_compare (cmsg_sub_entry *one,
 }
 
 int32_t
-cmsg_sub_entry_compare_transport (cmsg_sub_entry *one,
-                                  cmsg_transport *transport)
+cmsg_sub_entry_compare_transport (cmsg_sub_entry *one, cmsg_transport *transport)
 {
     CMSG_ASSERT (one);
     CMSG_ASSERT (transport);
@@ -66,8 +72,7 @@ cmsg_sub_entry_compare_transport (cmsg_sub_entry *one,
 }
 
 int32_t
-cmsg_transport_compare (cmsg_transport *one,
-                        cmsg_transport *two)
+cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
 {
     CMSG_ASSERT (one);
     CMSG_ASSERT (two);
@@ -99,7 +104,7 @@ cmsg_transport_compare (cmsg_transport *one,
 }
 
 cmsg_pub *
-cmsg_pub_new (cmsg_transport                   *sub_server_transport,
+cmsg_pub_new (cmsg_transport *sub_server_transport,
               const ProtobufCServiceDescriptor *pub_service)
 {
     CMSG_ASSERT (sub_server_transport);
@@ -107,12 +112,13 @@ cmsg_pub_new (cmsg_transport                   *sub_server_transport,
     cmsg_pub *publisher = malloc (sizeof (cmsg_pub));
     if (!publisher)
     {
-        syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] error: unable to create publisher. line(%d)\n", __LINE__);
+        syslog (LOG_CRIT | LOG_LOCAL6,
+                "[PUB] [LIST] error: unable to create publisher. line(%d)\n", __LINE__);
         return NULL;
     }
 
     publisher->sub_server = cmsg_server_new (sub_server_transport,
-                                             (ProtobufCService *)&cmsg_pub_subscriber_service);
+                                             (ProtobufCService *) &cmsg_pub_subscriber_service);
     if (!publisher->sub_server)
     {
         DEBUG (CMSG_ERROR, "[PUB] [LIST] error: unable to create publisher->sub_server\n");
@@ -191,8 +197,7 @@ cmsg_pub_destroy (cmsg_pub *publisher)
 
     publisher->subscriber_list = NULL;
 
-    cmsg_queue_filter_free (publisher->queue_filter_hash_table,
-                            publisher->descriptor);
+    cmsg_queue_filter_free (publisher->queue_filter_hash_table, publisher->descriptor);
 
     g_hash_table_destroy (publisher->queue_filter_hash_table);
 
@@ -222,8 +227,7 @@ cmsg_pub_get_server_socket (cmsg_pub *publisher)
 
 
 int32_t
-cmsg_pub_subscriber_add (cmsg_pub       *publisher,
-                         cmsg_sub_entry *entry)
+cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
     CMSG_ASSERT (publisher);
     CMSG_ASSERT (entry);
@@ -238,7 +242,7 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *)subscriber_list->data;
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
 
         if (cmsg_sub_entry_compare (entry, list_entry))
         {
@@ -255,7 +259,9 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
         cmsg_sub_entry *list_entry = g_malloc (sizeof (cmsg_sub_entry));
         if (!list_entry)
         {
-            syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] error: unable to create list entry. line(%d)\n", __LINE__);
+            syslog (LOG_CRIT | LOG_LOCAL6,
+                    "[PUB] [LIST] error: unable to create list entry. line(%d)\n",
+                    __LINE__);
             pthread_mutex_unlock (&publisher->subscriber_list_mutex);
             return CMSG_RET_ERR;
         }
@@ -276,8 +282,9 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
     {
-        cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *)print_subscriber_list->data;
-        DEBUG (CMSG_INFO, "[PUB] [LIST] print_list_entry->method_name: %s\n", print_list_entry->method_name);
+        cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
+        DEBUG (CMSG_INFO, "[PUB] [LIST] print_list_entry->method_name: %s\n",
+               print_list_entry->method_name);
         print_subscriber_list = g_list_next (print_subscriber_list);
     }
 #endif
@@ -294,8 +301,7 @@ cmsg_pub_subscriber_add (cmsg_pub       *publisher,
  * Only call this function if you already have the lock on subscriber_list_mutex.
  */
 static void
-_cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
-                             cmsg_sub_entry *entry)
+_cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
     CMSG_ASSERT (publisher);
     CMSG_ASSERT (entry);
@@ -306,11 +312,12 @@ _cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *)subscriber_list->data;
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
         if (cmsg_sub_entry_compare (list_entry, entry))
         {
             DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
-            publisher->subscriber_list = g_list_remove (publisher->subscriber_list, list_entry);
+            publisher->subscriber_list = g_list_remove (publisher->subscriber_list,
+                                                        list_entry);
             g_free (list_entry);
             publisher->subscriber_count--;
             break;
@@ -327,7 +334,7 @@ _cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
     {
-        cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *)print_subscriber_list->data;
+        cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
         DEBUG (CMSG_INFO,
                "[PUB] [LIST] print_list_entry->method_name: %s\n",
                print_list_entry->method_name);
@@ -338,8 +345,7 @@ _cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
 }
 
 int32_t
-cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
-                            cmsg_sub_entry *entry)
+cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
     CMSG_ASSERT (publisher);
     CMSG_ASSERT (entry);
@@ -354,7 +360,7 @@ cmsg_pub_subscriber_remove (cmsg_pub       *publisher,
 }
 
 int32_t
-cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub       *publisher,
+cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
                                                cmsg_transport *transport)
 {
     CMSG_ASSERT (publisher);
@@ -368,12 +374,14 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub       *publisher,
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *)subscriber_list->data;
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
         if (cmsg_sub_entry_compare_transport (list_entry, transport))
         {
             DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
-            syslog (LOG_CRIT | LOG_LOCAL6, "[PUB LIST] deleting entry for %s\n", list_entry->method_name);
-            publisher->subscriber_list = g_list_remove (publisher->subscriber_list, list_entry);
+            syslog (LOG_CRIT | LOG_LOCAL6, "[PUB LIST] deleting entry for %s\n",
+                    list_entry->method_name);
+            publisher->subscriber_list = g_list_remove (publisher->subscriber_list,
+                                                        list_entry);
             g_free (list_entry);
             publisher->subscriber_count--;
         }
@@ -389,7 +397,7 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub       *publisher,
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
     {
-        cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *)print_subscriber_list->data;
+        cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
         DEBUG (CMSG_INFO,
                "[PUB] [LIST] print_list_entry->method_name: %s\n",
                print_list_entry->method_name);
@@ -413,9 +421,7 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub       *publisher,
  * On success returns 0, failure returns -1.
  */
 int32_t
-cmsg_publisher_receive_poll (cmsg_pub *publisher,
-                             int32_t timeout_ms,
-                             fd_set *master_fdset,
+cmsg_publisher_receive_poll (cmsg_pub *publisher, int32_t timeout_ms, fd_set *master_fdset,
                              int *fdmax)
 {
     CMSG_ASSERT (publisher);
@@ -433,7 +439,7 @@ cmsg_pub_subscriber_remove_all (cmsg_pub *publisher)
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *)subscriber_list->data;
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
         publisher->subscriber_list = g_list_remove (publisher->subscriber_list, list_entry);
         g_free (list_entry);
 
@@ -445,8 +451,7 @@ cmsg_pub_subscriber_remove_all (cmsg_pub *publisher)
 
 
 int32_t
-cmsg_pub_server_receive (cmsg_pub *publisher,
-                         int32_t   server_socket)
+cmsg_pub_server_receive (cmsg_pub *publisher, int32_t server_socket)
 {
     int32_t ret = 0;
 
@@ -457,7 +462,8 @@ cmsg_pub_server_receive (cmsg_pub *publisher,
 
     cmsg_server *server = publisher->sub_server;
 
-    ret = publisher->sub_server->_transport->server_recv (server_socket, publisher->sub_server);
+    ret = publisher->sub_server->_transport->server_recv (server_socket,
+                                                          publisher->sub_server);
 
     if (ret < 0)
     {
@@ -469,8 +475,7 @@ cmsg_pub_server_receive (cmsg_pub *publisher,
 }
 
 int32_t
-cmsg_pub_message_processor (cmsg_server *server,
-                            uint8_t     *buffer_data)
+cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
     CMSG_ASSERT (server);
     CMSG_ASSERT (server->_transport);
@@ -481,11 +486,12 @@ cmsg_pub_message_processor (cmsg_server *server,
 
     cmsg_server_request *server_request = server->server_request;
     ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = (ProtobufCAllocator *)server->allocator;
+    ProtobufCAllocator *allocator = (ProtobufCAllocator *) server->allocator;
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
-        DEBUG (CMSG_ERROR, "[PUB] the method index from read from the header seems to be to high\n");
+        DEBUG (CMSG_ERROR,
+               "[PUB] the method index from read from the header seems to be to high\n");
         return 0;
     }
 
@@ -509,11 +515,8 @@ cmsg_pub_message_processor (cmsg_server *server,
     }
 
     //this is calling: cmsg_pub_subscribe
-    server->service->invoke (server->service,
-                             server_request->method_index,
-                             message,
-                             server->_transport->closure,
-                             (void *)server);
+    server->service->invoke (server->service, server_request->method_index, message,
+                             server->_transport->closure, (void *) server);
 
     protobuf_c_message_free_unpacked (message, allocator);
 
@@ -522,15 +525,14 @@ cmsg_pub_message_processor (cmsg_server *server,
 }
 
 void
-cmsg_pub_invoke (ProtobufCService       *service,
-                 unsigned                method_index,
+cmsg_pub_invoke (ProtobufCService *service,
+                 unsigned method_index,
                  const ProtobufCMessage *input,
-                 ProtobufCClosure        closure,
-                 void                   *closure_data)
+                 ProtobufCClosure closure, void *closure_data)
 {
     int tries = CMSG_TRANSPORT_CLIENT_SEND_TRIES;
     int remove_entry = 0;
-    cmsg_pub *publisher = (cmsg_pub *)service;
+    cmsg_pub *publisher = (cmsg_pub *) service;
 
     CMSG_ASSERT (service);
     CMSG_ASSERT (service->descriptor);
@@ -564,10 +566,11 @@ cmsg_pub_invoke (ProtobufCService       *service,
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *)subscriber_list->data;
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
 
         //just send to this client if it has subscribed for this notification before
-        if (strcmp (service->descriptor->methods[method_index].name, list_entry->method_name))
+        if (strcmp (service->descriptor->methods[method_index].name,
+                    list_entry->method_name))
         {
             //skip this entry is not what we want
             subscriber_list = g_list_next (subscriber_list);
@@ -599,7 +602,8 @@ cmsg_pub_invoke (ProtobufCService       *service,
             cmsg_transport_oneway_tipc_init (&list_entry->transport);
         }
 
-        cmsg_client *client = cmsg_client_new (&list_entry->transport, publisher->descriptor);
+        cmsg_client *client = cmsg_client_new (&list_entry->transport,
+                                               publisher->descriptor);
 
         if (action == CMSG_QUEUE_FILTER_PROCESS)
         {
@@ -612,7 +616,7 @@ cmsg_pub_invoke (ProtobufCService       *service,
             client->queue_enabled_from_parent = 1;
             tries = 1;
         }
-        else //global queue settings
+        else    //global queue settings
         {
             DEBUG (CMSG_ERROR, "[PUB] error: queue filter action: %d wrong\n", action);
             pthread_mutex_unlock (&publisher->subscriber_list_mutex);
@@ -625,15 +629,13 @@ cmsg_pub_invoke (ProtobufCService       *service,
         int c = 0;
         for (c = 0; c <= tries; c++)
         {
-            cmsg_client_invoke_oneway ((ProtobufCService *)client,
-                                       method_index,
-                                       input,
-                                       closure,
-                                       closure_data);
+            cmsg_client_invoke_oneway ((ProtobufCService *) client, method_index,
+                                       input, closure, closure_data);
 
             if (client->state == CMSG_CLIENT_STATE_FAILED)
             {
-                if (list_entry->transport.client_send_tries >= CMSG_TRANSPORT_CLIENT_SEND_TRIES)
+                if (list_entry->transport.client_send_tries >=
+                    CMSG_TRANSPORT_CLIENT_SEND_TRIES)
                 {
 
                     // error: subscriber not reachable after 10 tries, removing subscriber from list
@@ -657,7 +659,8 @@ cmsg_pub_invoke (ProtobufCService       *service,
             }
             else
             {
-                syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] error: unknown client->state=%d\n", client->state);
+                syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] error: unknown client->state=%d\n",
+                        client->state);
             }
         }
 
@@ -681,17 +684,15 @@ cmsg_pub_invoke (ProtobufCService       *service,
 }
 
 void
-cmsg_pub_subscribe (Cmsg__SubService_Service        *service,
-                    const Cmsg__SubEntry            *input,
-                    Cmsg__SubEntryResponse_Closure  closure,
-                    void                           *closure_data)
+cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *input,
+                    Cmsg__SubEntryResponse_Closure closure, void *closure_data)
 {
     CMSG_ASSERT (service);
     CMSG_ASSERT (input);
     CMSG_ASSERT (closure_data);
 
     DEBUG (CMSG_INFO, "[PUB] cmsg_notification_subscriber_server_register_handler\n");
-    cmsg_server *server = (cmsg_server *)closure_data;
+    cmsg_server *server = (cmsg_server *) closure_data;
     cmsg_pub *publisher = NULL;
 
     if (server->parent.object_type == CMSG_OBJ_TYPE_PUB)
@@ -710,7 +711,8 @@ cmsg_pub_subscribe (Cmsg__SubService_Service        *service,
         subscriber_entry.transport.config.socket.family = PF_INET;
 
         subscriber_entry.transport.type = input->transport_type;
-        subscriber_entry.transport.config.socket.sockaddr.in.sin_addr.s_addr = input->in_sin_addr_s_addr;
+        subscriber_entry.transport.config.socket.sockaddr.in.sin_addr.s_addr =
+            input->in_sin_addr_s_addr;
         subscriber_entry.transport.config.socket.sockaddr.in.sin_port = input->in_sin_port;
     }
     else if (input->transport_type == CMSG_TRANSPORT_ONEWAY_TIPC)
@@ -720,10 +722,14 @@ cmsg_pub_subscribe (Cmsg__SubService_Service        *service,
 
         subscriber_entry.transport.type = input->transport_type;
         subscriber_entry.transport.config.socket.sockaddr.tipc.family = input->tipc_family;
-        subscriber_entry.transport.config.socket.sockaddr.tipc.addrtype = input->tipc_addrtype;
-        subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.domain = input->tipc_addr_name_domain;
-        subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.instance = input->tipc_addr_name_name_instance;
-        subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.type = input->tipc_addr_name_name_type;
+        subscriber_entry.transport.config.socket.sockaddr.tipc.addrtype =
+            input->tipc_addrtype;
+        subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.domain =
+            input->tipc_addr_name_domain;
+        subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.instance =
+            input->tipc_addr_name_name_instance;
+        subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.type =
+            input->tipc_addr_name_name_type;
         subscriber_entry.transport.config.socket.sockaddr.tipc.scope = input->tipc_scope;
     }
     else
@@ -735,13 +741,11 @@ cmsg_pub_subscribe (Cmsg__SubService_Service        *service,
 
     if (input->add)
     {
-        response.return_value = cmsg_pub_subscriber_add (publisher,
-                                                         &subscriber_entry);
+        response.return_value = cmsg_pub_subscriber_add (publisher, &subscriber_entry);
     }
     else
     {
-        response.return_value = cmsg_pub_subscriber_remove (publisher,
-                                                            &subscriber_entry);
+        response.return_value = cmsg_pub_subscriber_remove (publisher, &subscriber_entry);
     }
 
     closure (&response, closure_data);
@@ -809,57 +813,45 @@ cmsg_pub_queue_process_all (cmsg_pub *publisher)
 
 
 void
-cmsg_pub_queue_filter_set_all (cmsg_pub *publisher,
-                               cmsg_queue_filter_type filter_type)
+cmsg_pub_queue_filter_set_all (cmsg_pub *publisher, cmsg_queue_filter_type filter_type)
 {
     cmsg_queue_filter_set_all (publisher->queue_filter_hash_table,
-                               publisher->descriptor,
-                               filter_type);
+                               publisher->descriptor, filter_type);
 }
 
 void
 cmsg_pub_queue_filter_clear_all (cmsg_pub *publisher)
 {
-    cmsg_queue_filter_clear_all (publisher->queue_filter_hash_table,
-                                 publisher->descriptor);
+    cmsg_queue_filter_clear_all (publisher->queue_filter_hash_table, publisher->descriptor);
 }
 
 int32_t
 cmsg_pub_queue_filter_set (cmsg_pub *publisher,
-                           const char *method,
-                           cmsg_queue_filter_type filter_type)
+                           const char *method, cmsg_queue_filter_type filter_type)
 {
-    return cmsg_queue_filter_set (publisher->queue_filter_hash_table,
-                                  method,
-                                  filter_type);
+    return cmsg_queue_filter_set (publisher->queue_filter_hash_table, method, filter_type);
 }
 
 int32_t
-cmsg_pub_queue_filter_clear (cmsg_pub *publisher,
-                             const char *method)
+cmsg_pub_queue_filter_clear (cmsg_pub *publisher, const char *method)
 {
-    return cmsg_queue_filter_clear (publisher->queue_filter_hash_table,
-                                    method);
+    return cmsg_queue_filter_clear (publisher->queue_filter_hash_table, method);
 }
 
 void
 cmsg_pub_queue_filter_init (cmsg_pub *publisher)
 {
-    cmsg_queue_filter_init (publisher->queue_filter_hash_table,
-                            publisher->descriptor);
+    cmsg_queue_filter_init (publisher->queue_filter_hash_table, publisher->descriptor);
 }
 
 cmsg_queue_filter_type
-cmsg_pub_queue_filter_lookup (cmsg_pub *publisher,
-                              const char *method)
+cmsg_pub_queue_filter_lookup (cmsg_pub *publisher, const char *method)
 {
-    return cmsg_queue_filter_lookup (publisher->queue_filter_hash_table,
-                                     method);
+    return cmsg_queue_filter_lookup (publisher->queue_filter_hash_table, method);
 }
 
 void
 cmsg_pub_queue_filter_show (cmsg_pub *publisher)
 {
-    cmsg_queue_filter_show (publisher->queue_filter_hash_table,
-                            publisher->descriptor);
+    cmsg_queue_filter_show (publisher->queue_filter_hash_table, publisher->descriptor);
 }

@@ -35,13 +35,13 @@
 #endif
 
 #ifdef DEBUG_DISABLED
-#define CMSG_ASSERT(E) do {;} while(0)
+#define CMSG_ASSERT(E) do { ; } while(0)
 #else
 #define CMSG_ASSERT(E) (assert (E))
 #endif
 
 #define CMSG_RECV_BUFFER_SZ                        512
-#define CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT    700 //ms
+#define CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT    700  //ms
 #define CMSG_TRANSPORT_CLIENT_SEND_TRIES           5
 
 // Return codes
@@ -61,17 +61,17 @@
 //         request_id                32-bit any-endian
 
 //forward declarations
-typedef struct _cmsg_client_s   cmsg_client;
-typedef struct _cmsg_server_s   cmsg_server;
-typedef struct _cmsg_sub_s      cmsg_sub;
-typedef struct _cmsg_pub_s      cmsg_pub;
+typedef struct _cmsg_client_s cmsg_client;
+typedef struct _cmsg_server_s cmsg_server;
+typedef struct _cmsg_sub_s cmsg_sub;
+typedef struct _cmsg_pub_s cmsg_pub;
 
-typedef struct _cmsg_object_s           cmsg_object;
-typedef enum   _cmsg_object_type_e      cmsg_object_type;
-typedef struct _cmsg_header_request_s   cmsg_header_request;
-typedef struct _cmsg_header_response_s  cmsg_header_response;
-typedef enum   _cmsg_status_code_e      cmsg_status_code;
-typedef enum   _cmsg_error_code_e       cmsg_error_code;
+typedef struct _cmsg_object_s cmsg_object;
+typedef enum _cmsg_object_type_e cmsg_object_type;
+typedef struct _cmsg_header_request_s cmsg_header_request;
+typedef struct _cmsg_header_response_s cmsg_header_response;
+typedef enum _cmsg_status_code_e cmsg_status_code;
+typedef enum _cmsg_error_code_e cmsg_error_code;
 
 enum _cmsg_object_type_e
 {
@@ -120,17 +120,13 @@ enum _cmsg_error_code_e
     CMSG_ERROR_CODE_PROXY_PROBLEM
 };
 
-uint32_t
-cmsg_common_uint32_to_le (uint32_t le);
+uint32_t cmsg_common_uint32_to_le (uint32_t le);
 
 #define cmsg_common_uint32_from_le cmsg_common_uint32_to_le
 
-void
-cmsg_buffer_print (void *buffer, unsigned int size);
+void cmsg_buffer_print (void *buffer, unsigned int size);
 
-cmsg_header_request
-cmsg_request_header_create (uint32_t method_index,
-                            uint32_t packed_size,
-                            uint32_t request_id);
+cmsg_header_request cmsg_request_header_create (uint32_t method_index, uint32_t packed_size,
+                                                uint32_t request_id);
 
 #endif

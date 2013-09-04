@@ -14,7 +14,8 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
     if (client == NULL)
         return 0;
 
-    client->connection.socket = socket (client->_transport->config.socket.family, SOCK_RDM, 0);
+    client->connection.socket = socket (client->_transport->config.socket.family,
+                                        SOCK_RDM, 0);
 
     if (client->connection.socket < 0)
     {
@@ -50,16 +51,14 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
     listening_socket = socket (transport->config.socket.family, SOCK_RDM, 0);
     if (listening_socket == -1)
     {
-        DEBUG (CMSG_ERROR,
-               "[TRANSPORT] socket failed with: %s\n",
-               strerror (errno));
+        DEBUG (CMSG_ERROR, "[TRANSPORT] socket failed with: %s\n", strerror (errno));
 
         return -1;
     }
 
     //TODO: stk_tipc.c adds the addressing information here
 
-    addrlen  = sizeof (transport->config.socket.sockaddr.tipc);
+    addrlen = sizeof (transport->config.socket.sockaddr.tipc);
     /* bind the socket address (publishes the TIPC port name) */
     if (bind (listening_socket, &transport->config.socket.sockaddr.tipc, addrlen) != 0)
     {
@@ -131,11 +130,9 @@ cmsg_transport_tipc_broadcast_client_recv (cmsg_client *client)
  * Send the data in buff to the server specified in the clients transports
  * addressing structure. Does not block.
  */
-static  int32_t
-cmsg_transport_tipc_broadcast_client_send (cmsg_client *client,
-                                           void        *buff,
-                                           int          length,
-                                           int          flag)
+static int32_t
+cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int length,
+                                           int flag)
 {
     return (sendto (client->connection.socket,
                     buff,
@@ -152,10 +149,8 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client,
  * it prevents a null pointer exception from occurring if no function is
  * defined
  */
-static  int32_t
-cmsg_transport_tipc_broadcast_server_send (cmsg_server *server,
-                                           void *buff,
-                                           int length,
+static int32_t
+cmsg_transport_tipc_broadcast_server_send (cmsg_server *server, void *buff, int length,
                                            int flag)
 {
     return 0;
@@ -243,7 +238,8 @@ cmsg_transport_tipc_broadcast_is_congested (cmsg_client *client)
 
 
 int32_t
-cmsg_transport_tipc_broadcast_send_called_multi_threads_enable (cmsg_transport *transport, uint32_t enable)
+cmsg_transport_tipc_broadcast_send_called_multi_threads_enable (cmsg_transport *transport,
+                                                                uint32_t enable)
 {
     // Don't support sending from multiple threads
     return -1;
@@ -251,7 +247,8 @@ cmsg_transport_tipc_broadcast_send_called_multi_threads_enable (cmsg_transport *
 
 
 int32_t
-cmsg_transport_tipc_broadcast_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
+cmsg_transport_tipc_broadcast_send_can_block_enable (cmsg_transport *transport,
+                                                     uint32_t send_can_block)
 {
     // Don't support send blocking
     return -1;
@@ -285,7 +282,8 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->server_destroy = cmsg_transport_tipc_broadcast_server_destroy;
 
     transport->is_congested = cmsg_transport_tipc_broadcast_is_congested;
-    transport->send_called_multi_threads_enable = cmsg_transport_tipc_broadcast_send_called_multi_threads_enable;
+    transport->send_called_multi_threads_enable =
+        cmsg_transport_tipc_broadcast_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tipc_broadcast_send_can_block_enable;
 

@@ -13,15 +13,12 @@ cmsg_transport_tipc_connect (cmsg_client *client)
         return 0;
 
     client->connection.socket = socket (client->_transport->config.socket.family,
-                                        SOCK_STREAM,
-                                        0);
+                                        SOCK_STREAM, 0);
 
     if (client->connection.socket < 0)
     {
         client->state = CMSG_CLIENT_STATE_FAILED;
-        DEBUG (CMSG_ERROR,
-               "[TRANSPORT] error creating socket: %s\n",
-               strerror (errno));
+        DEBUG (CMSG_ERROR, "[TRANSPORT] error creating socket: %s\n", strerror (errno));
 
         return 0;
     }
@@ -29,23 +26,19 @@ cmsg_transport_tipc_connect (cmsg_client *client)
     if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
     {
         int tipc_timeout = CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT;
-        setsockopt (client->connection.socket,
-                    SOL_TIPC,
-                    TIPC_CONN_TIMEOUT,
-                    &tipc_timeout,
+        setsockopt (client->connection.socket, SOL_TIPC, TIPC_CONN_TIMEOUT, &tipc_timeout,
                     sizeof (int));
     }
 
     if (connect (client->connection.socket,
-                 (struct sockaddr *)&client->_transport->config.socket.sockaddr.tipc,
+                 (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
                  sizeof (client->_transport->config.socket.sockaddr.tipc)) < 0)
     {
         shutdown (client->connection.socket, 2);
         close (client->connection.socket);
         client->connection.socket = 0;
         client->state = CMSG_CLIENT_STATE_FAILED;
-        DEBUG (CMSG_ERROR,
-               "[TRANSPORT] error connecting to remote host: %s\n",
+        DEBUG (CMSG_ERROR, "[TRANSPORT] error connecting to remote host: %s\n",
                strerror (errno));
 
         return 0;
@@ -63,7 +56,7 @@ cmsg_transport_tipc_connect (cmsg_client *client)
 static int32_t
 cmsg_transport_tipc_listen (cmsg_server *server)
 {
-    int32_t yes = 1; // for setsockopt() SO_REUSEADDR, below
+    int32_t yes = 1;    // for setsockopt() SO_REUSEADDR, below
     int32_t listening_socket = -1;
     int32_t ret = 0;
     socklen_t addrlen = 0;
@@ -91,7 +84,7 @@ cmsg_transport_tipc_listen (cmsg_server *server)
         return -1;
     }
 
-    addrlen  = sizeof (transport->config.socket.sockaddr.generic);
+    addrlen = sizeof (transport->config.socket.sockaddr.generic);
 
     ret = bind (listening_socket, &transport->config.socket.sockaddr.generic, addrlen);
     if (ret < 0)
@@ -111,9 +104,7 @@ cmsg_transport_tipc_listen (cmsg_server *server)
 
     server->connection.sockets.listening_socket = listening_socket;
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] listening on tipc socket: %d\n",
-           listening_socket);
+    DEBUG (CMSG_INFO, "[TRANSPORT] listening on tipc socket: %d\n", listening_socket);
 
     DEBUG (CMSG_INFO,
            "[TRANSPORT] listening on tipc type: %d\n",
@@ -160,7 +151,8 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
     /* Remember the client socket to use when send reply */
     server->connection.sockets.client_socket = server_socket;
 
-    ret = cmsg_transport_server_recv (cmsg_transport_tipc_recv, (void *) &server_socket, server);
+    ret = cmsg_transport_server_recv (cmsg_transport_tipc_recv, (void *) &server_socket,
+                                      server);
 
     return ret;
 }
@@ -217,13 +209,16 @@ cmsg_transport_tipc_client_recv (cmsg_client *client)
     if (nbytes == sizeof (cmsg_header_response))
     {
         //we have little endian on the wire
-        header_converted.status_code = cmsg_common_uint32_from_le (header_received.status_code);
-        header_converted.method_index = cmsg_common_uint32_from_le (header_received.method_index);
-        header_converted.message_length = cmsg_common_uint32_from_le (header_received.message_length);
+        header_converted.status_code =
+            cmsg_common_uint32_from_le (header_received.status_code);
+        header_converted.method_index =
+            cmsg_common_uint32_from_le (header_received.method_index);
+        header_converted.message_length =
+            cmsg_common_uint32_from_le (header_received.message_length);
         header_converted.request_id = header_received.request_id;
 
         DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
-        cmsg_buffer_print ((void *)&header_received, sizeof (cmsg_header_response));
+        cmsg_buffer_print ((void *) &header_received, sizeof (cmsg_header_response));
 
         DEBUG (CMSG_INFO,
                "[TRANSPORT] status_code    host: %d, wire: %d\n",
@@ -256,7 +251,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client)
         }
         else
         {
-            buffer = (void *)buf_static;
+            buffer = (void *) buf_static;
         }
 
         //just recv more data when the packed message length is greater zero
@@ -275,7 +270,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client)
 
             //todo: call cmsg_client_response_message_processor
             ProtobufCMessage *message = 0;
-            ProtobufCAllocator *allocator = (ProtobufCAllocator *)client->allocator;
+            ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
 
             DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
@@ -293,13 +288,12 @@ cmsg_transport_tipc_client_recv (cmsg_client *client)
         }
         else
         {
-            DEBUG (CMSG_INFO,
-                   "[TRANSPORT] recv socket %d no data\n",
+            DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d no data\n",
                    client->connection.socket);
 
             ret = 0;
         }
-        if (buffer != (void *)buf_static)
+        if (buffer != (void *) buf_static)
         {
             if (buffer)
             {
@@ -316,7 +310,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client)
 
         // TEMP to keep things going
         buffer = malloc (nbytes);
-        nbytes = recv (client->connection.socket, buffer , nbytes, MSG_WAITALL);
+        nbytes = recv (client->connection.socket, buffer, nbytes, MSG_WAITALL);
         free (buffer);
         buffer = 0;
         ret = 0;
@@ -343,13 +337,13 @@ cmsg_transport_tipc_client_recv (cmsg_client *client)
 }
 
 
-static  int32_t
+static int32_t
 cmsg_transport_tipc_client_send (cmsg_client *client, void *buff, int length, int flag)
 {
     return (send (client->connection.socket, buff, length, flag));
 }
 
-static  int32_t
+static int32_t
 cmsg_transport_tipc_server_send (cmsg_server *server, void *buff, int length, int flag)
 {
     return (send (server->connection.sockets.client_socket, buff, length, flag));
@@ -417,7 +411,8 @@ cmsg_transport_tipc_is_congested (cmsg_client *client)
 
 
 int32_t
-cmsg_transport_tipc_send_called_multi_threads_enable (cmsg_transport *transport, uint32_t enable)
+cmsg_transport_tipc_send_called_multi_threads_enable (cmsg_transport *transport,
+                                                      uint32_t enable)
 {
     // Don't support sending from multiple threads
     return -1;
@@ -425,7 +420,8 @@ cmsg_transport_tipc_send_called_multi_threads_enable (cmsg_transport *transport,
 
 
 int32_t
-cmsg_transport_tipc_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
+cmsg_transport_tipc_send_can_block_enable (cmsg_transport *transport,
+                                           uint32_t send_can_block)
 {
     transport->send_can_block = send_can_block;
     return 0;
@@ -459,7 +455,8 @@ cmsg_transport_tipc_init (cmsg_transport *transport)
     transport->server_destroy = cmsg_transport_tipc_server_destroy;
 
     transport->is_congested = cmsg_transport_tipc_is_congested;
-    transport->send_called_multi_threads_enable = cmsg_transport_tipc_send_called_multi_threads_enable;
+    transport->send_called_multi_threads_enable =
+        cmsg_transport_tipc_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tipc_send_can_block_enable;
 
@@ -494,11 +491,10 @@ cmsg_transport_oneway_tipc_init (cmsg_transport *transport)
     transport->server_destroy = cmsg_transport_tipc_server_destroy;
 
     transport->is_congested = cmsg_transport_tipc_is_congested;
-    transport->send_called_multi_threads_enable = cmsg_transport_tipc_send_called_multi_threads_enable;
+    transport->send_called_multi_threads_enable =
+        cmsg_transport_tipc_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tipc_send_can_block_enable;
 
     DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
-
-
