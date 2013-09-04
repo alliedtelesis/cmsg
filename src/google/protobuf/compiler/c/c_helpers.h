@@ -152,6 +152,7 @@ string GetAtlImplFilename(const string &protoname);
 string GetAtlGlobalFilename(const string &protoname);
 string GetPackageName(const string &full_name);
 string GetPackageNameUpper(const string &full_name);
+string MakeHeaderDefineFromFilename(const string &prefix, const string &filename);
 
 
 // write IntRanges entries for a bunch of sorted values.

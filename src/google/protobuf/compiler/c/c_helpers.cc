@@ -555,6 +555,38 @@ string GetPackageNameUpper(const string &full_name) {
   return ToUpper(GetPackageName(full_name));
 }
 
+// Convert a file name into a valid identifier.
+string MakeHeaderDefineFromFilename(const string &prefix, const string &filename) {
+  string result = prefix;
+  bool last_char_was_hyphen = false;
+
+  for (unsigned i = 0; i < filename.size(); i++) {
+    if (isalnum(filename[i]))
+    {
+      result.push_back(filename[i]);
+      last_char_was_hyphen = false;
+    }
+    else if (filename[i] == '-')
+    {
+      // the char is a hyphen so convert it to an underscore
+      result.push_back('_');
+      last_char_was_hyphen = true;
+    }
+    else
+    {
+      // Not alphanumeric.  To avoid any possibility of name conflicts we
+      // use the hex code for the character.
+      if (last_char_was_hyphen == false)
+        result.push_back('_');
+      char buffer[32];
+      result.append(FastHexToBuffer(static_cast<uint8>(filename[i]), buffer));
+      last_char_was_hyphen = false;
+    }
+  }
+  result += "_INCLUDED";
+  return result;
+}
+
 }  // namespace c
 }  // namespace compiler
 }  // namespace protobuf
