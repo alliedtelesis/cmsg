@@ -183,7 +183,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     CMSG_ASSERT (sub_client_transport);
     CMSG_ASSERT (method_name);
 
-    register_entry.add = 1;
+    register_entry.add = 0;
     register_entry.method_name = method_name;
     register_entry.transport_type = subscriber->pub_server->_transport->type;
 
