@@ -23,8 +23,6 @@ struct _cmsg_publisher_request_s
     uint32_t message_length;
     uint32_t request_id;
     uint32_t method_index;
-    int client_socket;
-    int32_t closure_response;
     cmsg_pub *publisher;
 };
 

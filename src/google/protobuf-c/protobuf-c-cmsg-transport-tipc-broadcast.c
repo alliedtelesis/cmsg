@@ -119,10 +119,12 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server *server)
  * it prevents a null pointer exception from occurring if no function is
  * defined
  */
-static ProtobufCMessage *
-cmsg_transport_tipc_broadcast_client_recv (cmsg_client *client)
+static cmsg_status_code
+cmsg_transport_tipc_broadcast_client_recv (cmsg_client *client,
+                                           ProtobufCMessage **messagePtPt)
 {
-    return NULL;
+    *messagePtPt = NULL;
+    return CMSG_STATUS_CODE_SUCCESS;
 }
 
 
