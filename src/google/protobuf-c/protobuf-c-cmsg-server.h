@@ -1,3 +1,4 @@
+
 #ifndef __CMSG_SERVER_H_
 #define __CMSG_SERVER_H_
 
@@ -10,15 +11,22 @@ typedef enum _cmsg_queue_filter_type_e cmsg_queue_filter_type;
 
 typedef struct _cmsg_server_request_s cmsg_server_request;
 typedef struct _cmsg_server_s cmsg_server;
+typedef struct _closure_data_s cmsg_closure_data;
 
+struct _closure_data_s
+{
+    cmsg_server *server;
+    /* Whether the server has decided to do something different with the method
+     * call or has invoked the method.
+     */
+    cmsg_method_processing_reason method_processing_reason;
+};
 
 struct _cmsg_server_request_s
 {
     uint32_t message_length;
     uint32_t request_id;
     uint32_t method_index;
-    int client_socket;
-    int32_t closure_response;
 };
 
 typedef int32_t (*server_message_processor_f) (cmsg_server *server, uint8_t *buffer_data);
@@ -81,5 +89,9 @@ int32_t cmsg_server_queue_process_all (cmsg_server *server);
 uint32_t cmsg_server_queue_max_length_get (cmsg_server *server);
 
 uint32_t cmsg_server_queue_current_length_get (cmsg_server *server);
+
+void cmsg_server_invoke (cmsg_server *server, uint32_t method_index,
+                         ProtobufCMessage *message,
+                         cmsg_method_processing_reason process_reason);
 
 #endif

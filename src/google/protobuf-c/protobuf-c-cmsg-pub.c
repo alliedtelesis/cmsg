@@ -487,6 +487,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
     cmsg_server_request *server_request = server->server_request;
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *) server->allocator;
+    cmsg_closure_data closure_data;
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
@@ -514,9 +515,12 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
         return 0;
     }
 
+    closure_data.server = server;
+    closure_data.method_processing_reason = CMSG_METHOD_OK_TO_INVOKE;
+
     //this is calling: cmsg_pub_subscribe
     server->service->invoke (server->service, server_request->method_index, message,
-                             server->_transport->closure, (void *) server);
+                             server->_transport->closure, (void *) &closure_data);
 
     protobuf_c_message_free_unpacked (message, allocator);
 
@@ -685,14 +689,15 @@ cmsg_pub_invoke (ProtobufCService *service,
 
 void
 cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *input,
-                    Cmsg__SubEntryResponse_Closure closure, void *closure_data)
+                    Cmsg__SubEntryResponse_Closure closure, void *closure_data_void)
 {
     CMSG_ASSERT (service);
     CMSG_ASSERT (input);
     CMSG_ASSERT (closure_data);
 
     DEBUG (CMSG_INFO, "[PUB] cmsg_notification_subscriber_server_register_handler\n");
-    cmsg_server *server = (cmsg_server *) closure_data;
+    cmsg_closure_data *closure_data = (cmsg_closure_data *) closure_data_void;
+    cmsg_server *server = closure_data->server;
     cmsg_pub *publisher = NULL;
 
     if (server->parent.object_type == CMSG_OBJ_TYPE_PUB)

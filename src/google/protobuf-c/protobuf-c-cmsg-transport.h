@@ -14,7 +14,6 @@
 
 #include "protobuf-c-cmsg.h"
 
-
 //for types used in functions pointers below
 typedef struct _cmsg_client_s cmsg_client;
 typedef struct _cmsg_server_s cmsg_server;
@@ -30,7 +29,7 @@ typedef union _client_connection_u cmsg_client_connection;
 typedef union _server_connection_u cmsg_server_connection;
 typedef struct _cpg_server_connection_s cmsg_cpg_server_connection;
 typedef struct _generic_server_connection_s cmsg_generic_sever_connection;
-
+typedef enum _cmsg_status_code_e cmsg_status_code;
 
 #ifdef HAVE_VCSTACK
 struct _cpg_server_connection_s
@@ -131,13 +130,14 @@ typedef int (*client_conect_f) (cmsg_client *client);
 typedef int (*server_listen_f) (cmsg_server *server);
 typedef int (*server_recv_f) (int32_t socket, cmsg_server *server);
 typedef int (*server_accept_f) (int32_t socket, cmsg_server *server);
-typedef ProtobufCMessage *(*client_recv_f) (cmsg_client *client);
+typedef cmsg_status_code (*client_recv_f) (cmsg_client *client,
+                                           ProtobufCMessage **messagePtPt);
 typedef int (*client_send_f) (cmsg_client *client, void *buff, int length, int flag);
 typedef int (*server_send_f) (cmsg_server *server, void *buff, int length, int flag);
 typedef void (*invoke_f) (ProtobufCService *service,
                           unsigned method_index,
                           const ProtobufCMessage *input,
-                          ProtobufCClosure closure, void *closure_data);
+                          ProtobufCClosure closure, void *closure_data_void);
 typedef void (*client_close_f) (cmsg_client *client);
 typedef void (*server_close_f) (cmsg_server *server);
 typedef int (*s_get_socket_f) (cmsg_server *server);

@@ -187,8 +187,8 @@ cmsg_transport_tipc_server_accept (int32_t listen_socket, cmsg_server *server)
 }
 
 
-static ProtobufCMessage *
-cmsg_transport_tipc_client_recv (cmsg_client *client)
+static cmsg_status_code
+cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
 {
     int32_t nbytes = 0;
     int32_t dyn_len = 0;
@@ -200,7 +200,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client)
 
     if (!client)
     {
-        return 0;
+        *messagePtPt = NULL;
+        return CMSG_STATUS_CODE_SERVICE_FAILED;
     }
 
     nbytes = recv (client->connection.socket,
@@ -236,32 +237,22 @@ cmsg_transport_tipc_client_recv (cmsg_client *client)
                "[TRANSPORT] request_id     host: %d, wire: %d\n",
                header_converted.request_id, header_received.request_id);
 
-        if (header_converted.status_code != CMSG_STATUS_CODE_SUCCESS)
-        {
-            DEBUG (CMSG_INFO, "[TRANSPORT] server could not process message correctly\n");
-            DEBUG (CMSG_INFO, "[TRANSPORT] todo: handle this case better\n");
-        }
-
         // read the message
         dyn_len = header_converted.message_length;
 
-        if (dyn_len > sizeof buf_static)
+        // There is no more data to read so exit.
+        if (header_converted.message_length == 0)
         {
-            buffer = malloc (dyn_len);
-        }
-        else
-        {
-            buffer = (void *) buf_static;
+            // May have been queued, dropped or there was no message returned
+            DEBUG (CMSG_INFO,
+                   "[TRANSPORT] received response without data. server status %d\n",
+                   header_converted.status_code);
+            *messagePtPt = NULL;
+            return header_converted.status_code;
         }
 
-        //just recv more data when the packed message length is greater zero
-        if (header_converted.message_length)
-            nbytes = recv (client->connection.socket, buffer, dyn_len, MSG_WAITALL);
-        else
-        {
-            DEBUG (CMSG_INFO, "[TRANSPORT] received response without data\n");
-            return NULL;
-        }
+        //just recv the rest of the data to clear the socket
+        nbytes = recv (client->connection.socket, buffer, dyn_len, MSG_WAITALL);
 
         if (nbytes == dyn_len)
         {
@@ -279,12 +270,15 @@ cmsg_transport_tipc_client_recv (cmsg_client *client)
                                                  header_converted.message_length,
                                                  buffer);
 
+            // Msg not unpacked correctly
             if (message == NULL)
             {
                 DEBUG (CMSG_ERROR, "[TRANSPORT] error unpacking response message\n");
-                return NULL;
+                *messagePtPt = NULL;
+                return CMSG_STATUS_CODE_SERVICE_FAILED;
             }
-            return message;
+            *messagePtPt = message;
+            return CMSG_STATUS_CODE_SUCCESS;
         }
         else
         {
@@ -333,7 +327,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client)
         ret = 0;
     }
 
-    return 0;
+    *messagePtPt = NULL;
+    return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 
 
