@@ -1010,9 +1010,11 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
         vars_["message_name"] = TypeToString(field->type());
       }
 
-      printer->Print(vars_, "$result_ref$$left_field_count$ = $right_field_count$;\n");
       if (allocate_memory)
       {
+        // if we are allocating memory, the right field count will determine the size
+        // of the left field.
+        printer->Print(vars_, "$result_ref$$left_field_count$ = $right_field_count$;\n");
         if (field->type() == FieldDescriptor::TYPE_STRING)
         {
           printer->Print(vars_, "$left_field_name$ = calloc ($result_ref$$left_field_count$, sizeof($message_name$));\n");
@@ -1021,6 +1023,19 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
         {
           printer->Print(vars_, "$left_field_name$ = calloc ($result_ref$$left_field_count$, sizeof($message_name$ *));\n");
         }
+      }
+      else
+      {
+        // the memory is already allocated, so the left field count may be used to tell us the size
+        // allocated for the left field.
+        // make sure that if the right field count is bigger, that we don't copy more into
+        // the left field than it has room for.
+        printer->Print(vars_, "if ($result_ref$$left_field_count$ > $right_field_count$)\n");
+        printer->Print("{\n");
+        printer->Indent();
+        printer->Print(vars_, "$result_ref$$left_field_count$ = $right_field_count$;\n");
+        printer->Outdent();
+        printer->Print("}\n");
       }
       printer->Print(vars_, "for ($i$ = 0; $i$ < $result_ref$$left_field_count$; $i$++) // repeated \"$field_name$\"\n");
       printer->Print("{\n");
