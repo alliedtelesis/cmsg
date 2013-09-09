@@ -385,18 +385,10 @@ cmsg_transport_cpg_server_recv (int32_t socket, cmsg_server *server)
 }
 
 
-/**
- * CPG clients do not receive a reply to their messages. This
- * function therefore returns NULL. It should not be called by the client, but
- * it prevents a null pointer exception from occurring if no function is
- * defined
- */
-static cmsg_status_code
-cmsg_transport_cpg_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
+static ProtobufCMessage *
+cmsg_transport_cpg_client_recv (cmsg_client *client)
 {
-
-    *messagePtPt = NULL;
-    return CMSG_STATUS_CODE_SUCCESS;
+    return NULL;
 }
 
 

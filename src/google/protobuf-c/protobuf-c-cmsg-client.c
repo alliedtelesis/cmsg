@@ -89,13 +89,13 @@ cmsg_client_destroy (cmsg_client *client)
 }
 
 
-cmsg_status_code
-cmsg_client_response_receive (cmsg_client *client, ProtobufCMessage **message)
+ProtobufCMessage *
+cmsg_client_response_receive (cmsg_client *client)
 {
     CMSG_ASSERT (client);
     CMSG_ASSERT (client->_transport);
 
-    return (client->_transport->client_recv (client, message));
+    return (client->_transport->client_recv (client));
 }
 
 
@@ -129,8 +129,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
 {
     int ret = 0;
     cmsg_client *client = (cmsg_client *) service;
-    cmsg_status_code status_code;
-    ProtobufCMessage *message_pt;
 
     /* pack the data */
     /* send */
@@ -213,10 +211,10 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         return;
     }
 
-    /* message_pt is filled in by the response receive.  It may be NULL or a valid pointer.
-     * status_code will tell us whether it is a valid pointer.
-     */
-    status_code = cmsg_client_response_receive (client, &message_pt);
+    //lets go hackety hack
+    //todo: recv response
+    //todo: process response
+    ProtobufCMessage *message = cmsg_client_response_receive (client);
 
     client->state = CMSG_CLIENT_STATE_CLOSED;
     client->_transport->client_close (client);
@@ -224,17 +222,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     free (buffer);
     free (buffer_data);
 
-    /* If the call was queued then no point in calling closure as there is no message.
-     * Need to exit.
-     */
-    if (status_code == CMSG_STATUS_CODE_SERVICE_QUEUED ||
-        status_code == CMSG_STATUS_CODE_SERVICE_DROPPED)
-    {
-        DEBUG (CMSG_INFO, "[CLIENT] info: response message %s\n",
-               status_code == CMSG_STATUS_CODE_SERVICE_QUEUED ? "QUEUED" : "DROPPED");
-        return;
-    }
-    else if (message_pt == NULL)
+    if (!message)
     {
         DEBUG (CMSG_ERROR, "[CLIENT] error: response message not valid or empty\n");
         return;
@@ -242,9 +230,9 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
 
     //call closure
     if (closure)    //check if closure is not zero, can be the case when we use empty messages
-        closure (message_pt, closure_data);
+        closure (message, closure_data);
 
-    protobuf_c_message_free_unpacked (message_pt, client->allocator);
+    protobuf_c_message_free_unpacked (message, client->allocator);
 
     return;
 }

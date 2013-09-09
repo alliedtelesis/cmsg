@@ -72,7 +72,6 @@ typedef struct _cmsg_header_request_s cmsg_header_request;
 typedef struct _cmsg_header_response_s cmsg_header_response;
 typedef enum _cmsg_status_code_e cmsg_status_code;
 typedef enum _cmsg_error_code_e cmsg_error_code;
-typedef enum _cmsg_method_processing_reason_e cmsg_method_processing_reason;
 
 enum _cmsg_object_type_e
 {
@@ -110,15 +109,6 @@ enum _cmsg_status_code_e
     CMSG_STATUS_CODE_SERVICE_FAILED,
     CMSG_STATUS_CODE_TOO_MANY_PENDING,
     CMSG_STATUS_CODE_SERVICE_QUEUED,
-    CMSG_STATUS_CODE_SERVICE_DROPPED,
-};
-
-enum _cmsg_method_processing_reason_e
-{
-    CMSG_METHOD_OK_TO_INVOKE,
-    CMSG_METHOD_QUEUED,
-    CMSG_METHOD_DROPPED,
-    CMSG_METHOD_INVOKING_FROM_QUEUE
 };
 
 enum _cmsg_error_code_e

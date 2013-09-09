@@ -70,8 +70,7 @@ void cmsg_client_destroy (cmsg_client *client);
 
 int32_t cmsg_client_connect (cmsg_client *client);
 
-cmsg_status_code cmsg_client_response_receive (cmsg_client *client,
-                                               ProtobufCMessage **message);
+ProtobufCMessage *cmsg_client_response_receive (cmsg_client *client);
 
 void cmsg_client_invoke_rpc (ProtobufCService *service,
                              unsigned method_index,

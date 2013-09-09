@@ -13,11 +13,6 @@ cmsg_queue_filter_type cmsg_server_queue_filter_lookup (cmsg_server *server,
                                                         const char *method);
 
 /**
- * Structure definitions
- */
-
-
-/**
  * Functions
  */
 cmsg_server *
@@ -251,71 +246,6 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 
 
 /**
- * Assumes that server_request will have been set in the server by the caller.
- */
-void
-cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage *message,
-                    cmsg_method_processing_reason process_reason)
-{
-    unsigned int queue_length = 0;
-    cmsg_closure_data closure_data;
-
-    // Setup closure_data so it can be used no matter what the action is
-    closure_data.server = server;
-    closure_data.method_processing_reason = process_reason;
-
-    switch (process_reason)
-    {
-    case CMSG_METHOD_OK_TO_INVOKE:
-    case CMSG_METHOD_INVOKING_FROM_QUEUE:
-        server->service->invoke (server->service,
-                                 method_index,
-                                 message,
-                                 server->_transport->closure, (void *) &closure_data);
-
-        protobuf_c_message_free_unpacked (message, server->allocator);
-
-        // Closure is called by the invoke.
-        break;
-
-    case CMSG_METHOD_QUEUED:
-        // Add to queue
-        pthread_mutex_lock (&server->queue_mutex);
-
-        //todo: check return
-        cmsg_receive_queue_push (server->queue, message, method_index);
-
-        pthread_mutex_unlock (&server->queue_mutex);
-
-        //send signal
-        pthread_mutex_lock (&server->queue_process_mutex);
-        pthread_cond_signal (&server->queue_process_cond);
-        pthread_mutex_unlock (&server->queue_process_mutex);
-
-        queue_length = g_queue_get_length (server->queue);
-        DEBUG (CMSG_ERROR, "[SERVER] queue length: %d\n", queue_length);
-        if (queue_length > server->maxQueueLength)
-        {
-            server->maxQueueLength = queue_length;
-        }
-
-        // Send response, if required by the closure function
-        server->_transport->closure (message, (void *)&closure_data);
-        break;
-
-    case CMSG_METHOD_DROPPED:
-        // Send response, if required by the closure function
-        server->_transport->closure (message, (void *)&closure_data);
-        break;
-
-    default:
-        // Don't want to do anything in this case.
-        break;
-    }
-}
-
-
-/**
  * The buffer has been received and now needs to be processed by protobuf-c.
  * Once unpacked the method will be invoked.
  * If the
@@ -325,6 +255,7 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
     int do_queue = 0;
     cmsg_queue_filter_type action;
+    unsigned int queue_length = 0;
 
     CMSG_ASSERT (server);
     CMSG_ASSERT (server->_transport);
@@ -391,9 +322,6 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
             DEBUG (CMSG_INFO,
                    "[CLIENT] dropping message: %s\n",
                    service->descriptor->methods[server_request->method_index].name);
-
-            // Free unpacked message prior to return
-            protobuf_c_message_free_unpacked (message, allocator);
             return CMSG_RET_OK;
         }
         else if (action == CMSG_QUEUE_FILTER_QUEUE)
@@ -406,7 +334,38 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
         }
     }
 
-    cmsg_server_invoke (server, server_request->method_index, message, do_queue);
+    if (!do_queue)
+    {
+        server->service->invoke (server->service, server_request->method_index,
+                                 message, server->_transport->closure, (void *) server);
+
+        //todo: we need to handle errors from closure data
+
+
+        protobuf_c_message_free_unpacked (message, allocator);
+    }
+    else
+    {
+        // Add to queue
+        pthread_mutex_lock (&server->queue_mutex);
+
+        //todo: check return
+        cmsg_receive_queue_push (server->queue, message, server_request->method_index);
+
+        pthread_mutex_unlock (&server->queue_mutex);
+
+        //send signal
+        pthread_mutex_lock (&server->queue_process_mutex);
+        pthread_cond_signal (&server->queue_process_cond);
+        pthread_mutex_unlock (&server->queue_process_mutex);
+
+        queue_length = g_queue_get_length (server->queue);
+        DEBUG (CMSG_ERROR, "[SERVER] queue length: %d\n", queue_length);
+        if (queue_length > server->maxQueueLength)
+        {
+            server->maxQueueLength = queue_length;
+        }
+    }
 
     DEBUG (CMSG_INFO, "[SERVER] end of message processor\n");
 
@@ -415,42 +374,10 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
 
 void
-_cmsg_server_empty_reply_send (cmsg_server *server, cmsg_status_code status_code,
-                               uint32_t method_index, uint32_t request_id)
-{
-    int ret = 0;
-    uint32_t header[4];
-
-    header[0] = cmsg_common_uint32_to_le (status_code);
-    header[1] = cmsg_common_uint32_to_le (method_index);
-    header[2] = 0;            /* no message */
-    header[3] = request_id;
-
-    DEBUG (CMSG_INFO, "[SERVER] response header\n");
-
-    cmsg_buffer_print ((void *)&header, sizeof (header));
-
-    ret = server->_transport->server_send (server, &header, sizeof (header), 0);
-    if (ret < sizeof (header))
-    {
-        DEBUG (CMSG_ERROR,
-               "[SERVER] error: sending of response failed send:%d of %ld\n",
-               ret, sizeof (header));
-        return;
-    }
-    return;
-}
-
-
-/**
- * Assumes that server will have had server_request set prior to being called.
- */
-void
-cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_void)
+cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data)
 {
 
-    cmsg_closure_data *closure_data = (cmsg_closure_data *) closure_data_void;
-    cmsg_server *server = closure_data->server;
+    cmsg_server *server = (cmsg_server *) closure_data;
 
     CMSG_ASSERT (server);
     CMSG_ASSERT (server->_transport);
@@ -460,53 +387,30 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     int ret = 0;
 
     DEBUG (CMSG_INFO, "[SERVER] invoking rpc method=%d\n", server_request->method_index);
-
-    /* When invoking from a queue we do not want to send a reply as it will
-     * have already been done (as per below).
-     */
-    if (closure_data->method_processing_reason == CMSG_METHOD_INVOKING_FROM_QUEUE)
-    {
-        return;
-    }
-    /* If the method has been queued then send a response with no data
-     * This allows the other end to unblock.
-     */
-    else if (closure_data->method_processing_reason == CMSG_METHOD_QUEUED)
-    {
-        DEBUG (CMSG_INFO, "[SERVER] method %d queued, sending response without data\n",
-               server_request->method_index);
-
-        _cmsg_server_empty_reply_send (server, CMSG_STATUS_CODE_SERVICE_QUEUED,
-                                       server_request->method_index,
-                                       server_request->request_id);
-        return;
-    }
-    /* If the method has been dropped due a filter then send a response with no data.
-     * This allows the other end to unblock.
-     */
-    else if (closure_data->method_processing_reason == CMSG_METHOD_DROPPED)
-    {
-        DEBUG (CMSG_INFO, "[SERVER] method %d dropped, sending response without data\n",
-               server_request->method_index);
-
-        _cmsg_server_empty_reply_send (server, CMSG_STATUS_CODE_SERVICE_DROPPED,
-                                       server_request->method_index,
-                                       server_request->request_id);
-        return;
-    }
-    /* No response message was specified, therefore reply with an error
-     */
-    else if (!message)
+    if (!message)
     {
         DEBUG (CMSG_INFO, "[SERVER] sending response without data\n");
 
-        _cmsg_server_empty_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
-                                       server_request->method_index,
-                                       server_request->request_id);
-        return;
+        uint32_t header[4];
+        header[0] = cmsg_common_uint32_to_le (CMSG_STATUS_CODE_SERVICE_FAILED);
+        header[1] = cmsg_common_uint32_to_le (server_request->method_index);
+        header[2] = 0;  /* no message */
+        header[3] = server_request->request_id;
+
+        DEBUG (CMSG_INFO, "[SERVER] response header\n");
+
+        cmsg_buffer_print ((void *) &header, sizeof (header));
+
+        ret = server->_transport->server_send (server, &header, sizeof (header), 0);
+        if (ret < sizeof (header))
+        {
+            DEBUG (CMSG_ERROR,
+                   "[SERVER] error: sending if response failed send:%d of %ld\n",
+                   ret, sizeof (header));
+            return;
+        }
+
     }
-    /* Method has executed normally and has a response to be sent.
-     */
     else
     {
         DEBUG (CMSG_INFO, "[SERVER] sending response with data\n");
@@ -569,22 +473,24 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         free (buffer_data);
     }
 
+    server_request->closure_response = 0;
+
     return;
 }
 
 
-/**
- * Assumes that server will have had server_request set prior to being called.
- *
- * Ignores whether the messages was queued or not.
- */
 void
-cmsg_server_closure_oneway (const ProtobufCMessage *message, void *closure_data_void)
+cmsg_server_closure_oneway (const ProtobufCMessage *message, void *closure_data)
 {
-    // Nothing to do as oneway doesn't reply with anything.
-    return;
-}
+    CMSG_ASSERT (closure_data);
 
+    cmsg_server *server = (cmsg_server *) closure_data;
+    cmsg_server_request *server_request = server->server_request;
+    //we are not sending a response in this transport mode
+    DEBUG (CMSG_INFO, "[SERVER] invoking oneway method=%d\n", server_request->method_index);
+
+    server_request->closure_response = 0;
+}
 
 void
 cmsg_server_drop_all (cmsg_server *server)

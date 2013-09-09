@@ -274,9 +274,7 @@ cmsg_receive_queue_process_one (GQueue *queue, pthread_mutex_t queue_mutex,
 
 
 /**
- * Process a given number of items on the queue.
- *
- * Assumes that nothing else is processing messages at this time.
+ * Process a given number of items on the queue
  */
 int32_t
 cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t queue_mutex,
@@ -286,7 +284,6 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t queue_mutex,
     uint32_t processed = 0;
     uint32_t create_client = 0;
     cmsg_receive_queue_entry *queue_entry = 0;
-    cmsg_server_request server_request;
 
     if (num_to_process == 0)
     {
@@ -297,13 +294,6 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t queue_mutex,
     {
         return 0;
     }
-
-    /* Initialise server_request with some dummy values as it is required to be
-     * in place by the invoke and closure calls.
-     */
-    server_request.message_length = 0;
-    server_request.request_id = -1;
-    server->server_request = &server_request;
 
     // Go through the whole list invoke the server method for the message,
     // freeing the message and moving to the next.
@@ -321,11 +311,15 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t queue_mutex,
 
         processed++;
 
-        server_request.method_index = queue_entry->method_index;
-        cmsg_server_invoke (server, queue_entry->method_index,
-                            (ProtobufCMessage *) queue_entry->queue_buffer,
-                            CMSG_METHOD_INVOKING_FROM_QUEUE);
+        // Invoke the method index
+        server->service->invoke (server->service,
+                                 queue_entry->method_index,
+                                 (ProtobufCMessage *) queue_entry->queue_buffer,
+                                 server->_transport->closure, (void *) server);
 
+        // Free the queue_buffer (allocated from message_processor) and the entry
+        protobuf_c_message_free_unpacked ((ProtobufCMessage *) queue_entry->queue_buffer,
+                                          server->allocator);
         g_free (queue_entry);
         queue_entry = NULL;
     }
