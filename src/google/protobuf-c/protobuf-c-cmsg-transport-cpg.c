@@ -573,7 +573,7 @@ cmsg_transport_cpg_server_get_socket (cmsg_server *server)
     int fd = 0;
     if (cpg_fd_get (server->connection.cpg.handle, &fd) == CPG_OK)
     {
-        return 0;
+        return fd;
     }
     else
     {
