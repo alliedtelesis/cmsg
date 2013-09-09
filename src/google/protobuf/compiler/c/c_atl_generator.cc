@@ -629,6 +629,18 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print(vars_, "ProtobufCService *_service = (ProtobufCService *)_client;\n");
 
     //
+    // test that the pointer to the client is valid before doing anything else
+    //
+    printer->Print("\n");
+    printer->Print("/* test that the pointer to the client is valid before doing anything else */\n");
+    printer->Print("if (_service == NULL)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return -1;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+
+    //
     // copy the input parameters into the outgoing message
     //
     printer->Print("\n");
