@@ -84,6 +84,8 @@ int32_t cmsg_server_queue_filter_set (cmsg_server *server,
 void cmsg_server_queue_filter_set_all (cmsg_server *server,
                                        cmsg_queue_filter_type filter_type);
 
+void cmsg_server_queue_filter_clear_all (cmsg_server *server);
+
 int32_t cmsg_server_queue_process_all (cmsg_server *server);
 
 uint32_t cmsg_server_queue_max_length_get (cmsg_server *server);

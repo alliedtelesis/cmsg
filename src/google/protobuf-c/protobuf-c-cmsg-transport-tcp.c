@@ -219,7 +219,6 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
                header_converted.request_id, header_received.request_id);
 
         // read the message
-        dyn_len = header_converted.message_length;
 
         // There is no more data to read so exit.
         if (header_converted.message_length == 0)
@@ -230,6 +229,16 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
                    header_converted.status_code);
             *messagePtPt = NULL;
             return header_converted.status_code;
+        }
+
+        dyn_len = header_converted.message_length;
+        if (dyn_len > sizeof buf_static)
+        {
+            buffer = malloc (dyn_len);
+        }
+        else
+        {
+            buffer = (void *) buf_static;
         }
 
         //just recv the rest of the data to clear the socket

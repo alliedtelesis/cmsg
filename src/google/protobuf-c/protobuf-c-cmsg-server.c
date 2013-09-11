@@ -306,6 +306,9 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
     case CMSG_METHOD_DROPPED:
         // Send response, if required by the closure function
         server->_transport->closure (message, (void *)&closure_data);
+
+        // Free the unpacked message
+        protobuf_c_message_free_unpacked (message, server->allocator);
         break;
 
     default:
@@ -323,8 +326,8 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
 int32_t
 cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
-    int do_queue = 0;
     cmsg_queue_filter_type action;
+    cmsg_method_processing_reason processing_reason;
 
     CMSG_ASSERT (server);
     CMSG_ASSERT (server->_transport);
@@ -372,7 +375,7 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
     {
         // queuing has been enable from parent subscriber
         // so don't do server queue filter lookup
-        do_queue = 1;
+        processing_reason = CMSG_METHOD_QUEUED;
     }
     else
     {
@@ -384,6 +387,9 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
             DEBUG (CMSG_ERROR,
                    "[CLIENT] error: queue_lookup_filter returned CMSG_QUEUE_FILTER_ERROR for: %s\n",
                    service->descriptor->methods[server_request->method_index].name);
+
+            // Free unpacked message prior to return
+            protobuf_c_message_free_unpacked (message, allocator);
             return CMSG_RET_ERR;
         }
         else if (action == CMSG_QUEUE_FILTER_DROP)
@@ -392,21 +398,19 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
                    "[CLIENT] dropping message: %s\n",
                    service->descriptor->methods[server_request->method_index].name);
 
-            // Free unpacked message prior to return
-            protobuf_c_message_free_unpacked (message, allocator);
-            return CMSG_RET_OK;
+            processing_reason = CMSG_METHOD_DROPPED;
         }
         else if (action == CMSG_QUEUE_FILTER_QUEUE)
         {
-            do_queue = 1;
+            processing_reason = CMSG_METHOD_QUEUED;
         }
         else if (action == CMSG_QUEUE_FILTER_PROCESS)
         {
-            do_queue = 0;
+            processing_reason = CMSG_METHOD_OK_TO_INVOKE;
         }
     }
 
-    cmsg_server_invoke (server, server_request->method_index, message, do_queue);
+    cmsg_server_invoke (server, server_request->method_index, message, processing_reason);
 
     DEBUG (CMSG_INFO, "[SERVER] end of message processor\n");
 
@@ -434,7 +438,7 @@ _cmsg_server_empty_reply_send (cmsg_server *server, cmsg_status_code status_code
     if (ret < sizeof (header))
     {
         DEBUG (CMSG_ERROR,
-               "[SERVER] error: sending of response failed send:%d of %ld\n",
+               "[SERVER] error: sending of response failed send:%d of %d\n",
                ret, sizeof (header));
         return;
     }

@@ -238,7 +238,6 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
                header_converted.request_id, header_received.request_id);
 
         // read the message
-        dyn_len = header_converted.message_length;
 
         // There is no more data to read so exit.
         if (header_converted.message_length == 0)
@@ -249,6 +248,16 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
                    header_converted.status_code);
             *messagePtPt = NULL;
             return header_converted.status_code;
+        }
+
+        dyn_len = header_converted.message_length;
+        if (dyn_len > sizeof buf_static)
+        {
+            buffer = malloc (dyn_len);
+        }
+        else
+        {
+            buffer = (void *) buf_static;
         }
 
         //just recv the rest of the data to clear the socket
@@ -269,6 +278,16 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
                                                  allocator,
                                                  header_converted.message_length,
                                                  buffer);
+
+            // Free the allocated buffer
+            if (buffer != (void *) buf_static)
+            {
+                if (buffer)
+                {
+                    free (buffer);
+                    buffer = 0;
+                }
+            }
 
             // Msg not unpacked correctly
             if (message == NULL)
@@ -298,6 +317,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     }
     else if (nbytes > 0)
     {
+        /* Didn't receive all of the CMSG header.
+         */
         DEBUG (CMSG_ERROR,
                "[TRANSPORT] recv socket %d bad header nbytes %d\n",
                client->connection.socket, nbytes);
