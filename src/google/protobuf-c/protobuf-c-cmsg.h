@@ -9,6 +9,7 @@
 #include <time.h>
 #include <glib.h>
 #include <syslog.h>
+#include <sys/select.h>
 
 #include "protobuf-c.h"
 #include "protobuf-c-cmsg-transport.h"

@@ -56,6 +56,9 @@ struct _cmsg_server_s
     pthread_cond_t queue_process_cond;
     pthread_mutex_t queue_process_mutex;
     pthread_t self_thread_id;
+
+    fd_set accepted_fdset;
+    int accepted_fdmax;
 };
 
 
@@ -67,6 +70,7 @@ int cmsg_server_get_socket (cmsg_server *server);
 
 int32_t cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms,
                                   fd_set *master_fdset, int *fdmax);
+int32_t cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms);
 
 int32_t cmsg_server_receive (cmsg_server *server, int32_t server_socket);
 int32_t cmsg_server_accept (cmsg_server *server, int32_t listen_socket);

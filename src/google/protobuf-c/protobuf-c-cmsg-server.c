@@ -65,6 +65,8 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
             return NULL;
         }
 
+        server->accepted_fdmax = 0;
+        FD_ZERO (&server->accepted_fdset);
         server->maxQueueLength = 0;
         server->queue = g_queue_new ();
         server->queue_filter_hash_table = g_hash_table_new (cmsg_queue_filter_hash_function,
@@ -99,8 +101,19 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 void
 cmsg_server_destroy (cmsg_server *server)
 {
+    int fd;
+
     CMSG_ASSERT (server);
     CMSG_ASSERT (server->_transport);
+
+    // Close accepted sockets before destroying server
+    for (fd = 0; fd <= server->accepted_fdmax; fd++)
+    {
+        if (FD_ISSET (fd, &server->accepted_fdset))
+        {
+            close (fd);
+        }
+    }
 
     server->_transport->server_destroy (server);
 
@@ -197,6 +210,98 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
             {
                 *fdmax = fd;
                 break;
+            }
+        }
+    }
+
+    return CMSG_RET_OK;
+}
+
+
+/**
+ * Perform server receive on a list of cmsg servers.
+ * Timeout : (0: return immediately, +: wait in milli-seconds, -: no timeout).
+ * On success returns 0, failure returns -1.
+ */
+int32_t
+cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
+{
+    struct timeval timeout = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
+    cmsg_server *server;
+    GList *node;
+    fd_set read_fds;
+    int fdmax;
+    int ret;
+    int listen_socket;
+    int fd;
+    int newfd;
+
+    FD_ZERO (&read_fds);
+
+    // Collect fds to examine
+    fdmax = 0;
+    for (node = g_list_first (server_list); node && node->data; node = g_list_next (node))
+    {
+        server = node->data;
+
+        listen_socket = cmsg_server_get_socket (server);
+        FD_SET (listen_socket, &read_fds);
+        fdmax = MAX (fdmax, listen_socket);
+
+        for (fd = 0; fd <= server->accepted_fdmax; fd++)
+        {
+            if (FD_ISSET (fd, &server->accepted_fdset))
+            {
+                FD_SET (fd, &read_fds);
+            }
+        }
+        fdmax = MAX (fdmax, server->accepted_fdmax);
+    }
+
+    // Check any data is available
+    ret = select (fdmax + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
+    if (ret == -1)
+    {
+        DEBUG (CMSG_ERROR, "[SERVER] select error occurred: %s ", strerror (errno));
+        return CMSG_RET_ERR;
+    }
+    else if (ret == 0)
+    {
+        // timed out, so func success but nothing received, early return
+        return CMSG_RET_OK;
+    }
+
+    // Process any data available on the sockets
+    for (node = g_list_first (server_list); node && node->data; node = g_list_next (node))
+    {
+        server = node->data;
+        listen_socket = cmsg_server_get_socket (server);
+
+        for (fd = 0; fd <= fdmax; fd++)
+        {
+            if (FD_ISSET (fd, &read_fds))
+            {
+                if (fd == listen_socket)
+                {
+                    // new connection from a client
+                    newfd = cmsg_server_accept (server, fd);
+                    if (newfd > 0)
+                    {
+                        FD_SET (newfd, &server->accepted_fdset);
+                        server->accepted_fdmax = MAX (server->accepted_fdmax, newfd);
+                    }
+                }
+                else if (FD_ISSET (fd, &server->accepted_fdset))
+                {
+                    // there is something happening on the socket so receive it.
+                    cmsg_server_receive (server, fd);
+                    server->_transport->server_close (server);
+                    FD_CLR (fd, &server->accepted_fdset);
+                    if (server->accepted_fdmax == fd)
+                    {
+                        server->accepted_fdmax--;
+                    }
+                }
             }
         }
     }
