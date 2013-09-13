@@ -102,7 +102,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     CMSG_ASSERT (method_name);
 
     cmsg_client *register_client = NULL;
-    u_int32_t return_value = CMSG_RET_OK;
+    u_int32_t return_value = CMSG_RET_ERR;
     Cmsg__SubEntry register_entry = CMSG__SUB_ENTRY__INIT;
 
     register_entry.add = 1;
@@ -156,7 +156,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     {
         DEBUG (CMSG_WARN, "[SUB] error could not create register client\n");
         free (register_client);
-        return CMSG_RET_OK;
+        return CMSG_RET_ERR;
     }
 
     cmsg__sub_service__subscribe ((ProtobufCService *) register_client,
@@ -174,7 +174,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
                       char *method_name)
 {
     cmsg_client *register_client = 0;
-    u_int32_t return_value = CMSG_RET_OK;
+    u_int32_t return_value = CMSG_RET_ERR;
     Cmsg__SubEntry register_entry = CMSG__SUB_ENTRY__INIT;
 
     CMSG_ASSERT (subscriber);
@@ -234,7 +234,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     {
         DEBUG (CMSG_ERROR, "[SUB] error: could not create register client\n");
         free (register_client);
-        return CMSG_RET_OK;
+        return CMSG_RET_ERR;
     }
 
     cmsg__sub_service__subscribe ((ProtobufCService *) register_client, &register_entry,
