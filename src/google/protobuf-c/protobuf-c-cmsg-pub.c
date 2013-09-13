@@ -860,3 +860,42 @@ cmsg_pub_queue_filter_show (cmsg_pub *publisher)
 {
     cmsg_queue_filter_show (publisher->queue_filter_hash_table, publisher->descriptor);
 }
+
+/**
+ * Print the subscriber list of the publisher passed in.
+ * This function is NOT thread-safe!!
+ * If you want to print the subscriber list and you don't hold the lock on it,
+ * use cmsg_pub_print_subscriber_list instead.
+ */
+void
+_cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
+{
+    syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] listing all list entries\n");
+    GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
+    while (print_subscriber_list != NULL)
+    {
+        cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
+        syslog (LOG_CRIT | LOG_LOCAL6,
+                "[PUB] [LIST] print_list_entry->method_name: %s\n",
+                print_list_entry->method_name);
+
+        print_subscriber_list = g_list_next (print_subscriber_list);
+    }
+}
+
+/**
+ * Print the subscriber list of the publisher passed in.
+ * This function is thread-safe.
+ * If you want to print the subscriber list and you hold the lock on it,
+ * use _cmsg_pub_print_subscriber_list instead.
+ */
+void
+cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
+{
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
+    _cmsg_pub_print_subscriber_list (publisher);
+
+    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
+}
+

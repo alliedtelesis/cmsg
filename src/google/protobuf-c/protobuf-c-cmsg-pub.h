@@ -133,5 +133,21 @@ cmsg_queue_filter_type cmsg_pub_queue_filter_lookup (cmsg_pub *publisher,
 
 void cmsg_pub_queue_filter_show (cmsg_pub *publisher);
 
+/**
+ * Print the subscriber list of the publisher passed in.
+ * This function is NOT thread-safe!!
+ * If you want to print the subscriber list and you don't hold the lock on it,
+ * use cmsg_pub_print_subscriber_list instead.
+ */
+void _cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
+
+/**
+ * Print the subscriber list of the publisher passed in.
+ * This function is thread-safe.
+ * If you want to print the subscriber list and you hold the lock on it,
+ * use _cmsg_pub_print_subscriber_list instead.
+ */
+void cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
+
 
 #endif
