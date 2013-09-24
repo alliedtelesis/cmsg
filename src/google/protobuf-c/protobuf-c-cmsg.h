@@ -27,6 +27,13 @@
 #define DEBUG_BUFFER 0
 #define DEBUG_LEVEL  CMSG_ERROR
 
+// Use this for 'expected' user facing friendly errors
+#if defined DEBUG_WORKSTATION
+#define CMSG_LOG_USER_ERROR(fmt, ...) (level <= DEBUG_LEVEL) ? printf("ERR(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__) : 0
+#else
+#define CMSG_LOG_USER_ERROR(fmt, ...) syslog (LOG_ERR | LOG_LOCAL6, "ERR(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__ )
+#endif
+
 #if defined DEBUG_WORKSTATION
 #define DEBUG(level, fmt, ARGS...) (level <= DEBUG_LEVEL) ? printf("%s:%d "fmt, __FUNCTION__, __LINE__, ##ARGS) : 0
 #elif defined DEBUG_SWITCH
