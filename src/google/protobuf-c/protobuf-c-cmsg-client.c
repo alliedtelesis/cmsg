@@ -144,6 +144,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     DEBUG (CMSG_INFO, "[CLIENT] method: %s\n",
            service->descriptor->methods[method_index].name);
 
+    // open connection (if it is already open this will just return)
     cmsg_client_connect (client);
 
     if (client->state != CMSG_CLIENT_STATE_CONNECTED)
@@ -204,13 +205,34 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
                                            0);
     if (ret < packed_size + sizeof (header))
     {
-        DEBUG (CMSG_ERROR,
-               "[CLIENT] error: sending response failed send:%d of %ld\n",
-               ret, packed_size + sizeof (header));
+        // close the connection as something must be wrong
+        client->state = CMSG_CLIENT_STATE_CLOSED;
+        client->_transport->client_close (client);
+        // the connection may be down due to a problem since the last send
+        // attempt once to reconnect and send
+        cmsg_client_connect (client);
 
-        free (buffer);
-        free (buffer_data);
-        return;
+        if (client->state == CMSG_CLIENT_STATE_CONNECTED)
+        {
+            ret = client->_transport->client_send (client, buffer,
+                                                   packed_size + sizeof (header), 0);
+            if (ret < packed_size + sizeof (header))
+            {
+                DEBUG (CMSG_ERROR,
+                       "[CLIENT] error: sending response failed send:%d of %ld\n",
+                       ret, packed_size + sizeof (header));
+                free (buffer);
+                free (buffer_data);
+                return;
+            }
+        }
+        else
+        {
+            DEBUG (CMSG_ERROR, "[CLIENT] error: couldn't reconnect client!\n");
+            free (buffer);
+            free (buffer_data);
+            return;
+        }
     }
 
     /* message_pt is filled in by the response receive.  It may be NULL or a valid pointer.
@@ -218,8 +240,16 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
      */
     status_code = cmsg_client_response_receive (client, &message_pt);
 
-    client->state = CMSG_CLIENT_STATE_CLOSED;
-    client->_transport->client_close (client);
+    if (status_code == CMSG_STATUS_CODE_SERVICE_FAILED)
+    {
+        // close the connection and return early
+        client->state = CMSG_CLIENT_STATE_CLOSED;
+        client->_transport->client_close (client);
+
+        free (buffer);
+        free (buffer_data);
+        return;
+    }
 
     free (buffer);
     free (buffer_data);
@@ -376,17 +406,35 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                                                packed_size + sizeof (header), 0);
         if (ret < packed_size + sizeof (header))
         {
-            DEBUG (CMSG_ERROR,
-                   "[CLIENT] error: sending response failed send:%d of %ld\n",
-                   ret, packed_size + sizeof (header));
+            // close the connection as something must be wrong
+            client->state = CMSG_CLIENT_STATE_CLOSED;
+            client->_transport->client_close (client);
+            // the connection may be down due to a problem since the last send
+            // attempt once to reconnect and send
+            cmsg_client_connect (client);
 
-            free (buffer);
-            free (buffer_data);
-            return;
+            if (client->state == CMSG_CLIENT_STATE_CONNECTED)
+            {
+                ret = client->_transport->client_send (client, buffer,
+                                                       packed_size + sizeof (header), 0);
+                if (ret < packed_size + sizeof (header))
+                {
+                    DEBUG (CMSG_ERROR,
+                           "[CLIENT] error: sending response failed send:%d of %ld\n",
+                           ret, packed_size + sizeof (header));
+                    free (buffer);
+                    free (buffer_data);
+                    return;
+                }
+            }
+            else
+            {
+                DEBUG (CMSG_ERROR, "[CLIENT] error: couldn't reconnect client!\n");
+                free (buffer);
+                free (buffer_data);
+                return;
+            }
         }
-
-        client->state = CMSG_CLIENT_STATE_CLOSED;
-        client->_transport->client_close (client);
     }
     else
     {

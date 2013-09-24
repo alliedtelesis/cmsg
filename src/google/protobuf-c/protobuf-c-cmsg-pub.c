@@ -636,7 +636,8 @@ cmsg_pub_invoke (ProtobufCService *service,
             cmsg_client_invoke_oneway ((ProtobufCService *) client, method_index,
                                        input, closure, closure_data);
 
-            if (client->state == CMSG_CLIENT_STATE_FAILED)
+            if (client->state == CMSG_CLIENT_STATE_FAILED ||
+                client->state == CMSG_CLIENT_STATE_CLOSED)
             {
                 if (list_entry->transport.client_send_tries >=
                     CMSG_TRANSPORT_CLIENT_SEND_TRIES)
@@ -649,10 +650,13 @@ cmsg_pub_invoke (ProtobufCService *service,
                 list_entry->transport.client_send_tries++;
                 // couldn't sent retry
             }
-            else if (client->state == CMSG_CLIENT_STATE_CLOSED)
+            else if (client->state == CMSG_CLIENT_STATE_CONNECTED)
             {
                 // sent successful after %d tries
                 list_entry->transport.client_send_tries = 0;
+                // now close the connection since the client will be destroyed.
+                client->state = CMSG_CLIENT_STATE_CLOSED;
+                client->_transport->client_close (client);
                 break;
             }
             else if (client->state == CMSG_CLIENT_STATE_QUEUED)

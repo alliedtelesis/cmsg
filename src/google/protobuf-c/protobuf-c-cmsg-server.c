@@ -193,10 +193,13 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
             else
             {
                 // there is something happening on the socket so receive it.
-                cmsg_server_receive (server, fd);
-                server->_transport->server_close (server);
-                FD_CLR (fd, master_fdset);
-                check_fdmax = TRUE;
+                if (cmsg_server_receive (server, fd) < 0)
+                {
+                    // only close the socket if we have errored
+                    server->_transport->server_close (server);
+                    FD_CLR (fd, master_fdset);
+                    check_fdmax = TRUE;
+                }
             }
         }
     }
@@ -294,12 +297,15 @@ cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
                 else if (FD_ISSET (fd, &server->accepted_fdset))
                 {
                     // there is something happening on the socket so receive it.
-                    cmsg_server_receive (server, fd);
-                    server->_transport->server_close (server);
-                    FD_CLR (fd, &server->accepted_fdset);
-                    if (server->accepted_fdmax == fd)
+                    if (cmsg_server_receive (server, fd) < 0)
                     {
-                        server->accepted_fdmax--;
+                        // only close the socket if we have errored
+                        server->_transport->server_close (server);
+                        FD_CLR (fd, &server->accepted_fdset);
+                        if (server->accepted_fdmax == fd)
+                        {
+                            server->accepted_fdmax--;
+                        }
                     }
                 }
             }
