@@ -225,6 +225,33 @@ cmsg_pub_get_server_socket (cmsg_pub *publisher)
     return (cmsg_server_get_socket (publisher->sub_server));
 }
 
+cmsg_client *
+cmsg_pub_get_subscriber_client (cmsg_sub_entry *sub_entry, cmsg_pub *publisher)
+{
+    CMSG_ASSERT (sub_entry);
+    CMSG_ASSERT (publisher);
+
+    //
+    // if the client doesn't already exist, create it and
+    // update the subscription entry
+    //
+    if (!sub_entry->client)
+    {
+        sub_entry->client = cmsg_client_new (&sub_entry->transport,
+                                             publisher->descriptor);
+    }
+
+    return sub_entry->client;
+}
+
+void
+cmsg_pub_remove_subscriber_client (cmsg_sub_entry *sub_entry)
+{
+    CMSG_ASSERT (sub_entry);
+
+    cmsg_client_destroy (sub_entry->client);
+    sub_entry->client = NULL;
+}
 
 int32_t
 cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
@@ -239,6 +266,9 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
+    //
+    // check if the entry already exists first
+    //
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
@@ -252,6 +282,9 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
         subscriber_list = g_list_next (subscriber_list);
     }
 
+    //
+    // if the entry isn't already in the list
+    //
     if (add)
     {
         DEBUG (CMSG_INFO, "[PUB] [LIST] adding new entry\n");
@@ -265,6 +298,7 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
             pthread_mutex_unlock (&publisher->subscriber_list_mutex);
             return CMSG_RET_ERR;
         }
+        list_entry->client = NULL;
         strcpy (list_entry->method_name, entry->method_name);
         list_entry->transport = entry->transport;
 
@@ -318,6 +352,7 @@ _cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry)
             DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
             publisher->subscriber_list = g_list_remove (publisher->subscriber_list,
                                                         list_entry);
+            cmsg_pub_remove_subscriber_client (list_entry);
             g_free (list_entry);
             publisher->subscriber_count--;
             break;
@@ -382,6 +417,7 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
                     list_entry->method_name);
             publisher->subscriber_list = g_list_remove (publisher->subscriber_list,
                                                         list_entry);
+            cmsg_pub_remove_subscriber_client (list_entry);
             g_free (list_entry);
             publisher->subscriber_count--;
         }
@@ -441,6 +477,7 @@ cmsg_pub_subscriber_remove_all (cmsg_pub *publisher)
     {
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
         publisher->subscriber_list = g_list_remove (publisher->subscriber_list, list_entry);
+        cmsg_pub_remove_subscriber_client (list_entry);
         g_free (list_entry);
 
         subscriber_list = g_list_first (publisher->subscriber_list);
@@ -587,27 +624,10 @@ cmsg_pub_invoke (ProtobufCService *service,
                    service->descriptor->methods[method_index].name);
         }
 
-
-        DEBUG (CMSG_INFO, "[PUB] sending notification\n");
-        if (list_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TCP)
-        {
-            DEBUG (CMSG_INFO, "[PUB] [LIST]  tcp address: %x, port: %d\n",
-                   ntohl (list_entry->transport.config.socket.sockaddr.in.sin_addr.s_addr),
-                   ntohs (list_entry->transport.config.socket.sockaddr.in.sin_port));
-
-            cmsg_transport_oneway_tcp_init (&list_entry->transport);
-        }
-        else if (list_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TIPC)
-        {
-            DEBUG (CMSG_INFO, "[PUB] [LIST]  tipc type: %d, instance: %d\n",
-                   list_entry->transport.config.socket.sockaddr.tipc.addr.name.name.type,
-                   list_entry->transport.config.socket.sockaddr.tipc.addr.name.name.instance);
-
-            cmsg_transport_oneway_tipc_init (&list_entry->transport);
-        }
-
-        cmsg_client *client = cmsg_client_new (&list_entry->transport,
-                                               publisher->descriptor);
+        //
+        // now get the client associated with this subscription
+        //
+        cmsg_client *client = cmsg_pub_get_subscriber_client (list_entry, publisher);
 
         if (action == CMSG_QUEUE_FILTER_PROCESS)
         {
@@ -654,9 +674,6 @@ cmsg_pub_invoke (ProtobufCService *service,
             {
                 // sent successful after %d tries
                 list_entry->transport.client_send_tries = 0;
-                // now close the connection since the client will be destroyed.
-                client->state = CMSG_CLIENT_STATE_CLOSED;
-                client->_transport->client_close (client);
                 break;
             }
             else if (client->state == CMSG_CLIENT_STATE_QUEUED)
@@ -671,8 +688,6 @@ cmsg_pub_invoke (ProtobufCService *service,
                         client->state);
             }
         }
-
-        cmsg_client_destroy (client);
 
         subscriber_list = g_list_next (subscriber_list);
 
@@ -723,6 +738,12 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
         subscriber_entry.transport.config.socket.sockaddr.in.sin_addr.s_addr =
             input->in_sin_addr_s_addr;
         subscriber_entry.transport.config.socket.sockaddr.in.sin_port = input->in_sin_port;
+
+        DEBUG (CMSG_INFO, "[PUB] [LIST]  tcp address: %x, port: %d\n",
+               ntohl (subscriber_entry.transport.config.socket.sockaddr.in.sin_addr.s_addr),
+               ntohs (subscriber_entry.transport.config.socket.sockaddr.in.sin_port));
+
+        cmsg_transport_oneway_tcp_init (&(subscriber_entry.transport));
     }
     else if (input->transport_type == CMSG_TRANSPORT_ONEWAY_TIPC)
     {
@@ -740,6 +761,12 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
         subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.type =
             input->tipc_addr_name_name_type;
         subscriber_entry.transport.config.socket.sockaddr.tipc.scope = input->tipc_scope;
+
+        DEBUG (CMSG_INFO, "[PUB] [LIST]  tipc type: %d, instance: %d\n",
+               subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.type,
+               subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.instance);
+
+        cmsg_transport_oneway_tipc_init (&(subscriber_entry.transport));
     }
     else
     {

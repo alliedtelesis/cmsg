@@ -31,6 +31,7 @@ struct _cmsg_sub_entry_s
 {
     char method_name[128];
     cmsg_transport transport;
+    cmsg_client *client;
 };
 
 
@@ -79,6 +80,11 @@ cmsg_pub *cmsg_pub_new (cmsg_transport *sub_server_transport,
 void cmsg_pub_destroy (cmsg_pub *publisher);
 
 int cmsg_pub_get_server_socket (cmsg_pub *publisher);
+
+cmsg_client * cmsg_pub_get_subscriber_client (cmsg_sub_entry *sub_entry,
+                                                  cmsg_pub *publisher);
+
+void cmsg_pub_remove_subscriber_client (cmsg_sub_entry *sub_entry);
 
 int32_t cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry);
 
