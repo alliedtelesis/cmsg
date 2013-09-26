@@ -231,10 +231,10 @@ cmsg_pub_get_subscriber_client (cmsg_sub_entry *sub_entry, cmsg_pub *publisher)
     CMSG_ASSERT (sub_entry);
     CMSG_ASSERT (publisher);
 
-    //
-    // if the client doesn't already exist, create it and
-    // update the subscription entry
-    //
+    /*
+     * if the client doesn't already exist, create it and
+     * update the subscription entry
+     */
     if (!sub_entry->client)
     {
         sub_entry->client = cmsg_client_new (&sub_entry->transport,
@@ -253,6 +253,51 @@ cmsg_pub_remove_subscriber_client (cmsg_sub_entry *sub_entry)
     sub_entry->client = NULL;
 }
 
+void
+cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
+{
+    CMSG_ASSERT (publisher);
+
+    /*
+     * walk the list and get a client connection for every subscription
+     */
+    GList *subscriber_list = g_list_first (publisher->subscriber_list);
+    while (subscriber_list)
+    {
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
+        if (cmsg_pub_get_subscriber_client (list_entry, publisher) == NULL)
+        {
+            DEBUG (CMSG_INFO, "[PUB] [LIST] Couldn't connect to subscriber!\n");
+        }
+        subscriber_list = g_list_next (subscriber_list);
+    }
+}
+
+void
+cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher, cmsg_transport *transport)
+{
+    CMSG_ASSERT (publisher);
+    CMSG_ASSERT (transport);
+
+    /*
+     * walk the list and get a client connection for every subscription that
+     * matches the transport
+     */
+    GList *subscriber_list = g_list_first (publisher->subscriber_list);
+    while (subscriber_list)
+    {
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
+        if (cmsg_sub_entry_compare_transport (list_entry, transport))
+        {
+            if (cmsg_pub_get_subscriber_client (list_entry, publisher) == NULL)
+            {
+                DEBUG (CMSG_INFO, "[PUB] [LIST] Couldn't connect to subscriber!\n");
+            }
+        }
+        subscriber_list = g_list_next (subscriber_list);
+    }
+}
+
 int32_t
 cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
@@ -266,9 +311,7 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
-    //
     // check if the entry already exists first
-    //
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
@@ -282,9 +325,7 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
         subscriber_list = g_list_next (subscriber_list);
     }
 
-    //
     // if the entry isn't already in the list
-    //
     if (add)
     {
         DEBUG (CMSG_INFO, "[PUB] [LIST] adding new entry\n");
@@ -624,9 +665,7 @@ cmsg_pub_invoke (ProtobufCService *service,
                    service->descriptor->methods[method_index].name);
         }
 
-        //
         // now get the client associated with this subscription
-        //
         cmsg_client *client = cmsg_pub_get_subscriber_client (list_entry, publisher);
 
         if (action == CMSG_QUEUE_FILTER_PROCESS)

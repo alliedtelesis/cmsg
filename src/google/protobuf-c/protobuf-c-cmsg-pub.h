@@ -82,9 +82,14 @@ void cmsg_pub_destroy (cmsg_pub *publisher);
 int cmsg_pub_get_server_socket (cmsg_pub *publisher);
 
 cmsg_client * cmsg_pub_get_subscriber_client (cmsg_sub_entry *sub_entry,
-                                                  cmsg_pub *publisher);
+                                              cmsg_pub *publisher);
 
 void cmsg_pub_remove_subscriber_client (cmsg_sub_entry *sub_entry);
+
+void cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher);
+
+void cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher,
+                                               cmsg_transport *transport);
 
 int32_t cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry);
 
