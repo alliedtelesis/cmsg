@@ -1302,7 +1302,8 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
 
         if (field->type() == FieldDescriptor::TYPE_MESSAGE)
         {
-          if (MessageContainsSubMessages(printer, field->message_type()))
+          if (MessageContainsSubMessages(printer, field->message_type()) ||
+              MessageContainsRepeatedFields(printer, field->message_type()))
           {
             GenerateCleanupMessageMemoryCode(field->message_type(), "(" + lhm + field_name + ")[" + vars_["i"] + "]->", printer, depth + 1);
             vars_["left_field_name"] = lhm + field_name;
