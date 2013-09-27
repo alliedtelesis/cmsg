@@ -252,8 +252,11 @@ cmsg_pub_remove_subscriber_client (cmsg_sub_entry *sub_entry)
 {
     CMSG_ASSERT (sub_entry);
 
-    cmsg_client_destroy (sub_entry->client);
-    sub_entry->client = NULL;
+    if (sub_entry->client)
+    {
+        cmsg_client_destroy (sub_entry->client);
+        sub_entry->client = NULL;
+    }
 }
 
 void
