@@ -241,6 +241,9 @@ cmsg_pub_get_subscriber_client (cmsg_sub_entry *sub_entry, cmsg_pub *publisher)
                                              publisher->descriptor);
     }
 
+    // now initiate the connection
+    cmsg_client_connect (sub_entry->client);
+
     return sub_entry->client;
 }
 
@@ -261,6 +264,8 @@ cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
     /*
      * walk the list and get a client connection for every subscription
      */
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
@@ -271,6 +276,8 @@ cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
         }
         subscriber_list = g_list_next (subscriber_list);
     }
+
+    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 }
 
 void
@@ -283,6 +290,8 @@ cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher, cmsg_transport *t
      * walk the list and get a client connection for every subscription that
      * matches the transport
      */
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
@@ -296,6 +305,8 @@ cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher, cmsg_transport *t
         }
         subscriber_list = g_list_next (subscriber_list);
     }
+
+    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 }
 
 int32_t
