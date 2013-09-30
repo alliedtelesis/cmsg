@@ -254,6 +254,13 @@ cmsg_pub_remove_subscriber_client (cmsg_sub_entry *sub_entry)
 
     if (sub_entry->client)
     {
+        // shutdown the connection first, to notify the other side of the connection loss
+        sub_entry->client->state = CMSG_CLIENT_STATE_CLOSED;
+        if (sub_entry->client->_transport)
+        {
+            sub_entry->client->_transport->client_close (sub_entry->client);
+        }
+        //now destroy the client
         cmsg_client_destroy (sub_entry->client);
         sub_entry->client = NULL;
     }
