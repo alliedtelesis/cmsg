@@ -65,6 +65,7 @@ struct _cmsg_pub_s
     pthread_mutex_t queue_mutex;
     GQueue *queue;
     GHashTable *queue_filter_hash_table;
+    cmsg_bool_t queue_enabled;
 
     //thread signaling for queuing
     pthread_cond_t queue_process_cond;

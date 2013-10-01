@@ -242,7 +242,10 @@ cmsg_pub_get_subscriber_client (cmsg_sub_entry *sub_entry, cmsg_pub *publisher)
     }
 
     // now initiate the connection
-    cmsg_client_connect (sub_entry->client);
+    if (!publisher->queue_enabled)
+    {
+        cmsg_client_connect (sub_entry->client);
+    }
 
     return sub_entry->client;
 }
@@ -852,12 +855,14 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
 void
 cmsg_pub_queue_enable (cmsg_pub *publisher)
 {
+    publisher->queue_enabled = TRUE;
     cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_QUEUE);
 }
 
 int32_t
 cmsg_pub_queue_disable (cmsg_pub *publisher)
 {
+    publisher->queue_enabled = FALSE;
     cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_PROCESS);
 
     return cmsg_pub_queue_process_all (publisher);
