@@ -71,8 +71,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     int32_t ret = CMSG_RET_OK;
     int32_t nbytes = 0;
     int32_t dyn_len = 0;
-    cmsg_header_request header_received;
-    cmsg_header_request header_converted;
+    cmsg_header header_received;
+    cmsg_header header_converted;
     cmsg_server_request server_request;
     uint8_t *buffer = 0;
     uint8_t buf_static[512];
@@ -84,50 +84,38 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
     if (peek)
     {
-        nbytes = recv (handle, &header_received, sizeof (cmsg_header_request), MSG_PEEK);
+        nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_PEEK);
     }
     else
     {
-        nbytes = recv (handle, &header_received, sizeof (cmsg_header_request), MSG_WAITALL);
+        nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
     }
 
-    if (nbytes == sizeof (cmsg_header_request))
+    if (nbytes == sizeof (cmsg_header))
     {
-        //we have little endian on the wire
-        header_converted.method_index =
-            cmsg_common_uint32_from_le (header_received.method_index);
-        header_converted.message_length =
-            cmsg_common_uint32_from_le (header_received.message_length);
-        header_converted.request_id = header_received.request_id;
 
-        server_request.message_length =
-            cmsg_common_uint32_from_le (header_received.message_length);
-        server_request.method_index =
-            cmsg_common_uint32_from_le (header_received.method_index);
-        server_request.request_id = header_received.request_id;
+        if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
+        {
+            // Couldn't process the header for some reason
+            CMSG_LOG_USER_ERROR ("[TRANSPORT] server receive couldn't process msg header");
+            return CMSG_RET_ERR;
+        }
 
-        DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
-        cmsg_buffer_print ((void *) &header_received, sizeof (cmsg_header_request));
-
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] method_index   host: %d, wire: %d\n",
-               header_converted.method_index, header_received.method_index);
-
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] message_length host: %d, wire: %d\n",
-               header_converted.message_length, header_received.message_length);
-
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] request_id     host: %d, wire: %d\n",
-               header_converted.request_id, header_received.request_id);
+        // Header is good so make use of it.
+        server_request.message_length = header_converted.message_length;
+        server_request.method_index = header_converted.method_index;
 
         if (peek)
         {
-            dyn_len = header_converted.message_length + sizeof (cmsg_header_request);
+            // packet size is determined by header_length + message_length.
+            // header_length may be greater than sizeof (cmsg_header)
+            dyn_len = header_converted.message_length + header_converted.header_length;
         }
         else
         {
-            dyn_len = header_converted.message_length;
+            // Make sure any extra header is received.
+            dyn_len = header_converted.message_length +
+                      (header_converted.header_length - sizeof (cmsg_header));
         }
 
         if (dyn_len > sizeof buf_static)
@@ -143,7 +131,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         if (peek)
         {
             nbytes = recv (handle, buffer, dyn_len, 0);
-            buffer_data = buffer + sizeof (cmsg_header_request);
+            buffer_data = buffer + header_converted.header_length;
         }
         else
         {
@@ -167,8 +155,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         }
         else
         {
-            DEBUG (CMSG_INFO,
-                   "[TRANSPORT] recv socket %d no data\n",
+            CMSG_LOG_USER_ERROR ("[TRANSPORT] recv socket %d no data",
                    server->connection.sockets.client_socket);
 
             ret = CMSG_RET_ERR;
@@ -184,8 +171,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     }
     else if (nbytes > 0)
     {
-        DEBUG (CMSG_ERROR,
-               "[TRANSPORT] recv socket %d bad header nbytes %d\n",
+        CMSG_LOG_USER_ERROR ("[TRANSPORT] recv socket %d bad header nbytes %d",
                server->connection.sockets.client_socket, nbytes);
 
         // TEMP to keep things going
@@ -203,7 +189,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     }
     else
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] recv socket %d error: %s\n",
+        CMSG_LOG_USER_ERROR ("[TRANSPORT] recv socket %d error: %s",
                server->connection.sockets.client_socket, strerror (errno));
         ret = CMSG_RET_ERR;
     }

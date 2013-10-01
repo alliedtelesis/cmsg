@@ -77,16 +77,83 @@ cmsg_buffer_print (void *buffer, unsigned int size)
 #endif
 }
 
-cmsg_header_request
-cmsg_request_header_create (uint32_t method_index, uint32_t packed_size,
-                            uint32_t request_id)
+
+/**
+ * Creates the header depending upon the msg_type.
+ *
+ * Adds sub headers as appropriate and returns header in network byte order
+ */
+cmsg_header
+cmsg_header_create (cmsg_msg_type msg_type, uint32_t packed_size, uint32_t method_index,
+                    cmsg_status_code status_code)
 {
-    cmsg_header_request header;
-    header.method_index = cmsg_common_uint32_to_le (method_index);
-    header.message_length = cmsg_common_uint32_to_le (packed_size);
-    header.request_id = request_id;
+    cmsg_header header;
+
+    header.msg_type = htonl (msg_type);
+    header.message_length = htonl (packed_size);
+    header.header_length = htonl (sizeof (cmsg_header));
+    header.method_index = htonl (method_index);
+    header.status_code = htonl (status_code);
 
     return header;
+}
+
+/**
+ * Converts the header received into something we know about, does data checking
+ * and converts from network byte order to host.
+ */
+int32_t
+cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted)
+{
+    //we have network byte order on the wire
+    header_converted->msg_type = ntohl (header_received->msg_type);
+    header_converted->header_length = ntohl (header_received->header_length);
+    header_converted->message_length = ntohl (header_received->message_length);
+    header_converted->method_index = ntohl (header_received->method_index);
+    header_converted->status_code = ntohl (header_received->status_code);
+
+    DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
+    cmsg_buffer_print ((void *) &header_received, sizeof (cmsg_header));
+
+    DEBUG (CMSG_INFO,
+           "[TRANSPORT] msg_type host: %d, wire: %d\n",
+           header_converted->msg_type, header_received->msg_type);
+
+    DEBUG (CMSG_INFO,
+           "[TRANSPORT] header_length host: %d, wire: %d\n",
+           header_converted->header_length, header_received->header_length);
+
+    DEBUG (CMSG_INFO,
+           "[TRANSPORT] message_length host: %d, wire: %d\n",
+           header_converted->message_length, header_received->message_length);
+
+    DEBUG (CMSG_INFO,
+           "[TRANSPORT] method_index   host: %d, wire: %d\n",
+           header_converted->method_index, header_received->method_index);
+
+    DEBUG (CMSG_INFO,
+           "[TRANSPORT] status_code host: %d, wire: %d\n",
+           header_converted->status_code, header_received->status_code);
+
+    // Check the data for correctness
+    switch (header_converted->msg_type)
+    {
+    case CMSG_MSG_TYPE_METHOD_REQ:
+    case CMSG_MSG_TYPE_METHOD_REPLY:
+    case CMSG_MSG_TYPE_ECHO_REQ:
+    case CMSG_MSG_TYPE_ECHO_REPLY:
+        // Known values
+        break;
+
+    default:
+        // Unknown msg type
+        CMSG_LOG_USER_ERROR ("Processing header, bad msg type value - %d",
+                             header_converted->msg_type);
+        return CMSG_RET_ERR;
+        break;
+    }
+
+    return CMSG_RET_OK;
 }
 
 int

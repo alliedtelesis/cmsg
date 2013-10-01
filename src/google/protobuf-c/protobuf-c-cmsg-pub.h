@@ -13,18 +13,8 @@
 //forward declaration
 typedef enum _cmsg_queue_filter_type_e cmsg_queue_filter_type;
 
-typedef struct _cmsg_publisher_request_s cmsg_publisher_request;
 typedef struct _cmsg_sub_entry_s cmsg_sub_entry;
 typedef struct _cmsg_pub_s cmsg_pub;
-
-
-struct _cmsg_publisher_request_s
-{
-    uint32_t message_length;
-    uint32_t request_id;
-    uint32_t method_index;
-    cmsg_pub *publisher;
-};
 
 
 struct _cmsg_sub_entry_s
@@ -56,7 +46,6 @@ struct _cmsg_pub_s
     GList *subscriber_list;
     pthread_mutex_t subscriber_list_mutex;
     uint32_t subscriber_count;
-    cmsg_publisher_request *publisher_request;
 
     cmsg_object self;
     cmsg_object parent;

@@ -338,7 +338,8 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
 
     if (ret < 0)
     {
-        DEBUG (CMSG_ERROR, "[SERVER] server receive failed\n");
+        CMSG_LOG_USER_ERROR ("[SERVER] server receive failed, server %s transport type %d socket %d ret %d",
+                             server->service->descriptor->name, server->_transport->type, socket, ret);
         return CMSG_RET_ERR;
     }
 
@@ -496,8 +497,8 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
         if (action == CMSG_QUEUE_FILTER_ERROR)
         {
             DEBUG (CMSG_ERROR,
-                   "[CLIENT] error: queue_lookup_filter returned CMSG_QUEUE_FILTER_ERROR for: %s\n",
-                   service->descriptor->methods[server_request->method_index].name);
+                   "[SERVER] error: queue_lookup_filter returned CMSG_QUEUE_FILTER_ERROR for: %s\n",
+                   server->service->descriptor->methods[server_request->method_index].name);
 
             // Free unpacked message prior to return
             protobuf_c_message_free_unpacked (message, allocator);
@@ -506,8 +507,8 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
         else if (action == CMSG_QUEUE_FILTER_DROP)
         {
             DEBUG (CMSG_INFO,
-                   "[CLIENT] dropping message: %s\n",
-                   service->descriptor->methods[server_request->method_index].name);
+                   "[SERVER] dropping message: %s\n",
+                   server->service->descriptor->methods[server_request->method_index].name);
 
             processing_reason = CMSG_METHOD_DROPPED;
         }
@@ -529,17 +530,15 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
 }
 
 
-void
+static void
 _cmsg_server_empty_reply_send (cmsg_server *server, cmsg_status_code status_code,
-                               uint32_t method_index, uint32_t request_id)
+                               uint32_t method_index)
 {
     int ret = 0;
-    uint32_t header[4];
+    cmsg_header header;
 
-    header[0] = cmsg_common_uint32_to_le (status_code);
-    header[1] = cmsg_common_uint32_to_le (method_index);
-    header[2] = 0;            /* no message */
-    header[3] = request_id;
+    header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REPLY, 0 /* empty msg */,
+                                 method_index, status_code);
 
     DEBUG (CMSG_INFO, "[SERVER] response header\n");
 
@@ -592,8 +591,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                server_request->method_index);
 
         _cmsg_server_empty_reply_send (server, CMSG_STATUS_CODE_SERVICE_QUEUED,
-                                       server_request->method_index,
-                                       server_request->request_id);
+                                       server_request->method_index);
         return;
     }
     /* If the method has been dropped due a filter then send a response with no data.
@@ -605,8 +603,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                server_request->method_index);
 
         _cmsg_server_empty_reply_send (server, CMSG_STATUS_CODE_SERVICE_DROPPED,
-                                       server_request->method_index,
-                                       server_request->request_id);
+                                       server_request->method_index);
         return;
     }
     /* No response message was specified, therefore reply with an error
@@ -616,8 +613,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         DEBUG (CMSG_INFO, "[SERVER] sending response without data\n");
 
         _cmsg_server_empty_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
-                                       server_request->method_index,
-                                       server_request->request_id);
+                                       server_request->method_index);
         return;
     }
     /* Method has executed normally and has a response to be sent.
@@ -627,24 +623,20 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         DEBUG (CMSG_INFO, "[SERVER] sending response with data\n");
 
         uint32_t packed_size = protobuf_c_message_get_packed_size (message);
-        uint32_t header[4];
-        header[0] = cmsg_common_uint32_to_le (CMSG_STATUS_CODE_SUCCESS);
-        header[1] = cmsg_common_uint32_to_le (server_request->method_index);
-        header[2] = cmsg_common_uint32_to_le (packed_size); //packesize
-        header[3] = server_request->request_id;
+        cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REPLY, packed_size,
+                                                 server_request->method_index,
+                                                 CMSG_STATUS_CODE_SUCCESS);
 
         uint8_t *buffer = malloc (packed_size + sizeof (header));
         if (!buffer)
         {
-            syslog (LOG_CRIT | LOG_LOCAL6,
-                    "[SERVER] error: unable to allocate buffer. line(%d)\n", __LINE__);
+            CMSG_LOG_USER_ERROR ("[SERVER] error: unable to allocate buffer. line(%d)\n", __LINE__);
             return;
         }
         uint8_t *buffer_data = malloc (packed_size);
         if (!buffer_data)
         {
-            syslog (LOG_CRIT | LOG_LOCAL6,
-                    "[SERVER] error: unable to allocate data buffer. line(%d)\n", __LINE__);
+            CMSG_LOG_USER_ERROR ("[SERVER] error: unable to allocate data buffer. line(%d)\n", __LINE__);
             free (buffer);
             return;
         }
@@ -656,8 +648,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         ret = protobuf_c_message_pack (message, buffer_data);
         if (ret < packed_size)
         {
-            DEBUG (CMSG_ERROR,
-                   "[SERVER] packing response data failed packet:%d of %d\n",
+            CMSG_LOG_USER_ERROR ("[SERVER] packing response data failed packet:%d of %d\n",
                    ret, packed_size);
 
             free (buffer);
@@ -677,7 +668,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                                                buffer, packed_size + sizeof (header), 0);
         if (ret < packed_size + sizeof (header))
             DEBUG (CMSG_ERROR,
-                   "[SERVER] sending if response failed send:%d of %ld\n",
+                   "[SERVER] sending if response failed send:%d of %d\n",
                    ret, packed_size + sizeof (header));
 
         free (buffer);

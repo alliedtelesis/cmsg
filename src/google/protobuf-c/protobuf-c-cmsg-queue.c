@@ -302,7 +302,6 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t queue_mutex,
      * in place by the invoke and closure calls.
      */
     server_request.message_length = 0;
-    server_request.request_id = -1;
     server->server_request = &server_request;
 
     // Go through the whole list invoke the server method for the message,

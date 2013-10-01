@@ -357,7 +357,7 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
         cmsg_sub_entry *list_entry = g_malloc (sizeof (cmsg_sub_entry));
         if (!list_entry)
         {
-            syslog (LOG_CRIT | LOG_LOCAL6,
+            CMSG_LOG_USER_ERROR (
                     "[PUB] [LIST] error: unable to create list entry. line(%d)\n",
                     __LINE__);
             pthread_mutex_unlock (&publisher->subscriber_list_mutex);
@@ -467,7 +467,7 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
     CMSG_ASSERT (transport);
 
     DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
-    DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
+    DEBUG (CMSG_INFO, "[PUB] [LIST] transport: type %d\n", transport->type);
 
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
@@ -600,7 +600,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
     if (!buffer_data)
     {
-        DEBUG (CMSG_ERROR, "[PUB] buffer not defined");
+        CMSG_LOG_USER_ERROR ("[PUB] buffer not defined");
         return 0;
     }
 
@@ -775,7 +775,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
 {
     CMSG_ASSERT (service);
     CMSG_ASSERT (input);
-    CMSG_ASSERT (closure_data);
+    CMSG_ASSERT (closure_data_void);
 
     DEBUG (CMSG_INFO, "[PUB] cmsg_notification_subscriber_server_register_handler\n");
     cmsg_closure_data *closure_data = (cmsg_closure_data *) closure_data_void;
@@ -833,7 +833,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
     }
     else
     {
-        DEBUG (CMSG_ERROR, "[PUB] error: subscriber transport not supported\n");
+        CMSG_LOG_USER_ERROR ("[PUB] error: subscriber transport not supported");
 
         return;
     }

@@ -90,14 +90,14 @@ _cmsg_cpg_confchg_fn (cpg_handle_t handle, struct cpg_name *group_name,
 
 /**
  * cmsg_cpg_deliver_fn
- * The callback that receives a message.
+ * The callback that receives a message for the server.
  */
 static void
 _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
                       uint32_t nodeid, uint32_t pid, void *msg, int msg_len)
 {
-    cmsg_header_request header_received;
-    cmsg_header_request header_converted;
+    cmsg_header *header_received;
+    cmsg_header header_converted;
     int32_t client_len;
     int32_t nbytes;
     int32_t dyn_len;
@@ -107,47 +107,33 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
     cmsg_server *server;
     cmsg_server_request server_request;
 
-    memcpy (&header_received, msg, sizeof (cmsg_header_request));
+    header_received  = (cmsg_header *)msg;
 
-    header_converted.method_index =
-        cmsg_common_uint32_from_le (header_received.method_index);
-    header_converted.message_length =
-        cmsg_common_uint32_from_le (header_received.message_length);
-    header_converted.request_id = header_received.request_id;
+    if (cmsg_header_process (header_received, &header_converted) != CMSG_RET_OK)
+    {
+        // Couldn't process the header for some reason
+        CMSG_LOG_USER_ERROR ("[TRANSPORT] server receive couldn't process msg header");
+        return;
+    }
+
+    server_request.message_length = header_converted.message_length;
+    server_request.method_index = header_converted.method_index;
 
     DEBUG (CMSG_INFO, "[TRANSPORT] cpg received header\n");
-    cmsg_buffer_print ((void *) &header_received, sizeof (cmsg_header_request));
-
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] cpg method_index   host: %d, wire: %d\n",
-           header_converted.method_index, header_received.method_index);
-
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] cpg message_length host: %d, wire: %d\n",
-           header_converted.message_length, header_received.message_length);
-
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] cpg request_id     host: %d, wire: %d\n",
-           header_converted.request_id, header_received.request_id);
-
-    server_request.message_length =
-        cmsg_common_uint32_from_le (header_received.message_length);
-    server_request.method_index = cmsg_common_uint32_from_le (header_received.method_index);
-    server_request.request_id = header_received.request_id;
 
     dyn_len = header_converted.message_length;
 
     DEBUG (CMSG_INFO,
            "[TRANSPORT] cpg msg len = %d, header length = %ld, data length = %d\n",
-           msg_len, sizeof (cmsg_header_request), dyn_len);
+           msg_len, header_converted.header_length, dyn_len);
 
-    if (msg_len < sizeof (cmsg_header_request) + dyn_len)
+    if (msg_len < header_converted.header_length + dyn_len)
     {
         DEBUG (CMSG_ERROR, "[TRANSPORT] cpg Message larger than data buffer passed in\n");
         return;
     }
 
-    buffer = msg + sizeof (cmsg_header_request);
+    buffer = msg + header_converted.header_length;
 
     DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
     cmsg_buffer_print (buffer, dyn_len);
@@ -243,8 +229,7 @@ _cmsg_transport_cpg_init_exe_connection (void)
     }
     while (slept_us <= (TV_USEC_PER_SEC * 10));
 
-    DEBUG (CMSG_ERROR,
-           "Couldn't initialize CPG service result:%d, waited:%ums",
+    CMSG_LOG_USER_ERROR ("Couldn't initialize CPG service result:%d, waited:%ums",
            result, slept_us / 1000);
     return -1;
 }
@@ -282,8 +267,7 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
     }
     while (slept_us <= (TV_USEC_PER_SEC * 10));
 
-    DEBUG (CMSG_ERROR,
-           "Couldn't join CPG group %s, result:%d, waited:%ums",
+    CMSG_LOG_USER_ERROR ("Couldn't join CPG group %s, result:%d, waited:%ums",
            server->_transport->config.cpg.group_name.value, result, slept_us / 1000);
 
     return -1;
@@ -305,7 +289,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     if (!server || !server->_transport ||
         server->_transport->config.cpg.group_name.value[0] == '\0')
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] cpg listen sanity check failed\n");
+        CMSG_LOG_USER_ERROR ("[TRANSPORT] cpg listen sanity check failed");
         return -1;
     }
     else
@@ -322,7 +306,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
         res = _cmsg_transport_cpg_init_exe_connection ();
         if (res < 0)
         {
-            DEBUG (CMSG_ERROR, "[TRANSPORT] cpg listen init failed, result %d\n", res);
+            CMSG_LOG_USER_ERROR ("[TRANSPORT] cpg listen init failed, result %d", res);
             return -1;
         }
     }
@@ -342,7 +326,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
 
     if (res < 0)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] cpg listen join failed, result %d\n", res);
+        CMSG_LOG_USER_ERROR ("[TRANSPORT] cpg listen join failed, result %d", res);
         return -2;
     }
 
@@ -354,7 +338,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     else
     {
         server->connection.cpg.fd = 0;
-        DEBUG (CMSG_ERROR, "[TRANSPORT] cpg listen cannot get fd\n");
+        CMSG_LOG_USER_ERROR ("[TRANSPORT] cpg listen cannot get fd");
         return -3;
     }
 

@@ -76,11 +76,11 @@ void
 cmsg_sub_subscribe_response_handler (const Cmsg__SubEntryResponse *response,
                                      void *closure_data)
 {
-    uint32_t *return_value = (uint32_t *) closure_data;
+    int32_t *return_value = (int32_t *) closure_data;
 
     if (response == 0)
     {
-        DEBUG (CMSG_ERROR, "[SUB] error: processing register response\n");
+        CMSG_LOG_USER_ERROR ("[SUB] error: processing register response");
         *return_value = CMSG_STATUS_CODE_SERVICE_FAILED;
     }
     else
@@ -102,7 +102,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     CMSG_ASSERT (method_name);
 
     cmsg_client *register_client = NULL;
-    u_int32_t return_value = CMSG_RET_ERR;
+    int32_t return_value = CMSG_RET_ERR;
     Cmsg__SubEntry register_entry = CMSG__SUB_ENTRY__INIT;
 
     register_entry.add = 1;
@@ -143,8 +143,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     }
     else
     {
-        DEBUG (CMSG_ERROR,
-               "[SUB] error cmsg_sub_subscribe transport incorrect: %d\n",
+        CMSG_LOG_USER_ERROR ("[SUB] error cmsg_sub_subscribe transport incorrect: %d",
                subscriber->pub_server->_transport->type);
 
         return CMSG_RET_ERR;
@@ -154,7 +153,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
                                        &cmsg__sub_service__descriptor);
     if (!register_client)
     {
-        DEBUG (CMSG_WARN, "[SUB] error could not create register client\n");
+        CMSG_LOG_USER_ERROR ("[SUB] error could not create register client");
         free (register_client);
         return CMSG_RET_ERR;
     }

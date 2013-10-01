@@ -55,18 +55,47 @@
 // Return codes
 #define CMSG_RET_OK   0
 #define CMSG_RET_ERR -1
-// Protocol is:
-//    client requests with header:
-//         method_index              32-bit little-endian
-//         message_length            32-bit little-endian
-//         request_id                32-bit any-endian
-//
-//    server responds with header:
-//         status_code               32-bit little-endian
-//         method_index              32-bit little-endian
-//         message_length            32-bit little-endian
-//         request_id                32-bit any-endian
 
+// Protocol has different msg types which reflect which fields are in use:
+// METHOD_REQ - client request to the server to invoke a method
+// METHOD_REPLY - server reply to a client for a method request
+// ECHO_REQ - client asking the server to reply if running
+// ECHO_REPLY - server replying to client that it is running
+
+// NOTE: ECHO is used to implement a healthcheck of the server.
+// Header is sent big-endian/network byte order.
+
+// The fields involved in the header are:
+//    client method request header:
+//         msg_type          CMSG_MSG_TYPE_METHOD_REQ
+//         header_length     length of this header - may change in the future
+//         message_length    length of the msg that has the parameters for the method
+//         method_index      index of method to be invoked
+//         status_code       NOT USED by request
+
+//    server method reply header:
+//         msg_type          CMSG_MSG_TYPE_METHOD_REPLY
+//         header_length     length of this header - may change in the future
+//         message_length    length of the msg that has the return parameters for the method
+//         method_index      index of method that was invoked
+//         status_code       whether the method was invoked, queued, dropped or had a
+//                           failure (e.g. unknown method index)
+
+//    client echo request header:
+//         msg_type          CMSG_MSG_TYPE_ECHO_REQ
+//         header_length     length of this header - may change in the future
+//         message_length    0 as there are no parameters
+//         method_index      0
+//         status_code       NOT USED by request
+
+//    server echo reply header:
+//         msg_type          CMSG_MSG_TYPE_ECHO_REPLY
+//         header_length     length of this header - may change in the future
+//         message_length    0 as nothing replied with
+//         method_index      0
+//         status_code       0
+
+//
 //forward declarations
 typedef struct _cmsg_client_s cmsg_client;
 typedef struct _cmsg_server_s cmsg_server;
@@ -75,8 +104,10 @@ typedef struct _cmsg_pub_s cmsg_pub;
 
 typedef struct _cmsg_object_s cmsg_object;
 typedef enum _cmsg_object_type_e cmsg_object_type;
-typedef struct _cmsg_header_request_s cmsg_header_request;
-typedef struct _cmsg_header_response_s cmsg_header_response;
+typedef enum _cmsg_msg_type_e cmsg_msg_type;
+typedef struct _cmsg_sub_header_method_reply_s cmsg_sub_header_method_reply;
+typedef struct _cmsg_sub_header_method_req_s cmsg_sub_header_method_req;
+typedef struct _cmsg_header_s cmsg_header;
 typedef enum _cmsg_status_code_e cmsg_status_code;
 typedef enum _cmsg_error_code_e cmsg_error_code;
 typedef enum _cmsg_method_processing_reason_e cmsg_method_processing_reason;
@@ -96,19 +127,12 @@ struct _cmsg_object_s
     void *object;
 };
 
-struct _cmsg_header_request_s
+enum _cmsg_msg_type_e
 {
-    uint32_t method_index;
-    uint32_t message_length;
-    uint32_t request_id;
-};
-
-struct _cmsg_header_response_s
-{
-    uint32_t status_code;
-    uint32_t method_index;
-    uint32_t message_length;
-    uint32_t request_id;
+    CMSG_MSG_TYPE_METHOD_REQ = 0,  // Request to server to call a method
+    CMSG_MSG_TYPE_METHOD_REPLY,  // Reply from server in response to a method request
+    CMSG_MSG_TYPE_ECHO_REQ,  // Request to server for a reply - used for a ping/healthcheck
+    CMSG_MSG_TYPE_ECHO_REPLY,  // Reply from server in response to an echo request
 };
 
 enum _cmsg_status_code_e
@@ -118,6 +142,15 @@ enum _cmsg_status_code_e
     CMSG_STATUS_CODE_TOO_MANY_PENDING,
     CMSG_STATUS_CODE_SERVICE_QUEUED,
     CMSG_STATUS_CODE_SERVICE_DROPPED,
+};
+
+struct _cmsg_header_s
+{
+    cmsg_msg_type msg_type;  // Do NOT change this field
+    uint32_t header_length;  // Do NOT change this field
+    uint32_t message_length; // Do NOT change this field
+    uint32_t method_index;   // Only for METHOD_xxx
+    cmsg_status_code status_code; // Only for METHOD_REPLY
 };
 
 enum _cmsg_method_processing_reason_e
@@ -143,8 +176,10 @@ uint32_t cmsg_common_uint32_to_le (uint32_t le);
 
 void cmsg_buffer_print (void *buffer, unsigned int size);
 
-cmsg_header_request cmsg_request_header_create (uint32_t method_index, uint32_t packed_size,
-                                                uint32_t request_id);
+cmsg_header cmsg_header_create (cmsg_msg_type msg_type, uint32_t packed_size,
+                                uint32_t method_index, cmsg_status_code status_code);
+
+int32_t cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted);
 
 int cmsg_service_port_get (const char *name, const char *proto);
 #endif

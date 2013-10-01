@@ -172,8 +172,9 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     int32_t nbytes = 0;
     int32_t dyn_len = 0;
     ProtobufCMessage *ret = NULL;
-    cmsg_header_response header_received;
-    cmsg_header_response header_converted;
+    cmsg_header header_received;
+    cmsg_header header_converted;
+    uint8_t *recv_buffer = 0;
     uint8_t *buffer = 0;
     uint8_t buf_static[512];
     ProtobufCMessage *message = NULL;
@@ -186,37 +187,18 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     }
 
     nbytes = recv (client->connection.socket,
-                   &header_received, sizeof (cmsg_header_response), MSG_WAITALL);
+                   &header_received, sizeof (cmsg_header), MSG_WAITALL);
 
-    if (nbytes == sizeof (cmsg_header_response))
+    if (nbytes == sizeof (cmsg_header))
     {
-        //we have little endian on the wire
-        header_converted.status_code =
-            cmsg_common_uint32_from_le (header_received.status_code);
-        header_converted.method_index =
-            cmsg_common_uint32_from_le (header_received.method_index);
-        header_converted.message_length =
-            cmsg_common_uint32_from_le (header_received.message_length);
-        header_converted.request_id = header_received.request_id;
+        if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
+        {
+            // Couldn't process the header for some reason
+            CMSG_LOG_USER_ERROR ("[TRANSPORT] server receive couldn't process msg header");
+            return CMSG_RET_ERR;
+        }
 
         DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
-        cmsg_buffer_print ((void *) &header_received, sizeof (cmsg_header_response));
-
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] status_code    host: %d, wire: %d\n",
-               header_converted.status_code, header_received.status_code);
-
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] method_index   host: %d, wire: %d\n",
-               header_converted.method_index, header_received.method_index);
-
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] message_length host: %d, wire: %d\n",
-               header_converted.message_length, header_received.message_length);
-
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] request_id     host: %d, wire: %d\n",
-               header_converted.request_id, header_received.request_id);
 
         // read the message
 
@@ -231,21 +213,27 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
             return header_converted.status_code;
         }
 
-        dyn_len = header_converted.message_length;
+        // Take into account that someone may have changed the size of the header
+        // and we don't know about it, make sure we receive all the information.
+        dyn_len = header_converted.message_length +
+                  (header_converted.header_length - sizeof (cmsg_header));
         if (dyn_len > sizeof buf_static)
         {
-            buffer = malloc (dyn_len);
+            recv_buffer = malloc (dyn_len);
         }
         else
         {
-            buffer = (void *) buf_static;
+            recv_buffer = (void *) buf_static;
         }
 
         //just recv the rest of the data to clear the socket
-        nbytes = recv (client->connection.socket, buffer, dyn_len, MSG_WAITALL);
+        nbytes = recv (client->connection.socket, recv_buffer, dyn_len, MSG_WAITALL);
 
         if (nbytes == dyn_len)
         {
+            // Set buffer to take into account a larger header than we expected
+            buffer = recv_buffer + (header_converted.header_length - sizeof (cmsg_header));
+
             DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
             cmsg_buffer_print (buffer, dyn_len);
 
@@ -274,12 +262,12 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
             ret = 0;
         }
-        if (buffer != (void *) buf_static)
+        if (recv_buffer != (void *) buf_static)
         {
-            if (buffer)
+            if (recv_buffer)
             {
-                free (buffer);
-                buffer = 0;
+                free (recv_buffer);
+                recv_buffer = 0;
             }
         }
     }
@@ -290,10 +278,10 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
                client->connection.socket, nbytes);
 
         // TEMP to keep things going
-        buffer = malloc (nbytes);
-        nbytes = recv (client->connection.socket, buffer, nbytes, MSG_WAITALL);
-        free (buffer);
-        buffer = 0;
+        recv_buffer = malloc (nbytes);
+        nbytes = recv (client->connection.socket, recv_buffer, nbytes, MSG_WAITALL);
+        free (recv_buffer);
+        recv_buffer = 0;
         ret = 0;
     }
     else if (nbytes == 0)
