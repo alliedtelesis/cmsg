@@ -1,4 +1,5 @@
 #include "protobuf-c-cmsg.h"
+#include <netdb.h>
 
 
 uint32_t
@@ -86,4 +87,25 @@ cmsg_request_header_create (uint32_t method_index, uint32_t packed_size,
     header.request_id = request_id;
 
     return header;
+}
+
+int
+cmsg_service_port_get (const char *name, const char *proto)
+{
+    struct servent *result;
+    struct servent result_buf;
+    int port, ret;
+
+    const int buf_size = 1024;
+    char buf[buf_size];
+
+    ret = getservbyname_r (name, proto, &result_buf, buf, buf_size, &result);
+    if (result == NULL || ret != 0)
+    {
+        return 0;
+    }
+
+    port = ntohs (result->s_port);
+
+    return port;
 }

@@ -55,7 +55,6 @@
 // Return codes
 #define CMSG_RET_OK   0
 #define CMSG_RET_ERR -1
-
 // Protocol is:
 //    client requests with header:
 //         method_index              32-bit little-endian
@@ -147,4 +146,5 @@ void cmsg_buffer_print (void *buffer, unsigned int size);
 cmsg_header_request cmsg_request_header_create (uint32_t method_index, uint32_t packed_size,
                                                 uint32_t request_id);
 
+int cmsg_service_port_get (const char *name, const char *proto);
 #endif
