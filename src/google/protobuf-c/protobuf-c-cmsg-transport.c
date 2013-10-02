@@ -102,6 +102,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         }
 
         // Header is good so make use of it.
+        server_request.msg_type = header_converted.msg_type;
         server_request.message_length = header_converted.message_length;
         server_request.method_index = header_converted.method_index;
 
@@ -143,15 +144,17 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
             buffer_data = buffer;
         }
 
-        if (nbytes == dyn_len)
+        // Process any message that has no more length or we have received what
+        // we expected to from the socket
+        if (header_converted.message_length == 0 || nbytes == dyn_len)
         {
             DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
 
             cmsg_buffer_print (buffer_data, dyn_len);
             server->server_request = &server_request;
 
-            if (server->message_processor (server, buffer_data))
-                DEBUG (CMSG_ERROR, "[TRANSPORT] message processing returned an error\n");
+            if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
+                CMSG_LOG_USER_ERROR ("[TRANSPORT] message processing returned an error");
         }
         else
         {

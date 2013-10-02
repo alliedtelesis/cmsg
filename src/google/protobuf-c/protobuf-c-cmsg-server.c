@@ -431,30 +431,26 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
 
 
 /**
- * The buffer has been received and now needs to be processed by protobuf-c.
- * Once unpacked the method will be invoked.
- * If the
+ * Process a METHOD_REQ message.
+ *
+ * Unpack the parameters, perform filtering (if applicable) and invoke the method.
+ *
+ * @returns -1 on failure, 0 on success
  */
-int32_t
-cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
+static int32_t
+_cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
     cmsg_queue_filter_type action;
     cmsg_method_processing_reason processing_reason;
-
-    CMSG_ASSERT (server);
-    CMSG_ASSERT (server->_transport);
-    CMSG_ASSERT (server->service);
-    CMSG_ASSERT (server->service->descriptor);
-    CMSG_ASSERT (server->server_request);
-
-    cmsg_server_request *server_request = server->server_request;
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *) server->allocator;
+    cmsg_server_request *server_request = server->server_request;
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
-        DEBUG (CMSG_ERROR,
-               "[SERVER] error: the method index from read from the header seems to be to high\n");
+        CMSG_LOG_USER_ERROR (
+               "[SERVER] error: the method index read from the header seems to be too high - idx %d, max %d",
+               server_request->method_index, server->service->descriptor->n_methods);
         return CMSG_RET_ERR;
     }
 
@@ -479,7 +475,7 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
     if (message == NULL)
     {
-        DEBUG (CMSG_ERROR, "[SERVER] error: unpacking message\n");
+        CMSG_LOG_USER_ERROR ("[SERVER] error: unpacking message");
         return CMSG_RET_ERR;
     }
 
@@ -496,8 +492,8 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
         if (action == CMSG_QUEUE_FILTER_ERROR)
         {
-            DEBUG (CMSG_ERROR,
-                   "[SERVER] error: queue_lookup_filter returned CMSG_QUEUE_FILTER_ERROR for: %s\n",
+            CMSG_LOG_USER_ERROR (
+                   "[SERVER] error: queue_lookup_filter returned CMSG_QUEUE_FILTER_ERROR for: %s",
                    server->service->descriptor->methods[server_request->method_index].name);
 
             // Free unpacked message prior to return
@@ -527,12 +523,79 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
     DEBUG (CMSG_INFO, "[SERVER] end of message processor\n");
 
     return CMSG_RET_OK;
+
+}
+
+
+/**
+ * Process ECHO_REQ message
+ *
+ * We reply straight away to an ECHO_REQ
+ */
+static int32_t
+_cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_data)
+{
+    int ret = 0;
+    cmsg_header header;
+
+    header = cmsg_header_create (CMSG_MSG_TYPE_ECHO_REPLY, 0 /* empty msg */,
+                                 0, CMSG_STATUS_CODE_SUCCESS);
+
+    DEBUG (CMSG_INFO, "[SERVER] ECHO Reply header\n");
+
+    cmsg_buffer_print ((void *)&header, sizeof (header));
+
+    ret = server->_transport->server_send (server, &header, sizeof (header), 0);
+    if (ret < sizeof (header))
+    {
+        CMSG_LOG_USER_ERROR (
+               "[SERVER] error: sending of echo reply failed sent:%d of %d",
+               ret, sizeof (header));
+        return CMSG_RET_ERR;
+    }
+    return CMSG_RET_OK;
+}
+
+
+/**
+ * The buffer has been received and now needs to be processed by protobuf-c.
+ * Once unpacked the method will be invoked.
+ * If the
+ */
+int32_t
+cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
+{
+    CMSG_ASSERT (server);
+    CMSG_ASSERT (server->_transport);
+    CMSG_ASSERT (server->service);
+    CMSG_ASSERT (server->service->descriptor);
+    CMSG_ASSERT (server->server_request);
+
+    cmsg_server_request *server_request = server->server_request;
+
+    // Check that the msg received is a type we support
+    switch (server_request->msg_type)
+    {
+    case CMSG_MSG_TYPE_METHOD_REQ:
+        return _cmsg_server_method_req_message_processor (server, buffer_data);
+        break;
+
+    case CMSG_MSG_TYPE_ECHO_REQ:
+        return _cmsg_server_echo_req_message_processor (server, buffer_data);
+        break;
+
+    default:
+        CMSG_LOG_USER_ERROR ("[SERVER] Received a msg type the server doesn't support - %d", server_request->msg_type);
+        return CMSG_RET_ERR;
+        break;
+    }
+
 }
 
 
 static void
-_cmsg_server_empty_reply_send (cmsg_server *server, cmsg_status_code status_code,
-                               uint32_t method_index)
+_cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code status_code,
+                                      uint32_t method_index)
 {
     int ret = 0;
     cmsg_header header;
@@ -590,8 +653,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         DEBUG (CMSG_INFO, "[SERVER] method %d queued, sending response without data\n",
                server_request->method_index);
 
-        _cmsg_server_empty_reply_send (server, CMSG_STATUS_CODE_SERVICE_QUEUED,
-                                       server_request->method_index);
+        _cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_QUEUED,
+                                              server_request->method_index);
         return;
     }
     /* If the method has been dropped due a filter then send a response with no data.
@@ -602,8 +665,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         DEBUG (CMSG_INFO, "[SERVER] method %d dropped, sending response without data\n",
                server_request->method_index);
 
-        _cmsg_server_empty_reply_send (server, CMSG_STATUS_CODE_SERVICE_DROPPED,
-                                       server_request->method_index);
+        _cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_DROPPED,
+                                              server_request->method_index);
         return;
     }
     /* No response message was specified, therefore reply with an error
@@ -612,8 +675,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     {
         DEBUG (CMSG_INFO, "[SERVER] sending response without data\n");
 
-        _cmsg_server_empty_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
-                                       server_request->method_index);
+        _cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+                                              server_request->method_index);
         return;
     }
     /* Method has executed normally and has a response to be sent.

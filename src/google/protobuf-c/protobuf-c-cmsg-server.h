@@ -24,6 +24,7 @@ struct _closure_data_s
 
 struct _cmsg_server_request_s
 {
+    cmsg_msg_type msg_type;
     uint32_t message_length;
     uint32_t method_index;
 };

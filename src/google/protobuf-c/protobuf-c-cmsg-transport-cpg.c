@@ -116,6 +116,7 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
         return;
     }
 
+    server_request.msg_type = header_converted.msg_type;
     server_request.message_length = header_converted.message_length;
     server_request.method_index = header_converted.method_index;
 

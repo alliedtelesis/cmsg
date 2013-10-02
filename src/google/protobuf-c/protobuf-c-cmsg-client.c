@@ -496,6 +496,123 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
 
 int32_t
+cmsg_client_get_socket (cmsg_client *client)
+{
+    int32_t sock = -1;
+
+    if (!client)
+    {
+        CMSG_LOG_USER_ERROR ("Attempted to get a socket where the client didn't exist");
+        return -1;
+    }
+
+    if (client->state == CMSG_CLIENT_STATE_CONNECTED)
+    {
+        sock = client->_transport->c_socket (client);
+    }
+    else
+    {
+        CMSG_LOG_USER_ERROR ("The client isn't connect so the socket cannot be gotten");
+        return -1;
+    }
+
+    return sock;
+}
+
+
+/**
+ * Sends an echo request to the server the client connects to.
+ * The client should be one used specifically for this purpose.
+ * The transport should be a RPC (twoway) connection so that a response can be received.
+ *
+ * The caller may not want to block however and so the function will return a
+ * socket that can be listened on for the echo response.
+ *
+ * When the response is received the application should call cmsg_client_recv_echo_reply
+ * to handle it's reception.
+ */
+int32_t
+cmsg_client_send_echo_request (cmsg_client *client)
+{
+    int32_t ret = 0;
+
+    // if not connected connect now
+    cmsg_client_connect (client);
+
+    // create header
+    cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_ECHO_REQ, 0, 0, 0);
+
+    // send
+    DEBUG (CMSG_INFO, "[CLIENT] header\n");
+    cmsg_buffer_print (&header, sizeof (header));
+
+    ret = client->_transport->client_send (client, &header,
+                                           sizeof (header), 0);
+    if (ret < sizeof (header))
+    {
+        CMSG_LOG_USER_ERROR ("Failed sending all data");
+
+        // close the connection as something must be wrong
+        client->state = CMSG_CLIENT_STATE_CLOSED;
+        client->_transport->client_close (client);
+
+        // the connection may be down due to a problem since the last send
+        // attempt once to reconnect and send
+        cmsg_client_connect (client);
+
+        if (client->state == CMSG_CLIENT_STATE_CONNECTED)
+        {
+            ret = client->_transport->client_send (client, &header,
+                                                   sizeof (header), 0);
+            if (ret < sizeof (header))
+            {
+                CMSG_LOG_USER_ERROR (
+                       "[CLIENT] error: sending echo req failed sent:%d of %d",
+                       ret, sizeof (header));
+                return -1;
+            }
+        }
+        else
+        {
+            CMSG_LOG_USER_ERROR ("[CLIENT] error: couldn't reconnect client!");
+            return -1;
+        }
+    }
+
+    // return socket to listen on
+    return client->_transport->c_socket (client);
+}
+
+
+/**
+ * Waits and receives the echo reply on the socket passed in.
+ * @returns whether the status_code returned by the server.
+ */
+cmsg_status_code
+cmsg_client_recv_echo_reply (cmsg_client *client)
+{
+    int ret = 0;
+    cmsg_status_code status_code;
+    ProtobufCMessage *message_pt = NULL;
+
+    /* message_pt is filled in by the response receive.  It may be NULL or a valid pointer.
+     * status_code will tell us whether it is a valid pointer.
+     */
+    status_code = cmsg_client_response_receive (client, &message_pt);
+
+    if (message_pt != NULL)
+    {
+        // We don't expect a message to have been sent back so free it and
+        // move on.  Not treating it as an error as this behaviour might
+        // change in the future and it doesn't really matter.
+        protobuf_c_message_free_unpacked (message_pt, client->allocator);
+    }
+
+    return status_code;
+}
+
+
+int32_t
 cmsg_client_transport_is_congested (cmsg_client *client)
 {
     return client->_transport->is_congested (client);
