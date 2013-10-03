@@ -405,8 +405,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                                                packed_size + sizeof (header), 0);
         if (ret < packed_size + sizeof (header))
         {
-            CMSG_LOG_USER_ERROR ("Failed sending all data");
-
             // close the connection as something must be wrong
             client->state = CMSG_CLIENT_STATE_CLOSED;
             client->_transport->client_close (client);
@@ -420,6 +418,8 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                                                        packed_size + sizeof (header), 0);
                 if (ret < packed_size + sizeof (header))
                 {
+                    // Having retried connecting and now failed again this is
+                    // an actual problem.
                     CMSG_LOG_USER_ERROR (
                            "[CLIENT] error: sending response failed send:%d of %d",
                            ret, packed_size + sizeof (header));
