@@ -7,7 +7,8 @@
 #include "protobuf-c-cmsg-pub.h"
 
 
-#define CMSG_DESCRIPTOR(package,service)  ((ProtobufCServiceDescriptor *)&package ## _ ## service ## _descriptor)
+#define CMSG_DESCRIPTOR(package,service)    ((ProtobufCServiceDescriptor *)&package ## _ ## service ## _descriptor)
+#define CMSG_DESCRIPTOR_NOPACKAGE(service)  ((ProtobufCServiceDescriptor *)&service ## _descriptor)
 
 //forward declaration
 typedef enum _cmsg_queue_filter_type_e cmsg_queue_filter_type;
@@ -119,5 +120,9 @@ cmsg_queue_filter_type cmsg_client_queue_filter_lookup (cmsg_client *client,
                                                         const char *method);
 
 void cmsg_client_queue_filter_show (cmsg_client *client);
+
+cmsg_client *cmsg_create_client_tipc_rpc (const char *server, int member_id, int scope,
+                                      ProtobufCServiceDescriptor *descriptor);
+void cmsg_destroy_client_and_transport (cmsg_client *client);
 
 #endif

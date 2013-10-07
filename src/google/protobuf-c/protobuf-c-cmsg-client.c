@@ -720,3 +720,61 @@ cmsg_client_queue_filter_show (cmsg_client *client)
 {
     cmsg_queue_filter_show (client->queue_filter_hash_table, client->descriptor);
 }
+
+/* Create a cmsg client and its transport with TIPC (RPC) */
+cmsg_client *
+cmsg_create_client_tipc_rpc (const char *server, int member_id, int scope,
+                         ProtobufCServiceDescriptor *descriptor)
+{
+    uint32_t server_port;
+    cmsg_transport *transport;
+    cmsg_client *client;
+
+    server_port = cmsg_service_port_get (server, "tipc");
+    if (server_port <= 0)
+    {
+        CMSG_LOG_USER_ERROR ("Unknown TIPC service %s", server);
+        return NULL;
+    }
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TIPC);
+
+    if (!transport)
+    {
+        CMSG_LOG_USER_ERROR ("No TIPC transport to %d", member_id);
+        return NULL;
+    }
+
+    transport->config.socket.family = AF_TIPC;
+    transport->config.socket.sockaddr.tipc.family = AF_TIPC;
+    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
+    transport->config.socket.sockaddr.tipc.addr.name.name.type = server_port;
+    transport->config.socket.sockaddr.tipc.addr.name.name.instance = member_id;
+    transport->config.socket.sockaddr.tipc.scope = scope;
+
+    client = cmsg_client_new (transport, descriptor);
+
+    if (!client)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_USER_ERROR ("No TIPC client to %d", member_id);
+        return NULL;
+    }
+
+    return client;
+}
+
+/* Destroy a cmsg client and its transport with TIPC */
+void
+cmsg_destroy_client_and_transport (cmsg_client *client)
+{
+    cmsg_transport *transport;
+
+    if (client)
+    {
+        transport = client->_transport;
+        cmsg_client_destroy (client);
+
+        cmsg_transport_destroy (transport);
+    }
+}

@@ -5,7 +5,8 @@
 
 #include "protobuf-c-cmsg.h"
 
-#define CMSG_SERVICE(package,service)   ((ProtobufCService *)&package ## _ ## service ## _service)
+#define CMSG_SERVICE(package,service)     ((ProtobufCService *)&package ## _ ## service ## _service)
+#define CMSG_SERVICE_NOPACKAGE(service)   ((ProtobufCService *)&service ## _service)
 
 typedef enum _cmsg_queue_filter_type_e cmsg_queue_filter_type;
 
