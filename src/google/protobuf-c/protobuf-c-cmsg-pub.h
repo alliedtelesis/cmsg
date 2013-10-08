@@ -95,6 +95,8 @@ void cmsg_pub_subscriber_remove_all (cmsg_pub *publisher);
 
 int32_t cmsg_pub_server_receive (cmsg_pub *publisher, int32_t server_socket);
 
+int32_t cmsg_pub_server_accept (cmsg_pub *publisher, int32_t listen_socket);
+
 int32_t cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data);
 
 void cmsg_pub_invoke (ProtobufCService *service,
