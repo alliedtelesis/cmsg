@@ -76,7 +76,7 @@ cmsg_client * cmsg_pub_get_subscriber_client (cmsg_sub_entry *sub_entry,
 
 void cmsg_pub_remove_subscriber_client (cmsg_sub_entry *sub_entry);
 
-void cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher);
+int32_t cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher);
 
 void cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher,
                                                cmsg_transport *transport);
