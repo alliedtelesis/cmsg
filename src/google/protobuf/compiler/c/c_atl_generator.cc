@@ -1084,7 +1084,7 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
         }
         else
         {
-          printer->Print(vars_, "$result_ref$$left_field_name$[$i$] = $right_field_name$[$i$];\n");
+          printer->Print(vars_, "($result_ref$$left_field_name$)[$i$] = $right_field_name$[$i$];\n");
         }
       }
       printer->Outdent();
