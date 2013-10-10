@@ -36,7 +36,7 @@ cmsg_transport_tipc_connect (cmsg_client *client)
     {
         shutdown (client->connection.socket, 2);
         close (client->connection.socket);
-        client->connection.socket = 0;
+        client->connection.socket = -1;
         client->state = CMSG_CLIENT_STATE_FAILED;
         CMSG_LOG_USER_ERROR ("[TRANSPORT] error connecting to remote host: %s",
                strerror (errno));
@@ -355,11 +355,17 @@ cmsg_transport_tipc_server_send (cmsg_server *server, void *buff, int length, in
 static void
 cmsg_transport_tipc_client_close (cmsg_client *client)
 {
-    DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-    shutdown (client->connection.socket, 2);
+    if (client->connection.socket != -1)
+    {
+        DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
+        shutdown (client->connection.socket, 2);
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-    close (client->connection.socket);
+        DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
+        close (client->connection.socket);
+
+        client->connection.socket = -1;
+    }
+
 }
 
 static void

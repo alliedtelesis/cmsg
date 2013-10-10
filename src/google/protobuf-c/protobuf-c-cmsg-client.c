@@ -15,6 +15,7 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
         client->_transport = transport;
         client->request_id = 0;
         client->state = CMSG_CLIENT_STATE_INIT;
+        client->connection.socket = -1;
 
         //for compatibility with current generated code
         //this is a hack to get around a check when a client method is called
@@ -83,6 +84,12 @@ cmsg_client_destroy (cmsg_client *client)
 
     pthread_mutex_destroy (&client->queue_mutex);
 
+    // close the connection before destroying the client
+    client->state = CMSG_CLIENT_STATE_CLOSED;
+    if (client->_transport)
+    {
+        client->_transport->client_close (client);
+    }
     client->_transport->client_destroy (client);
 
     free (client);

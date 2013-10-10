@@ -165,11 +165,16 @@ cmsg_transport_tipc_broadcast_server_send (cmsg_server *server, void *buff, int 
 static void
 cmsg_transport_tipc_broadcast_client_close (cmsg_client *client)
 {
-    DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-    shutdown (client->connection.socket, 2);
+    if (client->connection.socket != -1)
+    {
+        DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
+        shutdown (client->connection.socket, 2);
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-    close (client->connection.socket);
+        DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
+        close (client->connection.socket);
+
+        client->connection.socket = -1;
+    }
 }
 
 
