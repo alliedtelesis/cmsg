@@ -243,7 +243,7 @@ void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, 
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "int $lcfullname$_api_$method$(cmsg_client *_client");
+  printer->Print(vars_, "int $lcfullname$_api_$method$ (cmsg_client *_client");
 
   if (method.input_type()->field_count() > 0)
   {
@@ -767,7 +767,7 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     printer->Print("if (input == NULL)\n");
     printer->Print("{\n");
     printer->Indent();
-    printer->Print("_closure(NULL, _closure_data);\n");
+    printer->Print("_closure (NULL, _closure_data);\n");
     printer->Print("return;\n");
     printer->Outdent();
     printer->Print("}\n");
@@ -789,7 +789,7 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     //
     printer->Print("\n");
     printer->Print("// call user-defined server implementation\n");
-    printer->Print(vars_, "$lcfullname$_impl_$method$(_service");
+    printer->Print(vars_, "$lcfullname$_impl_$method$ (_service");
     if (method->input_type()->field_count() > 0)
     {
       printer->Print(", ");
@@ -855,10 +855,10 @@ void AtlCodeGenerator::GenerateAtlServerDefinition(const MethodDescriptor &metho
   vars_["padddddddddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_server_" + lcname);
 
   printer->Print(vars_,
-                 "void $lcfullname$_server_$method$($cname$_Service *_service,\n"
-                 "     $padddddddddddddddddddddddd$ const $input_typename$_pbc *input,\n"
-                 "     $padddddddddddddddddddddddd$ $output_typename$_pbc_Closure _closure,\n"
-                 "     $padddddddddddddddddddddddd$ void *_closure_data)");
+                 "void $lcfullname$_server_$method$ ($cname$_Service *_service,\n"
+                 "     $padddddddddddddddddddddddd$  const $input_typename$_pbc *input,\n"
+                 "     $padddddddddddddddddddddddd$  $output_typename$_pbc_Closure _closure,\n"
+                 "     $padddddddddddddddddddddddd$  void *_closure_data)");
   if (forHeader)
   {
     printer->Print(";");
@@ -872,7 +872,7 @@ void AtlCodeGenerator::GenerateAtlServerImplDefinition(const MethodDescriptor &m
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "void $lcfullname$_impl_$method$(const void *_service");
+  printer->Print(vars_, "void $lcfullname$_impl_$method$ (const void *_service");
   if (method.input_type()->field_count() > 0)
   {
     printer->Print(", ");
@@ -908,7 +908,7 @@ void AtlCodeGenerator::GenerateAtlServerSendImplementation(const MethodDescripto
   GenerateMessageCopyCode(method.output_type(), "_result.", "", printer, true, true, true, false, false);
 
   printer->Print("\n");
-  printer->Print(vars_, "_closure(&_result, _closure_data);\n");
+  printer->Print(vars_, "_closure (&_result, _closure_data);\n");
 
   printer->Print("\n");
   GenerateCleanupMessageMemoryCode(method.output_type(), "_result.", printer);
@@ -922,7 +922,7 @@ void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &m
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  printer->Print(vars_, "void $lcfullname$_server_$method$Send(const void *_service");
+  printer->Print(vars_, "void $lcfullname$_server_$method$Send (const void *_service");
   if (method.output_type()->field_count() > 0)
   {
     printer->Print(", ");
