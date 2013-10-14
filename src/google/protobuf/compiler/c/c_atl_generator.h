@@ -88,6 +88,7 @@ class AtlCodeGenerator {
   string TypeToString(FieldDescriptor::Type type);
   bool MessageContainsSubMessages(io::Printer* printer, const Descriptor *message);
   bool MessageContainsRepeatedFields(io::Printer* printer, const Descriptor *message);
+  bool MessageContainsStrings(io::Printer* printer, const Descriptor *message);
 
   const ServiceDescriptor* descriptor_;
   map<string, string> vars_;

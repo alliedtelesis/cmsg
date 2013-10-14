@@ -561,6 +561,19 @@ bool AtlCodeGenerator::MessageContainsRepeatedFields(io::Printer* printer, const
   return found;
 }
 
+bool AtlCodeGenerator::MessageContainsStrings(io::Printer* printer, const Descriptor *message)
+{
+  for (int i = 0; i < message->field_count(); i++)
+  {
+    const FieldDescriptor *field = message->field(i);
+    if (field->type() == FieldDescriptor::TYPE_STRING)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 void AtlCodeGenerator::GenerateDescriptorDeclarations(io::Printer* printer)
 {
   printer->Print(vars_, "extern const ProtobufCServiceDescriptor $lcfullname$_descriptor;\n");
@@ -1302,8 +1315,11 @@ void AtlCodeGenerator::GenerateCleanupMessageMemoryCode(const Descriptor *messag
 
         if (field->type() == FieldDescriptor::TYPE_MESSAGE)
         {
+          // need to check here if this message contains any subfields of types that
+          // also need to be free'd
           if (MessageContainsSubMessages(printer, field->message_type()) ||
-              MessageContainsRepeatedFields(printer, field->message_type()))
+              MessageContainsRepeatedFields(printer, field->message_type()) ||
+              MessageContainsStrings(printer, field->message_type()))
           {
             GenerateCleanupMessageMemoryCode(field->message_type(), "(" + lhm + field_name + ")[" + vars_["i"] + "]->", printer, depth + 1);
             vars_["left_field_name"] = lhm + field_name;
