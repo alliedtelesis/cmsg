@@ -338,8 +338,9 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
 
     if (ret < 0)
     {
-        CMSG_LOG_USER_ERROR ("[SERVER] server receive failed, server %s transport type %d socket %d ret %d",
-                             server->service->descriptor->name, server->_transport->type, socket, ret);
+        DEBUG (CMSG_INFO,
+               "[SERVER] server receive failed, server %s transport type %d socket %d ret %d\n",
+               server->service->descriptor->name, server->_transport->type, socket, ret);
         return CMSG_RET_ERR;
     }
 
