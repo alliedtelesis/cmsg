@@ -480,9 +480,9 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
         if (cmsg_sub_entry_compare_transport (list_entry, transport))
         {
-            DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
-            syslog (LOG_CRIT | LOG_LOCAL6, "[PUB LIST] deleting entry for %s\n",
-                    list_entry->method_name);
+            DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry for %s\n",
+                   list_entry->method_name);
+            subscriber_list = g_list_next (subscriber_list);
             publisher->subscriber_list = g_list_remove (publisher->subscriber_list,
                                                         list_entry);
             cmsg_pub_remove_subscriber_client (list_entry);
@@ -491,9 +491,9 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
         }
         else
         {
+            subscriber_list = g_list_next (subscriber_list);
             DEBUG (CMSG_INFO, "[PUB] [LIST] entry not found, nothing to delete\n");
         }
-        subscriber_list = g_list_next (subscriber_list);
     }
 
 #ifndef CMSG_DISABLED
