@@ -109,7 +109,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
 {
     CMSG_ASSERT (sub_server_transport);
 
-    cmsg_pub *publisher = malloc (sizeof (cmsg_pub));
+    cmsg_pub *publisher = calloc (1, sizeof (cmsg_pub));
     if (!publisher)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -140,6 +140,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     publisher->invoke = &cmsg_pub_invoke;
     publisher->subscriber_list = NULL;
     publisher->subscriber_count = 0;
+    publisher->queue_enabled = FALSE;
 
     if (pthread_mutex_init (&publisher->queue_mutex, NULL) != 0)
     {
