@@ -109,7 +109,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
 {
     CMSG_ASSERT (sub_server_transport);
 
-    cmsg_pub *publisher = calloc (1, sizeof (cmsg_pub));
+    cmsg_pub *publisher = CMSG_CALLOC (1, sizeof (cmsg_pub));
     if (!publisher)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -122,7 +122,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     if (!publisher->sub_server)
     {
         DEBUG (CMSG_ERROR, "[PUB] [LIST] error: unable to create publisher->sub_server\n");
-        free (publisher);
+        CMSG_FREE (publisher);
         return NULL;
     }
 
@@ -212,7 +212,7 @@ cmsg_pub_destroy (cmsg_pub *publisher)
 
     pthread_mutex_destroy (&publisher->subscriber_list_mutex);
 
-    free (publisher);
+    CMSG_FREE (publisher);
 
     return;
 }

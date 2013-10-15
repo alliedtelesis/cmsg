@@ -219,7 +219,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
                   (header_converted.header_length - sizeof (cmsg_header));
         if (dyn_len > sizeof buf_static)
         {
-            recv_buffer = malloc (dyn_len);
+            recv_buffer = CMSG_MALLOC (dyn_len);
         }
         else
         {
@@ -266,7 +266,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         {
             if (recv_buffer)
             {
-                free (recv_buffer);
+                CMSG_FREE (recv_buffer);
                 recv_buffer = 0;
             }
         }
@@ -278,9 +278,9 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
                client->connection.socket, nbytes);
 
         // TEMP to keep things going
-        recv_buffer = malloc (nbytes);
+        recv_buffer = CMSG_MALLOC (nbytes);
         nbytes = recv (client->connection.socket, recv_buffer, nbytes, MSG_WAITALL);
-        free (recv_buffer);
+        CMSG_FREE (recv_buffer);
         recv_buffer = 0;
         ret = 0;
     }

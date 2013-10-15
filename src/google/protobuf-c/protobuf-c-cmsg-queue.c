@@ -97,7 +97,7 @@ cmsg_send_queue_process_all (cmsg_object obj)
 
                 queue_entry->transport.client_send_tries = 0;
 
-                free (queue_entry->queue_buffer);
+                CMSG_FREE (queue_entry->queue_buffer);
                 g_free (queue_entry);
                 processed++;
                 break;
@@ -141,7 +141,7 @@ cmsg_send_queue_process_all (cmsg_object obj)
             }
 
             //free current item
-            free (queue_entry->queue_buffer);
+            CMSG_FREE (queue_entry->queue_buffer);
             g_free (queue_entry);
 
             syslog (LOG_CRIT | LOG_LOCAL6,
@@ -179,7 +179,7 @@ cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
 
     //copy buffer
     queue_entry->queue_buffer_size = buffer_size;   //should be data + header
-    queue_entry->queue_buffer = malloc (queue_entry->queue_buffer_size);
+    queue_entry->queue_buffer = CMSG_MALLOC (queue_entry->queue_buffer_size);
     if (!queue_entry->queue_buffer)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -212,7 +212,7 @@ cmsg_send_queue_free_all (GQueue *queue)
 
     while (queue_entry)
     {
-        free (queue_entry->queue_buffer);
+        CMSG_FREE (queue_entry->queue_buffer);
         g_free (queue_entry);
         //get the next entry
         queue_entry = g_queue_pop_tail (queue);
@@ -239,7 +239,7 @@ cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport)
         {
             if (cmsg_transport_compare (&queue_entry->transport, transport))
             {
-                free (queue_entry->queue_buffer);
+                CMSG_FREE (queue_entry->queue_buffer);
                 g_free (queue_entry);
                 syslog (LOG_CRIT | LOG_LOCAL6, "[FILTER] removed entry. line(%d)\n",
                         __LINE__);
@@ -390,7 +390,7 @@ cmsg_receive_queue_free_all (GQueue *queue)
     {
         // ATL_1716_TODO queue_buffer should be freed by the server->allocator as this
         // is how it was done originally
-        free (queue_entry->queue_buffer);   // free the buffer as it won't be processed
+        CMSG_FREE (queue_entry->queue_buffer);   // free the buffer as it won't be processed
 
         g_free (queue_entry);
         //get the next entry

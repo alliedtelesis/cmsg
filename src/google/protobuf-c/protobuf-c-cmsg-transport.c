@@ -6,7 +6,7 @@ cmsg_transport *
 cmsg_transport_new (cmsg_transport_type type)
 {
     cmsg_transport *transport = 0;
-    transport = malloc (sizeof (cmsg_transport));
+    transport = CMSG_MALLOC (sizeof (cmsg_transport));
     memset (transport, 0, sizeof (cmsg_transport));
 
     transport->type = type;
@@ -39,7 +39,7 @@ cmsg_transport_new (cmsg_transport_type type)
 
     default:
         DEBUG (CMSG_ERROR, "[TRANSPORT] transport type not supported\n");
-        free (transport);
+        CMSG_FREE (transport);
         transport = 0;
     }
 
@@ -53,7 +53,7 @@ cmsg_transport_destroy (cmsg_transport *transport)
 {
     if (transport)
     {
-        free (transport);
+        CMSG_FREE (transport);
         transport = 0;
         return 0;
     }
@@ -121,7 +121,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
         if (dyn_len > sizeof buf_static)
         {
-            buffer = malloc (dyn_len);
+            buffer = CMSG_MALLOC (dyn_len);
         }
         else
         {
@@ -167,7 +167,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         {
             if (buffer)
             {
-                free (buffer);
+                CMSG_FREE (buffer);
                 buffer = 0;
             }
         }
@@ -178,9 +178,9 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                server->connection.sockets.client_socket, nbytes);
 
         // TEMP to keep things going
-        buffer = malloc (nbytes);
+        buffer = CMSG_MALLOC (nbytes);
         nbytes = recv (handle, buffer, nbytes, MSG_WAITALL);
-        free (buffer);
+        CMSG_FREE (buffer);
         buffer = 0;
         ret = CMSG_RET_OK;
     }

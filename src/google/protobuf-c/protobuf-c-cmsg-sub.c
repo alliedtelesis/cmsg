@@ -7,7 +7,7 @@ cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_servic
     CMSG_ASSERT (pub_server_transport);
     CMSG_ASSERT (pub_service);
 
-    cmsg_sub *subscriber = malloc (sizeof (cmsg_sub));
+    cmsg_sub *subscriber = CMSG_MALLOC (sizeof (cmsg_sub));
     if (!subscriber)
     {
         syslog (LOG_CRIT | LOG_LOCAL6, "[SUB] error: unable to allocate buffer. line(%d)\n",
@@ -19,7 +19,7 @@ cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_servic
     if (!subscriber->pub_server)
     {
         DEBUG (CMSG_ERROR, "[SUB] error: could not create server\n");
-        free (subscriber);
+        CMSG_FREE (subscriber);
         return NULL;
     }
 
@@ -38,7 +38,7 @@ cmsg_sub_destroy (cmsg_sub *subscriber)
         subscriber->pub_server = NULL;
     }
 
-    free (subscriber);
+    CMSG_FREE (subscriber);
 
     return;
 }
@@ -154,7 +154,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     if (!register_client)
     {
         CMSG_LOG_USER_ERROR ("[SUB] error could not create register client");
-        free (register_client);
+        CMSG_FREE (register_client);
         return CMSG_RET_ERR;
     }
 
@@ -232,7 +232,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     if (!register_client)
     {
         DEBUG (CMSG_ERROR, "[SUB] error: could not create register client\n");
-        free (register_client);
+        CMSG_FREE (register_client);
         return CMSG_RET_ERR;
     }
 

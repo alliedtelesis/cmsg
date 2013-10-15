@@ -367,7 +367,8 @@ void FileGenerator::GenerateAtlApiSource(io::Printer* printer) {
     "#define PROTOBUF_C_NO_DEPRECATED\n"
     "#endif\n"
     "\n"
-    "#include \"$basename$.h\"\n",
+    "#include \"$basename$.h\"\n"
+    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n",
     "basename", GetAtlApiFilename(file_->name()));
 
   for (int i = 0; i < file_->service_count(); i++) {
@@ -425,7 +426,8 @@ void FileGenerator::GenerateAtlImplSource(io::Printer* printer) {
     "#define PROTOBUF_C_NO_DEPRECATED\n"
     "#endif\n"
     "\n"
-    "#include \"$basename$.h\"\n",
+    "#include \"$basename$.h\"\n"
+    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n",
     "basename", GetAtlImplFilename(file_->name()));
 
   for (int i = 0; i < file_->service_count(); i++) {

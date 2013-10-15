@@ -1,6 +1,8 @@
 #include "protobuf-c-cmsg.h"
 #include <netdb.h>
+#include <glib.h>
 
+static int cmsg_mtype = 0;
 
 uint32_t
 cmsg_common_uint32_to_le (uint32_t le)
@@ -175,4 +177,60 @@ cmsg_service_port_get (const char *name, const char *proto)
     port = ntohs (result->s_port);
 
     return port;
+}
+
+void *
+cmsg_malloc (size_t size, const char *filename, int line)
+{
+    void *p = NULL;
+
+    p = malloc (size);
+
+    if (cmsg_mtype > 0)
+    {
+        g_mem_record_alloc (p, cmsg_mtype, filename, line);
+    }
+
+    if (p || size == 0)
+        return p;
+
+    return NULL;
+}
+
+void *
+cmsg_calloc (size_t nmemb, size_t size, const char *filename, int line)
+{
+    void *p = NULL;
+
+    p = calloc (nmemb, size);
+
+    if (cmsg_mtype > 0)
+    {
+        g_mem_record_alloc (p, cmsg_mtype, filename, line);
+    }
+
+    if (p || size == 0)
+        return p;
+
+    return NULL;
+}
+
+void
+cmsg_free (void *ptr, const char *filename, int line)
+{
+    if (ptr == NULL)
+        return;
+
+    if (cmsg_mtype > 0)
+    {
+        g_mem_record_free (ptr, cmsg_mtype, filename, line);
+    }
+
+    free (ptr);
+}
+
+void
+cmsg_malloc_init (int mtype)
+{
+    cmsg_mtype = mtype;
 }

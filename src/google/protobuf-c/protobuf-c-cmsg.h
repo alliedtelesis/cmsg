@@ -182,4 +182,12 @@ cmsg_header cmsg_header_create (cmsg_msg_type msg_type, uint32_t packed_size,
 int32_t cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted);
 
 int cmsg_service_port_get (const char *name, const char *proto);
+
+#define CMSG_MALLOC(size)           cmsg_malloc ((size), __FILE__, __LINE__)
+#define CMSG_CALLOC(nmemb,size)     cmsg_calloc ((nmemb), (size), __FILE__,  __LINE__)
+#define CMSG_FREE(ptr)              cmsg_free ((ptr),  __FILE__,  __LINE__)
+void *cmsg_malloc (size_t size, const char *filename, int line);
+void *cmsg_calloc (size_t nmemb, size_t size, const char *filename, int line);
+void cmsg_free (void *ptr, const char *filename, int line);
+void cmsg_malloc_init (int mtype);
 #endif

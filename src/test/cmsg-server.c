@@ -100,12 +100,12 @@ int main(int argc, char**argv)
               printf("missing --tcp=PORT or --unix=PATH or --tipc=PORT:MEMBER\n");
               return;
             }
-          type_name = malloc(sizeof(char) *  (colon + 1 - name));
+          type_name = CMSG_MALLOC(sizeof(char) *  (colon + 1 - name));
           memcpy (type_name, name, colon - name);
           type_name[colon - name] = 0;
           instance = atoi (colon + 1);
           type = atoi (type_name);
-          free(type_name);
+          CMSG_FREE(type_name);
           
           if ( is_one_way == 1)
         	transport = cmsg_transport_new(CMSG_TRANSPORT_ONEWAY_TIPC);

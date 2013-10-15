@@ -240,7 +240,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
         if (dyn_len > sizeof buf_static)
         {
-            recv_buffer = malloc (dyn_len);
+            recv_buffer = CMSG_MALLOC (dyn_len);
         }
         else
         {
@@ -275,7 +275,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             {
                 if (recv_buffer)
                 {
-                    free (recv_buffer);
+                    CMSG_FREE (recv_buffer);
                     recv_buffer = 0;
                 }
             }
@@ -300,7 +300,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         {
             if (recv_buffer)
             {
-                free (recv_buffer);
+                CMSG_FREE (recv_buffer);
                 recv_buffer = 0;
             }
         }
@@ -314,9 +314,9 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
                client->connection.socket, nbytes);
 
         // TEMP to keep things going
-        recv_buffer = malloc (nbytes);
+        recv_buffer = CMSG_MALLOC (nbytes);
         nbytes = recv (client->connection.socket, recv_buffer, nbytes, MSG_WAITALL);
-        free (recv_buffer);
+        CMSG_FREE (recv_buffer);
         recv_buffer = 0;
     }
     else if (nbytes == 0)

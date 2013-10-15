@@ -32,7 +32,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
     CMSG_ASSERT (transport);
     CMSG_ASSERT (service);
 
-    server = malloc (sizeof (cmsg_server));
+    server = CMSG_MALLOC (sizeof (cmsg_server));
     if (server)
     {
         server->_transport = transport;
@@ -51,7 +51,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 
         if (ret < 0)
         {
-            free (server);
+            CMSG_FREE (server);
             server = NULL;
             return NULL;
         }
@@ -61,7 +61,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
         if (pthread_mutex_init (&server->queue_mutex, NULL) != 0)
         {
             DEBUG (CMSG_ERROR, "[SERVER] error: queue mutex init failed\n");
-            free (server);
+            CMSG_FREE (server);
             return NULL;
         }
 
@@ -117,7 +117,7 @@ cmsg_server_destroy (cmsg_server *server)
 
     server->_transport->server_destroy (server);
 
-    free (server);
+    CMSG_FREE (server);
 }
 
 
@@ -691,17 +691,17 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                                                  server_request->method_index,
                                                  CMSG_STATUS_CODE_SUCCESS);
 
-        uint8_t *buffer = malloc (packed_size + sizeof (header));
+        uint8_t *buffer = CMSG_MALLOC (packed_size + sizeof (header));
         if (!buffer)
         {
             CMSG_LOG_USER_ERROR ("[SERVER] error: unable to allocate buffer. line(%d)\n", __LINE__);
             return;
         }
-        uint8_t *buffer_data = malloc (packed_size);
+        uint8_t *buffer_data = CMSG_MALLOC (packed_size);
         if (!buffer_data)
         {
             CMSG_LOG_USER_ERROR ("[SERVER] error: unable to allocate data buffer. line(%d)\n", __LINE__);
-            free (buffer);
+            CMSG_FREE (buffer);
             return;
         }
 
@@ -715,8 +715,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
             CMSG_LOG_USER_ERROR ("[SERVER] packing response data failed packet:%d of %d\n",
                    ret, packed_size);
 
-            free (buffer);
-            free (buffer_data);
+            CMSG_FREE (buffer);
+            CMSG_FREE (buffer_data);
             return;
         }
 
@@ -735,8 +735,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                    "[SERVER] sending if response failed send:%d of %d\n",
                    ret, packed_size + sizeof (header));
 
-        free (buffer);
-        free (buffer_data);
+        CMSG_FREE (buffer);
+        CMSG_FREE (buffer_data);
     }
 
     return;
