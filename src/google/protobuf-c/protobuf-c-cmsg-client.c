@@ -224,7 +224,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
             if (ret < packed_size + sizeof (header))
             {
                 CMSG_LOG_USER_ERROR (
-                       "[CLIENT] error: sending response failed send:%d of %d",
+                       "[CLIENT] error: sending response failed send:%d of %ld",
                        ret, packed_size + sizeof (header));
                 CMSG_FREE (buffer);
                 CMSG_FREE (buffer_data);
@@ -428,7 +428,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                     // Having retried connecting and now failed again this is
                     // an actual problem.
                     CMSG_LOG_USER_ERROR (
-                           "[CLIENT] error: sending response failed send:%d of %d",
+                           "[CLIENT] error: sending response failed send:%d of %ld",
                            ret, packed_size + sizeof (header));
                     CMSG_FREE (buffer);
                     CMSG_FREE (buffer_data);
@@ -459,6 +459,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             cmsg_send_queue_push (publisher->queue, buffer,
                                   packed_size + sizeof (header), client->_transport);
 
+            unsigned int queue_length = g_queue_get_length (publisher->queue);
             pthread_mutex_unlock (&publisher->queue_mutex);
 
             //send signal to  cmsg_pub_queue_process_all
@@ -469,7 +470,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             pthread_mutex_unlock (&publisher->queue_process_mutex);
 
 
-            unsigned int queue_length = g_queue_get_length (publisher->queue);
             DEBUG (CMSG_INFO, "[PUBLISHER] queue length: %d\n", queue_length);
 
         }
@@ -481,6 +481,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             cmsg_send_queue_push (client->queue, buffer,
                                   packed_size + sizeof (header), client->_transport);
 
+            unsigned int queue_length = g_queue_get_length (client->queue);
             pthread_mutex_unlock (&client->queue_mutex);
 
             //send signal to cmsg_client_queue_process_all
@@ -490,7 +491,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             client->queue_process_count = client->queue_process_count + 1;
             pthread_mutex_unlock (&client->queue_process_mutex);
 
-            unsigned int queue_length = g_queue_get_length (client->queue);
             DEBUG (CMSG_INFO, "[CLIENT] queue length: %d\n", queue_length);
         }
     }
@@ -574,7 +574,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
             if (ret < sizeof (header))
             {
                 CMSG_LOG_USER_ERROR (
-                       "[CLIENT] error: sending echo req failed sent:%d of %d",
+                       "[CLIENT] error: sending echo req failed sent:%d of %ld",
                        ret, sizeof (header));
                 return -1;
             }
@@ -643,7 +643,11 @@ cmsg_client_queue_disable (cmsg_client *client)
 unsigned int
 cmsg_client_queue_get_length (cmsg_client *client)
 {
-    return cmsg_queue_get_length (client->queue);
+    pthread_mutex_lock (&client->queue_mutex);
+    unsigned int queue_length = g_queue_get_length (client->queue);
+    pthread_mutex_unlock (&client->queue_mutex);
+
+    return queue_length;
 }
 
 

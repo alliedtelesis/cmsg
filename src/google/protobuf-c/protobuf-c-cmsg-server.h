@@ -51,11 +51,17 @@ struct _cmsg_server_s
     pthread_mutex_t queue_mutex;
     GQueue *queue;
     uint32_t maxQueueLength;
+    pthread_mutex_t queueing_state_mutex;
+    cmsg_queue_state queueing_state;
+    cmsg_queue_state queueing_state_last;
+    uint32_t queue_in_process;
+
+    pthread_mutex_t queue_filter_mutex; //hash will be modified by different thread
     GHashTable *queue_filter_hash_table;
+    uint32_t queue_working;
 
     //thread signaling for queuing
-    pthread_cond_t queue_process_cond;
-    pthread_mutex_t queue_process_mutex;
+    cmsg_bool_t queue_process_number;
     pthread_t self_thread_id;
 
     fd_set accepted_fdset;
@@ -82,6 +88,21 @@ void cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_dat
 
 void cmsg_server_closure_oneway (const ProtobufCMessage *message, void *closure_data);
 
+int32_t cmsg_server_queue_process (cmsg_server *server);
+
+int32_t cmsg_server_queue_process_list (GList *server_list);
+
+uint32_t cmsg_server_queue_get_length (cmsg_server *server);
+
+uint32_t cmsg_server_queue_max_length_get (cmsg_server *server);
+
+int32_t cmsg_server_queue_request_process_one (cmsg_server *server);
+
+int32_t cmsg_server_queue_request_process_some (cmsg_server *server,
+                                                uint32_t num_to_process);
+
+int32_t cmsg_server_queue_request_process_all (cmsg_server *server);
+
 int32_t cmsg_server_queue_filter_set (cmsg_server *server,
                                       const char *method,
                                       cmsg_queue_filter_type filter_type);
@@ -90,12 +111,6 @@ void cmsg_server_queue_filter_set_all (cmsg_server *server,
                                        cmsg_queue_filter_type filter_type);
 
 void cmsg_server_queue_filter_clear_all (cmsg_server *server);
-
-int32_t cmsg_server_queue_process_all (cmsg_server *server);
-
-uint32_t cmsg_server_queue_max_length_get (cmsg_server *server);
-
-uint32_t cmsg_server_queue_current_length_get (cmsg_server *server);
 
 void cmsg_server_invoke (cmsg_server *server, uint32_t method_index,
                          ProtobufCMessage *message,

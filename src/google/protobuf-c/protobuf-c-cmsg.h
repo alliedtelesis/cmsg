@@ -111,6 +111,7 @@ typedef struct _cmsg_header_s cmsg_header;
 typedef enum _cmsg_status_code_e cmsg_status_code;
 typedef enum _cmsg_error_code_e cmsg_error_code;
 typedef enum _cmsg_method_processing_reason_e cmsg_method_processing_reason;
+typedef enum _cmsg_queue_state_e cmsg_queue_state;
 
 enum _cmsg_object_type_e
 {
@@ -168,6 +169,13 @@ enum _cmsg_error_code_e
     CMSG_ERROR_CODE_CLIENT_TERMINATED,
     CMSG_ERROR_CODE_BAD_REQUEST,
     CMSG_ERROR_CODE_PROXY_PROBLEM
+};
+
+enum _cmsg_queue_state_e
+{
+    CMSG_QUEUE_STATE_ENABLED,
+    CMSG_QUEUE_STATE_TO_DISABLED,
+    CMSG_QUEUE_STATE_DISABLED,
 };
 
 uint32_t cmsg_common_uint32_to_le (uint32_t le);

@@ -881,7 +881,11 @@ cmsg_pub_queue_disable (cmsg_pub *publisher)
 unsigned int
 cmsg_pub_queue_get_length (cmsg_pub *publisher)
 {
-    return cmsg_queue_get_length (publisher->queue);
+    pthread_mutex_lock (&publisher->queue_mutex);
+    unsigned int queue_length = g_queue_get_length (publisher->queue);
+    pthread_mutex_unlock (&publisher->queue_mutex);
+
+    return queue_length;
 }
 
 int32_t

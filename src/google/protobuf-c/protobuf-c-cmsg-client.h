@@ -47,13 +47,12 @@ struct _cmsg_client_s
     cmsg_object self;
     cmsg_object parent;
 
-
-
     int queue_enabled_from_parent;
 
     //queuing
     pthread_mutex_t queue_mutex;
     GQueue *queue;
+    pthread_mutex_t queue_filter_mutex; //TODO make thread save -- hash will be modified by different thread
     GHashTable *queue_filter_hash_table;
 
     //thread signaling for queuing

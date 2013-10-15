@@ -12,6 +12,7 @@ typedef enum _cmsg_queue_filter_type_e cmsg_queue_filter_type;
 typedef struct _cmsg_queue_filter_entry_s cmsg_queue_filter_entry;
 typedef struct _cmsg_send_queue_entry_s cmsg_send_queue_entry;
 typedef struct _cmsg_receive_queue_entry_s cmsg_receive_queue_entry;
+typedef enum _cmsg_queue_state_e cmsg_queue_state;
 
 
 enum _cmsg_queue_filter_type_e
@@ -41,6 +42,7 @@ struct _cmsg_receive_queue_entry_s
     uint32_t queue_buffer_size;
     uint8_t *queue_buffer;
 };
+
 
 unsigned int cmsg_queue_get_length (GQueue *queue);
 
@@ -82,6 +84,15 @@ cmsg_queue_filter_type cmsg_queue_filter_lookup (GHashTable *queue_filter_hash_t
 
 void cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
                              const ProtobufCServiceDescriptor *descriptor);
+
+cmsg_queue_state
+cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
+                            const ProtobufCServiceDescriptor *descriptor);
+
+int32_t
+cmsg_queue_filter_copy (GHashTable *src_queue_filter_hash_table,
+                        GHashTable *dst_queue_filter_hash_table,
+                        const ProtobufCServiceDescriptor *descriptor);
 
 
 #endif // PROTOBUFCCMSGQUEUE_H

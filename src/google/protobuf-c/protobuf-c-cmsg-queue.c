@@ -287,13 +287,18 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t queue_mutex,
     uint32_t create_client = 0;
     cmsg_receive_queue_entry *queue_entry = 0;
     cmsg_server_request server_request;
+    unsigned int queue_length = 0;
 
     if (num_to_process == 0)
     {
         return 0;
     }
 
-    if (g_queue_get_length (queue) == 0)
+    pthread_mutex_lock (&queue_mutex);
+    queue_length = g_queue_get_length (queue);
+    pthread_mutex_unlock (&queue_mutex);
+
+    if (queue_length == 0)
     {
         return 0;
     }
@@ -581,4 +586,54 @@ cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
             break;
         }
     }
+}
+
+cmsg_queue_state
+cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
+                            const ProtobufCServiceDescriptor *descriptor)
+{
+    cmsg_queue_state type = CMSG_QUEUE_STATE_DISABLED;
+    int i = 0;
+
+    for (i = 0; i < descriptor->n_methods; i++)
+    {
+        cmsg_queue_filter_entry *entry;
+        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+                                                                 (gconstpointer) descriptor->methods[i].name);
+
+        if (entry->type == CMSG_QUEUE_FILTER_QUEUE)
+        {
+            type = CMSG_QUEUE_STATE_ENABLED;
+
+        }
+    }
+    return type;
+}
+
+
+int32_t
+cmsg_queue_filter_copy (GHashTable *src_queue_filter_hash_table,
+                        GHashTable *dst_queue_filter_hash_table,
+                        const ProtobufCServiceDescriptor *descriptor)
+{
+    int i = 0;
+
+    for (i = 0; i < descriptor->n_methods; i++)
+    {
+        cmsg_queue_filter_entry *src_entry;
+        cmsg_queue_filter_entry *dst_entry;
+
+        src_entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (src_queue_filter_hash_table,
+                                                                     (gconstpointer) descriptor->methods[i].name);
+
+        dst_entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (dst_queue_filter_hash_table,
+                                                                     (gconstpointer) descriptor->methods[i].name);
+
+        if (!src_entry || !dst_entry)
+            return CMSG_RET_ERR;
+
+        dst_entry = src_entry;
+    }
+
+    return CMSG_RET_OK;
 }
