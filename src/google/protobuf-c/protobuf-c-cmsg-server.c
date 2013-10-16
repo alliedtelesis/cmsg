@@ -32,7 +32,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
     CMSG_ASSERT (transport);
     CMSG_ASSERT (service);
 
-    server = CMSG_MALLOC (sizeof (cmsg_server));
+    server = CMSG_CALLOC (1, sizeof (cmsg_server));
     if (server)
     {
         server->_transport = transport;
@@ -694,13 +694,13 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                                                  server_request->method_index,
                                                  CMSG_STATUS_CODE_SUCCESS);
 
-        uint8_t *buffer = CMSG_MALLOC (packed_size + sizeof (header));
+        uint8_t *buffer = CMSG_CALLOC (1, packed_size + sizeof (header));
         if (!buffer)
         {
             CMSG_LOG_USER_ERROR ("[SERVER] error: unable to allocate buffer. line(%d)\n", __LINE__);
             return;
         }
-        uint8_t *buffer_data = CMSG_MALLOC (packed_size);
+        uint8_t *buffer_data = CMSG_CALLOC (1, packed_size);
         if (!buffer_data)
         {
             CMSG_LOG_USER_ERROR ("[SERVER] error: unable to allocate data buffer. line(%d)\n", __LINE__);

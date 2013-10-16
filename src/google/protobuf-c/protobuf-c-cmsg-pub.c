@@ -358,7 +358,7 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
     {
         DEBUG (CMSG_INFO, "[PUB] [LIST] adding new entry\n");
 
-        cmsg_sub_entry *list_entry = g_malloc (sizeof (cmsg_sub_entry));
+        cmsg_sub_entry *list_entry = g_malloc0 (sizeof (cmsg_sub_entry));
         if (!list_entry)
         {
             CMSG_LOG_USER_ERROR (

@@ -169,7 +169,7 @@ int32_t
 cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
                       cmsg_transport *transport)
 {
-    cmsg_send_queue_entry *queue_entry = g_malloc (sizeof (cmsg_send_queue_entry));
+    cmsg_send_queue_entry *queue_entry = g_malloc0 (sizeof (cmsg_send_queue_entry));
     if (!queue_entry)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -179,7 +179,7 @@ cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
 
     //copy buffer
     queue_entry->queue_buffer_size = buffer_size;   //should be data + header
-    queue_entry->queue_buffer = CMSG_MALLOC (queue_entry->queue_buffer_size);
+    queue_entry->queue_buffer = CMSG_CALLOC (1, queue_entry->queue_buffer_size);
     if (!queue_entry->queue_buffer)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -363,7 +363,7 @@ cmsg_receive_queue_process_all (GQueue *queue,
 int32_t
 cmsg_receive_queue_push (GQueue *queue, uint8_t *buffer, uint32_t method_index)
 {
-    cmsg_receive_queue_entry *queue_entry = g_malloc (sizeof (cmsg_receive_queue_entry));
+    cmsg_receive_queue_entry *queue_entry = g_malloc0 (sizeof (cmsg_receive_queue_entry));
     if (!queue_entry)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -514,7 +514,7 @@ cmsg_queue_filter_init (GHashTable *queue_filter_hash_table,
     int i = 0;
     for (i = 0; i < descriptor->n_methods; i++)
     {
-        cmsg_queue_filter_entry *entry = g_malloc (sizeof (cmsg_queue_filter_entry));
+        cmsg_queue_filter_entry *entry = g_malloc0 (sizeof (cmsg_queue_filter_entry));
         sprintf (entry->method_name, "%s", descriptor->methods[i].name);
         entry->type = CMSG_QUEUE_FILTER_PROCESS;
 

@@ -7,7 +7,7 @@ cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_servic
     CMSG_ASSERT (pub_server_transport);
     CMSG_ASSERT (pub_service);
 
-    cmsg_sub *subscriber = CMSG_MALLOC (sizeof (cmsg_sub));
+    cmsg_sub *subscriber = CMSG_CALLOC (1, sizeof (cmsg_sub));
     if (!subscriber)
     {
         syslog (LOG_CRIT | LOG_LOCAL6, "[SUB] error: unable to allocate buffer. line(%d)\n",

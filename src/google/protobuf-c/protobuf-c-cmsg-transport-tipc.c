@@ -240,11 +240,12 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
         if (dyn_len > sizeof buf_static)
         {
-            recv_buffer = CMSG_MALLOC (dyn_len);
+            recv_buffer = CMSG_CALLOC (1, dyn_len);
         }
         else
         {
             recv_buffer = (void *) buf_static;
+            memset (recv_buffer, 0, sizeof (buf_static));
         }
 
         //just recv the rest of the data to clear the socket
@@ -314,7 +315,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
                client->connection.socket, nbytes);
 
         // TEMP to keep things going
-        recv_buffer = CMSG_MALLOC (nbytes);
+        recv_buffer = CMSG_CALLOC (1, nbytes);
         nbytes = recv (client->connection.socket, recv_buffer, nbytes, MSG_WAITALL);
         CMSG_FREE (recv_buffer);
         recv_buffer = 0;

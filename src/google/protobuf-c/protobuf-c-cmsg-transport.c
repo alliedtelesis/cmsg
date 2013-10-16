@@ -6,7 +6,7 @@ cmsg_transport *
 cmsg_transport_new (cmsg_transport_type type)
 {
     cmsg_transport *transport = 0;
-    transport = CMSG_MALLOC (sizeof (cmsg_transport));
+    transport = CMSG_CALLOC (1, sizeof (cmsg_transport));
     memset (transport, 0, sizeof (cmsg_transport));
 
     transport->type = type;
@@ -121,11 +121,12 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
         if (dyn_len > sizeof buf_static)
         {
-            buffer = CMSG_MALLOC (dyn_len);
+            buffer = CMSG_CALLOC (1, dyn_len);
         }
         else
         {
             buffer = (void *) buf_static;
+            memset (buffer, 0, sizeof (buf_static));
         }
 
         // read the message
@@ -178,7 +179,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                server->connection.sockets.client_socket, nbytes);
 
         // TEMP to keep things going
-        buffer = CMSG_MALLOC (nbytes);
+        buffer = CMSG_CALLOC (1, nbytes);
         nbytes = recv (handle, buffer, nbytes, MSG_WAITALL);
         CMSG_FREE (buffer);
         buffer = 0;

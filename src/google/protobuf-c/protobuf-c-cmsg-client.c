@@ -7,7 +7,7 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
     CMSG_ASSERT (transport);
     CMSG_ASSERT (descriptor);
 
-    cmsg_client *client = CMSG_MALLOC (sizeof (cmsg_client));
+    cmsg_client *client = CMSG_CALLOC (1, sizeof (cmsg_client));
     if (client)
     {
         client->base_service.destroy = NULL;
@@ -169,14 +169,14 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
 
     cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REQ, packed_size,
                                              method_index, 0);
-    uint8_t *buffer = CMSG_MALLOC (packed_size + sizeof (header));
+    uint8_t *buffer = CMSG_CALLOC (1, packed_size + sizeof (header));
     if (!buffer)
     {
         CMSG_LOG_USER_ERROR (
                 "[CLIENT] error: unable to allocate buffer. line(%d)", __LINE__);
         return;
     }
-    uint8_t *buffer_data = CMSG_MALLOC (packed_size);
+    uint8_t *buffer_data = CMSG_CALLOC (1, packed_size);
     if (!buffer_data)
     {
         CMSG_FREE (buffer);
@@ -368,14 +368,14 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REQ, packed_size,
                                              method_index, 0);
 
-    uint8_t *buffer = CMSG_MALLOC (packed_size + sizeof (header));
+    uint8_t *buffer = CMSG_CALLOC (1, packed_size + sizeof (header));
     if (!buffer)
     {
         CMSG_LOG_USER_ERROR (
                 "[CLIENT] error: unable to allocate buffer. line(%d)", __LINE__);
         return;
     }
-    uint8_t *buffer_data = CMSG_MALLOC (packed_size);
+    uint8_t *buffer_data = CMSG_CALLOC (1, packed_size);
     if (!buffer_data)
     {
         CMSG_LOG_USER_ERROR (
