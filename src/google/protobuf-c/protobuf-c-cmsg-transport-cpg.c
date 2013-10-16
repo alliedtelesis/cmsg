@@ -419,7 +419,7 @@ static int32_t
 cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int flag)
 {
     struct iovec iov;
-    unsigned int res;
+    uint32_t res = CPG_OK;
 
     iov.iov_len = length;
     iov.iov_base = buff;
