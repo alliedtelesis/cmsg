@@ -1064,3 +1064,75 @@ cmsg_server_queue_filter_show (cmsg_server *server)
     cmsg_queue_filter_show (server->queue_filter_hash_table, server->service->descriptor);
     pthread_mutex_unlock (&server->queue_filter_mutex);
 }
+
+static cmsg_server *
+cmsg_create_server_tipc (const char *server_name, int member_id, int scope,
+                         ProtobufCService *descriptor,
+                         cmsg_transport_type transport_type)
+{
+    uint32_t port = 0;
+    cmsg_transport *transport = NULL;
+    cmsg_server *server = NULL;
+
+    port = cmsg_service_port_get (server_name, "tipc");
+    if (port <= 0)
+    {
+        CMSG_LOG_USER_ERROR ("Unknown TIPC service %s", server_name);
+        return NULL;
+    }
+
+    transport = cmsg_transport_new (transport_type);
+    if (transport == NULL)
+    {
+        CMSG_LOG_USER_ERROR ("No TIPC transport for %d", member_id);
+        return NULL;
+    }
+
+    transport->config.socket.family = AF_TIPC;
+    transport->config.socket.sockaddr.tipc.family = AF_TIPC;
+    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
+    transport->config.socket.sockaddr.tipc.addr.name.domain = 0;
+    transport->config.socket.sockaddr.tipc.addr.name.name.type = port;
+    transport->config.socket.sockaddr.tipc.addr.name.name.instance = member_id;
+    transport->config.socket.sockaddr.tipc.scope = scope;
+
+    server = cmsg_server_new (transport, descriptor);
+    if (server == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_USER_ERROR ("Failed to create TIPC server for %d\n", member_id);
+        return NULL;
+    }
+
+    return server;
+}
+
+cmsg_server *
+cmsg_create_server_tipc_rpc (const char *server_name, int member_id, int scope,
+                             ProtobufCService *descriptor)
+{
+    return cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
+                                    CMSG_TRANSPORT_RPC_TIPC);
+}
+
+cmsg_server *
+cmsg_create_server_tipc_oneway (const char *server_name, int member_id, int scope,
+                                ProtobufCService *descriptor)
+{
+    return cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
+                                    CMSG_TRANSPORT_ONEWAY_TIPC);
+}
+
+void
+cmsg_destroy_server_and_transport (cmsg_server *server)
+{
+    cmsg_transport *transport;
+
+    if (server != NULL)
+    {
+        transport = server->_transport;
+        cmsg_server_destroy (server);
+
+        cmsg_transport_destroy (transport);
+    }
+}

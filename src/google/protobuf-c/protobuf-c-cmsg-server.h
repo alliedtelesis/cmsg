@@ -116,4 +116,12 @@ void cmsg_server_invoke (cmsg_server *server, uint32_t method_index,
                          ProtobufCMessage *message,
                          cmsg_method_processing_reason process_reason);
 
+cmsg_server *cmsg_create_server_tipc_rpc (const char *server_name, int member_id,
+                                          int scope, ProtobufCService *descriptor);
+
+cmsg_server *cmsg_create_server_tipc_oneway (const char *server_name, int member_id,
+                                             int scope, ProtobufCService *descriptor);
+
+void cmsg_destroy_server_and_transport (cmsg_server *server);
+
 #endif

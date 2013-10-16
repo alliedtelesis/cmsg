@@ -733,9 +733,10 @@ cmsg_client_queue_filter_show (cmsg_client *client)
 }
 
 /* Create a cmsg client and its transport with TIPC (RPC) */
-cmsg_client *
-cmsg_create_client_tipc_rpc (const char *server, int member_id, int scope,
-                         ProtobufCServiceDescriptor *descriptor)
+static cmsg_client *
+cmsg_create_client_tipc (const char *server, int member_id, int scope,
+                         ProtobufCServiceDescriptor *descriptor,
+                         cmsg_transport_type transport_type)
 {
     uint32_t server_port;
     cmsg_transport *transport;
@@ -748,7 +749,7 @@ cmsg_create_client_tipc_rpc (const char *server, int member_id, int scope,
         return NULL;
     }
 
-    transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TIPC);
+    transport = cmsg_transport_new (transport_type);
 
     if (!transport)
     {
@@ -759,6 +760,7 @@ cmsg_create_client_tipc_rpc (const char *server, int member_id, int scope,
     transport->config.socket.family = AF_TIPC;
     transport->config.socket.sockaddr.tipc.family = AF_TIPC;
     transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
+    transport->config.socket.sockaddr.tipc.addr.name.domain = 0;
     transport->config.socket.sockaddr.tipc.addr.name.name.type = server_port;
     transport->config.socket.sockaddr.tipc.addr.name.name.instance = member_id;
     transport->config.socket.sockaddr.tipc.scope = scope;
@@ -773,6 +775,22 @@ cmsg_create_client_tipc_rpc (const char *server, int member_id, int scope,
     }
 
     return client;
+}
+
+cmsg_client *
+cmsg_create_client_tipc_rpc (const char *server_name, int member_id, int scope,
+                             ProtobufCServiceDescriptor *descriptor)
+{
+    return cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
+                                    CMSG_TRANSPORT_RPC_TIPC);
+}
+
+cmsg_client *
+cmsg_create_client_tipc_oneway (const char *server_name, int member_id, int scope,
+                                ProtobufCServiceDescriptor *descriptor)
+{
+    return cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
+                                    CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 /* Destroy a cmsg client and its transport with TIPC */
