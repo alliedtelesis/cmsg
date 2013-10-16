@@ -60,7 +60,8 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
 
     addrlen = sizeof (transport->config.socket.sockaddr.tipc);
     /* bind the socket address (publishes the TIPC port name) */
-    if (bind (listening_socket, &transport->config.socket.sockaddr.tipc, addrlen) != 0)
+    if (bind (listening_socket,
+              (struct sockaddr *) &transport->config.socket.sockaddr.tipc, addrlen) != 0)
     {
         DEBUG (CMSG_ERROR, "[TRANSPORT] TIPC port could not be created\n");
         return -1;
@@ -77,7 +78,7 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
 int
 cmsg_transport_tipc_broadcast_recv (void *handle, void *buff, int len, int flags)
 {
-    int32_t addrlen = 0;
+    uint32_t addrlen = 0;
     cmsg_server *server;
     cmsg_transport *transport;
     int32_t nbytes;

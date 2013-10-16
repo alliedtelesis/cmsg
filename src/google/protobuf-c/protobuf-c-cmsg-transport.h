@@ -77,6 +77,7 @@ struct _cmsg_socket_s
     cmsg_socket_address sockaddr;
 };
 
+#ifdef HAVE_VCSTACK
 typedef void (*cpg_configchg_cb_f) (cmsg_server *server,
                                     const struct cpg_address * member_list,
                                     int member_list_entries,
@@ -84,6 +85,7 @@ typedef void (*cpg_configchg_cb_f) (cmsg_server *server,
                                     int left_list_entries,
                                     const struct cpg_address * joined_list,
                                     int joined_list_entries);
+#endif
 
 struct _cmsg_cpg_s
 {
@@ -209,5 +211,9 @@ int32_t cmsg_transport_send_called_multi_threads_enable (cmsg_transport *transpo
 
 int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
                                               uint32_t send_can_block);
+int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle,
+                                    cmsg_server *server);
+int32_t cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
+                                              cmsg_server *server);
 
 #endif

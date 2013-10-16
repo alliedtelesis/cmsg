@@ -84,9 +84,10 @@ cmsg_transport_tipc_listen (cmsg_server *server)
         return -1;
     }
 
-    addrlen = sizeof (transport->config.socket.sockaddr.generic);
+    addrlen = sizeof (transport->config.socket.sockaddr.tipc);
 
-    ret = bind (listening_socket, &transport->config.socket.sockaddr.generic, addrlen);
+    ret = bind (listening_socket,
+                (struct sockaddr *) &transport->config.socket.sockaddr.tipc, addrlen);
     if (ret < 0)
     {
         CMSG_LOG_USER_ERROR ("[TRANSPORT] bind failed with: %s", strerror (errno));
@@ -143,8 +144,8 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
 
     if (!server || server_socket < 0)
     {
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] bad parameter server 0x%x socket %d",
-                             (unsigned int)server, server_socket);
+        CMSG_LOG_USER_ERROR ("[TRANSPORT] bad parameter server %p socket %d",
+                             server, server_socket);
         return -1;
     }
     DEBUG (CMSG_INFO, "[TRANSPORT] socket %d\n", server_socket);
@@ -162,10 +163,9 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
 static int32_t
 cmsg_transport_tipc_server_accept (int32_t listen_socket, cmsg_server *server)
 {
-    int32_t client_len;
+    uint32_t client_len;
     cmsg_transport client_transport;
     int sock;
-    int32_t ret = 0;
 
     if (!server || listen_socket < 0)
     {
@@ -294,7 +294,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         else
         {
             CMSG_LOG_USER_ERROR ("[TRANSPORT] recv socket %d no data, dyn_len %d",
-                   client->connection.socket);
+                   client->connection.socket, dyn_len);
 
         }
         if (recv_buffer != (void *) buf_static)

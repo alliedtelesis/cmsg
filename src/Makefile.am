@@ -1,5 +1,6 @@
-AM_CFLAGS = -I$(CROSS_DEV_ROOT_DIR)/usr/include/glib-2.0 \
-            -I$(CROSS_DEV_ROOT_DIR)/usr/lib/glib-2.0/include
+AM_CFLAGS = -I=/usr/include/glib-2.0 \
+            -I=/usr/lib/glib-2.0/include \
+            -Wall -Werror
 
 if BUILD_PROTOC_C
 SUBDIRS = . test

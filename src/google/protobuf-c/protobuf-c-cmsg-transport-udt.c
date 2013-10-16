@@ -213,8 +213,8 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
     transport->client_close = cmsg_transport_oneway_udt_client_close;
     transport->server_close = cmsg_transport_oneway_udt_server_close;
 
-    transport->s_socket = 0;
-    transport->c_socket = 0;
+    transport->s_socket = cmsg_transport_oneway_udt_server_get_socket;
+    transport->c_socket = cmsg_transport_oneway_udt_client_get_socket;
 
     transport->client_destroy = cmsg_transport_oneway_udt_client_destroy;
     transport->server_destroy = cmsg_transport_oneway_udt_server_destroy;

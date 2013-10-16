@@ -1456,7 +1456,7 @@ protobuf_c_rpc_server_new       (ProtobufC_RPC_AddressType  type,
           {
             fprintf (stderr, "protobuf_c_rpc_server_new: name '%s' does not have a : in it (supposed to be PORT:MEMBER_ID)\n",
                      name);
-            return;
+            return NULL;
           }
         type_name = malloc(sizeof(char) *  (colon + 1 - name));
         memcpy (type_name, name, colon - name);

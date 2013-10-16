@@ -138,10 +138,9 @@ cmsg_transport_tcp_server_recv (int32_t server_socket, cmsg_server *server)
 static int32_t
 cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
 {
-    int32_t client_len;
+    uint32_t client_len;
     cmsg_transport client_transport;
     int sock;
-    int32_t ret = 0;
 
     if (!server || listen_socket < 0)
     {

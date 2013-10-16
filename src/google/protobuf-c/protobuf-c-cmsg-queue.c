@@ -16,10 +16,10 @@ cmsg_send_queue_process_all (cmsg_object obj)
 {
     uint32_t processed = 0;
     uint32_t create_client = 0;
-    cmsg_send_queue_entry *queue_entry = 0;
-    GQueue *queue;
+    cmsg_send_queue_entry *queue_entry = NULL;
+    GQueue *queue = NULL;
     pthread_mutex_t queue_mutex;
-    const ProtobufCServiceDescriptor *descriptor;
+    const ProtobufCServiceDescriptor *descriptor = NULL;
     cmsg_pub *publisher = 0;
     cmsg_client *client = 0;
 
@@ -36,6 +36,11 @@ cmsg_send_queue_process_all (cmsg_object obj)
         queue = publisher->queue;
         queue_mutex = publisher->queue_mutex;
         descriptor = publisher->descriptor;
+    }
+
+    if (!queue || !descriptor)
+    {
+        return 0;
     }
 
     if (g_queue_get_length (queue))
@@ -284,7 +289,6 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t queue_mutex,
                                  cmsg_server *server, uint32_t num_to_process)
 {
     uint32_t processed = 0;
-    uint32_t create_client = 0;
     cmsg_receive_queue_entry *queue_entry = 0;
     cmsg_server_request server_request;
     unsigned int queue_length = 0;

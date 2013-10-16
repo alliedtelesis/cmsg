@@ -78,6 +78,7 @@
 #include "protobuf-c-dispatch.h"
 #include "gskrbtreemacros.h"
 #include "gsklistmacros.h"
+#include <sys/socket.h>
 #include <linux/tipc.h>
 
 #define DEBUG_DISPATCH_INTERNALS  0

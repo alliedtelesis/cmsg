@@ -380,7 +380,7 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
         DEBUG (CMSG_INFO, "[PUB] [LIST] not a new entry doing nothing\n");
     }
 
-#ifndef CMSG_DISABLED
+#ifndef DEBUG_DISABLED
     DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
@@ -433,7 +433,7 @@ _cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry)
         subscriber_list = g_list_next (subscriber_list);
     }
 
-#ifndef CMSG_DISABLED
+#ifndef DEBUG_DISABLED
     DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
@@ -497,7 +497,7 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
         }
     }
 
-#ifndef CMSG_DISABLED
+#ifndef DEBUG_DISABLED
     DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
@@ -565,8 +565,6 @@ cmsg_pub_server_receive (cmsg_pub *publisher, int32_t server_socket)
     CMSG_ASSERT (server_socket > 0);
 
     DEBUG (CMSG_INFO, "[PUB]\n");
-
-    cmsg_server *server = publisher->sub_server;
 
     ret = publisher->sub_server->_transport->server_recv (server_socket,
                                                           publisher->sub_server);

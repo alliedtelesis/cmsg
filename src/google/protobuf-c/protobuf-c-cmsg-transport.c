@@ -1,6 +1,8 @@
 #include "protobuf-c-cmsg-transport.h"
 #include "protobuf-c-cmsg-server.h"
 
+extern void cmsg_transport_oneway_udt_init (cmsg_transport *transport);
+
 
 cmsg_transport *
 cmsg_transport_new (cmsg_transport_type type)

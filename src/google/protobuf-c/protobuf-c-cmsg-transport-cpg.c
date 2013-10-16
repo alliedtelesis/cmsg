@@ -98,10 +98,7 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
 {
     cmsg_header *header_received;
     cmsg_header header_converted;
-    int32_t client_len;
-    int32_t nbytes;
     int32_t dyn_len;
-    int32_t ret = 0;
     uint8_t *buffer = 0;
 
     cmsg_server *server;
@@ -125,7 +122,7 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
     dyn_len = header_converted.message_length;
 
     DEBUG (CMSG_INFO,
-           "[TRANSPORT] cpg msg len = %d, header length = %ld, data length = %d\n",
+           "[TRANSPORT] cpg msg len = %d, header length = %u, data length = %d\n",
            msg_len, header_converted.header_length, dyn_len);
 
     if (msg_len < header_converted.header_length + dyn_len)
@@ -166,8 +163,6 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
 static int32_t
 cmsg_transport_cpg_client_connect (cmsg_client *client)
 {
-    cpg_handle_t *handlePt = NULL;
-
     if (!client || !client->_transport ||
         client->_transport->config.cpg.group_name.value[0] == '\0')
     {
@@ -320,7 +315,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
                          (gpointer) server->_transport->config.cpg.group_name.value,
                          (gpointer) server);
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] server added %lu to hash table\n",
+    DEBUG (CMSG_INFO, "[TRANSPORT] server added %llu to hash table\n",
            server->connection.cpg.handle);
 
     res = _cmsg_transport_cpg_join_group (server);
@@ -455,7 +450,7 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
         usleep (1000);
     }
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] cpg send message to handle  %lu\n",
+    DEBUG (CMSG_INFO, "[TRANSPORT] cpg send message to handle %llu\n",
            client->connection.handle);
 
     /* Keep trying to send the message until it succeeds (e.g. blocks)

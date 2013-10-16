@@ -23,10 +23,7 @@ cmsg_queue_filter_type cmsg_server_queue_filter_lookup (cmsg_server *server,
 cmsg_server *
 cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 {
-    int32_t yes = 1;    // for setsockopt() SO_REUSEADDR, below
-    int32_t listening_socket = -1;
     int32_t ret = 0;
-    socklen_t addrlen = sizeof (cmsg_socket_address);
     cmsg_server *server = NULL;
 
     CMSG_ASSERT (transport);
@@ -161,8 +158,6 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
                           int *fdmax)
 {
     int ret = 0;
-    struct pollfd poll_list[1];
-    int sock;
     fd_set read_fds = *master_fdset;
     int nfds = *fdmax;
     struct timeval timeout = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
@@ -405,7 +400,7 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
     case CMSG_METHOD_QUEUED:
         // Add to queue
         pthread_mutex_lock (&server->queue_mutex);
-        cmsg_receive_queue_push (server->queue, message, method_index);
+        cmsg_receive_queue_push (server->queue, (uint8_t *) message, method_index);
         queue_length = g_queue_get_length (server->queue);
         pthread_mutex_unlock (&server->queue_mutex);
 
@@ -445,7 +440,7 @@ static int32_t
 _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
     cmsg_queue_filter_type action;
-    cmsg_method_processing_reason processing_reason;
+    cmsg_method_processing_reason processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *) server->allocator;
     cmsg_server_request *server_request = server->server_request;
@@ -553,8 +548,8 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
     if (ret < sizeof (header))
     {
         CMSG_LOG_USER_ERROR (
-               "[SERVER] error: sending of echo reply failed sent:%d of %ld",
-               ret, sizeof (header));
+               "[SERVER] error: sending of echo reply failed sent:%d of %u",
+               ret, (uint32_t) sizeof (header));
         return CMSG_RET_ERR;
     }
     return CMSG_RET_OK;
@@ -791,7 +786,8 @@ cmsg_server_queue_process (cmsg_server *server)
                                                                        server);
 
         if (processed_messages_count > 0)
-            DEBUG ("server has processed: %d messages in CMSG_QUEUE_STATE_TO_DISABLED state",
+            DEBUG (CMSG_INFO,
+                   "server has processed: %d messages in CMSG_QUEUE_STATE_TO_DISABLED state",
                    processed_messages_count);
 
         if (cmsg_server_queue_get_length (server) == 0)
@@ -818,7 +814,8 @@ cmsg_server_queue_process (cmsg_server *server)
                                                                        server->service->descriptor,
                                                                        server);
         if (processed_messages_count > 0)
-            DEBUG ("server has processed: %d messages in CMSG_QUEUE_STATE_ENABLED state",
+            DEBUG (CMSG_INFO,
+                   "server has processed: %d messages in CMSG_QUEUE_STATE_ENABLED state",
                    processed_messages_count);
     }
 
@@ -827,13 +824,13 @@ cmsg_server_queue_process (cmsg_server *server)
         switch (server->queueing_state)
         {
         case CMSG_QUEUE_STATE_ENABLED:
-            DEBUG ("server state changed to: CMSG_QUEUE_STATE_ENABLED");
+            DEBUG (CMSG_INFO, "server state changed to: CMSG_QUEUE_STATE_ENABLED");
             break;
         case CMSG_QUEUE_STATE_TO_DISABLED:
-            DEBUG ("server state changed to: CMSG_QUEUE_STATE_TO_DISABLED");
+            DEBUG (CMSG_INFO, "server state changed to: CMSG_QUEUE_STATE_TO_DISABLED");
             break;
         case CMSG_QUEUE_STATE_DISABLED:
-            DEBUG ("server state changed to: CMSG_QUEUE_STATE_DISABLED");
+            DEBUG (CMSG_INFO, "server state changed to: CMSG_QUEUE_STATE_DISABLED");
             break;
         default:
             break;
@@ -862,6 +859,8 @@ int32_t cmsg_server_queue_process_list (GList *server_list)
 
         cmsg_server_queue_process (server);
     }
+
+    return 0;
 }
 
 void

@@ -160,9 +160,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         return;
     }
 
-    const ProtobufCServiceDescriptor *desc = service->descriptor;
-    const ProtobufCMethodDescriptor *method = desc->methods + method_index;
-
     uint32_t packed_size = protobuf_c_message_get_packed_size (input);
 
     client->request_id++;
@@ -224,8 +221,8 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
             if (ret < packed_size + sizeof (header))
             {
                 CMSG_LOG_USER_ERROR (
-                       "[CLIENT] error: sending response failed send:%d of %ld",
-                       ret, packed_size + sizeof (header));
+                       "[CLIENT] error: sending response failed send:%d of %u",
+                       ret, (uint32_t) (packed_size + sizeof (header)));
                 CMSG_FREE (buffer);
                 CMSG_FREE (buffer_data);
                 return;
@@ -357,9 +354,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
         }
     }
 
-    const ProtobufCServiceDescriptor *desc = service->descriptor;
-    const ProtobufCMethodDescriptor *method = desc->methods + method_index;
-
     uint32_t packed_size = protobuf_c_message_get_packed_size (input);
 
 
@@ -428,8 +422,8 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                     // Having retried connecting and now failed again this is
                     // an actual problem.
                     CMSG_LOG_USER_ERROR (
-                           "[CLIENT] error: sending response failed send:%d of %ld",
-                           ret, packed_size + sizeof (header));
+                           "[CLIENT] error: sending response failed send:%d of %u",
+                           ret, (uint32_t) (packed_size + sizeof (header)));
                     CMSG_FREE (buffer);
                     CMSG_FREE (buffer_data);
                     return;
@@ -459,7 +453,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             cmsg_send_queue_push (publisher->queue, buffer,
                                   packed_size + sizeof (header), client->_transport);
 
-            unsigned int queue_length = g_queue_get_length (publisher->queue);
             pthread_mutex_unlock (&publisher->queue_mutex);
 
             //send signal to  cmsg_pub_queue_process_all
@@ -468,10 +461,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                 pthread_cond_signal (&publisher->queue_process_cond);
             publisher->queue_process_count = publisher->queue_process_count + 1;
             pthread_mutex_unlock (&publisher->queue_process_mutex);
-
-
-            DEBUG (CMSG_INFO, "[PUBLISHER] queue length: %d\n", queue_length);
-
         }
         else if (client->parent.object_type == CMSG_OBJ_TYPE_NONE)
         {
@@ -481,7 +470,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             cmsg_send_queue_push (client->queue, buffer,
                                   packed_size + sizeof (header), client->_transport);
 
-            unsigned int queue_length = g_queue_get_length (client->queue);
             pthread_mutex_unlock (&client->queue_mutex);
 
             //send signal to cmsg_client_queue_process_all
@@ -490,8 +478,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                 pthread_cond_signal (&client->queue_process_cond);
             client->queue_process_count = client->queue_process_count + 1;
             pthread_mutex_unlock (&client->queue_process_mutex);
-
-            DEBUG (CMSG_INFO, "[CLIENT] queue length: %d\n", queue_length);
         }
     }
 
@@ -574,8 +560,8 @@ cmsg_client_send_echo_request (cmsg_client *client)
             if (ret < sizeof (header))
             {
                 CMSG_LOG_USER_ERROR (
-                       "[CLIENT] error: sending echo req failed sent:%d of %ld",
-                       ret, sizeof (header));
+                       "[CLIENT] error: sending echo req failed sent:%d of %u",
+                       ret, (uint32_t) sizeof (header));
                 return -1;
             }
         }
@@ -598,7 +584,6 @@ cmsg_client_send_echo_request (cmsg_client *client)
 cmsg_status_code
 cmsg_client_recv_echo_reply (cmsg_client *client)
 {
-    int ret = 0;
     cmsg_status_code status_code;
     ProtobufCMessage *message_pt = NULL;
 
