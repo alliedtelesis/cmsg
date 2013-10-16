@@ -186,10 +186,12 @@ cmsg_malloc (size_t size, const char *filename, int line)
 
     p = malloc (size);
 
+#ifndef LOCAL_INSTALL
     if (cmsg_mtype > 0)
     {
         g_mem_record_alloc (p, cmsg_mtype, filename, line);
     }
+#endif
 
     if (p || size == 0)
         return p;
@@ -204,10 +206,12 @@ cmsg_calloc (size_t nmemb, size_t size, const char *filename, int line)
 
     p = calloc (nmemb, size);
 
+#ifndef LOCAL_INSTALL
     if (cmsg_mtype > 0)
     {
         g_mem_record_alloc (p, cmsg_mtype, filename, line);
     }
+#endif
 
     if (p || size == 0)
         return p;
@@ -221,10 +225,12 @@ cmsg_free (void *ptr, const char *filename, int line)
     if (ptr == NULL)
         return;
 
+#ifndef LOCAL_INSTALL
     if (cmsg_mtype > 0)
     {
         g_mem_record_free (ptr, cmsg_mtype, filename, line);
     }
+#endif
 
     free (ptr);
 }

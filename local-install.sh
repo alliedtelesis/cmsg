@@ -2,7 +2,7 @@
 
 ./bootstrap
 
-CPPFLAGS=' -Wno-unused-but-set-variable -Wno-error=address'
+CPPFLAGS=' -Wno-unused-but-set-variable -Wno-error=address -DLOCAL_INSTALL'
 
 if test "$1" == "--disable-vcstack"
 then
