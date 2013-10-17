@@ -169,16 +169,15 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     uint8_t *buffer = CMSG_CALLOC (1, packed_size + sizeof (header));
     if (!buffer)
     {
-        CMSG_LOG_ERROR (
-                "[CLIENT] error: unable to allocate buffer. line(%d)", __LINE__);
+        CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate buffer. line(%d)", __LINE__);
         return;
     }
     uint8_t *buffer_data = CMSG_CALLOC (1, packed_size);
     if (!buffer_data)
     {
         CMSG_FREE (buffer);
-        CMSG_LOG_ERROR (
-                "[CLIENT] error: unable to allocate data buffer. line(%d)", __LINE__);
+        CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate data buffer. line(%d)",
+                        __LINE__);
         return;
     }
     memcpy ((void *) buffer, &header, sizeof (header));
@@ -189,9 +188,8 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     ret = protobuf_c_message_pack (input, buffer_data);
     if (ret < packed_size)
     {
-        CMSG_LOG_ERROR (
-               "[CLIENT] error: packing message data failed packet:%d of %d",
-               ret, packed_size);
+        CMSG_LOG_ERROR ("[CLIENT] error: packing message data failed packet:%d of %d",
+                        ret, packed_size);
 
         CMSG_FREE (buffer);
         CMSG_FREE (buffer_data);
@@ -220,9 +218,8 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
                                                    packed_size + sizeof (header), 0);
             if (ret < packed_size + sizeof (header))
             {
-                CMSG_LOG_ERROR (
-                       "[CLIENT] error: sending response failed send:%d of %u",
-                       ret, (uint32_t) (packed_size + sizeof (header)));
+                CMSG_LOG_ERROR ("[CLIENT] error: sending response failed send:%d of %u",
+                                ret, (uint32_t) (packed_size + sizeof (header)));
                 CMSG_FREE (buffer);
                 CMSG_FREE (buffer_data);
                 return;
@@ -321,15 +318,13 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
         if (action == CMSG_QUEUE_FILTER_ERROR)
         {
-            CMSG_LOG_ERROR ( "[CLIENT] error: queue_lookup_filter returned ERROR for: %s",
-                   method_name);
+            CMSG_LOG_ERROR ("[CLIENT] error: queue_lookup_filter returned ERROR for: %s",
+                            method_name);
             return;
         }
         else if (action == CMSG_QUEUE_FILTER_DROP)
         {
-            DEBUG (CMSG_INFO,
-                   "[CLIENT] dropping message: %s\n",
-                   method_name);
+            DEBUG (CMSG_INFO, "[CLIENT] dropping message: %s\n", method_name);
             return;
         }
         else if (action == CMSG_QUEUE_FILTER_QUEUE)
@@ -366,15 +361,14 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     uint8_t *buffer = CMSG_CALLOC (1, packed_size + sizeof (header));
     if (!buffer)
     {
-        CMSG_LOG_ERROR (
-                "[CLIENT] error: unable to allocate buffer. line(%d)", __LINE__);
+        CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate buffer. line(%d)", __LINE__);
         return;
     }
     uint8_t *buffer_data = CMSG_CALLOC (1, packed_size);
     if (!buffer_data)
     {
-        CMSG_LOG_ERROR (
-                "[CLIENT] error: unable to allocate data buffer. line(%d)", __LINE__);
+        CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate data buffer. line(%d)",
+                        __LINE__);
         CMSG_FREE (buffer);
         return;
     }
@@ -386,9 +380,8 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     ret = protobuf_c_message_pack (input, buffer_data);
     if (ret < packed_size)
     {
-        CMSG_LOG_ERROR (
-               "[CLIENT] error: packing message data failed packet:%d of %d",
-               ret, packed_size);
+        CMSG_LOG_ERROR ("[CLIENT] error: packing message data failed packet:%d of %d",
+                        ret, packed_size);
 
         CMSG_FREE (buffer);
         CMSG_FREE (buffer_data);
@@ -422,9 +415,8 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                 {
                     // Having retried connecting and now failed again this is
                     // an actual problem.
-                    CMSG_LOG_ERROR (
-                           "[CLIENT] error: sending response failed send:%d of %u",
-                           ret, (uint32_t) (packed_size + sizeof (header)));
+                    CMSG_LOG_ERROR ("[CLIENT] error: sending response failed send:%d of %u",
+                                    ret, (uint32_t) (packed_size + sizeof (header)));
                     CMSG_FREE (buffer);
                     CMSG_FREE (buffer_data);
                     return;
@@ -540,8 +532,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
     DEBUG (CMSG_INFO, "[CLIENT] header\n");
     cmsg_buffer_print (&header, sizeof (header));
 
-    ret = client->_transport->client_send (client, &header,
-                                           sizeof (header), 0);
+    ret = client->_transport->client_send (client, &header, sizeof (header), 0);
     if (ret < sizeof (header))
     {
         CMSG_LOG_ERROR ("Failed sending all data");
@@ -556,13 +547,11 @@ cmsg_client_send_echo_request (cmsg_client *client)
 
         if (client->state == CMSG_CLIENT_STATE_CONNECTED)
         {
-            ret = client->_transport->client_send (client, &header,
-                                                   sizeof (header), 0);
+            ret = client->_transport->client_send (client, &header, sizeof (header), 0);
             if (ret < sizeof (header))
             {
-                CMSG_LOG_ERROR (
-                       "[CLIENT] error: sending echo req failed sent:%d of %u",
-                       ret, (uint32_t) sizeof (header));
+                CMSG_LOG_ERROR ("[CLIENT] error: sending echo req failed sent:%d of %u",
+                                ret, (uint32_t) sizeof (header));
                 return -1;
             }
         }

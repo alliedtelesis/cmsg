@@ -71,8 +71,8 @@ void cmsg_pub_destroy (cmsg_pub *publisher);
 
 int cmsg_pub_get_server_socket (cmsg_pub *publisher);
 
-cmsg_client * cmsg_pub_get_subscriber_client (cmsg_sub_entry *sub_entry,
-                                              cmsg_pub *publisher);
+cmsg_client *cmsg_pub_get_subscriber_client (cmsg_sub_entry *sub_entry,
+                                             cmsg_pub *publisher);
 
 void cmsg_pub_remove_subscriber_client (cmsg_sub_entry *sub_entry);
 

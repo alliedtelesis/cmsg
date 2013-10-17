@@ -6,328 +6,331 @@
 #endif
 
 #include "protobuf-c-cmsg-sub-service.pb-c.h"
-void   cmsg__sub_entry__init
-                     (Cmsg__SubEntry         *message)
+void
+cmsg__sub_entry__init (Cmsg__SubEntry *message)
 {
-  static Cmsg__SubEntry init_value = CMSG__SUB_ENTRY__INIT;
-  *message = init_value;
+    static Cmsg__SubEntry init_value = CMSG__SUB_ENTRY__INIT;
+    *message = init_value;
 }
-size_t cmsg__sub_entry__get_packed_size
-                     (const Cmsg__SubEntry *message)
+
+size_t
+cmsg__sub_entry__get_packed_size (const Cmsg__SubEntry *message)
 {
-  PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+    PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry__descriptor);
+    return protobuf_c_message_get_packed_size ((const ProtobufCMessage *) (message));
 }
-size_t cmsg__sub_entry__pack
-                     (const Cmsg__SubEntry *message,
-                      uint8_t       *out)
+
+size_t
+cmsg__sub_entry__pack (const Cmsg__SubEntry *message, uint8_t *out)
 {
-  PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+    PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry__descriptor);
+    return protobuf_c_message_pack ((const ProtobufCMessage *) message, out);
 }
+
 size_t cmsg__sub_entry__pack_to_buffer
-                     (const Cmsg__SubEntry *message,
-                      ProtobufCBuffer *buffer)
+    (const Cmsg__SubEntry *message, ProtobufCBuffer *buffer)
 {
-  PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+    PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry__descriptor);
+    return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage *) message, buffer);
 }
-Cmsg__SubEntry *
-       cmsg__sub_entry__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
+
+Cmsg__SubEntry *cmsg__sub_entry__unpack
+    (ProtobufCAllocator *allocator, size_t len, const uint8_t *data)
 {
-  return (Cmsg__SubEntry *)
-     protobuf_c_message_unpack (&cmsg__sub_entry__descriptor,
-                                allocator, len, data);
+    return (Cmsg__SubEntry *)
+        protobuf_c_message_unpack (&cmsg__sub_entry__descriptor, allocator, len, data);
 }
-void   cmsg__sub_entry__free_unpacked
-                     (Cmsg__SubEntry *message,
-                      ProtobufCAllocator *allocator)
+
+void
+cmsg__sub_entry__free_unpacked (Cmsg__SubEntry *message, ProtobufCAllocator *allocator)
 {
-  PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+    PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry__descriptor);
+    protobuf_c_message_free_unpacked ((ProtobufCMessage *) message, allocator);
 }
-void   cmsg__sub_entry_response__init
-                     (Cmsg__SubEntryResponse         *message)
+
+void
+cmsg__sub_entry_response__init (Cmsg__SubEntryResponse *message)
 {
-  static Cmsg__SubEntryResponse init_value = CMSG__SUB_ENTRY_RESPONSE__INIT;
-  *message = init_value;
+    static Cmsg__SubEntryResponse init_value = CMSG__SUB_ENTRY_RESPONSE__INIT;
+    *message = init_value;
 }
-size_t cmsg__sub_entry_response__get_packed_size
-                     (const Cmsg__SubEntryResponse *message)
+
+size_t
+cmsg__sub_entry_response__get_packed_size (const Cmsg__SubEntryResponse *message)
 {
-  PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry_response__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+    PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry_response__descriptor);
+    return protobuf_c_message_get_packed_size ((const ProtobufCMessage *) (message));
 }
-size_t cmsg__sub_entry_response__pack
-                     (const Cmsg__SubEntryResponse *message,
-                      uint8_t       *out)
+
+size_t
+cmsg__sub_entry_response__pack (const Cmsg__SubEntryResponse *message, uint8_t *out)
 {
-  PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry_response__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+    PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry_response__descriptor);
+    return protobuf_c_message_pack ((const ProtobufCMessage *) message, out);
 }
+
 size_t cmsg__sub_entry_response__pack_to_buffer
-                     (const Cmsg__SubEntryResponse *message,
-                      ProtobufCBuffer *buffer)
+    (const Cmsg__SubEntryResponse *message, ProtobufCBuffer *buffer)
 {
-  PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry_response__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+    PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry_response__descriptor);
+    return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage *) message, buffer);
 }
-Cmsg__SubEntryResponse *
-       cmsg__sub_entry_response__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
+
+Cmsg__SubEntryResponse *cmsg__sub_entry_response__unpack
+    (ProtobufCAllocator *allocator, size_t len, const uint8_t *data)
 {
-  return (Cmsg__SubEntryResponse *)
-     protobuf_c_message_unpack (&cmsg__sub_entry_response__descriptor,
-                                allocator, len, data);
+    return (Cmsg__SubEntryResponse *)
+        protobuf_c_message_unpack (&cmsg__sub_entry_response__descriptor,
+                                   allocator, len, data);
 }
-void   cmsg__sub_entry_response__free_unpacked
-                     (Cmsg__SubEntryResponse *message,
-                      ProtobufCAllocator *allocator)
+
+void cmsg__sub_entry_response__free_unpacked
+    (Cmsg__SubEntryResponse *message, ProtobufCAllocator *allocator)
 {
-  PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry_response__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+    PROTOBUF_C_ASSERT (message->base.descriptor == &cmsg__sub_entry_response__descriptor);
+    protobuf_c_message_free_unpacked ((ProtobufCMessage *) message, allocator);
 }
-static const ProtobufCFieldDescriptor cmsg__sub_entry__field_descriptors[11] =
-{
-  {
-    "add",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT32,
-    0,   /* quantifier_offset */
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, add),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "method_name",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_STRING,
-    0,   /* quantifier_offset */
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, method_name),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "transport_type",
-    3,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT32,
-    0,   /* quantifier_offset */
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, transport_type),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "in_sin_addr_s_addr",
-    4,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT32,
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, has_in_sin_addr_s_addr),
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, in_sin_addr_s_addr),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "in_sin_port",
-    5,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT32,
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, has_in_sin_port),
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, in_sin_port),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "tipc_family",
-    6,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT32,
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, has_tipc_family),
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, tipc_family),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "tipc_addrtype",
-    7,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT32,
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, has_tipc_addrtype),
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, tipc_addrtype),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "tipc_addr_name_name_type",
-    8,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT32,
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, has_tipc_addr_name_name_type),
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, tipc_addr_name_name_type),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "tipc_addr_name_name_instance",
-    9,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT32,
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, has_tipc_addr_name_name_instance),
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, tipc_addr_name_name_instance),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "tipc_addr_name_domain",
-    10,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT32,
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, has_tipc_addr_name_domain),
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, tipc_addr_name_domain),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "tipc_scope",
-    11,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT32,
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, has_tipc_scope),
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntry, tipc_scope),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
+
+static const ProtobufCFieldDescriptor cmsg__sub_entry__field_descriptors[11] = {
+    {
+     "add",
+     1,
+     PROTOBUF_C_LABEL_REQUIRED,
+     PROTOBUF_C_TYPE_UINT32,
+     0,             /* quantifier_offset */
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, add),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
+    {
+     "method_name",
+     2,
+     PROTOBUF_C_LABEL_REQUIRED,
+     PROTOBUF_C_TYPE_STRING,
+     0,             /* quantifier_offset */
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, method_name),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
+    {
+     "transport_type",
+     3,
+     PROTOBUF_C_LABEL_REQUIRED,
+     PROTOBUF_C_TYPE_UINT32,
+     0,             /* quantifier_offset */
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, transport_type),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
+    {
+     "in_sin_addr_s_addr",
+     4,
+     PROTOBUF_C_LABEL_OPTIONAL,
+     PROTOBUF_C_TYPE_UINT32,
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, has_in_sin_addr_s_addr),
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, in_sin_addr_s_addr),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
+    {
+     "in_sin_port",
+     5,
+     PROTOBUF_C_LABEL_OPTIONAL,
+     PROTOBUF_C_TYPE_UINT32,
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, has_in_sin_port),
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, in_sin_port),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
+    {
+     "tipc_family",
+     6,
+     PROTOBUF_C_LABEL_OPTIONAL,
+     PROTOBUF_C_TYPE_UINT32,
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, has_tipc_family),
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, tipc_family),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
+    {
+     "tipc_addrtype",
+     7,
+     PROTOBUF_C_LABEL_OPTIONAL,
+     PROTOBUF_C_TYPE_UINT32,
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, has_tipc_addrtype),
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, tipc_addrtype),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
+    {
+     "tipc_addr_name_name_type",
+     8,
+     PROTOBUF_C_LABEL_OPTIONAL,
+     PROTOBUF_C_TYPE_UINT32,
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, has_tipc_addr_name_name_type),
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, tipc_addr_name_name_type),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
+    {
+     "tipc_addr_name_name_instance",
+     9,
+     PROTOBUF_C_LABEL_OPTIONAL,
+     PROTOBUF_C_TYPE_UINT32,
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, has_tipc_addr_name_name_instance),
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, tipc_addr_name_name_instance),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
+    {
+     "tipc_addr_name_domain",
+     10,
+     PROTOBUF_C_LABEL_OPTIONAL,
+     PROTOBUF_C_TYPE_UINT32,
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, has_tipc_addr_name_domain),
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, tipc_addr_name_domain),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
+    {
+     "tipc_scope",
+     11,
+     PROTOBUF_C_LABEL_OPTIONAL,
+     PROTOBUF_C_TYPE_UINT32,
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, has_tipc_scope),
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntry, tipc_scope),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
 };
 static const unsigned cmsg__sub_entry__field_indices_by_name[] = {
-  0,   /* field[0] = add */
-  3,   /* field[3] = in_sin_addr_s_addr */
-  4,   /* field[4] = in_sin_port */
-  1,   /* field[1] = method_name */
-  9,   /* field[9] = tipc_addr_name_domain */
-  8,   /* field[8] = tipc_addr_name_name_instance */
-  7,   /* field[7] = tipc_addr_name_name_type */
-  6,   /* field[6] = tipc_addrtype */
-  5,   /* field[5] = tipc_family */
-  10,   /* field[10] = tipc_scope */
-  2,   /* field[2] = transport_type */
+    0,  /* field[0] = add */
+    3,  /* field[3] = in_sin_addr_s_addr */
+    4,  /* field[4] = in_sin_port */
+    1,  /* field[1] = method_name */
+    9,  /* field[9] = tipc_addr_name_domain */
+    8,  /* field[8] = tipc_addr_name_name_instance */
+    7,  /* field[7] = tipc_addr_name_name_type */
+    6,  /* field[6] = tipc_addrtype */
+    5,  /* field[5] = tipc_family */
+    10, /* field[10] = tipc_scope */
+    2,  /* field[2] = transport_type */
 };
-static const ProtobufCIntRange cmsg__sub_entry__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 11 }
+
+static const ProtobufCIntRange cmsg__sub_entry__number_ranges[1 + 1] = {
+    { 1, 0 },
+    { 0, 11 }
 };
-const ProtobufCMessageDescriptor cmsg__sub_entry__descriptor =
-{
-  PROTOBUF_C_MESSAGE_DESCRIPTOR_MAGIC,
-  "cmsg.sub_entry",
-  "SubEntry",
-  "Cmsg__SubEntry",
-  "cmsg",
-  sizeof(Cmsg__SubEntry),
-  11,
-  cmsg__sub_entry__field_descriptors,
-  cmsg__sub_entry__field_indices_by_name,
-  1,  cmsg__sub_entry__number_ranges,
-  (ProtobufCMessageInit) cmsg__sub_entry__init,
-  NULL,NULL,NULL    /* reserved[123] */
+
+const ProtobufCMessageDescriptor cmsg__sub_entry__descriptor = {
+    PROTOBUF_C_MESSAGE_DESCRIPTOR_MAGIC,
+    "cmsg.sub_entry",
+    "SubEntry",
+    "Cmsg__SubEntry",
+    "cmsg",
+    sizeof (Cmsg__SubEntry),
+    11,
+    cmsg__sub_entry__field_descriptors,
+    cmsg__sub_entry__field_indices_by_name,
+    1, cmsg__sub_entry__number_ranges,
+    (ProtobufCMessageInit) cmsg__sub_entry__init,
+    NULL, NULL, NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor cmsg__sub_entry_response__field_descriptors[1] =
-{
-  {
-    "return_value",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_INT32,
-    0,   /* quantifier_offset */
-    PROTOBUF_C_OFFSETOF(Cmsg__SubEntryResponse, return_value),
-    NULL,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
+
+static const ProtobufCFieldDescriptor cmsg__sub_entry_response__field_descriptors[1] = {
+    {
+     "return_value",
+     1,
+     PROTOBUF_C_LABEL_REQUIRED,
+     PROTOBUF_C_TYPE_INT32,
+     0,             /* quantifier_offset */
+     PROTOBUF_C_OFFSETOF (Cmsg__SubEntryResponse, return_value),
+     NULL,
+     NULL,
+     0,             /* packed */
+     0, NULL, NULL  /* reserved1,reserved2, etc */
+     },
 };
 static const unsigned cmsg__sub_entry_response__field_indices_by_name[] = {
-  0,   /* field[0] = return_value */
+    0,  /* field[0] = return_value */
 };
-static const ProtobufCIntRange cmsg__sub_entry_response__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 1 }
+
+static const ProtobufCIntRange cmsg__sub_entry_response__number_ranges[1 + 1] = {
+    { 1, 0 },
+    { 0, 1 }
 };
-const ProtobufCMessageDescriptor cmsg__sub_entry_response__descriptor =
-{
-  PROTOBUF_C_MESSAGE_DESCRIPTOR_MAGIC,
-  "cmsg.sub_entry_response",
-  "SubEntryResponse",
-  "Cmsg__SubEntryResponse",
-  "cmsg",
-  sizeof(Cmsg__SubEntryResponse),
-  1,
-  cmsg__sub_entry_response__field_descriptors,
-  cmsg__sub_entry_response__field_indices_by_name,
-  1,  cmsg__sub_entry_response__number_ranges,
-  (ProtobufCMessageInit) cmsg__sub_entry_response__init,
-  NULL,NULL,NULL    /* reserved[123] */
+
+const ProtobufCMessageDescriptor cmsg__sub_entry_response__descriptor = {
+    PROTOBUF_C_MESSAGE_DESCRIPTOR_MAGIC,
+    "cmsg.sub_entry_response",
+    "SubEntryResponse",
+    "Cmsg__SubEntryResponse",
+    "cmsg",
+    sizeof (Cmsg__SubEntryResponse),
+    1,
+    cmsg__sub_entry_response__field_descriptors,
+    cmsg__sub_entry_response__field_indices_by_name,
+    1, cmsg__sub_entry_response__number_ranges,
+    (ProtobufCMessageInit) cmsg__sub_entry_response__init,
+    NULL, NULL, NULL    /* reserved[123] */
 };
-static const ProtobufCMethodDescriptor cmsg__sub_service__method_descriptors[1] =
-{
-  { "subscribe", &cmsg__sub_entry__descriptor, &cmsg__sub_entry_response__descriptor },
+
+static const ProtobufCMethodDescriptor cmsg__sub_service__method_descriptors[1] = {
+    { "subscribe", &cmsg__sub_entry__descriptor, &cmsg__sub_entry_response__descriptor },
 };
+
 const unsigned cmsg__sub_service__method_indices_by_name[] = {
-  0         /* subscribe */
+    0   /* subscribe */
 };
-const ProtobufCServiceDescriptor cmsg__sub_service__descriptor =
-{
-  PROTOBUF_C_SERVICE_DESCRIPTOR_MAGIC,
-  "cmsg.sub_service",
-  "subscribe",
-  "Cmsg__SubService",
-  "cmsg",
-  1,
-  cmsg__sub_service__method_descriptors,
-  cmsg__sub_service__method_indices_by_name
+
+const ProtobufCServiceDescriptor cmsg__sub_service__descriptor = {
+    PROTOBUF_C_SERVICE_DESCRIPTOR_MAGIC,
+    "cmsg.sub_service",
+    "subscribe",
+    "Cmsg__SubService",
+    "cmsg",
+    1,
+    cmsg__sub_service__method_descriptors,
+    cmsg__sub_service__method_indices_by_name
 };
-void cmsg__sub_service__subscribe(ProtobufCService *service,
-                                  const Cmsg__SubEntry *input,
-                                  Cmsg__SubEntryResponse_Closure closure,
-                                  void *closure_data)
+
+void
+cmsg__sub_service__subscribe (ProtobufCService *service,
+                              const Cmsg__SubEntry *input,
+                              Cmsg__SubEntryResponse_Closure closure, void *closure_data)
 {
-  PROTOBUF_C_ASSERT (service->descriptor == &cmsg__sub_service__descriptor);
-  service->invoke(service, 0, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);
+    PROTOBUF_C_ASSERT (service->descriptor == &cmsg__sub_service__descriptor);
+    service->invoke (service, 0, (const ProtobufCMessage *) input,
+                     (ProtobufCClosure) closure, closure_data);
 }
-void cmsg__sub_service__init (Cmsg__SubService_Service *service,
-                              Cmsg__SubService_ServiceDestroy destroy)
+
+void
+cmsg__sub_service__init (Cmsg__SubService_Service *service,
+                         Cmsg__SubService_ServiceDestroy destroy)
 {
-  protobuf_c_service_generated_init (&service->base,
-                                     &cmsg__sub_service__descriptor,
-                                     (ProtobufCServiceDestroy) destroy);
+    protobuf_c_service_generated_init (&service->base,
+                                       &cmsg__sub_service__descriptor,
+                                       (ProtobufCServiceDestroy) destroy);
 }

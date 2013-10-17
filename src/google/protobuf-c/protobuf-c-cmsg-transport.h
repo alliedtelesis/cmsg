@@ -211,8 +211,7 @@ int32_t cmsg_transport_send_called_multi_threads_enable (cmsg_transport *transpo
 
 int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
                                               uint32_t send_can_block);
-int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle,
-                                    cmsg_server *server);
+int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server);
 int32_t cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
                                               cmsg_server *server);
 

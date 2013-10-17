@@ -150,7 +150,7 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
     default:
         // Unknown msg type
         CMSG_LOG_ERROR ("Processing header, bad msg type value - %d",
-                             header_converted->msg_type);
+                        header_converted->msg_type);
         return CMSG_RET_ERR;
         break;
     }

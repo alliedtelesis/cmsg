@@ -162,7 +162,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         else
         {
             CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d no data",
-                   server->connection.sockets.client_socket);
+                            server->connection.sockets.client_socket);
 
             ret = CMSG_RET_ERR;
         }
@@ -178,7 +178,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     else if (nbytes > 0)
     {
         CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d bad header nbytes %d",
-               server->connection.sockets.client_socket, nbytes);
+                        server->connection.sockets.client_socket, nbytes);
 
         // TEMP to keep things going
         buffer = CMSG_CALLOC (1, nbytes);
@@ -196,7 +196,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     else
     {
         CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s",
-               server->connection.sockets.client_socket, strerror (errno));
+                        server->connection.sockets.client_socket, strerror (errno));
         ret = CMSG_RET_ERR;
     }
 

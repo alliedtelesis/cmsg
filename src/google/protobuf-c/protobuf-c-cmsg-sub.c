@@ -144,7 +144,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     else
     {
         CMSG_LOG_ERROR ("[SUB] error cmsg_sub_subscribe transport incorrect: %d",
-               subscriber->pub_server->_transport->type);
+                        subscriber->pub_server->_transport->type);
 
         return CMSG_RET_ERR;
     }

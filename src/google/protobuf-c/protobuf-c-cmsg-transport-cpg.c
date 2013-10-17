@@ -69,7 +69,7 @@ _cmsg_cpg_confchg_fn (cpg_handle_t handle, struct cpg_name *group_name,
      */
     DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n", group_name->value);
     server = g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
-                                                  (gconstpointer) group_name->value);
+                                  (gconstpointer) group_name->value);
 
     if (!server)
     {
@@ -104,7 +104,7 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
     cmsg_server *server;
     cmsg_server_request server_request;
 
-    header_received  = (cmsg_header *)msg;
+    header_received = (cmsg_header *) msg;
 
     if (cmsg_header_process (header_received, &header_converted) != CMSG_RET_OK)
     {
@@ -138,7 +138,7 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
 
     DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n", group_name->value);
     server = g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
-                                                  (gconstpointer) group_name->value);
+                                  (gconstpointer) group_name->value);
 
     if (!server)
     {
@@ -226,7 +226,7 @@ _cmsg_transport_cpg_init_exe_connection (void)
     while (slept_us <= (TV_USEC_PER_SEC * 10));
 
     CMSG_LOG_ERROR ("Couldn't initialize CPG service result:%d, waited:%ums",
-           result, slept_us / 1000);
+                    result, slept_us / 1000);
     return -1;
 }
 
@@ -264,7 +264,8 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
     while (slept_us <= (TV_USEC_PER_SEC * 10));
 
     CMSG_LOG_ERROR ("Couldn't join CPG group %s, result:%d, waited:%ums",
-           server->_transport->config.cpg.group_name.value, result, slept_us / 1000);
+                    server->_transport->config.cpg.group_name.value, result,
+                    slept_us / 1000);
 
     return -1;
 }

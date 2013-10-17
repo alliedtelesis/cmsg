@@ -145,10 +145,10 @@ struct _cmsg_object_s
 
 enum _cmsg_msg_type_e
 {
-    CMSG_MSG_TYPE_METHOD_REQ = 0,  // Request to server to call a method
-    CMSG_MSG_TYPE_METHOD_REPLY,  // Reply from server in response to a method request
-    CMSG_MSG_TYPE_ECHO_REQ,  // Request to server for a reply - used for a ping/healthcheck
-    CMSG_MSG_TYPE_ECHO_REPLY,  // Reply from server in response to an echo request
+    CMSG_MSG_TYPE_METHOD_REQ = 0,   // Request to server to call a method
+    CMSG_MSG_TYPE_METHOD_REPLY,     // Reply from server in response to a method request
+    CMSG_MSG_TYPE_ECHO_REQ,         // Request to server for a reply - used for a ping/healthcheck
+    CMSG_MSG_TYPE_ECHO_REPLY,       // Reply from server in response to an echo request
 };
 
 enum _cmsg_status_code_e
@@ -162,11 +162,11 @@ enum _cmsg_status_code_e
 
 struct _cmsg_header_s
 {
-    cmsg_msg_type msg_type;  // Do NOT change this field
-    uint32_t header_length;  // Do NOT change this field
-    uint32_t message_length; // Do NOT change this field
-    uint32_t method_index;   // Only for METHOD_xxx
-    cmsg_status_code status_code; // Only for METHOD_REPLY
+    cmsg_msg_type msg_type;         // Do NOT change this field
+    uint32_t header_length;         // Do NOT change this field
+    uint32_t message_length;        // Do NOT change this field
+    uint32_t method_index;          // Only for METHOD_xxx
+    cmsg_status_code status_code;   // Only for METHOD_REPLY
 };
 
 enum _cmsg_method_processing_reason_e

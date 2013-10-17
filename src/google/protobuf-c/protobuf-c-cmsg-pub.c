@@ -117,8 +117,9 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
         return NULL;
     }
 
-    publisher->sub_server = cmsg_server_new (sub_server_transport,
-                                             (ProtobufCService *) &cmsg_pub_subscriber_service);
+    publisher->sub_server =
+        cmsg_server_new (sub_server_transport,
+                         (ProtobufCService *) &cmsg_pub_subscriber_service);
     if (!publisher->sub_server)
     {
         DEBUG (CMSG_ERROR, "[PUB] [LIST] error: unable to create publisher->sub_server\n");
@@ -238,8 +239,7 @@ cmsg_pub_get_subscriber_client (cmsg_sub_entry *sub_entry, cmsg_pub *publisher)
      */
     if (!sub_entry->client)
     {
-        sub_entry->client = cmsg_client_new (&sub_entry->transport,
-                                             publisher->descriptor);
+        sub_entry->client = cmsg_client_new (&sub_entry->transport, publisher->descriptor);
     }
 
     // now initiate the connection
@@ -361,9 +361,8 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
         cmsg_sub_entry *list_entry = g_malloc0 (sizeof (cmsg_sub_entry));
         if (!list_entry)
         {
-            CMSG_LOG_ERROR (
-                    "[PUB] [LIST] error: unable to create list entry. line(%d)\n",
-                    __LINE__);
+            CMSG_LOG_ERROR ("[PUB] [LIST] error: unable to create list entry. line(%d)\n",
+                            __LINE__);
             pthread_mutex_unlock (&publisher->subscriber_list_mutex);
             return CMSG_RET_ERR;
         }
@@ -655,8 +654,7 @@ cmsg_pub_invoke (ProtobufCService *service,
 
     method_name = service->descriptor->methods[method_index].name;
 
-    DEBUG (CMSG_INFO,
-           "[PUB] publisher sending notification for: %s\n", method_name);
+    DEBUG (CMSG_INFO, "[PUB] publisher sending notification for: %s\n", method_name);
 
     cmsg_queue_filter_type action = cmsg_pub_queue_filter_lookup (publisher,
                                                                   method_name);
@@ -671,9 +669,7 @@ cmsg_pub_invoke (ProtobufCService *service,
 
     if (action == CMSG_QUEUE_FILTER_DROP)
     {
-        DEBUG (CMSG_ERROR,
-               "[PUB] dropping message: %s\n",
-               method_name);
+        DEBUG (CMSG_ERROR, "[PUB] dropping message: %s\n", method_name);
         return;
     }
 
@@ -693,8 +689,7 @@ cmsg_pub_invoke (ProtobufCService *service,
         }
         else
         {
-            DEBUG (CMSG_INFO,
-                   "[PUB] subscriber has subscribed to: %s\n", method_name);
+            DEBUG (CMSG_INFO, "[PUB] subscriber has subscribed to: %s\n", method_name);
         }
 
         // now get the client associated with this subscription
@@ -1006,4 +1001,3 @@ cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
 
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 }
-

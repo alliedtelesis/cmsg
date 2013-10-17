@@ -39,7 +39,7 @@ cmsg_transport_tipc_connect (cmsg_client *client)
         client->connection.socket = -1;
         client->state = CMSG_CLIENT_STATE_FAILED;
         CMSG_LOG_ERROR ("[TRANSPORT] error connecting to remote host: %s",
-               strerror (errno));
+                        strerror (errno));
 
         return 0;
     }
@@ -145,7 +145,7 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
     if (!server || server_socket < 0)
     {
         CMSG_LOG_ERROR ("[TRANSPORT] bad parameter server %p socket %d",
-                             server, server_socket);
+                        server, server_socket);
         return -1;
     }
     DEBUG (CMSG_INFO, "[TRANSPORT] socket %d\n", server_socket);
@@ -294,7 +294,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         else
         {
             CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d no data, dyn_len %d",
-                   client->connection.socket, dyn_len);
+                            client->connection.socket, dyn_len);
 
         }
         if (recv_buffer != (void *) buf_static)
@@ -310,9 +310,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     {
         /* Didn't receive all of the CMSG header.
          */
-        CMSG_LOG_ERROR (
-               "[TRANSPORT] recv socket %d bad header nbytes %d\n",
-               client->connection.socket, nbytes);
+        CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d bad header nbytes %d\n",
+                        client->connection.socket, nbytes);
 
         // TEMP to keep things going
         recv_buffer = CMSG_CALLOC (1, nbytes);
@@ -330,9 +329,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         //Error while peeking at socket data.
         if (errno != ECONNRESET)
         {
-            CMSG_LOG_ERROR (
-                   "[TRANSPORT] recv socket %d error: %s\n",
-                   client->connection.socket, strerror (errno));
+            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s\n",
+                            client->connection.socket, strerror (errno));
         }
     }
 
