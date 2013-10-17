@@ -80,7 +80,7 @@ cmsg_sub_subscribe_response_handler (const Cmsg__SubEntryResponse *response,
 
     if (response == 0)
     {
-        CMSG_LOG_USER_ERROR ("[SUB] error: processing register response");
+        CMSG_LOG_ERROR ("[SUB] error: processing register response");
         *return_value = CMSG_STATUS_CODE_SERVICE_FAILED;
     }
     else
@@ -143,7 +143,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     }
     else
     {
-        CMSG_LOG_USER_ERROR ("[SUB] error cmsg_sub_subscribe transport incorrect: %d",
+        CMSG_LOG_ERROR ("[SUB] error cmsg_sub_subscribe transport incorrect: %d",
                subscriber->pub_server->_transport->type);
 
         return CMSG_RET_ERR;
@@ -153,7 +153,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
                                        &cmsg__sub_service__descriptor);
     if (!register_client)
     {
-        CMSG_LOG_USER_ERROR ("[SUB] error could not create register client");
+        CMSG_LOG_ERROR ("[SUB] error could not create register client");
         CMSG_FREE (register_client);
         return CMSG_RET_ERR;
     }

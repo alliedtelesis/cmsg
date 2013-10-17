@@ -68,7 +68,7 @@ _cmsg_cpg_confchg_fn (cpg_handle_t handle, struct cpg_name *group_name,
     /* Find the server matching this group.
      */
     DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n", group_name->value);
-    server = (cmsg_server *) g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
+    server = g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
                                                   (gconstpointer) group_name->value);
 
     if (!server)
@@ -109,7 +109,7 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
     if (cmsg_header_process (header_received, &header_converted) != CMSG_RET_OK)
     {
         // Couldn't process the header for some reason
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] server receive couldn't process msg header");
+        CMSG_LOG_ERROR ("[TRANSPORT] server receive couldn't process msg header");
         return;
     }
 
@@ -137,7 +137,7 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
     cmsg_buffer_print (buffer, dyn_len);
 
     DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n", group_name->value);
-    server = (cmsg_server *) g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
+    server = g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
                                                   (gconstpointer) group_name->value);
 
     if (!server)
@@ -225,7 +225,7 @@ _cmsg_transport_cpg_init_exe_connection (void)
     }
     while (slept_us <= (TV_USEC_PER_SEC * 10));
 
-    CMSG_LOG_USER_ERROR ("Couldn't initialize CPG service result:%d, waited:%ums",
+    CMSG_LOG_ERROR ("Couldn't initialize CPG service result:%d, waited:%ums",
            result, slept_us / 1000);
     return -1;
 }
@@ -263,7 +263,7 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
     }
     while (slept_us <= (TV_USEC_PER_SEC * 10));
 
-    CMSG_LOG_USER_ERROR ("Couldn't join CPG group %s, result:%d, waited:%ums",
+    CMSG_LOG_ERROR ("Couldn't join CPG group %s, result:%d, waited:%ums",
            server->_transport->config.cpg.group_name.value, result, slept_us / 1000);
 
     return -1;
@@ -285,7 +285,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     if (!server || !server->_transport ||
         server->_transport->config.cpg.group_name.value[0] == '\0')
     {
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] cpg listen sanity check failed");
+        CMSG_LOG_ERROR ("[TRANSPORT] cpg listen sanity check failed");
         return -1;
     }
     else
@@ -302,7 +302,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
         res = _cmsg_transport_cpg_init_exe_connection ();
         if (res < 0)
         {
-            CMSG_LOG_USER_ERROR ("[TRANSPORT] cpg listen init failed, result %d", res);
+            CMSG_LOG_ERROR ("[TRANSPORT] cpg listen init failed, result %d", res);
             return -1;
         }
     }
@@ -322,7 +322,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
 
     if (res < 0)
     {
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] cpg listen join failed, result %d", res);
+        CMSG_LOG_ERROR ("[TRANSPORT] cpg listen join failed, result %d", res);
         return -2;
     }
 
@@ -334,7 +334,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     else
     {
         server->connection.cpg.fd = 0;
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] cpg listen cannot get fd");
+        CMSG_LOG_ERROR ("[TRANSPORT] cpg listen cannot get fd");
         return -3;
     }
 
@@ -528,7 +528,7 @@ cmsg_transport_cpg_server_destroy (cmsg_server *server)
     /* Cleanup our entries in the hash table.
      */
     ret = g_hash_table_remove (cpg_group_name_to_server_hash_table_h,
-                               (gpointer *) server->_transport->config.cpg.group_name.value);
+                               server->_transport->config.cpg.group_name.value);
     DEBUG (CMSG_INFO, "[TRANSPORT] cpg group name hash table remove, result %d\n", ret);
 
     /* Leave the CPG group.

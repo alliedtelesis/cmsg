@@ -444,8 +444,8 @@ cmsg_queue_filter_set_all (GHashTable *queue_filter_hash_table,
     for (i = 0; i < descriptor->n_methods; i++)
     {
         cmsg_queue_filter_entry *entry;
-        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
-                                                                 (gconstpointer) descriptor->methods[i].name);
+        entry = g_hash_table_lookup (queue_filter_hash_table,
+                                     (gconstpointer) descriptor->methods[i].name);
 
         entry->type = filter_type;
     }
@@ -462,8 +462,8 @@ cmsg_queue_filter_clear_all (GHashTable *queue_filter_hash_table,
     for (i = 0; i < descriptor->n_methods; i++)
     {
         cmsg_queue_filter_entry *entry;
-        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
-                                                                 (gconstpointer) descriptor->methods[i].name);
+        entry = g_hash_table_lookup (queue_filter_hash_table,
+                                     (gconstpointer) descriptor->methods[i].name);
 
         entry->type = CMSG_QUEUE_FILTER_PROCESS;
     }
@@ -478,8 +478,8 @@ cmsg_queue_filter_set (GHashTable *queue_filter_hash_table, const char *method,
 
     //add filter for single method with filter type
     cmsg_queue_filter_entry *entry;
-    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
-                                                             (gconstpointer) method_pbc);
+    entry = g_hash_table_lookup (queue_filter_hash_table,
+                                 (gconstpointer) method_pbc);
 
     if (entry)
     {
@@ -498,8 +498,8 @@ cmsg_queue_filter_clear (GHashTable *queue_filter_hash_table, const char *method
 
     //clear filter for single method
     cmsg_queue_filter_entry *entry;
-    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
-                                                             (gconstpointer) method_pbc);
+    entry = g_hash_table_lookup (queue_filter_hash_table,
+                                 (gconstpointer) method_pbc);
 
     if (entry)
     {
@@ -523,7 +523,7 @@ cmsg_queue_filter_init (GHashTable *queue_filter_hash_table,
         entry->type = CMSG_QUEUE_FILTER_PROCESS;
 
         g_hash_table_insert (queue_filter_hash_table,
-                             (gpointer) descriptor->methods[i].name, (gpointer) entry);
+                             (gpointer) descriptor->methods[i].name, entry);
     }
 }
 
@@ -535,7 +535,7 @@ cmsg_queue_filter_free (GHashTable *queue_filter_hash_table,
     for (i = 0; i < descriptor->n_methods; i++)
     {
         cmsg_queue_filter_entry *entry;
-        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+        entry = g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer) descriptor->methods[i].name);
 
         g_free (entry);
@@ -550,7 +550,7 @@ cmsg_queue_filter_lookup (GHashTable *queue_filter_hash_table, const char *metho
 {
     //add filter for single method with filter type
     cmsg_queue_filter_entry *entry;
-    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+    entry = g_hash_table_lookup (queue_filter_hash_table,
                                                              (gconstpointer) method);
 
     if (entry)
@@ -571,7 +571,7 @@ cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
     for (i = 0; i < descriptor->n_methods; i++)
     {
         cmsg_queue_filter_entry *entry;
-        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+        entry = g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer) descriptor->methods[i].name);
 
         switch (entry->type)
@@ -602,7 +602,7 @@ cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
     for (i = 0; i < descriptor->n_methods; i++)
     {
         cmsg_queue_filter_entry *entry;
-        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+        entry = g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer) descriptor->methods[i].name);
 
         if (entry->type == CMSG_QUEUE_FILTER_QUEUE)
@@ -627,10 +627,10 @@ cmsg_queue_filter_copy (GHashTable *src_queue_filter_hash_table,
         cmsg_queue_filter_entry *src_entry;
         cmsg_queue_filter_entry *dst_entry;
 
-        src_entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (src_queue_filter_hash_table,
+        src_entry = g_hash_table_lookup (src_queue_filter_hash_table,
                                                                      (gconstpointer) descriptor->methods[i].name);
 
-        dst_entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (dst_queue_filter_hash_table,
+        dst_entry = g_hash_table_lookup (dst_queue_filter_hash_table,
                                                                      (gconstpointer) descriptor->methods[i].name);
 
         if (!src_entry || !dst_entry)

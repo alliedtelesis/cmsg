@@ -178,6 +178,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     uint8_t buf_static[512];
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
+    const ProtobufCMessageDescriptor *desc;
 
     if (!client)
     {
@@ -193,7 +194,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
-            CMSG_LOG_USER_ERROR ("[TRANSPORT] server receive couldn't process msg header");
+            CMSG_LOG_ERROR ("[TRANSPORT] server receive couldn't process msg header");
             return CMSG_RET_ERR;
         }
 
@@ -214,8 +215,8 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
         // Take into account that someone may have changed the size of the header
         // and we don't know about it, make sure we receive all the information.
-        dyn_len = header_converted.message_length +
-                  (header_converted.header_length - sizeof (cmsg_header));
+        dyn_len = header_converted.message_length + header_converted.header_length
+            - sizeof (cmsg_header);
         if (dyn_len > sizeof buf_static)
         {
             recv_buffer = CMSG_CALLOC (1, dyn_len);
@@ -241,10 +242,10 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
             DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
+            desc = client->descriptor->methods[header_converted.method_index].output;
             message =
-                protobuf_c_message_unpack (client->descriptor->methods[header_converted.method_index].output,
-                                           allocator, header_converted.message_length,
-                                           buffer);
+                protobuf_c_message_unpack (desc, allocator,
+                                           header_converted.message_length, buffer);
 
             if (message == NULL)
             {

@@ -444,11 +444,15 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *) server->allocator;
     cmsg_server_request *server_request = server->server_request;
+    const char *method_name;
+    const ProtobufCMessageDescriptor *desc;
+
+    method_name = server->service->descriptor->methods[server_request->method_index].name;
+    desc = server->service->descriptor->methods[server_request->method_index].input;
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
-        CMSG_LOG_USER_ERROR (
-               "[SERVER] error: the method index read from the header seems to be too high - idx %d, max %d",
+        CMSG_LOG_ERROR ("[SERVER] error: method index is too high - idx %d, max %d",
                server_request->method_index, server->service->descriptor->n_methods);
         return CMSG_RET_ERR;
     }
@@ -459,22 +463,20 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
         DEBUG (CMSG_INFO, "[SERVER] unpacking message\n");
 
         //unpack the message
-        message = protobuf_c_message_unpack (server->service->descriptor->methods[server_request->method_index].input,
-                                             allocator,
-                                             server_request->message_length,
-                                             buffer_data);
+        message = protobuf_c_message_unpack (desc, allocator,
+                                             server_request->message_length, buffer_data);
     }
     else
     {
         DEBUG (CMSG_INFO, "[SERVER] processsing message without data\n");
         //create a new empty message
         // ATL_1716_TODO need to allocate message before init'ing it
-        protobuf_c_message_init (server->service->descriptor->methods[server_request->method_index].input, message);
+        protobuf_c_message_init (desc, message);
     }
 
     if (message == NULL)
     {
-        CMSG_LOG_USER_ERROR ("[SERVER] error: unpacking message");
+        CMSG_LOG_ERROR ("[SERVER] error: unpacking message");
         return CMSG_RET_ERR;
     }
 
@@ -486,14 +488,12 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     }
     else
     {
-        action = cmsg_server_queue_filter_lookup (server,
-                                                  server->service->descriptor->methods[server_request->method_index].name);
+        action = cmsg_server_queue_filter_lookup (server, method_name);
 
         if (action == CMSG_QUEUE_FILTER_ERROR)
         {
-            CMSG_LOG_USER_ERROR (
-                   "[SERVER] error: queue_lookup_filter returned CMSG_QUEUE_FILTER_ERROR for: %s",
-                   server->service->descriptor->methods[server_request->method_index].name);
+            CMSG_LOG_ERROR (
+                   "[SERVER] error: queue_lookup_filter returned ERROR for: %s", method_name);
 
             // Free unpacked message prior to return
             protobuf_c_message_free_unpacked (message, allocator);
@@ -502,8 +502,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
         else if (action == CMSG_QUEUE_FILTER_DROP)
         {
             DEBUG (CMSG_INFO,
-                   "[SERVER] dropping message: %s\n",
-                   server->service->descriptor->methods[server_request->method_index].name);
+                   "[SERVER] dropping message: %s\n", method_name);
 
             processing_reason = CMSG_METHOD_DROPPED;
         }
@@ -547,7 +546,7 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
     ret = server->_transport->server_send (server, &header, sizeof (header), 0);
     if (ret < sizeof (header))
     {
-        CMSG_LOG_USER_ERROR (
+        CMSG_LOG_ERROR (
                "[SERVER] error: sending of echo reply failed sent:%d of %u",
                ret, (uint32_t) sizeof (header));
         return CMSG_RET_ERR;
@@ -584,7 +583,7 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
         break;
 
     default:
-        CMSG_LOG_USER_ERROR ("[SERVER] Received a msg type the server doesn't support - %d", server_request->msg_type);
+        CMSG_LOG_ERROR ("[SERVER] Received a msg type the server doesn't support - %d", server_request->msg_type);
         return CMSG_RET_ERR;
         break;
     }
@@ -692,13 +691,13 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         uint8_t *buffer = CMSG_CALLOC (1, packed_size + sizeof (header));
         if (!buffer)
         {
-            CMSG_LOG_USER_ERROR ("[SERVER] error: unable to allocate buffer. line(%d)\n", __LINE__);
+            CMSG_LOG_ERROR ("[SERVER] error: unable to allocate buffer. line(%d)\n", __LINE__);
             return;
         }
         uint8_t *buffer_data = CMSG_CALLOC (1, packed_size);
         if (!buffer_data)
         {
-            CMSG_LOG_USER_ERROR ("[SERVER] error: unable to allocate data buffer. line(%d)\n", __LINE__);
+            CMSG_LOG_ERROR ("[SERVER] error: unable to allocate data buffer. line(%d)\n", __LINE__);
             CMSG_FREE (buffer);
             return;
         }
@@ -710,7 +709,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         ret = protobuf_c_message_pack (message, buffer_data);
         if (ret < packed_size)
         {
-            CMSG_LOG_USER_ERROR ("[SERVER] packing response data failed packet:%d of %d\n",
+            CMSG_LOG_ERROR ("[SERVER] packing response data failed packet:%d of %d\n",
                    ret, packed_size);
 
             CMSG_FREE (buffer);
@@ -759,7 +758,7 @@ cmsg_server_closure_oneway (const ProtobufCMessage *message, void *closure_data_
 int32_t
 cmsg_server_queue_process (cmsg_server *server)
 {
-    int32_t processed_messages_count = 0;
+    int32_t processed = 0;
 
     pthread_mutex_lock (&server->queueing_state_mutex);
 
@@ -777,18 +776,18 @@ cmsg_server_queue_process (cmsg_server *server)
         }
 
         if (server->queue_process_number >= 0)
-            processed_messages_count = cmsg_receive_queue_process_some (server->queue, server->queue_mutex,
+            processed = cmsg_receive_queue_process_some (server->queue, server->queue_mutex,
                                                                         server->service->descriptor,
                                                                         server, server->queue_process_number);
         else if (server->queue_process_number == -1)
-            processed_messages_count = cmsg_receive_queue_process_all (server->queue, server->queue_mutex,
+            processed = cmsg_receive_queue_process_all (server->queue, server->queue_mutex,
                                                                        server->service->descriptor,
                                                                        server);
 
-        if (processed_messages_count > 0)
+        if (processed > 0)
             DEBUG (CMSG_INFO,
                    "server has processed: %d messages in CMSG_QUEUE_STATE_TO_DISABLED state",
-                   processed_messages_count);
+                   processed);
 
         if (cmsg_server_queue_get_length (server) == 0)
         {
@@ -806,17 +805,17 @@ cmsg_server_queue_process (cmsg_server *server)
     else if (server->queueing_state == CMSG_QUEUE_STATE_ENABLED)
     {
         if (server->queue_process_number >= 0)
-            processed_messages_count = cmsg_receive_queue_process_some (server->queue, server->queue_mutex,
+            processed = cmsg_receive_queue_process_some (server->queue, server->queue_mutex,
                                                                         server->service->descriptor,
                                                                         server, server->queue_process_number);
         else if (server->queue_process_number == -1)
-            processed_messages_count = cmsg_receive_queue_process_all (server->queue, server->queue_mutex,
+            processed = cmsg_receive_queue_process_all (server->queue, server->queue_mutex,
                                                                        server->service->descriptor,
                                                                        server);
-        if (processed_messages_count > 0)
+        if (processed > 0)
             DEBUG (CMSG_INFO,
                    "server has processed: %d messages in CMSG_QUEUE_STATE_ENABLED state",
-                   processed_messages_count);
+                   processed);
     }
 
     if (server->queueing_state != server->queueing_state_last)
@@ -1076,14 +1075,14 @@ cmsg_create_server_tipc (const char *server_name, int member_id, int scope,
     port = cmsg_service_port_get (server_name, "tipc");
     if (port <= 0)
     {
-        CMSG_LOG_USER_ERROR ("Unknown TIPC service %s", server_name);
+        CMSG_LOG_ERROR ("Unknown TIPC service %s", server_name);
         return NULL;
     }
 
     transport = cmsg_transport_new (transport_type);
     if (transport == NULL)
     {
-        CMSG_LOG_USER_ERROR ("No TIPC transport for %d", member_id);
+        CMSG_LOG_ERROR ("No TIPC transport for %d", member_id);
         return NULL;
     }
 
@@ -1099,7 +1098,7 @@ cmsg_create_server_tipc (const char *server_name, int member_id, int scope,
     if (server == NULL)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_USER_ERROR ("Failed to create TIPC server for %d\n", member_id);
+        CMSG_LOG_ERROR ("Failed to create TIPC server for %d\n", member_id);
         return NULL;
     }
 

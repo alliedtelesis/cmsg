@@ -18,7 +18,7 @@ cmsg_transport_tipc_connect (cmsg_client *client)
     if (client->connection.socket < 0)
     {
         client->state = CMSG_CLIENT_STATE_FAILED;
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] error creating socket: %s", strerror (errno));
+        CMSG_LOG_ERROR ("[TRANSPORT] error creating socket: %s", strerror (errno));
 
         return 0;
     }
@@ -38,7 +38,7 @@ cmsg_transport_tipc_connect (cmsg_client *client)
         close (client->connection.socket);
         client->connection.socket = -1;
         client->state = CMSG_CLIENT_STATE_FAILED;
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] error connecting to remote host: %s",
+        CMSG_LOG_ERROR ("[TRANSPORT] error connecting to remote host: %s",
                strerror (errno));
 
         return 0;
@@ -72,14 +72,14 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
     {
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] socket failed with: %s", strerror (errno));
+        CMSG_LOG_ERROR ("[TRANSPORT] socket failed with: %s", strerror (errno));
         return -1;
     }
 
     ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int32_t));
     if (ret == -1)
     {
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] setsockopt failed with: %s", strerror (errno));
+        CMSG_LOG_ERROR ("[TRANSPORT] setsockopt failed with: %s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -90,7 +90,7 @@ cmsg_transport_tipc_listen (cmsg_server *server)
                 (struct sockaddr *) &transport->config.socket.sockaddr.tipc, addrlen);
     if (ret < 0)
     {
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] bind failed with: %s", strerror (errno));
+        CMSG_LOG_ERROR ("[TRANSPORT] bind failed with: %s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -98,7 +98,7 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     ret = listen (listening_socket, 10);
     if (ret < 0)
     {
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] listen failed with: %s", strerror (errno));
+        CMSG_LOG_ERROR ("[TRANSPORT] listen failed with: %s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -144,7 +144,7 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
 
     if (!server || server_socket < 0)
     {
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] bad parameter server %p socket %d",
+        CMSG_LOG_ERROR ("[TRANSPORT] bad parameter server %p socket %d",
                              server, server_socket);
         return -1;
     }
@@ -199,6 +199,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     uint8_t *recv_buffer = 0;
     uint8_t *buffer = 0;
     uint8_t buf_static[512];
+    const ProtobufCMessageDescriptor *desc;
 
     if (!client)
     {
@@ -214,7 +215,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
-            CMSG_LOG_USER_ERROR ("[TRANSPORT] server receive couldn't process msg header");
+            CMSG_LOG_ERROR ("[TRANSPORT] server receive couldn't process msg header");
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
@@ -235,8 +236,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
         // Take into account that someone may have changed the size of the header
         // and we don't know about it, make sure we receive all the information.
-        dyn_len = header_converted.message_length +
-                  (header_converted.header_length - sizeof (cmsg_header));
+        dyn_len = header_converted.message_length
+            + header_converted.header_length - sizeof (cmsg_header);
 
         if (dyn_len > sizeof buf_static)
         {
@@ -265,11 +266,10 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
             DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
-            message = protobuf_c_message_unpack (
-                        client->descriptor->methods[header_converted.method_index].output,
-                        allocator,
-                        header_converted.message_length,
-                        recv_buffer);
+            desc = client->descriptor->methods[header_converted.method_index].output;
+            message = protobuf_c_message_unpack (desc, allocator,
+                                                 header_converted.message_length,
+                                                 recv_buffer);
 
             // Free the allocated buffer
             if (recv_buffer != (void *) buf_static)
@@ -284,7 +284,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             // Msg not unpacked correctly
             if (message == NULL)
             {
-                CMSG_LOG_USER_ERROR ("[TRANSPORT] error unpacking response message\n");
+                CMSG_LOG_ERROR ("[TRANSPORT] error unpacking response message\n");
                 *messagePtPt = NULL;
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
             }
@@ -293,7 +293,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         }
         else
         {
-            CMSG_LOG_USER_ERROR ("[TRANSPORT] recv socket %d no data, dyn_len %d",
+            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d no data, dyn_len %d",
                    client->connection.socket, dyn_len);
 
         }
@@ -310,7 +310,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     {
         /* Didn't receive all of the CMSG header.
          */
-        CMSG_LOG_USER_ERROR (
+        CMSG_LOG_ERROR (
                "[TRANSPORT] recv socket %d bad header nbytes %d\n",
                client->connection.socket, nbytes);
 
@@ -330,7 +330,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         //Error while peeking at socket data.
         if (errno != ECONNRESET)
         {
-            CMSG_LOG_USER_ERROR (
+            CMSG_LOG_ERROR (
                    "[TRANSPORT] recv socket %d error: %s\n",
                    client->connection.socket, strerror (errno));
         }

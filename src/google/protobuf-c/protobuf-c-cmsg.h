@@ -30,12 +30,12 @@
 
 // Use this for 'expected' user facing friendly errors
 #if defined(DEBUG_WORKSTATION)
-#define CMSG_LOG_USER_ERROR(fmt, ...)                                                   \
+#define CMSG_LOG_ERROR(fmt, ...)                                                   \
     do {                                                                                \
         printf ("ERR(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__);       \
     } while (0)
 #else
-#define CMSG_LOG_USER_ERROR(fmt, ...)                                                   \
+#define CMSG_LOG_ERROR(fmt, ...)                                                   \
         do {                                                                            \
         syslog (LOG_ERR | LOG_LOCAL6, "ERR(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__); \
     } while (0)

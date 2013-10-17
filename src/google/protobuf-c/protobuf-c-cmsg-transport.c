@@ -99,7 +99,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
-            CMSG_LOG_USER_ERROR ("[TRANSPORT] server receive couldn't process msg header");
+            CMSG_LOG_ERROR ("[TRANSPORT] server receive couldn't process msg header");
             return CMSG_RET_ERR;
         }
 
@@ -117,8 +117,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         else
         {
             // Make sure any extra header is received.
-            dyn_len = header_converted.message_length +
-                      (header_converted.header_length - sizeof (cmsg_header));
+            dyn_len = header_converted.message_length
+                + header_converted.header_length - sizeof (cmsg_header);
         }
 
         if (dyn_len > sizeof buf_static)
@@ -157,11 +157,11 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
             server->server_request = &server_request;
 
             if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
-                CMSG_LOG_USER_ERROR ("[TRANSPORT] message processing returned an error");
+                CMSG_LOG_ERROR ("[TRANSPORT] message processing returned an error");
         }
         else
         {
-            CMSG_LOG_USER_ERROR ("[TRANSPORT] recv socket %d no data",
+            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d no data",
                    server->connection.sockets.client_socket);
 
             ret = CMSG_RET_ERR;
@@ -177,7 +177,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     }
     else if (nbytes > 0)
     {
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] recv socket %d bad header nbytes %d",
+        CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d bad header nbytes %d",
                server->connection.sockets.client_socket, nbytes);
 
         // TEMP to keep things going
@@ -195,7 +195,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     }
     else
     {
-        CMSG_LOG_USER_ERROR ("[TRANSPORT] recv socket %d error: %s",
+        CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s",
                server->connection.sockets.client_socket, strerror (errno));
         ret = CMSG_RET_ERR;
     }

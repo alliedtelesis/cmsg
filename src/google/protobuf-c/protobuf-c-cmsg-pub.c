@@ -361,7 +361,7 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
         cmsg_sub_entry *list_entry = g_malloc0 (sizeof (cmsg_sub_entry));
         if (!list_entry)
         {
-            CMSG_LOG_USER_ERROR (
+            CMSG_LOG_ERROR (
                     "[PUB] [LIST] error: unable to create list entry. line(%d)\n",
                     __LINE__);
             pthread_mutex_unlock (&publisher->subscriber_list_mutex);
@@ -598,6 +598,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *) server->allocator;
     cmsg_closure_data closure_data;
+    const ProtobufCMessageDescriptor *desc;
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
@@ -608,16 +609,15 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
     if (!buffer_data)
     {
-        CMSG_LOG_USER_ERROR ("[PUB] buffer not defined");
+        CMSG_LOG_ERROR ("[PUB] buffer not defined");
         return 0;
     }
 
     DEBUG (CMSG_INFO, "[PUB] unpacking message\n");
 
-    message = protobuf_c_message_unpack (server->service->descriptor->methods[server_request->method_index].input,
-                                         allocator,
-                                         server_request->message_length,
-                                         buffer_data);
+    desc = server->service->descriptor->methods[server_request->method_index].input;
+    message = protobuf_c_message_unpack (desc, allocator,
+                                         server_request->message_length, buffer_data);
 
     if (message == 0)
     {
@@ -647,23 +647,25 @@ cmsg_pub_invoke (ProtobufCService *service,
     int tries = CMSG_TRANSPORT_CLIENT_SEND_TRIES;
     int remove_entry = 0;
     cmsg_pub *publisher = (cmsg_pub *) service;
+    const char *method_name;
 
     CMSG_ASSERT (service);
     CMSG_ASSERT (service->descriptor);
     CMSG_ASSERT (input);
 
+    method_name = service->descriptor->methods[method_index].name;
+
     DEBUG (CMSG_INFO,
-           "[PUB] publisher sending notification for: %s\n",
-           service->descriptor->methods[method_index].name);
+           "[PUB] publisher sending notification for: %s\n", method_name);
 
     cmsg_queue_filter_type action = cmsg_pub_queue_filter_lookup (publisher,
-                                                                  service->descriptor->methods[method_index].name);
+                                                                  method_name);
 
     if (action == CMSG_QUEUE_FILTER_ERROR)
     {
         DEBUG (CMSG_ERROR,
                "[PUB] error: queue_lookup_filter returned CMSG_QUEUE_FILTER_ERROR for: %s\n",
-               service->descriptor->methods[method_index].name);
+               method_name);
         return;
     }
 
@@ -671,7 +673,7 @@ cmsg_pub_invoke (ProtobufCService *service,
     {
         DEBUG (CMSG_ERROR,
                "[PUB] dropping message: %s\n",
-               service->descriptor->methods[method_index].name);
+               method_name);
         return;
     }
 
@@ -683,8 +685,7 @@ cmsg_pub_invoke (ProtobufCService *service,
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
 
         //just send to this client if it has subscribed for this notification before
-        if (strcmp (service->descriptor->methods[method_index].name,
-                    list_entry->method_name))
+        if (strcmp (method_name, list_entry->method_name))
         {
             //skip this entry is not what we want
             subscriber_list = g_list_next (subscriber_list);
@@ -693,8 +694,7 @@ cmsg_pub_invoke (ProtobufCService *service,
         else
         {
             DEBUG (CMSG_INFO,
-                   "[PUB] subscriber has subscribed to: %s\n",
-                   service->descriptor->methods[method_index].name);
+                   "[PUB] subscriber has subscribed to: %s\n", method_name);
         }
 
         // now get the client associated with this subscription
@@ -841,7 +841,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
     }
     else
     {
-        CMSG_LOG_USER_ERROR ("[PUB] error: subscriber transport not supported");
+        CMSG_LOG_ERROR ("[PUB] error: subscriber transport not supported");
 
         return;
     }
@@ -939,8 +939,8 @@ cmsg_pub_queue_filter_clear_all (cmsg_pub *publisher)
 }
 
 int32_t
-cmsg_pub_queue_filter_set (cmsg_pub *publisher,
-                           const char *method, cmsg_queue_filter_type filter_type)
+cmsg_pub_queue_filter_set (cmsg_pub *publisher, const char *method,
+                           cmsg_queue_filter_type filter_type)
 {
     return cmsg_queue_filter_set (publisher->queue_filter_hash_table, method, filter_type);
 }
