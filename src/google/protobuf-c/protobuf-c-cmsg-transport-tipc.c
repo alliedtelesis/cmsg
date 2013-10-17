@@ -506,3 +506,49 @@ cmsg_transport_oneway_tipc_init (cmsg_transport *transport)
 
     DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
+
+cmsg_transport *
+cmsg_create_transport_tipc (const char *server_name, int member_id, int scope,
+                            cmsg_transport_type transport_type)
+{
+    uint32_t port = 0;
+    cmsg_transport *transport = NULL;
+
+    port = cmsg_service_port_get (server_name, "tipc");
+    if (port <= 0)
+    {
+        CMSG_LOG_ERROR ("Unknown TIPC service %s", server_name);
+        return NULL;
+    }
+
+    transport = cmsg_transport_new (transport_type);
+    if (transport == NULL)
+    {
+        CMSG_LOG_ERROR ("No TIPC transport for %d", member_id);
+        return NULL;
+    }
+
+    transport->config.socket.family = AF_TIPC;
+    transport->config.socket.sockaddr.tipc.family = AF_TIPC;
+    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
+    transport->config.socket.sockaddr.tipc.addr.name.domain = 0;
+    transport->config.socket.sockaddr.tipc.addr.name.name.type = port;
+    transport->config.socket.sockaddr.tipc.addr.name.name.instance = member_id;
+    transport->config.socket.sockaddr.tipc.scope = scope;
+
+    return transport;
+}
+
+cmsg_transport *
+cmsg_create_transport_tipc_rpc (const char *server_name, int member_id, int scope)
+{
+    return cmsg_create_transport_tipc (server_name, member_id, scope,
+                                       CMSG_TRANSPORT_RPC_TIPC);
+}
+
+cmsg_transport *
+cmsg_create_transport_tipc_oneway (const char *server_name, int member_id, int scope)
+{
+    return cmsg_create_transport_tipc (server_name, member_id, scope,
+                                       CMSG_TRANSPORT_ONEWAY_TIPC);
+}

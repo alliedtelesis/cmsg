@@ -215,4 +215,13 @@ int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_serv
 int32_t cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
                                               cmsg_server *server);
 
+cmsg_transport *cmsg_create_transport_tipc (const char *server_name, int member_id,
+                                            int scope, cmsg_transport_type transport_type);
+
+cmsg_transport *cmsg_create_transport_tipc_rpc (const char *server_name, int member_id,
+                                                int scope);
+
+cmsg_transport *cmsg_create_transport_tipc_oneway (const char *server_name, int member_id,
+                                                   int scope);
+
 #endif

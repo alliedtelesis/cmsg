@@ -44,4 +44,12 @@ int32_t cmsg_sub_subscribe (cmsg_sub *subscriber,
 int32_t cmsg_sub_unsubscribe (cmsg_sub *subscriber,
                               cmsg_transport *sub_client_transport, char *method_name);
 
+cmsg_sub *cmsg_create_subscriber_tipc_rpc (const char *server_name, int member_id,
+                                           int scope, ProtobufCService *descriptor);
+
+cmsg_sub *cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id,
+                                              int scope, ProtobufCService *descriptor);
+
+void cmsg_destroy_subscriber_and_transport (cmsg_sub *subscriber);
+
 #endif

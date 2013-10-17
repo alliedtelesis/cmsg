@@ -152,5 +152,15 @@ void _cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
  */
 void cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
 
+cmsg_pub *cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
+                                          int scope,
+                                          ProtobufCServiceDescriptor *descriptor);
+
+cmsg_pub *cmsg_create_publisher_tipc_oneway (const char *server_name, int member_id,
+                                             int scope,
+                                             ProtobufCServiceDescriptor *descriptor);
+
+void cmsg_destroy_publisher_and_transport (cmsg_pub *publisher);
+
 
 #endif

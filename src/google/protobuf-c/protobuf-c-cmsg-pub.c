@@ -1001,3 +1001,59 @@ cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
 
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 }
+
+
+static cmsg_pub *
+cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
+                            ProtobufCServiceDescriptor *descriptor,
+                            cmsg_transport_type transport_type)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_pub *publisher = NULL;
+
+    transport = cmsg_create_transport_tipc (server_name, member_id, scope, transport_type);
+    if (transport == NULL)
+    {
+        return NULL;
+    }
+
+    publisher = cmsg_pub_new (transport, descriptor);
+    if (publisher == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_ERROR ("No TIPC publisher to %d", member_id);
+        return NULL;
+    }
+
+    return publisher;
+}
+
+cmsg_pub *
+cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
+                                int scope, ProtobufCServiceDescriptor *descriptor)
+{
+    return cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
+                                       CMSG_TRANSPORT_RPC_TIPC);
+}
+
+cmsg_pub *
+cmsg_create_publisher_tipc_oneway (const char *server_name, int member_id,
+                                   int scope, ProtobufCServiceDescriptor *descriptor)
+{
+    return cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
+                                       CMSG_TRANSPORT_ONEWAY_TIPC);
+}
+
+void
+cmsg_destroy_publisher_and_transport (cmsg_pub *publisher)
+{
+    cmsg_transport *transport;
+
+    if (publisher != NULL)
+    {
+        transport = publisher->sub_server->_transport;
+
+        cmsg_pub_destroy (publisher);
+        cmsg_transport_destroy (transport);
+    }
+}

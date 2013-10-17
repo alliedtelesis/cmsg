@@ -713,35 +713,16 @@ cmsg_create_client_tipc (const char *server, int member_id, int scope,
                          ProtobufCServiceDescriptor *descriptor,
                          cmsg_transport_type transport_type)
 {
-    uint32_t server_port;
     cmsg_transport *transport;
     cmsg_client *client;
 
-    server_port = cmsg_service_port_get (server, "tipc");
-    if (server_port <= 0)
-    {
-        CMSG_LOG_ERROR ("Unknown TIPC service %s", server);
-        return NULL;
-    }
-
-    transport = cmsg_transport_new (transport_type);
-
+    transport = cmsg_create_transport_tipc (server, member_id, scope, transport_type);
     if (!transport)
     {
-        CMSG_LOG_ERROR ("No TIPC transport to %d", member_id);
         return NULL;
     }
 
-    transport->config.socket.family = AF_TIPC;
-    transport->config.socket.sockaddr.tipc.family = AF_TIPC;
-    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
-    transport->config.socket.sockaddr.tipc.addr.name.domain = 0;
-    transport->config.socket.sockaddr.tipc.addr.name.name.type = server_port;
-    transport->config.socket.sockaddr.tipc.addr.name.name.instance = member_id;
-    transport->config.socket.sockaddr.tipc.scope = scope;
-
     client = cmsg_client_new (transport, descriptor);
-
     if (!client)
     {
         cmsg_transport_destroy (transport);

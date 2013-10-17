@@ -243,3 +243,58 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
 
     return return_value;
 }
+
+static cmsg_sub *
+cmsg_create_subscriber_tipc (const char *server_name, int member_id, int scope,
+                             ProtobufCService *descriptor,
+                             cmsg_transport_type transport_type)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_sub *subscriber = NULL;
+
+    transport = cmsg_create_transport_tipc (server_name, member_id, scope, transport_type);
+    if (transport == NULL)
+    {
+        return NULL;
+    }
+
+    subscriber = cmsg_sub_new (transport, descriptor);
+    if (subscriber == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_ERROR ("No TIPC subscriber to %d", member_id);
+        return NULL;
+    }
+
+    return subscriber;
+}
+
+cmsg_sub *
+cmsg_create_subscriber_tipc_rpc (const char *server_name, int member_id, int scope,
+                                 ProtobufCService *descriptor)
+{
+    return cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
+                                        CMSG_TRANSPORT_RPC_TIPC);
+}
+
+cmsg_sub *
+cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int scope,
+                                    ProtobufCService *descriptor)
+{
+    return cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
+                                        CMSG_TRANSPORT_ONEWAY_TIPC);
+}
+
+void
+cmsg_destroy_subscriber_and_transport (cmsg_sub *subscriber)
+{
+    cmsg_transport *transport;
+
+    if (subscriber)
+    {
+        transport = subscriber->pub_server->_transport;
+        cmsg_sub_destroy (subscriber);
+
+        cmsg_transport_destroy (transport);
+    }
+}
