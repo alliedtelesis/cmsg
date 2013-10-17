@@ -1028,13 +1028,16 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
         // if we are allocating memory, the right field count will determine the size
         // of the left field.
         printer->Print(vars_, "$result_ref$$left_field_count$ = $right_field_count$;\n");
-        if (field->type() == FieldDescriptor::TYPE_STRING)
+        if (field->type() == FieldDescriptor::TYPE_MESSAGE ||
+            field->type() == FieldDescriptor::TYPE_BYTES)
         {
-          printer->Print(vars_, "$left_field_name$ = CMSG_CALLOC ($result_ref$$left_field_count$, sizeof($message_name$));\n");
+          // for messages, allocate an array of pointers
+          printer->Print(vars_, "$left_field_name$ = CMSG_CALLOC ($result_ref$$left_field_count$, sizeof($message_name$ *));\n");
         }
         else
         {
-          printer->Print(vars_, "$left_field_name$ = CMSG_CALLOC ($result_ref$$left_field_count$, sizeof($message_name$ *));\n");
+          // this must be a primitive or string type, so allocate an array of that type (not pointers)
+          printer->Print(vars_, "$left_field_name$ = CMSG_CALLOC ($result_ref$$left_field_count$, sizeof($message_name$));\n");
         }
       }
       else
