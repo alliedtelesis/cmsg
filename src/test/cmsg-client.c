@@ -5,47 +5,41 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#include "generated-code/test-cmsg_api_auto.h"
-#include "generated-code/test-cmsg_types_auto.h"
-
 #include <google/protobuf-c/protobuf-c-cmsg.h>
 #include <google/protobuf-c/protobuf-c-cmsg-client.h>
 
+#include "generated-code/test-cmsg_api_auto.h"
+#include "generated-code/test-cmsg_impl_auto.h"
 
 static protobuf_c_boolean starts_with (const char *str, const char *prefix)
 {
   return memcmp (str, prefix, strlen (prefix)) == 0;
 }
 
-static void
-handle_query_response (const my_package_PingResponse *response,
-                       void                            *closure_data)
+void
+my_package_my_service_impl_Ping(const void *service, int32_t random, int32_t randomm)
 {
-  if (response == NULL)
-    printf("[CLIENT] Error processing request\n");
-  else
-    {
-      printf("[CLIENT] response from server\n");
-      printf("[CLIENT]  response->return_code: %d\n", response->return_code);
-      printf("[CLIENT]  response->random: %d\n", response->random);
-    }
+  int code;
+  int value;
 
-  *(protobuf_c_boolean*) closure_data = 1;
+  code = 0;
+  value = rand() % 100;
+
+  printf("[SERVER]: %s : send code=%d, value=%d\n", __func__, code, value);
+
+  my_package_my_service_server_PingSend(service, code, value);
 }
 
-static void handle_set_priority_response (const my_package_poe_send_status *response, void *closure_data)
+void
+my_package_my_service_impl_SetPriority(const void *service, int32_t port, int32_t priority, my_package_some_numbers count)
 {
-  printf("[CLIENT] handle_set_priority_response\n");
-  if(response)
-    {
-      printf("[CLIENT] response == 1\n");
-      ((my_package_poe_send_status *)closure_data)->status = response->status;
-      printf("[CLIENT] response->status=%d\n", response->status);
-    }
-  else
-    {
-      printf("[CLIENT] response == 0\n");
-    }
+  static int status = 0;
+
+  status++;
+
+  printf("[SERVER]: %s : port=%d, priority=%d, enum=%d --> send status=%d\n", __func__, port, priority, count, status);
+
+  my_package_my_service_server_SetPrioritySend(service, status);
 }
 
 int main(int argc, char**argv)
@@ -114,12 +108,10 @@ int main(int argc, char**argv)
 	  server_transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
       strcpy (server_transport->config.cpg.group_name.value, "cpg_bm");
       server_transport->config.cpg.group_name.length = 6;
-      cpg_server = cmsg_server_new (server_transport,
-                                    CMSG_DESCRIPTOR(my_package, my_service));
+      cpg_server = cmsg_server_new (server_transport, CMSG_SERVICE(my_package, my_service));
   }
   else if (is_tcp_tipc_cpg == 4)
   {
-      int my_id = 1; //Stack member id
       int stack_tipc_port = 9500; //Stack topology sending port
       transport = cmsg_transport_new (CMSG_TRANSPORT_BROADCAST);
 

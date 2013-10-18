@@ -32,9 +32,6 @@ protobufcincludedir = $(includedir)/google/protobuf-c
 EXTRA_DIST = CMakeLists.txt test/CMakeLists.txt
 
 libprotobuf_c_la_SOURCES = \
-google/protobuf-c/protobuf-c-dispatch.c \
-google/protobuf-c/protobuf-c-data-buffer.c \
-google/protobuf-c/protobuf-c-rpc.c \
 google/protobuf-c/protobuf-c-cmsg.c \
 google/protobuf-c/protobuf-c-cmsg-server.c \
 google/protobuf-c/protobuf-c-cmsg-client.c \
@@ -82,14 +79,12 @@ google/protobuf/compiler/c/c_field.h \
 google/protobuf/compiler/c/c_message.h \
 google/protobuf/compiler/c/c_generator.h \
 google/protobuf/compiler/c/c_bytes_field.h \
-google/protobuf-c/protobuf-c-data-buffer.h \
 google/protobuf-c/gskrbtreemacros.h \
 google/protobuf-c/gsklistmacros.h
 
 protobufcinclude_HEADERS = \
 google/protobuf-c/protobuf-c.h \
 google/protobuf-c/protobuf-c-private.h \
-google/protobuf-c/protobuf-c-dispatch.h \
 google/protobuf-c/protobuf-c-cmsg.h \
 google/protobuf-c/protobuf-c-cmsg-server.h \
 google/protobuf-c/protobuf-c-cmsg-client.h \
@@ -97,7 +92,6 @@ google/protobuf-c/protobuf-c-cmsg-sub.h \
 google/protobuf-c/protobuf-c-cmsg-pub.h \
 google/protobuf-c/protobuf-c-cmsg-sub-service.pb-c.h \
 google/protobuf-c/protobuf-c-cmsg-transport.h \
-google/protobuf-c/protobuf-c-cmsg-queue.h \
-google/protobuf-c/protobuf-c-rpc.h
+google/protobuf-c/protobuf-c-cmsg-queue.h
 
 

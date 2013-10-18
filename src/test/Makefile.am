@@ -1,5 +1,7 @@
+AM_CFLAGS = -Wall -Werror
+
 check_PROGRAMS = test-generated-code test-generated-code2 test-rpc
-noinst_PROGRAMS = cxx-generate-packed-data example-server example-client cmsg-server cmsg-client
+noinst_PROGRAMS = cxx-generate-packed-data cmsg-server cmsg-client
 INCLUDES = -I$(srcdir)/..
 test_generated_code_SOURCES = \
 test-generated-code.c \
@@ -21,18 +23,12 @@ cxx-generate-packed-data.cc generated-code/test-full.pb.cc
 cxx-generate-packed-data.$(OBJEXT): generated-code/test-full.pb.h
 cxx_generate_packed_data_LDADD = -lprotobuf
 cxx_generate_packed_data_LDFLAGS = -pthread
-example_server_SOURCES = \
-example-server.c generated-code/test.pb-c.c
-example_server_LDADD = ../libprotobuf-c.la -lcpg -lcoroipcc
-example_client_SOURCES = \
-example-client.c generated-code/test.pb-c.c
-example_client_LDADD = ../libprotobuf-c.la -lcpg -lcoroipcc
 cmsg_server_SOURCES = \
 cmsg-server.c generated-code/test-cmsg.pb-c.c generated-code/test-cmsg_impl_auto.c
 cmsg_server_LDADD = ../libprotobuf-c.la -lcpg -lcoroipcc
 cmsg_server_LDFLAGS = -Wl,-rpath -Wl,$(srcdir)/../../../torus/corosync/build/lib
 cmsg_client_SOURCES = \
-cmsg-client.c generated-code/test-cmsg.pb-c.c generated-code/test-cmsg_api_auto.c
+cmsg-client.c generated-code/test-cmsg.pb-c.c generated-code/test-cmsg_api_auto.c generated-code/test-cmsg_impl_auto.c
 cmsg_client_LDADD = ../libprotobuf-c.la -lcpg -lcoroipcc
 cmsg_client_LDFLAGS = -Wl,-rpath -Wl,$(srcdir)/../../../torus/corosync/build/lib
 

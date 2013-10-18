@@ -100,7 +100,6 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
     "#define PROTOBUF_C_$filename_identifier$_INCLUDED\n"
     "\n"
     "#include <google/protobuf-c/protobuf-c.h>\n"
-    "#include <google/protobuf-c/protobuf-c-rpc.h>\n"
     "\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
@@ -261,7 +260,6 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
     "#include <google/protobuf-c/protobuf-c.h>\n"
-    "#include <google/protobuf-c/protobuf-c-rpc.h>\n"
     "\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
@@ -321,7 +319,6 @@ void FileGenerator::GenerateAtlApiHeader(io::Printer* printer) {
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
     "#include <google/protobuf-c/protobuf-c.h>\n"
-    "#include <google/protobuf-c/protobuf-c-rpc.h>\n"
     "\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
@@ -388,7 +385,6 @@ void FileGenerator::GenerateAtlImplHeader(io::Printer* printer) {
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
     "#include <google/protobuf-c/protobuf-c.h>\n"
-    "#include <google/protobuf-c/protobuf-c-rpc.h>\n"
     "\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",

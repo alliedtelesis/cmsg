@@ -58,7 +58,6 @@ int main(int argc, char**argv)
   srand (time(NULL));
   int count = 0;
 
-  int is_tcp_tipc_cpg;// tcp:1, tipc:2, cpg:3
   int is_one_way = 0; //0: no, 1:yes
 
   for (arg_i = 1; arg_i < (unsigned) argc; arg_i++)
@@ -98,7 +97,7 @@ int main(int argc, char**argv)
           if (colon == NULL)
             {
               printf("missing --tcp=PORT or --unix=PATH or --tipc=PORT:MEMBER\n");
-              return;
+              return 0;
             }
           type_name = CMSG_MALLOC(sizeof(char) *  (colon + 1 - name));
           memcpy (type_name, name, colon - name);
@@ -184,7 +183,7 @@ int main(int argc, char**argv)
       if(ret < 0)
         {
           printf("[torusserver] Error while polling\n");
-          return;
+          return 0;
         }
       else
         {
