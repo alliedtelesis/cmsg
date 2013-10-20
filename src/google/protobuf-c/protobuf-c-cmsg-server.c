@@ -695,18 +695,12 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                             __LINE__);
             return;
         }
-        uint8_t *buffer_data = CMSG_CALLOC (1, packed_size);
-        if (!buffer_data)
-        {
-            CMSG_LOG_ERROR ("[SERVER] error: unable to allocate data buffer. line(%d)\n",
-                            __LINE__);
-            CMSG_FREE (buffer);
-            return;
-        }
 
         memcpy ((void *) buffer, &header, sizeof (header));
 
         DEBUG (CMSG_INFO, "[SERVER] packing message\n");
+
+        uint8_t *buffer_data = buffer + sizeof (header);
 
         ret = protobuf_c_message_pack (message, buffer_data);
         if (ret < packed_size)
@@ -715,11 +709,17 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                             ret, packed_size);
 
             CMSG_FREE (buffer);
-            CMSG_FREE (buffer_data);
             return;
         }
+        else if (ret > packed_size)
+        {
+            CMSG_LOG_ERROR
+                ("[CLIENT] error: packing message data overwrote buffer: %d of %d", ret,
+                 packed_size);
 
-        memcpy ((void *) buffer + sizeof (header), (void *) buffer_data, packed_size);
+            CMSG_FREE (buffer);
+            return;
+        }
 
         DEBUG (CMSG_INFO, "[SERVER] response header\n");
         cmsg_buffer_print ((void *) &header, sizeof (header));
@@ -735,7 +735,6 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                    ret, packed_size + sizeof (header));
 
         CMSG_FREE (buffer);
-        CMSG_FREE (buffer_data);
     }
 
     return;

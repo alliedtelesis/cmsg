@@ -172,15 +172,10 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate buffer. line(%d)", __LINE__);
         return;
     }
-    uint8_t *buffer_data = CMSG_CALLOC (1, packed_size);
-    if (!buffer_data)
-    {
-        CMSG_FREE (buffer);
-        CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate data buffer. line(%d)",
-                        __LINE__);
-        return;
-    }
+
     memcpy ((void *) buffer, &header, sizeof (header));
+
+    uint8_t *buffer_data = buffer + sizeof (header);
 
     DEBUG (CMSG_INFO, "[CLIENT] header\n");
     cmsg_buffer_print (&header, sizeof (header));
@@ -188,15 +183,21 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     ret = protobuf_c_message_pack (input, buffer_data);
     if (ret < packed_size)
     {
-        CMSG_LOG_ERROR ("[CLIENT] error: packing message data failed packet:%d of %d",
+        CMSG_LOG_ERROR
+            ("[CLIENT] error: packing message data failed, underrun packet:%d of %d", ret,
+             packed_size);
+
+        CMSG_FREE (buffer);
+        return;
+    }
+    else if (ret > packed_size)
+    {
+        CMSG_LOG_ERROR ("[CLIENT] error: packing message data overwrote buffer: %d of %d",
                         ret, packed_size);
 
         CMSG_FREE (buffer);
-        CMSG_FREE (buffer_data);
         return;
     }
-
-    memcpy ((void *) buffer + sizeof (header), (void *) buffer_data, packed_size);
 
     DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
     cmsg_buffer_print (buffer_data, packed_size);
@@ -221,7 +222,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
                 CMSG_LOG_ERROR ("[CLIENT] error: sending response failed send:%d of %u",
                                 ret, (uint32_t) (packed_size + sizeof (header)));
                 CMSG_FREE (buffer);
-                CMSG_FREE (buffer_data);
                 return;
             }
         }
@@ -229,7 +229,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         {
             CMSG_LOG_ERROR ("[CLIENT] error: couldn't reconnect client!");
             CMSG_FREE (buffer);
-            CMSG_FREE (buffer_data);
             return;
         }
     }
@@ -248,12 +247,12 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         client->_transport->client_close (client);
 
         CMSG_FREE (buffer);
-        CMSG_FREE (buffer_data);
         return;
     }
 
     CMSG_FREE (buffer);
-    CMSG_FREE (buffer_data);
+    buffer = NULL;
+    buffer_data = NULL;
 
     /* If the call was queued then no point in calling closure as there is no message.
      * Need to exit.
@@ -364,15 +363,10 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
         CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate buffer. line(%d)", __LINE__);
         return;
     }
-    uint8_t *buffer_data = CMSG_CALLOC (1, packed_size);
-    if (!buffer_data)
-    {
-        CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate data buffer. line(%d)",
-                        __LINE__);
-        CMSG_FREE (buffer);
-        return;
-    }
+
     memcpy ((void *) buffer, &header, sizeof (header));
+
+    uint8_t *buffer_data = buffer + sizeof (header);
 
     DEBUG (CMSG_INFO, "[CLIENT] header\n");
     cmsg_buffer_print (&header, sizeof (header));
@@ -380,15 +374,20 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     ret = protobuf_c_message_pack (input, buffer_data);
     if (ret < packed_size)
     {
-        CMSG_LOG_ERROR ("[CLIENT] error: packing message data failed packet:%d of %d",
+        CMSG_LOG_ERROR
+            ("[CLIENT] error: packing message data failed with underrun, packet:%d of %d",
+             ret, packed_size);
+        CMSG_FREE (buffer);
+        return;
+    }
+    else if (ret > packed_size)
+    {
+        CMSG_LOG_ERROR ("[CLIENT] error: packing message data overwrote buffer: %d of %d",
                         ret, packed_size);
 
         CMSG_FREE (buffer);
-        CMSG_FREE (buffer_data);
         return;
     }
-
-    memcpy ((void *) buffer + sizeof (header), (void *) buffer_data, packed_size);
 
     DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
     cmsg_buffer_print (buffer_data, packed_size);
@@ -418,7 +417,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                     CMSG_LOG_ERROR ("[CLIENT] error: sending response failed send:%d of %u",
                                     ret, (uint32_t) (packed_size + sizeof (header)));
                     CMSG_FREE (buffer);
-                    CMSG_FREE (buffer_data);
                     return;
                 }
             }
@@ -426,7 +424,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             {
                 CMSG_LOG_ERROR ("[CLIENT] error: couldn't reconnect client!");
                 CMSG_FREE (buffer);
-                CMSG_FREE (buffer_data);
                 return;
             }
         }
@@ -475,7 +472,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     }
 
     CMSG_FREE (buffer);
-    CMSG_FREE (buffer_data);
 
     return;
 }
