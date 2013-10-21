@@ -38,8 +38,10 @@ cmsg_transport_tipc_connect (cmsg_client *client)
         close (client->connection.socket);
         client->connection.socket = -1;
         client->state = CMSG_CLIENT_STATE_FAILED;
-        CMSG_LOG_ERROR ("[TRANSPORT] error connecting to remote host: %s",
-                        strerror (errno));
+        CMSG_LOG_ERROR ("[TRANSPORT] error connecting to remote host (port %d inst %d): %s",
+                        client->_transport->config.socket.sockaddr.tipc.addr.name.name.type,
+                        client->_transport->config.socket.sockaddr.tipc.addr.name.name.
+                        instance, strerror (errno));
 
         return 0;
     }
