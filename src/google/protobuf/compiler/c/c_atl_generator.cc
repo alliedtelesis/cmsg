@@ -496,7 +496,7 @@ string AtlCodeGenerator::TypeToString(FieldDescriptor::Type type)
     	description = "uint32_t";
     	break;
     case FieldDescriptor::TYPE_ENUM:
-    	description = "uint8_t";
+    	description = "uint32_t";
     	break;
     case FieldDescriptor::TYPE_SFIXED32:
     	description = "int32_t";
