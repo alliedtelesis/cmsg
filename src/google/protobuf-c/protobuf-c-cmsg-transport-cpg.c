@@ -33,6 +33,7 @@
 /*
  * Definitions
  */
+#define CPG_CONNECTION_TIMEOUT 30
 #define TV_USEC_PER_SEC 1000000
 #define SLEEP_TIME_us ((TV_USEC_PER_SEC) / 10)
 
@@ -223,7 +224,7 @@ _cmsg_transport_cpg_init_exe_connection (void)
         usleep (SLEEP_TIME_us);
         slept_us += SLEEP_TIME_us;
     }
-    while (slept_us <= (TV_USEC_PER_SEC * 10));
+    while (slept_us <= (TV_USEC_PER_SEC * CPG_CONNECTION_TIMEOUT));
 
     CMSG_LOG_ERROR ("Couldn't initialize CPG service result:%d, waited:%ums",
                     result, slept_us / 1000);
