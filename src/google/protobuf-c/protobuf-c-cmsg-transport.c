@@ -195,8 +195,12 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     }
     else
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s",
-                        server->connection.sockets.client_socket, strerror (errno));
+        if (errno != ECONNRESET)
+        {
+            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s",
+                            server->connection.sockets.client_socket, strerror (errno));
+        }
+
         ret = CMSG_RET_ERR;
     }
 

@@ -296,9 +296,8 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         //Error while peeking at socket data.
         if (errno != ECONNRESET)
         {
-            DEBUG (CMSG_ERROR,
-                   "[TRANSPORT] recv socket %d error: %s\n",
-                   client->connection.socket, strerror (errno));
+            CMSG_LOG_ERROR (CMSG_ERROR, "[TRANSPORT] recv socket %d error: %s\n",
+                            client->connection.socket, strerror (errno));
         }
         ret = 0;
     }
