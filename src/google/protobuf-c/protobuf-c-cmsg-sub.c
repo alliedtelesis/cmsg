@@ -162,6 +162,11 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
                                   &register_entry,
                                   cmsg_sub_subscribe_response_handler, &return_value);
 
+    if (register_client->invoke_return_state == CMSG_RET_ERR)
+    {
+        CMSG_LOG_ERROR ("[SUB] error: couldn't subscribe to notification (method: %s)", method_name);
+    }
+
     cmsg_client_destroy (register_client);
 
     return return_value;
@@ -238,6 +243,11 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
 
     cmsg__sub_service__subscribe ((ProtobufCService *) register_client, &register_entry,
                                   cmsg_sub_subscribe_response_handler, &return_value);
+
+    if (register_client->invoke_return_state == CMSG_RET_ERR)
+    {
+        CMSG_LOG_ERROR ("[SUB] error: couldn't unsubscribe to notification (method: %s)", method_name);
+    }
 
     cmsg_client_destroy (register_client);
 
