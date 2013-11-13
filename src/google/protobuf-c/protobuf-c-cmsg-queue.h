@@ -34,6 +34,7 @@ struct _cmsg_send_queue_entry_s
     cmsg_transport transport;
     uint32_t queue_buffer_size;
     uint8_t *queue_buffer;
+    char method_name[128];
 };
 
 struct _cmsg_receive_queue_entry_s
@@ -50,11 +51,12 @@ unsigned int cmsg_queue_get_length (GQueue *queue);
 int32_t cmsg_send_client_process_all (cmsg_object obj);
 
 int32_t cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
-                              cmsg_transport *transport);
+                              cmsg_transport *transport, char *method_name);
 
 void cmsg_send_queue_free_all (GQueue *queue);
 
 void cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport);
+void cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transport, char *method_name);
 
 guint cmsg_queue_filter_hash_function (gconstpointer key);
 

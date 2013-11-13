@@ -37,17 +37,23 @@ cmsg_send_queue_process_all (cmsg_object obj)
         queue_mutex = publisher->queue_mutex;
         descriptor = publisher->descriptor;
     }
+    else
+    {
+        syslog (LOG_CRIT | LOG_LOCAL6,
+               "[PUB QUEUE] unknown object type. line %d", __LINE__);
+        return 0;
+    }
 
     if (!queue || !descriptor)
     {
         return 0;
     }
 
+    pthread_mutex_lock (&queue_mutex);
+
     if (g_queue_get_length (queue))
     {
-        pthread_mutex_lock (&queue_mutex);
         queue_entry = g_queue_pop_tail (queue);
-        pthread_mutex_unlock (&queue_mutex);
     }
 
     while (queue_entry)
@@ -124,33 +130,42 @@ cmsg_send_queue_process_all (cmsg_object obj)
         {
             if (obj.object_type == CMSG_OBJ_TYPE_PUB)
             {
+                /* if all subscribers already un-subscribed during the retry period,
+                 * clear the queue */
+                if (publisher->subscriber_count == 0)
+                {
+                    cmsg_send_queue_free_all (publisher->queue);
+                    pthread_mutex_unlock (&queue_mutex);
+                    if (client && create_client)
+                    {
+                        cmsg_client_destroy (client);
+                    }
+                    return processed;
+                }
                 //remove subscriber from subscribtion list
-                pthread_mutex_lock (&queue_mutex);
                 cmsg_pub_subscriber_remove_all_with_transport (publisher,
                                                                &queue_entry->transport);
-                pthread_mutex_unlock (&queue_mutex);
 
                 //delete all messages for this subscriber from queue
-                pthread_mutex_lock (&queue_mutex);
                 cmsg_send_queue_free_all_by_transport (publisher->queue,
                                                        &queue_entry->transport);
-                pthread_mutex_unlock (&queue_mutex);
             }
             else if (obj.object_type == CMSG_OBJ_TYPE_CLIENT)
             {
                 //delete all messages for this client from queue
-                pthread_mutex_lock (&queue_mutex);
                 cmsg_send_queue_free_all_by_transport (client->queue,
                                                        &queue_entry->transport);
-                pthread_mutex_unlock (&queue_mutex);
             }
 
             //free current item
-            CMSG_FREE (queue_entry->queue_buffer);
-            g_free (queue_entry);
+            else
+            {
+                CMSG_FREE (queue_entry->queue_buffer);
+                g_free (queue_entry);
+            }
 
             syslog (LOG_CRIT | LOG_LOCAL6,
-                    "[PUB QUEUE] error: subscriber not reachable after %d tries, removing subscriber from list\n",
+                    "[PUB QUEUE] error: subscriber not reachable, after %d tries, removing it\n",
                     CMSG_TRANSPORT_CLIENT_SEND_TRIES);
         }
 
@@ -161,10 +176,10 @@ cmsg_send_queue_process_all (cmsg_object obj)
         }
 
         //get the next entry
-        pthread_mutex_lock (&queue_mutex);
         queue_entry = g_queue_pop_tail (queue);
-        pthread_mutex_unlock (&queue_mutex);
     }
+
+    pthread_mutex_unlock (&queue_mutex);
 
     return processed;
 }
@@ -172,7 +187,7 @@ cmsg_send_queue_process_all (cmsg_object obj)
 
 int32_t
 cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
-                      cmsg_transport *transport)
+                      cmsg_transport *transport, char *method_name)
 {
     cmsg_send_queue_entry *queue_entry = g_malloc0 (sizeof (cmsg_send_queue_entry));
     if (!queue_entry)
@@ -202,6 +217,7 @@ cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
     queue_entry->transport.config.socket.sockaddr.tipc =
         transport->config.socket.sockaddr.tipc;
 
+    strcpy (queue_entry->method_name, method_name?method_name:"");
     g_queue_push_head (queue, queue_entry);
 
     return CMSG_RET_OK;
@@ -233,30 +249,48 @@ cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport)
     unsigned int queue_length = g_queue_get_length (queue);
     int i = 0;
 
-    syslog (LOG_CRIT | LOG_LOCAL6, "[FILTER] queue_length:%d. line(%d)\n", queue_length,
-            __LINE__);
-
-    queue_entry = g_queue_pop_tail (queue);
-
-    for (i = 0; i <= queue_length; i++)
+    for (i = 0; i < queue_length; i++)
     {
+        queue_entry = g_queue_pop_tail (queue);
         if (queue_entry)
         {
             if (cmsg_transport_compare (&queue_entry->transport, transport))
             {
                 CMSG_FREE (queue_entry->queue_buffer);
                 g_free (queue_entry);
-                syslog (LOG_CRIT | LOG_LOCAL6, "[FILTER] removed entry. line(%d)\n",
-                        __LINE__);
             }
             else
             {
                 g_queue_push_head (queue, queue_entry);
-                syslog (LOG_CRIT | LOG_LOCAL6, "[FILTER] pushed entry back. line(%d)\n",
-                        __LINE__);
             }
         }
+    }
+}
+
+void
+cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transport,
+                                                char *method_name)
+{
+    cmsg_send_queue_entry *queue_entry = 0;
+    unsigned int queue_length = g_queue_get_length (queue);
+    int i = 0;
+
+    for (i = 0; i < queue_length; i++)
+    {
         queue_entry = g_queue_pop_tail (queue);
+        if (queue_entry)
+        {
+            if (cmsg_transport_compare (&queue_entry->transport, transport) &&
+                (strcmp(queue_entry->method_name, method_name) == 0))
+            {
+                CMSG_FREE (queue_entry->queue_buffer);
+                g_free (queue_entry);
+            }
+            else
+            {
+                g_queue_push_head (queue, queue_entry);
+            }
+        }
     }
 }
 

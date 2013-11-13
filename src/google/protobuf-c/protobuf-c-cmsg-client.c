@@ -481,7 +481,8 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
             //todo: check return
             cmsg_send_queue_push (publisher->queue, buffer,
-                                  packed_size + sizeof (header), client->_transport);
+                                  packed_size + sizeof (header), client->_transport,
+                                  (char *)method_name);
 
             pthread_mutex_unlock (&publisher->queue_mutex);
 
@@ -498,7 +499,8 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
             //todo: check return
             cmsg_send_queue_push (client->queue, buffer,
-                                  packed_size + sizeof (header), client->_transport);
+                                  packed_size + sizeof (header), client->_transport,
+                                  (char *)method_name);
 
             pthread_mutex_unlock (&client->queue_mutex);
 

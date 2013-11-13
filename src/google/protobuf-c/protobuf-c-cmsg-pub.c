@@ -847,6 +847,15 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
     }
     else
     {
+        //delete queued entries for the method being un-subscribed
+        if (publisher->queue_enabled)
+        {
+            pthread_mutex_lock (&publisher->queue_mutex);
+            cmsg_send_queue_free_by_transport_method (publisher->queue,
+                                              &subscriber_entry.transport,
+                                              subscriber_entry.method_name);
+            pthread_mutex_unlock (&publisher->queue_mutex);
+        }
         response.return_value = cmsg_pub_subscriber_remove (publisher, &subscriber_entry);
     }
 
