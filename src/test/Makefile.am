@@ -25,12 +25,17 @@ cxx_generate_packed_data_LDADD = -lprotobuf
 cxx_generate_packed_data_LDFLAGS = -pthread
 cmsg_server_SOURCES = \
 cmsg-server.c generated-code/test-cmsg.pb-c.c generated-code/test-cmsg_impl_auto.c
-cmsg_server_LDADD = ../libprotobuf-c.la -lcpg -lcoroipcc
-cmsg_server_LDFLAGS = -Wl,-rpath -Wl,$(srcdir)/../../../torus/corosync/build/lib
+cmsg_server_LDADD = ../libprotobuf-c.la
 cmsg_client_SOURCES = \
 cmsg-client.c generated-code/test-cmsg.pb-c.c generated-code/test-cmsg_api_auto.c generated-code/test-cmsg_impl_auto.c
-cmsg_client_LDADD = ../libprotobuf-c.la -lcpg -lcoroipcc
-cmsg_client_LDFLAGS = -Wl,-rpath -Wl,$(srcdir)/../../../torus/corosync/build/lib
+cmsg_client_LDADD = ../libprotobuf-c.la
+
+if HAVE_VCSTACK
+cmsg_server_LDADD  += -lcpg -lcoroipcc
+cmsg_server_LDFLAGS = -Wl,-rpath -Wl,$(srcdir)/../../../corosync/build/lib
+cmsg_client_LDADD  += -lcpg -lcoroipcc
+cmsg_client_LDFLAGS = -Wl,-rpath -Wl,$(srcdir)/../../../corosync/build/lib
+endif
 
 generated-code/test.pb-c.c generated-code/test.pb-c.h: ../protoc-c$(EXEEXT) $(srcdir)/test.proto
 	mkdir -p generated-code

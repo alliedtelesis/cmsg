@@ -47,7 +47,9 @@ int main(int argc, char**argv)
   srand (time(NULL));
   cmsg_client* torusclient = 0;
   cmsg_transport* transport = 0;
+#ifdef HAVE_VCSTACK
   cmsg_server* cpg_server = 0;
+#endif
   int is_tcp_tipc_cpg = 0;// tcp:1, tipc:2, cpg:3, tipc broadcast:4
   int is_one_way = 0; //0: no, 1:yes
   int arg_i;
@@ -97,18 +99,20 @@ int main(int argc, char**argv)
   }
   else if (is_tcp_tipc_cpg == 3)
   {
-      cmsg_transport * server_transport;
+#ifdef HAVE_VCSTACK
+    cmsg_transport * server_transport;
 
-	  transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
-	  strcpy (transport->config.cpg.group_name.value, "cpg_bm");
-	  transport->config.cpg.group_name.length = 6;
+    transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
+    strcpy (transport->config.cpg.group_name.value, "cpg_bm");
+    transport->config.cpg.group_name.length = 6;
 
-	  /* create server to create connection to the executable
-	   */
-	  server_transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
-      strcpy (server_transport->config.cpg.group_name.value, "cpg_bm");
-      server_transport->config.cpg.group_name.length = 6;
-      cpg_server = cmsg_server_new (server_transport, CMSG_SERVICE(my_package, my_service));
+    /* create server to create connection to the executable
+    */
+    server_transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
+    strcpy (server_transport->config.cpg.group_name.value, "cpg_bm");
+    server_transport->config.cpg.group_name.length = 6;
+    cpg_server = cmsg_server_new (server_transport, CMSG_SERVICE(my_package, my_service));
+#endif
   }
   else if (is_tcp_tipc_cpg == 4)
   {

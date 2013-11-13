@@ -99,7 +99,7 @@ int main(int argc, char**argv)
               printf("missing --tcp=PORT or --unix=PATH or --tipc=PORT:MEMBER\n");
               return 0;
             }
-          type_name = CMSG_MALLOC(sizeof(char) *  (colon + 1 - name));
+          type_name = (char *)CMSG_MALLOC(sizeof(char) *  (colon + 1 - name));
           memcpy (type_name, name, colon - name);
           type_name[colon - name] = 0;
           instance = atoi (colon + 1);
@@ -122,10 +122,12 @@ int main(int argc, char**argv)
         }
       else if (starts_with (argv[arg_i], "--cpg"))
         {
+#ifdef HAVE_VCSTACK
     	  transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
           strcpy (transport->config.cpg.group_name.value, "cpg_bm");
           transport->config.cpg.group_name.length = 6;
           break;
+#endif
         }
       else if (starts_with (argv[arg_i], "--broadcast"))
       {
