@@ -18,7 +18,7 @@ cmsg_send_queue_process_all (cmsg_object obj)
     uint32_t create_client = 0;
     cmsg_send_queue_entry *queue_entry = NULL;
     GQueue *queue = NULL;
-    pthread_mutex_t queue_mutex;
+    pthread_mutex_t *queue_mutex;
     const ProtobufCServiceDescriptor *descriptor = NULL;
     cmsg_pub *publisher = 0;
     cmsg_client *client = 0;
@@ -27,14 +27,14 @@ cmsg_send_queue_process_all (cmsg_object obj)
     {
         client = (cmsg_client *) obj.object;
         queue = client->queue;
-        queue_mutex = client->queue_mutex;
+        queue_mutex = &client->queue_mutex;
         descriptor = client->descriptor;
     }
     else if (obj.object_type == CMSG_OBJ_TYPE_PUB)
     {
         publisher = (cmsg_pub *) obj.object;
         queue = publisher->queue;
-        queue_mutex = publisher->queue_mutex;
+        queue_mutex = &publisher->queue_mutex;
         descriptor = publisher->descriptor;
     }
     else
@@ -49,7 +49,7 @@ cmsg_send_queue_process_all (cmsg_object obj)
         return 0;
     }
 
-    pthread_mutex_lock (&queue_mutex);
+    pthread_mutex_lock (queue_mutex);
 
     if (g_queue_get_length (queue))
     {
@@ -135,7 +135,7 @@ cmsg_send_queue_process_all (cmsg_object obj)
                 if (publisher->subscriber_count == 0)
                 {
                     cmsg_send_queue_free_all (publisher->queue);
-                    pthread_mutex_unlock (&queue_mutex);
+                    pthread_mutex_unlock (queue_mutex);
                     if (client && create_client)
                     {
                         cmsg_client_destroy (client);
@@ -179,7 +179,7 @@ cmsg_send_queue_process_all (cmsg_object obj)
         queue_entry = g_queue_pop_tail (queue);
     }
 
-    pthread_mutex_unlock (&queue_mutex);
+    pthread_mutex_unlock (queue_mutex);
 
     return processed;
 }
@@ -300,7 +300,7 @@ cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transpo
 /*****************************************************************************/
 
 int32_t
-cmsg_receive_queue_process_one (GQueue *queue, pthread_mutex_t queue_mutex,
+cmsg_receive_queue_process_one (GQueue *queue, pthread_mutex_t *queue_mutex,
                                 const ProtobufCServiceDescriptor *descriptor,
                                 cmsg_server *server)
 {
@@ -318,7 +318,7 @@ cmsg_receive_queue_process_one (GQueue *queue, pthread_mutex_t queue_mutex,
  * Assumes that nothing else is processing messages at this time.
  */
 int32_t
-cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t queue_mutex,
+cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
                                  const ProtobufCServiceDescriptor *descriptor,
                                  cmsg_server *server, uint32_t num_to_process)
 {
@@ -332,9 +332,9 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t queue_mutex,
         return 0;
     }
 
-    pthread_mutex_lock (&queue_mutex);
+    pthread_mutex_lock (queue_mutex);
     queue_length = g_queue_get_length (queue);
-    pthread_mutex_unlock (&queue_mutex);
+    pthread_mutex_unlock (queue_mutex);
 
     if (queue_length == 0)
     {
@@ -352,9 +352,9 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t queue_mutex,
     while (processed < num_to_process)
     {
         //get the first entry
-        pthread_mutex_lock (&queue_mutex);
+        pthread_mutex_lock (queue_mutex);
         queue_entry = g_queue_pop_tail (queue);
-        pthread_mutex_unlock (&queue_mutex);
+        pthread_mutex_unlock (queue_mutex);
 
         if (queue_entry == NULL)
         {
@@ -378,7 +378,7 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t queue_mutex,
 
 int32_t
 cmsg_receive_queue_process_all (GQueue *queue,
-                                pthread_mutex_t queue_mutex,
+                                pthread_mutex_t *queue_mutex,
                                 const ProtobufCServiceDescriptor *descriptor,
                                 cmsg_server *server)
 {
