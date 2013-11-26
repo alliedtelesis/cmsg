@@ -50,11 +50,11 @@ cmsg_send_queue_process_all (cmsg_object obj)
     }
 
     pthread_mutex_lock (queue_mutex);
-
     if (g_queue_get_length (queue))
     {
         queue_entry = g_queue_pop_tail (queue);
     }
+    pthread_mutex_unlock (queue_mutex);
 
     while (queue_entry)
     {
@@ -134,8 +134,10 @@ cmsg_send_queue_process_all (cmsg_object obj)
                  * clear the queue */
                 if (publisher->subscriber_count == 0)
                 {
-                    cmsg_send_queue_free_all (publisher->queue);
+                    pthread_mutex_lock (queue_mutex);
+                    cmsg_send_queue_free_all (queue);
                     pthread_mutex_unlock (queue_mutex);
+
                     if (client && create_client)
                     {
                         cmsg_client_destroy (client);
@@ -147,14 +149,18 @@ cmsg_send_queue_process_all (cmsg_object obj)
                                                                &queue_entry->transport);
 
                 //delete all messages for this subscriber from queue
-                cmsg_send_queue_free_all_by_transport (publisher->queue,
+                pthread_mutex_lock (queue_mutex);
+                cmsg_send_queue_free_all_by_transport (queue,
                                                        &queue_entry->transport);
+                pthread_mutex_unlock (queue_mutex);
             }
             else if (obj.object_type == CMSG_OBJ_TYPE_CLIENT)
             {
                 //delete all messages for this client from queue
-                cmsg_send_queue_free_all_by_transport (client->queue,
+                pthread_mutex_lock (queue_mutex);
+                cmsg_send_queue_free_all_by_transport (queue,
                                                        &queue_entry->transport);
+                pthread_mutex_unlock (queue_mutex);
             }
 
             //free current item
@@ -176,10 +182,10 @@ cmsg_send_queue_process_all (cmsg_object obj)
         }
 
         //get the next entry
+        pthread_mutex_lock (queue_mutex);
         queue_entry = g_queue_pop_tail (queue);
+        pthread_mutex_unlock (queue_mutex);
     }
-
-    pthread_mutex_unlock (queue_mutex);
 
     return processed;
 }
