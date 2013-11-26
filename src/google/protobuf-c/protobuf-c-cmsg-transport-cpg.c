@@ -33,7 +33,7 @@
 /*
  * Definitions
  */
-#define CPG_CONNECTION_TIMEOUT 30
+#define CPG_CONNECTION_TIMEOUT 180
 #define TV_USEC_PER_SEC 1000000
 #define SLEEP_TIME_us ((TV_USEC_PER_SEC) / 10)
 
