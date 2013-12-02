@@ -109,7 +109,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
 {
     CMSG_ASSERT (sub_server_transport);
 
-    cmsg_pub *publisher = CMSG_CALLOC (1, sizeof (cmsg_pub));
+    cmsg_pub *publisher = (cmsg_pub *) CMSG_CALLOC (1, sizeof (cmsg_pub));
     if (!publisher)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -358,7 +358,7 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
     {
         DEBUG (CMSG_INFO, "[PUB] [LIST] adding new entry\n");
 
-        cmsg_sub_entry *list_entry = g_malloc0 (sizeof (cmsg_sub_entry));
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) g_malloc0 (sizeof (cmsg_sub_entry));
         if (!list_entry)
         {
             CMSG_LOG_ERROR ("[PUB] [LIST] error: unable to create list entry. line(%d)\n",
@@ -786,7 +786,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
     cmsg_pub *publisher = NULL;
 
     if (server->parent.object_type == CMSG_OBJ_TYPE_PUB)
-        publisher = server->parent.object;
+        publisher = (cmsg_pub *) server->parent.object;
 
     Cmsg__SubEntryResponse response = CMSG__SUB_ENTRY_RESPONSE__INIT;
 
@@ -800,7 +800,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
         subscriber_entry.transport.config.socket.sockaddr.generic.sa_family = PF_INET;
         subscriber_entry.transport.config.socket.family = PF_INET;
 
-        subscriber_entry.transport.type = input->transport_type;
+        subscriber_entry.transport.type = (cmsg_transport_type) input->transport_type;
         subscriber_entry.transport.config.socket.sockaddr.in.sin_addr.s_addr =
             input->in_sin_addr_s_addr;
         subscriber_entry.transport.config.socket.sockaddr.in.sin_port = input->in_sin_port;
@@ -816,7 +816,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
         subscriber_entry.transport.config.socket.sockaddr.generic.sa_family = PF_TIPC;
         subscriber_entry.transport.config.socket.family = PF_TIPC;
 
-        subscriber_entry.transport.type = input->transport_type;
+        subscriber_entry.transport.type = (cmsg_transport_type) input->transport_type;
         subscriber_entry.transport.config.socket.sockaddr.tipc.family = input->tipc_family;
         subscriber_entry.transport.config.socket.sockaddr.tipc.addrtype =
             input->tipc_addrtype;
@@ -830,7 +830,8 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
 
         DEBUG (CMSG_INFO, "[PUB] [LIST]  tipc type: %d, instance: %d\n",
                subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.type,
-               subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.instance);
+               subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.
+               instance);
 
         cmsg_transport_oneway_tipc_init (&(subscriber_entry.transport));
     }
@@ -852,8 +853,8 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
         {
             pthread_mutex_lock (&publisher->queue_mutex);
             cmsg_send_queue_free_by_transport_method (publisher->queue,
-                                              &subscriber_entry.transport,
-                                              subscriber_entry.method_name);
+                                                      &subscriber_entry.transport,
+                                                      subscriber_entry.method_name);
             pthread_mutex_unlock (&publisher->queue_mutex);
         }
         response.return_value = cmsg_pub_subscriber_remove (publisher, &subscriber_entry);
@@ -880,11 +881,11 @@ cmsg_pub_queue_disable (cmsg_pub *publisher)
     return cmsg_pub_queue_process_all (publisher);
 }
 
-unsigned int
+uint32_t
 cmsg_pub_queue_get_length (cmsg_pub *publisher)
 {
     pthread_mutex_lock (&publisher->queue_mutex);
-    unsigned int queue_length = g_queue_get_length (publisher->queue);
+    uint32_t queue_length = g_queue_get_length (publisher->queue);
     pthread_mutex_unlock (&publisher->queue_mutex);
 
     return queue_length;

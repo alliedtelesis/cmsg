@@ -1,25 +1,6 @@
 #include "protobuf-c-cmsg-server.h"
-#include "protobuf-c-cmsg-queue.h"
-
-/**
- * Forward Function Declarations
- */
-void cmsg_server_queue_filter_set_all (cmsg_server *server,
-                                       cmsg_queue_filter_type filter_type);
-
-void cmsg_server_queue_filter_init (cmsg_server *server);
-
-cmsg_queue_filter_type cmsg_server_queue_filter_lookup (cmsg_server *server,
-                                                        const char *method);
-
-/**
- * Structure definitions
- */
 
 
-/**
- * Functions
- */
 cmsg_server *
 cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 {
@@ -29,7 +10,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
     CMSG_ASSERT (transport);
     CMSG_ASSERT (service);
 
-    server = CMSG_CALLOC (1, sizeof (cmsg_server));
+    server = (cmsg_server *) CMSG_CALLOC (1, sizeof (cmsg_server));
     if (server)
     {
         server->_transport = transport;
@@ -251,7 +232,7 @@ cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
     fdmax = 0;
     for (node = g_list_first (server_list); node && node->data; node = g_list_next (node))
     {
-        server = node->data;
+        server = (cmsg_server *) node->data;
 
         listen_socket = cmsg_server_get_socket (server);
         FD_SET (listen_socket, &read_fds);
@@ -283,7 +264,7 @@ cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
     // Process any data available on the sockets
     for (node = g_list_first (server_list); node && node->data; node = g_list_next (node))
     {
-        server = node->data;
+        server = (cmsg_server *) node->data;
         listen_socket = cmsg_server_get_socket (server);
 
         for (fd = 0; fd <= fdmax; fd++)
@@ -376,7 +357,7 @@ void
 cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage *message,
                     cmsg_method_processing_reason process_reason)
 {
-    unsigned int queue_length = 0;
+    uint32_t queue_length = 0;
     cmsg_closure_data closure_data;
 
     // Setup closure_data so it can be used no matter what the action is
@@ -544,7 +525,7 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
     ret = server->_transport->server_send (server, &header, sizeof (header), 0);
-    if (ret < sizeof (header))
+    if (ret < (int) sizeof (header))
     {
         CMSG_LOG_ERROR ("[SERVER] error: sending of echo reply failed sent:%d of %u",
                         ret, (uint32_t) sizeof (header));
@@ -595,7 +576,7 @@ static void
 _cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code status_code,
                                       uint32_t method_index)
 {
-    int ret = 0;
+    uint32_t ret = 0;
     cmsg_header header;
 
     header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REPLY, 0 /* empty msg */ ,
@@ -632,7 +613,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     CMSG_ASSERT (server->server_request);
 
     cmsg_server_request *server_request = server->server_request;
-    int ret = 0;
+    uint32_t ret = 0;
 
     DEBUG (CMSG_INFO, "[SERVER] invoking rpc method=%d\n", server_request->method_index);
 
@@ -688,7 +669,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                                                  server_request->method_index,
                                                  CMSG_STATUS_CODE_SUCCESS);
 
-        uint8_t *buffer = CMSG_CALLOC (1, packed_size + sizeof (header));
+        uint8_t *buffer = (uint8_t *) CMSG_CALLOC (1, packed_size + sizeof (header));
         if (!buffer)
         {
             CMSG_LOG_ERROR ("[SERVER] error: unable to allocate buffer. line(%d)\n",
@@ -725,7 +706,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         cmsg_buffer_print ((void *) &header, sizeof (header));
 
         DEBUG (CMSG_INFO, "[SERVER] response data\n");
-        cmsg_buffer_print ((void *) buffer + sizeof (header), packed_size);
+        cmsg_buffer_print ((void *) (buffer + sizeof (header)), packed_size);
 
         ret = server->_transport->server_send (server,
                                                buffer, packed_size + sizeof (header), 0);
@@ -777,10 +758,10 @@ cmsg_server_queue_process (cmsg_server *server)
         }
 
         if (server->queue_process_number >= 0)
-            processed = cmsg_receive_queue_process_some (server->queue, &server->queue_mutex,
-                                                         server->service->descriptor,
-                                                         server,
-                                                         server->queue_process_number);
+            processed =
+                cmsg_receive_queue_process_some (server->queue, &server->queue_mutex,
+                                                 server->service->descriptor, server,
+                                                 server->queue_process_number);
         else if (server->queue_process_number == -1)
             processed = cmsg_receive_queue_process_all (server->queue, &server->queue_mutex,
                                                         server->service->descriptor,
@@ -807,10 +788,10 @@ cmsg_server_queue_process (cmsg_server *server)
     else if (server->queueing_state == CMSG_QUEUE_STATE_ENABLED)
     {
         if (server->queue_process_number >= 0)
-            processed = cmsg_receive_queue_process_some (server->queue, &server->queue_mutex,
-                                                         server->service->descriptor,
-                                                         server,
-                                                         server->queue_process_number);
+            processed =
+                cmsg_receive_queue_process_some (server->queue, &server->queue_mutex,
+                                                 server->service->descriptor, server,
+                                                 server->queue_process_number);
         else if (server->queue_process_number == -1)
             processed = cmsg_receive_queue_process_all (server->queue, &server->queue_mutex,
                                                         server->service->descriptor,
@@ -858,7 +839,7 @@ cmsg_server_queue_process_list (GList *server_list)
 
     for (node = g_list_first (server_list); node && node->data; node = g_list_next (node))
     {
-        server = node->data;
+        server = (cmsg_server *) node->data;
 
         cmsg_server_queue_process (server);
     }
@@ -890,7 +871,7 @@ uint32_t
 cmsg_server_queue_get_length (cmsg_server *server)
 {
     pthread_mutex_lock (&server->queue_mutex);
-    unsigned int queue_length = g_queue_get_length (server->queue);
+    uint32_t queue_length = g_queue_get_length (server->queue);
     pthread_mutex_unlock (&server->queue_mutex);
 
     return queue_length;

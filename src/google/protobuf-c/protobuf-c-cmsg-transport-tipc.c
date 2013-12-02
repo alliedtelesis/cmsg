@@ -40,8 +40,8 @@ cmsg_transport_tipc_connect (cmsg_client *client)
         client->state = CMSG_CLIENT_STATE_FAILED;
         CMSG_LOG_ERROR ("[TRANSPORT] error connecting to remote host (port %d inst %d): %s",
                         client->_transport->config.socket.sockaddr.tipc.addr.name.name.type,
-                        client->_transport->config.socket.sockaddr.tipc.addr.name.name.
-                        instance, strerror (errno));
+                        client->_transport->config.socket.sockaddr.tipc.addr.name.
+                        name.instance, strerror (errno));
 
         return 0;
     }
@@ -194,8 +194,8 @@ cmsg_transport_tipc_server_accept (int32_t listen_socket, cmsg_server *server)
 static cmsg_status_code
 cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
 {
-    int32_t nbytes = 0;
-    int32_t dyn_len = 0;
+    uint32_t nbytes = 0;
+    uint32_t dyn_len = 0;
     cmsg_header header_received;
     cmsg_header header_converted;
     uint8_t *recv_buffer = 0;
@@ -238,16 +238,16 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
         // Take into account that someone may have changed the size of the header
         // and we don't know about it, make sure we receive all the information.
-        dyn_len = header_converted.message_length
-            + header_converted.header_length - sizeof (cmsg_header);
+        dyn_len = header_converted.message_length +
+            header_converted.header_length - sizeof (cmsg_header);
 
-        if (dyn_len > sizeof buf_static)
+        if (dyn_len > sizeof (buf_static))
         {
-            recv_buffer = CMSG_CALLOC (1, dyn_len);
+            recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
         }
         else
         {
-            recv_buffer = (void *) buf_static;
+            recv_buffer = (uint8_t *) buf_static;
             memset (recv_buffer, 0, sizeof (buf_static));
         }
 
@@ -316,7 +316,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
                         client->connection.socket, nbytes);
 
         // TEMP to keep things going
-        recv_buffer = CMSG_CALLOC (1, nbytes);
+        recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
         nbytes = recv (client->connection.socket, recv_buffer, nbytes, MSG_WAITALL);
         CMSG_FREE (recv_buffer);
         recv_buffer = 0;

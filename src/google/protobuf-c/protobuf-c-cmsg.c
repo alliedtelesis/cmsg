@@ -1,6 +1,5 @@
 #include "protobuf-c-cmsg.h"
-#include <netdb.h>
-#include <glib.h>
+
 
 static int cmsg_mtype = 0;
 
@@ -15,7 +14,7 @@ cmsg_common_uint32_to_le (uint32_t le)
 }
 
 void
-cmsg_buffer_print (void *buffer, unsigned int size)
+cmsg_buffer_print (void *buffer, uint32_t size)
 {
 #if DEBUG_BUFFER
     char output_str[1024 * 4];
@@ -91,11 +90,11 @@ cmsg_header_create (cmsg_msg_type msg_type, uint32_t packed_size, uint32_t metho
 {
     cmsg_header header;
 
-    header.msg_type = htonl (msg_type);
+    header.msg_type = (cmsg_msg_type) htonl ((uint32_t) msg_type);
     header.message_length = htonl (packed_size);
     header.header_length = htonl (sizeof (cmsg_header));
     header.method_index = htonl (method_index);
-    header.status_code = htonl (status_code);
+    header.status_code = (cmsg_status_code) htonl ((uint32_t) status_code);
 
     return header;
 }
@@ -108,11 +107,13 @@ int32_t
 cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted)
 {
     //we have network byte order on the wire
-    header_converted->msg_type = ntohl (header_received->msg_type);
+    header_converted->msg_type =
+        (cmsg_msg_type) ntohl ((uint32_t) header_received->msg_type);
     header_converted->header_length = ntohl (header_received->header_length);
     header_converted->message_length = ntohl (header_received->message_length);
     header_converted->method_index = ntohl (header_received->method_index);
-    header_converted->status_code = ntohl (header_received->status_code);
+    header_converted->status_code =
+        (cmsg_status_code) ntohl ((uint32_t) header_received->status_code);
 
     DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
     cmsg_buffer_print ((void *) &header_received, sizeof (cmsg_header));

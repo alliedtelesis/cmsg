@@ -7,7 +7,7 @@ cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_servic
     CMSG_ASSERT (pub_server_transport);
     CMSG_ASSERT (pub_service);
 
-    cmsg_sub *subscriber = CMSG_CALLOC (1, sizeof (cmsg_sub));
+    cmsg_sub *subscriber = (cmsg_sub *) CMSG_CALLOC (1, sizeof (cmsg_sub));
     if (!subscriber)
     {
         syslog (LOG_CRIT | LOG_LOCAL6, "[SUB] error: unable to allocate buffer. line(%d)\n",
@@ -133,11 +133,14 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
         register_entry.tipc_addrtype =
             subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addrtype;
         register_entry.tipc_addr_name_domain =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.domain;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
+            domain;
         register_entry.tipc_addr_name_name_instance =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.instance;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.
+            instance;
         register_entry.tipc_addr_name_name_type =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.type;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.
+            type;
         register_entry.tipc_scope =
             subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
     }
@@ -164,7 +167,8 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
 
     if (register_client->invoke_return_state == CMSG_RET_ERR)
     {
-        CMSG_LOG_ERROR ("[SUB] error: couldn't subscribe to notification (method: %s)", method_name);
+        CMSG_LOG_ERROR ("[SUB] error: couldn't subscribe to notification (method: %s)",
+                        method_name);
     }
 
     cmsg_client_destroy (register_client);
@@ -215,11 +219,14 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
         register_entry.tipc_addrtype =
             subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addrtype;
         register_entry.tipc_addr_name_domain =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.domain;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
+            domain;
         register_entry.tipc_addr_name_name_instance =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.instance;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.
+            instance;
         register_entry.tipc_addr_name_name_type =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.type;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.
+            type;
         register_entry.tipc_scope =
             subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
     }
@@ -246,7 +253,8 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
 
     if (register_client->invoke_return_state == CMSG_RET_ERR)
     {
-        CMSG_LOG_ERROR ("[SUB] error: couldn't unsubscribe to notification (method: %s)", method_name);
+        CMSG_LOG_ERROR ("[SUB] error: couldn't unsubscribe to notification (method: %s)",
+                        method_name);
     }
 
     cmsg_client_destroy (register_client);

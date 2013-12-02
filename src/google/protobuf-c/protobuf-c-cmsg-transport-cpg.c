@@ -69,8 +69,8 @@ _cmsg_cpg_confchg_fn (cpg_handle_t handle, struct cpg_name *group_name,
     /* Find the server matching this group.
      */
     DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n", group_name->value);
-    server = g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
-                                  (gconstpointer) group_name->value);
+    server = (cmsg_server *) g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
+                                                  (gconstpointer) group_name->value);
 
     if (!server)
     {
@@ -126,20 +126,20 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
            "[TRANSPORT] cpg msg len = %d, header length = %u, data length = %d\n",
            msg_len, header_converted.header_length, dyn_len);
 
-    if (msg_len < header_converted.header_length + dyn_len)
+    if (msg_len < (header_converted.header_length + dyn_len))
     {
         DEBUG (CMSG_ERROR, "[TRANSPORT] cpg Message larger than data buffer passed in\n");
         return;
     }
 
-    buffer = msg + header_converted.header_length;
+    buffer = (uint8_t *) ((uint32_t *) msg + header_converted.header_length);
 
     DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
     cmsg_buffer_print (buffer, dyn_len);
 
     DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n", group_name->value);
-    server = g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
-                                  (gconstpointer) group_name->value);
+    server = (cmsg_server *) g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
+                                                  (gconstpointer) group_name->value);
 
     if (!server)
     {
@@ -204,7 +204,7 @@ cmsg_transport_cpg_client_connect (cmsg_client *client)
 static int32_t
 _cmsg_transport_cpg_init_exe_connection (void)
 {
-    unsigned int slept_us = 0;
+    uint32_t slept_us = 0;
     cpg_error_t result = CPG_OK;
 
     do
@@ -241,7 +241,7 @@ _cmsg_transport_cpg_init_exe_connection (void)
 static uint32_t
 _cmsg_transport_cpg_join_group (cmsg_server *server)
 {
-    unsigned int slept_us = 0;
+    uint32_t slept_us = 0;
     cpg_error_t result;
 
     do

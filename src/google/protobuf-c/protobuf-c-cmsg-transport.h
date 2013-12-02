@@ -14,68 +14,56 @@
 
 #include "protobuf-c-cmsg.h"
 
-//for types used in functions pointers below
+
+//forward delarations
 typedef struct _cmsg_client_s cmsg_client;
 typedef struct _cmsg_server_s cmsg_server;
 
-typedef struct _cmsg_cpg_s cmsg_cpg;
-typedef union _cmsg_transport_config_u cmsg_transport_config;
-typedef struct _cmsg_socket_s cmsg_socket;
-typedef struct _cmsg_udt_s cmsg_udt;
-typedef union _cmsg_socket_address_u cmsg_socket_address;
-typedef enum _cmsg_transport_type_e cmsg_transport_type;
-typedef struct _cmsg_transport_s cmsg_transport;
-typedef union _client_connection_u cmsg_client_connection;
-typedef union _server_connection_u cmsg_server_connection;
-typedef struct _cpg_server_connection_s cmsg_cpg_server_connection;
-typedef struct _generic_server_connection_s cmsg_generic_sever_connection;
-typedef enum _cmsg_status_code_e cmsg_status_code;
 
 #ifdef HAVE_VCSTACK
-struct _cpg_server_connection_s
+typedef struct _cpg_server_connection_s
 {
     cpg_handle_t handle;
     cpg_callbacks_t callbacks;
     int fd; //file descriptor for listening
-};
+} cmsg_cpg_server_connection;
 #endif
 
-struct _generic_server_connection_s
+typedef struct _generic_server_connection_s
 {
     int listening_socket;
     int client_socket;
-};
+} cmsg_generic_sever_connection;
 
-union _client_connection_u
+typedef union _client_connection_u
 {
 #ifdef HAVE_VCSTACK
     cpg_handle_t handle;
 #endif
     int socket;
-};
+} cmsg_client_connection;
 
-union _server_connection_u
+typedef union _cmsg_server_connection_u
 {
 #ifdef HAVE_VCSTACK
     cmsg_cpg_server_connection cpg;
 #endif
     cmsg_generic_sever_connection sockets;
-};
+} cmsg_server_connection;
 
-
-union _cmsg_socket_address_u
+typedef union _cmsg_socket_address_u
 {
     struct sockaddr generic;    // Generic socket address. Used for determining Address Family.
     struct sockaddr_in in;      // INET socket address, for TCP based transport.
     struct sockaddr_tipc tipc;  // TIPC socket address, for TIPC based IPC transport.
     struct sockaddr_un un;      // UNIX socket address, for Unix-domain socket transport.
-};
+} cmsg_socket_address;
 
-struct _cmsg_socket_s
+typedef struct _cmsg_socket_s
 {
     int family;
     cmsg_socket_address sockaddr;
-};
+} cmsg_socket;
 
 #ifdef HAVE_VCSTACK
 typedef void (*cpg_configchg_cb_f) (cmsg_server *server,
@@ -87,36 +75,36 @@ typedef void (*cpg_configchg_cb_f) (cmsg_server *server,
                                     int joined_list_entries);
 #endif
 
-struct _cmsg_cpg_s
+typedef struct _cmsg_cpg_s
 {
 #ifdef HAVE_VCSTACK
     struct cpg_name group_name; // CPG address structure
     cpg_configchg_cb_f configchg_cb;
 #endif
-};
+} cmsg_cpg;
 
 typedef int (*udt_connect_f) (cmsg_client *client);
 typedef int (*udt_send_f) (void *udt_data, void *buff, int length, int flag);
 typedef int (*cmsg_recv_func) (void *handle, void *buff, int len, int flags);
 
-struct _cmsg_udt_s
+typedef struct _cmsg_udt_s
 {
     void *udt_data;
     // Functions for userdefined transport functionality
     udt_connect_f connect;
     udt_send_f send;
     cmsg_recv_func recv;
-};
+} cmsg_udt;
 
-union _cmsg_transport_config_u
+typedef union _cmsg_transport_config_u
 {
     cmsg_socket socket;
     cmsg_cpg cpg;
     cmsg_udt udt;
-};
+} cmsg_transport_config;
 
 
-enum _cmsg_transport_type_e
+typedef enum _cmsg_transport_type_e
 {
     CMSG_TRANSPORT_RPC_LOCAL,
     CMSG_TRANSPORT_RPC_TCP,
@@ -126,29 +114,38 @@ enum _cmsg_transport_type_e
     CMSG_TRANSPORT_CPG,
     CMSG_TRANSPORT_ONEWAY_USERDEFINED,
     CMSG_TRANSPORT_BROADCAST,
-};
+} cmsg_transport_type;
 
 typedef int (*client_conect_f) (cmsg_client *client);
 typedef int (*server_listen_f) (cmsg_server *server);
 typedef int (*server_recv_f) (int32_t socket, cmsg_server *server);
 typedef int (*server_accept_f) (int32_t socket, cmsg_server *server);
+
 typedef cmsg_status_code (*client_recv_f) (cmsg_client *client,
                                            ProtobufCMessage **messagePtPt);
+
 typedef int (*client_send_f) (cmsg_client *client, void *buff, int length, int flag);
 typedef int (*server_send_f) (cmsg_server *server, void *buff, int length, int flag);
+
 typedef void (*invoke_f) (ProtobufCService *service,
                           unsigned method_index,
                           const ProtobufCMessage *input,
                           ProtobufCClosure closure, void *closure_data_void);
+
 typedef void (*client_close_f) (cmsg_client *client);
 typedef void (*server_close_f) (cmsg_server *server);
 typedef int (*s_get_socket_f) (cmsg_server *server);
 typedef int (*c_get_socket_f) (cmsg_client *client);
 typedef void (*client_destroy_f) (cmsg_client *client);
 typedef void (*server_destroy_f) (cmsg_server *server);
-typedef uint32_t (*is_congested_f) (cmsg_client *);
-typedef int32_t (*send_called_multi_threads_enable_f) (cmsg_transport *, uint32_t enable);
-typedef int32_t (*send_can_block_enable_f) (cmsg_transport *, uint32_t enable);
+typedef uint32_t (*is_congested_f) (cmsg_client *client);
+
+typedef struct _cmsg_transport_s cmsg_transport;    //forward declaration
+
+typedef int32_t (*send_called_multi_threads_enable_f) (cmsg_transport *transport,
+                                                       uint32_t enable);
+
+typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
 
 struct _cmsg_transport_s
 {
@@ -202,8 +199,10 @@ void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
 
 int32_t cmsg_transport_server_process_message (cmsg_recv_func recv, void *handle,
                                                cmsg_server *server);
+
 int32_t cmsg_transport_server_process_message_with_peek (cmsg_recv_func recv, void *handle,
                                                          cmsg_server *server);
+
 int32_t cmsg_transport_destroy (cmsg_transport *transport);
 
 int32_t cmsg_transport_send_called_multi_threads_enable (cmsg_transport *transport,
@@ -211,7 +210,9 @@ int32_t cmsg_transport_send_called_multi_threads_enable (cmsg_transport *transpo
 
 int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
                                               uint32_t send_can_block);
+
 int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server);
+
 int32_t cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
                                               cmsg_server *server);
 
