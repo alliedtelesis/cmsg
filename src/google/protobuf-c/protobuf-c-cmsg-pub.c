@@ -830,8 +830,8 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
 
         DEBUG (CMSG_INFO, "[PUB] [LIST]  tipc type: %d, instance: %d\n",
                subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.type,
-               subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.name.
-               instance);
+               subscriber_entry.transport.config.socket.sockaddr.tipc.addr.name.
+               name.instance);
 
         cmsg_transport_oneway_tipc_init (&(subscriber_entry.transport));
     }
