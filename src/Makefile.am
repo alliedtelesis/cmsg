@@ -3,7 +3,7 @@ AM_CFLAGS = -I=/usr/include/glib-2.0 \
             -Wall -Werror
 
 if BUILD_PROTOC_C
-SUBDIRS = . test tools
+SUBDIRS = . test
 bin_PROGRAMS = protoc-c
 protoc_c_SOURCES = \
 google/protobuf/compiler/c/c_service.cc \

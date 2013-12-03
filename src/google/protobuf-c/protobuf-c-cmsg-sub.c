@@ -133,14 +133,14 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
         register_entry.tipc_addrtype =
             subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addrtype;
         register_entry.tipc_addr_name_domain =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.
-            name.domain;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
+            domain;
         register_entry.tipc_addr_name_name_instance =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
-            name.instance;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.
+            instance;
         register_entry.tipc_addr_name_name_type =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
-            name.type;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.
+            type;
         register_entry.tipc_scope =
             subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
     }
@@ -219,14 +219,14 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
         register_entry.tipc_addrtype =
             subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addrtype;
         register_entry.tipc_addr_name_domain =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.
-            name.domain;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
+            domain;
         register_entry.tipc_addr_name_name_instance =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
-            name.instance;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.
+            instance;
         register_entry.tipc_addr_name_name_type =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
-            name.type;
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.
+            type;
         register_entry.tipc_scope =
             subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
     }

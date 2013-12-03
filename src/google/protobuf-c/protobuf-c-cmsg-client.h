@@ -53,10 +53,6 @@ typedef struct _cmsg_client_s
     pthread_mutex_t queue_process_mutex;
     uint32_t queue_process_count;
     pthread_t self_thread_id;
-
-#ifdef HAVE_CMSG_PROFILING
-    cmsg_prof prof;
-#endif
 } cmsg_client;
 
 
@@ -126,4 +122,5 @@ cmsg_client *cmsg_create_client_tipc_oneway (const char *server_name, int member
                                              ProtobufCServiceDescriptor *descriptor);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
+
 #endif

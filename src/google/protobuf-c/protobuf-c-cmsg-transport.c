@@ -95,7 +95,6 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
     if (nbytes == sizeof (cmsg_header))
     {
-        CMSG_PROF_TIME_TIC (&server->prof);
 
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
@@ -118,8 +117,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         else
         {
             // Make sure any extra header is received.
-            dyn_len = header_converted.message_length +
-                header_converted.header_length - sizeof (cmsg_header);
+            dyn_len = header_converted.message_length
+                + header_converted.header_length - sizeof (cmsg_header);
         }
 
         if (dyn_len > sizeof (buf_static))
@@ -148,9 +147,6 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
             buffer_data = buffer;
         }
 
-        CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "receive",
-                                     cmsg_prof_time_toc (&server->prof));
-
         // Process any message that has no more length or we have received what
         // we expected to from the socket
         if (header_converted.message_length == 0 || nbytes == dyn_len)
@@ -178,7 +174,6 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                 buffer = 0;
             }
         }
-
     }
     else if (nbytes > 0)
     {

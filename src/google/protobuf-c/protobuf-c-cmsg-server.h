@@ -62,10 +62,6 @@ typedef struct _cmsg_server_s
 
     fd_set accepted_fdset;
     int accepted_fdmax;
-
-#ifdef HAVE_CMSG_PROFILING
-    cmsg_prof prof;
-#endif
 } cmsg_server;
 
 

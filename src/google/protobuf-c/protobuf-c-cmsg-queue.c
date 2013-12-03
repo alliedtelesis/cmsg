@@ -487,8 +487,8 @@ cmsg_queue_filter_set_all (GHashTable *queue_filter_hash_table,
         cmsg_queue_filter_entry *entry;
         entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer)
-                                                                 descriptor->
-                                                                 methods[i].name);
+                                                                 descriptor->methods[i].
+                                                                 name);
 
         entry->type = filter_type;
     }
@@ -507,8 +507,8 @@ cmsg_queue_filter_clear_all (GHashTable *queue_filter_hash_table,
         cmsg_queue_filter_entry *entry;
         entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer)
-                                                                 descriptor->
-                                                                 methods[i].name);
+                                                                 descriptor->methods[i].
+                                                                 name);
 
         entry->type = CMSG_QUEUE_FILTER_PROCESS;
     }
@@ -583,8 +583,8 @@ cmsg_queue_filter_free (GHashTable *queue_filter_hash_table,
         cmsg_queue_filter_entry *entry;
         entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer)
-                                                                 descriptor->
-                                                                 methods[i].name);
+                                                                 descriptor->methods[i].
+                                                                 name);
 
         g_free (entry);
 
@@ -621,8 +621,8 @@ cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
         cmsg_queue_filter_entry *entry;
         entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer)
-                                                                 descriptor->
-                                                                 methods[i].name);
+                                                                 descriptor->methods[i].
+                                                                 name);
 
         switch (entry->type)
         {
@@ -654,8 +654,8 @@ cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
         cmsg_queue_filter_entry *entry;
         entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer)
-                                                                 descriptor->
-                                                                 methods[i].name);
+                                                                 descriptor->methods[i].
+                                                                 name);
 
         if (entry->type == CMSG_QUEUE_FILTER_QUEUE)
         {
@@ -680,13 +680,13 @@ cmsg_queue_filter_copy (GHashTable *src_queue_filter_hash_table,
 
         src_entry =
             (cmsg_queue_filter_entry *) g_hash_table_lookup (src_queue_filter_hash_table,
-                                                             (gconstpointer)
-                                                             descriptor->methods[i].name);
+                                                             (gconstpointer) descriptor->
+                                                             methods[i].name);
 
         dst_entry =
             (cmsg_queue_filter_entry *) g_hash_table_lookup (dst_queue_filter_hash_table,
-                                                             (gconstpointer)
-                                                             descriptor->methods[i].name);
+                                                             (gconstpointer) descriptor->
+                                                             methods[i].name);
 
         if (!src_entry || !dst_entry)
             return CMSG_RET_ERR;
