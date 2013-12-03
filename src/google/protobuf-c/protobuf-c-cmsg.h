@@ -9,11 +9,11 @@
 #include <pthread.h>
 #include <time.h>
 #include <glib.h>
-#include <netdb.h>
 #include <syslog.h>
 #include <sys/select.h>
 
 #include "protobuf-c.h"
+#include "protobuf-c-cmsg-transport.h"
 
 // TODO: Perhaps we can refactor the logic around the debug below
 // The logic around when the debug is on/off is a little convoluted.
@@ -110,86 +110,94 @@
 //         method_index      0
 //         status_code       0
 
+//
+//forward declarations
+typedef struct _cmsg_client_s cmsg_client;
+typedef struct _cmsg_server_s cmsg_server;
+typedef struct _cmsg_sub_s cmsg_sub;
+typedef struct _cmsg_pub_s cmsg_pub;
 
-typedef enum _cmsg_object_type_e
+typedef struct _cmsg_object_s cmsg_object;
+typedef enum _cmsg_object_type_e cmsg_object_type;
+typedef enum _cmsg_msg_type_e cmsg_msg_type;
+typedef struct _cmsg_sub_header_method_reply_s cmsg_sub_header_method_reply;
+typedef struct _cmsg_sub_header_method_req_s cmsg_sub_header_method_req;
+typedef struct _cmsg_header_s cmsg_header;
+typedef enum _cmsg_status_code_e cmsg_status_code;
+typedef enum _cmsg_error_code_e cmsg_error_code;
+typedef enum _cmsg_method_processing_reason_e cmsg_method_processing_reason;
+typedef enum _cmsg_queue_state_e cmsg_queue_state;
+
+enum _cmsg_object_type_e
 {
     CMSG_OBJ_TYPE_NONE,
     CMSG_OBJ_TYPE_CLIENT,
     CMSG_OBJ_TYPE_SERVER,
     CMSG_OBJ_TYPE_PUB,
     CMSG_OBJ_TYPE_SUB,
-} cmsg_object_type;
+};
 
-typedef struct _cmsg_object_s
+struct _cmsg_object_s
 {
     cmsg_object_type object_type;
     void *object;
-} cmsg_object;
+};
 
-typedef enum _cmsg_msg_type_e
+enum _cmsg_msg_type_e
 {
     CMSG_MSG_TYPE_METHOD_REQ = 0,   // Request to server to call a method
     CMSG_MSG_TYPE_METHOD_REPLY,     // Reply from server in response to a method request
     CMSG_MSG_TYPE_ECHO_REQ,         // Request to server for a reply - used for a ping/healthcheck
     CMSG_MSG_TYPE_ECHO_REPLY,       // Reply from server in response to an echo request
-} cmsg_msg_type;
+};
 
-typedef enum _cmsg_status_code_e
+enum _cmsg_status_code_e
 {
-    CMSG_STATUS_CODE_UNSET,
     CMSG_STATUS_CODE_SUCCESS,
     CMSG_STATUS_CODE_SERVICE_FAILED,
     CMSG_STATUS_CODE_TOO_MANY_PENDING,
     CMSG_STATUS_CODE_SERVICE_QUEUED,
     CMSG_STATUS_CODE_SERVICE_DROPPED,
-} cmsg_status_code;
+};
 
-typedef struct _cmsg_header_s
+struct _cmsg_header_s
 {
     cmsg_msg_type msg_type;         // Do NOT change this field
     uint32_t header_length;         // Do NOT change this field
     uint32_t message_length;        // Do NOT change this field
     uint32_t method_index;          // Only for METHOD_xxx
     cmsg_status_code status_code;   // Only for METHOD_REPLY
-} cmsg_header;
+};
 
-typedef enum _cmsg_method_processing_reason_e
+enum _cmsg_method_processing_reason_e
 {
     CMSG_METHOD_OK_TO_INVOKE,
     CMSG_METHOD_QUEUED,
     CMSG_METHOD_DROPPED,
     CMSG_METHOD_INVOKING_FROM_QUEUE
-} cmsg_method_processing_reason;
+};
 
-typedef enum _cmsg_error_code_e
+enum _cmsg_error_code_e
 {
     CMSG_ERROR_CODE_HOST_NOT_FOUND,
     CMSG_ERROR_CODE_CONNECTION_REFUSED,
     CMSG_ERROR_CODE_CLIENT_TERMINATED,
     CMSG_ERROR_CODE_BAD_REQUEST,
     CMSG_ERROR_CODE_PROXY_PROBLEM
-} cmsg_error_code;;
+};
 
-typedef enum _cmsg_queue_state_e
+enum _cmsg_queue_state_e
 {
     CMSG_QUEUE_STATE_ENABLED,
     CMSG_QUEUE_STATE_TO_DISABLED,
     CMSG_QUEUE_STATE_DISABLED,
-} cmsg_queue_state;
-
-typedef enum _cmsg_queue_filter_type_e
-{
-    CMSG_QUEUE_FILTER_PROCESS,
-    CMSG_QUEUE_FILTER_DROP,
-    CMSG_QUEUE_FILTER_QUEUE,
-    CMSG_QUEUE_FILTER_ERROR,
-} cmsg_queue_filter_type;
+};
 
 uint32_t cmsg_common_uint32_to_le (uint32_t le);
 
 #define cmsg_common_uint32_from_le cmsg_common_uint32_to_le
 
-void cmsg_buffer_print (void *buffer, uint32_t size);
+void cmsg_buffer_print (void *buffer, unsigned int size);
 
 cmsg_header cmsg_header_create (cmsg_msg_type msg_type, uint32_t packed_size,
                                 uint32_t method_index, cmsg_status_code status_code);

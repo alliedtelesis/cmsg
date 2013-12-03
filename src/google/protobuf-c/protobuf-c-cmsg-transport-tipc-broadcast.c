@@ -83,7 +83,7 @@ cmsg_transport_tipc_broadcast_recv (void *handle, void *buff, int len, int flags
     cmsg_transport *transport;
     int32_t nbytes;
 
-    server = (cmsg_server *) handle;
+    server = handle;
     addrlen = sizeof (struct sockaddr_tipc);
     transport = server->_transport;
 

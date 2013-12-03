@@ -6,32 +6,46 @@
 #include "protobuf-c-cmsg-server.h"
 #include "protobuf-c-cmsg-sub.h"
 #include "protobuf-c-cmsg-pub.h"
-#include "protobuf-c-cmsg-transport.h"
 
 
-typedef struct _cmsg_queue_filter_entry_s
+typedef enum _cmsg_queue_filter_type_e cmsg_queue_filter_type;
+typedef struct _cmsg_queue_filter_entry_s cmsg_queue_filter_entry;
+typedef struct _cmsg_send_queue_entry_s cmsg_send_queue_entry;
+typedef struct _cmsg_receive_queue_entry_s cmsg_receive_queue_entry;
+typedef enum _cmsg_queue_state_e cmsg_queue_state;
+
+
+enum _cmsg_queue_filter_type_e
+{
+    CMSG_QUEUE_FILTER_PROCESS,
+    CMSG_QUEUE_FILTER_DROP,
+    CMSG_QUEUE_FILTER_QUEUE,
+    CMSG_QUEUE_FILTER_ERROR,
+};
+
+struct _cmsg_queue_filter_entry_s
 {
     char method_name[128];
     cmsg_queue_filter_type type;
-} cmsg_queue_filter_entry;
+};
 
-typedef struct _cmsg_send_queue_entry_s
+struct _cmsg_send_queue_entry_s
 {
     cmsg_transport transport;
-    int32_t queue_buffer_size;
+    uint32_t queue_buffer_size;
     uint8_t *queue_buffer;
     char method_name[128];
-} cmsg_send_queue_entry;
+};
 
-typedef struct _cmsg_receive_queue_entry_s
+struct _cmsg_receive_queue_entry_s
 {
     uint32_t method_index;
     uint32_t queue_buffer_size;
     uint8_t *queue_buffer;
-} cmsg_receive_queue_entry;
+};
 
 
-uint32_t cmsg_queue_get_length (GQueue *queue);
+unsigned int cmsg_queue_get_length (GQueue *queue);
 
 
 int32_t cmsg_send_client_process_all (cmsg_object obj);
@@ -42,8 +56,7 @@ int32_t cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_si
 void cmsg_send_queue_free_all (GQueue *queue);
 
 void cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport);
-void cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transport,
-                                               char *method_name);
+void cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transport, char *method_name);
 
 guint cmsg_queue_filter_hash_function (gconstpointer key);
 

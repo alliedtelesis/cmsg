@@ -7,7 +7,10 @@
 #include "protobuf-c-cmsg-sub-service.pb-c.h"
 
 
-typedef struct _cmsg_sub_s
+typedef struct _cmsg_sub_s cmsg_sub;
+
+
+struct _cmsg_sub_s
 {
     //this is a hack to get around a check when a client method is called
     //to not change the order of the first two
@@ -19,7 +22,7 @@ typedef struct _cmsg_sub_s
 
     cmsg_server *pub_server;    //receiving messages
 
-} cmsg_sub;
+};
 
 
 cmsg_sub *cmsg_sub_new (cmsg_transport *pub_server_transport,

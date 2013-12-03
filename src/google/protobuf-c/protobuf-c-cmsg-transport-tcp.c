@@ -168,8 +168,8 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
 static cmsg_status_code
 cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
 {
-    uint32_t nbytes = 0;
-    uint32_t dyn_len = 0;
+    int32_t nbytes = 0;
+    int32_t dyn_len = 0;
     ProtobufCMessage *ret = NULL;
     cmsg_header header_received;
     cmsg_header header_converted;
@@ -195,7 +195,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         {
             // Couldn't process the header for some reason
             CMSG_LOG_ERROR ("[TRANSPORT] server receive couldn't process msg header");
-            return CMSG_STATUS_CODE_SERVICE_FAILED;
+            return CMSG_RET_ERR;
         }
 
         DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
@@ -215,15 +215,15 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
         // Take into account that someone may have changed the size of the header
         // and we don't know about it, make sure we receive all the information.
-        dyn_len = header_converted.message_length +
-            header_converted.header_length - sizeof (cmsg_header);
-        if (dyn_len > sizeof (buf_static))
+        dyn_len = header_converted.message_length + header_converted.header_length
+            - sizeof (cmsg_header);
+        if (dyn_len > sizeof buf_static)
         {
-            recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
+            recv_buffer = CMSG_CALLOC (1, dyn_len);
         }
         else
         {
-            recv_buffer = (uint8_t *) buf_static;
+            recv_buffer = (void *) buf_static;
             memset (recv_buffer, 0, sizeof (buf_static));
         }
 
@@ -279,7 +279,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
                client->connection.socket, nbytes);
 
         // TEMP to keep things going
-        recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
+        recv_buffer = CMSG_CALLOC (1, nbytes);
         nbytes = recv (client->connection.socket, recv_buffer, nbytes, MSG_WAITALL);
         CMSG_FREE (recv_buffer);
         recv_buffer = 0;
