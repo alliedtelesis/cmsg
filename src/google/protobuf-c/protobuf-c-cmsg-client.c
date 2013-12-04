@@ -292,8 +292,18 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     }
     else if (message_pt == NULL)
     {
-        CMSG_LOG_ERROR ("[CLIENT] error: response message not valid or empty\n");
-        return;
+        /* There may be no message if the server has sent an empty message which is ok. */
+        if (status_code == CMSG_STATUS_CODE_SUCCESS)
+        {
+            client->invoke_return_state = CMSG_RET_OK;
+            return;
+        }
+        else
+        {
+            CMSG_LOG_ERROR ("[CLIENT] error: response message not valid or empty (method: %s)",
+                            method_name);
+            return;
+        }
     }
 
     //call closure
