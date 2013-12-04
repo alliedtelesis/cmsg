@@ -168,8 +168,8 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
 static cmsg_status_code
 cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
 {
-    int32_t nbytes = 0;
-    int32_t dyn_len = 0;
+    int nbytes = 0;
+    uint32_t dyn_len = 0;
     ProtobufCMessage *ret = NULL;
     cmsg_header header_received;
     cmsg_header header_converted;
@@ -189,13 +189,13 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     nbytes = recv (client->connection.socket,
                    &header_received, sizeof (cmsg_header), MSG_WAITALL);
 
-    if (nbytes == sizeof (cmsg_header))
+    if (nbytes == (int) sizeof (cmsg_header))
     {
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
             CMSG_LOG_ERROR ("[TRANSPORT] server receive couldn't process msg header");
-            return CMSG_RET_ERR;
+            return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
         DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
@@ -215,22 +215,22 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
         // Take into account that someone may have changed the size of the header
         // and we don't know about it, make sure we receive all the information.
-        dyn_len = header_converted.message_length + header_converted.header_length
-            - sizeof (cmsg_header);
-        if (dyn_len > sizeof buf_static)
+        dyn_len = header_converted.message_length +
+            header_converted.header_length - sizeof (cmsg_header);
+        if (dyn_len > sizeof (buf_static))
         {
-            recv_buffer = CMSG_CALLOC (1, dyn_len);
+            recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
         }
         else
         {
-            recv_buffer = (void *) buf_static;
+            recv_buffer = (uint8_t *) buf_static;
             memset (recv_buffer, 0, sizeof (buf_static));
         }
 
         //just recv the rest of the data to clear the socket
         nbytes = recv (client->connection.socket, recv_buffer, dyn_len, MSG_WAITALL);
 
-        if (nbytes == dyn_len)
+        if (nbytes == (int) dyn_len)
         {
             // Set buffer to take into account a larger header than we expected
             buffer = recv_buffer + (header_converted.header_length - sizeof (cmsg_header));
@@ -279,7 +279,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
                client->connection.socket, nbytes);
 
         // TEMP to keep things going
-        recv_buffer = CMSG_CALLOC (1, nbytes);
+        recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
         nbytes = recv (client->connection.socket, recv_buffer, nbytes, MSG_WAITALL);
         CMSG_FREE (recv_buffer);
         recv_buffer = 0;

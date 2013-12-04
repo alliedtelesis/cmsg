@@ -8,7 +8,7 @@ cmsg_transport *
 cmsg_transport_new (cmsg_transport_type type)
 {
     cmsg_transport *transport = 0;
-    transport = CMSG_CALLOC (1, sizeof (cmsg_transport));
+    transport = (cmsg_transport *) CMSG_CALLOC (1, sizeof (cmsg_transport));
     memset (transport, 0, sizeof (cmsg_transport));
 
     transport->type = type;
@@ -71,8 +71,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                              int peek)
 {
     int32_t ret = CMSG_RET_OK;
-    int32_t nbytes = 0;
-    int32_t dyn_len = 0;
+    int nbytes = 0;
+    uint32_t dyn_len = 0;
     cmsg_header header_received;
     cmsg_header header_converted;
     cmsg_server_request server_request;
@@ -93,7 +93,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
     }
 
-    if (nbytes == sizeof (cmsg_header))
+    if (nbytes == (int) sizeof (cmsg_header))
     {
 
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
@@ -121,13 +121,13 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                 + header_converted.header_length - sizeof (cmsg_header);
         }
 
-        if (dyn_len > sizeof buf_static)
+        if (dyn_len > sizeof (buf_static))
         {
-            buffer = CMSG_CALLOC (1, dyn_len);
+            buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
         }
         else
         {
-            buffer = (void *) buf_static;
+            buffer = (uint8_t *) buf_static;
             memset (buffer, 0, sizeof (buf_static));
         }
 
@@ -149,7 +149,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
         // Process any message that has no more length or we have received what
         // we expected to from the socket
-        if (header_converted.message_length == 0 || nbytes == dyn_len)
+        if (header_converted.message_length == 0 || nbytes == (int) dyn_len)
         {
             DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
 
@@ -181,7 +181,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                         server->connection.sockets.client_socket, nbytes);
 
         // TEMP to keep things going
-        buffer = CMSG_CALLOC (1, nbytes);
+        buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
         nbytes = recv (handle, buffer, nbytes, MSG_WAITALL);
         CMSG_FREE (buffer);
         buffer = 0;

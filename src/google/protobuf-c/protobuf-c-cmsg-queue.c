@@ -1,7 +1,7 @@
 
 #include "protobuf-c-cmsg-queue.h"
 
-unsigned int
+uint32_t
 cmsg_queue_get_length (GQueue *queue)
 {
     return g_queue_get_length (queue);
@@ -40,7 +40,7 @@ cmsg_send_queue_process_all (cmsg_object obj)
     else
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
-               "[PUB QUEUE] unknown object type. line %d", __LINE__);
+                "[PUB QUEUE] unknown object type. line %d", __LINE__);
         return 0;
     }
 
@@ -50,9 +50,10 @@ cmsg_send_queue_process_all (cmsg_object obj)
     }
 
     pthread_mutex_lock (queue_mutex);
+
     if (g_queue_get_length (queue))
     {
-        queue_entry = g_queue_pop_tail (queue);
+        queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
     }
     pthread_mutex_unlock (queue_mutex);
 
@@ -96,7 +97,7 @@ cmsg_send_queue_process_all (cmsg_object obj)
                                                            queue_entry->queue_buffer_size,
                                                            0);
 
-                if (ret < queue_entry->queue_buffer_size)
+                if (ret < (int) queue_entry->queue_buffer_size)
                 {
                     DEBUG (CMSG_ERROR,
                            "[PUB QUEUE] sending response failed send:%d of %d, queue message dropped\n",
@@ -150,16 +151,14 @@ cmsg_send_queue_process_all (cmsg_object obj)
 
                 //delete all messages for this subscriber from queue
                 pthread_mutex_lock (queue_mutex);
-                cmsg_send_queue_free_all_by_transport (queue,
-                                                       &queue_entry->transport);
+                cmsg_send_queue_free_all_by_transport (queue, &queue_entry->transport);
                 pthread_mutex_unlock (queue_mutex);
             }
             else if (obj.object_type == CMSG_OBJ_TYPE_CLIENT)
             {
                 //delete all messages for this client from queue
                 pthread_mutex_lock (queue_mutex);
-                cmsg_send_queue_free_all_by_transport (queue,
-                                                       &queue_entry->transport);
+                cmsg_send_queue_free_all_by_transport (queue, &queue_entry->transport);
                 pthread_mutex_unlock (queue_mutex);
             }
 
@@ -183,7 +182,7 @@ cmsg_send_queue_process_all (cmsg_object obj)
 
         //get the next entry
         pthread_mutex_lock (queue_mutex);
-        queue_entry = g_queue_pop_tail (queue);
+        queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
         pthread_mutex_unlock (queue_mutex);
     }
 
@@ -195,7 +194,9 @@ int32_t
 cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
                       cmsg_transport *transport, char *method_name)
 {
-    cmsg_send_queue_entry *queue_entry = g_malloc0 (sizeof (cmsg_send_queue_entry));
+
+    cmsg_send_queue_entry *queue_entry =
+        (cmsg_send_queue_entry *) g_malloc0 (sizeof (cmsg_send_queue_entry));
     if (!queue_entry)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -205,7 +206,7 @@ cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
 
     //copy buffer
     queue_entry->queue_buffer_size = buffer_size;   //should be data + header
-    queue_entry->queue_buffer = CMSG_CALLOC (1, queue_entry->queue_buffer_size);
+    queue_entry->queue_buffer = (uint8_t *) CMSG_CALLOC (1, queue_entry->queue_buffer_size);
     if (!queue_entry->queue_buffer)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -220,10 +221,9 @@ cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
     //copy client transport config
     queue_entry->transport.type = transport->type;
     queue_entry->transport.config.socket.family = transport->config.socket.family;
-    queue_entry->transport.config.socket.sockaddr.tipc =
-        transport->config.socket.sockaddr.tipc;
+    queue_entry->transport.config.socket.sockaddr.tipc = transport->config.socket.sockaddr.tipc;
 
-    strcpy (queue_entry->method_name, method_name?method_name:"");
+    strcpy (queue_entry->method_name, method_name ? method_name : "");
     g_queue_push_head (queue, queue_entry);
 
     return CMSG_RET_OK;
@@ -235,14 +235,14 @@ cmsg_send_queue_free_all (GQueue *queue)
 {
     cmsg_send_queue_entry *queue_entry = 0;
 
-    queue_entry = g_queue_pop_tail (queue);
+    queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
 
     while (queue_entry)
     {
         CMSG_FREE (queue_entry->queue_buffer);
         g_free (queue_entry);
         //get the next entry
-        queue_entry = g_queue_pop_tail (queue);
+        queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
     }
 
     g_queue_free (queue);
@@ -252,12 +252,12 @@ void
 cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport)
 {
     cmsg_send_queue_entry *queue_entry = 0;
-    unsigned int queue_length = g_queue_get_length (queue);
-    int i = 0;
+    uint32_t queue_length = g_queue_get_length (queue);
+    uint32_t i = 0;
 
     for (i = 0; i < queue_length; i++)
     {
-        queue_entry = g_queue_pop_tail (queue);
+        queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
         if (queue_entry)
         {
             if (cmsg_transport_compare (&queue_entry->transport, transport))
@@ -275,19 +275,19 @@ cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport)
 
 void
 cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transport,
-                                                char *method_name)
+                                          char *method_name)
 {
     cmsg_send_queue_entry *queue_entry = 0;
-    unsigned int queue_length = g_queue_get_length (queue);
-    int i = 0;
+    uint32_t queue_length = g_queue_get_length (queue);
+    uint32_t i = 0;
 
     for (i = 0; i < queue_length; i++)
     {
-        queue_entry = g_queue_pop_tail (queue);
+        queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
         if (queue_entry)
         {
             if (cmsg_transport_compare (&queue_entry->transport, transport) &&
-                (strcmp(queue_entry->method_name, method_name) == 0))
+                (strcmp (queue_entry->method_name, method_name) == 0))
             {
                 CMSG_FREE (queue_entry->queue_buffer);
                 g_free (queue_entry);
@@ -331,7 +331,7 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
     uint32_t processed = 0;
     cmsg_receive_queue_entry *queue_entry = 0;
     cmsg_server_request server_request;
-    unsigned int queue_length = 0;
+    uint32_t queue_length = 0;
 
     if (num_to_process == 0)
     {
@@ -359,7 +359,7 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
     {
         //get the first entry
         pthread_mutex_lock (queue_mutex);
-        queue_entry = g_queue_pop_tail (queue);
+        queue_entry = (cmsg_receive_queue_entry *) g_queue_pop_tail (queue);
         pthread_mutex_unlock (queue_mutex);
 
         if (queue_entry == NULL)
@@ -393,7 +393,10 @@ cmsg_receive_queue_process_all (GQueue *queue,
 
     while (processed != 0)
     {
-        processed = cmsg_receive_queue_process_some (queue, queue_mutex, descriptor, server,
+        processed = cmsg_receive_queue_process_some (queue,
+                                                     queue_mutex,
+                                                     descriptor,
+                                                     server,
                                                      50);
         total_processed += processed;
     }
@@ -407,7 +410,7 @@ cmsg_receive_queue_process_all (GQueue *queue,
 int32_t
 cmsg_receive_queue_push (GQueue *queue, uint8_t *buffer, uint32_t method_index)
 {
-    cmsg_receive_queue_entry *queue_entry = g_malloc0 (sizeof (cmsg_receive_queue_entry));
+    cmsg_receive_queue_entry *queue_entry = (cmsg_receive_queue_entry *) g_malloc0 (sizeof (cmsg_receive_queue_entry));
     if (!queue_entry)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -431,9 +434,8 @@ cmsg_receive_queue_push (GQueue *queue, uint8_t *buffer, uint32_t method_index)
 void
 cmsg_receive_queue_free_all (GQueue *queue)
 {
-    cmsg_send_queue_entry *queue_entry = 0;
-
-    queue_entry = g_queue_pop_tail (queue);
+    cmsg_receive_queue_entry *queue_entry = 0;
+    queue_entry = (cmsg_receive_queue_entry *) g_queue_pop_tail (queue);
 
     while (queue_entry)
     {
@@ -443,7 +445,7 @@ cmsg_receive_queue_free_all (GQueue *queue)
 
         g_free (queue_entry);
         //get the next entry
-        queue_entry = g_queue_pop_tail (queue);
+        queue_entry = (cmsg_receive_queue_entry *) g_queue_pop_tail (queue);
     }
 
     g_queue_free (queue);
@@ -480,12 +482,13 @@ cmsg_queue_filter_set_all (GHashTable *queue_filter_hash_table,
     //add filter for every method with filter type
     //loop through list first and set if not there create entry
 
-    int i = 0;
+    uint32_t i = 0;
     for (i = 0; i < descriptor->n_methods; i++)
     {
         cmsg_queue_filter_entry *entry;
-        entry = g_hash_table_lookup (queue_filter_hash_table,
-                                     (gconstpointer) descriptor->methods[i].name);
+        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+                                                                 (gconstpointer)
+                                                                 descriptor->methods[i].name);
 
         entry->type = filter_type;
     }
@@ -498,12 +501,13 @@ cmsg_queue_filter_clear_all (GHashTable *queue_filter_hash_table,
 {
     //remove filter for every method
 
-    int i = 0;
+    uint32_t i = 0;
     for (i = 0; i < descriptor->n_methods; i++)
     {
         cmsg_queue_filter_entry *entry;
-        entry = g_hash_table_lookup (queue_filter_hash_table,
-                                     (gconstpointer) descriptor->methods[i].name);
+        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+                                                                 (gconstpointer)
+                                                                 descriptor->methods[i].name);
 
         entry->type = CMSG_QUEUE_FILTER_PROCESS;
     }
@@ -518,7 +522,8 @@ cmsg_queue_filter_set (GHashTable *queue_filter_hash_table, const char *method,
 
     //add filter for single method with filter type
     cmsg_queue_filter_entry *entry;
-    entry = g_hash_table_lookup (queue_filter_hash_table, (gconstpointer) method_pbc);
+    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+                                                             (gconstpointer) method_pbc);
 
     if (entry)
     {
@@ -537,7 +542,8 @@ cmsg_queue_filter_clear (GHashTable *queue_filter_hash_table, const char *method
 
     //clear filter for single method
     cmsg_queue_filter_entry *entry;
-    entry = g_hash_table_lookup (queue_filter_hash_table, (gconstpointer) method_pbc);
+    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+                                                             (gconstpointer) method_pbc);
 
     if (entry)
     {
@@ -553,10 +559,10 @@ cmsg_queue_filter_init (GHashTable *queue_filter_hash_table,
                         const ProtobufCServiceDescriptor *descriptor)
 {
     //clear filter for single method
-    int i = 0;
+    uint32_t i = 0;
     for (i = 0; i < descriptor->n_methods; i++)
     {
-        cmsg_queue_filter_entry *entry = g_malloc0 (sizeof (cmsg_queue_filter_entry));
+        cmsg_queue_filter_entry *entry = (cmsg_queue_filter_entry *) g_malloc0 (sizeof (cmsg_queue_filter_entry));
         sprintf (entry->method_name, "%s", descriptor->methods[i].name);
         entry->type = CMSG_QUEUE_FILTER_PROCESS;
 
@@ -569,12 +575,13 @@ void
 cmsg_queue_filter_free (GHashTable *queue_filter_hash_table,
                         const ProtobufCServiceDescriptor *descriptor)
 {
-    int i = 0;
+    uint32_t i = 0;
     for (i = 0; i < descriptor->n_methods; i++)
     {
         cmsg_queue_filter_entry *entry;
-        entry = g_hash_table_lookup (queue_filter_hash_table,
-                                     (gconstpointer) descriptor->methods[i].name);
+        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+                                                                 (gconstpointer)
+                                                                 descriptor->methods[i].name);
 
         g_free (entry);
 
@@ -588,7 +595,8 @@ cmsg_queue_filter_lookup (GHashTable *queue_filter_hash_table, const char *metho
 {
     //add filter for single method with filter type
     cmsg_queue_filter_entry *entry;
-    entry = g_hash_table_lookup (queue_filter_hash_table, (gconstpointer) method);
+    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+                                                             (gconstpointer) method);
 
     if (entry)
     {
@@ -604,12 +612,13 @@ cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
 {
     DEBUG (CMSG_INFO, "queue_filter_list:\n");
 
-    int i = 0;
+    uint32_t i = 0;
     for (i = 0; i < descriptor->n_methods; i++)
     {
         cmsg_queue_filter_entry *entry;
-        entry = g_hash_table_lookup (queue_filter_hash_table,
-                                     (gconstpointer) descriptor->methods[i].name);
+        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+                                                                 (gconstpointer)
+                                                                 descriptor->methods[i].name);
 
         switch (entry->type)
         {
@@ -634,13 +643,14 @@ cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
                             const ProtobufCServiceDescriptor *descriptor)
 {
     cmsg_queue_state type = CMSG_QUEUE_STATE_DISABLED;
-    int i = 0;
+    uint32_t i = 0;
 
     for (i = 0; i < descriptor->n_methods; i++)
     {
         cmsg_queue_filter_entry *entry;
-        entry = g_hash_table_lookup (queue_filter_hash_table,
-                                     (gconstpointer) descriptor->methods[i].name);
+        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
+                                                                 (gconstpointer)
+                                                                 descriptor->methods[i].name);
 
         if (entry->type == CMSG_QUEUE_FILTER_QUEUE)
         {
@@ -657,18 +667,21 @@ cmsg_queue_filter_copy (GHashTable *src_queue_filter_hash_table,
                         GHashTable *dst_queue_filter_hash_table,
                         const ProtobufCServiceDescriptor *descriptor)
 {
-    int i = 0;
-
+    uint32_t i = 0;
     for (i = 0; i < descriptor->n_methods; i++)
     {
         cmsg_queue_filter_entry *src_entry;
         cmsg_queue_filter_entry *dst_entry;
 
-        src_entry = g_hash_table_lookup (src_queue_filter_hash_table,
-                                         (gconstpointer) descriptor->methods[i].name);
+        src_entry =
+            (cmsg_queue_filter_entry *) g_hash_table_lookup (src_queue_filter_hash_table,
+                                                             (gconstpointer)
+                                                             descriptor->methods[i].name);
 
-        dst_entry = g_hash_table_lookup (dst_queue_filter_hash_table,
-                                         (gconstpointer) descriptor->methods[i].name);
+        dst_entry =
+            (cmsg_queue_filter_entry *) g_hash_table_lookup (dst_queue_filter_hash_table,
+                                                             (gconstpointer)
+                                                             descriptor->methods[i].name);
 
         if (!src_entry || !dst_entry)
             return CMSG_RET_ERR;

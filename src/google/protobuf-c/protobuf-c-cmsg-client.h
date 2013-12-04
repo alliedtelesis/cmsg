@@ -10,24 +10,16 @@
 #define CMSG_DESCRIPTOR(package,service)    ((ProtobufCServiceDescriptor *)&package ## _ ## service ## _descriptor)
 #define CMSG_DESCRIPTOR_NOPACKAGE(service)  ((ProtobufCServiceDescriptor *)&service ## _descriptor)
 
-//forward declaration
-typedef enum _cmsg_queue_filter_type_e cmsg_queue_filter_type;
-
-typedef enum _cmsg_client_state_e cmsg_client_state;
-typedef struct _cmsg_client_s cmsg_client;
-
-
-
-enum _cmsg_client_state_e
+typedef enum _cmsg_client_state_e
 {
     CMSG_CLIENT_STATE_INIT,         //after creating a new client
     CMSG_CLIENT_STATE_CONNECTED,    //after succesful connect
     CMSG_CLIENT_STATE_FAILED,       //after unsuccessful connect (todo: or unsuccessful send)
     CMSG_CLIENT_STATE_CLOSED,       //after successful send
     CMSG_CLIENT_STATE_QUEUED,       //after successful adding a packet to the queue
-};
+} cmsg_client_state;
 
-struct _cmsg_client_s
+typedef struct _cmsg_client_s
 {
     //this is a hack to get around a check when a client method is called
     //to not change the order of the first two
@@ -42,7 +34,7 @@ struct _cmsg_client_s
     cmsg_transport *_transport;
     uint32_t request_id;
     cmsg_client_state state;
-    int invoke_return_state; //TODO refactor -- add return codes to invoke functions (cmsg and generator)
+    int invoke_return_state;    //TODO refactor -- add return codes to invoke functions (cmsg and generator)
     cmsg_client_connection connection;
 
     cmsg_object self;
@@ -61,7 +53,7 @@ struct _cmsg_client_s
     pthread_mutex_t queue_process_mutex;
     uint32_t queue_process_count;
     pthread_t self_thread_id;
-};
+} cmsg_client;
 
 
 cmsg_client *cmsg_client_new (cmsg_transport *transport,
@@ -97,7 +89,7 @@ void cmsg_client_queue_enable (cmsg_client *client);
 
 int32_t cmsg_client_queue_disable (cmsg_client *client);
 
-unsigned int cmsg_client_queue_get_length (cmsg_client *client);
+uint32_t cmsg_client_queue_get_length (cmsg_client *client);
 
 
 int32_t cmsg_client_queue_process_all (cmsg_client *client);
