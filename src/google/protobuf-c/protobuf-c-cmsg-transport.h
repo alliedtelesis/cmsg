@@ -147,6 +147,8 @@ typedef int32_t (*send_called_multi_threads_enable_f) (cmsg_transport *transport
 
 typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
 
+typedef void (*cmsg_tipc_topology_callback) (struct tipc_event *event);
+
 struct _cmsg_transport_s
 {
     //transport information
@@ -224,5 +226,10 @@ cmsg_transport *cmsg_create_transport_tipc_rpc (const char *server_name, int mem
 
 cmsg_transport *cmsg_create_transport_tipc_oneway (const char *server_name, int member_id,
                                                    int scope);
+
+int cmsg_tipc_topology_subscription_init (const char *server_name, uint32_t lower,
+                                          uint32_t upper);
+
+int cmsg_tipc_topology_subscription_read (int sock, cmsg_tipc_topology_callback callback);
 
 #endif

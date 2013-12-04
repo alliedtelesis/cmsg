@@ -552,3 +552,126 @@ cmsg_create_transport_tipc_oneway (const char *server_name, int member_id, int s
     return cmsg_create_transport_tipc (server_name, member_id, scope,
                                        CMSG_TRANSPORT_ONEWAY_TIPC);
 }
+
+
+/**
+ * Initialise TIPC Topology Service for the given server name.
+ * @param server_name the server name to monitor
+ * @param lower lower instance ID (stack ID) to monitor
+ * @param mac the MAC address to match against
+ * @return the file descriptor opened to receive topology event or -1 on failure.
+ */
+int
+cmsg_tipc_topology_subscription_init (const char *server_name, uint32_t lower, uint32_t upper)
+{
+    struct tipc_subscr subscr;
+    struct sockaddr_tipc topo_server;
+    size_t sub_len;
+    size_t addr_len;
+    int port;
+    int ret;
+    int sock;
+
+    sub_len = sizeof (subscr);
+    addr_len = sizeof (topo_server);
+    memset (&topo_server, 0, addr_len);
+    memset (&subscr, 0, sub_len);
+
+    /* setup the TIPC topology server's address {1,1} */
+    topo_server.family = AF_TIPC;
+    topo_server.addrtype = TIPC_ADDR_NAME;
+    topo_server.addr.name.name.type = TIPC_TOP_SRV;
+    topo_server.addr.name.name.instance = TIPC_TOP_SRV;
+
+    /* create a socket to connect with */
+    sock = socket (AF_TIPC, SOCK_SEQPACKET, 0);
+    if (sock < 0)
+    {
+        CMSG_LOG_ERROR ("TIPC topo %s : socket failure (errno=%d)", server_name, errno);
+        return -1;
+    }
+
+    /* Connect to the TIPC topology server */
+    if (connect (sock, (struct sockaddr *) &topo_server, addr_len) < 0)
+    {
+        CMSG_LOG_ERROR ("TIPC topo %s : connect failure (errno=%d)", server_name, errno);
+        close (sock);
+        return -1;
+    }
+
+    port = cmsg_service_port_get (server_name, "tipc");
+    if (port <= 0)
+    {
+        CMSG_LOG_ERROR ("TIPC topo %s : couldn't determine port", server_name);
+        close (sock);
+        return -1;
+    }
+
+    /*  Create TIPC topology subscription. This will listen for new publications of port
+     *  names (each unit has a different port-name instance based on its stack member-ID) */
+    subscr.timeout = TIPC_WAIT_FOREVER; /* don't timeout */
+    subscr.seq.type = port;
+    subscr.seq.lower = lower;   /* min member-ID */
+    subscr.seq.upper = upper;   /* max member-ID */
+    subscr.filter = TIPC_SUB_PORTS;     /* all publish/withdraws */
+
+    ret = send (sock, &subscr, sub_len, 0);
+    if (ret < 0 || (uint32_t)ret != sub_len)
+    {
+        CMSG_LOG_ERROR ("TIPC topo %s : send failure (errno=%d)", server_name, errno);
+        close (sock);
+        return -1;
+    }
+
+    DEBUG (CMSG_INFO, "TIPC topo %s : successful (port=%u, sock=%d)", server_name,
+           port, sock);
+
+    return sock;
+}
+
+
+/**
+ * Read TIPC Topology Service events
+ * @param sock a socket opened for TIPC Topology Service
+ * @param callback callback function to be called with each event received
+ * @return 0 on normal operation or -1 on failure
+ */
+int
+cmsg_tipc_topology_subscription_read (int sock, cmsg_tipc_topology_callback callback)
+{
+    struct tipc_event event;
+    int eventOk = 1;
+    int ret;
+
+    /* Read all awaiting TIPC topology events */
+    while ((ret = recv (sock, &event, sizeof (event), MSG_DONTWAIT)) == sizeof (event))
+    {
+        /* Check the topology subscription event is valid */
+        if (event.event != TIPC_PUBLISHED && event.event != TIPC_WITHDRAWN)
+        {
+            DEBUG (CMSG_INFO, "TIPC topo : unknown topology event %d", event.event);
+            eventOk = 0;
+        }
+        /* Check port instance advertised correlates to a single valid node ID */
+        else if (event.found_lower != event.found_upper)
+        {
+            DEBUG (CMSG_INFO, "TIPC topo : unknown node range %d-%d", event.found_lower,
+                   event.found_upper);
+            eventOk = 0;
+        }
+
+        /* Call the callback function to process the event */
+        if (eventOk)
+        {
+            callback (&event);
+        }
+    }
+
+    if (ret != sizeof (event) && errno != EAGAIN)
+    {
+        CMSG_LOG_ERROR ("TIPC topo : Failed to receive event (errno=%d)", errno);
+        return -1;
+    }
+
+    return 0;
+}
