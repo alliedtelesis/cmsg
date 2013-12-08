@@ -180,9 +180,10 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
     const ProtobufCMessageDescriptor *desc;
 
+    *messagePtPt = NULL;
+
     if (!client)
     {
-        *messagePtPt = NULL;
         return CMSG_STATUS_CODE_SUCCESS;
     }
 
@@ -209,7 +210,6 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
             DEBUG (CMSG_INFO,
                    "[TRANSPORT] received response without data. server status %d\n",
                    header_converted.status_code);
-            *messagePtPt = NULL;
             return header_converted.status_code;
         }
 
@@ -250,7 +250,6 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
             if (message == NULL)
             {
                 DEBUG (CMSG_ERROR, "[TRANSPORT] error unpacking response message\n");
-                *messagePtPt = NULL;
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
             }
             *messagePtPt = message;
@@ -293,8 +292,13 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     }
     else
     {
-        //Error while peeking at socket data.
-        if (errno != ECONNRESET)
+        if (errno == ECONNRESET)
+        {
+            DEBUG ("[TRANSPORT] recv socket %d error: %s\n",
+                   client->connection.socket, strerror (errno));
+            return CMSG_STATUS_CODE_SERVER_CONNRESET;
+        }
+        else
         {
             CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s\n",
                             client->connection.socket, strerror (errno));
@@ -302,7 +306,6 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         ret = 0;
     }
 
-    *messagePtPt = NULL;
     return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 

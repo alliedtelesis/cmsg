@@ -30,14 +30,22 @@
 
 // Use this for 'expected' user facing friendly errors
 #if defined(DEBUG_WORKSTATION)
-#define CMSG_LOG_ERROR(fmt, ...)                                                   \
-    do {                                                                                \
-        printf ("ERR(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__);       \
+#define CMSG_LOG_ERROR(fmt, ...)                                                    \
+    do {                                                                            \
+        printf ("ERR(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__);   \
+    } while (0)
+#define CMSG_LOG_DEBUG(fmt, ...)                                                    \
+    do {                                                                            \
+        printf ("DEBUG(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__); \
     } while (0)
 #else
-#define CMSG_LOG_ERROR(fmt, ...)                                                   \
-        do {                                                                            \
+#define CMSG_LOG_ERROR(fmt, ...)                                                    \
+    do {                                                                            \
         syslog (LOG_ERR | LOG_LOCAL6, "ERR(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__); \
+    } while (0)
+#define CMSG_LOG_DEBUG(fmt, ...)                                                    \
+    do {                                                                            \
+        syslog (LOG_DEBUG, "DEBUG(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__); \
     } while (0)
 #endif
 
@@ -142,6 +150,7 @@ typedef enum _cmsg_status_code_e
     CMSG_STATUS_CODE_TOO_MANY_PENDING,
     CMSG_STATUS_CODE_SERVICE_QUEUED,
     CMSG_STATUS_CODE_SERVICE_DROPPED,
+    CMSG_STATUS_CODE_SERVER_CONNRESET,
 } cmsg_status_code;
 
 typedef struct _cmsg_header_s

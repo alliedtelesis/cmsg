@@ -203,9 +203,10 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     uint8_t buf_static[512];
     const ProtobufCMessageDescriptor *desc;
 
+    *messagePtPt = NULL;
+
     if (!client)
     {
-        *messagePtPt = NULL;
         return CMSG_STATUS_CODE_SERVICE_FAILED;
     }
 
@@ -232,7 +233,6 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             DEBUG (CMSG_INFO,
                    "[TRANSPORT] received response without data. server status %d\n",
                    header_converted.status_code);
-            *messagePtPt = NULL;
             return header_converted.status_code;
         }
 
@@ -287,7 +287,6 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             if (message == NULL)
             {
                 CMSG_LOG_ERROR ("[TRANSPORT] error unpacking response message\n");
-                *messagePtPt = NULL;
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
             }
             *messagePtPt = message;
@@ -328,15 +327,19 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     }
     else
     {
-        //Error while peeking at socket data.
-        if (errno != ECONNRESET)
+        if (errno == ECONNRESET)
+        {
+            DEBUG ("[TRANSPORT] recv socket %d error: %s\n",
+                   client->connection.socket, strerror (errno));
+            return CMSG_STATUS_CODE_SERVER_CONNRESET;
+        }
+        else
         {
             CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s\n",
                             client->connection.socket, strerror (errno));
         }
     }
 
-    *messagePtPt = NULL;
     return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 

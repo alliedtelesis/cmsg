@@ -262,9 +262,22 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
      */
     status_code = cmsg_client_response_receive (client, &message_pt);
 
-    if (status_code == CMSG_STATUS_CODE_SERVICE_FAILED)
+    if (status_code == CMSG_STATUS_CODE_SERVICE_FAILED ||
+        status_code == CMSG_STATUS_CODE_SERVER_CONNRESET)
     {
-        CMSG_LOG_ERROR ("[CLIENT] No response from server (method: %s)", method_name);
+        /* CMSG_STATUS_CODE_SERVER_CONNRESET happens when the socket is reset by peer,
+         * which can happen if the connection to the peer is lost (e.g. stack node leave).
+         * And reporting this event as an error is too annoying.
+         * If required the calling application should take care of this error. */
+        if (status_code == CMSG_STATUS_CODE_SERVER_CONNRESET)
+        {
+            CMSG_LOG_DEBUG ("[CLIENT] Connection reset by peer (method: %s)\n",
+                            method_name);
+        }
+        else
+        {
+            CMSG_LOG_ERROR ("[CLIENT] No response from server (method: %s)", method_name);
+        }
 
         client->invoke_return_state = CMSG_RET_ERR;
 
