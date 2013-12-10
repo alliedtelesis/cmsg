@@ -107,6 +107,10 @@ cmsg_client_response_receive (cmsg_client *client, ProtobufCMessage **message)
 }
 
 
+/**
+ * Connect the transport unless it's already connected.
+ * Returns 0 on success or a negative integer on failure.
+ */
 int32_t
 cmsg_client_connect (cmsg_client *client)
 {
@@ -119,7 +123,6 @@ cmsg_client_connect (cmsg_client *client)
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
         DEBUG (CMSG_INFO, "[CLIENT] already connected\n");
-        ret = CMSG_RET_OK;
     }
     else
     {
@@ -137,6 +140,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
 {
     uint32_t ret = 0;
     int send_ret = 0;
+    int connect_error = 0;
     cmsg_client *client = (cmsg_client *) service;
     cmsg_status_code status_code;
     ProtobufCMessage *message_pt;
@@ -156,12 +160,12 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
 
     // open connection (if it is already open this will just return)
-    cmsg_client_connect (client);
+    connect_error = cmsg_client_connect (client);
 
     if (client->state != CMSG_CLIENT_STATE_CONNECTED)
     {
-        CMSG_LOG_ERROR ("[CLIENT] error: client is not connected (method: %s)",
-                        method_name);
+        CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
+                        method_name, connect_error);
 
         client->invoke_return_state = CMSG_RET_ERR;
 
@@ -226,7 +230,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         client->_transport->client_close (client);
         // the connection may be down due to a problem since the last send
         // attempt once to reconnect and send
-        cmsg_client_connect (client);
+        connect_error = cmsg_client_connect (client);
 
         if (client->state == CMSG_CLIENT_STATE_CONNECTED)
         {
@@ -248,8 +252,8 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         }
         else
         {
-            CMSG_LOG_ERROR ("[CLIENT] error: couldn't reconnect client! (method: %s)",
-                            method_name);
+            CMSG_LOG_DEBUG ("[CLIENT] couldn't reconnect client! (method: %s, error: %d)",
+                            method_name, connect_error);
 
             client->invoke_return_state = CMSG_RET_ERR;
             CMSG_FREE (buffer);
@@ -338,6 +342,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 {
     uint32_t ret = 0;
     int send_ret = 0;
+    int connect_error = 0;
     cmsg_client *client = (cmsg_client *) service;
     int do_queue = 0;
     const char *method_name;
@@ -396,12 +401,12 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     if (!do_queue)
     {
         DEBUG (CMSG_INFO, "[CLIENT] error: queueing is disabled, connecting\n");
-        cmsg_client_connect (client);
+        connect_error = cmsg_client_connect (client);
 
         if (client->state != CMSG_CLIENT_STATE_CONNECTED)
         {
-            CMSG_LOG_ERROR ("[CLIENT] error: client is not connected (method: %s)",
-                            method_name);
+            CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
+                            method_name, connect_error);
 
             client->invoke_return_state = CMSG_RET_ERR;
             return;
@@ -470,7 +475,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             client->_transport->client_close (client);
             // the connection may be down due to a problem since the last send
             // attempt once to reconnect and send
-            cmsg_client_connect (client);
+            connect_error = cmsg_client_connect (client);
 
             if (client->state == CMSG_CLIENT_STATE_CONNECTED)
             {
@@ -495,8 +500,8 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             }
             else
             {
-                CMSG_LOG_ERROR ("[CLIENT] error: couldn't reconnect client! (method: %s)",
-                                method_name);
+                CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
+                                method_name, connect_error);
 
                 client->invoke_return_state = CMSG_RET_ERR;
                 CMSG_FREE (buffer);
@@ -597,9 +602,16 @@ int32_t
 cmsg_client_send_echo_request (cmsg_client *client)
 {
     int32_t ret = 0;
+    int connect_error = 0;
 
     // if not connected connect now
-    cmsg_client_connect (client);
+    connect_error = cmsg_client_connect (client);
+
+    if (client->state != CMSG_CLIENT_STATE_CONNECTED)
+    {
+        CMSG_LOG_DEBUG ("[CLIENT] client is not connected (error: %d)", connect_error);
+        return -1;
+    }
 
     // create header
     cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_ECHO_REQ,
@@ -622,7 +634,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
 
         // the connection may be down due to a problem since the last send
         // attempt once to reconnect and send
-        cmsg_client_connect (client);
+        connect_error = cmsg_client_connect (client);
 
         if (client->state == CMSG_CLIENT_STATE_CONNECTED)
         {
@@ -636,7 +648,8 @@ cmsg_client_send_echo_request (cmsg_client *client)
         }
         else
         {
-            CMSG_LOG_ERROR ("[CLIENT] error: couldn't reconnect client!");
+            CMSG_LOG_DEBUG ("[CLIENT] couldn't reconnect client! (error: %d)",
+                            connect_error);
             return -1;
         }
     }
