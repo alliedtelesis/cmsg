@@ -5,10 +5,13 @@
 
 /**
  * Creates the connectionless socket used to send messages using tipc.
+ * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
 cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
 {
+    int ret;
+
     DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_broadcast_connect\n");
 
     if (client == NULL)
@@ -19,9 +22,10 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
 
     if (client->connection.socket < 0)
     {
+        ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
         DEBUG (CMSG_ERROR, "[TRANSPORT] error creating socket: %s\n", strerror (errno));
-        return 0;
+        return ret;
     }
 
     client->state = CMSG_CLIENT_STATE_CONNECTED;

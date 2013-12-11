@@ -148,6 +148,7 @@ static int32_t
 cmsg_transport_oneway_udt_connect (cmsg_client *client)
 {
     int32_t ret = 0;
+
     if (client->_transport->config.udt.connect)
     {
         ret = client->_transport->config.udt.connect (client);
