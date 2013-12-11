@@ -4,15 +4,9 @@
 
 
 
-/**
- * Create a TIPC socket connection.
- * Returns 0 on success or a negative integer on failure.
- */
 static int32_t
 cmsg_transport_tipc_connect (cmsg_client *client)
 {
-    int ret;
-
     DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_connect\n");
 
     if (client == NULL)
@@ -23,11 +17,10 @@ cmsg_transport_tipc_connect (cmsg_client *client)
 
     if (client->connection.socket < 0)
     {
-        ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
-        CMSG_LOG_DEBUG ("[TRANSPORT] error creating socket: %s", strerror (errno));
+        CMSG_LOG_ERROR ("[TRANSPORT] error creating socket: %s", strerror (errno));
 
-        return ret;
+        return 0;
     }
 
     if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
@@ -41,18 +34,16 @@ cmsg_transport_tipc_connect (cmsg_client *client)
                  (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
                  sizeof (client->_transport->config.socket.sockaddr.tipc)) < 0)
     {
-        ret = -errno;
-        CMSG_LOG_DEBUG ("[TRANSPORT] error connecting to remote host (port %d inst %d): %s",
-                        client->_transport->config.socket.sockaddr.tipc.addr.name.name.type,
-                        client->_transport->config.socket.sockaddr.tipc.addr.name.name.instance,
-                        strerror (errno));
-
         shutdown (client->connection.socket, 2);
         close (client->connection.socket);
         client->connection.socket = -1;
         client->state = CMSG_CLIENT_STATE_FAILED;
+        CMSG_LOG_ERROR ("[TRANSPORT] error connecting to remote host (port %d inst %d): %s",
+                        client->_transport->config.socket.sockaddr.tipc.addr.name.name.type,
+                        client->_transport->config.socket.sockaddr.tipc.addr.name.name.instance,
+						strerror (errno));
 
-        return ret;
+        return 0;
     }
     else
     {

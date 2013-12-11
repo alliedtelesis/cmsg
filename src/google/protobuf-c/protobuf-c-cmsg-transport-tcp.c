@@ -3,15 +3,9 @@
 #include "protobuf-c-cmsg-server.h"
 
 
-/*
- * Create a TCP socket connection.
- * Returns 0 on success or a negative integer on failure.
- */
 static int32_t
 cmsg_transport_tcp_connect (cmsg_client *client)
 {
-    int ret;
-
     if (client == NULL)
         return 0;
 
@@ -20,12 +14,10 @@ cmsg_transport_tcp_connect (cmsg_client *client)
 
     if (client->connection.socket < 0)
     {
-        ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
         DEBUG (CMSG_ERROR, "[TRANSPORT] error creating socket: %s\n", strerror (errno));
-        return ret;
+        return 0;
     }
-
     if (connect (client->connection.socket,
                  (struct sockaddr *) &client->_transport->config.socket.sockaddr.in,
                  sizeof (client->_transport->config.socket.sockaddr.in)) < 0)
@@ -34,16 +26,13 @@ cmsg_transport_tcp_connect (cmsg_client *client)
         {
             //?
         }
-
-        ret = -errno;
-        DEBUG (CMSG_ERROR,
-               "[TRANSPORT] error connecting to remote host: %s\n", strerror (errno));
-
         close (client->connection.socket);
         client->connection.socket = -1;
         client->state = CMSG_CLIENT_STATE_FAILED;
+        DEBUG (CMSG_ERROR,
+               "[TRANSPORT] error connecting to remote host: %s\n", strerror (errno));
 
-        return ret;
+        return 0;
     }
     else
     {
