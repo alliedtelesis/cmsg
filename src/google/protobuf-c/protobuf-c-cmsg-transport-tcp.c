@@ -305,7 +305,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     {
         if (errno == ECONNRESET)
         {
-            DEBUG ("[TRANSPORT] recv socket %d error: %s\n",
+            DEBUG (CMSG_ERROR, "[TRANSPORT] recv socket %d error: %s\n",
                    client->connection.socket, strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
