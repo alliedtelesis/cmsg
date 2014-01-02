@@ -227,9 +227,15 @@ cmsg_transport *cmsg_create_transport_tipc_rpc (const char *server_name, int mem
 cmsg_transport *cmsg_create_transport_tipc_oneway (const char *server_name, int member_id,
                                                    int scope);
 
-int cmsg_tipc_topology_subscription_init (const char *server_name, uint32_t lower,
-                                          uint32_t upper);
+int cmsg_tipc_topology_service_connect (void);
 
-int cmsg_tipc_topology_subscription_read (int sock, cmsg_tipc_topology_callback callback);
+int
+cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t lower, uint32_t upper,
+                                    cmsg_tipc_topology_callback callback);
+
+int cmsg_tipc_topology_connect_subscribe (const char *server_name, uint32_t lower,
+                                          uint32_t upper, cmsg_tipc_topology_callback callback);
+
+int cmsg_tipc_topology_subscription_read (int sock);
 
 #endif
