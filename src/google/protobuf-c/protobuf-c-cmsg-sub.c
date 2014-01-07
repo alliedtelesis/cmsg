@@ -158,8 +158,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
 
     if (register_client->invoke_return_state == CMSG_RET_ERR)
     {
-        CMSG_LOG_ERROR ("[SUB] error: couldn't subscribe to notification (method: %s)",
-                        method_name);
+        return_value = register_client->invoke_return_state;
     }
 
     cmsg_client_destroy (register_client);
@@ -235,8 +234,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
 
     if (register_client->invoke_return_state == CMSG_RET_ERR)
     {
-        CMSG_LOG_ERROR ("[SUB] error: couldn't unsubscribe to notification (method: %s)",
-                        method_name);
+        return_value = register_client->invoke_return_state;
     }
 
     cmsg_client_destroy (register_client);
