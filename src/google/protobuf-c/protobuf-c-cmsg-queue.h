@@ -94,4 +94,6 @@ int32_t cmsg_receive_queue_process_all (GQueue *queue, pthread_mutex_t *queue_mu
                                         const ProtobufCServiceDescriptor *descriptor,
                                         cmsg_server *server);
 int32_t cmsg_receive_queue_push (GQueue *queue, uint8_t *buffer, uint32_t method_index);
+
+void cmsg_receive_queue_free_all (GQueue *queue);
 #endif // PROTOBUFCCMSGQUEUE_H

@@ -108,6 +108,16 @@ cmsg_server_destroy (cmsg_server *server)
         }
     }
 
+    cmsg_queue_filter_free (server->queue_filter_hash_table, server->service->descriptor);
+
+    g_hash_table_destroy (server->queue_filter_hash_table);
+
+    cmsg_receive_queue_free_all (server->queue);
+
+    pthread_mutex_destroy (&server->queueing_state_mutex);
+
+    pthread_mutex_destroy (&server->queue_mutex);
+
     server->_transport->server_destroy (server);
 
     CMSG_FREE (server);
