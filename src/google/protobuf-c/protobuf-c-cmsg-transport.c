@@ -161,7 +161,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
             server->server_request = &server_request;
 
             if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
-                CMSG_LOG_ERROR ("[TRANSPORT] message processing returned an error");
+                CMSG_LOG_ERROR ("[TRANSPORT] message processing returned an error\n");
+
         }
         else
         {
@@ -202,7 +203,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     {
         if (errno != ECONNRESET)
         {
-            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s",
+            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s\n",
                             server->connection.sockets.client_socket, strerror (errno));
         }
 

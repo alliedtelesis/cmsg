@@ -54,6 +54,14 @@ cmsg_sub_get_server_socket (cmsg_sub *subscriber)
 
 
 int32_t
+cmsg_sub_server_receive_poll (cmsg_sub *sub, int32_t timeout_ms, fd_set *master_fdset,
+                              int *fdmax)
+{
+    return cmsg_server_receive_poll (sub->pub_server, timeout_ms, master_fdset, fdmax);
+}
+
+
+int32_t
 cmsg_sub_server_receive (cmsg_sub *subscriber, int32_t server_socket)
 {
     DEBUG (CMSG_INFO, "[SUB]\n");
