@@ -61,6 +61,10 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
         client->invoke_return_state = CMSG_RET_OK;
 
         cmsg_client_queue_filter_init (client);
+
+#ifdef HAVE_CMSG_PROFILING
+        memset (&client->prof, 0, sizeof (cmsg_prof));
+#endif
     }
     else
     {
@@ -146,6 +150,8 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     ProtobufCMessage *message_pt;
     const char *method_name;
 
+    CMSG_PROF_TIME_TIC (&client->prof);
+
     /* pack the data */
     /* send */
     /* depending upon transport wait for response */
@@ -162,6 +168,9 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     // open connection (if it is already open this will just return)
     connect_error = cmsg_client_connect (client);
 
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "connect",
+                                 cmsg_prof_time_toc (&client->prof));
+
     if (client->state != CMSG_CLIENT_STATE_CONNECTED)
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
@@ -171,6 +180,8 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
 
         return;
     }
+
+    CMSG_PROF_TIME_TIC (&client->prof);
 
     uint32_t packed_size = protobuf_c_message_get_packed_size (input);
 
@@ -217,8 +228,12 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         return;
     }
 
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "pack", cmsg_prof_time_toc (&client->prof));
+
     DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
     cmsg_buffer_print (buffer_data, packed_size);
+
+    CMSG_PROF_TIME_TIC (&client->prof);
 
     send_ret = client->_transport->client_send (client,
                                                 buffer, packed_size + sizeof (header), 0);
@@ -261,6 +276,8 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         }
     }
 
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "send", cmsg_prof_time_toc (&client->prof));
+
     /* message_pt is filled in by the response receive.  It may be NULL or a valid pointer.
      * status_code will tell us whether it is a valid pointer.
      */
@@ -292,6 +309,8 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         CMSG_FREE (buffer);
         return;
     }
+
+    CMSG_PROF_TIME_TIC (&client->prof);
 
     CMSG_FREE (buffer);
     buffer = NULL;
@@ -330,6 +349,9 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     protobuf_c_message_free_unpacked (message_pt, client->allocator);
 
     client->invoke_return_state = CMSG_RET_OK;
+
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "cleanup",
+                                 cmsg_prof_time_toc (&client->prof));
 
     return;
 }

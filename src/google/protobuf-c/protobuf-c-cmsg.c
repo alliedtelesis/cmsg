@@ -241,3 +241,111 @@ cmsg_malloc_init (int mtype)
 {
     cmsg_mtype = mtype;
 }
+
+#ifdef HAVE_CMSG_PROFILING
+uint32_t
+cmsg_prof_diff_time_in_us (struct timeval start, struct timeval end)
+{
+    uint32_t elapsed_us;
+    elapsed_us = (end.tv_sec - start.tv_sec) * 1000000;
+    elapsed_us += end.tv_usec;
+    elapsed_us -= start.tv_usec;
+    return elapsed_us;
+}
+
+void
+cmsg_prof_time_tic (cmsg_prof *prof)
+{
+    if (!prof)
+        return;
+
+    if (!prof->enable)
+        return;
+
+    gettimeofday (&prof->start_tic, NULL);
+}
+
+uint32_t
+cmsg_prof_time_toc (cmsg_prof *prof)
+{
+    if (!prof)
+        return 0;
+
+    if (!prof->enable)
+        return 0;
+
+    gettimeofday (&prof->now, NULL);
+    return cmsg_prof_diff_time_in_us (prof->start_tic, prof->now);
+}
+
+void
+cmsg_prof_time_log_start (cmsg_prof *prof, char *filename)
+{
+    if (!prof || !filename)
+        return;
+
+    if (!prof->enable)
+        return;
+
+    if (!prof->file_ptr)
+    {
+        prof->file_ptr = fopen (filename, "w");
+        if (!prof->file_ptr)
+            CMSG_LOG_ERROR ("couldn't open file: %s", filename);
+    }
+
+    prof->text_ptr = (char *) prof->text;
+
+    gettimeofday (&prof->start, NULL);
+}
+
+void
+cmsg_prof_time_log_add_time (cmsg_prof *prof, char *description, uint32_t time)
+{
+    if (!prof || !description)
+        return;
+
+    if (!prof->enable)
+        return;
+
+    if (prof->text_ptr)
+        prof->text_ptr += sprintf (prof->text_ptr, "[%s]%d;", description, time);
+}
+
+void
+cmsg_prof_time_log_stop (cmsg_prof *prof, char *type, int msg_size)
+{
+    if (!prof)
+        return;
+
+    if (!prof->enable)
+        return;
+
+    gettimeofday (&prof->now, NULL);
+    uint32_t elapsed_us = cmsg_prof_diff_time_in_us (prof->start, prof->now);
+
+    if (prof->file_ptr)
+        fprintf (prof->file_ptr, "%s[type]%s;[size]%d;[total]%d;\n", prof->text, type,
+                 msg_size, elapsed_us);
+
+    //when do we close the file?
+}
+
+void
+cmsg_prof_enable (cmsg_prof *prof)
+{
+    if (!prof)
+        return;
+
+    prof->enable = 1;
+}
+
+void
+cmsg_prof_disable (cmsg_prof *prof)
+{
+    if (!prof)
+        return;
+
+    prof->enable = 0;
+}
+#endif //HAVE_CMSG_PROFILING
