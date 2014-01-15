@@ -1,38 +1,39 @@
-
-package my_package;
+package cmsg;
 
 enum some_numbers
 {
-  ONE = 1;
-  TWO = 2;
-  FOUR = 4;
+    ONE = 1;
+    TWO = 2;
+    FOUR = 4;
 }
 
-message PingResponse
+message ping_request 
 {
-  required int32 return_code = 1;
-  required int32 random = 2;
+    optional int32 random = 1;
+    optional int32 randomm = 2;
 }
 
-message PingRequest {
-  required int32 random = 1;
-  required int32 randomm = 2;
-}
-
-message poe_priority
+message ping_response
 {
-  required int32 port = 1;
-  required int32 priority = 2;
-  required some_numbers count = 3;
+    optional int32 return_code = 1;
+    optional int32 random = 2;
 }
 
-message poe_send_status
+message priority_request
 {
-  required int32 status = 1;
+    optional int32 port = 1;
+    optional int32 priority = 2;
+    optional some_numbers count = 3;
 }
 
-service my_service {
-  rpc Ping (PingRequest) returns (PingResponse);
-  rpc SetPriority (poe_priority) returns (poe_send_status);
+message priority_response
+{
+    optional int32 status = 1;
+}
+
+service test
+{
+    rpc ping (ping_request) returns (ping_response);
+    rpc set_priority (priority_request) returns (priority_response);
 }
 

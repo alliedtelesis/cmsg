@@ -351,7 +351,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     {
         if (errno == ECONNRESET)
         {
-            DEBUG ("[TRANSPORT] recv socket %d error: %s\n",
+            DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
                    client->connection.socket, strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }

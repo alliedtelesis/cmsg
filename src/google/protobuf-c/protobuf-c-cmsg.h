@@ -179,7 +179,7 @@ typedef enum _cmsg_error_code_e
     CMSG_ERROR_CODE_CLIENT_TERMINATED,
     CMSG_ERROR_CODE_BAD_REQUEST,
     CMSG_ERROR_CODE_PROXY_PROBLEM
-} cmsg_error_code;;
+} cmsg_error_code;
 
 typedef enum _cmsg_queue_state_e
 {

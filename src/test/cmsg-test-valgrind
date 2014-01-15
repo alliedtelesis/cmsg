@@ -1,0 +1,3 @@
+#!/bin/bash
+
+G_DEBUG=gc-friendly G_SLICE=always-malloc valgrind --trace-children=yes --track-origins=yes --leak-check=full --show-reachable=yes -v ./cmsg-test $@

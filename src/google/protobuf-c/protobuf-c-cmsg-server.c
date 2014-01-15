@@ -608,7 +608,7 @@ _cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code stat
     {
         DEBUG (CMSG_ERROR,
                "[SERVER] error: sending of response failed send:%d of %d\n",
-               ret, sizeof (header));
+               ret, (int) sizeof (header));
         return;
     }
     return;
@@ -733,7 +733,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         if (send_ret < (int) (packed_size + sizeof (header)))
             DEBUG (CMSG_ERROR,
                    "[SERVER] sending if response failed send:%d of %d\n",
-                   send_ret, packed_size + sizeof (header));
+                   send_ret, packed_size + (int) sizeof (header));
 
         CMSG_FREE (buffer);
     }
