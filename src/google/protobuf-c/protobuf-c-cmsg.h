@@ -15,6 +15,8 @@
 #include <sys/time.h>
 #include <string.h>
 
+#include <utility/tracelog.h>
+
 #include "protobuf-c.h"
 
 // TODO: Perhaps we can refactor the logic around the debug below

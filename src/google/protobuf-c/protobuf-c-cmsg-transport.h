@@ -238,4 +238,7 @@ int cmsg_tipc_topology_connect_subscribe (const char *server_name, uint32_t lowe
 
 int cmsg_tipc_topology_subscription_read (int sock);
 
+void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
+                                             const char *event_str,
+                                             struct tipc_event *event);
 #endif

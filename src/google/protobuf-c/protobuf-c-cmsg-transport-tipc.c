@@ -3,7 +3,6 @@
 #include "protobuf-c-cmsg-server.h"
 
 
-
 /**
  * Create a TIPC socket connection.
  * Returns 0 on success or a negative integer on failure.
@@ -768,4 +767,61 @@ cmsg_tipc_topology_subscription_read (int sock)
     }
 
     return CMSG_RET_OK;
+}
+
+
+/**
+ * Print to tracelog a message describing the tipc event that is passed in to the
+ * function. This includes if the event is published/withdrawn, and address information
+ * about the connection that has changed,
+ */
+void
+cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
+                                        const char *event_str, struct tipc_event *event)
+{
+    char display_string[150] = { 0 };
+    uint32_t char_count = 0;
+
+    char_count = sprintf (display_string, "%s Event: ", event_str);
+
+    switch (event->event)
+    {
+    case TIPC_PUBLISHED:
+        char_count += sprintf (&(display_string[char_count]), "Published: ");
+        break;
+    case TIPC_WITHDRAWN:
+        char_count += sprintf (&(display_string[char_count]), "Withdrawn: ");
+        break;
+    case TIPC_SUBSCR_TIMEOUT:
+        char_count += sprintf (&(display_string[char_count]), "Timeout: ");
+        break;
+    default:
+        char_count += sprintf (&(display_string[char_count]), "Unknown, evt = %i ",
+                               event->event);
+        break;
+    }
+
+    char_count += sprintf (&(display_string[char_count]), " <%u,%u,%u> port id <%x:%u>",
+                           event->s.seq.type, event->found_lower, event->found_upper,
+                           event->port.node, event->port.ref);
+
+    tracelog (tracelog_string, "%s", display_string);
+
+    tracelog (tracelog_string, "Original Subscription:<%u,%u,%u>, timeout %u, user ref: "
+              "%x%x%x%x%x%x%x%x",
+              event->s.seq.type, event->s.seq.lower, event->s.seq.upper,
+              event->s.timeout,
+              ((uint8_t *) event->s.usr_handle)[0],
+              ((uint8_t *) event->s.usr_handle)[1],
+              ((uint8_t *) event->s.usr_handle)[2],
+              ((uint8_t *) event->s.usr_handle)[3],
+              ((uint8_t *) event->s.usr_handle)[4],
+              ((uint8_t *) event->s.usr_handle)[5],
+              ((uint8_t *) event->s.usr_handle)[6],
+              ((uint8_t *) event->s.usr_handle)[7]);
+
+    if (event->s.seq.type == 0)
+    {
+        tracelog (tracelog_string, " ...For node %x", event->found_lower);
+    }
 }
