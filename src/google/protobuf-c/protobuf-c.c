@@ -77,6 +77,7 @@
 #endif
 
 #include "protobuf-c.h"
+#include "protobuf-c-cmsg.h"
 
 unsigned protobuf_c_major = PROTOBUF_C_MAJOR;
 unsigned protobuf_c_minor = PROTOBUF_C_MINOR;
@@ -102,8 +103,6 @@ unsigned protobuf_c_minor = PROTOBUF_C_MINOR;
     (*(member_type*) STRUCT_MEMBER_P ((struct_p), (struct_offset)))
 #define STRUCT_MEMBER_PTR(member_type, struct_p, struct_offset)   \
     ((member_type*) STRUCT_MEMBER_P ((struct_p), (struct_offset)))
-#define TRUE 1
-#define FALSE 0
 
 static void
 alloc_failed_warning (unsigned size, const char *filename, unsigned line)
@@ -153,7 +152,7 @@ static void *system_alloc(void *allocator_data, size_t size)
   (void) allocator_data;
   if (size == 0)
     return NULL;
-  rv = malloc (size);
+  rv = CMSG_MALLOC (size);
   if (rv == NULL)
     protobuf_c_out_of_memory ();
   return rv;
@@ -163,7 +162,7 @@ static void system_free (void *allocator_data, void *data)
 {
   (void) allocator_data;
   if (data)
-    free (data);
+    CMSG_FREE (data);
 }
 
 /* Some users may configure the default allocator;
