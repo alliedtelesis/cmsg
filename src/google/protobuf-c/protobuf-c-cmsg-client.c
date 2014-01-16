@@ -137,7 +137,7 @@ cmsg_client_connect (cmsg_client *client)
 }
 
 
-void
+int32_t
 cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
                         const ProtobufCMessage *input, ProtobufCClosure closure,
                         void *closure_data)
@@ -178,7 +178,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
 
         client->invoke_return_state = CMSG_RET_ERR;
 
-        return;
+        return CMSG_RET_ERR;
     }
 
     CMSG_PROF_TIME_TIC (&client->prof);
@@ -196,7 +196,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
                         method_name);
 
         client->invoke_return_state = CMSG_RET_ERR;
-        return;
+        return CMSG_RET_ERR;
     }
 
     memcpy ((void *) buffer, &header, sizeof (header));
@@ -215,7 +215,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         client->invoke_return_state = CMSG_RET_ERR;
 
         CMSG_FREE (buffer);
-        return;
+        return CMSG_RET_ERR;
     }
     else if (ret > packed_size)
     {
@@ -225,7 +225,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         client->invoke_return_state = CMSG_RET_ERR;
 
         CMSG_FREE (buffer);
-        return;
+        return CMSG_RET_ERR;
     }
 
     CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "pack", cmsg_prof_time_toc (&client->prof));
@@ -262,7 +262,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
 
                 client->invoke_return_state = CMSG_RET_ERR;
                 CMSG_FREE (buffer);
-                return;
+                return CMSG_RET_ERR;
             }
         }
         else
@@ -272,7 +272,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
 
             client->invoke_return_state = CMSG_RET_ERR;
             CMSG_FREE (buffer);
-            return;
+            return CMSG_RET_ERR;
         }
     }
 
@@ -307,7 +307,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         client->_transport->client_close (client);
 
         CMSG_FREE (buffer);
-        return;
+        return CMSG_RET_ERR;
     }
 
     CMSG_PROF_TIME_TIC (&client->prof);
@@ -324,7 +324,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     {
         DEBUG (CMSG_INFO, "[CLIENT] info: response message %s\n",
                status_code == CMSG_STATUS_CODE_SERVICE_QUEUED ? "QUEUED" : "DROPPED");
-        return;
+        return CMSG_RET_OK;
     }
     else if (message_pt == NULL)
     {
@@ -332,13 +332,13 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         if (status_code == CMSG_STATUS_CODE_SUCCESS)
         {
             client->invoke_return_state = CMSG_RET_OK;
-            return;
+            return CMSG_RET_OK;
         }
         else
         {
             CMSG_LOG_ERROR ("[CLIENT] error: response message not valid or empty (method: %s)",
                             method_name);
-            return;
+            return CMSG_RET_ERR;
         }
     }
 
@@ -359,11 +359,11 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "cleanup",
                                  cmsg_prof_time_toc (&client->prof));
 
-    return;
+    return CMSG_RET_OK;
 }
 
 
-void
+int32_t
 cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                            const ProtobufCMessage *input, ProtobufCClosure closure,
                            void *closure_data)
@@ -407,12 +407,12 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                  method_name);
 
             client->invoke_return_state = CMSG_RET_ERR;
-            return;
+            return CMSG_RET_ERR;
         }
         else if (action == CMSG_QUEUE_FILTER_DROP)
         {
             DEBUG (CMSG_INFO, "[CLIENT] dropping message: %s\n", method_name);
-            return;
+            return CMSG_RET_OK;
         }
         else if (action == CMSG_QUEUE_FILTER_QUEUE)
         {
@@ -437,7 +437,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                             method_name, connect_error);
 
             client->invoke_return_state = CMSG_RET_ERR;
-            return;
+            return CMSG_RET_ERR;
         }
     }
 
@@ -455,7 +455,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                         method_name);
 
         client->invoke_return_state = CMSG_RET_ERR;
-        return;
+        return CMSG_RET_ERR;
     }
 
     memcpy ((void *) buffer, &header, sizeof (header));
@@ -473,7 +473,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
         client->invoke_return_state = CMSG_RET_ERR;
         CMSG_FREE (buffer);
-        return;
+        return CMSG_RET_ERR;
     }
     else if (ret > packed_size)
     {
@@ -483,7 +483,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
         client->invoke_return_state = CMSG_RET_ERR;
 
         CMSG_FREE (buffer);
-        return;
+        return CMSG_RET_ERR;
     }
 
     DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
@@ -523,7 +523,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
                     client->invoke_return_state = CMSG_RET_ERR;
                     CMSG_FREE (buffer);
-                    return;
+                    return CMSG_RET_ERR;
                 }
             }
             else
@@ -533,7 +533,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
                 client->invoke_return_state = CMSG_RET_ERR;
                 CMSG_FREE (buffer);
-                return;
+                return CMSG_RET_ERR;
             }
         }
     }
@@ -586,7 +586,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
     client->invoke_return_state = CMSG_RET_OK;
 
-    return;
+    return CMSG_RET_OK;
 }
 
 

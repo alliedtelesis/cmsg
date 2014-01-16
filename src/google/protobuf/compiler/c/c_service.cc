@@ -70,7 +70,7 @@ void ServiceGenerator::GenerateVfuncs(io::Printer* printer)
     vars_["input_typename"] = FullNameToC(method->input_type()->full_name()) + "_pbc";
     vars_["output_typename"] = FullNameToC(method->output_type()->full_name()) + "_pbc";
     printer->Print(vars_,
-                   "  void (*$method$)($cname$_Service *service,\n"
+                   "  int32_t (*$method$)($cname$_Service *service,\n"
                    "         $metpad$  const $input_typename$ *input,\n"
                    "         $metpad$  $output_typename$_Closure closure,\n"
                    "         $metpad$  void *closure_data);\n");
@@ -115,10 +115,10 @@ void ServiceGenerator::GenerateCallersDeclarations(io::Printer* printer)
     vars_["output_typename"] = FullNameToC(method->output_type()->full_name()) + "_pbc";
     vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_" + lcname);
     printer->Print(vars_,
-                   "void $lcfullname$_$method$(ProtobufCService *service,\n"
-                   "     $padddddddddddddddddd$ const $input_typename$ *input,\n"
-                   "     $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
-                   "     $padddddddddddddddddd$ void *closure_data);\n");
+                   "int32_t $lcfullname$_$method$(ProtobufCService *service,\n"
+                   "        $padddddddddddddddddd$ const $input_typename$ *input,\n"
+                   "        $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
+                   "        $padddddddddddddddddd$ void *closure_data);\n");
   }
 }
 
@@ -215,13 +215,13 @@ void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
     vars_["index"] = SimpleItoa(i);
      
     printer->Print(vars_,
-                   "void $lcfullname$_$method$(ProtobufCService *service,\n"
-                   "     $padddddddddddddddddd$ const $input_typename$ *input,\n"
-                   "     $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
-                   "     $padddddddddddddddddd$ void *closure_data)\n"
+                   "int32_t $lcfullname$_$method$(ProtobufCService *service,\n"
+                   "        $padddddddddddddddddd$ const $input_typename$ *input,\n"
+                   "        $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
+                   "        $padddddddddddddddddd$ void *closure_data)\n"
 		   "{\n"
 		   "  PROTOBUF_C_ASSERT (service->descriptor == &$lcfullname$_descriptor);\n"
-		   "  service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
+		   "  return service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
 		   "}\n");
   }
 }

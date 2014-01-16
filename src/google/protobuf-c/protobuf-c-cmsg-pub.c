@@ -1,7 +1,7 @@
 #include "protobuf-c-cmsg-pub.h"
 
 //macro for register handler implentation
-Cmsg__SubService_Service cmsg_pub_subscriber_service = CMSG__SUB_SERVICE__INIT (cmsg_pub_);
+cmsg_sub_service_Service cmsg_pub_subscriber_service = CMSG_SUB_SERVICE_INIT (cmsg_pub_);
 
 
 int32_t
@@ -637,7 +637,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
     return 0;
 }
 
-void
+int32_t
 cmsg_pub_invoke (ProtobufCService *service,
                  unsigned method_index,
                  const ProtobufCMessage *input,
@@ -664,13 +664,13 @@ cmsg_pub_invoke (ProtobufCService *service,
         DEBUG (CMSG_ERROR,
                "[PUB] error: queue_lookup_filter returned CMSG_QUEUE_FILTER_ERROR for: %s\n",
                method_name);
-        return;
+        return CMSG_RET_ERR;
     }
 
     if (action == CMSG_QUEUE_FILTER_DROP)
     {
         DEBUG (CMSG_ERROR, "[PUB] dropping message: %s\n", method_name);
-        return;
+        return CMSG_RET_OK;
     }
 
     //for each entry in pub->subscriber_entry
@@ -710,7 +710,7 @@ cmsg_pub_invoke (ProtobufCService *service,
         {
             DEBUG (CMSG_ERROR, "[PUB] error: queue filter action: %d wrong\n", action);
             pthread_mutex_unlock (&publisher->subscriber_list_mutex);
-            return;
+            return CMSG_RET_ERR;
         }
 
         //pass parent to client for queueing using correct queue
@@ -769,12 +769,12 @@ cmsg_pub_invoke (ProtobufCService *service,
     }
 
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
-    return;
+    return CMSG_RET_OK;
 }
 
-void
-cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *input,
-                    Cmsg__SubEntryResponse_Closure closure, void *closure_data_void)
+int32_t
+cmsg_pub_subscribe (cmsg_sub_service_Service *service, const cmsg_sub_entry_transport_info_pbc *input,
+                    cmsg_sub_entry_response_pbc_Closure closure, void *closure_data_void)
 {
     CMSG_ASSERT (service);
     CMSG_ASSERT (input);
@@ -788,7 +788,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
     if (server->parent.object_type == CMSG_OBJ_TYPE_PUB)
         publisher = (cmsg_pub *) server->parent.object;
 
-    Cmsg__SubEntryResponse response = CMSG__SUB_ENTRY_RESPONSE__INIT;
+    cmsg_sub_entry_response_pbc response = CMSG_SUB_ENTRY_RESPONSE_PBC_INIT;
 
     //read the message
     cmsg_sub_entry subscriber_entry;
@@ -833,7 +833,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
     {
         CMSG_LOG_ERROR ("[PUB] error: subscriber transport not supported");
 
-        return;
+        return CMSG_RET_ERR;
     }
 
     if (input->add)
@@ -856,7 +856,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
 
     closure (&response, closure_data);
 
-    return;
+    return CMSG_RET_OK;
 }
 
 void

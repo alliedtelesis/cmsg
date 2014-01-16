@@ -2755,11 +2755,11 @@ protobuf_c_message_init (const ProtobufCMessageDescriptor *descriptor,
 }
 
 /* === services === */
-typedef void (*GenericHandler)(void *service,
-                               const ProtobufCMessage *input,
-                               ProtobufCClosure  closure,
-                               void             *closure_data);
-void 
+typedef int32_t (*GenericHandler)(void *service,
+                                  const ProtobufCMessage *input,
+                                  ProtobufCClosure  closure,
+                                  void             *closure_data);
+int32_t
 protobuf_c_service_invoke_internal(ProtobufCService *service,
                                   unsigned          method_index,
                                   const ProtobufCMessage *input,
@@ -2783,7 +2783,7 @@ protobuf_c_service_invoke_internal(ProtobufCService *service,
   /* TODO: seems like handler==NULL is a situation that
      needs handling */
   handler = handlers[method_index];
-  (*handler) (service, input, closure, closure_data);
+  return (*handler) (service, input, closure, closure_data);
 }
 
 void

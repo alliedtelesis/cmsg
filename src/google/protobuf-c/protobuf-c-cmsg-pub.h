@@ -26,10 +26,10 @@ typedef struct _cmsg_pub_s
     //this is a hack to get around a check when a client method is called
     //to not change the order of the first two
     const ProtobufCServiceDescriptor *descriptor;
-    void (*invoke) (ProtobufCService *service,
-                    unsigned method_index,
-                    const ProtobufCMessage *input,
-                    ProtobufCClosure closure, void *closure_data);
+    int32_t (*invoke) (ProtobufCService *service,
+                       unsigned method_index,
+                       const ProtobufCMessage *input,
+                       ProtobufCClosure closure, void *closure_data);
 
     cmsg_server *sub_server;                                                //registering subscriber
     const ProtobufCServiceDescriptor *registration_notify_client_service;   //for calling notification methods in notify
@@ -91,15 +91,15 @@ int32_t cmsg_pub_server_accept (cmsg_pub *publisher, int32_t listen_socket);
 
 int32_t cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data);
 
-void cmsg_pub_invoke (ProtobufCService *service,
-                      unsigned method_index,
-                      const ProtobufCMessage *input,
-                      ProtobufCClosure closure, void *closure_data);
+int32_t cmsg_pub_invoke (ProtobufCService *service,
+                         unsigned method_index,
+                         const ProtobufCMessage *input,
+                         ProtobufCClosure closure, void *closure_data);
 
 //service implementation for handling register messages from the subscriber
-void cmsg_pub_subscribe (Cmsg__SubService_Service *service,
-                         const Cmsg__SubEntry *input,
-                         Cmsg__SubEntryResponse_Closure closure, void *closure_data);
+int32_t cmsg_pub_subscribe (cmsg_sub_service_Service *service,
+                            const cmsg_sub_entry_transport_info_pbc *input,
+                            cmsg_sub_entry_response_pbc_Closure closure, void *closure_data);
 
 //queue api
 void cmsg_pub_queue_enable (cmsg_pub *publisher);

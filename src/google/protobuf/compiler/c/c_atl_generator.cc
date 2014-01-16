@@ -624,6 +624,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //start filling it in
     printer->Print("{\n");
     printer->Indent();
+    printer->Print("int32_t _return_status = CMSG_RET_ERR;\n");
     //
     // don't create response when response has no fields
     //
@@ -643,7 +644,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print("if (_service == NULL)\n");
     printer->Print("{\n");
     printer->Indent();
-    printer->Print("return -1;\n");
+    printer->Print("return CMSG_RET_ERR;\n");
     printer->Outdent();
     printer->Print("}\n");
 
@@ -668,11 +669,11 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     if(method->output_type()->field_count() > 0)
     {
-      printer->Print(vars_, "$lcfullname$_$method_lcname$ (_service, &_msgS, NULL, &_closure_data);\n\n");
+      printer->Print(vars_, "_return_status = $lcfullname$_$method_lcname$ (_service, &_msgS, NULL, &_closure_data);\n\n");
     }
     else
     {
-      printer->Print(vars_, "$lcfullname$_$method_lcname$ (_service, &_msgS, NULL, NULL);\n\n");
+      printer->Print(vars_, "_return_status = $lcfullname$_$method_lcname$ (_service, &_msgS, NULL, NULL);\n\n");
     }
 
     //
@@ -705,7 +706,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     // finally return something
     //
-    printer->Print("return 0;\n");
+    printer->Print("return _return_status;\n");
     printer->Outdent();
     printer->Print("}\n\n");
 

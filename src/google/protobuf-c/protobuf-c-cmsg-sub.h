@@ -12,10 +12,10 @@ typedef struct _cmsg_sub_s
     //this is a hack to get around a check when a client method is called
     //to not change the order of the first two
     const ProtobufCServiceDescriptor *descriptor;
-    void (*invoke) (ProtobufCService *service,
-                    unsigned method_index,
-                    const ProtobufCMessage *input,
-                    ProtobufCClosure closure, void *closure_data);
+    int32_t (*invoke) (ProtobufCService *service,
+                       unsigned method_index,
+                       const ProtobufCMessage *input,
+                       ProtobufCClosure closure, void *closure_data);
 
     cmsg_server *pub_server;    //receiving messages
 
@@ -32,7 +32,7 @@ int cmsg_sub_get_server_socket (cmsg_sub *subscriber);
 int32_t cmsg_sub_server_receive_poll (cmsg_sub *sub, int32_t timeout_ms,
                                       fd_set *master_fdset, int *fdmax);
 
-void cmsg_sub_subscribe_response_handler (const Cmsg__SubEntryResponse *response,
+void cmsg_sub_subscribe_response_handler (const cmsg_sub_entry_response_pbc *response,
                                           void *closure_data);
 
 int32_t cmsg_sub_server_receive (cmsg_sub *subscriber, int32_t server_socket);

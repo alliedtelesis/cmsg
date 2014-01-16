@@ -430,11 +430,11 @@ typedef void (*ProtobufCClosure)(const ProtobufCMessage *message,
 struct _ProtobufCService
 {
   const ProtobufCServiceDescriptor *descriptor;
-  void (*invoke)(ProtobufCService *service,
-                 unsigned          method_index,
-                 const ProtobufCMessage *input,
-                 ProtobufCClosure  closure,
-                 void             *closure_data);
+  int32_t (*invoke)(ProtobufCService *service,
+                   unsigned          method_index,
+                   const ProtobufCMessage *input,
+                   ProtobufCClosure  closure,
+                   void             *closure_data);
   void (*destroy) (ProtobufCService *service);
 };
 
