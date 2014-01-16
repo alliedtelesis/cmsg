@@ -19,6 +19,12 @@ typedef enum _cmsg_client_state_e
     CMSG_CLIENT_STATE_QUEUED,       //after successful adding a packet to the queue
 } cmsg_client_state;
 
+typedef struct _cmsg_client_closure_data_s
+{
+    void *message;
+    ProtobufCAllocator *allocator;
+} cmsg_client_closure_data;
+
 typedef struct _cmsg_client_s
 {
     //this is a hack to get around a check when a client method is called

@@ -614,16 +614,9 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     vars_["input_typename_upper"] = FullNameToUpper(method->input_type()->full_name());
     vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
     vars_["output_typename_upper"] = FullNameToUpper(method->output_type()->full_name());
+
     //
-    // we need to generate a closure function for the api to call on return
-    // of the rpc call from the server just when we have a response with fields
-    //
-    if(method->output_type()->field_count() > 0)
-    {
-      GenerateAtlApiClosureFunction(*method, printer);
-    }
-    //
-    // next generate the api function
+    // generate the api function
     //
     // get the definition
     GenerateAtlApiDefinition(*method, printer, false);
@@ -636,7 +629,8 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     if(method->output_type()->field_count() > 0)
     {
-      printer->Print(vars_, "$output_typename$_pbc _msgR = $output_typename_upper$_PBC_INIT;\n");
+      printer->Print("cmsg_client_closure_data _closure_data;\n");
+      printer->Print(vars_, "$output_typename$_pbc *_msgR = NULL;\n");
     }
     printer->Print(vars_, "$input_typename$_pbc _msgS = $input_typename_upper$_PBC_INIT;\n");
     printer->Print(vars_, "ProtobufCService *_service = (ProtobufCService *)_client;\n");
@@ -670,11 +664,11 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     vars_["method_lcname"] = CamelToLower(method->name()) + "_pbc";
 
     //
-    // don't pass response callback and msg when response is empty
+    // don't pass response msg when response is empty
     //
     if(method->output_type()->field_count() > 0)
     {
-      printer->Print(vars_, "$lcfullname$_$method_lcname$ (_service, &_msgS, $closure_name$, &_msgR);\n\n");
+      printer->Print(vars_, "$lcfullname$_$method_lcname$ (_service, &_msgS, NULL, &_closure_data);\n\n");
     }
     else
     {
@@ -689,21 +683,25 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print("\n");
 
     //
-    // copy the return values
+    // copy the return values (if any are expected)
     //
-    //GenerateReceiveMessageCopyCode(method->output_type(), "_msgR",  printer);
-    printer->Print("/* Copy received message fields to output variables */\n");
-    GenerateMessageCopyCode(method->output_type(), "result_", "_msgR.", printer, false, false, false, true, true);
-    printer->Print("\n");
+    if (method->output_type()->field_count() > 0)
+    {
+      printer->Print("/* Copy received message fields to output variables */\n");
+      printer->Print("_msgR = _closure_data.message;\n");
+      GenerateMessageCopyCode(method->output_type(), "result_", "_msgR->", printer, false, false, false, true, true);
+      printer->Print("\n");
 
-    //
-    // now the return values are copied we need to cleanup our temporary memory used to
-    // transfer values in the closure function
-    //
-    printer->Print("/* Free temporary receive message memory */\n");
-    GenerateCleanupMessageMemoryCode(method->output_type(), "_msgR.", printer);
-    printer->Print("\n");
-
+      //
+      // now the return values are copied we need to cleanup our temporary memory used to
+      // transfer values in the closure function
+      //
+      printer->Print("/* Free temporary receive message memory */\n");
+      // TODO: change this to use "protobuf_c_message_free_unknown_fields(...)" instead, once
+      // the api takes pbc structures as the input and output parms.
+      printer->Print("protobuf_c_message_free_unpacked ((ProtobufCMessage *)(_closure_data.message), (ProtobufCAllocator *)(_closure_data.allocator));\n");
+      printer->Print("\n");
+    }
     //
     // finally return something
     //

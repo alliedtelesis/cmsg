@@ -2668,6 +2668,21 @@ error_cleanup_during_scan:
 
 /* === free_unpacked === */
 void     
+protobuf_c_message_free_unknown_fields (ProtobufCMessage    *message,
+                                        ProtobufCAllocator  *allocator)
+{
+  unsigned f;
+  for (f = 0; f < message->n_unknown_fields; f++)
+    FREE (allocator, message->unknown_fields[f].data);
+
+  if (message->unknown_fields != NULL)
+    FREE (allocator, message->unknown_fields);
+
+  message->n_unknown_fields = 0;
+  message->unknown_fields = NULL;
+}
+
+void
 protobuf_c_message_free_unpacked  (ProtobufCMessage    *message,
                                    ProtobufCAllocator  *allocator)
 {
@@ -2728,10 +2743,7 @@ protobuf_c_message_free_unpacked  (ProtobufCMessage    *message,
         }
     }
 
-  for (f = 0; f < message->n_unknown_fields; f++)
-    FREE (allocator, message->unknown_fields[f].data);
-  if (message->unknown_fields != NULL)
-    FREE (allocator, message->unknown_fields);
+  protobuf_c_message_free_unknown_fields (message, allocator);
 
   FREE (allocator, message);
 }

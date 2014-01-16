@@ -342,11 +342,17 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         }
     }
 
-    //call closure
-    if (closure)    //check if closure is not zero, can be the case when we use empty messages
-        closure (message_pt, closure_data);
-
-    protobuf_c_message_free_unpacked (message_pt, client->allocator);
+    if (closure_data)
+    {
+        ((cmsg_client_closure_data *) (closure_data))->message = (void *) message_pt;
+        ((cmsg_client_closure_data *) (closure_data))->allocator = client->allocator;
+    }
+    else
+    {
+        /* only cleanup if the message is not passed back to the
+         * api through the closure_data (above) */
+        protobuf_c_message_free_unpacked (message_pt, client->allocator);
+    }
 
     client->invoke_return_state = CMSG_RET_OK;
 

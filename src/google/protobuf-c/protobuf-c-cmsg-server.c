@@ -372,7 +372,7 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
                     cmsg_method_processing_reason process_reason)
 {
     uint32_t queue_length = 0;
-    cmsg_closure_data closure_data;
+    cmsg_server_closure_data closure_data;
 
     // Setup closure_data so it can be used no matter what the action is
     closure_data.server = server;
@@ -622,7 +622,7 @@ void
 cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_void)
 {
 
-    cmsg_closure_data *closure_data = (cmsg_closure_data *) closure_data_void;
+    cmsg_server_closure_data *closure_data = (cmsg_server_closure_data *) closure_data_void;
     cmsg_server *server = closure_data->server;
 
     CMSG_ASSERT (server);

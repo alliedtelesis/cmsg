@@ -596,7 +596,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
     cmsg_server_request *server_request = server->server_request;
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *) server->allocator;
-    cmsg_closure_data closure_data;
+    cmsg_server_closure_data closure_data;
     const ProtobufCMessageDescriptor *desc;
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
@@ -781,7 +781,7 @@ cmsg_pub_subscribe (Cmsg__SubService_Service *service, const Cmsg__SubEntry *inp
     CMSG_ASSERT (closure_data_void);
 
     DEBUG (CMSG_INFO, "[PUB] cmsg_notification_subscriber_server_register_handler\n");
-    cmsg_closure_data *closure_data = (cmsg_closure_data *) closure_data_void;
+    cmsg_server_closure_data *closure_data = (cmsg_server_closure_data *) closure_data_void;
     cmsg_server *server = closure_data->server;
     cmsg_pub *publisher = NULL;
 

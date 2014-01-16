@@ -391,6 +391,8 @@ PROTOBUF_C_API ProtobufCMessage *
                                              ProtobufCAllocator  *allocator,
                                              size_t               len,
                                              const uint8_t       *data);
+PROTOBUF_C_API void      protobuf_c_message_free_unknown_fields (ProtobufCMessage    *message,
+                                             ProtobufCAllocator  *allocator);
 PROTOBUF_C_API void      protobuf_c_message_free_unpacked  (ProtobufCMessage    *message,
                                              ProtobufCAllocator  *allocator);
 

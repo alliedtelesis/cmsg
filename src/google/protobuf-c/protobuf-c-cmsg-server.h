@@ -10,14 +10,14 @@
 #define CMSG_SERVICE(package,service)     ((ProtobufCService *)&package ## _ ## service ## _service)
 #define CMSG_SERVICE_NOPACKAGE(service)   ((ProtobufCService *)&service ## _service)
 
-typedef struct _closure_data_s
+typedef struct _cmsg_server_closure_data_s
 {
     cmsg_server *server;
     /* Whether the server has decided to do something different with the method
      * call or has invoked the method.
      */
     cmsg_method_processing_reason method_processing_reason;
-} cmsg_closure_data;
+} cmsg_server_closure_data;
 
 typedef struct _cmsg_server_request_s
 {
