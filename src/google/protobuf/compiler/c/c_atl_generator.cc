@@ -630,7 +630,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     if(method->output_type()->field_count() > 0)
     {
-      printer->Print("cmsg_client_closure_data _closure_data = { NULL, NULL};\n");
+      printer->Print("cmsg_client_closure_data _closure_data;\n");
       printer->Print(vars_, "$output_typename$_pbc *_msgR = NULL;\n");
     }
     printer->Print(vars_, "$input_typename$_pbc _msgS = $input_typename_upper$_PBC_INIT;\n");
@@ -688,11 +688,6 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     if (method->output_type()->field_count() > 0)
     {
-      printer->Print("/* sanity check our returned message pointer */\n");
-      printer->Print("if (_closure_data.message != NULL)\n");
-      printer->Print("{\n");
-      printer->Indent();
-
       printer->Print("/* Copy received message fields to output variables */\n");
       printer->Print("_msgR = _closure_data.message;\n");
       GenerateMessageCopyCode(method->output_type(), "result_", "_msgR->", printer, false, false, false, true, true);
@@ -706,15 +701,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
       // TODO: change this to use "protobuf_c_message_free_unknown_fields(...)" instead, once
       // the api takes pbc structures as the input and output parms.
       printer->Print("protobuf_c_message_free_unpacked ((ProtobufCMessage *)(_closure_data.message), (ProtobufCAllocator *)(_closure_data.allocator));\n");
-      printer->Outdent();
-      printer->Print("}\n"); //if (_closure_data.message != NULL)
-      printer->Print("else if (_return_status == CMSG_RET_OK)\n");
-      printer->Print("{\n");
-      printer->Indent();
-      printer->Print("_return_status = CMSG_RET_ERR;\n");
-      printer->Outdent();
-      printer->Print("}\n"); //else if (_return_status == CMSG_RET_OK)
-
+      printer->Print("\n");
     }
     //
     // finally return something
