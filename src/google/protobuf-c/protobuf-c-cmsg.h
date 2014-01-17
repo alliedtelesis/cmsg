@@ -15,7 +15,11 @@
 #include <sys/time.h>
 #include <string.h>
 
+#ifndef LOCAL_INSTALL
 #include <utility/tracelog.h>
+#else
+#define tracelog(tracelog_string, fmt, ...)   printf(fmt, ## __VA_ARGS__);
+#endif
 
 #include "protobuf-c.h"
 
