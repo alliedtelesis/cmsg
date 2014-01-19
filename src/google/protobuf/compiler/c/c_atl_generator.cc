@@ -793,7 +793,7 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     printer->Print("{\n");
     printer->Indent();
     printer->Print("_closure (NULL, _closure_data);\n");
-    printer->Print("return;\n");
+    printer->Print("return CMSG_RET_ERR;\n");
     printer->Outdent();
     printer->Print("}\n");
 
@@ -829,7 +829,7 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     printer->Print("// clean up\n");
     printer->Print("_service->closure = NULL;\n");
     printer->Print("_service->closure_data = NULL;\n");
-    printer->Print("\n");
+    printer->Print("return CMSG_RET_OK;\n");
 
     GenerateCleanupMessageMemoryCode(method->input_type(), "user_input.", printer);
     // end of the function
@@ -880,10 +880,10 @@ void AtlCodeGenerator::GenerateAtlServerDefinition(const MethodDescriptor &metho
   vars_["padddddddddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_server_" + lcname);
 
   printer->Print(vars_,
-                 "void $lcfullname$_server_$method$ ($cname$_Service *_service,\n"
-                 "     $padddddddddddddddddddddddd$  const $input_typename$_pbc *input,\n"
-                 "     $padddddddddddddddddddddddd$  $output_typename$_pbc_Closure _closure,\n"
-                 "     $padddddddddddddddddddddddd$  void *_closure_data)");
+                 "int32_t $lcfullname$_server_$method$ ($cname$_Service *_service,\n"
+                 "        $padddddddddddddddddddddddd$  const $input_typename$_pbc *input,\n"
+                 "        $padddddddddddddddddddddddd$  $output_typename$_pbc_Closure _closure,\n"
+                 "        $padddddddddddddddddddddddd$  void *_closure_data)");
   if (forHeader)
   {
     printer->Print(";");
