@@ -190,6 +190,8 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
     const ProtobufCMessageDescriptor *desc;
+    uint32_t extra_header_size;
+    cmsg_server_request server_request;
 
     *messagePtPt = NULL;
 
@@ -243,17 +245,25 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
         if (nbytes == (int) dyn_len)
         {
-            // Set buffer to take into account a larger header than we expected
-            buffer = recv_buffer + (header_converted.header_length - sizeof (cmsg_header));
+            extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
+            // Set buffer to take into account a larger header than we expected
+            buffer = recv_buffer + sizeof (cmsg_header);
+
+            cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
+                                     client->method_index_hash_table);
+
+            buffer = buffer + extra_header_size;
             DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
+
             cmsg_buffer_print (buffer, dyn_len);
 
             //todo: call cmsg_client_response_message_processor
 
             DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
-            desc = client->descriptor->methods[header_converted.method_index].output;
+
+            desc = client->descriptor->methods[server_request.method_index].output;
             message =
                 protobuf_c_message_unpack (desc, allocator,
                                            header_converted.message_length, buffer);

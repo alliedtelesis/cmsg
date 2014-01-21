@@ -79,6 +79,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     uint8_t *buffer = 0;
     uint8_t buf_static[512];
     uint8_t *buffer_data;
+    uint32_t extra_header_size = 0;
 
     DEBUG (CMSG_INFO,
            "[TRANSPORT] server->accecpted_client_socket %d\n",
@@ -92,7 +93,6 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     {
         nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
     }
-
     if (nbytes == (int) sizeof (cmsg_header))
     {
         CMSG_PROF_TIME_TIC (&server->prof);
@@ -107,7 +107,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         // Header is good so make use of it.
         server_request.msg_type = header_converted.msg_type;
         server_request.message_length = header_converted.message_length;
-        server_request.method_index = header_converted.method_index;
+
+        extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
         if (peek)
         {
@@ -118,8 +119,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         else
         {
             // Make sure any extra header is received.
-            dyn_len = header_converted.message_length +
-                header_converted.header_length - sizeof (cmsg_header);
+            dyn_len = header_converted.message_length + extra_header_size;
         }
 
         if (dyn_len > sizeof (buf_static))
@@ -136,12 +136,12 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         if (peek)
         {
             nbytes = recv (handle, buffer, dyn_len, 0);
-            buffer_data = buffer + header_converted.header_length;
+            buffer_data = buffer + sizeof (cmsg_header);
         }
         else
         {
-            //just recv more data when the packed message length is greater zero
-            if (header_converted.message_length)
+            //Even if no packed data, TLV header should be read.
+            if (header_converted.message_length + extra_header_size)
                 nbytes = recv (handle, buffer, dyn_len, MSG_WAITALL);
             else
                 nbytes = 0;
@@ -150,16 +150,17 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
         CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "receive",
                                      cmsg_prof_time_toc (&server->prof));
+        cmsg_tlv_header_process (buffer_data, &server_request, extra_header_size,
+                                 server->service->method_name_hash_table);
 
+        buffer_data = buffer_data + extra_header_size;
         // Process any message that has no more length or we have received what
         // we expected to from the socket
         if (header_converted.message_length == 0 || nbytes == (int) dyn_len)
         {
             DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
-
             cmsg_buffer_print (buffer_data, dyn_len);
             server->server_request = &server_request;
-
             if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
                 CMSG_LOG_ERROR ("[TRANSPORT] message processing returned an error\n");
 

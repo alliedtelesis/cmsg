@@ -85,18 +85,43 @@ cmsg_buffer_print (void *buffer, uint32_t size)
  * Adds sub headers as appropriate and returns header in network byte order
  */
 cmsg_header
-cmsg_header_create (cmsg_msg_type msg_type, uint32_t packed_size, uint32_t method_index,
-                    cmsg_status_code status_code)
+cmsg_header_create (cmsg_msg_type msg_type, uint32_t extra_header_size,
+                    uint32_t packed_size, cmsg_status_code status_code)
 {
     cmsg_header header;
+    uint32_t header_len = sizeof (cmsg_header) + extra_header_size;
 
     header.msg_type = (cmsg_msg_type) htonl ((uint32_t) msg_type);
     header.message_length = htonl (packed_size);
-    header.header_length = htonl (sizeof (cmsg_header));
-    header.method_index = htonl (method_index);
+    header.header_length = htonl (header_len);
     header.status_code = (cmsg_status_code) htonl ((uint32_t) status_code);
 
     return header;
+}
+
+/**
+ * Creates CMSG TLV header
+ */
+void
+cmsg_tlv_method_header_create (uint8_t *buf, cmsg_header header, uint32_t type,
+                               uint32_t length, const char *method_name)
+{
+    uint32_t hton_type = htonl (type);
+    uint32_t hton_length = htonl (length);
+
+    memcpy ((void *) buf, &header, sizeof (header));
+
+    uint8_t *buffer_tlv_data_type = buf + sizeof (header);
+
+    memcpy (buffer_tlv_data_type, &hton_type, sizeof (hton_type));
+
+    uint8_t *buffer_tlv_data_length = buffer_tlv_data_type + sizeof (hton_type);
+
+    memcpy (buffer_tlv_data_length, &hton_length, sizeof (hton_length));
+
+    uint8_t * buffer_tlv_data_method = buffer_tlv_data_length + sizeof (hton_length);
+    strncpy ((char *) buffer_tlv_data_method, method_name, length);
+
 }
 
 /**
@@ -111,7 +136,6 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
         (cmsg_msg_type) ntohl ((uint32_t) header_received->msg_type);
     header_converted->header_length = ntohl (header_received->header_length);
     header_converted->message_length = ntohl (header_received->message_length);
-    header_converted->method_index = ntohl (header_received->method_index);
     header_converted->status_code =
         (cmsg_status_code) ntohl ((uint32_t) header_received->status_code);
 
@@ -154,6 +178,41 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
                         header_converted->msg_type);
         return CMSG_RET_ERR;
         break;
+    }
+
+    return CMSG_RET_OK;
+}
+
+int
+cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
+                         uint32_t extra_header_size, GHashTable *method_name_hash_table)
+{
+    cmsg_tlv_method_header *tlv_method_header;
+    cmsg_tlv_header *tlv_header;
+
+    while (extra_header_size > 0)
+    {
+        tlv_header = (cmsg_tlv_header *) buf;
+        tlv_header->type = ntohl (tlv_header->type);
+        tlv_header->tlv_value_length = ntohl (tlv_header->tlv_value_length);
+
+        switch (tlv_header->type)
+        {
+        case CMSG_TLV_METHOD_TYPE:
+            tlv_method_header = (cmsg_tlv_method_header *) buf;
+
+            server_request->method_index = cmsg_method_hashtable_lookup (method_name_hash_table,
+                                                                        tlv_method_header->method);
+            strncpy (server_request->method_name_recvd, tlv_method_header->method, tlv_method_header->method_length);
+            break;
+        default:
+            CMSG_LOG_ERROR ("Processing TLV header, bad TLV type value - %d",
+                            tlv_header->type);
+            return CMSG_RET_ERR;
+            break;
+        }
+        buf = buf + TLV_SIZE (tlv_header->tlv_value_length);
+        extra_header_size = extra_header_size - TLV_SIZE (tlv_header->tlv_value_length);
     }
 
     return CMSG_RET_OK;
@@ -240,6 +299,83 @@ void
 cmsg_malloc_init (int mtype)
 {
     cmsg_mtype = mtype;
+}
+
+void
+cmsg_method_hashtable_init (GHashTable *service_hash_table,
+                            const ProtobufCServiceDescriptor *descriptor)
+{
+    uint32_t i = 0;
+    for (i = 0; i < descriptor->n_methods; i++)
+    {
+        cmsg_method_hash_table_entry *entry = (cmsg_method_hash_table_entry *)
+                                                g_malloc0 (sizeof (cmsg_method_hash_table_entry));
+        sprintf (entry->method_name, "%s", descriptor->methods[i].name);
+        entry->method_index = i;
+        g_hash_table_insert (service_hash_table,
+                             (gpointer) descriptor->methods[i].name,
+                             (gpointer) entry);
+    }
+
+}
+
+void
+cmsg_method_hashtable_print (GHashTable *service_hash_table,
+                             const ProtobufCServiceDescriptor *descriptor)
+{
+    int i;
+    cmsg_method_hash_table_entry *entry;
+
+    for (i = 0; i < descriptor->n_methods; i++)
+    {
+        entry = (cmsg_method_hash_table_entry *) g_hash_table_lookup (service_hash_table,
+                                                                       (gconstpointer)
+                                                                       descriptor->methods[i].name);
+        syslog (LOG_CRIT, "%s:%d Method = %s", __FUNCTION__, __LINE__, entry->method_name);
+    }
+}
+
+gboolean
+cmsg_method_hashtable_equal_function (gconstpointer a, gconstpointer b)
+{
+    cmsg_method_hash_table_entry *entry = (cmsg_method_hash_table_entry *) b;
+
+    return (strcmp ((char *) a, (char *) entry->method_name) == 0);
+}
+
+void cmsg_method_hashtable_free (GHashTable *service_hash_table, const ProtobufCServiceDescriptor *descriptor)
+{
+    uint32_t i = 0;
+    cmsg_method_hash_table_entry *entry;
+    for (i = 0; i < descriptor->n_methods; i++)
+    {
+        entry = g_hash_table_lookup (service_hash_table,
+                                     (gconstpointer)
+                                     descriptor->methods[i].name);
+
+        g_free (entry);
+
+        g_hash_table_remove (service_hash_table,
+                             (gconstpointer) descriptor->methods[i].name);
+    }
+
+}
+
+int
+cmsg_method_hashtable_lookup (GHashTable *service_hash_table, const char *method)
+{
+    cmsg_method_hash_table_entry *entry;
+
+    entry = (cmsg_method_hash_table_entry *) g_hash_table_lookup (service_hash_table,
+                                                                   (gconstpointer) method);
+
+    if (entry)
+    {
+        return entry->method_index;
+    }
+    DEBUG (CMSG_WARN, "Method hash table lookup failed for %s\n", method);
+
+    return CMSG_RET_ERR;
 }
 
 #ifdef HAVE_CMSG_PROFILING

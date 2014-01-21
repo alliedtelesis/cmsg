@@ -45,6 +45,7 @@
 #include <stddef.h>
 #include <assert.h>
 #include <limits.h>
+#include <glib.h>
 
 #ifdef __cplusplus
 # define PROTOBUF_C_BEGIN_DECLS    extern "C" {
@@ -436,6 +437,7 @@ struct _ProtobufCService
                    ProtobufCClosure  closure,
                    void             *closure_data);
   void (*destroy) (ProtobufCService *service);
+  GHashTable *method_name_hash_table;
 };
 
 

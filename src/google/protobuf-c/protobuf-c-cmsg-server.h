@@ -19,13 +19,6 @@ typedef struct _cmsg_server_closure_data_s
     cmsg_method_processing_reason method_processing_reason;
 } cmsg_server_closure_data;
 
-typedef struct _cmsg_server_request_s
-{
-    cmsg_msg_type msg_type;
-    uint32_t message_length;
-    uint32_t method_index;
-} cmsg_server_request;
-
 typedef int32_t (*server_message_processor_f) (cmsg_server *server, uint8_t *buffer_data);
 
 typedef struct _cmsg_server_s
@@ -56,6 +49,7 @@ typedef struct _cmsg_server_s
     GHashTable *queue_filter_hash_table;
     uint32_t queue_working;
 
+    GHashTable *method_name_hash_table;
     //thread signaling for queuing
     cmsg_bool_t queue_process_number;
     pthread_t self_thread_id;

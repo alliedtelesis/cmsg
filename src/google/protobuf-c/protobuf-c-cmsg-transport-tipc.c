@@ -210,6 +210,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     uint8_t *buffer = 0;
     uint8_t buf_static[512];
     const ProtobufCMessageDescriptor *desc;
+    uint32_t extra_header_size;
+    cmsg_server_request server_request;
 
     *messagePtPt = NULL;
 
@@ -273,9 +275,14 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
         if (nbytes == (int) dyn_len)
         {
+            extra_header_size = header_converted.header_length - sizeof (cmsg_header);
             // Set buffer to take into account a larger header than we expected
-            buffer = recv_buffer + (header_converted.header_length - sizeof (cmsg_header));
+            buffer = recv_buffer;
 
+            cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
+                                     client->method_index_hash_table);
+
+            buffer = buffer + extra_header_size;
             DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
             cmsg_buffer_print (buffer, dyn_len);
 
@@ -285,10 +292,10 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
             DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
-            desc = client->descriptor->methods[header_converted.method_index].output;
+            desc = client->descriptor->methods[server_request.method_index].output;
             message = protobuf_c_message_unpack (desc, allocator,
                                                  header_converted.message_length,
-                                                 recv_buffer);
+                                                 buffer);
 
             // Free the allocated buffer
             if (recv_buffer != (void *) buf_static)

@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <poll.h>
@@ -87,6 +88,8 @@
 #define CMSG_RET_OK   0
 #define CMSG_RET_ERR -1
 
+#define TLV_SIZE(x) ((2 * sizeof (uint32_t)) + (x))
+
 // Protocol has different msg types which reflect which fields are in use:
 // METHOD_REQ - client request to the server to invoke a method
 // METHOD_REPLY - server reply to a client for a method request
@@ -161,14 +164,38 @@ typedef enum _cmsg_status_code_e
     CMSG_STATUS_CODE_SERVER_CONNRESET,
 } cmsg_status_code;
 
+/**
+ * WARNING: Changing this header in anyway will break ISSU for this release.
+ * Consider whether or not it would be better to add any new fields as a TLV header,
+ * like the method header 'cmsg_tlv_method_header'. If you do need to change
+ * this header, _everyone_ will need to be made aware that ISSU won't work
+ * to go "up to" or "down from" the first release that includes this change.
+ */
 typedef struct _cmsg_header_s
 {
     cmsg_msg_type msg_type;         // Do NOT change this field
     uint32_t header_length;         // Do NOT change this field
     uint32_t message_length;        // Do NOT change this field
-    uint32_t method_index;          // Only for METHOD_xxx
     cmsg_status_code status_code;   // Only for METHOD_REPLY
 } cmsg_header;
+
+typedef enum _cmsg_tlv_header_type_s
+{
+    CMSG_TLV_METHOD_TYPE,
+} cmsg_tlv_header_type;
+
+typedef struct cmsg_tlv_method_header_s
+{
+    cmsg_tlv_header_type type;
+    uint32_t method_length;
+    char method[0];
+} cmsg_tlv_method_header;
+
+typedef struct cmsg_tlv_header_s
+{
+    cmsg_tlv_header_type type;
+    uint32_t tlv_value_length;
+} cmsg_tlv_header;
 
 typedef enum _cmsg_method_processing_reason_e
 {
@@ -202,18 +229,52 @@ typedef enum _cmsg_queue_filter_type_e
     CMSG_QUEUE_FILTER_ERROR,
 } cmsg_queue_filter_type;
 
+typedef struct _cmsg_server_request_s
+{
+    cmsg_msg_type msg_type;
+    uint32_t message_length;
+    uint32_t method_index;
+    char method_name_recvd[128];
+} cmsg_server_request;
+
+typedef struct _cmsg_method_hash_table_entry_s
+{
+    char method_name[128];
+    uint32_t method_index;
+} cmsg_method_hash_table_entry;
+
 uint32_t cmsg_common_uint32_to_le (uint32_t le);
 
 #define cmsg_common_uint32_from_le cmsg_common_uint32_to_le
 
 void cmsg_buffer_print (void *buffer, uint32_t size);
 
-cmsg_header cmsg_header_create (cmsg_msg_type msg_type, uint32_t packed_size,
-                                uint32_t method_index, cmsg_status_code status_code);
+cmsg_header cmsg_header_create (cmsg_msg_type msg_type, uint32_t extra_header_size,
+                                uint32_t packed_size, cmsg_status_code status_code);
+
+void cmsg_tlv_method_header_create (uint8_t *buf, cmsg_header header, uint32_t type,
+                                    uint32_t length, const char *method_name);
 
 int32_t cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted);
 
+int
+cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
+                         uint32_t extra_header_size, GHashTable *method_name_hash_table);
+
 int cmsg_service_port_get (const char *name, const char *proto);
+
+void cmsg_method_hashtable_init (GHashTable *service_hash_table,
+                                 const ProtobufCServiceDescriptor *descriptor);
+
+void cmsg_method_hashtable_free (GHashTable *service_hash_table,
+                                 const ProtobufCServiceDescriptor *descriptor);
+
+void cmsg_method_hashtable_print (GHashTable *service_hash_table,
+                                  const ProtobufCServiceDescriptor *descriptor);
+
+gboolean cmsg_method_hashtable_equal_function (gconstpointer a, gconstpointer b);
+
+int cmsg_method_hashtable_lookup (GHashTable *service_hash_table, const char *method);
 
 #define CMSG_MALLOC(size)           cmsg_malloc ((size), __FILE__, __LINE__)
 #define CMSG_CALLOC(nmemb,size)     cmsg_calloc ((nmemb), (size), __FILE__,  __LINE__)

@@ -80,6 +80,10 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 #ifdef HAVE_CMSG_PROFILING
         memset (&server->prof, 0, sizeof (cmsg_prof));
 #endif
+        service->method_name_hash_table = g_hash_table_new (g_str_hash,
+                                                            cmsg_method_hashtable_equal_function);
+        cmsg_method_hashtable_init (service->method_name_hash_table,
+                                     (const ProtobufCServiceDescriptor *)service->descriptor);
     }
     else
     {
@@ -534,8 +538,8 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
     int ret = 0;
     cmsg_header header;
 
-    header = cmsg_header_create (CMSG_MSG_TYPE_ECHO_REPLY, 0 /* empty msg */ ,
-                                 0, CMSG_STATUS_CODE_SUCCESS);
+    header = cmsg_header_create (CMSG_MSG_TYPE_ECHO_REPLY, 0, 0 /* empty msg */ ,
+                                 CMSG_STATUS_CODE_SUCCESS);
 
     DEBUG (CMSG_INFO, "[SERVER] ECHO Reply header\n");
 
@@ -596,8 +600,8 @@ _cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code stat
     int ret = 0;
     cmsg_header header;
 
-    header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REPLY, 0 /* empty msg */ ,
-                                 method_index, status_code);
+    header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REPLY, 0, 0 /* empty msg */ ,
+                                 status_code);
 
     DEBUG (CMSG_INFO, "[SERVER] response header\n");
 
@@ -632,6 +636,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     cmsg_server_request *server_request = server->server_request;
     uint32_t ret = 0;
     int send_ret = 0;
+    int type = CMSG_TLV_METHOD_TYPE;
 
     DEBUG (CMSG_INFO, "[SERVER] invoking rpc method=%d\n", server_request->method_index);
 
@@ -682,12 +687,18 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     {
         DEBUG (CMSG_INFO, "[SERVER] sending response with data\n");
 
-        uint32_t packed_size = protobuf_c_message_get_packed_size (message);
-        cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REPLY, packed_size,
-                                                 server_request->method_index,
-                                                 CMSG_STATUS_CODE_SUCCESS);
+        int method_len = strlen (server_request->method_name_recvd) + 1;
 
-        uint8_t *buffer = (uint8_t *) CMSG_CALLOC (1, packed_size + sizeof (header));
+        cmsg_header header;
+        uint32_t packed_size = protobuf_c_message_get_packed_size (message);
+        uint32_t extra_header_size = TLV_SIZE (method_len);
+        uint32_t total_header_size = sizeof (header) + extra_header_size;
+        uint32_t total_message_size = total_header_size + packed_size;
+
+        header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REPLY, extra_header_size,
+                                     packed_size, CMSG_STATUS_CODE_SUCCESS);
+
+        uint8_t *buffer = (uint8_t *) CMSG_CALLOC (1, total_message_size);
         if (!buffer)
         {
             CMSG_LOG_ERROR ("[SERVER] error: unable to allocate buffer. line(%d)\n",
@@ -695,11 +706,9 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
             return;
         }
 
-        memcpy ((void *) buffer, &header, sizeof (header));
-
-        DEBUG (CMSG_INFO, "[SERVER] packing message\n");
-
-        uint8_t *buffer_data = buffer + sizeof (header);
+        cmsg_tlv_method_header_create (buffer, header, type, method_len,
+                                       server_request->method_name_recvd);
+        uint8_t *buffer_data = buffer + total_header_size;
 
         ret = protobuf_c_message_pack (message, buffer_data);
         if (ret < packed_size)
@@ -724,16 +733,16 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         cmsg_buffer_print ((void *) &header, sizeof (header));
 
         DEBUG (CMSG_INFO, "[SERVER] response data\n");
-        cmsg_buffer_print ((void *) (buffer + sizeof (header)), packed_size);
+        cmsg_buffer_print ((void *) buffer_data, packed_size);
 
         send_ret = server->_transport->server_send (server,
                                                     buffer,
-                                                    packed_size + sizeof (header), 0);
+                                                    total_message_size, 0);
 
-        if (send_ret < (int) (packed_size + sizeof (header)))
+        if (send_ret < (int) total_message_size)
             DEBUG (CMSG_ERROR,
                    "[SERVER] sending if response failed send:%d of %d\n",
-                   send_ret, packed_size + (int) sizeof (header));
+                   send_ret, total_message_size);
 
         CMSG_FREE (buffer);
     }
