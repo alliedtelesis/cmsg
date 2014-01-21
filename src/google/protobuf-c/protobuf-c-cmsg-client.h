@@ -40,7 +40,6 @@ typedef struct _cmsg_client_s
     cmsg_transport *_transport;
     uint32_t request_id;
     cmsg_client_state state;
-    int invoke_return_state;    //TODO refactor -- add return codes to invoke functions (cmsg and generator)
     cmsg_client_connection connection;
 
     cmsg_object self;

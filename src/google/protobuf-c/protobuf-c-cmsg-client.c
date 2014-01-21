@@ -62,8 +62,6 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
 
         client->self_thread_id = pthread_self ();
 
-        client->invoke_return_state = CMSG_RET_OK;
-
         cmsg_client_queue_filter_init (client);
 
 #ifdef HAVE_CMSG_PROFILING
@@ -181,9 +179,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                         method_name, connect_error);
-
-        client->invoke_return_state = CMSG_RET_ERR;
-
         return CMSG_RET_ERR;
     }
     method_length = strlen (method_name) + 1;
@@ -203,8 +198,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     {
         CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate buffer (method: %s)",
                         method_name);
-
-        client->invoke_return_state = CMSG_RET_ERR;
         return CMSG_RET_ERR;
     }
 
@@ -221,8 +214,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         CMSG_LOG_ERROR ("[CLIENT] error: packing message data failed, underrun packet:%d of %d (method: %s)",
                         ret, packed_size, method_name);
 
-        client->invoke_return_state = CMSG_RET_ERR;
-
         CMSG_FREE (buffer);
         return CMSG_RET_ERR;
     }
@@ -230,8 +221,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     {
         CMSG_LOG_ERROR ("[CLIENT] error: packing message data overwrote buffer: %d of %d (method: %s)",
                         ret, packed_size, method_name);
-
-        client->invoke_return_state = CMSG_RET_ERR;
 
         CMSG_FREE (buffer);
         return CMSG_RET_ERR;
@@ -269,7 +258,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
                                 (uint32_t) (total_message_size),
                                 method_name);
 
-                client->invoke_return_state = CMSG_RET_ERR;
                 CMSG_FREE (buffer);
                 return CMSG_RET_ERR;
             }
@@ -279,7 +267,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
             CMSG_LOG_DEBUG ("[CLIENT] couldn't reconnect client! (method: %s, error: %d)",
                             method_name, connect_error);
 
-            client->invoke_return_state = CMSG_RET_ERR;
             CMSG_FREE (buffer);
             return CMSG_RET_ERR;
         }
@@ -308,8 +295,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         {
             CMSG_LOG_ERROR ("[CLIENT] No response from server (method: %s)", method_name);
         }
-
-        client->invoke_return_state = CMSG_RET_ERR;
 
         // close the connection and return early
         client->state = CMSG_CLIENT_STATE_CLOSED;
@@ -340,7 +325,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         /* There may be no message if the server has sent an empty message which is ok. */
         if (status_code == CMSG_STATUS_CODE_SUCCESS)
         {
-            client->invoke_return_state = CMSG_RET_OK;
             return CMSG_RET_OK;
         }
         else
@@ -362,8 +346,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
          * api through the closure_data (above) */
         protobuf_c_message_free_unpacked (message_pt, client->allocator);
     }
-
-    client->invoke_return_state = CMSG_RET_OK;
 
     CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "cleanup",
                                  cmsg_prof_time_toc (&client->prof));
@@ -417,7 +399,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                 ("[CLIENT] error: queue_lookup_filter returned ERROR (method: %s)",
                  method_name);
 
-            client->invoke_return_state = CMSG_RET_ERR;
             return CMSG_RET_ERR;
         }
         else if (action == CMSG_QUEUE_FILTER_DROP)
@@ -447,7 +428,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                             method_name, connect_error);
 
-            client->invoke_return_state = CMSG_RET_ERR;
             return CMSG_RET_ERR;
         }
     }
@@ -468,7 +448,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
         CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate buffer (method: %s)",
                         method_name);
 
-        client->invoke_return_state = CMSG_RET_ERR;
         return CMSG_RET_ERR;
     }
 
@@ -484,7 +463,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
         CMSG_LOG_ERROR ("[CLIENT] error: packing message data failed with underrun, packet:%d of %d (method: %s)",
                         ret, packed_size, method_name);
 
-        client->invoke_return_state = CMSG_RET_ERR;
         CMSG_FREE (buffer);
         return CMSG_RET_ERR;
     }
@@ -492,8 +470,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     {
         CMSG_LOG_ERROR ("[CLIENT] error: packing message data overwrote buffer: %d of %d (method: %s)",
                         ret, packed_size, method_name);
-
-        client->invoke_return_state = CMSG_RET_ERR;
 
         CMSG_FREE (buffer);
         return CMSG_RET_ERR;
@@ -534,7 +510,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                                     (uint32_t) (total_message_size),
                                     method_name);
 
-                    client->invoke_return_state = CMSG_RET_ERR;
                     CMSG_FREE (buffer);
                     return CMSG_RET_ERR;
                 }
@@ -544,7 +519,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                 CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                                 method_name, connect_error);
 
-                client->invoke_return_state = CMSG_RET_ERR;
                 CMSG_FREE (buffer);
                 return CMSG_RET_ERR;
             }
@@ -596,9 +570,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     }
 
     CMSG_FREE (buffer);
-
-    client->invoke_return_state = CMSG_RET_OK;
-
     return CMSG_RET_OK;
 }
 
