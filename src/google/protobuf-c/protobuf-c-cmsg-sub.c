@@ -80,25 +80,6 @@ cmsg_sub_server_accept (cmsg_sub *subscriber, int32_t listen_socket)
 }
 
 
-void
-cmsg_sub_subscribe_response_handler (const cmsg_sub_entry_response_pbc *response,
-                                     void *closure_data)
-{
-    int32_t *return_value = (int32_t *) closure_data;
-
-    if (response == 0)
-    {
-        CMSG_LOG_ERROR ("[SUB] error: processing register response");
-        *return_value = CMSG_STATUS_CODE_SERVICE_FAILED;
-    }
-    else
-    {
-        DEBUG (CMSG_INFO, "[SUB] register response received\n");
-        *return_value = response->return_value;
-    }
-}
-
-
 int32_t
 cmsg_sub_subscribe (cmsg_sub *subscriber,
                     cmsg_transport *sub_client_transport, char *method_name)
@@ -111,7 +92,9 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
 
     cmsg_client *register_client = NULL;
     int32_t return_value = CMSG_RET_ERR;
+    cmsg_client_closure_data closure_data = { NULL, NULL};
     cmsg_sub_entry_transport_info_pbc register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_PBC_INIT;
+    cmsg_sub_entry_response_pbc *response = NULL;
 
     register_entry.add = 1;
     register_entry.method_name = method_name;
@@ -160,14 +143,18 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
         return CMSG_RET_ERR;
     }
 
-    cmsg_sub_service_subscribe_pbc ((ProtobufCService *) register_client,
-                                    &register_entry,
-                                    cmsg_sub_subscribe_response_handler, &return_value);
+    return_value = cmsg_sub_service_subscribe_pbc ((ProtobufCService *) register_client,
+                                                   &register_entry,
+                                                   NULL,
+                                                   &closure_data);
 
-    if (register_client->invoke_return_state == CMSG_RET_ERR)
+    if (closure_data.message)
     {
-        CMSG_LOG_ERROR ("[SUB] error: couldn't subscribe to notification (method: %s)",
-                        method_name);
+        response = closure_data.message;
+        if (response->return_value == CMSG_RET_ERR)
+            return_value = CMSG_RET_ERR;
+
+        protobuf_c_message_free_unpacked (closure_data.message, closure_data.allocator);
     }
 
     cmsg_client_destroy (register_client);
@@ -180,9 +167,11 @@ int32_t
 cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
                       char *method_name)
 {
-    cmsg_client *register_client = 0;
-    u_int32_t return_value = CMSG_RET_ERR;
+    cmsg_client *register_client = NULL;
+    int32_t return_value = CMSG_RET_ERR;
+    cmsg_client_closure_data closure_data = { NULL, NULL};
     cmsg_sub_entry_transport_info_pbc register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_PBC_INIT;
+    cmsg_sub_entry_response_pbc *response = NULL;
 
     CMSG_ASSERT (subscriber);
     CMSG_ASSERT (subscriber->pub_server);
@@ -238,13 +227,18 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
         return CMSG_RET_ERR;
     }
 
-    cmsg_sub_service_subscribe_pbc ((ProtobufCService *) register_client, &register_entry,
-                                    cmsg_sub_subscribe_response_handler, &return_value);
+    return_value = cmsg_sub_service_subscribe_pbc ((ProtobufCService *) register_client,
+                                                   &register_entry,
+                                                   NULL,
+                                                   &closure_data);
 
-    if (register_client->invoke_return_state == CMSG_RET_ERR)
+    if (closure_data.message)
     {
-        CMSG_LOG_ERROR ("[SUB] error: couldn't unsubscribe to notification (method: %s)",
-                        method_name);
+        response = closure_data.message;
+        if (response->return_value == CMSG_RET_ERR)
+            return_value = CMSG_RET_ERR;
+
+        protobuf_c_message_free_unpacked (closure_data.message, closure_data.allocator);
     }
 
     cmsg_client_destroy (register_client);

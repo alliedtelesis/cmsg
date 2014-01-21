@@ -32,9 +32,6 @@ int cmsg_sub_get_server_socket (cmsg_sub *subscriber);
 int32_t cmsg_sub_server_receive_poll (cmsg_sub *sub, int32_t timeout_ms,
                                       fd_set *master_fdset, int *fdmax);
 
-void cmsg_sub_subscribe_response_handler (const cmsg_sub_entry_response_pbc *response,
-                                          void *closure_data);
-
 int32_t cmsg_sub_server_receive (cmsg_sub *subscriber, int32_t server_socket);
 int32_t cmsg_sub_server_accept (cmsg_sub *subscriber, int32_t listen_socket);
 
