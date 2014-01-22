@@ -185,7 +185,6 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     cmsg_header header_received;
     cmsg_header header_converted;
     uint8_t *recv_buffer = 0;
-    uint8_t *buffer = 0;
     uint8_t buf_static[512];
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
@@ -225,11 +224,11 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
                    header_converted.status_code);
             return header_converted.status_code;
         }
+        extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
         // Take into account that someone may have changed the size of the header
         // and we don't know about it, make sure we receive all the information.
-        dyn_len = header_converted.message_length +
-            header_converted.header_length - sizeof (cmsg_header);
+        dyn_len = header_converted.message_length + extra_header_size;
         if (dyn_len > sizeof (buf_static))
         {
             recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
@@ -245,18 +244,14 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
         if (nbytes == (int) dyn_len)
         {
-            extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
-            // Set buffer to take into account a larger header than we expected
-            buffer = recv_buffer + sizeof (cmsg_header);
-
-            cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
+            cmsg_tlv_header_process (recv_buffer, &server_request, extra_header_size,
                                      client->method_index_hash_table);
 
-            buffer = buffer + extra_header_size;
+            recv_buffer = recv_buffer + extra_header_size;
             DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
 
-            cmsg_buffer_print (buffer, dyn_len);
+            cmsg_buffer_print (recv_buffer, dyn_len);
 
             //todo: call cmsg_client_response_message_processor
 
@@ -266,7 +261,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
             desc = client->descriptor->methods[server_request.method_index].output;
             message =
                 protobuf_c_message_unpack (desc, allocator,
-                                           header_converted.message_length, buffer);
+                                           header_converted.message_length, recv_buffer);
 
             if (message == NULL)
             {
