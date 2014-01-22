@@ -65,10 +65,12 @@ class AtlCodeGenerator {
   void DumpMessageDefinitions(io::Printer* printer);
   void GenerateAtlApiDefinitions(io::Printer* printer, bool forHeader);
   void GenerateAtlApiDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
+  void GenerateAtlNewApiDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateParameterListFromMessage(io::Printer* printer, const Descriptor *message, bool output);
   void GenerateImplParameterListFromMessage(io::Printer* printer, const Descriptor *message, const string prefix);
 
   void GenerateAtlApiImplementation(io::Printer* printer);
+  void GenerateAtlNewApiImplementation(io::Printer* printer);
   void GenerateAtlApiClosureFunction(const MethodDescriptor &method, io::Printer* printer);
   void GenerateAtlServerDefinitions(io::Printer* printer, bool forHeader);
   void GenerateAtlServerDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);

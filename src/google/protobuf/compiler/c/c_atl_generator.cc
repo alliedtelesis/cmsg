@@ -235,6 +235,7 @@ void AtlCodeGenerator::GenerateAtlApiDefinitions(io::Printer* printer, bool forH
   for (int i = 0; i < descriptor_->method_count(); i++) {
       const MethodDescriptor *method = descriptor_->method(i);
       GenerateAtlApiDefinition(*method, printer, forHeader);
+      GenerateAtlNewApiDefinition(*method, printer, forHeader);
   }
 }
 
@@ -263,6 +264,310 @@ void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, 
     printer->Print(";");
   }
   printer->Print("\n");
+
+}
+
+void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
+{
+  //
+  // go through all rpc methods defined for this service and generate the api function
+  //
+  for (int i = 0; i < descriptor_->method_count(); i++)
+  {
+    const MethodDescriptor *method = descriptor_->method(i);
+    vars_["method"] = FullNameToC(method->full_name());
+    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
+    vars_["input_typename_upper"] = FullNameToUpper(method->input_type()->full_name());
+    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
+    vars_["output_typename_upper"] = FullNameToUpper(method->output_type()->full_name());
+
+    //
+    // generate the api function
+    //
+    // get the definition
+    GenerateAtlApiDefinition(*method, printer, false);
+
+    //start filling it in
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("int32_t _return_status = CMSG_RET_ERR;\n");
+    //
+    // don't create response when response has no fields
+    //
+    if(method->output_type()->field_count() > 0)
+    {
+      printer->Print("cmsg_client_closure_data _closure_data = { NULL, NULL};\n");
+      printer->Print(vars_, "$output_typename$_pbc *_msgR = NULL;\n");
+    }
+    printer->Print(vars_, "$input_typename$_pbc _msgS = $input_typename_upper$_PBC_INIT;\n");
+    printer->Print(vars_, "ProtobufCService *_service = (ProtobufCService *)_client;\n");
+
+    //
+    // test that the pointer to the client is valid before doing anything else
+    //
+    printer->Print("\n");
+    printer->Print("/* test that the pointer to the client is valid before doing anything else */\n");
+    printer->Print("if (_service == NULL)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return CMSG_RET_ERR;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+
+    //
+    // copy the input parameters into the outgoing message
+    //
+    printer->Print("\n");
+    printer->Print("/* Copy input variables to pbc send message */\n");
+    GenerateMessageCopyCode(method->input_type(), "_msgS.", "", printer, true, true, true, false, false);
+    printer->Print("\n");
+
+    //
+    // now send!
+    //
+    printer->Print("/* Send! */\n");
+    vars_["closure_name"] = GetAtlClosureFunctionName(*method);
+    vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
+    vars_["method_lcname"] = CamelToLower(method->name()) + "_pbc";
+
+    //
+    // don't pass response msg when response is empty
+    //
+    if(method->output_type()->field_count() > 0)
+    {
+      printer->Print(vars_, "_return_status = $lcfullname$_$method_lcname$ (_service, &_msgS, NULL, &_closure_data);\n\n");
+    }
+    else
+    {
+      printer->Print(vars_, "_return_status = $lcfullname$_$method_lcname$ (_service, &_msgS, NULL, NULL);\n\n");
+    }
+
+    //
+    // to be tidy, cleanup the sent message memory
+    //
+    printer->Print("/* Free send message memory */\n");
+    GenerateCleanupMessageMemoryCode(method->input_type(), "_msgS.", printer);
+    printer->Print("\n");
+
+    //
+    // copy the return values (if any are expected)
+    //
+    if (method->output_type()->field_count() > 0)
+    {
+      printer->Print("/* sanity check our returned message pointer */\n");
+      printer->Print("if (_closure_data.message != NULL)\n");
+      printer->Print("{\n");
+      printer->Indent();
+
+      printer->Print("/* Copy received message fields to output variables */\n");
+      printer->Print("_msgR = _closure_data.message;\n");
+      GenerateMessageCopyCode(method->output_type(), "result_", "_msgR->", printer, false, false, false, true, true);
+      printer->Print("\n");
+
+      //
+      // now the return values are copied we need to cleanup our temporary memory used to
+      // transfer values in the closure function
+      //
+      printer->Print("/* Free temporary receive message memory */\n");
+      // TODO: change this to use "protobuf_c_message_free_unknown_fields(...)" instead, once
+      // the api takes pbc structures as the input and output parms.
+      printer->Print("protobuf_c_message_free_unpacked ((ProtobufCMessage *)(_closure_data.message), (ProtobufCAllocator *)(_closure_data.allocator));\n");
+      printer->Print("\n");
+      printer->Outdent();
+      printer->Print("}\n"); //if (_closure_data.message != NULL)
+      printer->Print("else if (_return_status == CMSG_RET_OK)\n");
+      printer->Print("{\n");
+      printer->Indent();
+      printer->Print("_return_status = CMSG_RET_ERR;\n");
+      printer->Outdent();
+      printer->Print("}\n"); //else if (_return_status == CMSG_RET_OK)
+   }
+    //
+    // finally return something
+    //
+    printer->Print("return _return_status;\n");
+    printer->Outdent();
+    printer->Print("}\n\n");
+
+  }
+
+}
+
+void AtlCodeGenerator::GenerateAtlApiClosureFunction(const MethodDescriptor &method, io::Printer* printer)
+{
+  vars_["method"] = FullNameToLower(method.full_name());
+  vars_["input_typename"] = FullNameToC(method.input_type()->full_name());
+  vars_["output_typename"] = FullNameToC(method.output_type()->full_name());
+  vars_["closure_name"] = GetAtlClosureFunctionName(method);
+
+  printer->Print(vars_, "static void $closure_name$ (const $output_typename$_pbc *result, void *closure_data)\n");
+  printer->Print("{\n");
+  printer->Indent();
+  printer->Print(vars_, "$output_typename$_pbc *cdata = ($output_typename$_pbc *)closure_data;\n");
+  //
+  // if our return type has repeated fields, we'll need a counter to loop over the array of pointers
+  //
+  if (MessageContainsRepeatedFields (printer, method.output_type()))
+  {
+    printer->Print("int i = 0;\n");
+  }
+  //
+  // copy data from response message (result) to the closure data structure
+  //
+  GenerateMessageCopyCode(method.output_type(), "cdata->", "result->", printer, true, false, true, false, false);
+  printer->Outdent();
+  printer->Print("}\n\n");
+
+}
+
+void AtlCodeGenerator::GenerateAtlNewApiDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)
+{
+  string lcname = CamelToLower(method.name());
+  vars_["method"] = lcname;
+  vars_["method_input"] = FullNameToC(method.input_type()->full_name());
+  vars_["method_output"] = FullNameToC(method.output_type()->full_name());
+  //
+  // delete these next two lines once we rename pbc structs back to the full name
+  //
+  vars_["method_input"] += "_pbc";
+  vars_["method_output"] += "_pbc";
+
+  printer->Print(vars_, "int $lcfullname$_apiNEW_$method$ (cmsg_client *_client");
+
+  if (method.input_type()->field_count() > 0)
+  {
+    printer->Print(vars_, ", $method_input$ *_send_msg");
+  }
+  //
+  // only add the rpc return message to the parameter list if its not empty
+  if (method.output_type()->field_count() > 0)
+  {
+    printer->Print(vars_, ", $method_output$ **_recv_msg");
+  }
+  printer->Print(")");
+  if (forHeader)
+  {
+    printer->Print(";");
+  }
+  printer->Print("\n");
+
+}
+
+void AtlCodeGenerator::GenerateAtlNewApiImplementation(io::Printer* printer)
+{
+  //
+  // go through all rpc methods defined for this service and generate the api function
+  //
+  for (int i = 0; i < descriptor_->method_count(); i++)
+  {
+    const MethodDescriptor *method = descriptor_->method(i);
+    vars_["method"] = FullNameToC(method->full_name());
+    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
+    vars_["input_typename_upper"] = FullNameToUpper(method->input_type()->full_name());
+    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
+    vars_["output_typename_upper"] = FullNameToUpper(method->output_type()->full_name());
+    //
+    // create the names of the send and recv messages that will passed to the send function.
+    // this allows us to change the names (if e.g. the recv message is null) without doing
+    // multiple "ifs" to generate the call to the send function.
+    vars_["send_msg_name"] = "_send_msg";
+    vars_["closure_data_name"] = "&_closure_data";
+
+    //
+    // generate the api function
+    //
+    // get the definition
+    GenerateAtlNewApiDefinition(*method, printer, false);
+
+    //start filling it in
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("int32_t _return_status = CMSG_RET_ERR;\n");
+    //
+    // must create send message if it is not supplied by the developer
+    // (ie when it has no fields)
+    //
+    if(method->input_type()->field_count() <= 0)
+    {
+      printer->Print("/* Create a local send message since the developer hasn't supplied one. */\n");
+      printer->Print(vars_, "$input_typename$_pbc _send_msg = $input_typename_upper$_PBC_INIT;\n");
+      // change the name of the send message so that we can get the address of it for the send call
+      vars_["send_msg_name"] = "&_send_msg";
+    }
+    //
+    // only create response msg when response has some fields
+    //
+    if(method->output_type()->field_count() > 0)
+    {
+      printer->Print("cmsg_client_closure_data _closure_data = { NULL, NULL};\n");
+    }
+    else
+    {
+      // no fields so set our send message name to NULL
+      vars_["closure_data_name"] = "NULL";
+    }
+    printer->Print(vars_, "ProtobufCService *_service = (ProtobufCService *)_client;\n");
+
+    //
+    // test that the pointer to the client is valid before doing anything else
+    //
+    printer->Print("\n");
+    printer->Print("/* test that the pointer to the client is valid before doing anything else */\n");
+    printer->Print("if (_service == NULL)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return CMSG_RET_ERR;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+
+    printer->Print("\n");
+
+    //
+    // now send!
+    //
+    printer->Print("/* Send! */\n");
+    vars_["closure_name"] = GetAtlClosureFunctionName(*method);
+    vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
+    vars_["method_lcname"] = CamelToLower(method->name()) + "_pbc";
+
+    printer->Print(vars_, "_return_status = $lcfullname$_$method_lcname$ (_service, $send_msg_name$, NULL, $closure_data_name$);\n\n");
+
+    printer->Print("\n");
+
+    //
+    // copy the return values (if any are expected)
+    //
+    if (method->output_type()->field_count() > 0)
+    {
+      printer->Print("/* sanity check our returned message pointer */\n");
+      printer->Print("if (_closure_data.message != NULL)\n");
+      printer->Print("{\n");
+      printer->Indent();
+
+      printer->Print("/* Free unknown fields from received message as the developer doesn't know about them */\n");
+      printer->Print("protobuf_c_message_free_unknown_fields ((ProtobufCMessage *)(_closure_data.message), (ProtobufCAllocator *)(_closure_data.allocator));\n");
+      printer->Print("\n");
+
+      printer->Print("/* Update developer output msg to point to received message from invoke */\n");
+      printer->Print("*(_recv_msg) = _closure_data.message;\n");
+      printer->Print("\n");
+      printer->Outdent();
+      printer->Print("}\n"); //if (_closure_data.message != NULL)
+      printer->Print("else if (_return_status == CMSG_RET_OK)\n");
+      printer->Print("{\n");
+      printer->Indent();
+      printer->Print("_return_status = CMSG_RET_ERR;\n");
+      printer->Outdent();
+      printer->Print("}\n"); //else if (_return_status == CMSG_RET_OK)
+    }
+    //
+    // finally return something
+    //
+    printer->Print("return _return_status;\n");
+    printer->Outdent();
+    printer->Print("}\n\n");
+
+  }
 
 }
 
@@ -587,6 +892,7 @@ void AtlCodeGenerator::GenerateCFile(io::Printer* printer, bool api)
   {
     printer->Print("\n/* Start of API Implementation */\n\n");
     GenerateAtlApiImplementation(printer);
+    GenerateAtlNewApiImplementation(printer);
     printer->Print("\n/* End of API Implementation */\n");
   }
   else
@@ -599,159 +905,6 @@ void AtlCodeGenerator::GenerateCFile(io::Printer* printer, bool api)
     GenerateAtlServerImplementation(printer);
     printer->Print("\n/* End of Server Implementation */\n");
   }
-}
-
-void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
-{
-  //
-  // go through all rpc methods defined for this service and generate the api function
-  //
-  for (int i = 0; i < descriptor_->method_count(); i++)
-  {
-    const MethodDescriptor *method = descriptor_->method(i);
-    vars_["method"] = FullNameToC(method->full_name());
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
-    vars_["input_typename_upper"] = FullNameToUpper(method->input_type()->full_name());
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
-    vars_["output_typename_upper"] = FullNameToUpper(method->output_type()->full_name());
-
-    //
-    // generate the api function
-    //
-    // get the definition
-    GenerateAtlApiDefinition(*method, printer, false);
-
-    //start filling it in
-    printer->Print("{\n");
-    printer->Indent();
-    printer->Print("int32_t _return_status = CMSG_RET_ERR;\n");
-    //
-    // don't create response when response has no fields
-    //
-    if(method->output_type()->field_count() > 0)
-    {
-      printer->Print("cmsg_client_closure_data _closure_data = { NULL, NULL};\n");
-      printer->Print(vars_, "$output_typename$_pbc *_msgR = NULL;\n");
-    }
-    printer->Print(vars_, "$input_typename$_pbc _msgS = $input_typename_upper$_PBC_INIT;\n");
-    printer->Print(vars_, "ProtobufCService *_service = (ProtobufCService *)_client;\n");
-
-    //
-    // test that the pointer to the client is valid before doing anything else
-    //
-    printer->Print("\n");
-    printer->Print("/* test that the pointer to the client is valid before doing anything else */\n");
-    printer->Print("if (_service == NULL)\n");
-    printer->Print("{\n");
-    printer->Indent();
-    printer->Print("return CMSG_RET_ERR;\n");
-    printer->Outdent();
-    printer->Print("}\n");
-
-    //
-    // copy the input parameters into the outgoing message
-    //
-    printer->Print("\n");
-    printer->Print("/* Copy input variables to pbc send message */\n");
-    GenerateMessageCopyCode(method->input_type(), "_msgS.", "", printer, true, true, true, false, false);
-    printer->Print("\n");
-
-    //
-    // now send!
-    //
-    printer->Print("/* Send! */\n");
-    vars_["closure_name"] = GetAtlClosureFunctionName(*method);
-    vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
-    vars_["method_lcname"] = CamelToLower(method->name()) + "_pbc";
-
-    //
-    // don't pass response msg when response is empty
-    //
-    if(method->output_type()->field_count() > 0)
-    {
-      printer->Print(vars_, "_return_status = $lcfullname$_$method_lcname$ (_service, &_msgS, NULL, &_closure_data);\n\n");
-    }
-    else
-    {
-      printer->Print(vars_, "_return_status = $lcfullname$_$method_lcname$ (_service, &_msgS, NULL, NULL);\n\n");
-    }
-
-    //
-    // to be tidy, cleanup the sent message memory
-    //
-    printer->Print("/* Free send message memory */\n");
-    GenerateCleanupMessageMemoryCode(method->input_type(), "_msgS.", printer);
-    printer->Print("\n");
-
-    //
-    // copy the return values (if any are expected)
-    //
-    if (method->output_type()->field_count() > 0)
-    {
-      printer->Print("/* sanity check our returned message pointer */\n");
-      printer->Print("if (_closure_data.message != NULL)\n");
-      printer->Print("{\n");
-      printer->Indent();
-
-      printer->Print("/* Copy received message fields to output variables */\n");
-      printer->Print("_msgR = _closure_data.message;\n");
-      GenerateMessageCopyCode(method->output_type(), "result_", "_msgR->", printer, false, false, false, true, true);
-      printer->Print("\n");
-
-      //
-      // now the return values are copied we need to cleanup our temporary memory used to
-      // transfer values in the closure function
-      //
-      printer->Print("/* Free temporary receive message memory */\n");
-      // TODO: change this to use "protobuf_c_message_free_unknown_fields(...)" instead, once
-      // the api takes pbc structures as the input and output parms.
-      printer->Print("protobuf_c_message_free_unpacked ((ProtobufCMessage *)(_closure_data.message), (ProtobufCAllocator *)(_closure_data.allocator));\n");
-      printer->Outdent();
-      printer->Print("}\n"); //if (_closure_data.message != NULL)
-      printer->Print("else if (_return_status == CMSG_RET_OK)\n");
-      printer->Print("{\n");
-      printer->Indent();
-      printer->Print("_return_status = CMSG_RET_ERR;\n");
-      printer->Outdent();
-      printer->Print("}\n"); //else if (_return_status == CMSG_RET_OK)
-
-    }
-    //
-    // finally return something
-    //
-    printer->Print("return _return_status;\n");
-    printer->Outdent();
-    printer->Print("}\n\n");
-
-  }
-
-}
-
-void AtlCodeGenerator::GenerateAtlApiClosureFunction(const MethodDescriptor &method, io::Printer* printer)
-{
-  vars_["method"] = FullNameToLower(method.full_name());
-  vars_["input_typename"] = FullNameToC(method.input_type()->full_name());
-  vars_["output_typename"] = FullNameToC(method.output_type()->full_name());
-  vars_["closure_name"] = GetAtlClosureFunctionName(method);
-
-  printer->Print(vars_, "static void $closure_name$ (const $output_typename$_pbc *result, void *closure_data)\n");
-  printer->Print("{\n");
-  printer->Indent();
-  printer->Print(vars_, "$output_typename$_pbc *cdata = ($output_typename$_pbc *)closure_data;\n");
-  //
-  // if our return type has repeated fields, we'll need a counter to loop over the array of pointers
-  //
-  if (MessageContainsRepeatedFields (printer, method.output_type()))
-  {
-    printer->Print("int i = 0;\n");
-  }
-  //
-  // copy data from response message (result) to the closure data structure
-  //
-  GenerateMessageCopyCode(method.output_type(), "cdata->", "result->", printer, true, false, true, false, false);
-  printer->Outdent();
-  printer->Print("}\n\n");
-
 }
 
 void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
@@ -960,7 +1113,6 @@ void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &m
   }
   printer->Print("\n");
 }
-
 
 string AtlCodeGenerator::GetAtlClosureFunctionName(const MethodDescriptor &method)
 {
