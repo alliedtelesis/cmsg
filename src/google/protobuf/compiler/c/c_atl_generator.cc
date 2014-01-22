@@ -436,7 +436,7 @@ void AtlCodeGenerator::GenerateAtlNewApiDefinition(const MethodDescriptor &metho
 
   if (method.input_type()->field_count() > 0)
   {
-    printer->Print(vars_, ", $method_input$ *_send_msg");
+    printer->Print(vars_, ", const $method_input$ *_send_msg");
   }
   //
   // only add the rpc return message to the parameter list if its not empty
