@@ -30,6 +30,16 @@ starts_with (const char *str, const char *prefix)
 }
 
 void
+cmsg_test_implNEW_ping (const void *service, const cmsg_ping_request_pbc *recv_msg)
+{
+}
+
+void
+cmsg_test_implNEW_set_priority (const void *service, const cmsg_priority_request_pbc *recv_msg)
+{
+}
+
+void
 cmsg_test_impl_ping (const void *service, int32_t random, int32_t randomm)
 {
     int code;
