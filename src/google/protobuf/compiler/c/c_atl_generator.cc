@@ -976,6 +976,14 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     printer->Print(");\n");
     printer->Print("\n");
 
+    // now pass the pbc struct to the new impl function
+    printer->Print(vars_, "$lcfullname$_implNEW_$method$ (_service");
+    if (method->input_type()->field_count() > 0)
+    {
+      printer->Print(", input");
+    }
+    printer->Print(");\n");
+
     //
     // call closure()
     //
@@ -993,6 +1001,11 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     // of the rpc call from the server
     //
     GenerateAtlServerSendImplementation(*method, printer);
+
+    //
+    // create the new version as well
+    //
+    GenerateAtlServerNewSendImplementation(*method, printer);
   }
 
 }
@@ -1005,6 +1018,7 @@ void AtlCodeGenerator::GenerateAtlServerDefinitions(io::Printer* printer, bool f
     const MethodDescriptor *method = descriptor_->method(i);
     // only declare the server send in the header file
     GenerateAtlServerSendDefinition(*method, printer, forHeader);
+    GenerateAtlServerNewSendDefinition(*method, printer, forHeader);
   }
 
   printer->Print("\n");
@@ -1012,6 +1026,7 @@ void AtlCodeGenerator::GenerateAtlServerDefinitions(io::Printer* printer, bool f
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
     GenerateAtlServerImplDefinition(*method, printer, forHeader);
+    GenerateAtlServerNewImplDefinition(*method, printer, forHeader);
   }
 }
 
@@ -1105,6 +1120,105 @@ void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &m
   {
     printer->Print(", ");
     GenerateParameterListFromMessage(printer, method.output_type(), false);
+  }
+  printer->Print(")");
+  if (forHeader)
+  {
+    printer->Print(";");
+  }
+  printer->Print("\n");
+}
+
+void AtlCodeGenerator::GenerateAtlServerNewImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)
+{
+  string lcname = CamelToLower(method.name());
+  vars_["method"] = lcname;
+  vars_["method_input"] = FullNameToC(method.input_type()->full_name());
+  //
+  // delete this line once we rename pbc structs back to the full name
+  //
+  vars_["method_input"] += "_pbc";
+
+  printer->Print(vars_, "void $lcfullname$_implNEW_$method$ (const void *service");
+  if (method.input_type()->field_count() > 0)
+  {
+    printer->Print(vars_, ", const $method_input$ *recv_msg");
+  }
+  printer->Print(")");
+  if (forHeader)
+  {
+    printer->Print(";");
+  }
+  printer->Print("\n");
+}
+
+// TODO: Delete this method once the old api/impl is switched off
+void AtlCodeGenerator::GenerateAtlServerNewImplStub(const MethodDescriptor &method, io::Printer* printer)
+{
+  string lcname = CamelToLower(method.name());
+  vars_["method"] = lcname;
+  vars_["method_input"] = FullNameToC(method.input_type()->full_name());
+  //
+  // delete this line once we rename pbc structs back to the full name
+  //
+  vars_["method_input"] += "_pbc";
+
+  GenerateAtlServerNewImplDefinition(method, printer, false);
+
+  printer->Print("{\n");
+  printer->Print("}\n");
+  printer->Print("\n");
+}
+
+// TODO: Delete this method once the old api/impl is switched off
+void AtlCodeGenerator::GenerateAtlServerNewImplStubs(io::Printer* printer)
+{
+  for (int i = 0; i < descriptor_->method_count(); i++) {
+    const MethodDescriptor *method = descriptor_->method(i);
+    GenerateAtlServerNewImplStub(*method, printer);
+  }
+}
+
+void AtlCodeGenerator::GenerateAtlServerNewSendImplementation(const MethodDescriptor &method, io::Printer* printer)
+{
+  vars_["method"] = FullNameToLower(method.name());
+  vars_["input_typename"] = FullNameToC(method.input_type()->full_name());
+  vars_["output_typename"] = FullNameToC(method.output_type()->full_name());
+  vars_["send_msg_name"] = "send_msg";
+
+  GenerateAtlServerNewSendDefinition(method, printer, false);
+
+  printer->Print("{\n");
+  printer->Indent();
+
+  printer->Print(vars_, "$output_typename$_pbc_Closure _closure = ((const $cname$_Service *)_service)->closure;\n");
+  printer->Print(vars_, "void *_closure_data = ((const $cname$_Service *)_service)->closure_data;\n");
+
+  if (method.output_type()->field_count() == 0)
+  {
+    printer->Print(vars_, "$output_typename$_pbc send_msg = $output_typename_upper$_PBC_INIT;\n");
+    vars_["send_msg_name"] = "&send_msg";
+  }
+  printer->Print("\n");
+
+  printer->Print(vars_, "_closure ($send_msg_name$, _closure_data);\n");
+
+  printer->Print("\n");
+
+  printer->Outdent();
+  printer->Print("}\n\n");
+}
+
+void AtlCodeGenerator::GenerateAtlServerNewSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)
+{
+  string lcname = CamelToLower(method.name());
+  vars_["method"] = lcname;
+  vars_["method_output"] = FullNameToC(method.output_type()->full_name());
+
+  printer->Print(vars_, "void $lcfullname$_server_$method$SendNEW (const void *_service");
+  if (method.output_type()->field_count() > 0)
+  {
+    printer->Print(vars_, ", $method_output$_pbc *send_msg");
   }
   printer->Print(")");
   if (forHeader)

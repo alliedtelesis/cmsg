@@ -62,6 +62,7 @@ class FileGenerator {
   void GenerateAtlApiSource(io::Printer* printer);
   void GenerateAtlImplHeader(io::Printer* printer);
   void GenerateAtlImplSource(io::Printer* printer);
+  void GenerateAtlImplStubs(io::Printer* printer);
 
  private:
   const FileDescriptor* file_;
