@@ -318,7 +318,7 @@ void FileGenerator::GenerateAtlApiHeader(io::Printer* printer) {
     "\n"
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
-    "#include <google/protobuf-c/protobuf-c.h>\n"
+    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n"
     "\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
@@ -364,8 +364,7 @@ void FileGenerator::GenerateAtlApiSource(io::Printer* printer) {
     "#define PROTOBUF_C_NO_DEPRECATED\n"
     "#endif\n"
     "\n"
-    "#include \"$basename$.h\"\n"
-    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n",
+    "#include \"$basename$.h\"\n",
     "basename", GetAtlApiFilename(file_->name()));
 
   for (int i = 0; i < file_->service_count(); i++) {
@@ -384,7 +383,7 @@ void FileGenerator::GenerateAtlImplHeader(io::Printer* printer) {
     "\n"
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
-    "#include <google/protobuf-c/protobuf-c.h>\n"
+    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n"
     "\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
@@ -397,6 +396,8 @@ void FileGenerator::GenerateAtlImplHeader(io::Printer* printer) {
   printer->Print("#include <stdlib.h>\n");
   // include the ATL types header which will also include the pbc header
   printer->Print("#include \"$pbh$.h\"\n", "pbh", GetAtlTypesFilename(file_->name()));
+  // users of the impl will need the server definitions
+  printer->Print("#include <google/protobuf-c/protobuf-c-cmsg-server.h>\n");
 
   printer->Print("\n");
 
@@ -422,8 +423,7 @@ void FileGenerator::GenerateAtlImplSource(io::Printer* printer) {
     "#define PROTOBUF_C_NO_DEPRECATED\n"
     "#endif\n"
     "\n"
-    "#include \"$basename$.h\"\n"
-    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n",
+    "#include \"$basename$.h\"\n",
     "basename", GetAtlImplFilename(file_->name()));
 
   for (int i = 0; i < file_->service_count(); i++) {
