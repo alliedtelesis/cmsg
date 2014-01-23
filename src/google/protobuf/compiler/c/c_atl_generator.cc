@@ -545,7 +545,7 @@ void AtlCodeGenerator::GenerateAtlNewApiImplementation(io::Printer* printer)
       printer->Indent();
 
       printer->Print("/* Free unknown fields from received message as the developer doesn't know about them */\n");
-      printer->Print("protobuf_c_message_free_unknown_fields ((ProtobufCMessage *)(_closure_data.message), (ProtobufCAllocator *)(_closure_data.allocator));\n");
+      printer->Print("CMSG_FREE_RECV_MSG_UNKNOWN_FIELDS (_closure_data.message);\n");
       printer->Print("\n");
 
       printer->Print("/* Update developer output msg to point to received message from invoke */\n");
