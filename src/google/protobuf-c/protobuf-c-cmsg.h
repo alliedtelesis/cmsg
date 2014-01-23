@@ -90,6 +90,9 @@
 
 #define TLV_SIZE(x) ((2 * sizeof (uint32_t)) + (x))
 
+#define UNDEFINED_METHOD 0xffffffff
+
+#define IS_METHOD_DEFINED(x)  (x == UNDEFINED_METHOD ? FALSE : TRUE)
 
 /* Macros for setting the fields in a structure, and the associated sub-fields */
 #define CMSG_SET_FIELD_VALUE(_name, _field, _value) \
@@ -257,12 +260,6 @@ typedef struct _cmsg_server_request_s
     char method_name_recvd[128];
 } cmsg_server_request;
 
-typedef struct _cmsg_method_hash_table_entry_s
-{
-    char method_name[128];
-    uint32_t method_index;
-} cmsg_method_hash_table_entry;
-
 uint32_t cmsg_common_uint32_to_le (uint32_t le);
 
 #define cmsg_common_uint32_from_le cmsg_common_uint32_to_le
@@ -279,22 +276,10 @@ int32_t cmsg_header_process (cmsg_header *header_received, cmsg_header *header_c
 
 int
 cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
-                         uint32_t extra_header_size, GHashTable *method_name_hash_table);
+                         uint32_t extra_header_size,
+                         const ProtobufCServiceDescriptor *descriptor);
 
 int cmsg_service_port_get (const char *name, const char *proto);
-
-void cmsg_method_hashtable_init (GHashTable *service_hash_table,
-                                 const ProtobufCServiceDescriptor *descriptor);
-
-void cmsg_method_hashtable_free (GHashTable *service_hash_table,
-                                 const ProtobufCServiceDescriptor *descriptor);
-
-void cmsg_method_hashtable_print (GHashTable *service_hash_table,
-                                  const ProtobufCServiceDescriptor *descriptor);
-
-gboolean cmsg_method_hashtable_equal_function (gconstpointer a, gconstpointer b);
-
-int cmsg_method_hashtable_lookup (GHashTable *service_hash_table, const char *method);
 
 #define CMSG_MALLOC(size)           cmsg_malloc ((size), __FILE__, __LINE__)
 #define CMSG_CALLOC(nmemb,size)     cmsg_calloc ((nmemb), (size), __FILE__,  __LINE__)

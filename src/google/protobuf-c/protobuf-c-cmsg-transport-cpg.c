@@ -151,7 +151,7 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
     extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
     cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
-                             server->service->method_name_hash_table);
+                             server->service->descriptor);
 
     server->server_request = &server_request;
     buffer = buffer + extra_header_size;

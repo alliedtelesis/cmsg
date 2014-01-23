@@ -80,10 +80,6 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 #ifdef HAVE_CMSG_PROFILING
         memset (&server->prof, 0, sizeof (cmsg_prof));
 #endif
-        service->method_name_hash_table = g_hash_table_new (g_str_hash,
-                                                            cmsg_method_hashtable_equal_function);
-        cmsg_method_hashtable_init (service->method_name_hash_table,
-                                     (const ProtobufCServiceDescriptor *)service->descriptor);
     }
     else
     {

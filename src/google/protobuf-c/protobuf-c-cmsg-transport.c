@@ -151,7 +151,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "receive",
                                      cmsg_prof_time_toc (&server->prof));
         cmsg_tlv_header_process (buffer_data, &server_request, extra_header_size,
-                                 server->service->method_name_hash_table);
+                                 server->service->descriptor);
 
         buffer_data = buffer_data + extra_header_size;
         // Process any message that has no more length or we have received what

@@ -2885,8 +2885,8 @@ protobuf_c_message_descriptor_get_field
   return desc->fields + rv;
 }
 
-const ProtobufCMethodDescriptor *
-protobuf_c_service_descriptor_get_method_by_name
+uint32_t
+protobuf_c_service_descriptor_get_method_index_by_name
                          (const ProtobufCServiceDescriptor *desc,
                           const char                       *name)
 {
@@ -2898,7 +2898,7 @@ protobuf_c_service_descriptor_get_method_by_name
       const char *mid_name = desc->methods[mid_index].name;
       int rv = strcmp (mid_name, name);
       if (rv == 0)
-        return desc->methods + desc->method_indices_by_name[mid];
+        return desc->method_indices_by_name[mid];
       if (rv < 0)
         {
           count = start + count - (mid + 1);
@@ -2910,8 +2910,8 @@ protobuf_c_service_descriptor_get_method_by_name
         }
     }
   if (count == 0)
-    return NULL;
+    return UNDEFINED_METHOD;
   if (strcmp (desc->methods[desc->method_indices_by_name[start]].name, name) == 0)
-    return desc->methods + desc->method_indices_by_name[start];
-  return NULL;
+    return desc->method_indices_by_name[start];
+  return UNDEFINED_METHOD;
 }

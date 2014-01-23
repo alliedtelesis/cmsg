@@ -44,10 +44,6 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
         client->queue_filter_hash_table = g_hash_table_new (cmsg_queue_filter_hash_function,
                                                             cmsg_queue_filter_hash_equal_function);
 
-        client->method_index_hash_table = g_hash_table_new (g_str_hash,
-                                                            cmsg_method_hashtable_equal_function);
-        cmsg_method_hashtable_init (client->method_index_hash_table, descriptor);
-
         if (pthread_cond_init (&client->queue_process_cond, NULL) != 0)
         {
             DEBUG (CMSG_ERROR, "[CLIENT] error: queue_process_cond init failed\n");
@@ -860,7 +856,6 @@ cmsg_destroy_client_and_transport (cmsg_client *client)
     if (client)
     {
         transport = client->_transport;
-        cmsg_method_hashtable_free (client->method_index_hash_table, client->descriptor);
         cmsg_client_destroy (client);
 
         cmsg_transport_destroy (transport);

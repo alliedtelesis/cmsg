@@ -437,7 +437,6 @@ struct _ProtobufCService
                    ProtobufCClosure  closure,
                    void             *closure_data);
   void (*destroy) (ProtobufCService *service);
-  GHashTable *method_name_hash_table;
 };
 
 
@@ -461,8 +460,8 @@ PROTOBUF_C_API const ProtobufCFieldDescriptor *
 protobuf_c_message_descriptor_get_field        
                          (const ProtobufCMessageDescriptor *desc,
                           unsigned                          value);
-PROTOBUF_C_API const ProtobufCMethodDescriptor *
-protobuf_c_service_descriptor_get_method_by_name
+PROTOBUF_C_API uint32_t
+protobuf_c_service_descriptor_get_method_index_by_name
                          (const ProtobufCServiceDescriptor *desc,
                           const char                       *name);
 

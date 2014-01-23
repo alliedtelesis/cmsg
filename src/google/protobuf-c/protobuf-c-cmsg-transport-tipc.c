@@ -280,7 +280,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             buffer = recv_buffer;
 
             cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
-                                     client->method_index_hash_table);
+                                     client->descriptor);
 
             buffer = buffer + extra_header_size;
             DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");

@@ -185,7 +185,8 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
 
 int
 cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
-                         uint32_t extra_header_size, GHashTable *method_name_hash_table)
+                         uint32_t extra_header_size,
+                         const ProtobufCServiceDescriptor *descriptor)
 {
     cmsg_tlv_method_header *tlv_method_header;
     cmsg_tlv_header *tlv_header;
@@ -201,9 +202,22 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
         case CMSG_TLV_METHOD_TYPE:
             tlv_method_header = (cmsg_tlv_method_header *) buf;
 
-            server_request->method_index = cmsg_method_hashtable_lookup (method_name_hash_table,
-                                                                        tlv_method_header->method);
-            strncpy (server_request->method_name_recvd, tlv_method_header->method, tlv_method_header->method_length);
+            server_request->method_index =
+                           protobuf_c_service_descriptor_get_method_index_by_name
+                                               (descriptor, tlv_method_header->method);
+            /*
+             * We assert the process if we get UNDEFINED_METHOD method index. This has to be
+             * nicely handled later. By asserting the process, user can know which message
+             * caused the problem.
+             */
+            if (!(IS_METHOD_DEFINED (server_request->method_index)))
+            {
+                CMSG_LOG_ERROR ("Undefined Method - %s", tlv_method_header->method);
+                assert (0);
+            }
+
+            strncpy (server_request->method_name_recvd, tlv_method_header->method,
+                     tlv_method_header->method_length);
             break;
         default:
             CMSG_LOG_ERROR ("Processing TLV header, bad TLV type value - %d",
@@ -299,83 +313,6 @@ void
 cmsg_malloc_init (int mtype)
 {
     cmsg_mtype = mtype;
-}
-
-void
-cmsg_method_hashtable_init (GHashTable *service_hash_table,
-                            const ProtobufCServiceDescriptor *descriptor)
-{
-    uint32_t i = 0;
-    for (i = 0; i < descriptor->n_methods; i++)
-    {
-        cmsg_method_hash_table_entry *entry = (cmsg_method_hash_table_entry *)
-                                                g_malloc0 (sizeof (cmsg_method_hash_table_entry));
-        sprintf (entry->method_name, "%s", descriptor->methods[i].name);
-        entry->method_index = i;
-        g_hash_table_insert (service_hash_table,
-                             (gpointer) descriptor->methods[i].name,
-                             (gpointer) entry);
-    }
-
-}
-
-void
-cmsg_method_hashtable_print (GHashTable *service_hash_table,
-                             const ProtobufCServiceDescriptor *descriptor)
-{
-    int i;
-    cmsg_method_hash_table_entry *entry;
-
-    for (i = 0; i < descriptor->n_methods; i++)
-    {
-        entry = (cmsg_method_hash_table_entry *) g_hash_table_lookup (service_hash_table,
-                                                                       (gconstpointer)
-                                                                       descriptor->methods[i].name);
-        syslog (LOG_CRIT, "%s:%d Method = %s", __FUNCTION__, __LINE__, entry->method_name);
-    }
-}
-
-gboolean
-cmsg_method_hashtable_equal_function (gconstpointer a, gconstpointer b)
-{
-    cmsg_method_hash_table_entry *entry = (cmsg_method_hash_table_entry *) b;
-
-    return (strcmp ((char *) a, (char *) entry->method_name) == 0);
-}
-
-void cmsg_method_hashtable_free (GHashTable *service_hash_table, const ProtobufCServiceDescriptor *descriptor)
-{
-    uint32_t i = 0;
-    cmsg_method_hash_table_entry *entry;
-    for (i = 0; i < descriptor->n_methods; i++)
-    {
-        entry = g_hash_table_lookup (service_hash_table,
-                                     (gconstpointer)
-                                     descriptor->methods[i].name);
-
-        g_free (entry);
-
-        g_hash_table_remove (service_hash_table,
-                             (gconstpointer) descriptor->methods[i].name);
-    }
-
-}
-
-int
-cmsg_method_hashtable_lookup (GHashTable *service_hash_table, const char *method)
-{
-    cmsg_method_hash_table_entry *entry;
-
-    entry = (cmsg_method_hash_table_entry *) g_hash_table_lookup (service_hash_table,
-                                                                   (gconstpointer) method);
-
-    if (entry)
-    {
-        return entry->method_index;
-    }
-    DEBUG (CMSG_WARN, "Method hash table lookup failed for %s\n", method);
-
-    return CMSG_RET_ERR;
 }
 
 #ifdef HAVE_CMSG_PROFILING

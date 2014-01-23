@@ -52,7 +52,6 @@ typedef struct _cmsg_client_s
     GQueue *queue;
     pthread_mutex_t queue_filter_mutex; //TODO make thread save -- hash will be modified by different thread
     GHashTable *queue_filter_hash_table;
-    GHashTable *method_index_hash_table;
 
     //thread signaling for queuing
     pthread_cond_t queue_process_cond;

@@ -246,7 +246,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         {
 
             cmsg_tlv_header_process (recv_buffer, &server_request, extra_header_size,
-                                     client->method_index_hash_table);
+                                     client->descriptor);
 
             recv_buffer = recv_buffer + extra_header_size;
             DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
@@ -256,7 +256,6 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
             //todo: call cmsg_client_response_message_processor
 
             DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
-
 
             desc = client->descriptor->methods[server_request.method_index].output;
             message =
