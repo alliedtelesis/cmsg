@@ -112,6 +112,14 @@
         (_name)->n_##_field = (_n_elem);                      \
     } while (0)
 
+#define CMSG_IS_FIELD_PRESENT(_msg, _field) \
+    ((_msg)->has_##_field ? TRUE : FALSE)
+
+#define CMSG_IS_PTR_PRESENT(_msg, _ptr) \
+    ((_msg)->_ptr ? TRUE : FALSE)
+
+#define CMSG_IS_REPEATED_PRESENT(_msg, _field) \
+    ((_msg)->n_##_field ? TRUE : FALSE)
 
 // Protocol has different msg types which reflect which fields are in use:
 // METHOD_REQ - client request to the server to invoke a method
