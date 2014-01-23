@@ -90,6 +90,26 @@
 
 #define TLV_SIZE(x) ((2 * sizeof (uint32_t)) + (x))
 
+
+/* Macros for setting the fields in a structure, and the associated sub-fields */
+#define CMSG_SET_FIELD_VALUE(_name, _field, _value) \
+    do {                                            \
+        (_name)->_field = (_value);                 \
+        (_name)->has_##_field = TRUE;               \
+    } while (0)
+
+#define CMSG_SET_FIELD_PTR(_name, _field, _ptr) \
+    do {                                        \
+        (_name)->_field = (_ptr);               \
+    } while (0)
+
+#define CMSG_SET_FIELD_REPEATED(_name, _field, _ptr, _n_elem) \
+    do {                                                      \
+        (_name)->_field = (_ptr);                             \
+        (_name)->n_##_field = (_n_elem);                      \
+    } while (0)
+
+
 // Protocol has different msg types which reflect which fields are in use:
 // METHOD_REQ - client request to the server to invoke a method
 // METHOD_REPLY - server reply to a client for a method request
