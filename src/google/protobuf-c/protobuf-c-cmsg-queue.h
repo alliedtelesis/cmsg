@@ -17,10 +17,12 @@ typedef struct _cmsg_queue_filter_entry_s
 
 typedef struct _cmsg_send_queue_entry_s
 {
-    cmsg_transport transport;
+    char method_name[128];
+    cmsg_client *client;
+    cmsg_transport *transport;
+
     uint32_t queue_buffer_size;
     uint8_t *queue_buffer;
-    char method_name[128];
 } cmsg_send_queue_entry;
 
 typedef struct _cmsg_receive_queue_entry_s
@@ -37,7 +39,8 @@ uint32_t cmsg_queue_get_length (GQueue *queue);
 int32_t cmsg_send_client_process_all (cmsg_object obj);
 
 int32_t cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
-                              cmsg_transport *transport, char *method_name);
+                              cmsg_client *client, cmsg_transport *transport, char *method_name);
+
 
 void cmsg_send_queue_free_all (GQueue *queue);
 

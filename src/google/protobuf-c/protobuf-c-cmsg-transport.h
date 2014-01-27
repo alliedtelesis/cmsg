@@ -6,7 +6,6 @@
 #include <sys/socket.h>
 #include <linux/tipc.h>
 #include <sys/un.h>
-#include <glib.h>
 
 #ifdef HAVE_VCSTACK
 #include <corosync/cpg.h>

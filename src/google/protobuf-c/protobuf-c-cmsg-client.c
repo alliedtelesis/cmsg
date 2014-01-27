@@ -13,7 +13,6 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
         client->base_service.destroy = NULL;
         client->allocator = &protobuf_c_default_allocator;
         client->_transport = transport;
-        client->request_id = 0;
         client->state = CMSG_CLIENT_STATE_INIT;
         client->connection.socket = -1;
 
@@ -56,6 +55,12 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
             return 0;
         }
 
+        if (pthread_mutex_init (&client->connection_mutex, NULL) != 0)
+        {
+            DEBUG (CMSG_ERROR, "[CLIENT] error: connection_mutex init failed\n");
+            return 0;
+        }
+
         client->self_thread_id = pthread_self ();
 
         cmsg_client_queue_filter_init (client);
@@ -94,6 +99,8 @@ cmsg_client_destroy (cmsg_client *client)
         client->_transport->client_close (client);
     }
     client->_transport->client_destroy (client);
+
+    pthread_mutex_destroy (&client->connection_mutex);
 
     CMSG_FREE (client);
 }
@@ -184,7 +191,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     uint32_t extra_header_size = TLV_SIZE (method_length);
     uint32_t total_header_size = sizeof (header) + extra_header_size;
     uint32_t total_message_size = total_header_size + packed_size;
-    client->request_id++;
 
     header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REQ, extra_header_size,
                                  packed_size, CMSG_STATUS_CODE_UNSET);
@@ -375,7 +381,10 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     CMSG_ASSERT (input);
 
     method_name = service->descriptor->methods[method_index].name;
+
     DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
+
+    pthread_mutex_lock (&client->connection_mutex);
 
     if (client->queue_enabled_from_parent)
     {
@@ -391,15 +400,16 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
         if (action == CMSG_QUEUE_FILTER_ERROR)
         {
-            CMSG_LOG_ERROR
-                ("[CLIENT] error: queue_lookup_filter returned ERROR (method: %s)",
-                 method_name);
+            CMSG_LOG_ERROR ("[CLIENT] error: queue_lookup_filter returned ERROR (method: %s)",
+                            method_name);
 
+            pthread_mutex_unlock (&client->connection_mutex);
             return CMSG_RET_ERR;
         }
         else if (action == CMSG_QUEUE_FILTER_DROP)
         {
             DEBUG (CMSG_INFO, "[CLIENT] dropping message: %s\n", method_name);
+            pthread_mutex_unlock (&client->connection_mutex);
             return CMSG_RET_OK;
         }
         else if (action == CMSG_QUEUE_FILTER_QUEUE)
@@ -424,6 +434,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                             method_name, connect_error);
 
+            pthread_mutex_unlock (&client->connection_mutex);
             return CMSG_RET_ERR;
         }
     }
@@ -433,7 +444,6 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     uint32_t extra_header_size = TLV_SIZE (method_length);
     uint32_t total_header_size = sizeof (header) + extra_header_size;
     uint32_t total_message_size = total_header_size + packed_size;
-    client->request_id++;
 
     header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REQ, extra_header_size,
                                  packed_size, CMSG_STATUS_CODE_UNSET);
@@ -444,6 +454,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
         CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate buffer (method: %s)",
                         method_name);
 
+        pthread_mutex_unlock (&client->connection_mutex);
         return CMSG_RET_ERR;
     }
 
@@ -460,6 +471,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                         ret, packed_size, method_name);
 
         CMSG_FREE (buffer);
+        pthread_mutex_unlock (&client->connection_mutex);
         return CMSG_RET_ERR;
     }
     else if (ret > packed_size)
@@ -468,6 +480,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                         ret, packed_size, method_name);
 
         CMSG_FREE (buffer);
+        pthread_mutex_unlock (&client->connection_mutex);
         return CMSG_RET_ERR;
     }
 
@@ -507,6 +520,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                                     method_name);
 
                     CMSG_FREE (buffer);
+                    pthread_mutex_unlock (&client->connection_mutex);
                     return CMSG_RET_ERR;
                 }
             }
@@ -516,6 +530,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                                 method_name, connect_error);
 
                 CMSG_FREE (buffer);
+                pthread_mutex_unlock (&client->connection_mutex);
                 return CMSG_RET_ERR;
             }
         }
@@ -533,8 +548,8 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
             //todo: check return
             cmsg_send_queue_push (publisher->queue, buffer,
-                                  total_message_size, client->_transport,
-                                  (char *) method_name);
+                                  total_message_size,
+                                  client, client->_transport, (char *) method_name);
 
             pthread_mutex_unlock (&publisher->queue_mutex);
 
@@ -551,8 +566,8 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
             //todo: check return
             cmsg_send_queue_push (client->queue, buffer,
-                                  total_message_size, client->_transport,
-                                  (char *) method_name);
+                                  total_message_size,
+                                  client, client->_transport, (char *) method_name);
 
             pthread_mutex_unlock (&client->queue_mutex);
 
@@ -566,6 +581,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     }
 
     CMSG_FREE (buffer);
+    pthread_mutex_unlock (&client->connection_mutex);
     return CMSG_RET_OK;
 }
 

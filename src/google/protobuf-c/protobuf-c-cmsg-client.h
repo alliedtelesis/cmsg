@@ -4,7 +4,6 @@
 #include "protobuf-c-cmsg.h"
 #include "protobuf-c-cmsg-queue.h"
 #include "protobuf-c-cmsg-transport.h"
-#include "protobuf-c-cmsg-pub.h"
 
 
 #define CMSG_DESCRIPTOR(package,service)    ((ProtobufCServiceDescriptor *)&package ## _ ## service ## _descriptor)
@@ -38,9 +37,9 @@ typedef struct _cmsg_client_s
     ProtobufCAllocator *allocator;
     ProtobufCService base_service;
     cmsg_transport *_transport;
-    uint32_t request_id;
     cmsg_client_state state;
     cmsg_client_connection connection;
+    pthread_mutex_t connection_mutex;
 
     cmsg_object self;
     cmsg_object parent;

@@ -203,6 +203,8 @@ run_pub (void *arg)
             printf ("[PUBLISHER] count_stop reached, destroying publisher\n");
             printf ("[PUBLISHER] end queue length: %d\n", cmsg_pub_queue_get_length (pub));
 
+            sleep (2); //give the subscriber a chance to process messages
+
             run_thread_run = 0;
 
             count_wait_for_unsubscribe++;
@@ -213,8 +215,7 @@ run_pub (void *arg)
                 goto CLEAN_EXIT;
             }
         }
-
-        if (pub->subscriber_count > 0)
+        else if (pub->subscriber_count > 0)
         {
             int ret;
             int port;
@@ -516,6 +517,8 @@ main (int argc, char *argv[])
         pthread_create (&thread, NULL, &run_server, (void *) &thread_par);
         sleep (1);
         run_client (transport_type, is_one_way, queue);
+
+        sleep (2); //wait for the server to process the messages
         run_thread_run = 0;
         pthread_join (thread, NULL);
     }
@@ -524,7 +527,6 @@ main (int argc, char *argv[])
         pthread_create (&thread, NULL, &run_pub, (void *) &thread_par);
         sleep (1);
         run_sub (transport_type, queue);
-        run_thread_run = 0;
         pthread_join (thread, NULL);
     }
     else if (test == 1)

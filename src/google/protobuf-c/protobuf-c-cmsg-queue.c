@@ -15,13 +15,13 @@ int32_t
 cmsg_send_queue_process_all (cmsg_object obj)
 {
     uint32_t processed = 0;
-    uint32_t create_client = 0;
     cmsg_send_queue_entry *queue_entry = NULL;
     GQueue *queue = NULL;
     pthread_mutex_t *queue_mutex;
     const ProtobufCServiceDescriptor *descriptor = NULL;
     cmsg_pub *publisher = 0;
     cmsg_client *client = 0;
+    cmsg_client *send_client = 0;
 
     if (obj.object_type == CMSG_OBJ_TYPE_CLIENT)
     {
@@ -50,7 +50,6 @@ cmsg_send_queue_process_all (cmsg_object obj)
     }
 
     pthread_mutex_lock (queue_mutex);
-
     if (g_queue_get_length (queue))
     {
         queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
@@ -59,43 +58,24 @@ cmsg_send_queue_process_all (cmsg_object obj)
 
     while (queue_entry)
     {
-        if (!client)
-        {
-            //init transport
-            if (queue_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TIPC)
-            {
-                DEBUG (CMSG_INFO, "[PUB QUEUE] queue_entry: transport tipc_init\n");
-                cmsg_transport_oneway_tipc_init (&queue_entry->transport);
-            }
-            else if (queue_entry->transport.type == CMSG_TRANSPORT_ONEWAY_TCP)
-            {
-                DEBUG (CMSG_INFO, "[PUB QUEUE] queue_entry: transport tipc_init\n");
-                cmsg_transport_oneway_tcp_init (&queue_entry->transport);
-            }
-            else
-            {
-                DEBUG (CMSG_ERROR,
-                       "[PUB QUEUE] queue_entry: transport unknown, transport: %d",
-                       queue_entry->transport.type);
-            }
+        int done = 0;
+        send_client = queue_entry->client;
 
-            client = cmsg_client_new (&queue_entry->transport, descriptor);
-
-            create_client = 1;
-        }
+        //this client can be used for directly processed messages as well
+        pthread_mutex_lock (&send_client->connection_mutex);
 
         int c = 0;
         for (c = 0; c <= CMSG_TRANSPORT_CLIENT_SEND_TRIES; c++)
         {
-            cmsg_client_connect (client);
+            cmsg_client_connect (send_client);
 
-            if (client->state == CMSG_CLIENT_STATE_CONNECTED)
+            if (send_client->state == CMSG_CLIENT_STATE_CONNECTED)
             {
                 DEBUG (CMSG_INFO, "[PUB QUEUE] sending message to server\n");
-                int ret = client->_transport->client_send (client,
-                                                           queue_entry->queue_buffer,
-                                                           queue_entry->queue_buffer_size,
-                                                           0);
+                int ret = send_client->_transport->client_send (send_client,
+                                                                queue_entry->queue_buffer,
+                                                                queue_entry->queue_buffer_size,
+                                                                0);
 
                 if (ret < (int) queue_entry->queue_buffer_size)
                 {
@@ -104,21 +84,19 @@ cmsg_send_queue_process_all (cmsg_object obj)
                            ret, queue_entry->queue_buffer_size);
                 }
 
-                client->state = CMSG_CLIENT_STATE_CLOSED;
-                client->_transport->client_close (client);
-
-                queue_entry->transport.client_send_tries = 0;
-
+                queue_entry->transport->client_send_tries = 0;
                 CMSG_FREE (queue_entry->queue_buffer);
                 g_free (queue_entry);
+                queue_entry = NULL;
                 processed++;
+                done = 1;
                 break;
             }
-            else if (client->state == CMSG_CLIENT_STATE_FAILED)
+            else if (send_client->state == CMSG_CLIENT_STATE_FAILED)
             {
-                queue_entry->transport.client_send_tries++;
+                queue_entry->transport->client_send_tries++;
                 DEBUG (CMSG_WARN, "[PUB QUEUE] tries %d\n",
-                       queue_entry->transport.client_send_tries);
+                       queue_entry->transport->client_send_tries);
             }
             else
             {
@@ -127,58 +105,53 @@ cmsg_send_queue_process_all (cmsg_object obj)
         }
 
         //handle timeouts
-        if (queue_entry->transport.client_send_tries >= CMSG_TRANSPORT_CLIENT_SEND_TRIES)
+        if (!done)
         {
-            if (obj.object_type == CMSG_OBJ_TYPE_PUB)
+            if (queue_entry->transport->client_send_tries >= CMSG_TRANSPORT_CLIENT_SEND_TRIES)
             {
-                /* if all subscribers already un-subscribed during the retry period,
-                 * clear the queue */
-                if (publisher->subscriber_count == 0)
+                if (obj.object_type == CMSG_OBJ_TYPE_PUB)
                 {
-                    pthread_mutex_lock (queue_mutex);
-                    cmsg_send_queue_free_all (queue);
-                    pthread_mutex_unlock (queue_mutex);
-
-                    if (client && create_client)
+                    /* if all subscribers already un-subscribed during the retry period,
+                     * clear the queue */
+                    if (publisher->subscriber_count == 0)
                     {
-                        cmsg_client_destroy (client);
+                        pthread_mutex_lock (queue_mutex);
+                        cmsg_send_queue_free_all (queue);
+                        pthread_mutex_unlock (queue_mutex);
+                        pthread_mutex_unlock (&send_client->connection_mutex);
+                        return processed;
                     }
-                    return processed;
+                    //remove subscriber from subscribtion list
+                    cmsg_pub_subscriber_remove_all_with_transport (publisher,
+                                                                   queue_entry->transport);
+
+                    //delete all messages for this subscriber from queue
+                    pthread_mutex_lock (queue_mutex);
+                    cmsg_send_queue_free_all_by_transport (queue, queue_entry->transport);
+                    pthread_mutex_unlock (queue_mutex);
                 }
-                //remove subscriber from subscribtion list
-                cmsg_pub_subscriber_remove_all_with_transport (publisher,
-                                                               &queue_entry->transport);
+                else if (obj.object_type == CMSG_OBJ_TYPE_CLIENT)
+                {
+                    //delete all messages for this client from queue
+                    pthread_mutex_lock (queue_mutex);
+                    cmsg_send_queue_free_all_by_transport (queue, queue_entry->transport);
+                    pthread_mutex_unlock (queue_mutex);
+                }
 
-                //delete all messages for this subscriber from queue
-                pthread_mutex_lock (queue_mutex);
-                cmsg_send_queue_free_all_by_transport (queue, &queue_entry->transport);
-                pthread_mutex_unlock (queue_mutex);
-            }
-            else if (obj.object_type == CMSG_OBJ_TYPE_CLIENT)
-            {
-                //delete all messages for this client from queue
-                pthread_mutex_lock (queue_mutex);
-                cmsg_send_queue_free_all_by_transport (queue, &queue_entry->transport);
-                pthread_mutex_unlock (queue_mutex);
-            }
+                //free current item
+                else
+                {
+                    CMSG_FREE (queue_entry->queue_buffer);
+                    g_free (queue_entry);
+                }
 
-            //free current item
-            else
-            {
-                CMSG_FREE (queue_entry->queue_buffer);
-                g_free (queue_entry);
+                syslog (LOG_CRIT | LOG_LOCAL6,
+                        "[PUB QUEUE] error: subscriber not reachable, after %d tries, removing it\n",
+                        CMSG_TRANSPORT_CLIENT_SEND_TRIES);
             }
-
-            syslog (LOG_CRIT | LOG_LOCAL6,
-                    "[PUB QUEUE] error: subscriber not reachable, after %d tries, removing it\n",
-                    CMSG_TRANSPORT_CLIENT_SEND_TRIES);
         }
 
-        if (client && create_client)
-        {
-            cmsg_client_destroy (client);
-            client = NULL;
-        }
+        pthread_mutex_unlock (&send_client->connection_mutex);
 
         //get the next entry
         pthread_mutex_lock (queue_mutex);
@@ -192,11 +165,11 @@ cmsg_send_queue_process_all (cmsg_object obj)
 
 int32_t
 cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
-                      cmsg_transport *transport, char *method_name)
+                      cmsg_client *client, cmsg_transport *transport, char *method_name)
 {
 
-    cmsg_send_queue_entry *queue_entry =
-        (cmsg_send_queue_entry *) g_malloc0 (sizeof (cmsg_send_queue_entry));
+    cmsg_send_queue_entry *queue_entry = NULL;
+    queue_entry = (cmsg_send_queue_entry *) g_malloc0 (sizeof (cmsg_send_queue_entry));
     if (!queue_entry)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -218,11 +191,8 @@ cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
     memcpy ((void *) queue_entry->queue_buffer, (void *) buffer,
             queue_entry->queue_buffer_size);
 
-    //copy client transport config
-    queue_entry->transport.type = transport->type;
-    queue_entry->transport.config.socket.family = transport->config.socket.family;
-    queue_entry->transport.config.socket.sockaddr.tipc = transport->config.socket.sockaddr.tipc;
-
+    queue_entry->client = client;
+    queue_entry->transport = transport;
     strcpy (queue_entry->method_name, method_name ? method_name : "");
     g_queue_push_head (queue, queue_entry);
 
@@ -260,7 +230,7 @@ cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport)
         queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
         if (queue_entry)
         {
-            if (cmsg_transport_compare (&queue_entry->transport, transport))
+            if (cmsg_transport_compare (queue_entry->transport, transport))
             {
                 CMSG_FREE (queue_entry->queue_buffer);
                 g_free (queue_entry);
@@ -286,7 +256,7 @@ cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transpo
         queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
         if (queue_entry)
         {
-            if (cmsg_transport_compare (&queue_entry->transport, transport) &&
+            if (cmsg_transport_compare (queue_entry->transport, transport) &&
                 (strcmp (queue_entry->method_name, method_name) == 0))
             {
                 CMSG_FREE (queue_entry->queue_buffer);
