@@ -2671,6 +2671,10 @@ protobuf_c_message_free_unknown_fields (ProtobufCMessage    *message,
                                         ProtobufCAllocator  *allocator)
 {
   unsigned f;
+
+  if (message == NULL)
+    return;
+
   for (f = 0; f < message->n_unknown_fields; f++)
     FREE (allocator, message->unknown_fields[f].data);
 
@@ -2685,9 +2689,15 @@ void
 protobuf_c_message_free_unpacked  (ProtobufCMessage    *message,
                                    ProtobufCAllocator  *allocator)
 {
-  const ProtobufCMessageDescriptor *desc = message->descriptor;
+  const ProtobufCMessageDescriptor *desc;
   unsigned f;
+
+  if (message == NULL)
+    return;
+
   ASSERT_IS_MESSAGE (message);
+
+  desc = message->descriptor;
   if (allocator == NULL)
     allocator = &protobuf_c_default_allocator;
   message->descriptor = NULL;
