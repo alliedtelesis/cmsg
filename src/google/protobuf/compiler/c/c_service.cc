@@ -160,6 +160,7 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
 {
   int n_methods = descriptor_->method_count();
   MethodIndexAndName *mi_array = new MethodIndexAndName[n_methods];
+  string *method_name = new string[n_methods];
   
   vars_["n_methods"] = SimpleItoa(n_methods);
   printer->Print(vars_, "static const ProtobufCMethodDescriptor $lcfullname$_method_descriptors[$n_methods$] =\n"
@@ -172,7 +173,8 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
     printer->Print(vars_,
              "  { \"$method$\", $input_descriptor$, $output_descriptor$ },\n");
     mi_array[i].i = i;
-    mi_array[i].name = method->name().c_str();
+    method_name[i] = method->name() + "_pbc";
+    mi_array[i].name = method_name[i].c_str();
   }
   printer->Print(vars_, "};\n");
 
@@ -181,10 +183,9 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
   printer->Print(vars_, "const unsigned $lcfullname$_method_indices_by_name[] = {\n");
   for (int i = 0; i < n_methods; i++) {
     vars_["i"] = SimpleItoa(mi_array[i].i);
-    vars_["name"] = mi_array[i].name;
-    vars_["name"] = vars_["name"] + "_pbc";
+    vars_["method"] = mi_array[i].name;
     vars_["comma"] = (i + 1 < n_methods) ? "," : " ";
-    printer->Print(vars_, "  $i$$comma$        /* $name$ */\n");
+    printer->Print(vars_, "  $i$$comma$        /* $method$ */\n");
   }
   printer->Print(vars_, "};\n");
 
@@ -199,6 +200,9 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
 		       "  $lcfullname$_method_descriptors,\n"
 		       "  $lcfullname$_method_indices_by_name\n"
 		       "};\n");
+
+  delete[] mi_array;
+  delete[] method_name;
 }
 
 void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
