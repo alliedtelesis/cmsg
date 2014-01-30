@@ -17,6 +17,18 @@ message ping_response
 {
     optional int32 return_code = 1;
     optional int32 random = 2;
+    optional int32 randomm = 3;
+}
+
+message ping_requests
+{
+    repeated ping_request pings = 1;
+}
+
+message ping_responses
+{
+    repeated ping_response pongs = 1;
+    optional int32 return_code = 2;
 }
 
 message priority_request
@@ -34,6 +46,7 @@ message priority_response
 service test
 {
     rpc ping (ping_request) returns (ping_response);
+    rpc ping_pong (ping_requests) returns (ping_responses);
     rpc set_priority (priority_request) returns (priority_response);
 }
 

@@ -43,14 +43,52 @@ void
 cmsg_test_impl_ping (const void *service, int32_t random, int32_t randomm)
 {
     int code;
-    int value;
+    int value1, value2;
 
     code = 0;
-    value = rand () % 100;
+    value1 = rand () % 100;
+    value2 = rand () % 100;
 
-    printf ("[IMPL]: %s : send code=%d, value=%d\n", __func__, code, value);
+    printf ("[IMPL]: %s : send code=%d, value1=%d, value2=%d\n", __func__, code, value1, value2);
 
-    cmsg_test_server_pingSend (service, code, value);
+    cmsg_test_server_pingSend (service, code, value1, value2);
+}
+
+void
+cmsg_test_impl_ping_pong (const void *service, size_t n_ping, cmsg_ping_request **ping)
+{
+// do nothing - this is deprecated and will soon be removed
+}
+
+void
+cmsg_test_implNEW_ping_pong (const void *service, const cmsg_ping_requests_pbc *recv_msg)
+{
+    int i = 0;
+    cmsg_ping_responses_pbc send_msg = CMSG_PING_RESPONSES_PBC_INIT;
+    size_t n_pongs = 0;
+    cmsg_ping_response_pbc *pongs = NULL;
+
+    n_pongs = recv_msg->n_pings;
+    // setup our reply message (which is just a copy of the received ping values).
+    send_msg.pongs = CMSG_CALLOC (n_pongs, sizeof (cmsg_ping_response_pbc *));
+    pongs = CMSG_CALLOC (n_pongs, sizeof (cmsg_ping_response_pbc));
+
+    for (i = 0; i < n_pongs; i++)
+    {
+        cmsg_ping_response_init (&pongs[i]);
+        CMSG_SET_FIELD_VALUE (&pongs[i], random, recv_msg->pings[i]->random);
+        CMSG_SET_FIELD_VALUE (&pongs[i], randomm, recv_msg->pings[i]->randomm);
+        CMSG_SET_FIELD_PTR (&send_msg, pongs[i], &pongs[i]);
+        printf ("[SERVER] setting pong value pair: %d, %d.\n", pongs[i].random, pongs[i].randomm);
+    }
+    send_msg.n_pongs = n_pongs;
+    CMSG_SET_FIELD_VALUE (&send_msg, return_code, 1);
+
+    // send it
+    cmsg_test_server_ping_pongSendNEW (service, &send_msg);
+
+    CMSG_FREE (pongs);
+    CMSG_FREE (send_msg.pongs);
 }
 
 void
@@ -331,7 +369,7 @@ run_server (void *arg)
 }
 
 int
-run_client (int transport_type, int is_one_way, int queue)
+run_client (int transport_type, int is_one_way, int queue, int repeated)
 {
     cmsg_client *client = 0;
     cmsg_transport *transport = 0;
@@ -403,6 +441,7 @@ run_client (int transport_type, int is_one_way, int queue)
     }
 
 
+    if (!repeated)
     {
         int ret;
         int l = 0;
@@ -427,6 +466,54 @@ run_client (int transport_type, int is_one_way, int queue)
             sleep (1);
         }
     }
+    else // repeated = yes
+    {
+        int i = 0;
+        cmsg_ping_requests_pbc send_msg = CMSG_PING_REQUESTS_PBC_INIT;
+        cmsg_ping_responses_pbc *recv_msg = NULL;
+        size_t n_pings = 10;
+        cmsg_ping_request_pbc *pings = NULL;
+
+        // setup our send message
+        send_msg.pings = CMSG_CALLOC (n_pings, sizeof (cmsg_ping_request_pbc *));
+        pings = CMSG_CALLOC (n_pings, sizeof (cmsg_ping_request_pbc));
+
+        for (i = 0; i < n_pings; i++)
+        {
+          cmsg_ping_request_init (&pings[i]);
+          CMSG_SET_FIELD_VALUE (&pings[i], random, i);
+          CMSG_SET_FIELD_VALUE (&pings[i], randomm, i * 2);
+          CMSG_SET_FIELD_PTR (&send_msg, pings[i], &pings[i]);
+          printf ("[CLIENT] setting ping value pair: %d, %d.\n", pings[i].random, pings[i].randomm);
+        }
+        send_msg.n_pings = n_pings;
+
+        // send it
+        if (cmsg_test_apiNEW_ping_pong (client, &send_msg, &recv_msg) != CMSG_RET_OK)
+        {
+            printf ("[CLIENT] calling ping_pong failed!\n");
+        }
+
+        // examine the response
+        if (recv_msg)
+        {
+            printf ("[CLIENT] received pong status: %d\n", recv_msg->return_code);
+            for (i = 0; i < recv_msg->n_pongs; i++)
+            {
+                printf ("[CLIENT] received pong value pair: %d, %d.\n", recv_msg->pongs[i]->random, recv_msg->pongs[i]->randomm);
+            }
+            // free the recv message
+            CMSG_FREE_RECV_MSG (recv_msg);
+        }
+        else
+        {
+            printf ("[CLIENT] call to ping_pong didn't get a response!\n");
+        }
+
+        CMSG_FREE (pings);
+        CMSG_FREE (send_msg.pings);
+
+    }
 
     cmsg_client_queue_process_all (client);
 
@@ -448,6 +535,7 @@ main (int argc, char *argv[])
     int is_one_way = 0;     //0: no, 1:yes
     int queue = 0;          //0: no, 1:yes
     int test = 0;           //0: no, 1:yes
+    int repeated = 0;       //0: no, 1:yes
     int i;
     struct thread_parameter thread_par;
 
@@ -456,6 +544,9 @@ main (int argc, char *argv[])
     {
         if (starts_with (argv[i], "--cs"))
             mode = 1;
+
+        if (starts_with (argv[i], "--repeat"))
+            repeated = 1;
 
         if (starts_with (argv[i], "--ps"))
             mode = 2;
@@ -500,6 +591,8 @@ main (int argc, char *argv[])
         printf ("transport options for client/server:\n");
         printf ("                                       --oneway\n");
         printf ("                                       --queue\n");
+        printf ("test options for client/server:\n");
+        printf ("  (do test with repeated sub messages) --repeated\n");
         printf ("transports for publisher/subscriber:\n");
         printf ("                                       --tcp\n");
         printf ("                                       --tipc\n");
@@ -516,7 +609,7 @@ main (int argc, char *argv[])
     {
         pthread_create (&thread, NULL, &run_server, (void *) &thread_par);
         sleep (1);
-        run_client (transport_type, is_one_way, queue);
+        run_client (transport_type, is_one_way, queue, repeated);
 
         sleep (2); //wait for the server to process the messages
         run_thread_run = 0;
