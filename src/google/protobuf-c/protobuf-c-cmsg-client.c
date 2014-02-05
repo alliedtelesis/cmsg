@@ -255,10 +255,26 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
 
             if (send_ret < (int) (total_message_size))
             {
-                CMSG_LOG_ERROR ("[CLIENT] error: sending response failed send:%d of %u (method: %s)",
-                                send_ret,
-                                (uint32_t) (total_message_size),
-                                method_name);
+                if (send_ret == -1)
+                {
+                    if (errno == EAGAIN)
+                    {
+                        CMSG_LOG_DEBUG ("[CLIENT] client_send failed (method: %s), %s",
+                                        method_name, strerror (errno));
+                    }
+                    else
+                    {
+                        CMSG_LOG_ERROR ("[CLIENT] client_send failed (method: %s), %s",
+                                        method_name, strerror (errno));
+                    }
+                }
+                else
+                {
+                    CMSG_LOG_ERROR ("[CLIENT] client_send failed: sent %d of %u (method: %s)",
+                                    send_ret,
+                                    (uint32_t) (total_message_size),
+                                    method_name);
+                }
 
                 CMSG_FREE (buffer);
                 return CMSG_RET_ERR;
@@ -514,10 +530,26 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                 {
                     // Having retried connecting and now failed again this is
                     // an actual problem.
-                    CMSG_LOG_ERROR ("[CLIENT] error: sending response failed send:%d of %u (method: %s)",
-                                    send_ret,
-                                    (uint32_t) (total_message_size),
-                                    method_name);
+                    if (send_ret == -1)
+                    {
+                        if (errno == EAGAIN)
+                        {
+                            CMSG_LOG_DEBUG ("[CLIENT] client_send failed (method: %s), %s",
+                                            method_name, strerror (errno));
+                        }
+                        else
+                        {
+                            CMSG_LOG_ERROR ("[CLIENT] client_send failed (method: %s), %s",
+                                            method_name, strerror (errno));
+                        }
+                    }
+                    else
+                    {
+                        CMSG_LOG_ERROR ("[CLIENT] client_send failed: sent %d of %u (method: %s)",
+                                        send_ret,
+                                        (uint32_t) (total_message_size),
+                                        method_name);
+                    }
 
                     CMSG_FREE (buffer);
                     pthread_mutex_unlock (&client->connection_mutex);
