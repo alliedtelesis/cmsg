@@ -598,7 +598,7 @@ cmsg_pub_invoke (ProtobufCService *service,
                  const ProtobufCMessage *input,
                  ProtobufCClosure closure, void *closure_data)
 {
-    int tries = CMSG_TRANSPORT_CLIENT_SEND_TRIES;
+    int ret = CMSG_RET_OK;
     int remove_entry = 0;
     cmsg_pub *publisher = (cmsg_pub *) service;
     const char *method_name;
@@ -665,7 +665,6 @@ cmsg_pub_invoke (ProtobufCService *service,
         {
             //tell client to queue
             list_entry->client->queue_enabled_from_parent = 1;
-            tries = 1;
         }
         else    //global queue settings
         {
@@ -677,48 +676,33 @@ cmsg_pub_invoke (ProtobufCService *service,
         //pass parent to client for queueing using correct queue
         list_entry->client->parent = publisher->self;
 
-        int c = 0;
-        for (c = 0; c <= tries; c++)
+        int i = 0;
+        for (i = 0; i <= CMSG_TRANSPORT_CLIENT_SEND_TRIES; i++)
         {
-            cmsg_client_invoke_oneway ((ProtobufCService *) list_entry->client, method_index,
-                                       input, closure, closure_data);
+            //create a create packet function inside cmsg_client_invoke_oneway
+            //if we want to queue from the publisher just create the buffer
+            //and add it directly to the publisher queue
+            //this would remove the publisher dependency in the client and
+            //would make the code easier to understand and cleaner
+            ret = cmsg_client_invoke_oneway ((ProtobufCService *) list_entry->client,
+                                             method_index, input, closure, closure_data);
 
-            if (list_entry->client->state == CMSG_CLIENT_STATE_FAILED ||
-                list_entry->client->state == CMSG_CLIENT_STATE_CLOSED)
+            if (ret == CMSG_RET_ERR)
             {
-                if (list_entry->transport->client_send_tries >=
-                    CMSG_TRANSPORT_CLIENT_SEND_TRIES)
-                {
-
-                    // error: subscriber not reachable after 10 tries, removing subscriber from list
-                    remove_entry = 1;
-                }
-
-                list_entry->transport->client_send_tries++;
-                // couldn't sent retry
-            }
-            else if (list_entry->client->state == CMSG_CLIENT_STATE_CONNECTED)
-            {
-                // sent successful after %d tries
-                list_entry->transport->client_send_tries = 0;
-                break;
-            }
-            else if (list_entry->client->state == CMSG_CLIENT_STATE_QUEUED)
-            {
-                // message queued successful
-                list_entry->transport->client_send_tries = 0;
-                break;
+                //try again
+                syslog (LOG_CRIT | LOG_LOCAL6,
+                        "[PUB] client invoke failed (method: %s) (queue: %d)",
+                        method_name, action == CMSG_QUEUE_FILTER_QUEUE);
             }
             else
             {
-                syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] error: unknown client->state=%d\n",
-                        list_entry->client->state);
+                break;
             }
         }
 
         subscriber_list = g_list_next (subscriber_list);
 
-        if (remove_entry)
+        if (ret == CMSG_RET_ERR)
         {
             /* We already have the lock on subscriber_list_mutex. Therefore we should
              * use the thread unsafe subscriber remove function.
@@ -734,7 +718,8 @@ cmsg_pub_invoke (ProtobufCService *service,
 }
 
 int32_t
-cmsg_pub_subscribe (cmsg_sub_service_Service *service, const cmsg_sub_entry_transport_info_pbc *input,
+cmsg_pub_subscribe (cmsg_sub_service_Service *service,
+                    const cmsg_sub_entry_transport_info_pbc *input,
                     cmsg_sub_entry_response_pbc_Closure closure, void *closure_data_void)
 {
     CMSG_ASSERT (service);
@@ -854,12 +839,8 @@ cmsg_pub_queue_process_all (cmsg_pub *publisher)
 {
     struct timespec time_to_wait;
     uint32_t processed = 0;
-    cmsg_object obj;
 
     clock_gettime (CLOCK_REALTIME, &time_to_wait);
-
-    obj.object_type = CMSG_OBJ_TYPE_PUB;
-    obj.object = publisher;
 
     //if the we run do api calls and processing in different threads wait
     //for a signal from the api thread to start processing
@@ -876,16 +857,83 @@ cmsg_pub_queue_process_all (cmsg_pub *publisher)
         publisher->queue_process_count = publisher->queue_process_count - 1;
         pthread_mutex_unlock (&publisher->queue_process_mutex);
 
-        processed = cmsg_send_queue_process_all (obj);
+        processed = _cmsg_pub_queue_process_all_direct (publisher);
     }
     else
     {
-        processed = cmsg_send_queue_process_all (obj);
+        processed = _cmsg_pub_queue_process_all_direct (publisher);
     }
 
     return processed;
 }
 
+int32_t
+_cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
+{
+    uint32_t processed = 0;
+    cmsg_send_queue_entry *queue_entry = NULL;
+    GQueue *queue = publisher->queue;
+    pthread_mutex_t *queue_mutex = &publisher->queue_mutex;
+    const ProtobufCServiceDescriptor *descriptor = publisher->descriptor;
+    cmsg_client *send_client = 0;
+
+    if (!queue || !descriptor)
+        return 0;
+
+    pthread_mutex_lock (queue_mutex);
+    if (g_queue_get_length (queue))
+        queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
+    pthread_mutex_unlock (queue_mutex);
+
+
+    while (queue_entry)
+    {
+        send_client = queue_entry->client;
+
+        int ret = cmsg_client_buffer_send_retry (send_client,
+                                                 queue_entry->queue_buffer,
+                                                 queue_entry->queue_buffer_size,
+                                                 CMSG_TRANSPORT_CLIENT_SEND_TRIES);
+
+        if (ret == CMSG_RET_OK)
+            processed++;
+        else
+        {
+            /* if all subscribers already un-subscribed during the retry period,
+             * clear the queue */
+            if (publisher->subscriber_count == 0)
+            {
+                pthread_mutex_lock (queue_mutex);
+                cmsg_send_queue_free_all (queue);
+                pthread_mutex_unlock (queue_mutex);
+                return processed;
+            }
+            //remove subscriber from subscribtion list
+            cmsg_pub_subscriber_remove_all_with_transport (publisher,
+                                                           queue_entry->transport);
+
+            //delete all messages for this subscriber from queue
+            pthread_mutex_lock (queue_mutex);
+            cmsg_send_queue_free_all_by_transport (queue, queue_entry->transport);
+            pthread_mutex_unlock (queue_mutex);
+
+            CMSG_LOG_ERROR ("[PUB QUEUE] method: %s error: subscriber not reachable, after %d tries, removing it\n",
+                            queue_entry->method_name,
+                            CMSG_TRANSPORT_CLIENT_SEND_TRIES);
+
+        }
+        CMSG_FREE (queue_entry->queue_buffer);
+        g_free (queue_entry);
+        queue_entry = NULL;
+
+        //get the next entry
+        pthread_mutex_lock (queue_mutex);
+        queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
+        pthread_mutex_unlock (queue_mutex);
+    }
+
+    return processed;
+}
 
 
 void

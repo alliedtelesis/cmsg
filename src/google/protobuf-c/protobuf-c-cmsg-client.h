@@ -98,9 +98,29 @@ int32_t cmsg_client_queue_disable (cmsg_client *client);
 
 uint32_t cmsg_client_queue_get_length (cmsg_client *client);
 
+int32_t
+cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
+                                    uint32_t queue_buffer_size, const char *method_name);
+
+int32_t
+_cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
+                                     uint32_t queue_buffer_size, const char *method_name);
+
+int32_t
+cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
+                               uint32_t queue_buffer_size, int max_tries);
+
+int32_t
+cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_size);
+
+int32_t
+_cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_size);
 
 int32_t cmsg_client_queue_process_all (cmsg_client *client);
 
+int32_t _cmsg_client_queue_process_all_internal (cmsg_client *client);
+
+int32_t _cmsg_client_queue_process_all_direct (cmsg_client *client);
 
 //queue filter
 void cmsg_client_queue_filter_set_all (cmsg_client *client,

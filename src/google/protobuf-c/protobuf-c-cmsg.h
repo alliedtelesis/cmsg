@@ -81,8 +81,8 @@
 #endif
 
 #define CMSG_RECV_BUFFER_SZ                        512
-#define CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT    700  //ms
-#define CMSG_TRANSPORT_CLIENT_SEND_TRIES           5
+#define CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT    1000  //ms
+#define CMSG_TRANSPORT_CLIENT_SEND_TRIES           10
 
 // Return codes
 #define CMSG_RET_OK   0
