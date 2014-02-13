@@ -249,6 +249,8 @@ run_pub (void *arg)
             int port;
             int priority;
             static int result_status;
+            cmsg_priority_request_pbc send_msg = CMSG_PRIORITY_REQUEST_PBC_INIT;
+            cmsg_priority_response_pbc *recv_msg = NULL;
             result_status++;
 
             port = rand () % 100;;
@@ -256,10 +258,21 @@ run_pub (void *arg)
 
             printf ("[PUBLISHER] calling set priority: port=%d, priority=%d, enum=%d\n",
                     port, priority, CMSG_FOUR);
+            CMSG_SET_FIELD_VALUE (&send_msg, port, port);
+            CMSG_SET_FIELD_VALUE (&send_msg, priority, priority);
+            CMSG_SET_FIELD_VALUE (&send_msg, count, CMSG_FOUR);
 
-            ret = cmsg_test_api_set_priority ((cmsg_client *) pub,
-                                              port, priority, CMSG_FOUR, &result_status);
+            ret = cmsg_test_api_set_priority ((cmsg_client *) pub, &send_msg, &recv_msg);
 
+            if (recv_msg)
+            {
+                result_status = recv_msg->status;
+                CMSG_FREE_RECV_MSG (recv_msg);
+            }
+            else
+            {
+                result_status = -1;
+            }
             printf ("[PUBLISHER] calling set priority done: ret=%d, result_status=%d\n",
                     ret, result_status);
 
@@ -438,6 +451,9 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
         int port;
         int priority;
         static int result_status;
+        cmsg_priority_request_pbc send_msg = CMSG_PRIORITY_REQUEST_PBC_INIT;
+        cmsg_priority_response_pbc *recv_msg = NULL;
+
         result_status++;
         for (l = 0; l < 10; l++)
         {
@@ -446,8 +462,21 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
 
             printf ("[CLIENT] calling set priority: port=%d, priority=%d, enum=%d\n", port,
                     priority, CMSG_FOUR);
-            ret = cmsg_test_api_set_priority (client, port, priority, CMSG_FOUR,
-                                              &result_status);
+
+            CMSG_SET_FIELD_VALUE (&send_msg, port, port);
+            CMSG_SET_FIELD_VALUE (&send_msg, priority, priority);
+            CMSG_SET_FIELD_VALUE (&send_msg, count, CMSG_FOUR);
+
+            ret = cmsg_test_api_set_priority (client, &send_msg, &recv_msg);
+            if (recv_msg)
+            {
+                result_status = recv_msg->status;
+                CMSG_FREE_RECV_MSG (recv_msg);
+            }
+            else
+            {
+                result_status = -1;
+            }
             printf ("[CLIENT] calling set priority done: ret=%d, result_status=%d\n", ret,
                     result_status);
 
@@ -479,7 +508,7 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
         send_msg.n_pings = n_pings;
 
         // send it
-        if (cmsg_test_apiNEW_ping_pong (client, &send_msg, &recv_msg) != CMSG_RET_OK)
+        if (cmsg_test_api_ping_pong (client, &send_msg, &recv_msg) != CMSG_RET_OK)
         {
             printf ("[CLIENT] calling ping_pong failed!\n");
         }
