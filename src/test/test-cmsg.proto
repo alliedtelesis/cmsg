@@ -1,5 +1,10 @@
 package cmsg;
 
+message nothing
+{
+/* Empty message that can be used when you don't want to return and/or send a message */
+}
+
 enum some_numbers
 {
     ONE = 1;
@@ -43,10 +48,21 @@ message priority_response
     optional int32 status = 1;
 }
 
+message priority_notification
+{
+    optional int32 port = 1;
+    optional int32 priority = 2;
+    optional some_numbers count = 3;
+}
+
 service test
 {
+    // in this section are two way rpcs
     rpc ping (ping_request) returns (ping_response);
     rpc ping_pong (ping_requests) returns (ping_responses);
     rpc set_priority (priority_request) returns (priority_response);
+
+    // in this section are one-way rpcs
+    rpc notify_priority (priority_notification) returns (nothing); 
 }
 

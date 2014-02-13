@@ -95,6 +95,17 @@ cmsg_test_impl_ping_pong (const void *service, const cmsg_ping_requests_pbc *rec
     CMSG_FREE (send_msg.pongs);
 }
 
+void
+cmsg_test_impl_notify_priority (const void *service, const cmsg_priority_notification_pbc *recv_msg)
+{
+    static int status = 0;
+    status++;
+    printf ("[IMPL]: %s : port=%d, priority=%d, enum=%d --> send status=%d\n", __func__,
+              recv_msg->port, recv_msg->priority, recv_msg->count, status);
+
+    cmsg_test_server_notify_prioritySend (service);
+}
+
 int
 run_sub (int transport_type, int queue)
 {
@@ -139,7 +150,7 @@ run_sub (int transport_type, int queue)
 
     sub = cmsg_sub_new (transport_notification, CMSG_SERVICE (cmsg, test));
 
-    cmsg_sub_subscribe (sub, transport_register, "set_priority");
+    cmsg_sub_subscribe (sub, transport_register, "notify_priority");
 
     int fd = cmsg_sub_get_server_socket (sub);
     int fd_max = fd + 1;
@@ -249,31 +260,21 @@ run_pub (void *arg)
             int port;
             int priority;
             static int result_status;
-            cmsg_priority_request_pbc send_msg = CMSG_PRIORITY_REQUEST_PBC_INIT;
-            cmsg_priority_response_pbc *recv_msg = NULL;
+            cmsg_priority_notification_pbc send_msg = CMSG_PRIORITY_NOTIFICATION_PBC_INIT;
             result_status++;
 
             port = rand () % 100;;
             priority = rand () % 100;;
 
-            printf ("[PUBLISHER] calling set priority: port=%d, priority=%d, enum=%d\n",
+            printf ("[PUBLISHER] calling notify priority: port=%d, priority=%d, enum=%d\n",
                     port, priority, CMSG_FOUR);
             CMSG_SET_FIELD_VALUE (&send_msg, port, port);
             CMSG_SET_FIELD_VALUE (&send_msg, priority, priority);
             CMSG_SET_FIELD_VALUE (&send_msg, count, CMSG_FOUR);
 
-            ret = cmsg_test_api_set_priority ((cmsg_client *) pub, &send_msg, &recv_msg);
+            ret = cmsg_test_api_notify_priority ((cmsg_client *) pub, &send_msg);
 
-            if (recv_msg)
-            {
-                result_status = recv_msg->status;
-                CMSG_FREE_RECV_MSG (recv_msg);
-            }
-            else
-            {
-                result_status = -1;
-            }
-            printf ("[PUBLISHER] calling set priority done: ret=%d, result_status=%d\n",
+            printf ("[PUBLISHER] calling notify priority done: ret=%d, result_status=%d\n",
                     ret, result_status);
 
             printf ("[PUBLISHER] queue length: %d\n", cmsg_pub_queue_get_length (pub));
