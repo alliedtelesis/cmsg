@@ -97,8 +97,8 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     cmsg_client *register_client = NULL;
     int32_t return_value = CMSG_RET_ERR;
     cmsg_client_closure_data closure_data = { NULL, NULL};
-    cmsg_sub_entry_transport_info_pbc register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_PBC_INIT;
-    cmsg_sub_entry_response_pbc *response = NULL;
+    cmsg_sub_entry_transport_info register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_INIT;
+    cmsg_sub_entry_response *response = NULL;
 
     register_entry.add = 1;
     register_entry.method_name = method_name;
@@ -147,10 +147,10 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
         return CMSG_RET_ERR;
     }
 
-    return_value = cmsg_sub_service_subscribe_pbc ((ProtobufCService *) register_client,
-                                                   &register_entry,
-                                                   NULL,
-                                                   &closure_data);
+    return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,
+                                               &register_entry,
+                                               NULL,
+                                               &closure_data);
 
     if (closure_data.message)
     {
@@ -174,8 +174,8 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     cmsg_client *register_client = NULL;
     int32_t return_value = CMSG_RET_ERR;
     cmsg_client_closure_data closure_data = { NULL, NULL};
-    cmsg_sub_entry_transport_info_pbc register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_PBC_INIT;
-    cmsg_sub_entry_response_pbc *response = NULL;
+    cmsg_sub_entry_transport_info register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_INIT;
+    cmsg_sub_entry_response *response = NULL;
 
     CMSG_ASSERT (subscriber);
     CMSG_ASSERT (subscriber->pub_server);
@@ -231,10 +231,10 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
         return CMSG_RET_ERR;
     }
 
-    return_value = cmsg_sub_service_subscribe_pbc ((ProtobufCService *) register_client,
-                                                   &register_entry,
-                                                   NULL,
-                                                   &closure_data);
+    return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,
+                                               &register_entry,
+                                               NULL,
+                                               &closure_data);
 
     if (closure_data.message)
     {

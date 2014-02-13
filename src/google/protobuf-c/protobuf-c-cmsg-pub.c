@@ -729,8 +729,8 @@ cmsg_pub_invoke (ProtobufCService *service,
 
 int32_t
 cmsg_pub_subscribe (cmsg_sub_service_Service *service,
-                    const cmsg_sub_entry_transport_info_pbc *input,
-                    cmsg_sub_entry_response_pbc_Closure closure, void *closure_data_void)
+                    const cmsg_sub_entry_transport_info *input,
+                    cmsg_sub_entry_response_Closure closure, void *closure_data_void)
 {
     CMSG_ASSERT (service);
     CMSG_ASSERT (input);
@@ -746,7 +746,7 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     if (server->parent.object_type == CMSG_OBJ_TYPE_PUB)
         publisher = (cmsg_pub *) server->parent.object;
 
-    cmsg_sub_entry_response_pbc response = CMSG_SUB_ENTRY_RESPONSE_PBC_INIT;
+    cmsg_sub_entry_response response = CMSG_SUB_ENTRY_RESPONSE_INIT;
 
     if ((input->transport_type != CMSG_TRANSPORT_ONEWAY_TCP) &&
         (input->transport_type != CMSG_TRANSPORT_ONEWAY_TIPC))

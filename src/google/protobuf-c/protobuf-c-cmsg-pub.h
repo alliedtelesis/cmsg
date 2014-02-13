@@ -94,8 +94,8 @@ int32_t cmsg_pub_invoke (ProtobufCService *service,
 
 //service implementation for handling register messages from the subscriber
 int32_t cmsg_pub_subscribe (cmsg_sub_service_Service *service,
-                            const cmsg_sub_entry_transport_info_pbc *input,
-                            cmsg_sub_entry_response_pbc_Closure closure, void *closure_data);
+                            const cmsg_sub_entry_transport_info *input,
+                            cmsg_sub_entry_response_Closure closure, void *closure_data);
 
 //queue api
 void cmsg_pub_queue_enable (cmsg_pub *publisher);

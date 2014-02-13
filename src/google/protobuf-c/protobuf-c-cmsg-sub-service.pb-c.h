@@ -10,8 +10,8 @@ PROTOBUF_C_BEGIN_DECLS
 #include <string.h>
 #include <stdlib.h>
 
-typedef struct _cmsg_sub_entry_transport_info_pbc cmsg_sub_entry_transport_info_pbc;
-typedef struct _cmsg_sub_entry_response_pbc cmsg_sub_entry_response_pbc;
+typedef struct _cmsg_sub_entry_transport_info cmsg_sub_entry_transport_info;
+typedef struct _cmsg_sub_entry_response cmsg_sub_entry_response;
 
 
 /* --- enums --- */
@@ -19,7 +19,7 @@ typedef struct _cmsg_sub_entry_response_pbc cmsg_sub_entry_response_pbc;
 
 /* --- messages --- */
 
-struct  _cmsg_sub_entry_transport_info_pbc
+struct  _cmsg_sub_entry_transport_info
 {
   ProtobufCMessage base;
   uint32_t add;
@@ -42,66 +42,66 @@ struct  _cmsg_sub_entry_transport_info_pbc
   protobuf_c_boolean has_tipc_scope;
   uint32_t tipc_scope;
 };
-#define CMSG_SUB_ENTRY_TRANSPORT_INFO_PBC_INIT \
+#define CMSG_SUB_ENTRY_TRANSPORT_INFO_INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cmsg_sub_entry_transport_info_descriptor) \
     , 0, NULL, 0, 0,0, 0,0, 0,0, 0,0, 0,0, 0,0, 0,0, 0,0 }
 
 
-struct  _cmsg_sub_entry_response_pbc
+struct  _cmsg_sub_entry_response
 {
   ProtobufCMessage base;
   int32_t return_value;
 };
-#define CMSG_SUB_ENTRY_RESPONSE_PBC_INIT \
+#define CMSG_SUB_ENTRY_RESPONSE_INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cmsg_sub_entry_response_descriptor) \
     , 0 }
 
 
-/* cmsg_sub_entry_transport_info_pbc methods */
+/* cmsg_sub_entry_transport_info methods */
 void   cmsg_sub_entry_transport_info_init
-                     (cmsg_sub_entry_transport_info_pbc         *message);
+                     (cmsg_sub_entry_transport_info         *message);
 size_t cmsg_sub_entry_transport_info_get_packed_size
-                     (const cmsg_sub_entry_transport_info_pbc   *message);
+                     (const cmsg_sub_entry_transport_info   *message);
 size_t cmsg_sub_entry_transport_info_pack
-                     (const cmsg_sub_entry_transport_info_pbc   *message,
+                     (const cmsg_sub_entry_transport_info   *message,
                       uint8_t             *out);
 size_t cmsg_sub_entry_transport_info_pack_to_buffer
-                     (const cmsg_sub_entry_transport_info_pbc   *message,
+                     (const cmsg_sub_entry_transport_info   *message,
                       ProtobufCBuffer     *buffer);
-cmsg_sub_entry_transport_info_pbc *
+cmsg_sub_entry_transport_info *
        cmsg_sub_entry_transport_info_unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
 void   cmsg_sub_entry_transport_info_free_unpacked
-                     (cmsg_sub_entry_transport_info_pbc *message,
+                     (cmsg_sub_entry_transport_info *message,
                       ProtobufCAllocator *allocator);
-/* cmsg_sub_entry_response_pbc methods */
+/* cmsg_sub_entry_response methods */
 void   cmsg_sub_entry_response_init
-                     (cmsg_sub_entry_response_pbc         *message);
+                     (cmsg_sub_entry_response         *message);
 size_t cmsg_sub_entry_response_get_packed_size
-                     (const cmsg_sub_entry_response_pbc   *message);
+                     (const cmsg_sub_entry_response   *message);
 size_t cmsg_sub_entry_response_pack
-                     (const cmsg_sub_entry_response_pbc   *message,
+                     (const cmsg_sub_entry_response   *message,
                       uint8_t             *out);
 size_t cmsg_sub_entry_response_pack_to_buffer
-                     (const cmsg_sub_entry_response_pbc   *message,
+                     (const cmsg_sub_entry_response   *message,
                       ProtobufCBuffer     *buffer);
-cmsg_sub_entry_response_pbc *
+cmsg_sub_entry_response *
        cmsg_sub_entry_response_unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
 void   cmsg_sub_entry_response_free_unpacked
-                     (cmsg_sub_entry_response_pbc *message,
+                     (cmsg_sub_entry_response *message,
                       ProtobufCAllocator *allocator);
 /* --- per-message closures --- */
 
-typedef void (*cmsg_sub_entry_transport_info_pbc_Closure)
-                 (const cmsg_sub_entry_transport_info_pbc *message,
+typedef void (*cmsg_sub_entry_transport_info_Closure)
+                 (const cmsg_sub_entry_transport_info *message,
                   void *closure_data);
-typedef void (*cmsg_sub_entry_response_pbc_Closure)
-                 (const cmsg_sub_entry_response_pbc *message,
+typedef void (*cmsg_sub_entry_response_Closure)
+                 (const cmsg_sub_entry_response *message,
                   void *closure_data);
 
 /* --- services --- */
@@ -110,10 +110,10 @@ typedef struct _cmsg_sub_service_Service cmsg_sub_service_Service;
 struct _cmsg_sub_service_Service
 {
   ProtobufCService base;
-  int32_t (*subscribe_pbc)(cmsg_sub_service_Service *service,
-                        const cmsg_sub_entry_transport_info_pbc *input,
-                        cmsg_sub_entry_response_pbc_Closure closure,
-                        void *closure_data);
+  int32_t (*subscribe)(cmsg_sub_service_Service *service,
+                    const cmsg_sub_entry_transport_info *input,
+                    cmsg_sub_entry_response_Closure closure,
+                    void *closure_data);
   void *closure;
   void *closure_data;
 };
@@ -125,10 +125,10 @@ void cmsg_sub_service_init (cmsg_sub_service_Service *service,
 #define CMSG_SUB_SERVICE_INIT(function_prefix_) \
     { CMSG_SUB_SERVICE_BASE_INIT,\
       function_prefix_ ## subscribe  }
-int32_t cmsg_sub_service_subscribe_pbc(ProtobufCService *service,
-                                       const cmsg_sub_entry_transport_info_pbc *input,
-                                       cmsg_sub_entry_response_pbc_Closure closure,
-                                       void *closure_data);
+int32_t cmsg_sub_service_subscribe(ProtobufCService *service,
+                                   const cmsg_sub_entry_transport_info *input,
+                                   cmsg_sub_entry_response_Closure closure,
+                                   void *closure_data);
 
 /* --- descriptors --- */
 
