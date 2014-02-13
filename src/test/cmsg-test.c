@@ -30,38 +30,42 @@ starts_with (const char *str, const char *prefix)
 }
 
 void
-cmsg_test_implNEW_ping (const void *service, const cmsg_ping_request_pbc *recv_msg)
-{
-}
-
-void
-cmsg_test_implNEW_set_priority (const void *service, const cmsg_priority_request_pbc *recv_msg)
-{
-}
-
-void
-cmsg_test_impl_ping (const void *service, int32_t random, int32_t randomm)
+cmsg_test_impl_ping (const void *service, const cmsg_ping_request_pbc *recv_msg)
 {
     int code;
     int value1, value2;
+    cmsg_ping_response_pbc send_msg = CMSG_PING_RESPONSE_PBC_INIT;
 
     code = 0;
     value1 = rand () % 100;
     value2 = rand () % 100;
 
     printf ("[IMPL]: %s : send code=%d, value1=%d, value2=%d\n", __func__, code, value1, value2);
+    CMSG_SET_FIELD_VALUE (&send_msg, random, value1);
+    CMSG_SET_FIELD_VALUE (&send_msg, randomm, value2);
+    CMSG_SET_FIELD_VALUE (&send_msg, return_code, code);
 
-    cmsg_test_server_pingSend (service, code, value1, value2);
+    cmsg_test_server_pingSend (service, &send_msg);
 }
 
 void
-cmsg_test_impl_ping_pong (const void *service, size_t n_ping, cmsg_ping_request **ping)
+cmsg_test_impl_set_priority (const void *service, const cmsg_priority_request_pbc *recv_msg)
 {
-// do nothing - this is deprecated and will soon be removed
+    static int status = 0;
+    cmsg_priority_response_pbc send_msg = CMSG_PRIORITY_RESPONSE_PBC_INIT;
+
+    status++;
+
+    printf ("[IMPL]: %s : port=%d, priority=%d, enum=%d --> send status=%d\n", __func__,
+            recv_msg->port, recv_msg->priority, recv_msg->count, status);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, status, status);
+
+    cmsg_test_server_set_prioritySend (service, &send_msg);
 }
 
 void
-cmsg_test_implNEW_ping_pong (const void *service, const cmsg_ping_requests_pbc *recv_msg)
+cmsg_test_impl_ping_pong (const void *service, const cmsg_ping_requests_pbc *recv_msg)
 {
     int i = 0;
     cmsg_ping_responses_pbc send_msg = CMSG_PING_RESPONSES_PBC_INIT;
@@ -85,24 +89,10 @@ cmsg_test_implNEW_ping_pong (const void *service, const cmsg_ping_requests_pbc *
     CMSG_SET_FIELD_VALUE (&send_msg, return_code, 1);
 
     // send it
-    cmsg_test_server_ping_pongSendNEW (service, &send_msg);
+    cmsg_test_server_ping_pongSend (service, &send_msg);
 
     CMSG_FREE (pongs);
     CMSG_FREE (send_msg.pongs);
-}
-
-void
-cmsg_test_impl_set_priority (const void *service, int32_t port, int32_t priority,
-                             cmsg_some_numbers count)
-{
-    static int status = 0;
-
-    status++;
-
-    printf ("[IMPL]: %s : port=%d, priority=%d, enum=%d --> send status=%d\n", __func__,
-            port, priority, count, status);
-
-    cmsg_test_server_set_prioritySend (service, status);
 }
 
 int

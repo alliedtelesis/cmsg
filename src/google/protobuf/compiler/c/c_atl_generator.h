@@ -59,7 +59,7 @@ class AtlCodeGenerator {
   void GenerateCallersImplementations(io::Printer* printer);
 
   // helper function for the transition from old to new api
-  void GenerateAtlServerNewImplStubs(io::Printer* printer);
+  void GenerateAtlServerImplStubs(io::Printer* printer);
 
  private:
   void GenerateAtlHeader(io::Printer* printer);
@@ -78,14 +78,12 @@ class AtlCodeGenerator {
   void GenerateAtlServerDefinitions(io::Printer* printer, bool forHeader);
   void GenerateAtlServerDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateAtlServerCFileDefinitions(io::Printer* printer);
-  void GenerateAtlServerImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
-  void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateAtlServerImplementation(io::Printer* printer);
+
+  void GenerateAtlServerImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
+  void GenerateAtlServerImplStub(const MethodDescriptor &method, io::Printer* printer);
   void GenerateAtlServerSendImplementation(const MethodDescriptor &method, io::Printer* printer);
-  void GenerateAtlServerNewImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
-  void GenerateAtlServerNewImplStub(const MethodDescriptor &method, io::Printer* printer);
-  void GenerateAtlServerNewSendImplementation(const MethodDescriptor &method, io::Printer* printer);
-  void GenerateAtlServerNewSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
+  void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   string GetAtlClosureFunctionName(const MethodDescriptor &method);
   void GenerateMessageCopyCode(const Descriptor *message, const string lhm, const string rhm, io::Printer *printer, bool allocate_memory, bool send, bool to_pbc, bool result_ref, bool output, int depth = 0);
   void GenerateSendMessageCopyCode(const Descriptor *message, const string message_name, io::Printer *printer);

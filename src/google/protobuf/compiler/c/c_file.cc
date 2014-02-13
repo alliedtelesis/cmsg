@@ -448,7 +448,7 @@ void FileGenerator::GenerateAtlImplStubs(io::Printer* printer) {
     "\n");
 
   for (int i = 0; i < file_->service_count(); i++) {
-      atl_code_generators_[i]->GenerateAtlServerNewImplStubs(printer);
+      atl_code_generators_[i]->GenerateAtlServerImplStubs(printer);
     }
 
 }
