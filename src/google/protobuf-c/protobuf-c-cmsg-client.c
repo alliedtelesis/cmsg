@@ -739,7 +739,7 @@ _cmsg_client_queue_process_all_internal (cmsg_client *client)
                                                  CMSG_TRANSPORT_CLIENT_SEND_TRIES);
 
         CMSG_FREE (queue_entry->queue_buffer);
-        g_free (queue_entry);
+        CMSG_FREE (queue_entry);
         queue_entry = NULL;
 
         if (ret == CMSG_RET_ERR)

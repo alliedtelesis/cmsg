@@ -444,7 +444,7 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
 
             cmsg_client_destroy (list_entry->client);
             cmsg_transport_destroy (list_entry->transport);
-            g_free (list_entry);
+            CMSG_FREE (list_entry);
             publisher->subscriber_count--;
         }
     }
@@ -923,7 +923,7 @@ _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
 
         }
         CMSG_FREE (queue_entry->queue_buffer);
-        g_free (queue_entry);
+        CMSG_FREE (queue_entry);
         queue_entry = NULL;
 
         //get the next entry

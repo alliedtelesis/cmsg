@@ -13,7 +13,7 @@ cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
 {
 
     cmsg_send_queue_entry *queue_entry = NULL;
-    queue_entry = (cmsg_send_queue_entry *) g_malloc0 (sizeof (cmsg_send_queue_entry));
+    queue_entry = (cmsg_send_queue_entry *) CMSG_CALLOC (1, sizeof (cmsg_send_queue_entry));
     if (!queue_entry)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -28,7 +28,7 @@ cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
                 "[CLIENT] error: unable to allocate queue buffer. line(%d)\n", __LINE__);
-        g_free (queue_entry);
+        CMSG_FREE (queue_entry);
         return CMSG_RET_ERR;
     }
 
@@ -54,7 +54,7 @@ cmsg_send_queue_free_all (GQueue *queue)
     while (queue_entry)
     {
         CMSG_FREE (queue_entry->queue_buffer);
-        g_free (queue_entry);
+        CMSG_FREE (queue_entry);
         //get the next entry
         queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
     }
@@ -77,7 +77,7 @@ cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport)
             if (cmsg_transport_compare (queue_entry->transport, transport))
             {
                 CMSG_FREE (queue_entry->queue_buffer);
-                g_free (queue_entry);
+                CMSG_FREE (queue_entry);
             }
             else
             {
@@ -104,7 +104,7 @@ cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transpo
                 (strcmp (queue_entry->method_name, method_name) == 0))
             {
                 CMSG_FREE (queue_entry->queue_buffer);
-                g_free (queue_entry);
+                CMSG_FREE (queue_entry);
             }
             else
             {
@@ -188,7 +188,7 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
                             (ProtobufCMessage *) queue_entry->queue_buffer,
                             CMSG_METHOD_INVOKING_FROM_QUEUE);
 
-        g_free (queue_entry);
+        CMSG_FREE (queue_entry);
         queue_entry = NULL;
     }
 
@@ -224,7 +224,7 @@ cmsg_receive_queue_process_all (GQueue *queue,
 int32_t
 cmsg_receive_queue_push (GQueue *queue, uint8_t *buffer, uint32_t method_index)
 {
-    cmsg_receive_queue_entry *queue_entry = (cmsg_receive_queue_entry *) g_malloc0 (sizeof (cmsg_receive_queue_entry));
+    cmsg_receive_queue_entry *queue_entry = (cmsg_receive_queue_entry *) CMSG_CALLOC (1, sizeof (cmsg_receive_queue_entry));
     if (!queue_entry)
     {
         syslog (LOG_CRIT | LOG_LOCAL6,
@@ -257,7 +257,7 @@ cmsg_receive_queue_free_all (GQueue *queue)
         // is how it was done originally
         CMSG_FREE (queue_entry->queue_buffer);  // free the buffer as it won't be processed
 
-        g_free (queue_entry);
+        CMSG_FREE (queue_entry);
         //get the next entry
         queue_entry = (cmsg_receive_queue_entry *) g_queue_pop_tail (queue);
     }
@@ -376,7 +376,7 @@ cmsg_queue_filter_init (GHashTable *queue_filter_hash_table,
     uint32_t i = 0;
     for (i = 0; i < descriptor->n_methods; i++)
     {
-        cmsg_queue_filter_entry *entry = (cmsg_queue_filter_entry *) g_malloc0 (sizeof (cmsg_queue_filter_entry));
+        cmsg_queue_filter_entry *entry = (cmsg_queue_filter_entry *) CMSG_CALLOC (1, sizeof (cmsg_queue_filter_entry));
         sprintf (entry->method_name, "%s", descriptor->methods[i].name);
         entry->type = CMSG_QUEUE_FILTER_PROCESS;
 
@@ -397,7 +397,7 @@ cmsg_queue_filter_free (GHashTable *queue_filter_hash_table,
                                                                  (gconstpointer)
                                                                  descriptor->methods[i].name);
 
-        g_free (entry);
+        CMSG_FREE (entry);
 
         g_hash_table_remove (queue_filter_hash_table,
                              (gconstpointer) descriptor->methods[i].name);
