@@ -42,7 +42,7 @@ MessageGenerator::MessageGenerator(const Descriptor* descriptor,
                                    const string& dllexport_decl)
   : descriptor_(descriptor),
     dllexport_decl_(dllexport_decl),
-    field_generators_(descriptor, true),
+    field_generators_(descriptor),
     nested_generators_(new scoped_ptr<MessageGenerator>[
       descriptor->nested_type_count()]),
     enum_generators_(new scoped_ptr<EnumGenerator>[
@@ -71,7 +71,7 @@ MessageGenerator::~MessageGenerator() {}
 void MessageGenerator::
 GenerateStructTypedef(io::Printer* printer) {
   printer->Print("typedef struct _$classname$ $classname$;\n",
-                 "classname", FullNameToC(descriptor_->full_name()) + "_pbc");
+                 "classname", FullNameToC(descriptor_->full_name()));
 
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
     nested_generators_[i]->GenerateStructTypedef(printer);
@@ -97,7 +97,7 @@ GenerateStructDefinition(io::Printer* printer) {
   }
 
   std::map<string, string> vars;
-  vars["classname"] = FullNameToC(descriptor_->full_name()) + "_pbc";
+  vars["classname"] = FullNameToC(descriptor_->full_name());
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
   vars["ucclassname"] = FullNameToUpper(descriptor_->full_name());
   vars["field_count"] = SimpleItoa(descriptor_->field_count());
@@ -129,7 +129,7 @@ GenerateStructDefinition(io::Printer* printer) {
     }
   }
 
-  printer->Print(vars, "#define $ucclassname$_PBC_INIT \\\n"
+  printer->Print(vars, "#define $ucclassname$_INIT \\\n"
 		       " { PROTOBUF_C_MESSAGE_INIT (&$lcclassname$_descriptor) \\\n    ");
   for (int i = 0; i < descriptor_->field_count(); i++) {
     const FieldDescriptor *field = descriptor_->field(i);
@@ -148,7 +148,7 @@ GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage)
   }
 
   std::map<string, string> vars;
-  vars["classname"] = FullNameToC(descriptor_->full_name()) + "_pbc";
+  vars["classname"] = FullNameToC(descriptor_->full_name());
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
   printer->Print(vars,
 		 "/* $classname$ methods */\n"
@@ -196,7 +196,7 @@ void MessageGenerator::GenerateClosureTypedef(io::Printer* printer)
     nested_generators_[i]->GenerateClosureTypedef(printer);
   }
   std::map<string, string> vars;
-  vars["name"] = FullNameToC(descriptor_->full_name()) + "_pbc";
+  vars["name"] = FullNameToC(descriptor_->full_name());
   printer->Print(vars,
                  "typedef void (*$name$_Closure)\n"
 		 "                 (const $name$ *message,\n"
@@ -221,14 +221,14 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
   }
 
   std::map<string, string> vars;
-  vars["classname"] = FullNameToC(descriptor_->full_name()) + "_pbc";
+  vars["classname"] = FullNameToC(descriptor_->full_name());
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
   vars["ucclassname"] = FullNameToUpper(descriptor_->full_name());
   printer->Print(vars,
 		 "void   $lcclassname$_init\n"
 		 "                     ($classname$         *message)\n"
 		 "{\n"
-		 "  static $classname$ init_value = $ucclassname$_PBC_INIT;\n"
+		 "  static $classname$ init_value = $ucclassname$_INIT;\n"
 		 "  *message = init_value;\n"
 		 "}\n");
   if (!is_submessage) {
@@ -278,7 +278,7 @@ void MessageGenerator::
 GenerateMessageDescriptor(io::Printer* printer) {
     map<string, string> vars;
     vars["fullname"] = descriptor_->full_name();
-    vars["classname"] = FullNameToC(descriptor_->full_name()) + "_pbc";
+    vars["classname"] = FullNameToC(descriptor_->full_name());
     vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
     vars["shortname"] = ToCamel(descriptor_->name());
     vars["n_fields"] = SimpleItoa(descriptor_->field_count());

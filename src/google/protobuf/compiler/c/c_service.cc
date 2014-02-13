@@ -64,11 +64,11 @@ void ServiceGenerator::GenerateVfuncs(io::Printer* printer)
 		 "  ProtobufCService base;\n");
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
-    string lcname = CamelToLower(method->name()) + "_pbc";
+    string lcname = CamelToLower(method->name());
     vars_["method"] = lcname;
     vars_["metpad"] = ConvertToSpaces(lcname);
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name()) + "_pbc";
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name()) + "_pbc";
+    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
+    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
     printer->Print(vars_,
                    "  int32_t (*$method$)($cname$_Service *service,\n"
                    "         $metpad$  const $input_typename$ *input,\n"
@@ -107,12 +107,12 @@ void ServiceGenerator::GenerateCallersDeclarations(io::Printer* printer)
 {
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
-    string lcname = CamelToLower(method->name()) + "_pbc";
+    string lcname = CamelToLower(method->name());
     string lcfullname = FullNameToLower(descriptor_->full_name());
     vars_["method"] = lcname;
     vars_["metpad"] = ConvertToSpaces(lcname);
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name()) + "_pbc";
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name()) + "_pbc";
+    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
+    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
     vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_" + lcname);
     printer->Print(vars_,
                    "int32_t $lcfullname$_$method$(ProtobufCService *service,\n"
@@ -160,21 +160,19 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
 {
   int n_methods = descriptor_->method_count();
   MethodIndexAndName *mi_array = new MethodIndexAndName[n_methods];
-  string *method_name = new string[n_methods];
   
   vars_["n_methods"] = SimpleItoa(n_methods);
   printer->Print(vars_, "static const ProtobufCMethodDescriptor $lcfullname$_method_descriptors[$n_methods$] =\n"
                        "{\n");
   for (int i = 0; i < n_methods; i++) {
     const MethodDescriptor *method = descriptor_->method(i);
-    vars_["method"] = method->name() + "_pbc";
+    vars_["method"] = method->name();
     vars_["input_descriptor"] = "&" + FullNameToLower(method->input_type()->full_name()) + "_descriptor";
     vars_["output_descriptor"] = "&" + FullNameToLower(method->output_type()->full_name()) + "_descriptor";
     printer->Print(vars_,
              "  { \"$method$\", $input_descriptor$, $output_descriptor$ },\n");
     mi_array[i].i = i;
-    method_name[i] = method->name() + "_pbc";
-    mi_array[i].name = method_name[i].c_str();
+    mi_array[i].name = method->name().c_str();
   }
   printer->Print(vars_, "};\n");
 
@@ -183,9 +181,9 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
   printer->Print(vars_, "const unsigned $lcfullname$_method_indices_by_name[] = {\n");
   for (int i = 0; i < n_methods; i++) {
     vars_["i"] = SimpleItoa(mi_array[i].i);
-    vars_["method"] = mi_array[i].name;
+    vars_["name"] = mi_array[i].name;
     vars_["comma"] = (i + 1 < n_methods) ? "," : " ";
-    printer->Print(vars_, "  $i$$comma$        /* $method$ */\n");
+    printer->Print(vars_, "  $i$$comma$        /* $name$ */\n");
   }
   printer->Print(vars_, "};\n");
 
@@ -202,19 +200,18 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
 		       "};\n");
 
   delete[] mi_array;
-  delete[] method_name;
 }
 
 void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
 {
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
-    string lcname = CamelToLower(method->name()) + "_pbc";
+    string lcname = CamelToLower(method->name());
     string lcfullname = FullNameToLower(descriptor_->full_name());
     vars_["method"] = lcname;
     vars_["metpad"] = ConvertToSpaces(lcname);
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name()) + "_pbc";
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name()) + "_pbc";
+    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
+    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
     vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_" + lcname);
     vars_["index"] = SimpleItoa(i);
      

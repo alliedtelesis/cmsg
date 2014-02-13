@@ -42,7 +42,7 @@ AtlMessageGenerator::AtlMessageGenerator(const Descriptor* descriptor,
                                    const string& dllexport_decl)
   : descriptor_(descriptor),
     dllexport_decl_(dllexport_decl),
-    field_generators_(descriptor, false),
+    field_generators_(descriptor),
     nested_generators_(new scoped_ptr<AtlMessageGenerator>[
       descriptor->nested_type_count()]),
     enum_generators_(new scoped_ptr<EnumGenerator>[

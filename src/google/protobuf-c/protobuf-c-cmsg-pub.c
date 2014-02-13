@@ -758,7 +758,9 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     //read the message
     cmsg_sub_entry *subscriber_entry;
     subscriber_entry = (cmsg_sub_entry *) CMSG_CALLOC (1, sizeof (cmsg_sub_entry));
-    sprintf (subscriber_entry->method_name, "%s_pbc", input->method_name);
+    strncpy (subscriber_entry->method_name, input->method_name,
+             sizeof (subscriber_entry->method_name) - 1);
+    subscriber_entry->method_name[sizeof (subscriber_entry->method_name) - 1] = '\0';
 
     subscriber_entry->transport = cmsg_transport_new (input->transport_type);
 

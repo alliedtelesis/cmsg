@@ -34,7 +34,7 @@ namespace c {
 
 class StringFieldGenerator : public FieldGenerator {
  public:
-  explicit StringFieldGenerator(const FieldDescriptor* descriptor, bool addPbc);
+  explicit StringFieldGenerator(const FieldDescriptor* descriptor);
   ~StringFieldGenerator();
 
   // implements FieldGenerator ---------------------------------------

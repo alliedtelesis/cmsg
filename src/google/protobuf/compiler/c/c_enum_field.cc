@@ -51,8 +51,8 @@ void SetEnumVariables(const FieldDescriptor* descriptor,
 // ===================================================================
 
 EnumFieldGenerator::
-EnumFieldGenerator(const FieldDescriptor* descriptor, bool addPbc)
-  : FieldGenerator(descriptor, addPbc)
+EnumFieldGenerator(const FieldDescriptor* descriptor)
+  : FieldGenerator(descriptor)
 {
   SetEnumVariables(descriptor, &variables_);
 }
@@ -66,10 +66,7 @@ void EnumFieldGenerator::GenerateStructMembers(io::Printer* printer) const
       printer->Print(variables_, "$type$ $name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      if (addPbc_)
-      {
-        printer->Print(variables_, "protobuf_c_boolean has_$name$$deprecated$;\n");
-      }
+      printer->Print(variables_, "protobuf_c_boolean has_$name$$deprecated$;\n");
       printer->Print(variables_, "$type$ $name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_REPEATED:
@@ -90,17 +87,11 @@ void EnumFieldGenerator::GenerateStaticInit(io::Printer* printer) const
       printer->Print(variables_, "$default$");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      if (addPbc_)
-        printer->Print(variables_, "0,$default$");
-      else
-        printer->Print(variables_, "$default$");
+      printer->Print(variables_, "0,$default$");
       break;
     case FieldDescriptor::LABEL_REPEATED:
       // no support for default?
-      if (addPbc_)
-        printer->Print("0,NULL");
-      else
-        printer->Print("0,NULL");
+      printer->Print("0,NULL");
       break;
   }
 }

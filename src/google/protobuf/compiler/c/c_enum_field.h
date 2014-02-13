@@ -34,7 +34,7 @@ namespace c {
 
 class EnumFieldGenerator : public FieldGenerator {
  public:
-  explicit EnumFieldGenerator(const FieldDescriptor* descriptor, bool addPbc);
+  explicit EnumFieldGenerator(const FieldDescriptor* descriptor);
   ~EnumFieldGenerator();
 
   // implements FieldGenerator ---------------------------------------

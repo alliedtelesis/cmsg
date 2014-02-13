@@ -35,8 +35,8 @@ using internal::WireFormat;
 // ===================================================================
 
 MessageFieldGenerator::
-MessageFieldGenerator(const FieldDescriptor* descriptor, bool addPbc)
-  : FieldGenerator(descriptor, addPbc) {
+MessageFieldGenerator(const FieldDescriptor* descriptor)
+  : FieldGenerator(descriptor) {
 }
 
 MessageFieldGenerator::~MessageFieldGenerator() {}
@@ -45,14 +45,8 @@ void MessageFieldGenerator::GenerateStructMembers(io::Printer* printer) const
 {
   map<string, string> vars;
   vars["name"] = FieldName(descriptor_);
-  if (addPbc_)
-  {
-    vars["type"] = FullNameToC(descriptor_->message_type()->full_name()) + "_pbc";
-  }
-  else
-  {
-    vars["type"] = FullNameToC(descriptor_->message_type()->full_name());
-  }
+  vars["type"] = FullNameToC(descriptor_->message_type()->full_name());
+
   vars["deprecated"] = FieldDeprecated(descriptor_);
   switch (descriptor_->label()) {
     case FieldDescriptor::LABEL_REQUIRED:
@@ -80,10 +74,7 @@ void MessageFieldGenerator::GenerateStaticInit(io::Printer* printer) const
       printer->Print("NULL");
       break;
     case FieldDescriptor::LABEL_REPEATED:
-      if (addPbc_)
-        printer->Print("0,NULL");
-      else
-        printer->Print("0,NULL");
+      printer->Print("0,NULL");
       break;
   }
 }

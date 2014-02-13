@@ -245,10 +245,10 @@ void AtlCodeGenerator::GenerateAtlApiClosureFunction(const MethodDescriptor &met
   vars_["output_typename"] = FullNameToC(method.output_type()->full_name());
   vars_["closure_name"] = GetAtlClosureFunctionName(method);
 
-  printer->Print(vars_, "static void $closure_name$ (const $output_typename$_pbc *result, void *closure_data)\n");
+  printer->Print(vars_, "static void $closure_name$ (const $output_typename$ *result, void *closure_data)\n");
   printer->Print("{\n");
   printer->Indent();
-  printer->Print(vars_, "$output_typename$_pbc *cdata = ($output_typename$_pbc *)closure_data;\n");
+  printer->Print(vars_, "$output_typename$ *cdata = ($output_typename$ *)closure_data;\n");
   //
   // if our return type has repeated fields, we'll need a counter to loop over the array of pointers
   //
@@ -271,11 +271,6 @@ void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, 
   vars_["method"] = lcname;
   vars_["method_input"] = FullNameToC(method.input_type()->full_name());
   vars_["method_output"] = FullNameToC(method.output_type()->full_name());
-  //
-  // delete these next two lines once we rename pbc structs back to the full name
-  //
-  vars_["method_input"] += "_pbc";
-  vars_["method_output"] += "_pbc";
 
   printer->Print(vars_, "int $lcfullname$_api_$method$ (cmsg_client *_client");
 
@@ -335,7 +330,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     if(method->input_type()->field_count() <= 0)
     {
       printer->Print("/* Create a local send message since the developer hasn't supplied one. */\n");
-      printer->Print(vars_, "$input_typename$_pbc _send_msg = $input_typename_upper$_PBC_INIT;\n");
+      printer->Print(vars_, "$input_typename$ _send_msg = $input_typename_upper$_INIT;\n");
       // change the name of the send message so that we can get the address of it for the send call
       vars_["send_msg_name"] = "&_send_msg";
     }
@@ -373,7 +368,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print("/* Send! */\n");
     vars_["closure_name"] = GetAtlClosureFunctionName(*method);
     vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
-    vars_["method_lcname"] = CamelToLower(method->name()) + "_pbc";
+    vars_["method_lcname"] = CamelToLower(method->name());
 
     printer->Print(vars_, "_return_status = $lcfullname$_$method_lcname$ (_service, $send_msg_name$, NULL, $closure_data_name$);\n\n");
 
@@ -865,8 +860,8 @@ void AtlCodeGenerator::GenerateAtlServerDefinition(const MethodDescriptor &metho
 
   printer->Print(vars_,
                  "int32_t $lcfullname$_server_$method$ ($cname$_Service *_service,\n"
-                 "        $padddddddddddddddddddddddd$  const $input_typename$_pbc *input,\n"
-                 "        $padddddddddddddddddddddddd$  $output_typename$_pbc_Closure _closure,\n"
+                 "        $padddddddddddddddddddddddd$  const $input_typename$ *input,\n"
+                 "        $padddddddddddddddddddddddd$  $output_typename$_Closure _closure,\n"
                  "        $padddddddddddddddddddddddd$  void *_closure_data)");
   if (forHeader)
   {
@@ -881,10 +876,6 @@ void AtlCodeGenerator::GenerateAtlServerImplDefinition(const MethodDescriptor &m
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
   vars_["method_input"] = FullNameToC(method.input_type()->full_name());
-  //
-  // delete this line once we rename pbc structs back to the full name
-  //
-  vars_["method_input"] += "_pbc";
 
   printer->Print(vars_, "void $lcfullname$_impl_$method$ (const void *service");
   if (method.input_type()->field_count() > 0)
@@ -905,10 +896,6 @@ void AtlCodeGenerator::GenerateAtlServerImplStub(const MethodDescriptor &method,
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
   vars_["method_input"] = FullNameToC(method.input_type()->full_name());
-  //
-  // delete this line once we rename pbc structs back to the full name
-  //
-  vars_["method_input"] += "_pbc";
 
   GenerateAtlServerImplDefinition(method, printer, false);
 
@@ -938,12 +925,12 @@ void AtlCodeGenerator::GenerateAtlServerSendImplementation(const MethodDescripto
   printer->Print("{\n");
   printer->Indent();
 
-  printer->Print(vars_, "$output_typename$_pbc_Closure _closure = ((const $cname$_Service *)_service)->closure;\n");
+  printer->Print(vars_, "$output_typename$_Closure _closure = ((const $cname$_Service *)_service)->closure;\n");
   printer->Print(vars_, "void *_closure_data = ((const $cname$_Service *)_service)->closure_data;\n");
 
   if (method.output_type()->field_count() == 0)
   {
-    printer->Print(vars_, "$output_typename$_pbc send_msg = $output_typename_upper$_PBC_INIT;\n");
+    printer->Print(vars_, "$output_typename$ send_msg = $output_typename_upper$_INIT;\n");
     vars_["send_msg_name"] = "&send_msg";
   }
   printer->Print("\n");
@@ -965,7 +952,7 @@ void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &m
   printer->Print(vars_, "void $lcfullname$_server_$method$Send (const void *_service");
   if (method.output_type()->field_count() > 0)
   {
-    printer->Print(vars_, ", $method_output$_pbc *send_msg");
+    printer->Print(vars_, ", $method_output$ *send_msg");
   }
   printer->Print(")");
   if (forHeader)
@@ -1038,10 +1025,6 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       if (field->type() == FieldDescriptor::TYPE_MESSAGE)
       {
         vars_["message_name"] = FullNameToC(field->message_type()->full_name());
-        if (to_pbc)
-        {
-          vars_["message_name"] = vars_["message_name"] + "_pbc";
-        }
       }
       else
       {
@@ -1093,11 +1076,9 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
         }
 
         // if this is a pbc struct, we need to init it before use
-        if (to_pbc)
-        {
-          vars_["lcclassname"] = FullNameToLower(field->message_type()->full_name());
-          printer->Print(vars_, "$lcclassname$_init($left_field_name$[$i$]);\n");
-        }
+        vars_["lcclassname"] = FullNameToLower(field->message_type()->full_name());
+        printer->Print(vars_, "$lcclassname$_init($left_field_name$[$i$]);\n");
+
         GenerateMessageCopyCode(field->message_type(),
                                 lhm + field_name + "[" + vars_["i"] + "]->",
                                 rhm + field_name + "[" + vars_["i"] + "]->",
@@ -1172,10 +1153,8 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
           printer->Indent();
           indented = true;
           // update the "has_' field if copying to a pbc message
-          if (to_pbc)
-          {
-            printer->Print(vars_, "$lhm_has_field_name$ = $rhm_has_field_name$;\n");
-          }
+          printer->Print(vars_, "$lhm_has_field_name$ = $rhm_has_field_name$;\n");
+
         }
       }
       vars_["left_arrow"] = ".";
@@ -1228,10 +1207,7 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
           printer->Indent();
           indented = true;
           // update the "has_' field if copying to a pbc message
-          if (to_pbc)
-          {
-            printer->Print(vars_, "$lhm_has_field_name$ = $rhm_has_field_name$;\n");
-          }
+          printer->Print(vars_, "$lhm_has_field_name$ = $rhm_has_field_name$;\n");
         }
       }
       printer->Print(vars_, "$result_ref$$left_field_name$ = $right_field_name$;\n");
@@ -1253,11 +1229,11 @@ void AtlCodeGenerator::GenerateMessageCopyCode(const Descriptor *message, const 
       //
       if (allocate_memory)
       {
-        if (send || to_pbc)
+        if (send)
         {
           // send messages are always _pbc structures, so make sure we allocate memory for
           // a _pbc and not an ATL struct (_pbc are bigger than ATL structs)
-          vars_["message_name"] = FullNameToC(field->message_type()->full_name()) + "_pbc";
+          vars_["message_name"] = FullNameToC(field->message_type()->full_name());
           printer->Print(vars_, "$left_field_name$ = CMSG_CALLOC (1, sizeof ($message_name$));\n");
           // then if we are sending the struct we must init it
           if (send)

@@ -31,8 +31,8 @@ namespace compiler {
 namespace c {
 
 PrimitiveFieldGenerator::
-PrimitiveFieldGenerator(const FieldDescriptor* descriptor, bool addPbc)
-  : FieldGenerator(descriptor, addPbc) {
+PrimitiveFieldGenerator(const FieldDescriptor* descriptor)
+  : FieldGenerator(descriptor) {
 }
 
 PrimitiveFieldGenerator::~PrimitiveFieldGenerator() {}
@@ -54,12 +54,7 @@ void PrimitiveFieldGenerator::GenerateStructMembers(io::Printer* printer) const
     case FieldDescriptor::TYPE_FIXED64 : c_type = "uint64_t"; break;
     case FieldDescriptor::TYPE_FLOAT   : c_type = "float"; break;
     case FieldDescriptor::TYPE_DOUBLE  : c_type = "double"; break;
-    case FieldDescriptor::TYPE_BOOL    :
-      if (addPbc_)
-        c_type = "protobuf_c_boolean";
-      else
-        c_type = "cmsg_bool_t";
-      break;
+    case FieldDescriptor::TYPE_BOOL    : c_type = "cmsg_bool_t"; break;
     case FieldDescriptor::TYPE_ENUM    : 
     case FieldDescriptor::TYPE_STRING  :
     case FieldDescriptor::TYPE_BYTES   :
@@ -83,10 +78,7 @@ void PrimitiveFieldGenerator::GenerateStructMembers(io::Printer* printer) const
       printer->Print(vars, "$c_type$ $name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      if (addPbc_)
-      {
-        printer->Print(vars, "protobuf_c_boolean has_$name$$deprecated$;\n");
-      }
+      printer->Print(vars, "protobuf_c_boolean has_$name$$deprecated$;\n");
       printer->Print(vars, "$c_type$ $name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_REPEATED:
@@ -142,16 +134,10 @@ void PrimitiveFieldGenerator::GenerateStaticInit(io::Printer* printer) const
       printer->Print(vars, "$default_value$");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      if (addPbc_)
-        printer->Print(vars, "0,$default_value$");
-      else
-        printer->Print(vars, "$default_value$");
+      printer->Print(vars, "0,$default_value$");
       break;
     case FieldDescriptor::LABEL_REPEATED:
-      if (addPbc_)
-        printer->Print("0,NULL");
-      else
-        printer->Print("0,NULL");
+      printer->Print("0,NULL");
       break;
   }
 }

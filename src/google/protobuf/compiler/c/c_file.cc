@@ -260,6 +260,7 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
     "#include <google/protobuf-c/protobuf-c.h>\n"
+    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n"
     "\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
@@ -289,18 +290,6 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
   }
   f.close();
   printer->Print("\n");
-
-  // Generate atl structure definitions.
-  printer->Print("\n/* --- atl generated structures --- */\n\n");
-  for (int i = 0; i < file_->message_type_count(); i++) {
-    atl_message_generators_[i]->GenerateStructTypedef(printer);
-  }
-
-  printer->Print("\n");
-  for (int i = 0; i < file_->message_type_count(); i++) {
-    atl_message_generators_[i]->GenerateStructDefinition(printer);
-  }
-
   printer->Print(
     "\n"
     "PROTOBUF_C_END_DECLS\n"
@@ -318,19 +307,19 @@ void FileGenerator::GenerateAtlApiHeader(io::Printer* printer) {
     "\n"
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
-    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n"
     "\n"
+    "/* include the atl types header to get pbc header, cmsg.h etc */\n"
+    "#include \"$types$.h\"\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
-    "header_define", header_define);
+    "header_define", header_define,
+    "types", GetAtlTypesFilename(file_->name()));
 
   //
   // add some includes for the ATL generated code
   //
   printer->Print("#include <string.h>\n");
   printer->Print("#include <stdlib.h>\n");
-  // include the ATL types header which will also include the pbc header
-  printer->Print("#include \"$pbh$.h\"\n", "pbh", GetAtlTypesFilename(file_->name()));
   printer->Print("/* include the cmsg_client definition for the api function */\n");
   printer->Print("#include <google/protobuf-c/protobuf-c-cmsg-client.h>\n");
 
@@ -383,21 +372,22 @@ void FileGenerator::GenerateAtlImplHeader(io::Printer* printer) {
     "\n"
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
-    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n"
     "\n"
+    "/* include the atl types header to get pbc header, cmsg.h etc */\n"
+    "#include \"$types$.h\"\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
-    "header_define", header_define);
+    "header_define", header_define,
+    "types", GetAtlTypesFilename(file_->name()));
 
   //
   // add some includes for the ATL generated code
   //
   printer->Print("#include <string.h>\n");
   printer->Print("#include <stdlib.h>\n");
-  // include the ATL types header which will also include the pbc header
-  printer->Print("#include \"$pbh$.h\"\n", "pbh", GetAtlTypesFilename(file_->name()));
   // users of the impl will need the server definitions
   printer->Print("#include <google/protobuf-c/protobuf-c-cmsg-server.h>\n");
+
 
   printer->Print("\n");
 

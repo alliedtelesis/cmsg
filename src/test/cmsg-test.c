@@ -30,11 +30,11 @@ starts_with (const char *str, const char *prefix)
 }
 
 void
-cmsg_test_impl_ping (const void *service, const cmsg_ping_request_pbc *recv_msg)
+cmsg_test_impl_ping (const void *service, const cmsg_ping_request *recv_msg)
 {
     int code;
     int value1, value2;
-    cmsg_ping_response_pbc send_msg = CMSG_PING_RESPONSE_PBC_INIT;
+    cmsg_ping_response send_msg = CMSG_PING_RESPONSE_INIT;
 
     code = 0;
     value1 = rand () % 100;
@@ -49,10 +49,10 @@ cmsg_test_impl_ping (const void *service, const cmsg_ping_request_pbc *recv_msg)
 }
 
 void
-cmsg_test_impl_set_priority (const void *service, const cmsg_priority_request_pbc *recv_msg)
+cmsg_test_impl_set_priority (const void *service, const cmsg_priority_request *recv_msg)
 {
     static int status = 0;
-    cmsg_priority_response_pbc send_msg = CMSG_PRIORITY_RESPONSE_PBC_INIT;
+    cmsg_priority_response send_msg = CMSG_PRIORITY_RESPONSE_INIT;
 
     status++;
 
@@ -65,17 +65,17 @@ cmsg_test_impl_set_priority (const void *service, const cmsg_priority_request_pb
 }
 
 void
-cmsg_test_impl_ping_pong (const void *service, const cmsg_ping_requests_pbc *recv_msg)
+cmsg_test_impl_ping_pong (const void *service, const cmsg_ping_requests *recv_msg)
 {
     int i = 0;
-    cmsg_ping_responses_pbc send_msg = CMSG_PING_RESPONSES_PBC_INIT;
+    cmsg_ping_responses send_msg = CMSG_PING_RESPONSES_INIT;
     size_t n_pongs = 0;
-    cmsg_ping_response_pbc *pongs = NULL;
+    cmsg_ping_response *pongs = NULL;
 
     n_pongs = recv_msg->n_pings;
     // setup our reply message (which is just a copy of the received ping values).
-    send_msg.pongs = CMSG_CALLOC (n_pongs, sizeof (cmsg_ping_response_pbc *));
-    pongs = CMSG_CALLOC (n_pongs, sizeof (cmsg_ping_response_pbc));
+    send_msg.pongs = CMSG_CALLOC (n_pongs, sizeof (cmsg_ping_response *));
+    pongs = CMSG_CALLOC (n_pongs, sizeof (cmsg_ping_response));
 
     for (i = 0; i < n_pongs; i++)
     {
@@ -96,7 +96,7 @@ cmsg_test_impl_ping_pong (const void *service, const cmsg_ping_requests_pbc *rec
 }
 
 void
-cmsg_test_impl_notify_priority (const void *service, const cmsg_priority_notification_pbc *recv_msg)
+cmsg_test_impl_notify_priority (const void *service, const cmsg_priority_notification *recv_msg)
 {
     static int status = 0;
     status++;
@@ -260,7 +260,7 @@ run_pub (void *arg)
             int port;
             int priority;
             static int result_status;
-            cmsg_priority_notification_pbc send_msg = CMSG_PRIORITY_NOTIFICATION_PBC_INIT;
+            cmsg_priority_notification send_msg = CMSG_PRIORITY_NOTIFICATION_INIT;
             result_status++;
 
             port = rand () % 100;;
@@ -452,8 +452,8 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
         int port;
         int priority;
         static int result_status;
-        cmsg_priority_request_pbc send_msg = CMSG_PRIORITY_REQUEST_PBC_INIT;
-        cmsg_priority_response_pbc *recv_msg = NULL;
+        cmsg_priority_request send_msg = CMSG_PRIORITY_REQUEST_INIT;
+        cmsg_priority_response *recv_msg = NULL;
 
         result_status++;
         for (l = 0; l < 10; l++)
@@ -489,22 +489,22 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
     else // repeated = yes
     {
         int i = 0;
-        cmsg_ping_requests_pbc send_msg = CMSG_PING_REQUESTS_PBC_INIT;
-        cmsg_ping_responses_pbc *recv_msg = NULL;
+        cmsg_ping_requests send_msg = CMSG_PING_REQUESTS_INIT;
+        cmsg_ping_responses *recv_msg = NULL;
         size_t n_pings = 10;
-        cmsg_ping_request_pbc *pings = NULL;
+        cmsg_ping_request *pings = NULL;
 
         // setup our send message
-        send_msg.pings = CMSG_CALLOC (n_pings, sizeof (cmsg_ping_request_pbc *));
-        pings = CMSG_CALLOC (n_pings, sizeof (cmsg_ping_request_pbc));
+        send_msg.pings = CMSG_CALLOC (n_pings, sizeof (cmsg_ping_request *));
+        pings = CMSG_CALLOC (n_pings, sizeof (cmsg_ping_request));
 
         for (i = 0; i < n_pings; i++)
         {
-          cmsg_ping_request_init (&pings[i]);
-          CMSG_SET_FIELD_VALUE (&pings[i], random, i);
-          CMSG_SET_FIELD_VALUE (&pings[i], randomm, i * 2);
-          CMSG_SET_FIELD_PTR (&send_msg, pings[i], &pings[i]);
-          printf ("[CLIENT] setting ping value pair: %d, %d.\n", pings[i].random, pings[i].randomm);
+            cmsg_ping_request_init (&pings[i]);
+            CMSG_SET_FIELD_VALUE (&pings[i], random, i);
+            CMSG_SET_FIELD_VALUE (&pings[i], randomm, i * 2);
+            CMSG_SET_FIELD_PTR (&send_msg, pings[i], &pings[i]);
+            printf ("[CLIENT] setting ping value pair: %d, %d.\n", pings[i].random, pings[i].randomm);
         }
         send_msg.n_pings = n_pings;
 
