@@ -44,6 +44,11 @@ static void _cmsg_cpg_confchg_fn (cpg_handle_t handle, struct cpg_name *group_na
 static void _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
                                   uint32_t nodeid, uint32_t pid, void *msg, int msg_len);
 
+static int32_t _cmsg_transport_cpg_init_exe_connection (void);
+
+static uint32_t _cmsg_transport_cpg_join_group (cmsg_server *server);
+
+
 /*
  * Global variables
  */

@@ -1,5 +1,19 @@
 #include "protobuf-c-cmsg-server.h"
 
+static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
+                                                          uint8_t *buffer_data);
+
+static int32_t _cmsg_server_echo_req_message_processor (cmsg_server *server,
+                                                        uint8_t *buffer_data);
+
+static void _cmsg_server_empty_method_reply_send (cmsg_server *server,
+                                                  cmsg_status_code status_code,
+                                                  uint32_t method_index);
+
+static cmsg_server * _cmsg_create_server_tipc (const char *server_name, int member_id,
+                                               int scope, ProtobufCService *descriptor,
+                                               cmsg_transport_type transport_type);
+
 
 cmsg_server *
 cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
@@ -1079,8 +1093,8 @@ cmsg_server_queue_filter_show (cmsg_server *server)
 }
 
 static cmsg_server *
-cmsg_create_server_tipc (const char *server_name, int member_id, int scope,
-                         ProtobufCService *descriptor, cmsg_transport_type transport_type)
+_cmsg_create_server_tipc (const char *server_name, int member_id, int scope,
+                          ProtobufCService *descriptor, cmsg_transport_type transport_type)
 {
     cmsg_transport *transport = NULL;
     cmsg_server *server = NULL;
@@ -1106,16 +1120,16 @@ cmsg_server *
 cmsg_create_server_tipc_rpc (const char *server_name, int member_id, int scope,
                              ProtobufCService *descriptor)
 {
-    return cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
-                                    CMSG_TRANSPORT_RPC_TIPC);
+    return _cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
+                                     CMSG_TRANSPORT_RPC_TIPC);
 }
 
 cmsg_server *
 cmsg_create_server_tipc_oneway (const char *server_name, int member_id, int scope,
                                 ProtobufCService *descriptor)
 {
-    return cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
-                                    CMSG_TRANSPORT_ONEWAY_TIPC);
+    return _cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
+                                     CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 void

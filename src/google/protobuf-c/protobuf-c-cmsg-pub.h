@@ -106,9 +106,6 @@ uint32_t cmsg_pub_queue_get_length (cmsg_pub *publisher);
 
 int32_t cmsg_pub_queue_process_all (cmsg_pub *publisher);
 
-int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
-
-
 //queue filter
 void cmsg_pub_queue_filter_set_all (cmsg_pub *publisher,
                                     cmsg_queue_filter_type filter_type);
@@ -127,14 +124,6 @@ cmsg_queue_filter_type cmsg_pub_queue_filter_lookup (cmsg_pub *publisher,
                                                      const char *method);
 
 void cmsg_pub_queue_filter_show (cmsg_pub *publisher);
-
-/**
- * Print the subscriber list of the publisher passed in.
- * This function is NOT thread-safe!!
- * If you want to print the subscriber list and you don't hold the lock on it,
- * use cmsg_pub_print_subscriber_list instead.
- */
-void _cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
 
 /**
  * Print the subscriber list of the publisher passed in.

@@ -3,6 +3,16 @@
 //macro for register handler implentation
 cmsg_sub_service_Service cmsg_pub_subscriber_service = CMSG_SUB_SERVICE_INIT (cmsg_pub_);
 
+static void _cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry);
+
+static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
+
+static void _cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
+
+static cmsg_pub * _cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
+                                               ProtobufCServiceDescriptor *descriptor,
+                                               cmsg_transport_type transport_type);
+
 
 int32_t
 cmsg_sub_entry_compare (cmsg_sub_entry *one, cmsg_sub_entry *two)
@@ -867,7 +877,7 @@ cmsg_pub_queue_process_all (cmsg_pub *publisher)
     return processed;
 }
 
-int32_t
+static int32_t
 _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
 {
     uint32_t processed = 0;
@@ -986,7 +996,7 @@ cmsg_pub_queue_filter_show (cmsg_pub *publisher)
  * If you want to print the subscriber list and you don't hold the lock on it,
  * use cmsg_pub_print_subscriber_list instead.
  */
-void
+static void
 _cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
 {
     syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] listing all list entries\n");
@@ -1020,9 +1030,9 @@ cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
 
 
 static cmsg_pub *
-cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
-                            ProtobufCServiceDescriptor *descriptor,
-                            cmsg_transport_type transport_type)
+_cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
+                             ProtobufCServiceDescriptor *descriptor,
+                             cmsg_transport_type transport_type)
 {
     cmsg_transport *transport = NULL;
     cmsg_pub *publisher = NULL;
@@ -1048,16 +1058,16 @@ cmsg_pub *
 cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
                                 int scope, ProtobufCServiceDescriptor *descriptor)
 {
-    return cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
-                                       CMSG_TRANSPORT_RPC_TIPC);
+    return _cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
+                                        CMSG_TRANSPORT_RPC_TIPC);
 }
 
 cmsg_pub *
 cmsg_create_publisher_tipc_oneway (const char *server_name, int member_id,
                                    int scope, ProtobufCServiceDescriptor *descriptor)
 {
-    return cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
-                                       CMSG_TRANSPORT_ONEWAY_TIPC);
+    return _cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
+                                        CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 void

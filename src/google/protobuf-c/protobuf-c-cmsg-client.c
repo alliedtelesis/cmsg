@@ -1,5 +1,22 @@
 #include "protobuf-c-cmsg-client.h"
 
+static int32_t _cmsg_client_buffer_send_retry_once (cmsg_client *client,
+                                                    uint8_t *queue_buffer,
+                                                    uint32_t queue_buffer_size,
+                                                    const char *method_name);
+
+static int32_t _cmsg_client_queue_process_all_internal (cmsg_client *client);
+
+static int32_t _cmsg_client_queue_process_all_direct (cmsg_client *client);
+
+static int32_t _cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer,
+                                         uint32_t buffer_size);
+
+static cmsg_client *_cmsg_create_client_tipc (const char *server, int member_id,
+                                              int scope,
+                                              ProtobufCServiceDescriptor *descriptor,
+                                              cmsg_transport_type transport_type);
+
 
 cmsg_client *
 cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *descriptor)
@@ -716,7 +733,7 @@ cmsg_client_queue_process_all (cmsg_client *client)
     return processed;
 }
 
-int32_t
+static int32_t
 _cmsg_client_queue_process_all_internal (cmsg_client *client)
 {
     cmsg_send_queue_entry *queue_entry = NULL;
@@ -760,7 +777,7 @@ _cmsg_client_queue_process_all_internal (cmsg_client *client)
     return CMSG_RET_OK;
 }
 
-int32_t
+static int32_t
 _cmsg_client_queue_process_all_direct (cmsg_client *client)
 {
     int ret = CMSG_RET_OK;
@@ -802,7 +819,7 @@ cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
     return ret;
 }
 
-int32_t
+static int32_t
 _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
                                      uint32_t queue_buffer_size, const char *method_name)
 {
@@ -879,6 +896,7 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
     return CMSG_RET_OK;
 }
 
+
 int32_t
 cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
                                uint32_t queue_buffer_size, int max_tries)
@@ -912,7 +930,7 @@ cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_s
     return CMSG_RET_ERR;
 }
 
-int32_t
+static int32_t
 _cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_size)
 {
     int ret = 0;
@@ -984,7 +1002,7 @@ cmsg_client_queue_filter_show (cmsg_client *client)
 
 /* Create a cmsg client and its transport with TIPC (RPC) */
 static cmsg_client *
-cmsg_create_client_tipc (const char *server, int member_id, int scope,
+_cmsg_create_client_tipc (const char *server, int member_id, int scope,
                          ProtobufCServiceDescriptor *descriptor,
                          cmsg_transport_type transport_type)
 {
@@ -1011,16 +1029,16 @@ cmsg_client *
 cmsg_create_client_tipc_rpc (const char *server_name, int member_id, int scope,
                              ProtobufCServiceDescriptor *descriptor)
 {
-    return cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
-                                    CMSG_TRANSPORT_RPC_TIPC);
+    return _cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
+                                     CMSG_TRANSPORT_RPC_TIPC);
 }
 
 cmsg_client *
 cmsg_create_client_tipc_oneway (const char *server_name, int member_id, int scope,
                                 ProtobufCServiceDescriptor *descriptor)
 {
-    return cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
-                                    CMSG_TRANSPORT_ONEWAY_TIPC);
+    return _cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
+                                     CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 /* Destroy a cmsg client and its transport with TIPC */

@@ -3,6 +3,9 @@
 
 extern void cmsg_transport_oneway_udt_init (cmsg_transport *transport);
 
+static int32_t _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle,
+                                            cmsg_server *server, int peek);
+
 
 cmsg_transport *
 cmsg_transport_new (cmsg_transport_type type)

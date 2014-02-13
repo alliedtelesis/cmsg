@@ -1,5 +1,9 @@
 #include "protobuf-c-cmsg-sub.h"
 
+static cmsg_sub * _cmsg_create_subscriber_tipc (const char *server_name, int member_id,
+                                                int scope, ProtobufCService *descriptor,
+                                                cmsg_transport_type transport_type);
+
 
 cmsg_sub *
 cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_service)
@@ -247,9 +251,9 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
 }
 
 static cmsg_sub *
-cmsg_create_subscriber_tipc (const char *server_name, int member_id, int scope,
-                             ProtobufCService *descriptor,
-                             cmsg_transport_type transport_type)
+_cmsg_create_subscriber_tipc (const char *server_name, int member_id, int scope,
+                              ProtobufCService *descriptor,
+                              cmsg_transport_type transport_type)
 {
     cmsg_transport *transport = NULL;
     cmsg_sub *subscriber = NULL;
@@ -275,7 +279,7 @@ cmsg_sub *
 cmsg_create_subscriber_tipc_rpc (const char *server_name, int member_id, int scope,
                                  ProtobufCService *descriptor)
 {
-    return cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
+    return _cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
                                         CMSG_TRANSPORT_RPC_TIPC);
 }
 
@@ -283,7 +287,7 @@ cmsg_sub *
 cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int scope,
                                     ProtobufCService *descriptor)
 {
-    return cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
+    return _cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
                                         CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
