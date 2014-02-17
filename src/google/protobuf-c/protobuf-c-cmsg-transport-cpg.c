@@ -34,6 +34,7 @@
  * Definitions
  */
 #define CPG_CONNECTION_TIMEOUT 180
+#define CPG_JOIN_TIMEOUT 30
 #define TV_USEC_PER_SEC 1000000
 #define SLEEP_TIME_us ((TV_USEC_PER_SEC) / 10)
 
@@ -262,7 +263,7 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
         usleep (SLEEP_TIME_us);
         slept_us += SLEEP_TIME_us;
     }
-    while (slept_us <= (TV_USEC_PER_SEC * 10));
+    while (slept_us <= (TV_USEC_PER_SEC * CPG_JOIN_TIMEOUT));
 
     CMSG_LOG_ERROR ("Couldn't join CPG group %s, result:%d, waited:%ums",
                     server->_transport->config.cpg.group_name.value, result,
