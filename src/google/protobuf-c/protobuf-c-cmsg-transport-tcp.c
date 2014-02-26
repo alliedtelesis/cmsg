@@ -339,7 +339,7 @@ cmsg_transport_tcp_client_close (cmsg_client *client)
     if (client->connection.socket != -1)
     {
         DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->connection.socket, 2);
+        shutdown (client->connection.socket, SHUT_RDWR);
 
         DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
         close (client->connection.socket);
@@ -352,7 +352,7 @@ static void
 cmsg_transport_tcp_server_close (cmsg_server *server)
 {
     DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
-    shutdown (server->connection.sockets.client_socket, 2);
+    shutdown (server->connection.sockets.client_socket, SHUT_RDWR);
 
     DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
     close (server->connection.sockets.client_socket);
@@ -381,7 +381,7 @@ static void
 cmsg_transport_tcp_server_destroy (cmsg_server *server)
 {
     DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-    shutdown (server->connection.sockets.listening_socket, 2);
+    shutdown (server->connection.sockets.listening_socket, SHUT_RDWR);
 
     DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
     close (server->connection.sockets.listening_socket);
