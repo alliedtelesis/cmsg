@@ -348,12 +348,15 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     /* If the call was queued then no point in calling closure as there is no message.
      * Need to exit.
      */
-    if (status_code == CMSG_STATUS_CODE_SERVICE_QUEUED ||
-        status_code == CMSG_STATUS_CODE_SERVICE_DROPPED)
+    if (status_code == CMSG_STATUS_CODE_SERVICE_QUEUED)
     {
-        DEBUG (CMSG_INFO, "[CLIENT] info: response message %s\n",
-               status_code == CMSG_STATUS_CODE_SERVICE_QUEUED ? "QUEUED" : "DROPPED");
-        return CMSG_RET_OK;
+        DEBUG (CMSG_INFO, "[CLIENT] info: response message QUEUED\n");
+        return CMSG_RET_QUEUED;
+    }
+    else if (status_code == CMSG_STATUS_CODE_SERVICE_DROPPED)
+    {
+        DEBUG (CMSG_INFO, "[CLIENT] info: response message DROPPED\n");
+        return CMSG_RET_DROPPED;
     }
     else if (message_pt == NULL)
     {

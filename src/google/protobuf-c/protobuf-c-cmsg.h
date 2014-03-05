@@ -87,6 +87,8 @@
 // Return codes
 #define CMSG_RET_OK   0
 #define CMSG_RET_ERR -1
+#define CMSG_RET_QUEUED 1
+#define CMSG_RET_DROPPED 2
 
 #define TLV_SIZE(x) ((2 * sizeof (uint32_t)) + (x))
 
