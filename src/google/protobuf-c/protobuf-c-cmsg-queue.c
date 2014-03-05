@@ -331,13 +331,9 @@ int32_t
 cmsg_queue_filter_set (GHashTable *queue_filter_hash_table, const char *method,
                        cmsg_queue_filter_type filter_type)
 {
-    char method_pbc[128];
-    sprintf (method_pbc, "%s_pbc", method);
-
     //add filter for single method with filter type
     cmsg_queue_filter_entry *entry;
-    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
-                                                             (gconstpointer) method_pbc);
+    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table, method);
 
     if (entry)
     {
@@ -351,13 +347,9 @@ cmsg_queue_filter_set (GHashTable *queue_filter_hash_table, const char *method,
 int32_t
 cmsg_queue_filter_clear (GHashTable *queue_filter_hash_table, const char *method)
 {
-    char method_pbc[128];
-    sprintf (method_pbc, "%s_pbc", method);
-
     //clear filter for single method
     cmsg_queue_filter_entry *entry;
-    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
-                                                             (gconstpointer) method_pbc);
+    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table, method);
 
     if (entry)
     {
