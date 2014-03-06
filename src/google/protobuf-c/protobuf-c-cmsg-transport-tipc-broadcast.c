@@ -141,12 +141,45 @@ static int32_t
 cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int length,
                                            int flag)
 {
-    return (sendto (client->connection.socket,
-                    buff,
-                    length,
-                    MSG_DONTWAIT,
-                    (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
-                    sizeof (struct sockaddr_tipc)));
+    int count = 0;
+
+    int result = sendto (client->connection.socket,
+                         buff,
+                         length,
+                         MSG_DONTWAIT,
+                         (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
+                         sizeof (struct sockaddr_tipc));
+
+    if (result != length)
+    {
+        CMSG_LOG_DEBUG ("[TRANSPORT] Failed to send tipc broadcast, result=%d, errno=%d",
+                        result, errno);
+
+        while (count < 25)
+        {
+            usleep (50000);
+            count++;
+
+            result = sendto (client->connection.socket,
+                             buff,
+                             length,
+                             MSG_DONTWAIT,
+                             (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
+                             sizeof (struct sockaddr_tipc));
+        }
+
+        if (count >= 25)
+        {
+            CMSG_LOG_ERROR ("[TRANSPORT] Failed to send tipc broadcast send retried\n");
+        }
+        else
+        {
+            CMSG_LOG_DEBUG ("[TRANSPORT] Succeeded sending tipc broadcast (count=%d)\n",
+                            count);
+        }
+    }
+
+    return result;
 }
 
 
