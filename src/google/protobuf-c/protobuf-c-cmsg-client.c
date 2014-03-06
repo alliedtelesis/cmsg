@@ -404,6 +404,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     uint32_t method_length;
     int type = CMSG_TLV_METHOD_TYPE;
     cmsg_header header;
+    int ret_val;
 
     CMSG_ASSERT (client);
     CMSG_ASSERT (input);
@@ -434,7 +435,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
         else if (action == CMSG_QUEUE_FILTER_DROP)
         {
             DEBUG (CMSG_INFO, "[CLIENT] dropping message: %s\n", method_name);
-            return CMSG_RET_OK;
+            return CMSG_RET_DROPPED;
         }
         else if (action == CMSG_QUEUE_FILTER_QUEUE)
         {
@@ -494,10 +495,10 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
     if (!do_queue)
     {
-        cmsg_client_buffer_send_retry_once (client,
-                                            buffer,
-                                            total_message_size,
-                                            method_name);
+        ret_val = cmsg_client_buffer_send_retry_once (client,
+                                                      buffer,
+                                                      total_message_size,
+                                                      method_name);
     }
     else
     {
@@ -540,11 +541,12 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             client->queue_process_count = client->queue_process_count + 1;
             pthread_mutex_unlock (&client->queue_process_mutex);
         }
+        ret_val = CMSG_RET_QUEUED;
     }
 
     CMSG_FREE (buffer);
 
-    return CMSG_RET_OK;
+    return ret_val;
 }
 
 
