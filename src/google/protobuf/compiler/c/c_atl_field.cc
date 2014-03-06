@@ -69,7 +69,7 @@ void AtlFieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printe
   map<string, string> variables;
   variables["LABEL"] = CamelToUpper(GetLabelName(descriptor_->label()));
   variables["TYPE"] = type_macro;
-  variables["classname"] = FullNameToC(FieldScope(descriptor_)->full_name()) + "_pbc";
+  variables["classname"] = FullNameToC(FieldScope(descriptor_)->full_name());
   variables["name"] = FieldName(descriptor_);
   variables["proto_name"] = descriptor_->name();
   variables["descriptor_addr"] = descriptor_addr;
