@@ -141,7 +141,8 @@ static int32_t
 cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int length,
                                            int flag)
 {
-    int count = 0;
+    int retries = 0;
+    int saved_errno = 0;
 
     int result = sendto (client->connection.socket,
                          buff,
@@ -152,13 +153,13 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
 
     if (result != length)
     {
-        CMSG_LOG_DEBUG ("[TRANSPORT] Failed to send tipc broadcast, result=%d, errno=%d",
+        CMSG_LOG_DEBUG ("[TRANSPORT] Failed to send tipc broadcast, result=%d, errno=%d\n",
                         result, errno);
 
-        while (count < 25)
+        while (result != length && retries < 25)
         {
             usleep (50000);
-            count++;
+            retries++;
 
             result = sendto (client->connection.socket,
                              buff,
@@ -166,17 +167,20 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
                              MSG_DONTWAIT,
                              (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
                              sizeof (struct sockaddr_tipc));
-        }
 
-        if (count >= 25)
-        {
-            CMSG_LOG_ERROR ("[TRANSPORT] Failed to send tipc broadcast send retried\n");
+            saved_errno = errno;
         }
-        else
-        {
-            CMSG_LOG_DEBUG ("[TRANSPORT] Succeeded sending tipc broadcast (count=%d)\n",
-                            count);
-        }
+    }
+
+    if (retries >= 25)
+    {
+        CMSG_LOG_ERROR ("[TRANSPORT] Failed to send tipc broadcast message\n");
+        errno = saved_errno;
+    }
+    else if (retries > 0)
+    {
+        CMSG_LOG_DEBUG ("[TRANSPORT] Succeeded sending tipc broadcast (retries=%d)\n",
+                        retries);
     }
 
     return result;
