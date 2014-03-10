@@ -103,6 +103,10 @@ cmsg_client_destroy (cmsg_client *client)
 
     cmsg_queue_filter_free (client->queue_filter_hash_table, client->descriptor);
 
+    pthread_mutex_destroy (&client->queue_process_mutex);
+
+    pthread_cond_destroy (&client->queue_process_cond);
+
     g_hash_table_destroy (client->queue_filter_hash_table);
 
     cmsg_send_queue_free_all (client->queue);
@@ -114,8 +118,8 @@ cmsg_client_destroy (cmsg_client *client)
     if (client->_transport)
     {
         client->_transport->client_close (client);
+        client->_transport->client_destroy (client);
     }
-    client->_transport->client_destroy (client);
 
     pthread_mutex_destroy (&client->connection_mutex);
 

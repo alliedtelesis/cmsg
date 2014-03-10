@@ -863,9 +863,18 @@ cmsg_server_queue_process (cmsg_server *server)
 
     pthread_mutex_unlock (&server->queueing_state_mutex);
 
-    return CMSG_RET_OK;
+    return processed;
 }
 
+int32_t
+cmsg_server_queue_process_some (cmsg_server *server, int32_t number_to_process)
+{
+    pthread_mutex_lock (&server->queueing_state_mutex);
+    server->queue_process_number = number_to_process;
+    pthread_mutex_unlock (&server->queueing_state_mutex);
+
+    return cmsg_server_queue_process (server);
+}
 
 /**
  * Called from server receive thread in application!

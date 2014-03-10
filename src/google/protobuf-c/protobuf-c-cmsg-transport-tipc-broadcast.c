@@ -141,12 +141,49 @@ static int32_t
 cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int length,
                                            int flag)
 {
-    return (sendto (client->connection.socket,
-                    buff,
-                    length,
-                    MSG_DONTWAIT,
-                    (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
-                    sizeof (struct sockaddr_tipc)));
+    int retries = 0;
+    int saved_errno = 0;
+
+    int result = sendto (client->connection.socket,
+                         buff,
+                         length,
+                         MSG_DONTWAIT,
+                         (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
+                         sizeof (struct sockaddr_tipc));
+
+    if (result != length)
+    {
+        CMSG_LOG_DEBUG ("[TRANSPORT] Failed to send tipc broadcast, result=%d, errno=%d\n",
+                        result, errno);
+
+        while (result != length && retries < 25)
+        {
+            usleep (50000);
+            retries++;
+
+            result = sendto (client->connection.socket,
+                             buff,
+                             length,
+                             MSG_DONTWAIT,
+                             (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
+                             sizeof (struct sockaddr_tipc));
+
+            saved_errno = errno;
+        }
+    }
+
+    if (retries >= 25)
+    {
+        CMSG_LOG_ERROR ("[TRANSPORT] Failed to send tipc broadcast message\n");
+        errno = saved_errno;
+    }
+    else if (retries > 0)
+    {
+        CMSG_LOG_DEBUG ("[TRANSPORT] Succeeded sending tipc broadcast (retries=%d)\n",
+                        retries);
+    }
+
+    return result;
 }
 
 
@@ -173,7 +210,7 @@ cmsg_transport_tipc_broadcast_client_close (cmsg_client *client)
     if (client->connection.socket != -1)
     {
         DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->connection.socket, 2);
+        shutdown (client->connection.socket, SHUT_RDWR);
 
         DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
         close (client->connection.socket);
@@ -232,7 +269,7 @@ static void
 cmsg_transport_tipc_broadcast_server_destroy (cmsg_server *server)
 {
     DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-    shutdown (server->connection.sockets.listening_socket, 2);
+    shutdown (server->connection.sockets.listening_socket, SHUT_RDWR);
 
     DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
     close (server->connection.sockets.listening_socket);
