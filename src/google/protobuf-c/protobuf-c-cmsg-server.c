@@ -882,6 +882,9 @@ cmsg_server_queue_disable (cmsg_server *server)
 uint32_t
 cmsg_server_queue_get_length (cmsg_server *server)
 {
+    if (server == NULL)
+        return 0;
+
     pthread_mutex_lock (&server->queue_mutex);
     uint32_t queue_length = g_queue_get_length (server->queue);
     pthread_mutex_unlock (&server->queue_mutex);
@@ -893,6 +896,9 @@ cmsg_server_queue_get_length (cmsg_server *server)
 uint32_t
 cmsg_server_queue_max_length_get (cmsg_server *server)
 {
+    if (server == NULL)
+        return 0;
+
     return server->maxQueueLength;
 }
 
