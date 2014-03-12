@@ -78,6 +78,9 @@
 // Return codes
 #define CMSG_RET_OK   0
 #define CMSG_RET_ERR -1
+/* QUEUED and DROPPED are used for server queuing & dropping. */
+#define CMSG_RET_QUEUED 1
+#define CMSG_RET_DROPPED 2
 
 // Protocol has different msg types which reflect which fields are in use:
 // METHOD_REQ - client request to the server to invoke a method

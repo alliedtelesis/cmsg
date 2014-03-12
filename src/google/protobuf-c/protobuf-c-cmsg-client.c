@@ -325,6 +325,9 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     {
         DEBUG (CMSG_INFO, "[CLIENT] info: response message %s\n",
                status_code == CMSG_STATUS_CODE_SERVICE_QUEUED ? "QUEUED" : "DROPPED");
+
+        client->invoke_return_state =
+          (status_code == CMSG_STATUS_CODE_SERVICE_QUEUED) ? CMSG_RET_QUEUED : CMSG_RET_DROPPED;
         return;
     }
     else if (message_pt == NULL)
