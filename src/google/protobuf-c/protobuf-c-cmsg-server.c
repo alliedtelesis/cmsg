@@ -6,10 +6,6 @@ static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
 static int32_t _cmsg_server_echo_req_message_processor (cmsg_server *server,
                                                         uint8_t *buffer_data);
 
-static void _cmsg_server_empty_method_reply_send (cmsg_server *server,
-                                                  cmsg_status_code status_code,
-                                                  uint32_t method_index);
-
 static cmsg_server * _cmsg_create_server_tipc (const char *server_name, int member_id,
                                                int scope, ProtobufCService *descriptor,
                                                cmsg_transport_type transport_type);
@@ -597,15 +593,14 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
         CMSG_LOG_ERROR ("[SERVER] Received a msg type the server doesn't support - %d",
                         server_request->msg_type);
         return CMSG_RET_ERR;
-        break;
     }
 
 }
 
 
-static void
-_cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code status_code,
-                                      uint32_t method_index)
+void
+cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code status_code,
+                                     uint32_t method_index)
 {
     int ret = 0;
     cmsg_header header;
@@ -665,8 +660,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         DEBUG (CMSG_INFO, "[SERVER] method %d queued, sending response without data\n",
                server_request->method_index);
 
-        _cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_QUEUED,
-                                              server_request->method_index);
+        cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_QUEUED,
+                                             server_request->method_index);
         return;
     }
     /* If the method has been dropped due a filter then send a response with no data.
@@ -677,8 +672,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         DEBUG (CMSG_INFO, "[SERVER] method %d dropped, sending response without data\n",
                server_request->method_index);
 
-        _cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_DROPPED,
-                                              server_request->method_index);
+        cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_DROPPED,
+                                             server_request->method_index);
         return;
     }
     /* No response message was specified, therefore reply with an error
@@ -687,8 +682,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     {
         DEBUG (CMSG_INFO, "[SERVER] sending response without data\n");
 
-        _cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
-                                              server_request->method_index);
+        cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+                                             server_request->method_index);
         return;
     }
     /* Method has executed normally and has a response to be sent.

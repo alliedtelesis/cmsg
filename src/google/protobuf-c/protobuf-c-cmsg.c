@@ -206,24 +206,25 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
                            protobuf_c_service_descriptor_get_method_index_by_name
                                                (descriptor, tlv_method_header->method);
             /*
-             * We assert the process if we get UNDEFINED_METHOD method index. This has to be
-             * nicely handled later. By asserting the process, user can know which message
-             * caused the problem.
+             * It is possible that we could receive a method that we do not know. In this
+             * case, there is nothing we can do to process the message. We need to reply
+             * to the client to unblock it (if the transport is two-way). Therefore, we
+             * overwrite the msg_type, and return CMSG_RET_METHOD_NOT_FOUND.
              */
             if (!(IS_METHOD_DEFINED (server_request->method_index)))
             {
                 CMSG_LOG_ERROR ("Undefined Method - %s", tlv_method_header->method);
-                assert (0);
+                return CMSG_RET_METHOD_NOT_FOUND;
             }
 
             strncpy (server_request->method_name_recvd, tlv_method_header->method,
                      tlv_method_header->method_length);
             break;
+
         default:
             CMSG_LOG_ERROR ("Processing TLV header, bad TLV type value - %d",
                             tlv_header->type);
             return CMSG_RET_ERR;
-            break;
         }
         buf = buf + TLV_SIZE (tlv_header->tlv_value_length);
         extra_header_size = extra_header_size - TLV_SIZE (tlv_header->tlv_value_length);

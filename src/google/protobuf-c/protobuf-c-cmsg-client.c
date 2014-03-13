@@ -362,6 +362,11 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         DEBUG (CMSG_INFO, "[CLIENT] info: response message DROPPED\n");
         return CMSG_RET_DROPPED;
     }
+    else if (status_code == CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND)
+    {
+        DEBUG (CMSG_INFO, "[CLIENT] info: response message METHOD NOT FOUND\n");
+        return CMSG_RET_METHOD_NOT_FOUND;
+    }
     else if (message_pt == NULL)
     {
         /* There may be no message if the server has sent an empty message which is ok. */

@@ -85,6 +85,10 @@ void cmsg_server_invoke (cmsg_server *server,
 
 int32_t cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data);
 
+void cmsg_server_empty_method_reply_send (cmsg_server *server,
+                                          cmsg_status_code status_code,
+                                          uint32_t method_index);
+
 void cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data);
 
 void cmsg_server_closure_oneway (const ProtobufCMessage *message, void *closure_data);

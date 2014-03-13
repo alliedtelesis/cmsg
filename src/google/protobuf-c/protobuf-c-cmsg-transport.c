@@ -153,27 +153,36 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
         CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "receive",
                                      cmsg_prof_time_toc (&server->prof));
-        cmsg_tlv_header_process (buffer_data, &server_request, extra_header_size,
-                                 server->service->descriptor);
 
-        buffer_data = buffer_data + extra_header_size;
-        // Process any message that has no more length or we have received what
-        // we expected to from the socket
-        if (header_converted.message_length == 0 || nbytes == (int) dyn_len)
+        if (cmsg_tlv_header_process (buffer_data, &server_request, extra_header_size,
+                                     server->service->descriptor) == CMSG_RET_METHOD_NOT_FOUND)
         {
-            DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
-            cmsg_buffer_print (buffer_data, dyn_len);
-            server->server_request = &server_request;
-            if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
-                CMSG_LOG_ERROR ("[TRANSPORT] message processing returned an error\n");
-
+            cmsg_server_empty_method_reply_send (server,
+                                                 CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,
+                                                 UNDEFINED_METHOD);
         }
         else
         {
-            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d no data",
-                            server->connection.sockets.client_socket);
 
-            ret = CMSG_RET_ERR;
+            buffer_data = buffer_data + extra_header_size;
+            // Process any message that has no more length or we have received what
+            // we expected to from the socket
+            if (header_converted.message_length == 0 || nbytes == (int) dyn_len)
+            {
+                DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
+                cmsg_buffer_print (buffer_data, dyn_len);
+                server->server_request = &server_request;
+                if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
+                    CMSG_LOG_ERROR ("[TRANSPORT] message processing returned an error\n");
+
+            }
+            else
+            {
+                CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d no data",
+                                server->connection.sockets.client_socket);
+
+                ret = CMSG_RET_ERR;
+            }
         }
         if (buffer != buf_static)
         {

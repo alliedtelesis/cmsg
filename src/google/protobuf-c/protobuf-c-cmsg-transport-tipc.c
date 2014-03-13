@@ -381,9 +381,19 @@ cmsg_transport_tipc_client_send (cmsg_client *client, void *buff, int length, in
 }
 
 static int32_t
-cmsg_transport_tipc_server_send (cmsg_server *server, void *buff, int length, int flag)
+cmsg_transport_tipc_rpc_server_send (cmsg_server *server, void *buff, int length, int flag)
 {
     return (send (server->connection.sockets.client_socket, buff, length, flag));
+}
+
+/**
+ * TIPC oneway servers do not send replies to received messages. This function therefore
+ * returns 0.
+ */
+static int32_t
+cmsg_transport_tipc_oneway_server_send (cmsg_server *server, void *buff, int length, int flag)
+{
+    return 0;
 }
 
 static void
@@ -485,7 +495,7 @@ cmsg_transport_tipc_init (cmsg_transport *transport)
     transport->server_recv = cmsg_transport_tipc_server_recv;
     transport->client_recv = cmsg_transport_tipc_client_recv;
     transport->client_send = cmsg_transport_tipc_client_send;
-    transport->server_send = cmsg_transport_tipc_server_send;
+    transport->server_send = cmsg_transport_tipc_rpc_server_send;
     transport->closure = cmsg_server_closure_rpc;
     transport->invoke = cmsg_client_invoke_rpc;
     transport->client_close = cmsg_transport_tipc_client_close;
@@ -520,7 +530,7 @@ cmsg_transport_oneway_tipc_init (cmsg_transport *transport)
     transport->server_recv = cmsg_transport_tipc_server_recv;
     transport->client_recv = cmsg_transport_tipc_client_recv;
     transport->client_send = cmsg_transport_tipc_client_send;
-    transport->server_send = cmsg_transport_tipc_server_send;
+    transport->server_send = cmsg_transport_tipc_oneway_server_send;
     transport->closure = cmsg_server_closure_oneway;
     transport->invoke = cmsg_client_invoke_oneway;
     transport->client_close = cmsg_transport_tipc_client_close;

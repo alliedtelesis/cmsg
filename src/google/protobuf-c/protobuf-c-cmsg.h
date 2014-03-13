@@ -87,6 +87,7 @@
 // Return codes
 #define CMSG_RET_OK   0
 #define CMSG_RET_ERR -1
+#define CMSG_RET_METHOD_NOT_FOUND -2
 #define CMSG_RET_QUEUED 1
 #define CMSG_RET_DROPPED 2
 
@@ -204,6 +205,7 @@ typedef enum _cmsg_status_code_e
     CMSG_STATUS_CODE_SERVICE_QUEUED,
     CMSG_STATUS_CODE_SERVICE_DROPPED,
     CMSG_STATUS_CODE_SERVER_CONNRESET,
+    CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,
 } cmsg_status_code;
 
 /**

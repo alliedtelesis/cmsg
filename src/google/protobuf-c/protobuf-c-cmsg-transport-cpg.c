@@ -124,7 +124,6 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
     server_request.msg_type = header_converted.msg_type;
     server_request.message_length = header_converted.message_length;
 
-
     DEBUG (CMSG_INFO, "[TRANSPORT] cpg received header\n");
 
     dyn_len = header_converted.message_length;
@@ -156,14 +155,15 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
 
     extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
-    cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
-                             server->service->descriptor);
+    if (cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
+                                 server->service->descriptor) == CMSG_RET_OK)
+    {
+        server->server_request = &server_request;
+        buffer = buffer + extra_header_size;
 
-    server->server_request = &server_request;
-    buffer = buffer + extra_header_size;
-
-    if (server->message_processor (server, buffer))
-        DEBUG (CMSG_ERROR, "[TRANSPORT] message processing returned an error\n");
+        if (server->message_processor (server, buffer))
+            DEBUG (CMSG_ERROR, "[TRANSPORT] message processing returned an error\n");
+    }
 }
 
 
