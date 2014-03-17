@@ -148,11 +148,14 @@ typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t 
 
 typedef void (*cmsg_tipc_topology_callback) (struct tipc_event *event);
 
+#define CMSG_MAX_TPORT_ID_LEN 32
+
 struct _cmsg_transport_s
 {
     //transport information
     cmsg_transport_type type;
     cmsg_transport_config config;
+    char tport_id[CMSG_MAX_TPORT_ID_LEN + 1];
 
     // send features
     // lock - to allow send to be called from multiple threads
@@ -240,4 +243,6 @@ int cmsg_tipc_topology_subscription_read (int sock);
 void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
                                              const char *event_str,
                                              struct tipc_event *event);
+
+void cmsg_transport_write_id (cmsg_transport *tport);
 #endif

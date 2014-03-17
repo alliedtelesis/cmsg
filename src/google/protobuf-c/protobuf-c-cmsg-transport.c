@@ -1,10 +1,77 @@
 #include "protobuf-c-cmsg-transport.h"
 #include "protobuf-c-cmsg-server.h"
+#include <arpa/inet.h>
 
 extern void cmsg_transport_oneway_udt_init (cmsg_transport *transport);
 
 static int32_t _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle,
                                             cmsg_server *server, int peek);
+
+
+/*
+ * Given a transport, the "unique" id string of that
+ * transport is constructed and written to the transport
+ * id.
+ *
+ * In:      tport - transport
+ * Return:  No return value.
+ */
+void
+cmsg_transport_write_id (cmsg_transport *tport)
+{
+    if (tport == NULL)
+    {
+        return;
+    }
+
+    switch (tport->type)
+    {
+    case CMSG_TRANSPORT_RPC_TCP:
+    case CMSG_TRANSPORT_ONEWAY_TCP:
+        {
+            char ip4[INET_ADDRSTRLEN];
+            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tcp[%s:%d]",
+                      inet_ntop (AF_INET, &(tport->config.socket.sockaddr.in), ip4,
+                                 INET_ADDRSTRLEN),
+                      tport->config.socket.sockaddr.in.sin_port);
+            break;
+        }
+    case CMSG_TRANSPORT_RPC_TIPC:
+    case CMSG_TRANSPORT_ONEWAY_TIPC:
+        {
+            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tipc[%d]",
+                      tport->config.socket.sockaddr.tipc.addr.name.name.instance);
+            break;
+        }
+#ifdef HAVE_VCSTACK
+    case CMSG_TRANSPORT_CPG:
+        {
+            // Potential for truncation of the CPG name
+            // if maxlen < CPG_MAX_NAME_LENGTH (128).
+            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".cpg[%s]",
+                      tport->config.cpg.group_name.value);
+            break;
+        }
+    case CMSG_TRANSPORT_BROADCAST:
+        {
+            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tipcb[%d,%d]",
+                      tport->config.socket.sockaddr.tipc.addr.nameseq.lower,
+                      tport->config.socket.sockaddr.tipc.addr.nameseq.upper);
+            break;
+        }
+#endif
+    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
+        {
+            strncpy (tport->tport_id, ".udt", CMSG_MAX_TPORT_ID_LEN);
+            break;
+        }
+
+    default:
+        strncpy (tport->tport_id, ".unknown_transport", CMSG_MAX_TPORT_ID_LEN);
+    }
+
+    return;
+}
 
 
 cmsg_transport *

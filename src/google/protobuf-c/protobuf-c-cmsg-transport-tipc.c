@@ -114,6 +114,7 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     }
 
     server->connection.sockets.listening_socket = listening_socket;
+    cmsg_transport_write_id (server->_transport);
 
     DEBUG (CMSG_INFO, "[TRANSPORT] listening on tipc socket: %d\n", listening_socket);
 

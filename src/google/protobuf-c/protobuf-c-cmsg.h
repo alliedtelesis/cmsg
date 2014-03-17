@@ -182,10 +182,13 @@ typedef enum _cmsg_object_type_e
     CMSG_OBJ_TYPE_SUB,
 } cmsg_object_type;
 
+#define CMSG_MAX_OBJ_ID_LEN 10
+
 typedef struct _cmsg_object_s
 {
     cmsg_object_type object_type;
     void *object;
+    char obj_id[CMSG_MAX_OBJ_ID_LEN + 1];
 } cmsg_object;
 
 typedef enum _cmsg_msg_type_e

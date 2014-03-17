@@ -1,4 +1,5 @@
 #include "protobuf-c-cmsg-server.h"
+#include "protobuf-c-cmsg-error.h"
 
 static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
                                                           uint8_t *buffer_data);
@@ -48,7 +49,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 
         if (pthread_mutex_init (&server->queue_mutex, NULL) != 0)
         {
-            DEBUG (CMSG_ERROR, "[SERVER] error: queue mutex init failed\n");
+            CMSG_LOG_SERVER_ERROR (server, "Init failed for queue_mutex.");
             CMSG_FREE (server);
             return NULL;
         }
@@ -62,13 +63,13 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 
         if (pthread_mutex_init (&server->queueing_state_mutex, NULL) != 0)
         {
-            DEBUG (CMSG_ERROR, "[SERVER] error: queueing_state_mutex init failed\n");
+            CMSG_LOG_SERVER_ERROR (server, "Init failed for queueing_state_mutex.");
             return 0;
         }
 
         if (pthread_mutex_init (&server->queue_filter_mutex, NULL) != 0)
         {
-            DEBUG (CMSG_ERROR, "[SERVER] error: queue_filter_mutex init failed\n");
+            CMSG_LOG_SERVER_ERROR (server, "Init failed for queue_filter_mutex.");
             return 0;
         }
 
@@ -93,8 +94,8 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
     }
     else
     {
-        syslog (LOG_CRIT | LOG_LOCAL6,
-                "[SERVER] error: unable to create server. line(%d)\n", __LINE__);
+        CMSG_LOG_GEN_ERROR ("[%s.%s] Unable to create server.", service->descriptor->name,
+                            transport->tport_id);
     }
 
     return server;
@@ -178,7 +179,9 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
     ret = select (nfds + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
     if (ret == -1)
     {
-        DEBUG (CMSG_ERROR, "[SERVER] poll error occurred: %s ", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server,
+                               "An error occurred with receive poll (timeout %dms): %s.",
+                               timeout_ms, strerror (errno));
         return CMSG_RET_ERR;
     }
     else if (ret == 0)
@@ -241,7 +244,7 @@ int32_t
 cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
 {
     struct timeval timeout = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
-    cmsg_server *server;
+    cmsg_server *server = NULL;
     GList *node;
     fd_set read_fds;
     int fdmax;
@@ -249,6 +252,12 @@ cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
     int listen_socket;
     int fd;
     int newfd;
+
+    if (g_list_length (server_list) == 0)
+    {
+        // Nothing to do
+        return 0;
+    }
 
     FD_ZERO (&read_fds);
 
@@ -276,7 +285,9 @@ cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
     ret = select (fdmax + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
     if (ret == -1)
     {
-        DEBUG (CMSG_ERROR, "[SERVER] select error occurred: %s ", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server,
+                               "An error occurred with list receive poll (timeout: %dms): %s.",
+                               timeout_ms, strerror (errno));
         return CMSG_RET_ERR;
     }
     else if (ret == 0)
@@ -458,9 +469,10 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
-        CMSG_LOG_ERROR ("[SERVER] error: method index is too high - idx %d, max %d",
-                        server_request->method_index,
-                        server->service->descriptor->n_methods);
+        CMSG_LOG_SERVER_ERROR (server,
+                               "Server request method index is too high. idx %d, max %d.",
+                               server_request->method_index,
+                               server->service->descriptor->n_methods);
         return CMSG_RET_ERR;
     }
 
@@ -483,8 +495,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
 
     if (message == NULL)
     {
-        CMSG_LOG_ERROR ("[SERVER] error: unpacking message");
-        return CMSG_RET_ERR;
+        CMSG_LOG_SERVER_ERROR (server, "Error unpacking the message. No message.");
     }
 
     CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "unpack",
@@ -502,8 +513,9 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
 
         if (action == CMSG_QUEUE_FILTER_ERROR)
         {
-            CMSG_LOG_ERROR ("[SERVER] error: queue_lookup_filter returned ERROR for: %s",
-                            method_name);
+            CMSG_LOG_SERVER_ERROR (server,
+                                   "An error occurred with queue_lookup_filter: %s.",
+                                   method_name);
 
             // Free unpacked message prior to return
             protobuf_c_message_free_unpacked (message, allocator);
@@ -554,8 +566,8 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
     ret = server->_transport->server_send (server, &header, sizeof (header), 0);
     if (ret < (int) sizeof (header))
     {
-        CMSG_LOG_ERROR ("[SERVER] error: sending of echo reply failed sent:%d of %u",
-                        ret, (uint32_t) sizeof (header));
+        CMSG_LOG_SERVER_ERROR (server, "Sending of echo reply failed. Sent:%d of %u bytes.",
+                               ret, (uint32_t) sizeof (header));
         return CMSG_RET_ERR;
     }
     return CMSG_RET_OK;
@@ -590,8 +602,9 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
         break;
 
     default:
-        CMSG_LOG_ERROR ("[SERVER] Received a msg type the server doesn't support - %d",
-                        server_request->msg_type);
+        CMSG_LOG_SERVER_ERROR (server,
+                               "Received a message type the server doesn't support: %d.",
+                               server_request->msg_type);
         return CMSG_RET_ERR;
     }
 
@@ -616,7 +629,7 @@ cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code statu
     if (ret < (int) sizeof (header))
     {
         DEBUG (CMSG_ERROR,
-               "[SERVER] error: sending of response failed send:%d of %d\n",
+               "[SERVER] error: sending of response failed sent:%d of %d bytes.\n",
                ret, (int) sizeof (header));
         return;
     }
@@ -706,8 +719,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         uint8_t *buffer = (uint8_t *) CMSG_CALLOC (1, total_message_size);
         if (!buffer)
         {
-            CMSG_LOG_ERROR ("[SERVER] error: unable to allocate buffer. line(%d)\n",
-                            __LINE__);
+            CMSG_LOG_SERVER_ERROR (server, "Unable to allocate memory for message.");
             return;
         }
 
@@ -718,16 +730,17 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         ret = protobuf_c_message_pack (message, buffer_data);
         if (ret < packed_size)
         {
-            CMSG_LOG_ERROR ("[SERVER] packing response data failed packet:%d of %d\n",
-                            ret, packed_size);
+            CMSG_LOG_SERVER_ERROR (server,
+                                   "Underpacked message data. Packed %d of %d bytes.", ret,
+                                   packed_size);
 
             CMSG_FREE (buffer);
             return;
         }
         else if (ret > packed_size)
         {
-            CMSG_LOG_ERROR
-                ("[CLIENT] error: packing message data overwrote buffer: %d of %d", ret,
+            CMSG_LOG_SERVER_ERROR
+                (server, "Overpacked message data. Packed %d of %d bytes.", ret,
                  packed_size);
 
             CMSG_FREE (buffer);
@@ -1113,7 +1126,8 @@ _cmsg_create_server_tipc (const char *server_name, int member_id, int scope,
     if (server == NULL)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_ERROR ("Failed to create TIPC server for %d\n", member_id);
+        CMSG_LOG_GEN_ERROR ("[%s.%s] Failed to create TIPC server for member %d.",
+                            descriptor->descriptor->name, transport->tport_id, member_id);
         return NULL;
     }
 

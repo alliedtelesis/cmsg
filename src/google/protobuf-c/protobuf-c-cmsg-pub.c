@@ -1,4 +1,5 @@
 #include "protobuf-c-cmsg-pub.h"
+#include "protobuf-c-cmsg-error.h"
 
 //macro for register handler implentation
 cmsg_sub_service_Service cmsg_pub_subscriber_service = CMSG_SUB_SERVICE_INIT (cmsg_pub_);
@@ -122,8 +123,8 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     cmsg_pub *publisher = (cmsg_pub *) CMSG_CALLOC (1, sizeof (cmsg_pub));
     if (!publisher)
     {
-        syslog (LOG_CRIT | LOG_LOCAL6,
-                "[PUB] [LIST] error: unable to create publisher. line(%d)\n", __LINE__);
+        CMSG_LOG_GEN_ERROR ("[%s.%s] Unable to create publisher.", pub_service->name,
+                            sub_server_transport->tport_id);
         return NULL;
     }
 
@@ -132,7 +133,8 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
                          (ProtobufCService *) &cmsg_pub_subscriber_service);
     if (!publisher->sub_server)
     {
-        DEBUG (CMSG_ERROR, "[PUB] [LIST] error: unable to create publisher->sub_server\n");
+        CMSG_LOG_GEN_ERROR ("[%s.%s] Unable to create publisher sub_server.",
+                            pub_service->name, sub_server_transport->tport_id);
         CMSG_FREE (publisher);
         return NULL;
     }
@@ -155,7 +157,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
 
     if (pthread_mutex_init (&publisher->queue_mutex, NULL) != 0)
     {
-        DEBUG (CMSG_ERROR, "[PUBLISHER] error: queue mutex init failed\n");
+        CMSG_LOG_PUBLISHER_ERROR (publisher, "Init failed for queue_mutex.");
         return 0;
     }
 
@@ -165,19 +167,19 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
 
     if (pthread_cond_init (&publisher->queue_process_cond, NULL) != 0)
     {
-        DEBUG (CMSG_ERROR, "[PUBLISHER] error: queue_process_cond init failed\n");
+        CMSG_LOG_PUBLISHER_ERROR (publisher, "Init failed for queue_process_cond.");
         return 0;
     }
 
     if (pthread_mutex_init (&publisher->queue_process_mutex, NULL) != 0)
     {
-        DEBUG (CMSG_ERROR, "[PUBLISHER] error: queue_process_mutex init failed\n");
+        CMSG_LOG_PUBLISHER_ERROR (publisher, "Init failed queue_process_mutex.");
         return 0;
     }
 
     if (pthread_mutex_init (&publisher->subscriber_list_mutex, NULL) != 0)
     {
-        DEBUG (CMSG_ERROR, "[PUBLISHER] error: subscriber_list_mutex init failed\n");
+        CMSG_LOG_PUBLISHER_ERROR (publisher, "Init failed for subscriber_list_mutex.");
         return 0;
     }
 
@@ -566,14 +568,16 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
-        DEBUG (CMSG_ERROR,
-               "[PUB] the method index from read from the header seems to be to high\n");
+        CMSG_LOG_SERVER_ERROR (server,
+                               "The method index read from the header seems to be to high. index(%d) n_methods(%d)",
+                               server_request->method_index,
+                               server->service->descriptor->n_methods);
         return 0;
     }
 
     if (!buffer_data)
     {
-        CMSG_LOG_ERROR ("[PUB] buffer not defined");
+        CMSG_LOG_SERVER_ERROR (server, "Buffer is not defined.");
         return 0;
     }
 
@@ -585,7 +589,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
     if (message == 0)
     {
-        DEBUG (CMSG_ERROR, "[PUB] error unpacking message\n");
+        CMSG_LOG_SERVER_ERROR (server, "Failed unpacking message. No message.");
         return 0;
     }
 
@@ -626,9 +630,9 @@ cmsg_pub_invoke (ProtobufCService *service,
 
     if (action == CMSG_QUEUE_FILTER_ERROR)
     {
-        DEBUG (CMSG_ERROR,
-               "[PUB] error: queue_lookup_filter returned CMSG_QUEUE_FILTER_ERROR for: %s\n",
-               method_name);
+        CMSG_LOG_PUBLISHER_ERROR (publisher,
+                                  "queue_lookup_filter returned an error for: %s\n",
+                                  method_name);
         return CMSG_RET_ERR;
     }
 
@@ -678,7 +682,8 @@ cmsg_pub_invoke (ProtobufCService *service,
         }
         else    //global queue settings
         {
-            DEBUG (CMSG_ERROR, "[PUB] error: queue filter action: %d wrong\n", action);
+            CMSG_LOG_PUBLISHER_ERROR (publisher, "Bad action for queue filter. Action:%d.",
+                                      action);
             pthread_mutex_unlock (&publisher->subscriber_list_mutex);
             return CMSG_RET_ERR;
         }
@@ -700,9 +705,9 @@ cmsg_pub_invoke (ProtobufCService *service,
             if (ret == CMSG_RET_ERR)
             {
                 //try again
-                syslog (LOG_CRIT | LOG_LOCAL6,
-                        "[PUB] client invoke failed (method: %s) (queue: %d)",
-                        method_name, action == CMSG_QUEUE_FILTER_QUEUE);
+                CMSG_LOG_PUBLISHER_ERROR (publisher,
+                                          "Client invoke failed (method: %s) (queue: %d).",
+                                          method_name, action == CMSG_QUEUE_FILTER_QUEUE);
             }
             else
             {
@@ -751,7 +756,8 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     if ((input->transport_type != CMSG_TRANSPORT_ONEWAY_TCP) &&
         (input->transport_type != CMSG_TRANSPORT_ONEWAY_TIPC))
     {
-        CMSG_LOG_ERROR ("[PUB] error: subscriber transport not supported");
+        CMSG_LOG_PUBLISHER_ERROR (publisher, "Subscriber transport not supported. Type:%d",
+                                  input->transport_type);
         return CMSG_RET_ERR;
     }
 
@@ -929,9 +935,10 @@ _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
             cmsg_send_queue_free_all_by_transport (queue, queue_entry->transport);
             pthread_mutex_unlock (queue_mutex);
 
-            CMSG_LOG_ERROR ("[PUB QUEUE] method: %s error: subscriber not reachable, after %d tries, removing it\n",
-                            queue_entry->method_name,
-                            CMSG_TRANSPORT_CLIENT_SEND_TRIES);
+            CMSG_LOG_PUBLISHER_ERROR (publisher,
+                                      "Subscriber is not reachable after %d tries and will be removed. method:(%s).",
+                                      CMSG_TRANSPORT_CLIENT_SEND_TRIES,
+                                      queue_entry->method_name);
 
         }
         CMSG_FREE (queue_entry->queue_buffer);
@@ -1049,7 +1056,8 @@ _cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
     if (publisher == NULL)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_ERROR ("No TIPC publisher to %d", member_id);
+        CMSG_LOG_GEN_ERROR ("[%s.%s] No TIPC publisher to member %d", descriptor->name,
+                            transport->tport_id, member_id);
         return NULL;
     }
 
