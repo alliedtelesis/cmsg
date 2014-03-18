@@ -24,7 +24,6 @@
 #include <google/protobuf/compiler/c/c_enum.h>
 #include <google/protobuf/compiler/c/c_service.h>
 #include <google/protobuf/compiler/c/c_atl_generator.h>
-#include <google/protobuf/compiler/c/c_atl_message.h>
 #include <google/protobuf/compiler/c/c_extension.h>
 #include <google/protobuf/compiler/c/c_helpers.h>
 #include <google/protobuf/compiler/c/c_message.h>
@@ -49,8 +48,6 @@ FileGenerator::FileGenerator(const FileDescriptor* file,
       new scoped_ptr<ServiceGenerator>[file->service_count()]),
     atl_code_generators_(
       new scoped_ptr<AtlCodeGenerator>[file->service_count()]),
-    atl_message_generators_(
-      new scoped_ptr<AtlMessageGenerator>[file->message_type_count()]),
     extension_generators_(
       new scoped_ptr<ExtensionGenerator>[file->extension_count()]) {
 
@@ -72,11 +69,6 @@ FileGenerator::FileGenerator(const FileDescriptor* file,
   for (int i = 0; i < file->service_count(); i++) {
     atl_code_generators_[i].reset(
       new AtlCodeGenerator(file->service(i), dllexport_decl));
-  }
-
-  for (int i = 0; i < file->message_type_count(); i++) {
-    atl_message_generators_[i].reset(
-      new AtlMessageGenerator(file->message_type(i), dllexport_decl));
   }
 
   for (int i = 0; i < file->extension_count(); i++) {
@@ -333,7 +325,7 @@ void FileGenerator::GenerateAtlApiHeader(io::Printer* printer) {
   // Generate atl api definitions.
   printer->Print("\n");
   for (int i = 0; i < file_->service_count(); i++) {
-    atl_code_generators_[i]->GenerateMainHFile(printer, true);
+    atl_code_generators_[i]->GenerateClientHeaderFile(printer);
   }
 
 
@@ -357,7 +349,7 @@ void FileGenerator::GenerateAtlApiSource(io::Printer* printer) {
     "basename", GetAtlApiFilename(file_->name()));
 
   for (int i = 0; i < file_->service_count(); i++) {
-    atl_code_generators_[i]->GenerateCFile(printer, true);
+    atl_code_generators_[i]->GenerateClientCFile(printer);
   }
 
 }
@@ -394,7 +386,7 @@ void FileGenerator::GenerateAtlImplHeader(io::Printer* printer) {
   // Generate atl api definitions.
   printer->Print("\n/* --- atl generated code --- */\n\n");
   for (int i = 0; i < file_->service_count(); i++) {
-    atl_code_generators_[i]->GenerateMainHFile(printer, false);
+    atl_code_generators_[i]->GenerateServerHeaderFile(printer);
   }
 
   printer->Print(
@@ -417,7 +409,7 @@ void FileGenerator::GenerateAtlImplSource(io::Printer* printer) {
     "basename", GetAtlImplFilename(file_->name()));
 
   for (int i = 0; i < file_->service_count(); i++) {
-    atl_code_generators_[i]->GenerateCFile(printer, false);
+    atl_code_generators_[i]->GenerateServerCFile(printer);
   }
 
 }

@@ -8,7 +8,6 @@ bin_PROGRAMS = protoc-c
 protoc_c_SOURCES = \
 google/protobuf/compiler/c/c_service.cc \
 google/protobuf/compiler/c/c_atl_generator.cc \
-google/protobuf/compiler/c/c_atl_message.cc \
 google/protobuf/compiler/c/c_helpers.cc \
 google/protobuf/compiler/c/c_enum.cc \
 google/protobuf/compiler/c/c_enum_field.cc \
@@ -67,7 +66,6 @@ noinst_HEADERS = \
 google/protobuf/compiler/c/c_message_field.h \
 google/protobuf/compiler/c/c_service.h \
 google/protobuf/compiler/c/c_atl_generator.h \
-google/protobuf/compiler/c/c_atl_message.h \
 google/protobuf/compiler/c/c_helpers.h \
 google/protobuf/compiler/c/c_enum.h \
 google/protobuf/compiler/c/c_enum_field.h \
