@@ -8,11 +8,29 @@
 #include "protobuf-c-cmsg-sub-service.pb-c.h"
 
 
+/* This defines the minimum amount of time that should lapse between a remove subscriber
+ * request coming in, and the subscriber actually being removed from the list. This is to
+ * prevent subscribers being removed from the list while they are being used to send
+ * notifications. The units of this define is seconds
+ * (CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT / 1000 = seconds). */
+#define CMSG_PUB_SUBSCRIBER_TIMEOUT \
+    (5 * CMSG_TRANSPORT_CLIENT_SEND_TRIES * CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT / 1000) //sec
+
+
+/* The structure that is stored in the publishers subscriber list. Includes the method name
+ * of the notification, and a pointer to a client and a transport to reach the subscriber.
+ *
+ * The field attempted_remove_time is used to remove an entry from the list. When an
+ * entry is to be deleted, the field is set with gettimeofday(). Then, on subsequent
+ * iterations of the list, if CMSG_PUB_SUBSCRIBER_TIMEOUT seconds has passed since it was
+ * marked for deletion, we remove it from the list. attempted_remove_time should never
+ * be accessed unless you hold the publishers subscriber_list_mutex. */
 typedef struct _cmsg_sub_entry_s
 {
     char method_name[128];
     cmsg_client *client;
     cmsg_transport *transport;
+    time_t attempted_remove_time;
 } cmsg_sub_entry;
 
 
@@ -69,7 +87,7 @@ void cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher,
 
 int32_t cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry);
 
-int32_t cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry);
+int32_t cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entry);
 
 int32_t cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
                                                        cmsg_transport *transport);

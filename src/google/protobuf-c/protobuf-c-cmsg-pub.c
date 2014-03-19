@@ -4,7 +4,7 @@
 //macro for register handler implentation
 cmsg_sub_service_Service cmsg_pub_subscriber_service = CMSG_SUB_SERVICE_INIT (cmsg_pub_);
 
-static void _cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry);
+static void _cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entry);
 
 static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
 
@@ -41,7 +41,11 @@ cmsg_sub_entry_compare (cmsg_sub_entry *one, cmsg_sub_entry *two)
          two->transport->config.socket.sockaddr.tipc.addr.name.name.type) &&
         (one->transport->config.socket.sockaddr.tipc.scope ==
          two->transport->config.socket.sockaddr.tipc.scope) &&
-        !strcmp (one->method_name, two->method_name))
+        (strcmp (one->method_name, two->method_name) == 0) &&
+        (one->attempted_remove_time == 0) &&  // If either entry has been marked
+        (one->attempted_remove_time == 0) &&  // for deletion, don't match it
+        (two->attempted_remove_time == 0) &&
+        (two->attempted_remove_time == 0))
     {
         return 1;
     }
@@ -361,27 +365,33 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 
 
 /**
- * This function is not thread-safe. If you want to safely remove a subscriber,
- * use cmsg_pub_subscriber_remove ().
+ * This function is not thread-safe. If you want to safely remove expired entries from the
+ * subscriber list, use cmsg_pub_subscriber_remove_expired_entries ().
  * Only call this function if you already have the lock on subscriber_list_mutex.
+
+ * This function will remove any eligible entry that has been marked for deletion by
+ * having its attempted_remove_time set to a value. An entry is eligible if enough
+ * time has passed since it was marked.
  */
 static void
-_cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry)
+_cmsg_pub_subscriber_remove_expired_entries (cmsg_pub *publisher)
 {
     CMSG_ASSERT (publisher);
-    CMSG_ASSERT (entry);
 
-    DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
-    DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
+    DEBUG (CMSG_INFO, "[PUB] [LIST] removing expired subscribers from list\n");
 
-    GList *list;
-    GList *list_next;
+    GList *list = NULL;
+    GList *list_next = NULL;
+    time_t current_time = time (NULL);
 
     for (list = g_list_first (publisher->subscriber_list); list; list = list_next)
     {
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *) list->data;
         list_next = g_list_next (list);
-        if (cmsg_sub_entry_compare (list_entry, entry))
+
+        if (list_entry->attempted_remove_time > 0 &&
+            ((current_time - list_entry->attempted_remove_time) >
+             CMSG_PUB_SUBSCRIBER_TIMEOUT))
         {
             DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
             publisher->subscriber_list = g_list_remove (publisher->subscriber_list,
@@ -391,6 +401,54 @@ _cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry)
             cmsg_transport_destroy (list_entry->transport);
             CMSG_FREE (list_entry);
             publisher->subscriber_count--;
+        }
+    }
+}
+
+
+int32_t
+cmsg_pub_subscriber_remove_expired_entries (cmsg_pub *publisher)
+{
+    CMSG_ASSERT (publisher);
+
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
+    _cmsg_pub_subscriber_remove_expired_entries (publisher);
+
+    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
+
+    return CMSG_RET_OK;
+}
+
+
+/**
+ * This function is not thread-safe. If you want to safely remove a subscriber,
+ * use cmsg_pub_subscriber_mark_for_removal ().
+ * Only call this function if you already have the lock on subscriber_list_mutex.
+ */
+static void
+_cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entry)
+{
+    CMSG_ASSERT (publisher);
+    CMSG_ASSERT (entry);
+
+    DEBUG (CMSG_INFO, "[PUB] [LIST] marking subscriber for removal from list\n");
+    DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
+
+    GList *list = NULL;
+    GList *list_next = NULL;
+    time_t current_time = time (NULL);
+
+    for (list = g_list_first (publisher->subscriber_list); list; list = list_next)
+    {
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) list->data;
+        list_next = g_list_next (list);
+
+        if (cmsg_sub_entry_compare (list_entry, entry) &&
+            list_entry->attempted_remove_time == 0)
+        {
+            DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for deletion\n");
+            list_entry->attempted_remove_time = current_time;
             break;
         }
     }
@@ -410,21 +468,28 @@ _cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry)
 #endif
 }
 
+
 int32_t
-cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry)
+cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
     CMSG_ASSERT (publisher);
     CMSG_ASSERT (entry);
 
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
-    _cmsg_pub_subscriber_remove (publisher, entry);
+    _cmsg_pub_subscriber_mark_for_removal (publisher, entry);
 
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 
     return CMSG_RET_OK;
 }
 
+
+/*
+ * Marks subscriber list entries for deletion if they match the transport being passed in.
+ * This function will never directly remove subscribers from the list, only mark them to
+ * be removed at a later date. They will not be used once they have been marked.
+ */
 int32_t
 cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
                                                cmsg_transport *transport)
@@ -437,27 +502,27 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
 
     GList *list;
     GList *list_next;
+    time_t current_time = 0;
 
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
+    current_time = time (NULL);
 
     for (list = g_list_first (publisher->subscriber_list); list; list = list_next)
     {
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *) list->data;
         list_next = g_list_next (list);
+
         if (cmsg_sub_entry_compare_transport (list_entry, transport))
         {
-            DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry for %s\n",
+            DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for %s for deletion\n",
                    list_entry->method_name);
 
             cmsg_send_queue_free_all_by_transport (publisher->queue, transport);
-
-            publisher->subscriber_list = g_list_remove (publisher->subscriber_list,
-                                                        list_entry);
-
-            cmsg_client_destroy (list_entry->client);
-            cmsg_transport_destroy (list_entry->transport);
-            CMSG_FREE (list_entry);
-            publisher->subscriber_count--;
+            if (list_entry->attempted_remove_time == 0)
+            {
+                list_entry->attempted_remove_time = current_time;
+            }
         }
     }
 
@@ -606,6 +671,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
     return 0;
 }
 
+
 int32_t
 cmsg_pub_invoke (ProtobufCService *service,
                  unsigned method_index,
@@ -613,9 +679,9 @@ cmsg_pub_invoke (ProtobufCService *service,
                  ProtobufCClosure closure, void *closure_data)
 {
     int ret = CMSG_RET_OK;
-    int remove_entry = 0;
     cmsg_pub *publisher = (cmsg_pub *) service;
     const char *method_name;
+    cmsg_bool_t expired_list_entry = FALSE;
 
     CMSG_ASSERT (service);
     CMSG_ASSERT (service->descriptor);
@@ -650,16 +716,41 @@ cmsg_pub_invoke (ProtobufCService *service,
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
 
         if (!list_entry)
+        {
+            //skip this entry is not what we want
+            subscriber_list = g_list_next (subscriber_list);
             continue;
+        }
 
         if (!list_entry->client)
+        {
+            //skip this entry is not what we want
+            subscriber_list = g_list_next (subscriber_list);
             continue;
+        }
 
         if (!list_entry->transport)
+        {
+            //skip this entry is not what we want
+            subscriber_list = g_list_next (subscriber_list);
             continue;
+        }
+
+        /* If we encounter an entry marked for removal in the list, we should remember
+         * this. Don't try and send using an expired entry. We don't want to remove the
+         * list entry now, because_cmsg_pub_subscriber_remove_expired_entries () could
+         * remove the entry that we get from g_list_next. Instead, we will clean the list
+         * up once we have finished sending. */
+        if (list_entry->attempted_remove_time > 0)
+        {
+            //skip this entry is not what we want
+            subscriber_list = g_list_next (subscriber_list);
+            expired_list_entry = TRUE;
+            continue;
+        }
 
         //just send to this client if it has subscribed for this notification before
-        if (strcmp (method_name, list_entry->method_name))
+        if (strcmp (method_name, list_entry->method_name) != 0)
         {
             //skip this entry is not what we want
             subscriber_list = g_list_next (subscriber_list);
@@ -669,6 +760,9 @@ cmsg_pub_invoke (ProtobufCService *service,
         {
             DEBUG (CMSG_INFO, "[PUB] subscriber has subscribed to: %s\n", method_name);
         }
+
+        // Unlock list to send notification
+        pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 
         if (action == CMSG_QUEUE_FILTER_PROCESS)
         {
@@ -684,7 +778,6 @@ cmsg_pub_invoke (ProtobufCService *service,
         {
             CMSG_LOG_PUBLISHER_ERROR (publisher, "Bad action for queue filter. Action:%d.",
                                       action);
-            pthread_mutex_unlock (&publisher->subscriber_list_mutex);
             return CMSG_RET_ERR;
         }
 
@@ -715,22 +808,28 @@ cmsg_pub_invoke (ProtobufCService *service,
             }
         }
 
+        pthread_mutex_lock (&publisher->subscriber_list_mutex);
         subscriber_list = g_list_next (subscriber_list);
 
         if (ret == CMSG_RET_ERR)
         {
             /* We already have the lock on subscriber_list_mutex. Therefore we should
-             * use the thread unsafe subscriber remove function.
-             */
-            _cmsg_pub_subscriber_remove (publisher, list_entry);
-
-            remove_entry = 0;
+             * use the thread unsafe subscriber remove function. */
+            _cmsg_pub_subscriber_mark_for_removal (publisher, list_entry);
+            expired_list_entry = TRUE;
         }
     }
 
+    if (expired_list_entry == TRUE)
+    {
+        _cmsg_pub_subscriber_remove_expired_entries (publisher);
+    }
+
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
+
     return CMSG_RET_OK;
 }
+
 
 int32_t
 cmsg_pub_subscribe (cmsg_sub_service_Service *service,
@@ -815,7 +914,7 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
                                                       subscriber_entry->method_name);
             pthread_mutex_unlock (&publisher->queue_mutex);
         }
-        response.return_value = cmsg_pub_subscriber_remove (publisher, subscriber_entry);
+        response.return_value = cmsg_pub_subscriber_mark_for_removal (publisher, subscriber_entry);
 
         cmsg_client_destroy (subscriber_entry->client);
         cmsg_transport_destroy (subscriber_entry->transport);
@@ -1014,8 +1113,9 @@ _cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
     {
         cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
         syslog (LOG_CRIT | LOG_LOCAL6,
-                "[PUB] [LIST] print_list_entry->method_name: %s\n",
-                print_list_entry->method_name);
+                "[PUB] [LIST] print_list_entry->method_name: %s, marked for deletion: %s\n",
+                print_list_entry->method_name,
+                print_list_entry->attempted_remove_time != 0 ? "TRUE" : "FALSE");
 
         print_subscriber_list = g_list_next (print_subscriber_list);
     }
