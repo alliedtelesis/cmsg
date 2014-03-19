@@ -1,4 +1,5 @@
 #include "protobuf-c-cmsg.h"
+#include "protobuf-c-cmsg-error.h"
 
 
 static int cmsg_mtype = 0;
@@ -174,8 +175,8 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
 
     default:
         // Unknown msg type
-        CMSG_LOG_ERROR ("Processing header, bad msg type value - %d",
-                        header_converted->msg_type);
+        CMSG_LOG_GEN_ERROR ("Processing header, bad msg type value - %d",
+                            header_converted->msg_type);
         return CMSG_RET_ERR;
         break;
     }
@@ -213,7 +214,7 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
              */
             if (!(IS_METHOD_DEFINED (server_request->method_index)))
             {
-                CMSG_LOG_ERROR ("Undefined Method - %s", tlv_method_header->method);
+                CMSG_LOG_GEN_ERROR ("Undefined Method - %s", tlv_method_header->method);
                 return CMSG_RET_METHOD_NOT_FOUND;
             }
 
@@ -222,8 +223,8 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
             break;
 
         default:
-            CMSG_LOG_ERROR ("Processing TLV header, bad TLV type value - %d",
-                            tlv_header->type);
+            CMSG_LOG_GEN_ERROR ("Processing TLV header, bad TLV type value - %d",
+                                tlv_header->type);
             return CMSG_RET_ERR;
         }
         buf = buf + TLV_SIZE (tlv_header->tlv_value_length);
@@ -365,7 +366,7 @@ cmsg_prof_time_log_start (cmsg_prof *prof, char *filename)
     {
         prof->file_ptr = fopen (filename, "w");
         if (!prof->file_ptr)
-            CMSG_LOG_ERROR ("couldn't open file: %s", filename);
+            CMSG_LOG_GEN_ERROR ("couldn't open file: %s", filename);
     }
 
     prof->text_ptr = (char *) prof->text;
