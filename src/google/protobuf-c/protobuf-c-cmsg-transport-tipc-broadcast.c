@@ -1,6 +1,7 @@
 #include "protobuf-c-cmsg-transport.h"
 #include "protobuf-c-cmsg-client.h"
 #include "protobuf-c-cmsg-server.h"
+#include "protobuf-c-cmsg-error.h"
 
 
 /**
@@ -24,7 +25,8 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
     {
         ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
-        DEBUG (CMSG_ERROR, "[TRANSPORT] error creating socket: %s\n", strerror (errno));
+        CMSG_LOG_CLIENT_ERROR (client, "Unable to create socket. Error:%s",
+                               strerror (errno));
         return ret;
     }
 
@@ -55,7 +57,8 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
     listening_socket = socket (transport->config.socket.family, SOCK_RDM, 0);
     if (listening_socket == -1)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] socket failed with: %s\n", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Failed to create socket. Error:%s",
+                               strerror (errno));
 
         return -1;
     }
@@ -67,7 +70,7 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
     if (bind (listening_socket,
               (struct sockaddr *) &transport->config.socket.sockaddr.tipc, addrlen) != 0)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] TIPC port could not be created\n");
+        CMSG_LOG_SERVER_ERROR (server, "TIPC port could not be created");
         return -1;
     }
 
@@ -174,7 +177,9 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
 
     if (retries >= 25)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] Failed to send tipc broadcast message\n");
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Failed to send tipc broadcast message. Exceeded %d retries. Last error: %s.",
+                               retries, strerror (saved_errno));
         errno = saved_errno;
     }
     else if (retries > 0)

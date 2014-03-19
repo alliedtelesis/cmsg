@@ -1,6 +1,7 @@
 #include "protobuf-c-cmsg-transport.h"
 #include "protobuf-c-cmsg-client.h"
 #include "protobuf-c-cmsg-server.h"
+#include "protobuf-c-cmsg-error.h"
 
 
 /*
@@ -22,7 +23,8 @@ cmsg_transport_tcp_connect (cmsg_client *client)
     {
         ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
-        DEBUG (CMSG_ERROR, "[TRANSPORT] error creating socket: %s\n", strerror (errno));
+        CMSG_LOG_CLIENT_ERROR (client, "Unable to create socket. Error:%s",
+                               strerror (errno));
         return ret;
     }
 
@@ -36,8 +38,9 @@ cmsg_transport_tcp_connect (cmsg_client *client)
         }
 
         ret = -errno;
-        DEBUG (CMSG_ERROR,
-               "[TRANSPORT] error connecting to remote host: %s\n", strerror (errno));
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Failed to connect to remote host. Error:%s",
+                               strerror (errno));
 
         close (client->connection.socket);
         client->connection.socket = -1;
@@ -73,14 +76,15 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] socket failed with: %s\n", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Unable to create socket. Error:%s",
+                               strerror (errno));
         return -1;
     }
 
     ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int32_t));
     if (ret == -1)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] setsockopt failed with: %s\n", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Unable to setsockopt. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -90,7 +94,7 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     ret = bind (listening_socket, &transport->config.socket.sockaddr.generic, addrlen);
     if (ret < 0)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] bind failed with: %s\n", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Unable to bind socket. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -98,7 +102,7 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     ret = listen (listening_socket, 10);
     if (ret < 0)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] listen failed with: %s\n", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Listen failed. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -132,7 +136,7 @@ cmsg_transport_tcp_server_recv (int32_t server_socket, cmsg_server *server)
 
     if (!server || server_socket < 0)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] error server/socket invalid\n");
+        CMSG_LOG_GEN_ERROR ("TCP server receive error. Invalid arguments.");
         return -1;
     }
 
@@ -155,7 +159,7 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
 
     if (!server || listen_socket < 0)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] error server/socket invalid\n");
+        CMSG_LOG_GEN_ERROR ("TCP server accept error. Invalid arguments.");
         return -1;
     }
 
@@ -166,7 +170,7 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
 
     if (sock < 0)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] error accept failed: %s\n", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Accept failed. Error:%s", strerror (errno));
         DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
 
         return -1;
@@ -207,7 +211,9 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
-            CMSG_LOG_ERROR ("[TRANSPORT] server receive couldn't process msg header");
+            CMSG_LOG_CLIENT_ERROR (client,
+                                   "Unable to process message header for client receive. Bytes:%d",
+                                   nbytes);
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
@@ -264,7 +270,8 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
             if (message == NULL)
             {
-                DEBUG (CMSG_ERROR, "[TRANSPORT] error unpacking response message\n");
+                CMSG_LOG_CLIENT_ERROR (client, "Error unpacking response message. Bytes:%d",
+                                       header_converted.message_length);
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
             }
             *messagePtPt = message;
@@ -315,8 +322,8 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         }
         else
         {
-            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s\n",
-                            client->connection.socket, strerror (errno));
+            CMSG_LOG_CLIENT_ERROR (client, "Receive error for socket %d. Error: %s",
+                                   client->connection.socket, strerror (errno));
         }
         ret = 0;
     }

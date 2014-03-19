@@ -1,5 +1,6 @@
 
 #include "protobuf-c-cmsg-queue.h"
+#include "protobuf-c-cmsg-error.h"
 
 uint32_t
 cmsg_queue_get_length (GQueue *queue)
@@ -16,8 +17,8 @@ cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
     queue_entry = (cmsg_send_queue_entry *) CMSG_CALLOC (1, sizeof (cmsg_send_queue_entry));
     if (!queue_entry)
     {
-        syslog (LOG_CRIT | LOG_LOCAL6,
-                "[CLIENT] error: unable to allocate queue entry. line(%d)\n", __LINE__);
+        CMSG_LOG_CLIENT_ERROR (client, "Unable to allocate queue entry. Method:%s",
+                               method_name);
         return CMSG_RET_ERR;
     }
 
@@ -26,8 +27,8 @@ cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
     queue_entry->queue_buffer = (uint8_t *) CMSG_CALLOC (1, queue_entry->queue_buffer_size);
     if (!queue_entry->queue_buffer)
     {
-        syslog (LOG_CRIT | LOG_LOCAL6,
-                "[CLIENT] error: unable to allocate queue buffer. line(%d)\n", __LINE__);
+        CMSG_LOG_CLIENT_ERROR (client, "Unable to allocate queue buffer. Method:%s",
+                               method_name);
         CMSG_FREE (queue_entry);
         return CMSG_RET_ERR;
     }
@@ -126,7 +127,7 @@ cmsg_receive_queue_process_one (GQueue *queue, pthread_mutex_t *queue_mutex,
 {
 
     // NOT IMPLEMENTED YET
-    syslog (LOG_ERR | LOG_LOCAL6, "%s: not implemented yet", __FUNCTION__);
+    CMSG_LOG_SERVER_ERROR (server, "%s not implemented.", __FUNCTION__);
 
     return 0;
 }
@@ -227,8 +228,8 @@ cmsg_receive_queue_push (GQueue *queue, uint8_t *buffer, uint32_t method_index)
     cmsg_receive_queue_entry *queue_entry = (cmsg_receive_queue_entry *) CMSG_CALLOC (1, sizeof (cmsg_receive_queue_entry));
     if (!queue_entry)
     {
-        syslog (LOG_CRIT | LOG_LOCAL6,
-                "[SERVER] error: unable to allocate queue entry. line(%d)\n", __LINE__);
+        CMSG_LOG_GEN_ERROR ("Unable to allocate queue entry. Method index:%d",
+                            method_index);
         return CMSG_RET_ERR;
     }
 

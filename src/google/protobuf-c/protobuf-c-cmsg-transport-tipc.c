@@ -1,6 +1,7 @@
 #include "protobuf-c-cmsg-transport.h"
 #include "protobuf-c-cmsg-client.h"
 #include "protobuf-c-cmsg-server.h"
+#include "protobuf-c-cmsg-error.h"
 
 
 /**
@@ -24,7 +25,8 @@ cmsg_transport_tipc_connect (cmsg_client *client)
     {
         ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
-        CMSG_LOG_DEBUG ("[TRANSPORT] error creating socket: %s", strerror (errno));
+        CMSG_LOG_CLIENT_ERROR (client, "Unable to create socket. Error:%s",
+                               strerror (errno));
 
         return ret;
     }
@@ -82,14 +84,14 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] socket failed with: %s", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Socket failed. Error:%s", strerror (errno));
         return -1;
     }
 
     ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int32_t));
     if (ret == -1)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] setsockopt failed with: %s", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Setsockopt failed. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -100,7 +102,7 @@ cmsg_transport_tipc_listen (cmsg_server *server)
                 (struct sockaddr *) &transport->config.socket.sockaddr.tipc, addrlen);
     if (ret < 0)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] bind failed with: %s", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Bind failed. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -108,7 +110,7 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     ret = listen (listening_socket, 10);
     if (ret < 0)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] listen failed with: %s", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Listen failed. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -155,8 +157,8 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
 
     if (!server || server_socket < 0)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] bad parameter server %p socket %d",
-                        server, server_socket);
+        CMSG_LOG_SERVER_ERROR (server, "Bad parameter for server recv. Server:%p Socket:%d",
+                               server, server_socket);
         return -1;
     }
     DEBUG (CMSG_INFO, "[TRANSPORT] socket %d\n", server_socket);
@@ -190,7 +192,7 @@ cmsg_transport_tipc_server_accept (int32_t listen_socket, cmsg_server *server)
 
     if (sock < 0)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] accept failed\n");
+        CMSG_LOG_SERVER_ERROR (server, "Accept failed. Error:%s", strerror (errno));
         DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
 
         return -1;
@@ -234,7 +236,9 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
-            CMSG_LOG_ERROR ("[TRANSPORT] server receive couldn't process msg header");
+            CMSG_LOG_CLIENT_ERROR (client,
+                                   "Unable to process message header for client receive. Bytes:%d",
+                                   nbytes);
             CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
                                          cmsg_prof_time_toc (&client->prof));
             return CMSG_STATUS_CODE_SERVICE_FAILED;
@@ -311,7 +315,9 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             // Msg not unpacked correctly
             if (message == NULL)
             {
-                CMSG_LOG_ERROR ("[TRANSPORT] error unpacking response message\n");
+                CMSG_LOG_CLIENT_ERROR (client,
+                                       "Error unpacking response message. Msg length:%d",
+                                       header_converted.message_length);
                 CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
                                              cmsg_prof_time_toc (&client->prof));
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
@@ -323,8 +329,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         }
         else
         {
-            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d no data, dyn_len %d",
-                            client->connection.socket, dyn_len);
+            CMSG_LOG_CLIENT_ERROR (client, "No data for recv. socket:%d, dyn_len:%d",
+                                   client->connection.socket, dyn_len);
 
         }
         if (recv_buffer != (void *) buf_static)
@@ -340,8 +346,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     {
         /* Didn't receive all of the CMSG header.
          */
-        CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d bad header nbytes %d\n",
-                        client->connection.socket, nbytes);
+        CMSG_LOG_CLIENT_ERROR (client, "Bad header length for recv. Socket:%d nbytes:%d",
+                               client->connection.socket, nbytes);
 
         // TEMP to keep things going
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
@@ -364,8 +370,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         }
         else
         {
-            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s\n",
-                            client->connection.socket, strerror (errno));
+            CMSG_LOG_CLIENT_ERROR (client, "Recv error. Socket:%d Error:%s",
+                                   client->connection.socket, strerror (errno));
         }
     }
 
@@ -561,14 +567,16 @@ cmsg_create_transport_tipc (const char *server_name, int member_id, int scope,
     port = cmsg_service_port_get (server_name, "tipc");
     if (port <= 0)
     {
-        CMSG_LOG_ERROR ("Unknown TIPC service %s", server_name);
+        CMSG_LOG_GEN_ERROR ("Unknown TIPC service. Server:%s, MemberID:%d", server_name,
+                            member_id);
         return NULL;
     }
 
     transport = cmsg_transport_new (transport_type);
     if (transport == NULL)
     {
-        CMSG_LOG_ERROR ("No TIPC transport for %d", member_id);
+        CMSG_LOG_GEN_ERROR ("Unable to create TIPC transport. Server:%s, MemberID:%d",
+                            server_name, member_id);
         return NULL;
     }
 
@@ -623,14 +631,15 @@ cmsg_tipc_topology_service_connect (void)
     sock = socket (AF_TIPC, SOCK_SEQPACKET, 0);
     if (sock < 0)
     {
-        CMSG_LOG_ERROR ("TIPC topo : socket failure (errno=%d)", errno);
+        CMSG_LOG_GEN_ERROR ("TIPC topology connect socket failure. Error:%s",
+                            strerror (errno));
         return -1;
     }
 
     /* Connect to the TIPC topology server */
     if (connect (sock, (struct sockaddr *) &topo_server, addr_len) < 0)
     {
-        CMSG_LOG_ERROR ("TIPC topo : connect failure (errno=%d)", errno);
+        CMSG_LOG_GEN_ERROR ("TIPC topology connect failure. Errno:%s", strerror (errno));
         close (sock);
         return -1;
     }
@@ -665,20 +674,26 @@ cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t 
     /* Check the parameters are valid */
     if (server_name == NULL)
     {
-        CMSG_LOG_ERROR ("TIPC topo : no server name specified");
+        CMSG_LOG_GEN_ERROR
+            ("TIPC topology do subscription has no server name specified. Server name:%s, [%d,%d]",
+             server_name, lower, upper);
         return CMSG_RET_ERR;
     }
 
     if (sock <= 0)
     {
-        CMSG_LOG_ERROR ("TIPC topo %s : no socket specified", server_name);
+        CMSG_LOG_GEN_ERROR
+            ("TIPC topology do subscription has no socket specified. Server name:%s, [%d,%d]",
+             server_name, lower, upper);
         return CMSG_RET_ERR;
     }
 
     port = cmsg_service_port_get (server_name, "tipc");
     if (port <= 0)
     {
-        CMSG_LOG_ERROR ("TIPC topo %s : couldn't determine port", server_name);
+        CMSG_LOG_GEN_ERROR
+            ("TIPC topology do subscription couldn't determine port. Server name:%s, [%d,%d]",
+             server_name, lower, upper);
         return CMSG_RET_ERR;
     }
 
@@ -694,7 +709,9 @@ cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t 
     ret = send (sock, &subscr, sub_len, 0);
     if (ret < 0 || (uint32_t)ret != sub_len)
     {
-        CMSG_LOG_ERROR ("TIPC topo %s : send failure (errno=%d)", server_name, errno);
+        CMSG_LOG_GEN_ERROR
+            ("TIPC topology do subscription send failure. Server name:%s, [%d,%d]. Error:%s",
+             server_name, lower, upper, strerror (errno));
         return CMSG_RET_ERR;
     }
 
@@ -780,7 +797,8 @@ cmsg_tipc_topology_subscription_read (int sock)
 
     if (ret != sizeof (event) && errno != EAGAIN)
     {
-        CMSG_LOG_ERROR ("TIPC topo : Failed to receive event (errno=%d)", errno);
+        CMSG_LOG_GEN_ERROR ("TIPC topology subscription read failure. Error:%s",
+                            strerror (errno));
         return CMSG_RET_ERR;
     }
 

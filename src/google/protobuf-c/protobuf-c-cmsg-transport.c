@@ -1,5 +1,6 @@
 #include "protobuf-c-cmsg-transport.h"
 #include "protobuf-c-cmsg-server.h"
+#include "protobuf-c-cmsg-error.h"
 #include <arpa/inet.h>
 
 extern void cmsg_transport_oneway_udt_init (cmsg_transport *transport);
@@ -110,7 +111,7 @@ cmsg_transport_new (cmsg_transport_type type)
         break;
 
     default:
-        CMSG_LOG_ERROR ("[TRANSPORT] transport type not supported\n");
+        CMSG_LOG_GEN_ERROR ("Transport type not supported. Type:%d", transport->type);
         CMSG_FREE (transport);
         transport = 0;
     }
@@ -170,7 +171,9 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
-            CMSG_LOG_ERROR ("[TRANSPORT] server receive couldn't process msg header");
+            CMSG_LOG_SERVER_ERROR (server,
+                                   "Unable to process message header for server recv. Bytes: %d",
+                                   nbytes);
             return CMSG_RET_ERR;
         }
 
@@ -240,13 +243,14 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                 cmsg_buffer_print (buffer_data, dyn_len);
                 server->server_request = &server_request;
                 if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
-                    CMSG_LOG_ERROR ("[TRANSPORT] message processing returned an error\n");
+                    CMSG_LOG_SERVER_ERROR (server,
+                                           "Server message processing returned an error.");
 
             }
             else
             {
-                CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d no data",
-                                server->connection.sockets.client_socket);
+                CMSG_LOG_SERVER_ERROR (server, "No data on recv socket %d.",
+                                       server->connection.sockets.client_socket);
 
                 ret = CMSG_RET_ERR;
             }
@@ -263,8 +267,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     }
     else if (nbytes > 0)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d bad header nbytes %d",
-                        server->connection.sockets.client_socket, nbytes);
+        CMSG_LOG_SERVER_ERROR (server, "Bad header on recv socket %d. Number: %d",
+                               server->connection.sockets.client_socket, nbytes);
 
         // TEMP to keep things going
         buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
@@ -283,8 +287,9 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     {
         if (errno != ECONNRESET)
         {
-            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s\n",
-                            server->connection.sockets.client_socket, strerror (errno));
+            CMSG_LOG_SERVER_ERROR (server, "Receive error for socket %d. Error: %s.",
+                                   server->connection.sockets.client_socket,
+                                   strerror (errno));
         }
 
         ret = CMSG_RET_ERR;
