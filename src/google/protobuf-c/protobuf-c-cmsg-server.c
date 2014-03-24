@@ -18,8 +18,8 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
     int32_t ret = 0;
     cmsg_server *server = NULL;
 
-    CMSG_ASSERT (transport);
-    CMSG_ASSERT (service);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (transport != NULL, NULL);
 
     server = (cmsg_server *) CMSG_CALLOC (1, sizeof (cmsg_server));
     if (server)
@@ -107,8 +107,7 @@ cmsg_server_destroy (cmsg_server *server)
 {
     int fd;
 
-    CMSG_ASSERT (server);
-    CMSG_ASSERT (server->_transport);
+    CMSG_ASSERT_RETURN_VOID (server != NULL);
 
     // Close accepted sockets before destroying server
     for (fd = 0; fd <= server->accepted_fdmax; fd++)
@@ -120,16 +119,15 @@ cmsg_server_destroy (cmsg_server *server)
     }
 
     cmsg_queue_filter_free (server->queue_filter_hash_table, server->service->descriptor);
-
     g_hash_table_destroy (server->queue_filter_hash_table);
-
     cmsg_receive_queue_free_all (server->queue);
-
     pthread_mutex_destroy (&server->queueing_state_mutex);
-
     pthread_mutex_destroy (&server->queue_mutex);
 
-    server->_transport->server_destroy (server);
+    if (server->_transport)
+    {
+        server->_transport->server_destroy (server);
+    }
 
     CMSG_FREE (server);
 }
@@ -140,8 +138,8 @@ cmsg_server_get_socket (cmsg_server *server)
 {
     int socket = 0;
 
-    CMSG_ASSERT (server);
-    CMSG_ASSERT (server->_transport);
+    CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
+    CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, -1);
 
     socket = server->_transport->s_socket (server);
 
@@ -172,7 +170,7 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
     int check_fdmax = FALSE;
     int listen_socket;
 
-    CMSG_ASSERT (server);
+    CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
 
     listen_socket = cmsg_server_get_socket (server);
 
@@ -352,9 +350,8 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
 {
     int32_t ret = 0;
 
-    CMSG_ASSERT (server);
-    CMSG_ASSERT (server->_transport);
-    CMSG_ASSERT (socket > 0);
+    CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, CMSG_RET_ERR);
 
     ret = server->_transport->server_recv (socket, server);
 
@@ -376,6 +373,8 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 {
     int sock = 0;
 
+    CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
+
     if (server->_transport->server_accept != NULL)
     {
         sock = server->_transport->server_accept (listen_socket, server);
@@ -394,6 +393,8 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
 {
     uint32_t queue_length = 0;
     cmsg_server_closure_data closure_data;
+
+    CMSG_ASSERT_RETURN_VOID (server != NULL);
 
     // Setup closure_data so it can be used no matter what the action is
     closure_data.server = server;
@@ -582,11 +583,9 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
 int32_t
 cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
-    CMSG_ASSERT (server);
-    CMSG_ASSERT (server->_transport);
-    CMSG_ASSERT (server->service);
-    CMSG_ASSERT (server->service->descriptor);
-    CMSG_ASSERT (server->server_request);
+    CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (buffer_data != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (server->server_request != NULL, CMSG_RET_ERR);
 
     cmsg_server_request *server_request = server->server_request;
 
@@ -618,6 +617,8 @@ cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code statu
     int ret = 0;
     cmsg_header header;
 
+    CMSG_ASSERT_RETURN_VOID (server != NULL);
+
     header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REPLY, 0, 0 /* empty msg */ ,
                                  status_code);
 
@@ -647,9 +648,10 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     cmsg_server_closure_data *closure_data = (cmsg_server_closure_data *) closure_data_void;
     cmsg_server *server = closure_data->server;
 
-    CMSG_ASSERT (server);
-    CMSG_ASSERT (server->_transport);
-    CMSG_ASSERT (server->server_request);
+    CMSG_ASSERT_RETURN_VOID (server != NULL);
+    CMSG_ASSERT_RETURN_VOID (closure_data_void != NULL);
+    CMSG_ASSERT_RETURN_VOID (server->_transport != NULL);
+    CMSG_ASSERT_RETURN_VOID (server->server_request != NULL);
 
     cmsg_server_request *server_request = server->server_request;
     uint32_t ret = 0;
@@ -789,6 +791,8 @@ cmsg_server_queue_process (cmsg_server *server)
 {
     int32_t processed = 0;
 
+    CMSG_ASSERT_RETURN_VAL (server != NULL, processed);
+
     pthread_mutex_lock (&server->queueing_state_mutex);
 
     if (server->queueing_state == CMSG_QUEUE_STATE_TO_DISABLED)
@@ -877,6 +881,8 @@ cmsg_server_queue_process (cmsg_server *server)
 int32_t
 cmsg_server_queue_process_some (cmsg_server *server, int32_t number_to_process)
 {
+    CMSG_ASSERT_RETURN_VAL (server != NULL, 0);
+
     pthread_mutex_lock (&server->queueing_state_mutex);
     server->queue_process_number = number_to_process;
     pthread_mutex_unlock (&server->queueing_state_mutex);
@@ -1144,6 +1150,9 @@ cmsg_server *
 cmsg_create_server_tipc_rpc (const char *server_name, int member_id, int scope,
                              ProtobufCService *descriptor)
 {
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
     return _cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
                                      CMSG_TRANSPORT_RPC_TIPC);
 }
@@ -1152,6 +1161,9 @@ cmsg_server *
 cmsg_create_server_tipc_oneway (const char *server_name, int member_id, int scope,
                                 ProtobufCService *descriptor)
 {
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
     return _cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
                                      CMSG_TRANSPORT_ONEWAY_TIPC);
 }

@@ -66,12 +66,6 @@
 #define DEBUG(ARGS...)  /* do nothing */
 #endif
 
-#ifdef DEBUG_DISABLED
-#define CMSG_ASSERT(E) do { ; } while (0)
-#else
-#define CMSG_ASSERT(E) (assert (E))
-#endif
-
 #define CMSG_RECV_BUFFER_SZ                        512
 #define CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT    1000  //ms
 #define CMSG_TRANSPORT_CLIENT_SEND_TRIES           10
