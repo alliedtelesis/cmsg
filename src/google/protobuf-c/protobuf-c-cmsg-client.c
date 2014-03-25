@@ -91,7 +91,7 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
     }
     else
     {
-        CMSG_LOG_GEN_ERROR ("[%s.%s] Unable to create client.", descriptor->name,
+        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create client.", descriptor->name,
                             transport->tport_id);
     }
 

@@ -127,7 +127,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     cmsg_pub *publisher = (cmsg_pub *) CMSG_CALLOC (1, sizeof (cmsg_pub));
     if (!publisher)
     {
-        CMSG_LOG_GEN_ERROR ("[%s.%s] Unable to create publisher.", pub_service->name,
+        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create publisher.", pub_service->name,
                             sub_server_transport->tport_id);
         return NULL;
     }
@@ -137,7 +137,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
                          (ProtobufCService *) &cmsg_pub_subscriber_service);
     if (!publisher->sub_server)
     {
-        CMSG_LOG_GEN_ERROR ("[%s.%s] Unable to create publisher sub_server.",
+        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create publisher sub_server.",
                             pub_service->name, sub_server_transport->tport_id);
         CMSG_FREE (publisher);
         return NULL;
@@ -147,6 +147,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
 
     publisher->self.object_type = CMSG_OBJ_TYPE_PUB;
     publisher->self.object = publisher;
+    strncpy (publisher->self.obj_id, pub_service->name, CMSG_MAX_OBJ_ID_LEN);
 
     publisher->sub_server->parent = publisher->self;
 
@@ -1156,7 +1157,7 @@ _cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
     if (publisher == NULL)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("[%s.%s] No TIPC publisher to member %d", descriptor->name,
+        CMSG_LOG_GEN_ERROR ("[%s%s] No TIPC publisher to member %d", descriptor->name,
                             transport->tport_id, member_id);
         return NULL;
     }

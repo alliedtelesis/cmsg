@@ -15,7 +15,7 @@ cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_servic
     cmsg_sub *subscriber = (cmsg_sub *) CMSG_CALLOC (1, sizeof (cmsg_sub));
     if (!subscriber)
     {
-        CMSG_LOG_GEN_ERROR ("[%s.%s] Unable to allocate memory for subscriber.",
+        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to allocate memory for subscriber.",
                             pub_service->descriptor->name, pub_server_transport->tport_id);
         return NULL;
     }
@@ -23,7 +23,7 @@ cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_servic
     subscriber->pub_server = cmsg_server_new (pub_server_transport, pub_service);
     if (!subscriber->pub_server)
     {
-        CMSG_LOG_GEN_ERROR ("[%s.%s] Unable to create pub_server.",
+        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create pub_server.",
                             pub_service->descriptor->name, pub_server_transport->tport_id);
         CMSG_FREE (subscriber);
         return NULL;
@@ -135,7 +135,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     else
     {
         CMSG_LOG_GEN_ERROR
-            ("[%s.%s] Transport type incorrect for cmsg_sub_subscribe: type(%d).",
+            ("[%s%s] Transport type incorrect for cmsg_sub_subscribe: type(%d).",
              subscriber->pub_server->service->descriptor->name,
              subscriber->pub_server->_transport->tport_id,
              subscriber->pub_server->_transport->type);
@@ -147,7 +147,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
                                        &cmsg_sub_service_descriptor);
     if (!register_client)
     {
-        CMSG_LOG_GEN_ERROR ("[%s.%s] Unable to create register client for subscriber.",
+        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create register client for subscriber.",
                             subscriber->pub_server->service->descriptor->name,
                             sub_client_transport->tport_id);
         CMSG_FREE (register_client);
@@ -235,7 +235,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
                                        &cmsg_sub_service_descriptor);
     if (!register_client)
     {
-        CMSG_LOG_GEN_ERROR ("[%s.%s] Unable to create register client for subscriber.",
+        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create register client for subscriber.",
                             subscriber->pub_server->service->descriptor->name,
                             sub_client_transport->tport_id);
         CMSG_FREE (register_client);
@@ -279,7 +279,7 @@ _cmsg_create_subscriber_tipc (const char *server_name, int member_id, int scope,
     if (subscriber == NULL)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("[%s.%s] No TIPC subscriber to %d",
+        CMSG_LOG_GEN_ERROR ("[%s%s] No TIPC subscriber to %d",
                             descriptor->descriptor->name, transport->tport_id, member_id);
         return NULL;
     }

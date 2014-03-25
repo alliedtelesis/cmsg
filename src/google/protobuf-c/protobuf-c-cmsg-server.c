@@ -31,6 +31,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 
         server->self.object_type = CMSG_OBJ_TYPE_SERVER;
         server->self.object = server;
+        strncpy (server->self.obj_id, service->descriptor->name, CMSG_MAX_OBJ_ID_LEN);
         server->parent.object_type = CMSG_OBJ_TYPE_NONE;
         server->parent.object = NULL;
 
@@ -94,7 +95,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
     }
     else
     {
-        CMSG_LOG_GEN_ERROR ("[%s.%s] Unable to create server.", service->descriptor->name,
+        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create server.", service->descriptor->name,
                             transport->tport_id);
     }
 
@@ -1132,7 +1133,7 @@ _cmsg_create_server_tipc (const char *server_name, int member_id, int scope,
     if (server == NULL)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("[%s.%s] Failed to create TIPC server for member %d.",
+        CMSG_LOG_GEN_ERROR ("[%s%s] Failed to create TIPC server for member %d.",
                             descriptor->descriptor->name, transport->tport_id, member_id);
         return NULL;
     }
