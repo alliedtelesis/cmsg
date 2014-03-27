@@ -10,21 +10,14 @@
 #define CMSG_SERVICE(package,service)     ((ProtobufCService *)&package ## _ ## service ## _service)
 #define CMSG_SERVICE_NOPACKAGE(service)   ((ProtobufCService *)&service ## _service)
 
-typedef struct _closure_data_s
+typedef struct _cmsg_server_closure_data_s
 {
     cmsg_server *server;
     /* Whether the server has decided to do something different with the method
      * call or has invoked the method.
      */
     cmsg_method_processing_reason method_processing_reason;
-} cmsg_closure_data;
-
-typedef struct _cmsg_server_request_s
-{
-    cmsg_msg_type msg_type;
-    uint32_t message_length;
-    uint32_t method_index;
-} cmsg_server_request;
+} cmsg_server_closure_data;
 
 typedef int32_t (*server_message_processor_f) (cmsg_server *server, uint8_t *buffer_data);
 
@@ -56,12 +49,17 @@ typedef struct _cmsg_server_s
     GHashTable *queue_filter_hash_table;
     uint32_t queue_working;
 
+    GHashTable *method_name_hash_table;
     //thread signaling for queuing
     cmsg_bool_t queue_process_number;
     pthread_t self_thread_id;
 
     fd_set accepted_fdset;
     int accepted_fdmax;
+
+#ifdef HAVE_CMSG_PROFILING
+    cmsg_prof prof;
+#endif
 } cmsg_server;
 
 
@@ -86,6 +84,10 @@ void cmsg_server_invoke (cmsg_server *server,
                          cmsg_method_processing_reason process_reason);
 
 int32_t cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data);
+
+void cmsg_server_empty_method_reply_send (cmsg_server *server,
+                                          cmsg_status_code status_code,
+                                          uint32_t method_index);
 
 void cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data);
 

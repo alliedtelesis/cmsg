@@ -1,7 +1,7 @@
 #include "protobuf-c-cmsg-transport.h"
 #include "protobuf-c-cmsg-client.h"
 #include "protobuf-c-cmsg-server.h"
-
+#include "protobuf-c-cmsg-error.h"
 
 
 /**
@@ -25,7 +25,8 @@ cmsg_transport_tipc_connect (cmsg_client *client)
     {
         ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
-        CMSG_LOG_DEBUG ("[TRANSPORT] error creating socket: %s", strerror (errno));
+        CMSG_LOG_CLIENT_ERROR (client, "Unable to create socket. Error:%s",
+                               strerror (errno));
 
         return ret;
     }
@@ -83,14 +84,14 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] socket failed with: %s", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Socket failed. Error:%s", strerror (errno));
         return -1;
     }
 
     ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int32_t));
     if (ret == -1)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] setsockopt failed with: %s", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Setsockopt failed. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -101,7 +102,7 @@ cmsg_transport_tipc_listen (cmsg_server *server)
                 (struct sockaddr *) &transport->config.socket.sockaddr.tipc, addrlen);
     if (ret < 0)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] bind failed with: %s", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Bind failed. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -109,12 +110,13 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     ret = listen (listening_socket, 10);
     if (ret < 0)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] listen failed with: %s", strerror (errno));
+        CMSG_LOG_SERVER_ERROR (server, "Listen failed. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
 
     server->connection.sockets.listening_socket = listening_socket;
+    cmsg_transport_write_id (server->_transport);
 
     DEBUG (CMSG_INFO, "[TRANSPORT] listening on tipc socket: %d\n", listening_socket);
 
@@ -155,8 +157,8 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
 
     if (!server || server_socket < 0)
     {
-        CMSG_LOG_ERROR ("[TRANSPORT] bad parameter server %p socket %d",
-                        server, server_socket);
+        CMSG_LOG_SERVER_ERROR (server, "Bad parameter for server recv. Server:%p Socket:%d",
+                               server, server_socket);
         return -1;
     }
     DEBUG (CMSG_INFO, "[TRANSPORT] socket %d\n", server_socket);
@@ -190,7 +192,7 @@ cmsg_transport_tipc_server_accept (int32_t listen_socket, cmsg_server *server)
 
     if (sock < 0)
     {
-        DEBUG (CMSG_ERROR, "[TRANSPORT] accept failed\n");
+        CMSG_LOG_SERVER_ERROR (server, "Accept failed. Error:%s", strerror (errno));
         DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
 
         return -1;
@@ -211,6 +213,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     uint8_t *buffer = 0;
     uint8_t buf_static[512];
     const ProtobufCMessageDescriptor *desc;
+    uint32_t extra_header_size;
+    cmsg_server_request server_request;
 
     *messagePtPt = NULL;
 
@@ -219,15 +223,24 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         return CMSG_STATUS_CODE_SERVICE_FAILED;
     }
 
+    CMSG_PROF_TIME_TIC (&client->prof);
+
     nbytes = recv (client->connection.socket,
                    &header_received, sizeof (cmsg_header), MSG_WAITALL);
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "receive",
+                                 cmsg_prof_time_toc (&client->prof));
+    CMSG_PROF_TIME_TIC (&client->prof);
 
     if (nbytes == (int) sizeof (cmsg_header))
     {
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
-            CMSG_LOG_ERROR ("[TRANSPORT] server receive couldn't process msg header");
+            CMSG_LOG_CLIENT_ERROR (client,
+                                   "Unable to process message header for client receive. Bytes:%d",
+                                   nbytes);
+            CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
+                                         cmsg_prof_time_toc (&client->prof));
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
@@ -242,6 +255,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             DEBUG (CMSG_INFO,
                    "[TRANSPORT] received response without data. server status %d\n",
                    header_converted.status_code);
+            CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
+                                         cmsg_prof_time_toc (&client->prof));
             return header_converted.status_code;
         }
 
@@ -265,9 +280,14 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
         if (nbytes == (int) dyn_len)
         {
+            extra_header_size = header_converted.header_length - sizeof (cmsg_header);
             // Set buffer to take into account a larger header than we expected
-            buffer = recv_buffer + (header_converted.header_length - sizeof (cmsg_header));
+            buffer = recv_buffer;
 
+            cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
+                                     client->descriptor);
+
+            buffer = buffer + extra_header_size;
             DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
             cmsg_buffer_print (buffer, dyn_len);
 
@@ -277,10 +297,10 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
             DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
-            desc = client->descriptor->methods[header_converted.method_index].output;
+            desc = client->descriptor->methods[server_request.method_index].output;
             message = protobuf_c_message_unpack (desc, allocator,
                                                  header_converted.message_length,
-                                                 recv_buffer);
+                                                 buffer);
 
             // Free the allocated buffer
             if (recv_buffer != (void *) buf_static)
@@ -295,16 +315,22 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             // Msg not unpacked correctly
             if (message == NULL)
             {
-                CMSG_LOG_ERROR ("[TRANSPORT] error unpacking response message\n");
+                CMSG_LOG_CLIENT_ERROR (client,
+                                       "Error unpacking response message. Msg length:%d",
+                                       header_converted.message_length);
+                CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
+                                             cmsg_prof_time_toc (&client->prof));
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
             }
             *messagePtPt = message;
+            CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
+                                         cmsg_prof_time_toc (&client->prof));
             return CMSG_STATUS_CODE_SUCCESS;
         }
         else
         {
-            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d no data, dyn_len %d",
-                            client->connection.socket, dyn_len);
+            CMSG_LOG_CLIENT_ERROR (client, "No data for recv. socket:%d, dyn_len:%d",
+                                   client->connection.socket, dyn_len);
 
         }
         if (recv_buffer != (void *) buf_static)
@@ -320,8 +346,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     {
         /* Didn't receive all of the CMSG header.
          */
-        CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d bad header nbytes %d\n",
-                        client->connection.socket, nbytes);
+        CMSG_LOG_CLIENT_ERROR (client, "Bad header length for recv. Socket:%d nbytes:%d",
+                               client->connection.socket, nbytes);
 
         // TEMP to keep things going
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
@@ -338,17 +364,19 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     {
         if (errno == ECONNRESET)
         {
-            DEBUG (CMSG_ERROR, "[TRANSPORT] recv socket %d error: %s\n",
+            DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
                    client->connection.socket, strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
         {
-            CMSG_LOG_ERROR ("[TRANSPORT] recv socket %d error: %s\n",
-                            client->connection.socket, strerror (errno));
+            CMSG_LOG_CLIENT_ERROR (client, "Recv error. Socket:%d Error:%s",
+                                   client->connection.socket, strerror (errno));
         }
     }
 
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
+                                 cmsg_prof_time_toc (&client->prof));
     return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 
@@ -360,9 +388,19 @@ cmsg_transport_tipc_client_send (cmsg_client *client, void *buff, int length, in
 }
 
 static int32_t
-cmsg_transport_tipc_server_send (cmsg_server *server, void *buff, int length, int flag)
+cmsg_transport_tipc_rpc_server_send (cmsg_server *server, void *buff, int length, int flag)
 {
     return (send (server->connection.sockets.client_socket, buff, length, flag));
+}
+
+/**
+ * TIPC oneway servers do not send replies to received messages. This function therefore
+ * returns 0.
+ */
+static int32_t
+cmsg_transport_tipc_oneway_server_send (cmsg_server *server, void *buff, int length, int flag)
+{
+    return 0;
 }
 
 static void
@@ -464,7 +502,7 @@ cmsg_transport_tipc_init (cmsg_transport *transport)
     transport->server_recv = cmsg_transport_tipc_server_recv;
     transport->client_recv = cmsg_transport_tipc_client_recv;
     transport->client_send = cmsg_transport_tipc_client_send;
-    transport->server_send = cmsg_transport_tipc_server_send;
+    transport->server_send = cmsg_transport_tipc_rpc_server_send;
     transport->closure = cmsg_server_closure_rpc;
     transport->invoke = cmsg_client_invoke_rpc;
     transport->client_close = cmsg_transport_tipc_client_close;
@@ -499,7 +537,7 @@ cmsg_transport_oneway_tipc_init (cmsg_transport *transport)
     transport->server_recv = cmsg_transport_tipc_server_recv;
     transport->client_recv = cmsg_transport_tipc_client_recv;
     transport->client_send = cmsg_transport_tipc_client_send;
-    transport->server_send = cmsg_transport_tipc_server_send;
+    transport->server_send = cmsg_transport_tipc_oneway_server_send;
     transport->closure = cmsg_server_closure_oneway;
     transport->invoke = cmsg_client_invoke_oneway;
     transport->client_close = cmsg_transport_tipc_client_close;
@@ -529,14 +567,16 @@ cmsg_create_transport_tipc (const char *server_name, int member_id, int scope,
     port = cmsg_service_port_get (server_name, "tipc");
     if (port <= 0)
     {
-        CMSG_LOG_ERROR ("Unknown TIPC service %s", server_name);
+        CMSG_LOG_GEN_ERROR ("Unknown TIPC service. Server:%s, MemberID:%d", server_name,
+                            member_id);
         return NULL;
     }
 
     transport = cmsg_transport_new (transport_type);
     if (transport == NULL)
     {
-        CMSG_LOG_ERROR ("No TIPC transport for %d", member_id);
+        CMSG_LOG_GEN_ERROR ("Unable to create TIPC transport. Server:%s, MemberID:%d",
+                            server_name, member_id);
         return NULL;
     }
 
@@ -567,27 +607,19 @@ cmsg_create_transport_tipc_oneway (const char *server_name, int member_id, int s
 
 
 /**
- * Initialise TIPC Topology Service for the given server name.
- * @param server_name the server name to monitor
- * @param lower lower instance ID (stack ID) to monitor
- * @param mac the MAC address to match against
+ * Initialise the connection to the TIPC Topology Service.
+ *
  * @return the file descriptor opened to receive topology event or -1 on failure.
  */
 int
-cmsg_tipc_topology_subscription_init (const char *server_name, uint32_t lower, uint32_t upper)
+cmsg_tipc_topology_service_connect (void)
 {
-    struct tipc_subscr subscr;
     struct sockaddr_tipc topo_server;
-    size_t sub_len;
     size_t addr_len;
-    int port;
-    int ret;
     int sock;
 
-    sub_len = sizeof (subscr);
     addr_len = sizeof (topo_server);
     memset (&topo_server, 0, addr_len);
-    memset (&subscr, 0, sub_len);
 
     /* setup the TIPC topology server's address {1,1} */
     topo_server.family = AF_TIPC;
@@ -599,24 +631,70 @@ cmsg_tipc_topology_subscription_init (const char *server_name, uint32_t lower, u
     sock = socket (AF_TIPC, SOCK_SEQPACKET, 0);
     if (sock < 0)
     {
-        CMSG_LOG_ERROR ("TIPC topo %s : socket failure (errno=%d)", server_name, errno);
+        CMSG_LOG_GEN_ERROR ("TIPC topology connect socket failure. Error:%s",
+                            strerror (errno));
         return -1;
     }
 
     /* Connect to the TIPC topology server */
     if (connect (sock, (struct sockaddr *) &topo_server, addr_len) < 0)
     {
-        CMSG_LOG_ERROR ("TIPC topo %s : connect failure (errno=%d)", server_name, errno);
+        CMSG_LOG_GEN_ERROR ("TIPC topology connect failure. Errno:%s", strerror (errno));
         close (sock);
         return -1;
+    }
+
+    return sock;
+}
+
+
+/**
+ * Perform a TIPC Topology Subscription
+ * The callback is stored in the subscription usr_handle so that when the event occurs
+ * the appropriate callback can be made for the subscription.  This means the application
+ * doesn't have to store a subscription.
+ * @param sock a socket opened for TIPC Topology Service
+ * @param server_name the server name to monitor
+ * @param lower lower instance ID (stack ID) to monitor
+ * @param upper upper instance ID (stack ID) to monitor
+ * @return CMSG error code, CMSG_RET_OK for success, CMSG_RET_ERR for failure
+ */
+int
+cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t lower, uint32_t upper,
+                                    cmsg_tipc_topology_callback callback)
+{
+    struct tipc_subscr subscr;
+    size_t sub_len;
+    int port;
+    int ret;
+
+    sub_len = sizeof (subscr);
+    memset (&subscr, 0, sub_len);
+
+    /* Check the parameters are valid */
+    if (server_name == NULL)
+    {
+        CMSG_LOG_GEN_ERROR
+            ("TIPC topology do subscription has no server name specified. Server name:%s, [%d,%d]",
+             server_name, lower, upper);
+        return CMSG_RET_ERR;
+    }
+
+    if (sock <= 0)
+    {
+        CMSG_LOG_GEN_ERROR
+            ("TIPC topology do subscription has no socket specified. Server name:%s, [%d,%d]",
+             server_name, lower, upper);
+        return CMSG_RET_ERR;
     }
 
     port = cmsg_service_port_get (server_name, "tipc");
     if (port <= 0)
     {
-        CMSG_LOG_ERROR ("TIPC topo %s : couldn't determine port", server_name);
-        close (sock);
-        return -1;
+        CMSG_LOG_GEN_ERROR
+            ("TIPC topology do subscription couldn't determine port. Server name:%s, [%d,%d]",
+             server_name, lower, upper);
+        return CMSG_RET_ERR;
     }
 
     /*  Create TIPC topology subscription. This will listen for new publications of port
@@ -626,17 +704,48 @@ cmsg_tipc_topology_subscription_init (const char *server_name, uint32_t lower, u
     subscr.seq.lower = lower;   /* min member-ID */
     subscr.seq.upper = upper;   /* max member-ID */
     subscr.filter = TIPC_SUB_PORTS;     /* all publish/withdraws */
+    memcpy (subscr.usr_handle, &callback, sizeof (cmsg_tipc_topology_callback));
 
     ret = send (sock, &subscr, sub_len, 0);
     if (ret < 0 || (uint32_t)ret != sub_len)
     {
-        CMSG_LOG_ERROR ("TIPC topo %s : send failure (errno=%d)", server_name, errno);
-        close (sock);
-        return -1;
+        CMSG_LOG_GEN_ERROR
+            ("TIPC topology do subscription send failure. Server name:%s, [%d,%d]. Error:%s",
+             server_name, lower, upper, strerror (errno));
+        return CMSG_RET_ERR;
     }
 
     DEBUG (CMSG_INFO, "TIPC topo %s : successful (port=%u, sock=%d)", server_name,
            port, sock);
+    return CMSG_RET_OK;
+}
+
+
+/**
+ * Connects to the TIPC Topology Service and subscribes to the given server
+ *
+ * @return socket on success, -1 on failure
+ */
+int
+cmsg_tipc_topology_connect_subscribe (const char *server_name, uint32_t lower, uint32_t upper,
+                                    cmsg_tipc_topology_callback callback)
+{
+    int sock;
+    int ret;
+
+    sock = cmsg_tipc_topology_service_connect ();
+    if (sock <= 0 )
+    {
+        return -1;
+    }
+
+    ret = cmsg_tipc_topology_do_subscription (sock, server_name, lower, upper, callback);
+
+    if (ret != CMSG_RET_OK)
+    {
+        close (sock);
+        return -1;
+    }
 
     return sock;
 }
@@ -649,9 +758,11 @@ cmsg_tipc_topology_subscription_init (const char *server_name, uint32_t lower, u
  * @return 0 on normal operation or -1 on failure
  */
 int
-cmsg_tipc_topology_subscription_read (int sock, cmsg_tipc_topology_callback callback)
+cmsg_tipc_topology_subscription_read (int sock)
 {
     struct tipc_event event;
+    struct tipc_subscr *subscr;
+    cmsg_tipc_topology_callback callback;
     int eventOk = 1;
     int ret;
 
@@ -675,15 +786,78 @@ cmsg_tipc_topology_subscription_read (int sock, cmsg_tipc_topology_callback call
         /* Call the callback function to process the event */
         if (eventOk)
         {
-            callback (&event);
+            subscr = &event.s;
+            memcpy (&callback, subscr->usr_handle, sizeof (cmsg_tipc_topology_callback));
+            if (callback != NULL)
+            {
+                callback (&event);
+            }
         }
     }
 
     if (ret != sizeof (event) && errno != EAGAIN)
     {
-        CMSG_LOG_ERROR ("TIPC topo : Failed to receive event (errno=%d)", errno);
-        return -1;
+        CMSG_LOG_GEN_ERROR ("TIPC topology subscription read failure. Error:%s",
+                            strerror (errno));
+        return CMSG_RET_ERR;
     }
 
-    return 0;
+    return CMSG_RET_OK;
+}
+
+
+/**
+ * Print to tracelog a message describing the tipc event that is passed in to the
+ * function. This includes if the event is published/withdrawn, and address information
+ * about the connection that has changed,
+ */
+void
+cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
+                                        const char *event_str, struct tipc_event *event)
+{
+    char display_string[150] = { 0 };
+    uint32_t char_count = 0;
+
+    char_count = sprintf (display_string, "%s Event: ", event_str);
+
+    switch (event->event)
+    {
+    case TIPC_PUBLISHED:
+        char_count += sprintf (&(display_string[char_count]), "Published: ");
+        break;
+    case TIPC_WITHDRAWN:
+        char_count += sprintf (&(display_string[char_count]), "Withdrawn: ");
+        break;
+    case TIPC_SUBSCR_TIMEOUT:
+        char_count += sprintf (&(display_string[char_count]), "Timeout: ");
+        break;
+    default:
+        char_count += sprintf (&(display_string[char_count]), "Unknown, evt = %i ",
+                               event->event);
+        break;
+    }
+
+    char_count += sprintf (&(display_string[char_count]), " <%u,%u,%u> port id <%x:%u>",
+                           event->s.seq.type, event->found_lower, event->found_upper,
+                           event->port.node, event->port.ref);
+
+    tracelog (tracelog_string, "%s", display_string);
+
+    tracelog (tracelog_string, "Original Subscription:<%u,%u,%u>, timeout %u, user ref: "
+              "%x%x%x%x%x%x%x%x",
+              event->s.seq.type, event->s.seq.lower, event->s.seq.upper,
+              event->s.timeout,
+              ((uint8_t *) event->s.usr_handle)[0],
+              ((uint8_t *) event->s.usr_handle)[1],
+              ((uint8_t *) event->s.usr_handle)[2],
+              ((uint8_t *) event->s.usr_handle)[3],
+              ((uint8_t *) event->s.usr_handle)[4],
+              ((uint8_t *) event->s.usr_handle)[5],
+              ((uint8_t *) event->s.usr_handle)[6],
+              ((uint8_t *) event->s.usr_handle)[7]);
+
+    if (event->s.seq.type == 0)
+    {
+        tracelog (tracelog_string, " ...For node %x", event->found_lower);
+    }
 }

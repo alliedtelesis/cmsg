@@ -1,4 +1,22 @@
 #include "protobuf-c-cmsg-client.h"
+#include "protobuf-c-cmsg-error.h"
+
+static int32_t _cmsg_client_buffer_send_retry_once (cmsg_client *client,
+                                                    uint8_t *queue_buffer,
+                                                    uint32_t queue_buffer_size,
+                                                    const char *method_name);
+
+static int32_t _cmsg_client_queue_process_all_internal (cmsg_client *client);
+
+static int32_t _cmsg_client_queue_process_all_direct (cmsg_client *client);
+
+static int32_t _cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer,
+                                         uint32_t buffer_size);
+
+static cmsg_client *_cmsg_create_client_tipc (const char *server, int member_id,
+                                              int scope,
+                                              ProtobufCServiceDescriptor *descriptor,
+                                              cmsg_transport_type transport_type);
 
 
 cmsg_client *
@@ -13,7 +31,7 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
         client->base_service.destroy = NULL;
         client->allocator = &protobuf_c_default_allocator;
         client->_transport = transport;
-        client->request_id = 0;
+        cmsg_transport_write_id (transport);
         client->state = CMSG_CLIENT_STATE_INIT;
         client->connection.socket = -1;
 
@@ -27,6 +45,7 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
 
         client->self.object_type = CMSG_OBJ_TYPE_CLIENT;
         client->self.object = client;
+        strncpy (client->self.obj_id, descriptor->name, CMSG_MAX_OBJ_ID_LEN);
 
         client->parent.object_type = CMSG_OBJ_TYPE_NONE;
         client->parent.object = NULL;
@@ -35,7 +54,7 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
 
         if (pthread_mutex_init (&client->queue_mutex, NULL) != 0)
         {
-            DEBUG (CMSG_ERROR, "[CLIENT] error: queue mutex init failed\n");
+            CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_mutex.");
             CMSG_FREE (client);
             return NULL;
         }
@@ -46,26 +65,34 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
 
         if (pthread_cond_init (&client->queue_process_cond, NULL) != 0)
         {
-            DEBUG (CMSG_ERROR, "[CLIENT] error: queue_process_cond init failed\n");
+            CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_cond.");
             return 0;
         }
 
         if (pthread_mutex_init (&client->queue_process_mutex, NULL) != 0)
         {
-            DEBUG (CMSG_ERROR, "[CLIENT] error: queue_process_mutex init failed\n");
+            CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_mutex.");
+            return 0;
+        }
+
+        if (pthread_mutex_init (&client->connection_mutex, NULL) != 0)
+        {
+            CMSG_LOG_CLIENT_ERROR (client, "Init failed for connection_mutex.");
             return 0;
         }
 
         client->self_thread_id = pthread_self ();
 
-        client->invoke_return_state = CMSG_RET_OK;
-
         cmsg_client_queue_filter_init (client);
+
+#ifdef HAVE_CMSG_PROFILING
+        memset (&client->prof, 0, sizeof (cmsg_prof));
+#endif
     }
     else
     {
-        syslog (LOG_CRIT | LOG_LOCAL6,
-                "[CLIENT] error: unable to create client. line(%d)\n", __LINE__);
+        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create client.", descriptor->name,
+                            transport->tport_id);
     }
 
     return client;
@@ -96,6 +123,8 @@ cmsg_client_destroy (cmsg_client *client)
         client->_transport->client_close (client);
         client->_transport->client_destroy (client);
     }
+
+    pthread_mutex_destroy (&client->connection_mutex);
 
     CMSG_FREE (client);
 }
@@ -137,7 +166,7 @@ cmsg_client_connect (cmsg_client *client)
 }
 
 
-void
+int32_t
 cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
                         const ProtobufCMessage *input, ProtobufCClosure closure,
                         void *closure_data)
@@ -149,6 +178,11 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     cmsg_status_code status_code;
     ProtobufCMessage *message_pt;
     const char *method_name;
+    int method_length;
+    int type = CMSG_TLV_METHOD_TYPE;
+    cmsg_header header;
+
+    CMSG_PROF_TIME_TIC (&client->prof);
 
     /* pack the data */
     /* send */
@@ -162,39 +196,41 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     method_name = service->descriptor->methods[method_index].name;
 
     DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
-
     // open connection (if it is already open this will just return)
     connect_error = cmsg_client_connect (client);
+
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "connect",
+                                 cmsg_prof_time_toc (&client->prof));
 
     if (client->state != CMSG_CLIENT_STATE_CONNECTED)
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                         method_name, connect_error);
-
-        client->invoke_return_state = CMSG_RET_ERR;
-
-        return;
+        return CMSG_RET_ERR;
     }
+    method_length = strlen (method_name) + 1;
+    CMSG_PROF_TIME_TIC (&client->prof);
 
     uint32_t packed_size = protobuf_c_message_get_packed_size (input);
+    uint32_t extra_header_size = TLV_SIZE (method_length);
+    uint32_t total_header_size = sizeof (header) + extra_header_size;
+    uint32_t total_message_size = total_header_size + packed_size;
 
-    client->request_id++;
+    header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REQ, extra_header_size,
+                                 packed_size, CMSG_STATUS_CODE_UNSET);
 
-    cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REQ, packed_size,
-                                             method_index, CMSG_STATUS_CODE_UNSET);
-    uint8_t *buffer = (uint8_t *) CMSG_CALLOC (1, packed_size + sizeof (header));
+    uint8_t *buffer = (uint8_t *) CMSG_CALLOC (1, total_message_size);
     if (!buffer)
     {
-        CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate buffer (method: %s)",
-                        method_name);
-
-        client->invoke_return_state = CMSG_RET_ERR;
-        return;
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Unable to allocate memory for message. (method: %s).",
+                               method_name);
+        return CMSG_RET_ERR;
     }
 
-    memcpy ((void *) buffer, &header, sizeof (header));
+    cmsg_tlv_method_header_create (buffer, header, type, method_length, method_name);
 
-    uint8_t *buffer_data = buffer + sizeof (header);
+    uint8_t *buffer_data = buffer + total_header_size;
 
     DEBUG (CMSG_INFO, "[CLIENT] header\n");
     cmsg_buffer_print (&header, sizeof (header));
@@ -202,32 +238,34 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     ret = protobuf_c_message_pack (input, buffer_data);
     if (ret < packed_size)
     {
-        CMSG_LOG_ERROR ("[CLIENT] error: packing message data failed, underrun packet:%d of %d (method: %s)",
-                        ret, packed_size, method_name);
-
-        client->invoke_return_state = CMSG_RET_ERR;
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Underpacked message data. Packed %d of %d bytes. (method: %s)",
+                               ret, packed_size, method_name);
 
         CMSG_FREE (buffer);
-        return;
+        return CMSG_RET_ERR;
     }
     else if (ret > packed_size)
     {
-        CMSG_LOG_ERROR ("[CLIENT] error: packing message data overwrote buffer: %d of %d (method: %s)",
-                        ret, packed_size, method_name);
-
-        client->invoke_return_state = CMSG_RET_ERR;
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Overpacked message data. Packed %d of %d bytes. (method: %s)",
+                               ret, packed_size, method_name);
 
         CMSG_FREE (buffer);
-        return;
+        return CMSG_RET_ERR;
     }
+
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "pack", cmsg_prof_time_toc (&client->prof));
 
     DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
     cmsg_buffer_print (buffer_data, packed_size);
 
-    send_ret = client->_transport->client_send (client,
-                                                buffer, packed_size + sizeof (header), 0);
+    CMSG_PROF_TIME_TIC (&client->prof);
 
-    if (send_ret < (int) (packed_size + sizeof (header)))
+    send_ret = client->_transport->client_send (client,
+                                                buffer, total_message_size, 0);
+
+    if (send_ret < (int) (total_message_size))
     {
         // close the connection as something must be wrong
         client->state = CMSG_CLIENT_STATE_CLOSED;
@@ -240,9 +278,9 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         {
             send_ret = client->_transport->client_send (client,
                                                         buffer,
-                                                        packed_size + sizeof (header), 0);
+                                                        total_message_size, 0);
 
-            if (send_ret < (int) (packed_size + sizeof (header)))
+            if (send_ret < (int) (total_message_size))
             {
                 if (send_ret == -1)
                 {
@@ -253,21 +291,21 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
                     }
                     else
                     {
-                        CMSG_LOG_ERROR ("[CLIENT] client_send failed (method: %s), %s",
-                                        method_name, strerror (errno));
+                        CMSG_LOG_CLIENT_ERROR (client,
+                                               "Client send failed: %s. (method: %s)",
+                                               strerror (errno), method_name);
                     }
                 }
                 else
                 {
-                    CMSG_LOG_ERROR ("[CLIENT] client_send failed: sent %d of %u (method: %s)",
-                                    send_ret,
-                                    (uint32_t) (packed_size + sizeof (header)),
-                                    method_name);
+                    CMSG_LOG_CLIENT_ERROR (client,
+                                           "Client send failed: Only sent %d of %u bytes. (method: %s)",
+                                           send_ret, (uint32_t) (total_message_size),
+                                           method_name);
                 }
 
-                client->invoke_return_state = CMSG_RET_ERR;
                 CMSG_FREE (buffer);
-                return;
+                return CMSG_RET_ERR;
             }
         }
         else
@@ -275,11 +313,12 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
             CMSG_LOG_DEBUG ("[CLIENT] couldn't reconnect client! (method: %s, error: %d)",
                             method_name, connect_error);
 
-            client->invoke_return_state = CMSG_RET_ERR;
             CMSG_FREE (buffer);
-            return;
+            return CMSG_RET_ERR;
         }
     }
+
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "send", cmsg_prof_time_toc (&client->prof));
 
     /* message_pt is filled in by the response receive.  It may be NULL or a valid pointer.
      * status_code will tell us whether it is a valid pointer.
@@ -300,18 +339,19 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         }
         else
         {
-            CMSG_LOG_ERROR ("[CLIENT] No response from server (method: %s)", method_name);
+            CMSG_LOG_CLIENT_ERROR (client, "No response from server. (method: %s)",
+                                   method_name);
         }
-
-        client->invoke_return_state = CMSG_RET_ERR;
 
         // close the connection and return early
         client->state = CMSG_CLIENT_STATE_CLOSED;
         client->_transport->client_close (client);
 
         CMSG_FREE (buffer);
-        return;
+        return CMSG_RET_ERR;
     }
+
+    CMSG_PROF_TIME_TIC (&client->prof);
 
     CMSG_FREE (buffer);
     buffer = NULL;
@@ -320,61 +360,69 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     /* If the call was queued then no point in calling closure as there is no message.
      * Need to exit.
      */
-    if (status_code == CMSG_STATUS_CODE_SERVICE_QUEUED ||
-        status_code == CMSG_STATUS_CODE_SERVICE_DROPPED)
+    if (status_code == CMSG_STATUS_CODE_SERVICE_QUEUED)
     {
-        DEBUG (CMSG_INFO, "[CLIENT] info: response message %s\n",
-               status_code == CMSG_STATUS_CODE_SERVICE_QUEUED ? "QUEUED" : "DROPPED");
-
-        client->invoke_return_state =
-          (status_code == CMSG_STATUS_CODE_SERVICE_QUEUED) ? CMSG_RET_QUEUED : CMSG_RET_DROPPED;
-        return;
+        DEBUG (CMSG_INFO, "[CLIENT] info: response message QUEUED\n");
+        return CMSG_RET_QUEUED;
+    }
+    else if (status_code == CMSG_STATUS_CODE_SERVICE_DROPPED)
+    {
+        DEBUG (CMSG_INFO, "[CLIENT] info: response message DROPPED\n");
+        return CMSG_RET_DROPPED;
+    }
+    else if (status_code == CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND)
+    {
+        DEBUG (CMSG_INFO, "[CLIENT] info: response message METHOD NOT FOUND\n");
+        return CMSG_RET_METHOD_NOT_FOUND;
     }
     else if (message_pt == NULL)
     {
         /* There may be no message if the server has sent an empty message which is ok. */
         if (status_code == CMSG_STATUS_CODE_SUCCESS)
         {
-            client->invoke_return_state = CMSG_RET_OK;
-            return;
+            return CMSG_RET_OK;
         }
         else
         {
-            CMSG_LOG_ERROR ("[CLIENT] error: response message not valid or empty (method: %s)",
-                            method_name);
-            return;
+            CMSG_LOG_CLIENT_ERROR (client,
+                                   "Response message not valid or empty. (method: %s)",
+                                   method_name);
+            return CMSG_RET_ERR;
         }
     }
 
-    //call closure
-    if (closure)    //check if closure is not zero, can be the case when we use empty messages
-        closure (message_pt, closure_data);
+    if (closure_data)
+    {
+        ((cmsg_client_closure_data *) (closure_data))->message = (void *) message_pt;
+        ((cmsg_client_closure_data *) (closure_data))->allocator = client->allocator;
+    }
+    else
+    {
+        /* only cleanup if the message is not passed back to the
+         * api through the closure_data (above) */
+        protobuf_c_message_free_unpacked (message_pt, client->allocator);
+    }
 
-    protobuf_c_message_free_unpacked (message_pt, client->allocator);
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "cleanup",
+                                 cmsg_prof_time_toc (&client->prof));
 
-    client->invoke_return_state = CMSG_RET_OK;
-
-    return;
+    return CMSG_RET_OK;
 }
 
 
-void
+int32_t
 cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
                            const ProtobufCMessage *input, ProtobufCClosure closure,
                            void *closure_data)
 {
     uint32_t ret = 0;
-    int send_ret = 0;
-    int connect_error = 0;
     cmsg_client *client = (cmsg_client *) service;
     int do_queue = 0;
     const char *method_name;
-
-    /* pack the data */
-    /* send */
-    /* depending upon transport wait for response */
-    /* unpack response */
-    /* return response */
+    uint32_t method_length;
+    int type = CMSG_TLV_METHOD_TYPE;
+    cmsg_header header;
+    int ret_val;
 
     CMSG_ASSERT (client);
     CMSG_ASSERT (input);
@@ -385,7 +433,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
     if (client->queue_enabled_from_parent)
     {
-        // queuing has been enable from parent publisher
+        // queuing has been enabled from parent publisher
         // so don't do client queue filter lookup
         do_queue = 1;
     }
@@ -397,17 +445,16 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
         if (action == CMSG_QUEUE_FILTER_ERROR)
         {
-            CMSG_LOG_ERROR
-                ("[CLIENT] error: queue_lookup_filter returned ERROR (method: %s)",
-                 method_name);
+            CMSG_LOG_CLIENT_ERROR (client,
+                                   "Error occurred with queue_lookup_filter. (method: %s).",
+                                   method_name);
 
-            client->invoke_return_state = CMSG_RET_ERR;
-            return;
+            return CMSG_RET_ERR;
         }
         else if (action == CMSG_QUEUE_FILTER_DROP)
         {
             DEBUG (CMSG_INFO, "[CLIENT] dropping message: %s\n", method_name);
-            return;
+            return CMSG_RET_DROPPED;
         }
         else if (action == CMSG_QUEUE_FILTER_QUEUE)
         {
@@ -419,43 +466,28 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
         }
     }
 
-
-    //we don't connect to the server when we queue messages
-    if (!do_queue)
-    {
-        DEBUG (CMSG_INFO, "[CLIENT] error: queueing is disabled, connecting\n");
-        connect_error = cmsg_client_connect (client);
-
-        if (client->state != CMSG_CLIENT_STATE_CONNECTED)
-        {
-            CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
-                            method_name, connect_error);
-
-            client->invoke_return_state = CMSG_RET_ERR;
-            return;
-        }
-    }
+    method_length = strlen (method_name) + 1;
 
     uint32_t packed_size = protobuf_c_message_get_packed_size (input);
+    uint32_t extra_header_size = TLV_SIZE (method_length);
+    uint32_t total_header_size = sizeof (header) + extra_header_size;
+    uint32_t total_message_size = total_header_size + packed_size;
 
-    client->request_id++;
+    header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REQ, extra_header_size,
+                                 packed_size, CMSG_STATUS_CODE_UNSET);
 
-    cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REQ, packed_size,
-                                             method_index, CMSG_STATUS_CODE_UNSET);
-
-    uint8_t *buffer = (uint8_t *) CMSG_CALLOC (1, packed_size + sizeof (header));
+    uint8_t *buffer = (uint8_t *) CMSG_CALLOC (1, total_message_size);
     if (!buffer)
     {
-        CMSG_LOG_ERROR ("[CLIENT] error: unable to allocate buffer (method: %s)",
-                        method_name);
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Unable to allocate memory for message. (method: %s)",
+                               method_name);
 
-        client->invoke_return_state = CMSG_RET_ERR;
-        return;
+        return CMSG_RET_ERR;
     }
 
-    memcpy ((void *) buffer, &header, sizeof (header));
-
-    uint8_t *buffer_data = buffer + sizeof (header);
+    cmsg_tlv_method_header_create (buffer, header, type, method_length, method_name);
+    uint8_t *buffer_data = buffer + total_header_size;
 
     DEBUG (CMSG_INFO, "[CLIENT] header\n");
     cmsg_buffer_print (&header, sizeof (header));
@@ -463,96 +495,36 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     ret = protobuf_c_message_pack (input, buffer_data);
     if (ret < packed_size)
     {
-        CMSG_LOG_ERROR ("[CLIENT] error: packing message data failed with underrun, packet:%d of %d (method: %s)",
-                        ret, packed_size, method_name);
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Underpacked message data. Packed %d of %d bytes. (method: %s)",
+                               ret, packed_size, method_name);
 
-        client->invoke_return_state = CMSG_RET_ERR;
         CMSG_FREE (buffer);
-        return;
+        return CMSG_RET_ERR;
     }
     else if (ret > packed_size)
     {
-        CMSG_LOG_ERROR ("[CLIENT] error: packing message data overwrote buffer: %d of %d (method: %s)",
-                        ret, packed_size, method_name);
-
-        client->invoke_return_state = CMSG_RET_ERR;
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Overpacked message data. Packed %d of %d bytes. (method: %s)",
+                               ret, packed_size, method_name);
 
         CMSG_FREE (buffer);
-        return;
+        return CMSG_RET_ERR;
     }
 
     DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
     cmsg_buffer_print (buffer_data, packed_size);
 
-    //we don't connect to the server when we queue messages
     if (!do_queue)
     {
-        send_ret = client->_transport->client_send (client,
-                                                    buffer,
-                                                    packed_size + sizeof (header), 0);
-
-        if (send_ret < (int) (packed_size + sizeof (header)))
-        {
-            // close the connection as something must be wrong
-            client->state = CMSG_CLIENT_STATE_CLOSED;
-            client->_transport->client_close (client);
-            // the connection may be down due to a problem since the last send
-            // attempt once to reconnect and send
-            connect_error = cmsg_client_connect (client);
-
-            if (client->state == CMSG_CLIENT_STATE_CONNECTED)
-            {
-                send_ret = client->_transport->client_send (client,
-                                                            buffer,
-                                                            packed_size + sizeof (header),
-                                                            0);
-
-                if (send_ret < (int) (packed_size + sizeof (header)))
-                {
-                    // Having retried connecting and now failed again this is
-                    // an actual problem.
-                    if (send_ret == -1)
-                    {
-                        if (errno == EAGAIN)
-                        {
-                            CMSG_LOG_DEBUG ("[CLIENT] client_send failed (method: %s), %s",
-                                            method_name, strerror (errno));
-                        }
-                        else
-                        {
-                            CMSG_LOG_ERROR ("[CLIENT] client_send failed (method: %s), %s",
-                                            method_name, strerror (errno));
-                        }
-                    }
-                    else
-                    {
-                        CMSG_LOG_ERROR ("[CLIENT] client_send failed: sent %d of %u (method: %s)",
-                                        send_ret,
-                                        (uint32_t) (packed_size + sizeof (header)),
-                                        method_name);
-                    }
-
-                    client->invoke_return_state = CMSG_RET_ERR;
-                    CMSG_FREE (buffer);
-                    return;
-                }
-            }
-            else
-            {
-                CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
-                                method_name, connect_error);
-
-                client->invoke_return_state = CMSG_RET_ERR;
-                CMSG_FREE (buffer);
-                return;
-            }
-        }
+        ret_val = cmsg_client_buffer_send_retry_once (client,
+                                                      buffer,
+                                                      total_message_size,
+                                                      method_name);
     }
     else
     {
         //add to queue
-        client->state = CMSG_CLIENT_STATE_QUEUED;
-
         if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
         {
             cmsg_pub *publisher = (cmsg_pub *) client->parent.object;
@@ -561,8 +533,8 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
             //todo: check return
             cmsg_send_queue_push (publisher->queue, buffer,
-                                  packed_size + sizeof (header), client->_transport,
-                                  (char *) method_name);
+                                  total_message_size,
+                                  client, client->_transport, (char *) method_name);
 
             pthread_mutex_unlock (&publisher->queue_mutex);
 
@@ -579,8 +551,8 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
             //todo: check return
             cmsg_send_queue_push (client->queue, buffer,
-                                  packed_size + sizeof (header), client->_transport,
-                                  (char *) method_name);
+                                  total_message_size,
+                                  client, client->_transport, (char *) method_name);
 
             pthread_mutex_unlock (&client->queue_mutex);
 
@@ -591,13 +563,12 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             client->queue_process_count = client->queue_process_count + 1;
             pthread_mutex_unlock (&client->queue_process_mutex);
         }
+        ret_val = CMSG_RET_QUEUED;
     }
 
     CMSG_FREE (buffer);
 
-    client->invoke_return_state = CMSG_RET_OK;
-
-    return;
+    return ret_val;
 }
 
 
@@ -608,7 +579,7 @@ cmsg_client_get_socket (cmsg_client *client)
 
     if (!client)
     {
-        CMSG_LOG_ERROR ("Attempted to get a socket where the client didn't exist");
+        CMSG_LOG_CLIENT_ERROR (client, "Failed to get socket.  No client.");
         return -1;
     }
 
@@ -618,7 +589,7 @@ cmsg_client_get_socket (cmsg_client *client)
     }
     else
     {
-        CMSG_LOG_ERROR ("The client isn't connect so the socket cannot be gotten");
+        CMSG_LOG_CLIENT_ERROR (client, "Failed to get socket. Client not connected.");
         return -1;
     }
 
@@ -654,8 +625,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
 
     // create header
     cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_ECHO_REQ,
-                                             0,
-                                             0,
+                                             0, 0,
                                              CMSG_STATUS_CODE_UNSET);
 
     // send
@@ -665,7 +635,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
     ret = client->_transport->client_send (client, &header, sizeof (header), 0);
     if (ret < (int32_t) (sizeof (header)))
     {
-        CMSG_LOG_ERROR ("Failed sending all data");
+        CMSG_LOG_CLIENT_ERROR (client, "Failed sending all data");
 
         // close the connection as something must be wrong
         client->state = CMSG_CLIENT_STATE_CLOSED;
@@ -680,8 +650,9 @@ cmsg_client_send_echo_request (cmsg_client *client)
             ret = client->_transport->client_send (client, &header, sizeof (header), 0);
             if (ret < (int32_t) sizeof (header))
             {
-                CMSG_LOG_ERROR ("[CLIENT] error: sending echo req failed sent:%d of %u",
-                                ret, (uint32_t) sizeof (header));
+                CMSG_LOG_CLIENT_ERROR (client,
+                                       "Sending echo request failed. sent:%d of %u bytes.",
+                                       ret, (uint32_t) sizeof (header));
                 return -1;
             }
         }
@@ -762,12 +733,8 @@ cmsg_client_queue_process_all (cmsg_client *client)
 {
     struct timespec time_to_wait;
     uint32_t processed = 0;
-    cmsg_object obj;
 
     clock_gettime (CLOCK_REALTIME, &time_to_wait);
-
-    obj.object_type = CMSG_OBJ_TYPE_CLIENT;
-    obj.object = client;
 
     //if the we run do api calls and processing in different threads wait
     //for a signal from the api thread to start processing
@@ -781,17 +748,242 @@ cmsg_client_queue_process_all (cmsg_client *client)
                                     &client->queue_process_mutex, &time_to_wait);
         }
 
-        processed = cmsg_send_queue_process_all (obj);
+        processed = _cmsg_client_queue_process_all_direct (client);
         client->queue_process_count = client->queue_process_count - 1;
         pthread_mutex_unlock (&client->queue_process_mutex);
 
     }
     else
     {
-        processed = cmsg_send_queue_process_all (obj);
+        processed = _cmsg_client_queue_process_all_direct (client);
     }
 
     return processed;
+}
+
+static int32_t
+_cmsg_client_queue_process_all_internal (cmsg_client *client)
+{
+    cmsg_send_queue_entry *queue_entry = NULL;
+    GQueue *queue = client->queue;
+    pthread_mutex_t *queue_mutex = &client->queue_mutex;
+    cmsg_client *send_client = 0;
+
+    pthread_mutex_lock (queue_mutex);
+    if (g_queue_get_length (queue))
+        queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
+    pthread_mutex_unlock (queue_mutex);
+
+    while (queue_entry)
+    {
+        send_client = queue_entry->client;
+
+        int ret = cmsg_client_buffer_send_retry (send_client,
+                                                 queue_entry->queue_buffer,
+                                                 queue_entry->queue_buffer_size,
+                                                 CMSG_TRANSPORT_CLIENT_SEND_TRIES);
+
+        CMSG_FREE (queue_entry->queue_buffer);
+        CMSG_FREE (queue_entry);
+        queue_entry = NULL;
+
+        if (ret == CMSG_RET_ERR)
+        {
+            CMSG_LOG_CLIENT_ERROR (client,
+                                   "Server not reachable after %d tries. (method: %s).",
+                                   CMSG_TRANSPORT_CLIENT_SEND_TRIES,
+                                   queue_entry->method_name);
+
+            return CMSG_RET_ERR;
+        }
+
+        //get the next entry
+        pthread_mutex_lock (queue_mutex);
+        queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
+        pthread_mutex_unlock (queue_mutex);
+    }
+
+    return CMSG_RET_OK;
+}
+
+static int32_t
+_cmsg_client_queue_process_all_direct (cmsg_client *client)
+{
+    int ret = CMSG_RET_OK;
+    GQueue *queue = client->queue;
+    pthread_mutex_t *queue_mutex = &client->queue_mutex;
+
+    if (!queue)
+        return CMSG_RET_ERR;
+
+    ret = _cmsg_client_queue_process_all_internal (client);
+
+    if (ret == CMSG_RET_ERR)
+    {
+        //delete all messages for this client from queue
+        pthread_mutex_lock (queue_mutex);
+        cmsg_send_queue_free_all_by_transport (queue, client->_transport);
+        pthread_mutex_unlock (queue_mutex);
+
+        CMSG_LOG_CLIENT_ERROR (client, "Server not reachable after %d tries.",
+                               CMSG_TRANSPORT_CLIENT_SEND_TRIES);
+    }
+
+    return ret;
+}
+
+int32_t
+cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
+                                    uint32_t queue_buffer_size, const char *method_name)
+{
+    int ret = 0;
+
+    pthread_mutex_lock (&client->connection_mutex);
+
+    ret = _cmsg_client_buffer_send_retry_once (client, queue_buffer,
+                                               queue_buffer_size, method_name);
+
+    pthread_mutex_unlock (&client->connection_mutex);
+
+    return ret;
+}
+
+static int32_t
+_cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
+                                     uint32_t queue_buffer_size, const char *method_name)
+{
+    int send_ret = 0;
+    int connect_error = 0;
+
+    connect_error = cmsg_client_connect (client);
+
+    if (client->state != CMSG_CLIENT_STATE_CONNECTED)
+    {
+        CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
+                        method_name, connect_error);
+
+        return CMSG_RET_ERR;
+    }
+
+    send_ret = client->_transport->client_send (client,
+                                                queue_buffer,
+                                                queue_buffer_size, 0);
+
+    if (send_ret < (int) (queue_buffer_size))
+    {
+        // close the connection as something must be wrong
+        client->state = CMSG_CLIENT_STATE_CLOSED;
+        client->_transport->client_close (client);
+        // the connection may be down due to a problem since the last send
+        // attempt once to reconnect and send
+        connect_error = cmsg_client_connect (client);
+
+        if (client->state == CMSG_CLIENT_STATE_CONNECTED)
+        {
+            send_ret = client->_transport->client_send (client,
+                                                        queue_buffer,
+                                                        queue_buffer_size,
+                                                        0);
+
+            if (send_ret < (int) (queue_buffer_size))
+            {
+                // Having retried connecting and now failed again this is
+                // an actual problem.
+                if (send_ret == -1)
+                {
+                    if (errno == EAGAIN)
+                    {
+                        CMSG_LOG_DEBUG ("[CLIENT] client_send failed (method: %s), %s",
+                                        method_name, strerror (errno));
+                    }
+                    else
+                    {
+                        CMSG_LOG_CLIENT_ERROR (client,
+                                               "Client send failed (method: %s), %s",
+                                               method_name, strerror (errno));
+                    }
+                }
+                else
+                {
+                    CMSG_LOG_CLIENT_ERROR (client,
+                                           "Client send failed. Sent %d of %u bytes. (method: %s)",
+                                           send_ret, (uint32_t) (queue_buffer_size),
+                                           method_name);
+                }
+
+                return CMSG_RET_ERR;
+            }
+        }
+        else
+        {
+            CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
+                            method_name, connect_error);
+
+            return CMSG_RET_ERR;
+        }
+    }
+
+    return CMSG_RET_OK;
+}
+
+
+int32_t
+cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
+                               uint32_t queue_buffer_size, int max_tries)
+{
+    int c = 0;
+    for (c = 0; c <= max_tries; c++)
+    {
+        pthread_mutex_lock (&client->connection_mutex);
+        int ret = _cmsg_client_buffer_send (client, queue_buffer, queue_buffer_size);
+        pthread_mutex_unlock (&client->connection_mutex);
+
+        if (ret == CMSG_RET_OK)
+            return CMSG_RET_OK;
+        else
+            usleep (200000);
+    }
+    DEBUG (CMSG_WARN, "[CLIENT] send tries %d\n", max_tries);
+
+    return CMSG_RET_ERR;
+}
+
+int32_t
+cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_size)
+{
+    int ret = 0;
+
+    pthread_mutex_lock (&client->connection_mutex);
+    ret = _cmsg_client_buffer_send (client, buffer, buffer_size);
+    pthread_mutex_unlock (&client->connection_mutex);
+
+    return CMSG_RET_ERR;
+}
+
+static int32_t
+_cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_size)
+{
+    int ret = 0;
+
+    ret = cmsg_client_connect (client);
+
+    if (client->state == CMSG_CLIENT_STATE_CONNECTED)
+    {
+        ret = client->_transport->client_send (client, buffer, buffer_size, 0);
+
+        if (ret < (int) buffer_size)
+        {
+            DEBUG (CMSG_ERROR, "[CLIENT] sending buffer failed, send: %d of %d\n",
+                   ret, buffer_size);
+        }
+        return CMSG_RET_OK;
+    }
+    else
+    {
+        CMSG_LOG_DEBUG ("[CLIENT] client is not connected, error: %d)", ret);
+    }
+
+    return CMSG_RET_ERR;
 }
 
 void
@@ -840,7 +1032,7 @@ cmsg_client_queue_filter_show (cmsg_client *client)
 
 /* Create a cmsg client and its transport with TIPC (RPC) */
 static cmsg_client *
-cmsg_create_client_tipc (const char *server, int member_id, int scope,
+_cmsg_create_client_tipc (const char *server, int member_id, int scope,
                          ProtobufCServiceDescriptor *descriptor,
                          cmsg_transport_type transport_type)
 {
@@ -857,10 +1049,9 @@ cmsg_create_client_tipc (const char *server, int member_id, int scope,
     if (!client)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_ERROR ("No TIPC client to %d", member_id);
+        CMSG_LOG_CLIENT_ERROR (client, "No TIPC client to member %d", member_id);
         return NULL;
     }
-
     return client;
 }
 
@@ -868,16 +1059,16 @@ cmsg_client *
 cmsg_create_client_tipc_rpc (const char *server_name, int member_id, int scope,
                              ProtobufCServiceDescriptor *descriptor)
 {
-    return cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
-                                    CMSG_TRANSPORT_RPC_TIPC);
+    return _cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
+                                     CMSG_TRANSPORT_RPC_TIPC);
 }
 
 cmsg_client *
 cmsg_create_client_tipc_oneway (const char *server_name, int member_id, int scope,
                                 ProtobufCServiceDescriptor *descriptor)
 {
-    return cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
-                                    CMSG_TRANSPORT_ONEWAY_TIPC);
+    return _cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
+                                     CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 /* Destroy a cmsg client and its transport with TIPC */

@@ -73,14 +73,8 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
   map<string, string> variables;
   variables["LABEL"] = CamelToUpper(GetLabelName(descriptor_->label()));
   variables["TYPE"] = type_macro;
-  if (addPbc_)
-  {
-    variables["classname"] = FullNameToC(FieldScope(descriptor_)->full_name()) + "_pbc";
-  }
-  else
-  {
-    variables["classname"] = FullNameToC(FieldScope(descriptor_)->full_name());
-  }
+  variables["classname"] = FullNameToC(FieldScope(descriptor_)->full_name());
+
   variables["name"] = FieldName(descriptor_);
   variables["proto_name"] = descriptor_->name();
   variables["descriptor_addr"] = descriptor_addr;
@@ -131,31 +125,30 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
   printer->Print("},\n");
 }
 
-FieldGeneratorMap::FieldGeneratorMap(const Descriptor* descriptor, bool addPbc)
+FieldGeneratorMap::FieldGeneratorMap(const Descriptor* descriptor)
   : descriptor_(descriptor),
-    addPbc_(addPbc),
     field_generators_(
       new scoped_ptr<FieldGenerator>[descriptor->field_count()]) {
   // Construct all the FieldGenerators.
   for (int i = 0; i < descriptor->field_count(); i++) {
-    field_generators_[i].reset(MakeGenerator(descriptor->field(i), addPbc_));
+    field_generators_[i].reset(MakeGenerator(descriptor->field(i)));
   }
 }
 
-FieldGenerator* FieldGeneratorMap::MakeGenerator(const FieldDescriptor* field, bool addPbc) {
+FieldGenerator* FieldGeneratorMap::MakeGenerator(const FieldDescriptor* field) {
   switch (field->type()) {
     case FieldDescriptor::TYPE_MESSAGE:
-      return new MessageFieldGenerator(field, addPbc);
+      return new MessageFieldGenerator(field);
     case FieldDescriptor::TYPE_STRING:
-      return new StringFieldGenerator(field, addPbc);
+      return new StringFieldGenerator(field);
     case FieldDescriptor::TYPE_BYTES:
-      return new BytesFieldGenerator(field, addPbc);
+      return new BytesFieldGenerator(field);
     case FieldDescriptor::TYPE_ENUM:
-      return new EnumFieldGenerator(field, addPbc);
+      return new EnumFieldGenerator(field);
     case FieldDescriptor::TYPE_GROUP:
       return 0;			// XXX
     default:
-      return new PrimitiveFieldGenerator(field, addPbc);
+      return new PrimitiveFieldGenerator(field);
   }
 }
 

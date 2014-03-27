@@ -6,7 +6,6 @@
 #include <sys/socket.h>
 #include <linux/tipc.h>
 #include <sys/un.h>
-#include <glib.h>
 
 #ifdef HAVE_VCSTACK
 #include <corosync/cpg.h>
@@ -127,10 +126,10 @@ typedef cmsg_status_code (*client_recv_f) (cmsg_client *client,
 typedef int (*client_send_f) (cmsg_client *client, void *buff, int length, int flag);
 typedef int (*server_send_f) (cmsg_server *server, void *buff, int length, int flag);
 
-typedef void (*invoke_f) (ProtobufCService *service,
-                          unsigned method_index,
-                          const ProtobufCMessage *input,
-                          ProtobufCClosure closure, void *closure_data_void);
+typedef int32_t (*invoke_f) (ProtobufCService *service,
+                             unsigned method_index,
+                             const ProtobufCMessage *input,
+                             ProtobufCClosure closure, void *closure_data_void);
 
 typedef void (*client_close_f) (cmsg_client *client);
 typedef void (*server_close_f) (cmsg_server *server);
@@ -149,11 +148,14 @@ typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t 
 
 typedef void (*cmsg_tipc_topology_callback) (struct tipc_event *event);
 
+#define CMSG_MAX_TPORT_ID_LEN 32
+
 struct _cmsg_transport_s
 {
     //transport information
     cmsg_transport_type type;
     cmsg_transport_config config;
+    char tport_id[CMSG_MAX_TPORT_ID_LEN + 1];
 
     // send features
     // lock - to allow send to be called from multiple threads
@@ -227,9 +229,20 @@ cmsg_transport *cmsg_create_transport_tipc_rpc (const char *server_name, int mem
 cmsg_transport *cmsg_create_transport_tipc_oneway (const char *server_name, int member_id,
                                                    int scope);
 
-int cmsg_tipc_topology_subscription_init (const char *server_name, uint32_t lower,
-                                          uint32_t upper);
+int cmsg_tipc_topology_service_connect (void);
 
-int cmsg_tipc_topology_subscription_read (int sock, cmsg_tipc_topology_callback callback);
+int
+cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t lower, uint32_t upper,
+                                    cmsg_tipc_topology_callback callback);
 
+int cmsg_tipc_topology_connect_subscribe (const char *server_name, uint32_t lower,
+                                          uint32_t upper, cmsg_tipc_topology_callback callback);
+
+int cmsg_tipc_topology_subscription_read (int sock);
+
+void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
+                                             const char *event_str,
+                                             struct tipc_event *event);
+
+void cmsg_transport_write_id (cmsg_transport *tport);
 #endif

@@ -34,7 +34,7 @@ namespace c {
 
 class MessageFieldGenerator : public FieldGenerator {
  public:
-  explicit MessageFieldGenerator(const FieldDescriptor* descriptor, bool addPbc);
+  explicit MessageFieldGenerator(const FieldDescriptor* descriptor);
   ~MessageFieldGenerator();
 
   // implements FieldGenerator ---------------------------------------

@@ -24,7 +24,6 @@
 #include <google/protobuf/compiler/c/c_enum.h>
 #include <google/protobuf/compiler/c/c_service.h>
 #include <google/protobuf/compiler/c/c_atl_generator.h>
-#include <google/protobuf/compiler/c/c_atl_message.h>
 #include <google/protobuf/compiler/c/c_extension.h>
 #include <google/protobuf/compiler/c/c_helpers.h>
 #include <google/protobuf/compiler/c/c_message.h>
@@ -49,8 +48,6 @@ FileGenerator::FileGenerator(const FileDescriptor* file,
       new scoped_ptr<ServiceGenerator>[file->service_count()]),
     atl_code_generators_(
       new scoped_ptr<AtlCodeGenerator>[file->service_count()]),
-    atl_message_generators_(
-      new scoped_ptr<AtlMessageGenerator>[file->message_type_count()]),
     extension_generators_(
       new scoped_ptr<ExtensionGenerator>[file->extension_count()]) {
 
@@ -72,11 +69,6 @@ FileGenerator::FileGenerator(const FileDescriptor* file,
   for (int i = 0; i < file->service_count(); i++) {
     atl_code_generators_[i].reset(
       new AtlCodeGenerator(file->service(i), dllexport_decl));
-  }
-
-  for (int i = 0; i < file->message_type_count(); i++) {
-    atl_message_generators_[i].reset(
-      new AtlMessageGenerator(file->message_type(i), dllexport_decl));
   }
 
   for (int i = 0; i < file->extension_count(); i++) {
@@ -260,6 +252,7 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
     "#include <google/protobuf-c/protobuf-c.h>\n"
+    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n"
     "\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
@@ -289,18 +282,6 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
   }
   f.close();
   printer->Print("\n");
-
-  // Generate atl structure definitions.
-  printer->Print("\n/* --- atl generated structures --- */\n\n");
-  for (int i = 0; i < file_->message_type_count(); i++) {
-    atl_message_generators_[i]->GenerateStructTypedef(printer);
-  }
-
-  printer->Print("\n");
-  for (int i = 0; i < file_->message_type_count(); i++) {
-    atl_message_generators_[i]->GenerateStructDefinition(printer);
-  }
-
   printer->Print(
     "\n"
     "PROTOBUF_C_END_DECLS\n"
@@ -318,19 +299,19 @@ void FileGenerator::GenerateAtlApiHeader(io::Printer* printer) {
     "\n"
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
-    "#include <google/protobuf-c/protobuf-c.h>\n"
     "\n"
+    "/* include the atl types header to get pbc header, cmsg.h etc */\n"
+    "#include \"$types$.h\"\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
-    "header_define", header_define);
+    "header_define", header_define,
+    "types", GetAtlTypesFilename(file_->name()));
 
   //
   // add some includes for the ATL generated code
   //
   printer->Print("#include <string.h>\n");
   printer->Print("#include <stdlib.h>\n");
-  // include the ATL types header which will also include the pbc header
-  printer->Print("#include \"$pbh$.h\"\n", "pbh", GetAtlTypesFilename(file_->name()));
   printer->Print("/* include the cmsg_client definition for the api function */\n");
   printer->Print("#include <google/protobuf-c/protobuf-c-cmsg-client.h>\n");
 
@@ -344,7 +325,7 @@ void FileGenerator::GenerateAtlApiHeader(io::Printer* printer) {
   // Generate atl api definitions.
   printer->Print("\n");
   for (int i = 0; i < file_->service_count(); i++) {
-    atl_code_generators_[i]->GenerateMainHFile(printer, true);
+    atl_code_generators_[i]->GenerateClientHeaderFile(printer);
   }
 
 
@@ -364,12 +345,11 @@ void FileGenerator::GenerateAtlApiSource(io::Printer* printer) {
     "#define PROTOBUF_C_NO_DEPRECATED\n"
     "#endif\n"
     "\n"
-    "#include \"$basename$.h\"\n"
-    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n",
+    "#include \"$basename$.h\"\n",
     "basename", GetAtlApiFilename(file_->name()));
 
   for (int i = 0; i < file_->service_count(); i++) {
-    atl_code_generators_[i]->GenerateCFile(printer, true);
+    atl_code_generators_[i]->GenerateClientCFile(printer);
   }
 
 }
@@ -384,26 +364,29 @@ void FileGenerator::GenerateAtlImplHeader(io::Printer* printer) {
     "\n"
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
-    "#include <google/protobuf-c/protobuf-c.h>\n"
     "\n"
+    "/* include the atl types header to get pbc header, cmsg.h etc */\n"
+    "#include \"$types$.h\"\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
-    "header_define", header_define);
+    "header_define", header_define,
+    "types", GetAtlTypesFilename(file_->name()));
 
   //
   // add some includes for the ATL generated code
   //
   printer->Print("#include <string.h>\n");
   printer->Print("#include <stdlib.h>\n");
-  // include the ATL types header which will also include the pbc header
-  printer->Print("#include \"$pbh$.h\"\n", "pbh", GetAtlTypesFilename(file_->name()));
+  // users of the impl will need the server definitions
+  printer->Print("#include <google/protobuf-c/protobuf-c-cmsg-server.h>\n");
+
 
   printer->Print("\n");
 
   // Generate atl api definitions.
   printer->Print("\n/* --- atl generated code --- */\n\n");
   for (int i = 0; i < file_->service_count(); i++) {
-    atl_code_generators_[i]->GenerateMainHFile(printer, false);
+    atl_code_generators_[i]->GenerateServerHeaderFile(printer);
   }
 
   printer->Print(
@@ -422,16 +405,35 @@ void FileGenerator::GenerateAtlImplSource(io::Printer* printer) {
     "#define PROTOBUF_C_NO_DEPRECATED\n"
     "#endif\n"
     "\n"
-    "#include \"$basename$.h\"\n"
-    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n",
+    "#include \"$basename$.h\"\n",
     "basename", GetAtlImplFilename(file_->name()));
 
   for (int i = 0; i < file_->service_count(); i++) {
-    atl_code_generators_[i]->GenerateCFile(printer, false);
+    atl_code_generators_[i]->GenerateServerCFile(printer);
   }
 
 }
 
+void FileGenerator::GenerateAtlImplStubs(io::Printer* printer) {
+  printer->Print(
+    "/* Generated by the cmsg compiler! */\n"
+    "\n"
+    "/* Do not build this file. It is generated to assist developers in the\n"
+    " * migration from the old to the new cmsg api. \n"
+    " * Simply copy the impl stub you need into the same file where the old\n"
+    " * impl is implemented to allow the build to complete. \n"
+    " * WARNING - do not have both the old and new impls doing something! \n"
+    " * Only one version of the impl should have anything in it or bad things \n"
+    " * will happen at runtime!\n"
+    " */\n"
+    "\n"
+    "\n");
+
+  for (int i = 0; i < file_->service_count(); i++) {
+      atl_code_generators_[i]->GenerateAtlServerImplStubs(printer);
+    }
+
+}
 
 }  // namespace c
 }  // namespace compiler

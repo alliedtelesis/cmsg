@@ -45,6 +45,7 @@
 #include <stddef.h>
 #include <assert.h>
 #include <limits.h>
+#include <glib.h>
 
 #ifdef __cplusplus
 # define PROTOBUF_C_BEGIN_DECLS    extern "C" {
@@ -391,6 +392,8 @@ PROTOBUF_C_API ProtobufCMessage *
                                              ProtobufCAllocator  *allocator,
                                              size_t               len,
                                              const uint8_t       *data);
+PROTOBUF_C_API void      protobuf_c_message_free_unknown_fields (ProtobufCMessage    *message,
+                                             ProtobufCAllocator  *allocator);
 PROTOBUF_C_API void      protobuf_c_message_free_unpacked  (ProtobufCMessage    *message,
                                              ProtobufCAllocator  *allocator);
 
@@ -428,11 +431,11 @@ typedef void (*ProtobufCClosure)(const ProtobufCMessage *message,
 struct _ProtobufCService
 {
   const ProtobufCServiceDescriptor *descriptor;
-  void (*invoke)(ProtobufCService *service,
-                 unsigned          method_index,
-                 const ProtobufCMessage *input,
-                 ProtobufCClosure  closure,
-                 void             *closure_data);
+  int32_t (*invoke)(ProtobufCService *service,
+                   unsigned          method_index,
+                   const ProtobufCMessage *input,
+                   ProtobufCClosure  closure,
+                   void             *closure_data);
   void (*destroy) (ProtobufCService *service);
 };
 
@@ -457,8 +460,8 @@ PROTOBUF_C_API const ProtobufCFieldDescriptor *
 protobuf_c_message_descriptor_get_field        
                          (const ProtobufCMessageDescriptor *desc,
                           unsigned                          value);
-PROTOBUF_C_API const ProtobufCMethodDescriptor *
-protobuf_c_service_descriptor_get_method_by_name
+PROTOBUF_C_API uint32_t
+protobuf_c_service_descriptor_get_method_index_by_name
                          (const ProtobufCServiceDescriptor *desc,
                           const char                       *name);
 

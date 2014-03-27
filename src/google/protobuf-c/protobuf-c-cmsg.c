@@ -1,4 +1,5 @@
 #include "protobuf-c-cmsg.h"
+#include "protobuf-c-cmsg-error.h"
 
 
 static int cmsg_mtype = 0;
@@ -85,18 +86,43 @@ cmsg_buffer_print (void *buffer, uint32_t size)
  * Adds sub headers as appropriate and returns header in network byte order
  */
 cmsg_header
-cmsg_header_create (cmsg_msg_type msg_type, uint32_t packed_size, uint32_t method_index,
-                    cmsg_status_code status_code)
+cmsg_header_create (cmsg_msg_type msg_type, uint32_t extra_header_size,
+                    uint32_t packed_size, cmsg_status_code status_code)
 {
     cmsg_header header;
+    uint32_t header_len = sizeof (cmsg_header) + extra_header_size;
 
     header.msg_type = (cmsg_msg_type) htonl ((uint32_t) msg_type);
     header.message_length = htonl (packed_size);
-    header.header_length = htonl (sizeof (cmsg_header));
-    header.method_index = htonl (method_index);
+    header.header_length = htonl (header_len);
     header.status_code = (cmsg_status_code) htonl ((uint32_t) status_code);
 
     return header;
+}
+
+/**
+ * Creates CMSG TLV header
+ */
+void
+cmsg_tlv_method_header_create (uint8_t *buf, cmsg_header header, uint32_t type,
+                               uint32_t length, const char *method_name)
+{
+    uint32_t hton_type = htonl (type);
+    uint32_t hton_length = htonl (length);
+
+    memcpy ((void *) buf, &header, sizeof (header));
+
+    uint8_t *buffer_tlv_data_type = buf + sizeof (header);
+
+    memcpy (buffer_tlv_data_type, &hton_type, sizeof (hton_type));
+
+    uint8_t *buffer_tlv_data_length = buffer_tlv_data_type + sizeof (hton_type);
+
+    memcpy (buffer_tlv_data_length, &hton_length, sizeof (hton_length));
+
+    uint8_t * buffer_tlv_data_method = buffer_tlv_data_length + sizeof (hton_length);
+    strncpy ((char *) buffer_tlv_data_method, method_name, length);
+
 }
 
 /**
@@ -111,7 +137,6 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
         (cmsg_msg_type) ntohl ((uint32_t) header_received->msg_type);
     header_converted->header_length = ntohl (header_received->header_length);
     header_converted->message_length = ntohl (header_received->message_length);
-    header_converted->method_index = ntohl (header_received->method_index);
     header_converted->status_code =
         (cmsg_status_code) ntohl ((uint32_t) header_received->status_code);
 
@@ -150,10 +175,60 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
 
     default:
         // Unknown msg type
-        CMSG_LOG_ERROR ("Processing header, bad msg type value - %d",
-                        header_converted->msg_type);
+        CMSG_LOG_GEN_ERROR ("Processing header, bad msg type value - %d",
+                            header_converted->msg_type);
         return CMSG_RET_ERR;
         break;
+    }
+
+    return CMSG_RET_OK;
+}
+
+int
+cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
+                         uint32_t extra_header_size,
+                         const ProtobufCServiceDescriptor *descriptor)
+{
+    cmsg_tlv_method_header *tlv_method_header;
+    cmsg_tlv_header *tlv_header;
+
+    while (extra_header_size > 0)
+    {
+        tlv_header = (cmsg_tlv_header *) buf;
+        tlv_header->type = ntohl (tlv_header->type);
+        tlv_header->tlv_value_length = ntohl (tlv_header->tlv_value_length);
+
+        switch (tlv_header->type)
+        {
+        case CMSG_TLV_METHOD_TYPE:
+            tlv_method_header = (cmsg_tlv_method_header *) buf;
+
+            server_request->method_index =
+                           protobuf_c_service_descriptor_get_method_index_by_name
+                                               (descriptor, tlv_method_header->method);
+            /*
+             * It is possible that we could receive a method that we do not know. In this
+             * case, there is nothing we can do to process the message. We need to reply
+             * to the client to unblock it (if the transport is two-way). Therefore, we
+             * overwrite the msg_type, and return CMSG_RET_METHOD_NOT_FOUND.
+             */
+            if (!(IS_METHOD_DEFINED (server_request->method_index)))
+            {
+                CMSG_LOG_GEN_ERROR ("Undefined Method - %s", tlv_method_header->method);
+                return CMSG_RET_METHOD_NOT_FOUND;
+            }
+
+            strncpy (server_request->method_name_recvd, tlv_method_header->method,
+                     tlv_method_header->method_length);
+            break;
+
+        default:
+            CMSG_LOG_GEN_ERROR ("Processing TLV header, bad TLV type value - %d",
+                                tlv_header->type);
+            return CMSG_RET_ERR;
+        }
+        buf = buf + TLV_SIZE (tlv_header->tlv_value_length);
+        extra_header_size = extra_header_size - TLV_SIZE (tlv_header->tlv_value_length);
     }
 
     return CMSG_RET_OK;
@@ -241,3 +316,111 @@ cmsg_malloc_init (int mtype)
 {
     cmsg_mtype = mtype;
 }
+
+#ifdef HAVE_CMSG_PROFILING
+uint32_t
+cmsg_prof_diff_time_in_us (struct timeval start, struct timeval end)
+{
+    uint32_t elapsed_us;
+    elapsed_us = (end.tv_sec - start.tv_sec) * 1000000;
+    elapsed_us += end.tv_usec;
+    elapsed_us -= start.tv_usec;
+    return elapsed_us;
+}
+
+void
+cmsg_prof_time_tic (cmsg_prof *prof)
+{
+    if (!prof)
+        return;
+
+    if (!prof->enable)
+        return;
+
+    gettimeofday (&prof->start_tic, NULL);
+}
+
+uint32_t
+cmsg_prof_time_toc (cmsg_prof *prof)
+{
+    if (!prof)
+        return 0;
+
+    if (!prof->enable)
+        return 0;
+
+    gettimeofday (&prof->now, NULL);
+    return cmsg_prof_diff_time_in_us (prof->start_tic, prof->now);
+}
+
+void
+cmsg_prof_time_log_start (cmsg_prof *prof, char *filename)
+{
+    if (!prof || !filename)
+        return;
+
+    if (!prof->enable)
+        return;
+
+    if (!prof->file_ptr)
+    {
+        prof->file_ptr = fopen (filename, "w");
+        if (!prof->file_ptr)
+            CMSG_LOG_GEN_ERROR ("couldn't open file: %s", filename);
+    }
+
+    prof->text_ptr = (char *) prof->text;
+
+    gettimeofday (&prof->start, NULL);
+}
+
+void
+cmsg_prof_time_log_add_time (cmsg_prof *prof, char *description, uint32_t time)
+{
+    if (!prof || !description)
+        return;
+
+    if (!prof->enable)
+        return;
+
+    if (prof->text_ptr)
+        prof->text_ptr += sprintf (prof->text_ptr, "[%s]%d;", description, time);
+}
+
+void
+cmsg_prof_time_log_stop (cmsg_prof *prof, char *type, int msg_size)
+{
+    if (!prof)
+        return;
+
+    if (!prof->enable)
+        return;
+
+    gettimeofday (&prof->now, NULL);
+    uint32_t elapsed_us = cmsg_prof_diff_time_in_us (prof->start, prof->now);
+
+    if (prof->file_ptr)
+        fprintf (prof->file_ptr, "%s[type]%s;[size]%d;[total]%d;\n", prof->text, type,
+                 msg_size, elapsed_us);
+
+    //when do we close the file?
+}
+
+void
+cmsg_prof_enable (cmsg_prof *prof)
+{
+    if (!prof)
+        return;
+
+    prof->enable = 1;
+}
+
+void
+cmsg_prof_disable (cmsg_prof *prof)
+{
+    if (!prof)
+        return;
+
+    prof->enable = 0;
+}
+#endif //HAVE_CMSG_PROFILING

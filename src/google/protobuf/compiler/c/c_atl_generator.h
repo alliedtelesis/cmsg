@@ -46,49 +46,38 @@ class AtlCodeGenerator {
   ~AtlCodeGenerator();
 
   // Header stuff.
-  void GenerateMainHFile(io::Printer* printer, bool api);
-  void GenerateVfuncs(io::Printer* printer);
-  void GenerateInitMacros(io::Printer* printer);
   void GenerateDescriptorDeclarations(io::Printer* printer);
-  void GenerateCallersDeclarations(io::Printer* printer);
+  void GenerateClientHeaderFile(io::Printer* printer);
+  void GenerateServerHeaderFile(io::Printer* printer);
 
   // Source file stuff.
-  void GenerateCFile(io::Printer* printer, bool api);
-  void GenerateServiceDescriptor(io::Printer* printer);
-  void GenerateInit(io::Printer* printer);
-  void GenerateCallersImplementations(io::Printer* printer);
+  void GenerateClientCFile(io::Printer* printer);
+  void GenerateServerCFile(io::Printer* printer);
+
+  // helper function for the conversion of AW+ to use cmsg
+  void GenerateAtlServerImplStubs(io::Printer* printer);
 
  private:
-  void GenerateAtlHeader(io::Printer* printer);
-  void GenerateAtlStructDefinitions(io::Printer* printer);
-  void GenerateStructDefinitionsFromMessage(io::Printer* printer, const Descriptor *message, bool firstMessage);
-  void DumpMessageDefinitions(io::Printer* printer);
+
   void GenerateAtlApiDefinitions(io::Printer* printer, bool forHeader);
   void GenerateAtlApiDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
-  void GenerateParameterListFromMessage(io::Printer* printer, const Descriptor *message, bool output);
-  void GenerateImplParameterListFromMessage(io::Printer* printer, const Descriptor *message, const string prefix);
-
   void GenerateAtlApiImplementation(io::Printer* printer);
-  void GenerateAtlApiClosureFunction(const MethodDescriptor &method, io::Printer* printer);
+
   void GenerateAtlServerDefinitions(io::Printer* printer, bool forHeader);
   void GenerateAtlServerDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateAtlServerCFileDefinitions(io::Printer* printer);
-  void GenerateAtlServerImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
-  void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateAtlServerImplementation(io::Printer* printer);
+
+  void GenerateAtlServerImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
+  void GenerateAtlServerImplStub(const MethodDescriptor &method, io::Printer* printer);
   void GenerateAtlServerSendImplementation(const MethodDescriptor &method, io::Printer* printer);
+  void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
+
+
+  // useful functions
   string GetAtlClosureFunctionName(const MethodDescriptor &method);
-  void GenerateMessageCopyCode(const Descriptor *message, const string lhm, const string rhm, io::Printer *printer, bool allocate_memory, bool send, bool to_pbc, bool result_ref, bool output, int depth = 0);
-  void GenerateSendMessageCopyCode(const Descriptor *message, const string message_name, io::Printer *printer);
-  void GenerateReceiveMessageCopyCode(const Descriptor *message, const string message_name, io::Printer *printer);
-  void GenerateCleanupMessageMemoryCode(const Descriptor *message, const string lhm, io::Printer *printer, int depth = 0);
-
-
   void PrintMessageFields(io::Printer* printer, const Descriptor *message);
   string TypeToString(FieldDescriptor::Type type);
-  bool MessageContainsSubMessages(io::Printer* printer, const Descriptor *message);
-  bool MessageContainsRepeatedFields(io::Printer* printer, const Descriptor *message);
-  bool MessageContainsStrings(io::Printer* printer, const Descriptor *message);
 
   const ServiceDescriptor* descriptor_;
   map<string, string> vars_;

@@ -29,6 +29,14 @@ AC_ARG_ENABLE(protoc, [  --disable-protoc    Suppress build of protoc_c],
               fi)
 AM_CONDITIONAL(BUILD_PROTOC_C, test $BUILD_PROTOC_C = 1)
 
+# --- Check CMSG PERF is enabled
+HAVE_CMSG_PROFILING=0
+AC_ARG_ENABLE(cmsg_prof, [  --enable-cmsg-prof    Enable build of cmsg profiling],
+              if test "x$enableval" = xyes ; then
+	        HAVE_CMSG_PROFILING=1
+              fi)
+AM_CONDITIONAL(HAVE_CMSG_PROFILING, test $HAVE_CMSG_PROFILING = 1)
+
 # --- Check VCStack is enabled
 HAVE_VCSTACK=0
 AC_ARG_ENABLE(vcstack, [  --enable-vcstack    Enable VCStack],
@@ -153,6 +161,6 @@ else
 fi
 AC_DEFINE_UNQUOTED(IS_LITTLE_ENDIAN, $is_little_endian)
 
-AC_OUTPUT(Makefile src/Makefile src/test/Makefile pkgwriteinfo libprotobuf-c.pc)
+AC_OUTPUT(Makefile src/Makefile src/test/Makefile src/tools/Makefile pkgwriteinfo libprotobuf-c.pc)
 
 

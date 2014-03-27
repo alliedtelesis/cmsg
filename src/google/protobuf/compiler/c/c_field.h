@@ -39,7 +39,7 @@ namespace c {
 
 class FieldGenerator {
  public:
-  explicit FieldGenerator(const FieldDescriptor *descriptor, bool addPbc) : descriptor_(descriptor), addPbc_(addPbc) {}
+  explicit FieldGenerator(const FieldDescriptor *descriptor) : descriptor_(descriptor) {}
   virtual ~FieldGenerator();
 
   // Generate definitions to be included in the structure.
@@ -62,7 +62,6 @@ class FieldGenerator {
                                             const string &type_macro,
                                             const string &descriptor_addr) const;
   const FieldDescriptor *descriptor_;
-  bool addPbc_;
 
  private:
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(FieldGenerator);
@@ -71,7 +70,7 @@ class FieldGenerator {
 // Convenience class which constructs FieldGenerators for a Descriptor.
 class FieldGeneratorMap {
  public:
-  explicit FieldGeneratorMap(const Descriptor* descriptor, bool addPbc);
+  explicit FieldGeneratorMap(const Descriptor* descriptor);
   ~FieldGeneratorMap();
 
   const FieldGenerator& get(const FieldDescriptor* field) const;
@@ -79,9 +78,8 @@ class FieldGeneratorMap {
  private:
   const Descriptor* descriptor_;
   scoped_array<scoped_ptr<FieldGenerator> > field_generators_;
-  bool addPbc_;
 
-  static FieldGenerator* MakeGenerator(const FieldDescriptor* field, bool addPbc);
+  static FieldGenerator* MakeGenerator(const FieldDescriptor* field);
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(FieldGeneratorMap);
 };

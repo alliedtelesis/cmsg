@@ -34,7 +34,7 @@ namespace c {
 
 class PrimitiveFieldGenerator : public FieldGenerator {
  public:
-  explicit PrimitiveFieldGenerator(const FieldDescriptor* descriptor, bool addPbc);
+  explicit PrimitiveFieldGenerator(const FieldDescriptor* descriptor);
   ~PrimitiveFieldGenerator();
 
   // implements FieldGenerator ---------------------------------------

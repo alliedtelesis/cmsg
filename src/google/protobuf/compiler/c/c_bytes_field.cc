@@ -44,8 +44,8 @@ void SetBytesVariables(const FieldDescriptor* descriptor,
 // ===================================================================
 
 BytesFieldGenerator::
-BytesFieldGenerator(const FieldDescriptor* descriptor, bool addPbc)
-  : FieldGenerator(descriptor, addPbc) {
+BytesFieldGenerator(const FieldDescriptor* descriptor)
+  : FieldGenerator(descriptor) {
   SetBytesVariables(descriptor, &variables_);
   variables_["default_value"] = descriptor->has_default_value()
                               ? GetDefaultValue() 
@@ -61,10 +61,7 @@ void BytesFieldGenerator::GenerateStructMembers(io::Printer* printer) const
       printer->Print(variables_, "ProtobufCBinaryData $name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      if (addPbc_)
-      {
-        printer->Print(variables_, "protobuf_c_boolean has_$name$$deprecated$;\n");
-      }
+      printer->Print(variables_, "protobuf_c_boolean has_$name$$deprecated$;\n");
       printer->Print(variables_, "ProtobufCBinaryData $name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_REPEATED:
@@ -104,17 +101,11 @@ void BytesFieldGenerator::GenerateStaticInit(io::Printer* printer) const
       printer->Print(variables_, "$default_value$");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      if (addPbc_)
-        printer->Print(variables_, "0,$default_value$");
-      else
-        printer->Print(variables_, "$default_value$");
+      printer->Print(variables_, "0,$default_value$");
       break;
     case FieldDescriptor::LABEL_REPEATED:
       // no support for default?
-      if (addPbc_)
-        printer->Print("0,NULL");
-      else
-        printer->Print("0,NULL");
+      printer->Print("0,NULL");
       break;
   }
 }

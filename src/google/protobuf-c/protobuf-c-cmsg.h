@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <poll.h>
@@ -12,6 +13,14 @@
 #include <netdb.h>
 #include <syslog.h>
 #include <sys/select.h>
+#include <sys/time.h>
+#include <string.h>
+
+#ifndef LOCAL_INSTALL
+#include <utility/tracelog.h>
+#else
+#define tracelog(tracelog_string, fmt, ...)   printf(fmt, ## __VA_ARGS__);
+#endif
 
 #include "protobuf-c.h"
 
@@ -30,19 +39,11 @@
 
 // Use this for 'expected' user facing friendly errors
 #if defined(DEBUG_WORKSTATION)
-#define CMSG_LOG_ERROR(fmt, ...)                                                    \
-    do {                                                                            \
-        printf ("ERR(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__);   \
-    } while (0)
 #define CMSG_LOG_DEBUG(fmt, ...)                                                    \
     do {                                                                            \
         printf ("DEBUG(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__); \
     } while (0)
 #else
-#define CMSG_LOG_ERROR(fmt, ...)                                                    \
-    do {                                                                            \
-        syslog (LOG_ERR | LOG_LOCAL6, "ERR(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__); \
-    } while (0)
 #define CMSG_LOG_DEBUG(fmt, ...)                                                    \
     do {                                                                            \
         syslog (LOG_DEBUG, "DEBUG(CMSG):%s %u: " fmt, __FUNCTION__, __LINE__, ## __VA_ARGS__); \
@@ -72,15 +73,57 @@
 #endif
 
 #define CMSG_RECV_BUFFER_SZ                        512
-#define CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT    700  //ms
-#define CMSG_TRANSPORT_CLIENT_SEND_TRIES           5
+#define CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT    3000  //ms
+#define CMSG_TRANSPORT_CLIENT_SEND_TRIES           10
 
 // Return codes
 #define CMSG_RET_OK   0
 #define CMSG_RET_ERR -1
-/* QUEUED and DROPPED are used for server queuing & dropping. */
+#define CMSG_RET_METHOD_NOT_FOUND -2
 #define CMSG_RET_QUEUED 1
 #define CMSG_RET_DROPPED 2
+
+#define TLV_SIZE(x) ((2 * sizeof (uint32_t)) + (x))
+
+#define UNDEFINED_METHOD 0xffffffff
+
+#define IS_METHOD_DEFINED(x)  (x == UNDEFINED_METHOD ? FALSE : TRUE)
+
+// macro to free messages returned back to the API
+#define CMSG_FREE_RECV_MSG(_name) \
+    protobuf_c_message_free_unpacked ((ProtobufCMessage *)(_name), &protobuf_c_default_allocator)
+
+// macro to free _only_ the unknown fields that may be present
+// in a message returned back to the API
+#define CMSG_FREE_RECV_MSG_UNKNOWN_FIELDS(_name) \
+    protobuf_c_message_free_unknown_fields ((ProtobufCMessage *)(_name), &protobuf_c_default_allocator)
+
+/* Macros for setting the fields in a structure, and the associated sub-fields */
+#define CMSG_SET_FIELD_VALUE(_name, _field, _value) \
+    do {                                            \
+        (_name)->_field = (_value);                 \
+        (_name)->has_##_field = TRUE;               \
+    } while (0)
+
+#define CMSG_SET_FIELD_PTR(_name, _field, _ptr) \
+    do {                                        \
+        (_name)->_field = (_ptr);               \
+    } while (0)
+
+#define CMSG_SET_FIELD_REPEATED(_name, _field, _ptr, _n_elem) \
+    do {                                                      \
+        (_name)->_field = (_ptr);                             \
+        (_name)->n_##_field = (_n_elem);                      \
+    } while (0)
+
+#define CMSG_IS_FIELD_PRESENT(_msg, _field) \
+    ((_msg)->has_##_field ? TRUE : FALSE)
+
+#define CMSG_IS_PTR_PRESENT(_msg, _ptr) \
+    ((_msg)->_ptr ? TRUE : FALSE)
+
+#define CMSG_IS_REPEATED_PRESENT(_msg, _field) \
+    ((_msg)->n_##_field ? TRUE : FALSE)
 
 // Protocol has different msg types which reflect which fields are in use:
 // METHOD_REQ - client request to the server to invoke a method
@@ -131,10 +174,13 @@ typedef enum _cmsg_object_type_e
     CMSG_OBJ_TYPE_SUB,
 } cmsg_object_type;
 
+#define CMSG_MAX_OBJ_ID_LEN 10
+
 typedef struct _cmsg_object_s
 {
     cmsg_object_type object_type;
     void *object;
+    char obj_id[CMSG_MAX_OBJ_ID_LEN + 1];
 } cmsg_object;
 
 typedef enum _cmsg_msg_type_e
@@ -154,16 +200,41 @@ typedef enum _cmsg_status_code_e
     CMSG_STATUS_CODE_SERVICE_QUEUED,
     CMSG_STATUS_CODE_SERVICE_DROPPED,
     CMSG_STATUS_CODE_SERVER_CONNRESET,
+    CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,
 } cmsg_status_code;
 
+/**
+ * WARNING: Changing this header in anyway will break ISSU for this release.
+ * Consider whether or not it would be better to add any new fields as a TLV header,
+ * like the method header 'cmsg_tlv_method_header'. If you do need to change
+ * this header, _everyone_ will need to be made aware that ISSU won't work
+ * to go "up to" or "down from" the first release that includes this change.
+ */
 typedef struct _cmsg_header_s
 {
     cmsg_msg_type msg_type;         // Do NOT change this field
     uint32_t header_length;         // Do NOT change this field
     uint32_t message_length;        // Do NOT change this field
-    uint32_t method_index;          // Only for METHOD_xxx
     cmsg_status_code status_code;   // Only for METHOD_REPLY
 } cmsg_header;
+
+typedef enum _cmsg_tlv_header_type_s
+{
+    CMSG_TLV_METHOD_TYPE,
+} cmsg_tlv_header_type;
+
+typedef struct cmsg_tlv_method_header_s
+{
+    cmsg_tlv_header_type type;
+    uint32_t method_length;
+    char method[0];
+} cmsg_tlv_method_header;
+
+typedef struct cmsg_tlv_header_s
+{
+    cmsg_tlv_header_type type;
+    uint32_t tlv_value_length;
+} cmsg_tlv_header;
 
 typedef enum _cmsg_method_processing_reason_e
 {
@@ -180,7 +251,7 @@ typedef enum _cmsg_error_code_e
     CMSG_ERROR_CODE_CLIENT_TERMINATED,
     CMSG_ERROR_CODE_BAD_REQUEST,
     CMSG_ERROR_CODE_PROXY_PROBLEM
-} cmsg_error_code;;
+} cmsg_error_code;
 
 typedef enum _cmsg_queue_state_e
 {
@@ -197,16 +268,32 @@ typedef enum _cmsg_queue_filter_type_e
     CMSG_QUEUE_FILTER_ERROR,
 } cmsg_queue_filter_type;
 
+typedef struct _cmsg_server_request_s
+{
+    cmsg_msg_type msg_type;
+    uint32_t message_length;
+    uint32_t method_index;
+    char method_name_recvd[128];
+} cmsg_server_request;
+
 uint32_t cmsg_common_uint32_to_le (uint32_t le);
 
 #define cmsg_common_uint32_from_le cmsg_common_uint32_to_le
 
 void cmsg_buffer_print (void *buffer, uint32_t size);
 
-cmsg_header cmsg_header_create (cmsg_msg_type msg_type, uint32_t packed_size,
-                                uint32_t method_index, cmsg_status_code status_code);
+cmsg_header cmsg_header_create (cmsg_msg_type msg_type, uint32_t extra_header_size,
+                                uint32_t packed_size, cmsg_status_code status_code);
+
+void cmsg_tlv_method_header_create (uint8_t *buf, cmsg_header header, uint32_t type,
+                                    uint32_t length, const char *method_name);
 
 int32_t cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted);
+
+int
+cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
+                         uint32_t extra_header_size,
+                         const ProtobufCServiceDescriptor *descriptor);
 
 int cmsg_service_port_get (const char *name, const char *proto);
 
@@ -217,4 +304,42 @@ void *cmsg_malloc (size_t size, const char *filename, int line);
 void *cmsg_calloc (size_t nmemb, size_t size, const char *filename, int line);
 void cmsg_free (void *ptr, const char *filename, int line);
 void cmsg_malloc_init (int mtype);
+
+#ifdef HAVE_CMSG_PROFILING
+typedef struct _cmsg_prof_s
+{
+    int enable;
+    FILE *file_ptr;
+    struct timeval start;
+    struct timeval start_tic;
+    struct timeval now;
+    char text[2048];
+    char *text_ptr;
+} cmsg_prof;
+
+uint32_t cmsg_prof_diff_time_in_us (struct timeval start, struct timeval end);
+void cmsg_prof_time_tic (cmsg_prof *perf);
+uint32_t cmsg_prof_time_toc (cmsg_prof *perf);
+void cmsg_prof_time_log_start (cmsg_prof *perf, char *filename);
+void cmsg_prof_time_log_add_time (cmsg_prof *perf, char *description, uint32_t time);
+void cmsg_prof_time_log_stop (cmsg_prof *perf, char *type, int msg_size);
+void cmsg_prof_enable (cmsg_prof *perf);
+void cmsg_prof_disable (cmsg_prof *perf);
+#define CMSG_PROF_TIME_TIC(ARGS...) cmsg_prof_time_tic(ARGS)
+#define CMSG_PROF_TIME_TOC(ARGS...) cmsg_prof_time_toc(ARGS)
+#define CMSG_PROF_TIME_LOG_START(ARGS...) cmsg_prof_time_log_start(ARGS)
+#define CMSG_PROF_TIME_LOG_ADD_TIME(ARGS...) cmsg_prof_time_log_add_time(ARGS)
+#define CMSG_PROF_TIME_LOG_STOP(ARGS...) cmsg_prof_time_log_stop(ARGS)
+#define CMSG_PROF_ENABLE(ARGS...) cmsg_prof_enable(ARGS)
+#define CMSG_PROF_DISABLE(ARGS...) cmsg_prof_disable(ARGS)
+#else //ifndef HAVE_CMSG_PROFILING
+#define CMSG_PROF_TIME_TIC(ARGS...)
+#define CMSG_PROF_TIME_TOC(ARGS...)
+#define CMSG_PROF_TIME_LOG_START(ARGS...)
+#define CMSG_PROF_TIME_LOG_ADD_TIME(ARGS...)
+#define CMSG_PROF_TIME_LOG_STOP(ARGS...)
+#define CMSG_PROF_ENABLE(ARGS...)
+#define CMSG_PROF_DISABLE(ARGS...)
+#endif //HAVE_CMSG_PROFILING
+
 #endif

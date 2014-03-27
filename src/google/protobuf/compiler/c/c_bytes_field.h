@@ -34,7 +34,7 @@ namespace c {
 
 class BytesFieldGenerator : public FieldGenerator {
  public:
-  explicit BytesFieldGenerator(const FieldDescriptor* descriptor, bool addPbc);
+  explicit BytesFieldGenerator(const FieldDescriptor* descriptor);
   ~BytesFieldGenerator();
 
   // implements FieldGenerator ---------------------------------------

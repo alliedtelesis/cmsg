@@ -77,6 +77,7 @@
 #endif
 
 #include "protobuf-c.h"
+#include "protobuf-c-cmsg.h"
 
 unsigned protobuf_c_major = PROTOBUF_C_MAJOR;
 unsigned protobuf_c_minor = PROTOBUF_C_MINOR;
@@ -102,8 +103,6 @@ unsigned protobuf_c_minor = PROTOBUF_C_MINOR;
     (*(member_type*) STRUCT_MEMBER_P ((struct_p), (struct_offset)))
 #define STRUCT_MEMBER_PTR(member_type, struct_p, struct_offset)   \
     ((member_type*) STRUCT_MEMBER_P ((struct_p), (struct_offset)))
-#define TRUE 1
-#define FALSE 0
 
 static void
 alloc_failed_warning (unsigned size, const char *filename, unsigned line)
@@ -153,7 +152,7 @@ static void *system_alloc(void *allocator_data, size_t size)
   (void) allocator_data;
   if (size == 0)
     return NULL;
-  rv = malloc (size);
+  rv = CMSG_MALLOC (size);
   if (rv == NULL)
     protobuf_c_out_of_memory ();
   return rv;
@@ -163,7 +162,7 @@ static void system_free (void *allocator_data, void *data)
 {
   (void) allocator_data;
   if (data)
-    free (data);
+    CMSG_FREE (data);
 }
 
 /* Some users may configure the default allocator;
@@ -2668,12 +2667,37 @@ error_cleanup_during_scan:
 
 /* === free_unpacked === */
 void     
+protobuf_c_message_free_unknown_fields (ProtobufCMessage    *message,
+                                        ProtobufCAllocator  *allocator)
+{
+  unsigned f;
+
+  if (message == NULL)
+    return;
+
+  for (f = 0; f < message->n_unknown_fields; f++)
+    FREE (allocator, message->unknown_fields[f].data);
+
+  if (message->unknown_fields != NULL)
+    FREE (allocator, message->unknown_fields);
+
+  message->n_unknown_fields = 0;
+  message->unknown_fields = NULL;
+}
+
+void
 protobuf_c_message_free_unpacked  (ProtobufCMessage    *message,
                                    ProtobufCAllocator  *allocator)
 {
-  const ProtobufCMessageDescriptor *desc = message->descriptor;
+  const ProtobufCMessageDescriptor *desc;
   unsigned f;
+
+  if (message == NULL)
+    return;
+
   ASSERT_IS_MESSAGE (message);
+
+  desc = message->descriptor;
   if (allocator == NULL)
     allocator = &protobuf_c_default_allocator;
   message->descriptor = NULL;
@@ -2728,10 +2752,7 @@ protobuf_c_message_free_unpacked  (ProtobufCMessage    *message,
         }
     }
 
-  for (f = 0; f < message->n_unknown_fields; f++)
-    FREE (allocator, message->unknown_fields[f].data);
-  if (message->unknown_fields != NULL)
-    FREE (allocator, message->unknown_fields);
+  protobuf_c_message_free_unknown_fields (message, allocator);
 
   FREE (allocator, message);
 }
@@ -2744,11 +2765,11 @@ protobuf_c_message_init (const ProtobufCMessageDescriptor *descriptor,
 }
 
 /* === services === */
-typedef void (*GenericHandler)(void *service,
-                               const ProtobufCMessage *input,
-                               ProtobufCClosure  closure,
-                               void             *closure_data);
-void 
+typedef int32_t (*GenericHandler)(void *service,
+                                  const ProtobufCMessage *input,
+                                  ProtobufCClosure  closure,
+                                  void             *closure_data);
+int32_t
 protobuf_c_service_invoke_internal(ProtobufCService *service,
                                   unsigned          method_index,
                                   const ProtobufCMessage *input,
@@ -2772,7 +2793,7 @@ protobuf_c_service_invoke_internal(ProtobufCService *service,
   /* TODO: seems like handler==NULL is a situation that
      needs handling */
   handler = handlers[method_index];
-  (*handler) (service, input, closure, closure_data);
+  return (*handler) (service, input, closure, closure_data);
 }
 
 void
@@ -2874,8 +2895,8 @@ protobuf_c_message_descriptor_get_field
   return desc->fields + rv;
 }
 
-const ProtobufCMethodDescriptor *
-protobuf_c_service_descriptor_get_method_by_name
+uint32_t
+protobuf_c_service_descriptor_get_method_index_by_name
                          (const ProtobufCServiceDescriptor *desc,
                           const char                       *name)
 {
@@ -2887,7 +2908,7 @@ protobuf_c_service_descriptor_get_method_by_name
       const char *mid_name = desc->methods[mid_index].name;
       int rv = strcmp (mid_name, name);
       if (rv == 0)
-        return desc->methods + desc->method_indices_by_name[mid];
+        return desc->method_indices_by_name[mid];
       if (rv < 0)
         {
           count = start + count - (mid + 1);
@@ -2899,8 +2920,8 @@ protobuf_c_service_descriptor_get_method_by_name
         }
     }
   if (count == 0)
-    return NULL;
+    return UNDEFINED_METHOD;
   if (strcmp (desc->methods[desc->method_indices_by_name[start]].name, name) == 0)
-    return desc->methods + desc->method_indices_by_name[start];
-  return NULL;
+    return desc->method_indices_by_name[start];
+  return UNDEFINED_METHOD;
 }

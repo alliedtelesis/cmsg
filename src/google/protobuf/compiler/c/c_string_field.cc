@@ -44,8 +44,8 @@ void SetStringVariables(const FieldDescriptor* descriptor,
 // ===================================================================
 
 StringFieldGenerator::
-StringFieldGenerator(const FieldDescriptor* descriptor, bool addPbc)
-  : FieldGenerator(descriptor, addPbc) {
+StringFieldGenerator(const FieldDescriptor* descriptor)
+  : FieldGenerator(descriptor) {
   SetStringVariables(descriptor, &variables_);
 }
 
@@ -94,10 +94,7 @@ void StringFieldGenerator::GenerateStaticInit(io::Printer* printer) const
       printer->Print(vars, "$default$");
       break;
     case FieldDescriptor::LABEL_REPEATED:
-      if (addPbc_)
-        printer->Print(vars, "0,NULL");
-      else
-        printer->Print(vars, "0,NULL");
+      printer->Print(vars, "0,NULL");
       break;
   }
 }
