@@ -24,4 +24,21 @@
 /* User this error for general messages */
 #define CMSG_LOG_GEN_ERROR(msg, ...)  syslog (LOG_ERR | LOG_LOCAL6, "CMSG(%d): " msg, __LINE__, ## __VA_ARGS__)
 
+/* These errors are intended to assert preconditions.  Failure should be unexpected. */
+#define CMSG_ASSERT_RETURN_VAL(cond, retval) \
+    do { \
+       if (!(cond)) { \
+           syslog (LOG_ERR | LOG_LOCAL7, "CMSG(%s:%d): Condition failed: " #cond, __FUNCTION__, __LINE__); \
+           return (retval); \
+       } \
+    } while (0)
+
+
+#define CMSG_ASSERT_RETURN_VOID(cond) \
+    do { \
+       if (!(cond)) { \
+           syslog (LOG_ERR | LOG_LOCAL7, "CMSG(%s:%d): Condition failed: " #cond, __FUNCTION__, __LINE__); \
+           return; \
+       } \
+    } while (0)
 #endif /* __PROTOBUF_C_CMSG_ERROR__ */
