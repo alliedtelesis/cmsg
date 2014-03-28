@@ -712,7 +712,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
 
         cmsg_header header;
         uint32_t packed_size = protobuf_c_message_get_packed_size (message);
-        uint32_t extra_header_size = TLV_SIZE (method_len);
+        uint32_t extra_header_size = CMSG_TLV_SIZE (method_len);
         uint32_t total_header_size = sizeof (header) + extra_header_size;
         uint32_t total_message_size = total_header_size + packed_size;
 

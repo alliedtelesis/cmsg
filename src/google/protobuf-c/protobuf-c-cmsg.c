@@ -227,8 +227,8 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
                                 tlv_header->type);
             return CMSG_RET_ERR;
         }
-        buf = buf + TLV_SIZE (tlv_header->tlv_value_length);
-        extra_header_size = extra_header_size - TLV_SIZE (tlv_header->tlv_value_length);
+        buf = buf + CMSG_TLV_SIZE (tlv_header->tlv_value_length);
+        extra_header_size = extra_header_size - CMSG_TLV_SIZE (tlv_header->tlv_value_length);
     }
 
     return CMSG_RET_OK;

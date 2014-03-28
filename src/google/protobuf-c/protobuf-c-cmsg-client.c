@@ -201,7 +201,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     CMSG_PROF_TIME_TIC (&client->prof);
 
     uint32_t packed_size = protobuf_c_message_get_packed_size (input);
-    uint32_t extra_header_size = TLV_SIZE (method_length);
+    uint32_t extra_header_size = CMSG_TLV_SIZE (method_length);
     uint32_t total_header_size = sizeof (header) + extra_header_size;
     uint32_t total_message_size = total_header_size + packed_size;
 
@@ -458,7 +458,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     method_length = strlen (method_name) + 1;
 
     uint32_t packed_size = protobuf_c_message_get_packed_size (input);
-    uint32_t extra_header_size = TLV_SIZE (method_length);
+    uint32_t extra_header_size = CMSG_TLV_SIZE (method_length);
     uint32_t total_header_size = sizeof (header) + extra_header_size;
     uint32_t total_message_size = total_header_size + packed_size;
 
