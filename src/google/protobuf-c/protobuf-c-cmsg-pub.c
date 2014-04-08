@@ -242,7 +242,6 @@ cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
 {
     CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
 
-    int32_t ret = CMSG_RET_OK;
     /*
      * walk the list and get a client connection for every subscription
      */
@@ -254,20 +253,29 @@ cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
         if (list_entry->client == NULL)
         {
-            ret = CMSG_RET_ERR;
-            DEBUG (CMSG_INFO, "[PUB] [LIST] Couldn't get subscriber client!\n");
+            CMSG_LOG_PUBLISHER_ERROR (publisher,
+                                      "[PUB] [LIST] Couldn't get subscriber client!\n");
+
+            pthread_mutex_unlock (&publisher->subscriber_list_mutex);
+            return CMSG_RET_ERR;
         }
         else if (list_entry->client->state != CMSG_CLIENT_STATE_CONNECTED)
         {
-            ret = CMSG_RET_ERR;
-            DEBUG (CMSG_INFO, "[PUB] [LIST] Couldn't connect to subscriber!\n");
+            if (cmsg_client_connect (list_entry->client) != CMSG_RET_OK)
+            {
+                CMSG_LOG_PUBLISHER_ERROR (publisher,
+                                          "[PUB] [LIST] Couldn't connect to subscriber!\n");
+
+                pthread_mutex_unlock (&publisher->subscriber_list_mutex);
+                return CMSG_RET_ERR;
+            }
         }
         subscriber_list = g_list_next (subscriber_list);
     }
 
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 
-    return ret;
+    return CMSG_RET_OK;
 }
 
 void
