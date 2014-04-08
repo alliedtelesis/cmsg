@@ -198,6 +198,20 @@ typedef enum _cmsg_status_code_e
 } cmsg_status_code;
 
 /**
+ * Warning: This header is only to allow backwards compatibility for
+ * rolling reboot between 5.4.4.0 and 5.4.4.1
+ * Do not change any of these fields.
+ */
+typedef struct _cmsg_old_header_s
+{
+    cmsg_msg_type msg_type;         // Do NOT change this field
+    uint32_t header_length;         // Do NOT change this field
+    uint32_t message_length;        // Do NOT change this field
+    uint32_t method_index;          // Only for METHOD_xxx
+    cmsg_status_code status_code;   // Only for METHOD_REPLY
+} cmsg_old_header;
+
+/**
  * WARNING: Changing this header in anyway will break ISSU for this release.
  * Consider whether or not it would be better to add any new fields as a TLV header,
  * like the method header 'cmsg_tlv_method_header'. If you do need to change
@@ -278,6 +292,9 @@ void cmsg_buffer_print (void *buffer, uint32_t size);
 
 cmsg_header cmsg_header_create (cmsg_msg_type msg_type, uint32_t extra_header_size,
                                 uint32_t packed_size, cmsg_status_code status_code);
+cmsg_old_header cmsg_old_header_create (cmsg_msg_type msg_type, uint32_t packed_size,
+                                        uint32_t method_index,
+                                        cmsg_status_code status_code);
 
 void cmsg_tlv_method_header_create (uint8_t *buf, cmsg_header header, uint32_t type,
                                     uint32_t length, const char *method_name);
