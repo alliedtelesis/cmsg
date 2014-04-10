@@ -798,7 +798,7 @@ cmsg_pub_invoke (ProtobufCService *service,
             if (ret == CMSG_RET_ERR)
             {
                 //try again
-                CMSG_LOG_PUBLISHER_ERROR (publisher,
+                CMSG_LOG_PUBLISHER_DEBUG (publisher,
                                           "Client invoke failed (method: %s) (queue: %d).",
                                           method_name, action == CMSG_QUEUE_FILTER_QUEUE);
             }
@@ -813,6 +813,9 @@ cmsg_pub_invoke (ProtobufCService *service,
 
         if (ret == CMSG_RET_ERR)
         {
+            CMSG_LOG_PUBLISHER_ERROR (publisher,
+                                      "Failed to send notification (method: %s) (queue: %d). Removing subscription",
+                                      method_name, action == CMSG_QUEUE_FILTER_QUEUE);
             /* We already have the lock on subscriber_list_mutex. Therefore we should
              * use the thread unsafe subscriber remove function. */
             _cmsg_pub_subscriber_mark_for_removal (publisher, list_entry);

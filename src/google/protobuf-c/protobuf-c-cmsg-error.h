@@ -21,6 +21,17 @@
        } \
     } while (0)
 
+/* For publisher object debug messages */
+#define CMSG_LOG_PUBLISHER_DEBUG(publisher, msg, ...) CMSG_LOG_OBJ_DEBUG (publisher, publisher->sub_server->_transport, msg, ## __VA_ARGS__)
+
+/* General object debug messages */
+#define CMSG_LOG_OBJ_DEBUG(obj, tport, msg, ...) \
+    do { \
+        if (obj) { \
+            syslog (LOG_DEBUG | LOG_LOCAL7, "CMSG(%d).%s%s: " msg, __LINE__, obj->self.obj_id, tport ? (tport)->tport_id : "", ## __VA_ARGS__); \
+        } \
+    } while (0)
+
 /* User this error for general messages */
 #define CMSG_LOG_GEN_ERROR(msg, ...)  syslog (LOG_ERR | LOG_LOCAL6, "CMSG(%d): " msg, __LINE__, ## __VA_ARGS__)
 
