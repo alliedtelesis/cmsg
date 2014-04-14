@@ -51,7 +51,7 @@ cmsg_transport_tcp_connect (cmsg_client *client)
     else
     {
         client->state = CMSG_CLIENT_STATE_CONNECTED;
-        DEBUG (CMSG_INFO, "[TRANSPORT] succesfully connected\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] succesfully connected\n");
         return 0;
     }
 }
@@ -109,11 +109,11 @@ cmsg_transport_tcp_listen (cmsg_server *server)
 
     server->connection.sockets.listening_socket = listening_socket;
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] listening on tcp socket: %d\n", listening_socket);
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tcp socket: %d\n", listening_socket);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] listening on port: %d\n",
-           (int) (ntohs (server->_transport->config.socket.sockaddr.in.sin_port)));
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] listening on port: %d\n",
+                (int) (ntohs (server->_transport->config.socket.sockaddr.in.sin_port)));
 
     return 0;
 }
@@ -171,7 +171,7 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
     if (sock < 0)
     {
         CMSG_LOG_SERVER_ERROR (server, "Accept failed. Error:%s", strerror (errno));
-        DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
 
         return -1;
     }
@@ -217,7 +217,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
-        DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
 
         // read the message
 
@@ -225,9 +225,9 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         if (header_converted.message_length == 0)
         {
             // May have been queued, dropped or there was no message returned
-            DEBUG (CMSG_INFO,
-                   "[TRANSPORT] received response without data. server status %d\n",
-                   header_converted.status_code);
+            CMSG_DEBUG (CMSG_INFO,
+                        "[TRANSPORT] received response without data. server status %d\n",
+                        header_converted.status_code);
             return header_converted.status_code;
         }
         extra_header_size = header_converted.header_length - sizeof (cmsg_header);
@@ -255,13 +255,13 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
                                      client->descriptor);
 
             recv_buffer = recv_buffer + extra_header_size;
-            DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
 
             cmsg_buffer_print (recv_buffer, dyn_len);
 
             //todo: call cmsg_client_response_message_processor
 
-            DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
             desc = client->descriptor->methods[server_request.method_index].output;
             message =
@@ -279,8 +279,8 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         }
         else
         {
-            DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d no data\n",
-                   client->connection.socket);
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d no data\n",
+                        client->connection.socket);
 
             ret = 0;
         }
@@ -295,9 +295,9 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     }
     else if (nbytes > 0)
     {
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] recv socket %d bad header nbytes %d\n",
-               client->connection.socket, nbytes);
+        CMSG_DEBUG (CMSG_INFO,
+                    "[TRANSPORT] recv socket %d bad header nbytes %d\n",
+                    client->connection.socket, nbytes);
 
         // TEMP to keep things going
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
@@ -316,8 +316,8 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     {
         if (errno == ECONNRESET)
         {
-            DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                   client->connection.socket, strerror (errno));
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
+                        client->connection.socket, strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
@@ -359,10 +359,10 @@ cmsg_transport_tcp_client_close (cmsg_client *client)
 {
     if (client->connection.socket != -1)
     {
-        DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
         shutdown (client->connection.socket, SHUT_RDWR);
 
-        DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
         close (client->connection.socket);
 
         client->connection.socket = -1;
@@ -372,10 +372,10 @@ cmsg_transport_tcp_client_close (cmsg_client *client)
 static void
 cmsg_transport_tcp_server_close (cmsg_server *server)
 {
-    DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
+    CMSG_DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
     shutdown (server->connection.sockets.client_socket, SHUT_RDWR);
 
-    DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
+    CMSG_DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
     close (server->connection.sockets.client_socket);
 }
 
@@ -401,10 +401,10 @@ cmsg_transport_tcp_client_destroy (cmsg_client *cmsg_client)
 static void
 cmsg_transport_tcp_server_destroy (cmsg_server *server)
 {
-    DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
+    CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
     shutdown (server->connection.sockets.listening_socket, SHUT_RDWR);
 
-    DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
+    CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
     close (server->connection.sockets.listening_socket);
 }
 
@@ -469,7 +469,7 @@ cmsg_transport_tcp_init (cmsg_transport *transport)
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
 
-    DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
+    CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
 
 
@@ -506,5 +506,5 @@ cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
 
-    DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
+    CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }

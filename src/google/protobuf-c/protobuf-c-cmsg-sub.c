@@ -9,9 +9,6 @@ static cmsg_sub * _cmsg_create_subscriber_tipc (const char *server_name, int mem
 cmsg_sub *
 cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_service)
 {
-    CMSG_ASSERT (pub_server_transport);
-    CMSG_ASSERT (pub_service);
-
     cmsg_sub *subscriber = (cmsg_sub *) CMSG_CALLOC (1, sizeof (cmsg_sub));
     if (!subscriber)
     {
@@ -36,15 +33,16 @@ cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_servic
 void
 cmsg_sub_destroy (cmsg_sub *subscriber)
 {
-    CMSG_ASSERT (subscriber);
-
-    if (subscriber->pub_server)
+    if (subscriber)
     {
-        cmsg_server_destroy (subscriber->pub_server);
-        subscriber->pub_server = NULL;
-    }
+        if (subscriber->pub_server)
+        {
+            cmsg_server_destroy (subscriber->pub_server);
+            subscriber->pub_server = NULL;
+        }
 
-    CMSG_FREE (subscriber);
+        CMSG_FREE (subscriber);
+    }
 
     return;
 }
@@ -53,7 +51,7 @@ cmsg_sub_destroy (cmsg_sub *subscriber)
 int
 cmsg_sub_get_server_socket (cmsg_sub *subscriber)
 {
-    CMSG_ASSERT (subscriber);
+    CMSG_ASSERT_RETURN_VAL (subscriber != NULL, -1);
 
     return (cmsg_server_get_socket (subscriber->pub_server));
 }
@@ -70,10 +68,9 @@ cmsg_sub_server_receive_poll (cmsg_sub *sub, int32_t timeout_ms, fd_set *master_
 int32_t
 cmsg_sub_server_receive (cmsg_sub *subscriber, int32_t server_socket)
 {
-    DEBUG (CMSG_INFO, "[SUB]\n");
+    CMSG_DEBUG (CMSG_INFO, "[SUB]\n");
 
-    CMSG_ASSERT (subscriber);
-    CMSG_ASSERT (server_socket > 0);
+    CMSG_ASSERT_RETURN_VAL (subscriber != NULL, CMSG_RET_ERR);
 
     return cmsg_server_receive (subscriber->pub_server, server_socket);
 }
@@ -82,6 +79,8 @@ cmsg_sub_server_receive (cmsg_sub *subscriber, int32_t server_socket)
 int32_t
 cmsg_sub_server_accept (cmsg_sub *subscriber, int32_t listen_socket)
 {
+    CMSG_ASSERT_RETURN_VAL (subscriber != NULL, -1);
+
     return cmsg_server_accept (subscriber->pub_server, listen_socket);
 }
 
@@ -90,11 +89,11 @@ int32_t
 cmsg_sub_subscribe (cmsg_sub *subscriber,
                     cmsg_transport *sub_client_transport, char *method_name)
 {
-    CMSG_ASSERT (subscriber);
-    CMSG_ASSERT (subscriber->pub_server);
-    CMSG_ASSERT (subscriber->pub_server->_transport);
-    CMSG_ASSERT (sub_client_transport);
-    CMSG_ASSERT (method_name);
+    CMSG_ASSERT_RETURN_VAL (subscriber != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (subscriber->pub_server != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (subscriber->pub_server->_transport != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (sub_client_transport != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (method_name != NULL, CMSG_RET_ERR);
 
     cmsg_client *register_client = NULL;
     int32_t return_value = CMSG_RET_ERR;
@@ -184,11 +183,11 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     cmsg_sub_entry_transport_info register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_INIT;
     cmsg_sub_entry_response *response = NULL;
 
-    CMSG_ASSERT (subscriber);
-    CMSG_ASSERT (subscriber->pub_server);
-    CMSG_ASSERT (subscriber->pub_server->_transport);
-    CMSG_ASSERT (sub_client_transport);
-    CMSG_ASSERT (method_name);
+    CMSG_ASSERT_RETURN_VAL (subscriber != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (subscriber->pub_server != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (subscriber->pub_server->_transport != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (sub_client_transport != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (method_name != NULL, CMSG_RET_ERR);
 
     register_entry.add = 0;
     register_entry.method_name = method_name;
@@ -291,6 +290,9 @@ cmsg_sub *
 cmsg_create_subscriber_tipc_rpc (const char *server_name, int member_id, int scope,
                                  ProtobufCService *descriptor)
 {
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
     return _cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
                                         CMSG_TRANSPORT_RPC_TIPC);
 }
@@ -299,6 +301,9 @@ cmsg_sub *
 cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int scope,
                                     ProtobufCService *descriptor)
 {
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
     return _cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
                                         CMSG_TRANSPORT_ONEWAY_TIPC);
 }

@@ -51,25 +51,19 @@
 #endif
 
 #if defined(DEBUG_WORKSTATION)
-#define DEBUG(level, fmt, ARGS...)                                                      \
+#define CMSG_DEBUG(level, fmt, ARGS...)                                                 \
     do {                                                                                \
         if ((level) <= DEBUG_LEVEL)                                                     \
             printf ("%s:%d "fmt, __FUNCTION__, __LINE__, ##ARGS);                       \
     } while (0)
 #elif defined(DEBUG_SWITCH)
-#define DEBUG(level, fmt, ARGS...)                                                      \
+#define CMSG_DEBUG(level, fmt, ARGS...)                                                 \
     do {                                                                                \
         if ((level) <= DEBUG_LEVEL)                                                     \
             syslog (LOG_CRIT | LOG_LOCAL6, "%s:%d "fmt, __FUNCTION__, __LINE__, ##ARGS);\
     } while (0)
 #elif defined(DEBUG_DISABLED)
-#define DEBUG(ARGS...)  /* do nothing */
-#endif
-
-#ifdef DEBUG_DISABLED
-#define CMSG_ASSERT(E) do { ; } while (0)
-#else
-#define CMSG_ASSERT(E) (assert (E))
+#define CMSG_DEBUG(ARGS...)  /* do nothing */
 #endif
 
 #define CMSG_RECV_BUFFER_SZ                        512
@@ -83,7 +77,7 @@
 #define CMSG_RET_QUEUED 1
 #define CMSG_RET_DROPPED 2
 
-#define TLV_SIZE(x) ((2 * sizeof (uint32_t)) + (x))
+#define CMSG_TLV_SIZE(x) ((2 * sizeof (uint32_t)) + (x))
 
 #define UNDEFINED_METHOD 0xffffffff
 
@@ -204,6 +198,20 @@ typedef enum _cmsg_status_code_e
 } cmsg_status_code;
 
 /**
+ * Warning: This header is only to allow backwards compatibility for
+ * rolling reboot between 5.4.4.0 and 5.4.4.1
+ * Do not change any of these fields.
+ */
+typedef struct _cmsg_old_header_s
+{
+    cmsg_msg_type msg_type;         // Do NOT change this field
+    uint32_t header_length;         // Do NOT change this field
+    uint32_t message_length;        // Do NOT change this field
+    uint32_t method_index;          // Only for METHOD_xxx
+    cmsg_status_code status_code;   // Only for METHOD_REPLY
+} cmsg_old_header;
+
+/**
  * WARNING: Changing this header in anyway will break ISSU for this release.
  * Consider whether or not it would be better to add any new fields as a TLV header,
  * like the method header 'cmsg_tlv_method_header'. If you do need to change
@@ -284,6 +292,9 @@ void cmsg_buffer_print (void *buffer, uint32_t size);
 
 cmsg_header cmsg_header_create (cmsg_msg_type msg_type, uint32_t extra_header_size,
                                 uint32_t packed_size, cmsg_status_code status_code);
+cmsg_old_header cmsg_old_header_create (cmsg_msg_type msg_type, uint32_t packed_size,
+                                        uint32_t method_index,
+                                        cmsg_status_code status_code);
 
 void cmsg_tlv_method_header_create (uint8_t *buf, cmsg_header header, uint32_t type,
                                     uint32_t length, const char *method_name);

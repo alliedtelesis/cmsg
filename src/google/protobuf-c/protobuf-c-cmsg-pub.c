@@ -18,9 +18,6 @@ static cmsg_pub * _cmsg_create_publisher_tipc (const char *server_name, int memb
 int32_t
 cmsg_sub_entry_compare (cmsg_sub_entry *one, cmsg_sub_entry *two)
 {
-    CMSG_ASSERT (one);
-    CMSG_ASSERT (two);
-
     if ((one->transport->config.socket.family == two->transport->config.socket.family) &&
         (one->transport->type == two->transport->type) &&
         (one->transport->config.socket.sockaddr.in.sin_addr.s_addr ==
@@ -56,9 +53,6 @@ cmsg_sub_entry_compare (cmsg_sub_entry *one, cmsg_sub_entry *two)
 int32_t
 cmsg_sub_entry_compare_transport (cmsg_sub_entry *one, cmsg_transport *transport)
 {
-    CMSG_ASSERT (one);
-    CMSG_ASSERT (transport);
-
     if ((one->transport->config.socket.family == transport->config.socket.family) &&
         (one->transport->type == transport->type) &&
         (one->transport->config.socket.sockaddr.in.sin_addr.s_addr ==
@@ -89,9 +83,6 @@ cmsg_sub_entry_compare_transport (cmsg_sub_entry *one, cmsg_transport *transport
 int32_t
 cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
 {
-    CMSG_ASSERT (one);
-    CMSG_ASSERT (two);
-
     if ((one->config.socket.family == two->config.socket.family) &&
         (one->type == two->type) &&
         (one->config.socket.sockaddr.in.sin_addr.s_addr ==
@@ -122,7 +113,8 @@ cmsg_pub *
 cmsg_pub_new (cmsg_transport *sub_server_transport,
               const ProtobufCServiceDescriptor *pub_service)
 {
-    CMSG_ASSERT (sub_server_transport);
+    CMSG_ASSERT_RETURN_VAL (sub_server_transport != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (pub_service != NULL, NULL);
 
     cmsg_pub *publisher = (cmsg_pub *) CMSG_CALLOC (1, sizeof (cmsg_pub));
     if (!publisher)
@@ -202,7 +194,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
 void
 cmsg_pub_destroy (cmsg_pub *publisher)
 {
-    CMSG_ASSERT (publisher);
+    CMSG_ASSERT_RETURN_VOID (publisher != NULL);
 
     if (publisher->sub_server)
     {
@@ -239,7 +231,7 @@ cmsg_pub_destroy (cmsg_pub *publisher)
 int
 cmsg_pub_get_server_socket (cmsg_pub *publisher)
 {
-    CMSG_ASSERT (publisher);
+    CMSG_ASSERT_RETURN_VAL (publisher != NULL, -1);
 
     return (cmsg_server_get_socket (publisher->sub_server));
 }
@@ -248,7 +240,8 @@ cmsg_pub_get_server_socket (cmsg_pub *publisher)
 int32_t
 cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
 {
-    CMSG_ASSERT (publisher);
+    CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
+
     /*
      * walk the list and get a client connection for every subscription
      */
@@ -288,8 +281,8 @@ cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
 void
 cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher, cmsg_transport *transport)
 {
-    CMSG_ASSERT (publisher);
-    CMSG_ASSERT (transport);
+    CMSG_ASSERT_RETURN_VOID (publisher != NULL);
+    CMSG_ASSERT_RETURN_VOID (transport != NULL);
 
     /*
      * walk the list and get a client connection for every subscription that
@@ -307,7 +300,8 @@ cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher, cmsg_transport *t
             {
                 if (cmsg_client_connect (list_entry->client) != 0)
                 {
-                    DEBUG (CMSG_INFO, "[PUB] [LIST] Couldn't connect to subscriber!\n");
+                    CMSG_DEBUG (CMSG_INFO,
+                                "[PUB] [LIST] Couldn't connect to subscriber!\n");
                 }
             }
         }
@@ -320,11 +314,11 @@ cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher, cmsg_transport *t
 int32_t
 cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
-    CMSG_ASSERT (publisher);
-    CMSG_ASSERT (entry);
+    CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (entry != NULL, CMSG_RET_ERR);
 
-    DEBUG (CMSG_INFO, "[PUB] [LIST] adding subscriber to list\n");
-    DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] adding subscriber to list\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
 
     int add = 1;
 
@@ -352,17 +346,17 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
     }
     else
     {
-        DEBUG (CMSG_INFO, "[PUB] [LIST] not a new entry doing nothing\n");
+        CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] not a new entry doing nothing\n");
     }
 
 #ifndef DEBUG_DISABLED
-    DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
     {
         cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
-        DEBUG (CMSG_INFO, "[PUB] [LIST] print_list_entry->method_name: %s\n",
-               print_list_entry->method_name);
+        CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] print_list_entry->method_name: %s\n",
+                    print_list_entry->method_name);
         print_subscriber_list = g_list_next (print_subscriber_list);
     }
 #endif
@@ -385,9 +379,7 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 static void
 _cmsg_pub_subscriber_remove_expired_entries (cmsg_pub *publisher)
 {
-    CMSG_ASSERT (publisher);
-
-    DEBUG (CMSG_INFO, "[PUB] [LIST] removing expired subscribers from list\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] removing expired subscribers from list\n");
 
     GList *list = NULL;
     GList *list_next = NULL;
@@ -402,7 +394,7 @@ _cmsg_pub_subscriber_remove_expired_entries (cmsg_pub *publisher)
             ((current_time - list_entry->attempted_remove_time) >
              CMSG_PUB_SUBSCRIBER_TIMEOUT))
         {
-            DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
+            CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
             publisher->subscriber_list = g_list_remove (publisher->subscriber_list,
                                                         list_entry);
 
@@ -418,7 +410,7 @@ _cmsg_pub_subscriber_remove_expired_entries (cmsg_pub *publisher)
 int32_t
 cmsg_pub_subscriber_remove_expired_entries (cmsg_pub *publisher)
 {
-    CMSG_ASSERT (publisher);
+    CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
 
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
@@ -438,11 +430,8 @@ cmsg_pub_subscriber_remove_expired_entries (cmsg_pub *publisher)
 static void
 _cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
-    CMSG_ASSERT (publisher);
-    CMSG_ASSERT (entry);
-
-    DEBUG (CMSG_INFO, "[PUB] [LIST] marking subscriber for removal from list\n");
-    DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking subscriber for removal from list\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
 
     GList *list = NULL;
     GList *list_next = NULL;
@@ -456,21 +445,21 @@ _cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entr
         if (cmsg_sub_entry_compare (list_entry, entry) &&
             list_entry->attempted_remove_time == 0)
         {
-            DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for deletion\n");
+            CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for deletion\n");
             list_entry->attempted_remove_time = current_time;
             break;
         }
     }
 
 #ifndef DEBUG_DISABLED
-    DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
     {
         cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
-        DEBUG (CMSG_INFO,
-               "[PUB] [LIST] print_list_entry->method_name: %s\n",
-               print_list_entry->method_name);
+        CMSG_DEBUG (CMSG_INFO,
+                    "[PUB] [LIST] print_list_entry->method_name: %s\n",
+                    print_list_entry->method_name);
 
         print_subscriber_list = g_list_next (print_subscriber_list);
     }
@@ -481,8 +470,8 @@ _cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entr
 int32_t
 cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
-    CMSG_ASSERT (publisher);
-    CMSG_ASSERT (entry);
+    CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (entry != NULL, CMSG_RET_ERR);
 
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
@@ -503,11 +492,11 @@ int32_t
 cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
                                                cmsg_transport *transport)
 {
-    CMSG_ASSERT (publisher);
-    CMSG_ASSERT (transport);
+    CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (transport != NULL, CMSG_RET_ERR);
 
-    DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
-    DEBUG (CMSG_INFO, "[PUB] [LIST] transport: type %d\n", transport->type);
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] transport: type %d\n", transport->type);
 
     GList *list;
     GList *list_next;
@@ -524,8 +513,8 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
 
         if (cmsg_sub_entry_compare_transport (list_entry, transport))
         {
-            DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for %s for deletion\n",
-                   list_entry->method_name);
+            CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for %s for deletion\n",
+                        list_entry->method_name);
 
             cmsg_send_queue_free_all_by_transport (publisher->queue, transport);
             if (list_entry->attempted_remove_time == 0)
@@ -536,14 +525,14 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
     }
 
 #ifndef DEBUG_DISABLED
-    DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
     {
         cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
-        DEBUG (CMSG_INFO,
-               "[PUB] [LIST] print_list_entry->method_name: %s\n",
-               print_list_entry->method_name);
+        CMSG_DEBUG (CMSG_INFO,
+                    "[PUB] [LIST] print_list_entry->method_name: %s\n",
+                    print_list_entry->method_name);
 
         print_subscriber_list = g_list_next (print_subscriber_list);
     }
@@ -567,7 +556,7 @@ int32_t
 cmsg_publisher_receive_poll (cmsg_pub *publisher, int32_t timeout_ms, fd_set *master_fdset,
                              int *fdmax)
 {
-    CMSG_ASSERT (publisher);
+    CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
 
     return cmsg_server_receive_poll (publisher->sub_server, timeout_ms,
                                      master_fdset, fdmax);
@@ -577,6 +566,8 @@ cmsg_publisher_receive_poll (cmsg_pub *publisher, int32_t timeout_ms, fd_set *ma
 void
 cmsg_pub_subscriber_remove_all (cmsg_pub *publisher)
 {
+    CMSG_ASSERT_RETURN_VOID (publisher != NULL);
+
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
@@ -601,17 +592,16 @@ cmsg_pub_server_receive (cmsg_pub *publisher, int32_t server_socket)
 {
     int32_t ret = 0;
 
-    CMSG_ASSERT (publisher);
-    CMSG_ASSERT (server_socket > 0);
+    CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
 
-    DEBUG (CMSG_INFO, "[PUB]\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB]\n");
 
     ret = publisher->sub_server->_transport->server_recv (server_socket,
                                                           publisher->sub_server);
 
     if (ret < 0)
     {
-        DEBUG (CMSG_ERROR, "[SERVER] server receive failed\n");
+        CMSG_DEBUG (CMSG_ERROR, "[SERVER] server receive failed\n");
         return -1;
     }
 
@@ -621,18 +611,20 @@ cmsg_pub_server_receive (cmsg_pub *publisher, int32_t server_socket)
 int32_t
 cmsg_pub_server_accept (cmsg_pub *publisher, int32_t listen_socket)
 {
+    CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
+
     return cmsg_server_accept (publisher->sub_server, listen_socket);
 }
 
 int32_t
 cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
-    CMSG_ASSERT (server);
-    CMSG_ASSERT (server->_transport);
-    CMSG_ASSERT (server->service);
-    CMSG_ASSERT (server->service->descriptor);
-    CMSG_ASSERT (server->server_request);
-    CMSG_ASSERT (buffer_data);
+    CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (server->service != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (server->service->descriptor != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (server->server_request != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (buffer_data != NULL, CMSG_RET_ERR);
 
     cmsg_server_request *server_request = server->server_request;
     ProtobufCMessage *message = NULL;
@@ -655,7 +647,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
         return 0;
     }
 
-    DEBUG (CMSG_INFO, "[PUB] unpacking message\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] unpacking message\n");
 
     desc = server->service->descriptor->methods[server_request->method_index].input;
     message = protobuf_c_message_unpack (desc, allocator,
@@ -676,7 +668,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
     protobuf_c_message_free_unpacked (message, allocator);
 
-    DEBUG (CMSG_INFO, "[PUB] end of message processor\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] end of message processor\n");
     return 0;
 }
 
@@ -692,13 +684,13 @@ cmsg_pub_invoke (ProtobufCService *service,
     const char *method_name;
     cmsg_bool_t expired_list_entry = FALSE;
 
-    CMSG_ASSERT (service);
-    CMSG_ASSERT (service->descriptor);
-    CMSG_ASSERT (input);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (service->descriptor != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
 
     method_name = service->descriptor->methods[method_index].name;
 
-    DEBUG (CMSG_INFO, "[PUB] publisher sending notification for: %s\n", method_name);
+    CMSG_DEBUG (CMSG_INFO, "[PUB] publisher sending notification for: %s\n", method_name);
 
     cmsg_queue_filter_type action = cmsg_pub_queue_filter_lookup (publisher,
                                                                   method_name);
@@ -713,7 +705,7 @@ cmsg_pub_invoke (ProtobufCService *service,
 
     if (action == CMSG_QUEUE_FILTER_DROP)
     {
-        DEBUG (CMSG_ERROR, "[PUB] dropping message: %s\n", method_name);
+        CMSG_DEBUG (CMSG_ERROR, "[PUB] dropping message: %s\n", method_name);
         return CMSG_RET_OK;
     }
 
@@ -767,7 +759,7 @@ cmsg_pub_invoke (ProtobufCService *service,
         }
         else
         {
-            DEBUG (CMSG_INFO, "[PUB] subscriber has subscribed to: %s\n", method_name);
+            CMSG_DEBUG (CMSG_INFO, "[PUB] subscriber has subscribed to: %s\n", method_name);
         }
 
         // Unlock list to send notification
@@ -807,7 +799,7 @@ cmsg_pub_invoke (ProtobufCService *service,
             if (ret == CMSG_RET_ERR)
             {
                 //try again
-                CMSG_LOG_PUBLISHER_ERROR (publisher,
+                CMSG_LOG_PUBLISHER_DEBUG (publisher,
                                           "Client invoke failed (method: %s) (queue: %d).",
                                           method_name, action == CMSG_QUEUE_FILTER_QUEUE);
             }
@@ -822,6 +814,9 @@ cmsg_pub_invoke (ProtobufCService *service,
 
         if (ret == CMSG_RET_ERR)
         {
+            CMSG_LOG_PUBLISHER_ERROR (publisher,
+                                      "Failed to send notification (method: %s) (queue: %d). Removing subscription",
+                                      method_name, action == CMSG_QUEUE_FILTER_QUEUE);
             /* We already have the lock on subscriber_list_mutex. Therefore we should
              * use the thread unsafe subscriber remove function. */
             _cmsg_pub_subscriber_mark_for_removal (publisher, list_entry);
@@ -845,11 +840,11 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
                     const cmsg_sub_entry_transport_info *input,
                     cmsg_sub_entry_response_Closure closure, void *closure_data_void)
 {
-    CMSG_ASSERT (service);
-    CMSG_ASSERT (input);
-    CMSG_ASSERT (closure_data_void);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (closure_data_void != NULL, CMSG_RET_ERR);
 
-    DEBUG (CMSG_INFO, "[PUB] cmsg_notification_subscriber_server_register_handler\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] cmsg_notification_subscriber_server_register_handler\n");
     cmsg_server_closure_data *closure_data = (cmsg_server_closure_data *) closure_data_void;
     cmsg_server *server = closure_data->server;
     cmsg_pub *publisher = NULL;
@@ -1177,6 +1172,9 @@ cmsg_pub *
 cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
                                 int scope, ProtobufCServiceDescriptor *descriptor)
 {
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
     return _cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
                                         CMSG_TRANSPORT_RPC_TIPC);
 }
@@ -1185,6 +1183,9 @@ cmsg_pub *
 cmsg_create_publisher_tipc_oneway (const char *server_name, int member_id,
                                    int scope, ProtobufCServiceDescriptor *descriptor)
 {
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
     return _cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
                                         CMSG_TRANSPORT_ONEWAY_TIPC);
 }

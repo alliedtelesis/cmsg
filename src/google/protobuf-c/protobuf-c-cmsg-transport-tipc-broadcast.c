@@ -13,7 +13,7 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
 {
     int ret;
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_broadcast_connect\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_broadcast_connect\n");
 
     if (client == NULL)
         return 0;
@@ -31,7 +31,7 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
     }
 
     client->state = CMSG_CLIENT_STATE_CONNECTED;
-    DEBUG (CMSG_INFO, "[TRANSPORT] successfully connected\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] successfully connected\n");
 
     return 0;
 }
@@ -50,7 +50,7 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
     if (server == NULL)
         return 0;
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] Creating listen socket\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] Creating listen socket\n");
     server->connection.sockets.listening_socket = 0;
     transport = server->_transport;
 
@@ -214,10 +214,10 @@ cmsg_transport_tipc_broadcast_client_close (cmsg_client *client)
 {
     if (client->connection.socket != -1)
     {
-        DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
         shutdown (client->connection.socket, SHUT_RDWR);
 
-        DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
         close (client->connection.socket);
 
         client->connection.socket = -1;
@@ -273,10 +273,10 @@ cmsg_transport_tipc_broadcast_client_destroy (cmsg_client *cmsg_client)
 static void
 cmsg_transport_tipc_broadcast_server_destroy (cmsg_server *server)
 {
-    DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
+    CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
     shutdown (server->connection.sockets.listening_socket, SHUT_RDWR);
 
-    DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
+    CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
     close (server->connection.sockets.listening_socket);
 }
 

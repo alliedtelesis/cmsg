@@ -226,5 +226,5 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_udt_send_can_block_enable;
 
-    DEBUG (CMSG_INFO, "%s: done", __FUNCTION__);
+    CMSG_DEBUG (CMSG_INFO, "%s: done", __FUNCTION__);
 }

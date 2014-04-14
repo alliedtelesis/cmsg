@@ -75,10 +75,29 @@ cmsg_buffer_print (void *buffer, uint32_t size)
     }
 
     output_ptr += sprintf (output_ptr, "[Buffer] #################################\n");
-    DEBUG (CMSG_INFO, "%s", output_str);
+    CMSG_DEBUG (CMSG_INFO, "%s", output_str);
 #endif
 }
 
+/**
+ * Creates the header depending upon the msg_type.
+ *
+ * Adds sub headers as appropriate and returns header in network byte order
+ */
+cmsg_old_header
+cmsg_old_header_create (cmsg_msg_type msg_type, uint32_t packed_size,
+                        uint32_t method_index, cmsg_status_code status_code)
+{
+    cmsg_old_header header;
+
+    header.msg_type = htonl (msg_type);
+    header.message_length = htonl (packed_size);
+    header.header_length = htonl (sizeof (cmsg_old_header));
+    header.method_index = htonl (method_index);
+    header.status_code = htonl (status_code);
+
+    return header;
+}
 
 /**
  * Creates the header depending upon the msg_type.
@@ -140,28 +159,28 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
     header_converted->status_code =
         (cmsg_status_code) ntohl ((uint32_t) header_received->status_code);
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
     cmsg_buffer_print ((void *) &header_received, sizeof (cmsg_header));
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] msg_type host: %d, wire: %d\n",
-           header_converted->msg_type, header_received->msg_type);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] msg_type host: %d, wire: %d\n",
+                header_converted->msg_type, header_received->msg_type);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] header_length host: %d, wire: %d\n",
-           header_converted->header_length, header_received->header_length);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] header_length host: %d, wire: %d\n",
+                header_converted->header_length, header_received->header_length);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] message_length host: %d, wire: %d\n",
-           header_converted->message_length, header_received->message_length);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] message_length host: %d, wire: %d\n",
+                header_converted->message_length, header_received->message_length);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] method_index   host: %d, wire: %d\n",
-           header_converted->method_index, header_received->method_index);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] method_index   host: %d, wire: %d\n",
+                header_converted->method_index, header_received->method_index);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] status_code host: %d, wire: %d\n",
-           header_converted->status_code, header_received->status_code);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] status_code host: %d, wire: %d\n",
+                header_converted->status_code, header_received->status_code);
 
     // Check the data for correctness
     switch (header_converted->msg_type)
@@ -227,8 +246,8 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
                                 tlv_header->type);
             return CMSG_RET_ERR;
         }
-        buf = buf + TLV_SIZE (tlv_header->tlv_value_length);
-        extra_header_size = extra_header_size - TLV_SIZE (tlv_header->tlv_value_length);
+        buf = buf + CMSG_TLV_SIZE (tlv_header->tlv_value_length);
+        extra_header_size = extra_header_size - CMSG_TLV_SIZE (tlv_header->tlv_value_length);
     }
 
     return CMSG_RET_OK;

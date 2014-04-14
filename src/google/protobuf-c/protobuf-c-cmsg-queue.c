@@ -417,7 +417,7 @@ void
 cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
                         const ProtobufCServiceDescriptor *descriptor)
 {
-    DEBUG (CMSG_INFO, "queue_filter_list:\n");
+    CMSG_DEBUG (CMSG_INFO, "queue_filter_list:\n");
 
     uint32_t i = 0;
     for (i = 0; i < descriptor->n_methods; i++)
@@ -430,16 +430,16 @@ cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
         switch (entry->type)
         {
         case 0:
-            DEBUG (CMSG_INFO, " PROCESS : %s\n", entry->method_name);
+            CMSG_DEBUG (CMSG_INFO, " PROCESS : %s\n", entry->method_name);
             break;
         case 1:
-            DEBUG (CMSG_INFO, " DROP    : %s\n", entry->method_name);
+            CMSG_DEBUG (CMSG_INFO, " DROP    : %s\n", entry->method_name);
             break;
         case 2:
-            DEBUG (CMSG_INFO, " QUEUE   : %s\n", entry->method_name);
+            CMSG_DEBUG (CMSG_INFO, " QUEUE   : %s\n", entry->method_name);
             break;
         case 3:
-            DEBUG (CMSG_INFO, " UNKNOWN : %s\n", entry->method_name);
+            CMSG_DEBUG (CMSG_INFO, " UNKNOWN : %s\n", entry->method_name);
             break;
         }
     }

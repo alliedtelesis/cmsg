@@ -13,7 +13,7 @@ cmsg_transport_tipc_connect (cmsg_client *client)
 {
     int ret;
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_connect\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_connect\n");
 
     if (client == NULL)
         return 0;
@@ -58,7 +58,7 @@ cmsg_transport_tipc_connect (cmsg_client *client)
     else
     {
         client->state = CMSG_CLIENT_STATE_CONNECTED;
-        DEBUG (CMSG_INFO, "[TRANSPORT] successfully connected\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] successfully connected\n");
         return 0;
     }
 }
@@ -118,23 +118,23 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     server->connection.sockets.listening_socket = listening_socket;
     cmsg_transport_write_id (server->_transport);
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] listening on tipc socket: %d\n", listening_socket);
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tipc socket: %d\n", listening_socket);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] listening on tipc type: %d\n",
-           server->_transport->config.socket.sockaddr.tipc.addr.name.name.type);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] listening on tipc type: %d\n",
+                server->_transport->config.socket.sockaddr.tipc.addr.name.name.type);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] listening on tipc instance: %d\n",
-           server->_transport->config.socket.sockaddr.tipc.addr.name.name.instance);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] listening on tipc instance: %d\n",
+                server->_transport->config.socket.sockaddr.tipc.addr.name.name.instance);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] listening on tipc domain: %d\n",
-           server->_transport->config.socket.sockaddr.tipc.addr.name.domain);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] listening on tipc domain: %d\n",
+                server->_transport->config.socket.sockaddr.tipc.addr.name.domain);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] listening on tipc scope: %d\n",
-           server->_transport->config.socket.sockaddr.tipc.scope);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] listening on tipc scope: %d\n",
+                server->_transport->config.socket.sockaddr.tipc.scope);
 
     return 0;
 }
@@ -161,7 +161,7 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
                                server, server_socket);
         return -1;
     }
-    DEBUG (CMSG_INFO, "[TRANSPORT] socket %d\n", server_socket);
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] socket %d\n", server_socket);
 
 
     /* Remember the client socket to use when send reply */
@@ -193,7 +193,7 @@ cmsg_transport_tipc_server_accept (int32_t listen_socket, cmsg_server *server)
     if (sock < 0)
     {
         CMSG_LOG_SERVER_ERROR (server, "Accept failed. Error:%s", strerror (errno));
-        DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
 
         return -1;
     }
@@ -244,7 +244,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
-        DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
 
         // read the message
 
@@ -252,9 +252,9 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         if (header_converted.message_length == 0)
         {
             // May have been queued, dropped or there was no message returned
-            DEBUG (CMSG_INFO,
-                   "[TRANSPORT] received response without data. server status %d\n",
-                   header_converted.status_code);
+            CMSG_DEBUG (CMSG_INFO,
+                        "[TRANSPORT] received response without data. server status %d\n",
+                        header_converted.status_code);
             CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
                                          cmsg_prof_time_toc (&client->prof));
             return header_converted.status_code;
@@ -288,14 +288,14 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
                                      client->descriptor);
 
             buffer = buffer + extra_header_size;
-            DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
             cmsg_buffer_print (buffer, dyn_len);
 
             //todo: call cmsg_client_response_message_processor
             ProtobufCMessage *message = 0;
             ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
 
-            DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
             desc = client->descriptor->methods[server_request.method_index].output;
             message = protobuf_c_message_unpack (desc, allocator,
@@ -364,8 +364,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     {
         if (errno == ECONNRESET)
         {
-            DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                   client->connection.socket, strerror (errno));
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
+                        client->connection.socket, strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
@@ -408,10 +408,10 @@ cmsg_transport_tipc_client_close (cmsg_client *client)
 {
     if (client->connection.socket != -1)
     {
-        DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
         shutdown (client->connection.socket, SHUT_RDWR);
 
-        DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
         close (client->connection.socket);
 
         client->connection.socket = -1;
@@ -422,10 +422,10 @@ cmsg_transport_tipc_client_close (cmsg_client *client)
 static void
 cmsg_transport_tipc_server_close (cmsg_server *server)
 {
-    DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
+    CMSG_DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
     shutdown (server->connection.sockets.client_socket, SHUT_RDWR);
 
-    DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
+    CMSG_DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
     close (server->connection.sockets.client_socket);
 }
 
@@ -452,10 +452,10 @@ cmsg_transport_tipc_client_destroy (cmsg_client *cmsg_client)
 static void
 cmsg_transport_tipc_server_destroy (cmsg_server *server)
 {
-    DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
+    CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
     shutdown (server->connection.sockets.listening_socket, SHUT_RDWR);
 
-    DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
+    CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
     close (server->connection.sockets.listening_socket);
 }
 
@@ -519,7 +519,7 @@ cmsg_transport_tipc_init (cmsg_transport *transport)
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tipc_send_can_block_enable;
 
-    DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
+    CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
 
 void
@@ -554,7 +554,7 @@ cmsg_transport_oneway_tipc_init (cmsg_transport *transport)
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tipc_send_can_block_enable;
 
-    DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
+    CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
 
 cmsg_transport *
@@ -715,8 +715,8 @@ cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t 
         return CMSG_RET_ERR;
     }
 
-    DEBUG (CMSG_INFO, "TIPC topo %s : successful (port=%u, sock=%d)", server_name,
-           port, sock);
+    CMSG_DEBUG (CMSG_INFO, "TIPC topo %s : successful (port=%u, sock=%d)", server_name,
+                port, sock);
     return CMSG_RET_OK;
 }
 
@@ -772,14 +772,14 @@ cmsg_tipc_topology_subscription_read (int sock)
         /* Check the topology subscription event is valid */
         if (event.event != TIPC_PUBLISHED && event.event != TIPC_WITHDRAWN)
         {
-            DEBUG (CMSG_INFO, "TIPC topo : unknown topology event %d", event.event);
+            CMSG_DEBUG (CMSG_INFO, "TIPC topo : unknown topology event %d", event.event);
             eventOk = 0;
         }
         /* Check port instance advertised correlates to a single valid node ID */
         else if (event.found_lower != event.found_upper)
         {
-            DEBUG (CMSG_INFO, "TIPC topo : unknown node range %d-%d", event.found_lower,
-                   event.found_upper);
+            CMSG_DEBUG (CMSG_INFO, "TIPC topo : unknown node range %d-%d",
+                        event.found_lower, event.found_upper);
             eventOk = 0;
         }
 

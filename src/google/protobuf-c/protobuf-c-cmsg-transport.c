@@ -152,9 +152,9 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     uint8_t *buffer_data;
     uint32_t extra_header_size = 0;
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] server->accecpted_client_socket %d\n",
-           server->connection.sockets.client_socket);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] server->accecpted_client_socket %d\n",
+                server->connection.sockets.client_socket);
 
     if (peek)
     {
@@ -239,7 +239,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
             // we expected to from the socket
             if (header_converted.message_length == 0 || nbytes == (int) dyn_len)
             {
-                DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
+                CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
                 cmsg_buffer_print (buffer_data, dyn_len);
                 server->server_request = &server_request;
                 if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
