@@ -300,7 +300,8 @@ cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher, cmsg_transport *t
             {
                 if (cmsg_client_connect (list_entry->client) != 0)
                 {
-                    DEBUG (CMSG_INFO, "[PUB] [LIST] Couldn't connect to subscriber!\n");
+                    CMSG_DEBUG (CMSG_INFO,
+                                "[PUB] [LIST] Couldn't connect to subscriber!\n");
                 }
             }
         }
@@ -316,8 +317,8 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
     CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (entry != NULL, CMSG_RET_ERR);
 
-    DEBUG (CMSG_INFO, "[PUB] [LIST] adding subscriber to list\n");
-    DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] adding subscriber to list\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
 
     int add = 1;
 
@@ -345,17 +346,17 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
     }
     else
     {
-        DEBUG (CMSG_INFO, "[PUB] [LIST] not a new entry doing nothing\n");
+        CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] not a new entry doing nothing\n");
     }
 
 #ifndef DEBUG_DISABLED
-    DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
     {
         cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
-        DEBUG (CMSG_INFO, "[PUB] [LIST] print_list_entry->method_name: %s\n",
-               print_list_entry->method_name);
+        CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] print_list_entry->method_name: %s\n",
+                    print_list_entry->method_name);
         print_subscriber_list = g_list_next (print_subscriber_list);
     }
 #endif
@@ -378,7 +379,7 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 static void
 _cmsg_pub_subscriber_remove_expired_entries (cmsg_pub *publisher)
 {
-    DEBUG (CMSG_INFO, "[PUB] [LIST] removing expired subscribers from list\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] removing expired subscribers from list\n");
 
     GList *list = NULL;
     GList *list_next = NULL;
@@ -393,7 +394,7 @@ _cmsg_pub_subscriber_remove_expired_entries (cmsg_pub *publisher)
             ((current_time - list_entry->attempted_remove_time) >
              CMSG_PUB_SUBSCRIBER_TIMEOUT))
         {
-            DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
+            CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
             publisher->subscriber_list = g_list_remove (publisher->subscriber_list,
                                                         list_entry);
 
@@ -429,8 +430,8 @@ cmsg_pub_subscriber_remove_expired_entries (cmsg_pub *publisher)
 static void
 _cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
-    DEBUG (CMSG_INFO, "[PUB] [LIST] marking subscriber for removal from list\n");
-    DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking subscriber for removal from list\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
 
     GList *list = NULL;
     GList *list_next = NULL;
@@ -444,21 +445,21 @@ _cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entr
         if (cmsg_sub_entry_compare (list_entry, entry) &&
             list_entry->attempted_remove_time == 0)
         {
-            DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for deletion\n");
+            CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for deletion\n");
             list_entry->attempted_remove_time = current_time;
             break;
         }
     }
 
 #ifndef DEBUG_DISABLED
-    DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
     {
         cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
-        DEBUG (CMSG_INFO,
-               "[PUB] [LIST] print_list_entry->method_name: %s\n",
-               print_list_entry->method_name);
+        CMSG_DEBUG (CMSG_INFO,
+                    "[PUB] [LIST] print_list_entry->method_name: %s\n",
+                    print_list_entry->method_name);
 
         print_subscriber_list = g_list_next (print_subscriber_list);
     }
@@ -494,8 +495,8 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
     CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (transport != NULL, CMSG_RET_ERR);
 
-    DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
-    DEBUG (CMSG_INFO, "[PUB] [LIST] transport: type %d\n", transport->type);
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] transport: type %d\n", transport->type);
 
     GList *list;
     GList *list_next;
@@ -512,8 +513,8 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
 
         if (cmsg_sub_entry_compare_transport (list_entry, transport))
         {
-            DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for %s for deletion\n",
-                   list_entry->method_name);
+            CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for %s for deletion\n",
+                        list_entry->method_name);
 
             cmsg_send_queue_free_all_by_transport (publisher->queue, transport);
             if (list_entry->attempted_remove_time == 0)
@@ -524,14 +525,14 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
     }
 
 #ifndef DEBUG_DISABLED
-    DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
     GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
     while (print_subscriber_list != NULL)
     {
         cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
-        DEBUG (CMSG_INFO,
-               "[PUB] [LIST] print_list_entry->method_name: %s\n",
-               print_list_entry->method_name);
+        CMSG_DEBUG (CMSG_INFO,
+                    "[PUB] [LIST] print_list_entry->method_name: %s\n",
+                    print_list_entry->method_name);
 
         print_subscriber_list = g_list_next (print_subscriber_list);
     }
@@ -593,14 +594,14 @@ cmsg_pub_server_receive (cmsg_pub *publisher, int32_t server_socket)
 
     CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
 
-    DEBUG (CMSG_INFO, "[PUB]\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB]\n");
 
     ret = publisher->sub_server->_transport->server_recv (server_socket,
                                                           publisher->sub_server);
 
     if (ret < 0)
     {
-        DEBUG (CMSG_ERROR, "[SERVER] server receive failed\n");
+        CMSG_DEBUG (CMSG_ERROR, "[SERVER] server receive failed\n");
         return -1;
     }
 
@@ -646,7 +647,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
         return 0;
     }
 
-    DEBUG (CMSG_INFO, "[PUB] unpacking message\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] unpacking message\n");
 
     desc = server->service->descriptor->methods[server_request->method_index].input;
     message = protobuf_c_message_unpack (desc, allocator,
@@ -667,7 +668,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
     protobuf_c_message_free_unpacked (message, allocator);
 
-    DEBUG (CMSG_INFO, "[PUB] end of message processor\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] end of message processor\n");
     return 0;
 }
 
@@ -689,7 +690,7 @@ cmsg_pub_invoke (ProtobufCService *service,
 
     method_name = service->descriptor->methods[method_index].name;
 
-    DEBUG (CMSG_INFO, "[PUB] publisher sending notification for: %s\n", method_name);
+    CMSG_DEBUG (CMSG_INFO, "[PUB] publisher sending notification for: %s\n", method_name);
 
     cmsg_queue_filter_type action = cmsg_pub_queue_filter_lookup (publisher,
                                                                   method_name);
@@ -704,7 +705,7 @@ cmsg_pub_invoke (ProtobufCService *service,
 
     if (action == CMSG_QUEUE_FILTER_DROP)
     {
-        DEBUG (CMSG_ERROR, "[PUB] dropping message: %s\n", method_name);
+        CMSG_DEBUG (CMSG_ERROR, "[PUB] dropping message: %s\n", method_name);
         return CMSG_RET_OK;
     }
 
@@ -758,7 +759,7 @@ cmsg_pub_invoke (ProtobufCService *service,
         }
         else
         {
-            DEBUG (CMSG_INFO, "[PUB] subscriber has subscribed to: %s\n", method_name);
+            CMSG_DEBUG (CMSG_INFO, "[PUB] subscriber has subscribed to: %s\n", method_name);
         }
 
         // Unlock list to send notification
@@ -843,7 +844,7 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (closure_data_void != NULL, CMSG_RET_ERR);
 
-    DEBUG (CMSG_INFO, "[PUB] cmsg_notification_subscriber_server_register_handler\n");
+    CMSG_DEBUG (CMSG_INFO, "[PUB] cmsg_notification_subscriber_server_register_handler\n");
     cmsg_server_closure_data *closure_data = (cmsg_server_closure_data *) closure_data_void;
     cmsg_server *server = closure_data->server;
     cmsg_pub *publisher = NULL;

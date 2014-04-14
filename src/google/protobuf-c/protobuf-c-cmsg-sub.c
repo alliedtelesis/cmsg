@@ -68,7 +68,7 @@ cmsg_sub_server_receive_poll (cmsg_sub *sub, int32_t timeout_ms, fd_set *master_
 int32_t
 cmsg_sub_server_receive (cmsg_sub *subscriber, int32_t server_socket)
 {
-    DEBUG (CMSG_INFO, "[SUB]\n");
+    CMSG_DEBUG (CMSG_INFO, "[SUB]\n");
 
     CMSG_ASSERT_RETURN_VAL (subscriber != NULL, CMSG_RET_ERR);
 

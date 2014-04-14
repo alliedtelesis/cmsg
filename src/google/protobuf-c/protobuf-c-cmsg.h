@@ -51,19 +51,19 @@
 #endif
 
 #if defined(DEBUG_WORKSTATION)
-#define DEBUG(level, fmt, ARGS...)                                                      \
+#define CMSG_DEBUG(level, fmt, ARGS...)                                                 \
     do {                                                                                \
         if ((level) <= DEBUG_LEVEL)                                                     \
             printf ("%s:%d "fmt, __FUNCTION__, __LINE__, ##ARGS);                       \
     } while (0)
 #elif defined(DEBUG_SWITCH)
-#define DEBUG(level, fmt, ARGS...)                                                      \
+#define CMSG_DEBUG(level, fmt, ARGS...)                                                 \
     do {                                                                                \
         if ((level) <= DEBUG_LEVEL)                                                     \
             syslog (LOG_CRIT | LOG_LOCAL6, "%s:%d "fmt, __FUNCTION__, __LINE__, ##ARGS);\
     } while (0)
 #elif defined(DEBUG_DISABLED)
-#define DEBUG(ARGS...)  /* do nothing */
+#define CMSG_DEBUG(ARGS...)  /* do nothing */
 #endif
 
 #define CMSG_RECV_BUFFER_SZ                        512

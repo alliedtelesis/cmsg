@@ -75,7 +75,8 @@ _cmsg_cpg_confchg_fn (cpg_handle_t handle, struct cpg_name *group_name,
 
     /* Find the server matching this group.
      */
-    DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n", group_name->value);
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n",
+                group_name->value);
     server = (cmsg_server *) g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
                                                   (gconstpointer) group_name->value);
 
@@ -92,7 +93,7 @@ _cmsg_cpg_confchg_fn (cpg_handle_t handle, struct cpg_name *group_name,
                                                      left_list_entries, joined_list,
                                                      joined_list_entries);
     }
-    DEBUG (CMSG_INFO, "[TRANSPORT] %s\n", __FUNCTION__);
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] %s\n", __FUNCTION__);
 }
 
 
@@ -126,13 +127,13 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
     server_request.msg_type = header_converted.msg_type;
     server_request.message_length = header_converted.message_length;
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] cpg received header\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cpg received header\n");
 
     dyn_len = header_converted.message_length;
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] cpg msg len = %d, header length = %u, data length = %d\n",
-           msg_len, header_converted.header_length, dyn_len);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] cpg msg len = %d, header length = %u, data length = %d\n",
+                msg_len, header_converted.header_length, dyn_len);
 
     if (msg_len < (header_converted.header_length + dyn_len))
     {
@@ -144,10 +145,11 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
 
     buffer = (uint8_t *) ((uint8_t *) msg + sizeof (cmsg_header));
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
     cmsg_buffer_print (buffer, dyn_len);
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n", group_name->value);
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] Group name used for lookup: %s\n",
+                group_name->value);
     server = (cmsg_server *) g_hash_table_lookup (cpg_group_name_to_server_hash_table_h,
                                                   (gconstpointer) group_name->value);
 
@@ -188,9 +190,9 @@ cmsg_transport_cpg_client_connect (cmsg_client *client)
     }
     else
     {
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] cpg connect group name: %s\n",
-               client->_transport->config.cpg.group_name.value);
+        CMSG_DEBUG (CMSG_INFO,
+                    "[TRANSPORT] cpg connect group name: %s\n",
+                    client->_transport->config.cpg.group_name.value);
     }
 
     if (cmsg_cpg_handle == 0)
@@ -309,9 +311,9 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     }
     else
     {
-        DEBUG (CMSG_INFO,
-               "[TRANSPORT] cpg listen group name: %s\n",
-               server->_transport->config.cpg.group_name.value);
+        CMSG_DEBUG (CMSG_INFO,
+                    "[TRANSPORT] cpg listen group name: %s\n",
+                    server->_transport->config.cpg.group_name.value);
     }
 
     cmsg_transport_write_id (server->_transport);
@@ -336,8 +338,8 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
                          (gpointer) server->_transport->config.cpg.group_name.value,
                          (gpointer) server);
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] server added %llu to hash table\n",
-           server->connection.cpg.handle);
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] server added %llu to hash table\n",
+                server->connection.cpg.handle);
 
     res = _cmsg_transport_cpg_join_group (server);
 
@@ -350,7 +352,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     if (cpg_fd_get (server->connection.cpg.handle, &fd) == CPG_OK)
     {
         server->connection.cpg.fd = fd;
-        DEBUG (CMSG_INFO, "[TRANSPORT] cpg listen got fd: %d\n", fd);
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cpg listen got fd: %d\n", fd);
     }
     else
     {
@@ -471,8 +473,8 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
         usleep (1000);
     }
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] cpg send message to handle %llu\n",
-           client->connection.handle);
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cpg send message to handle %llu\n",
+                client->connection.handle);
 
     /* Keep trying to send the message until it succeeds (e.g. blocks)
      */
@@ -498,7 +500,7 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
         return -1;
     }
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] CPG_OK\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] CPG_OK\n");
     return length;
 }
 
@@ -521,7 +523,7 @@ cmsg_transport_cpg_server_send (cmsg_server *server, void *buff, int length, int
 static void
 cmsg_transport_cpg_client_close (cmsg_client *client)
 {
-    DEBUG (CMSG_INFO, "[TRANSPORT] client cpg close done nothing\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] client cpg close done nothing\n");
 }
 
 
@@ -531,7 +533,7 @@ cmsg_transport_cpg_client_close (cmsg_client *client)
 static void
 cmsg_transport_cpg_server_close (cmsg_server *server)
 {
-    DEBUG (CMSG_INFO, "[TRANSPORT] server cpg close done nothing\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] server cpg close done nothing\n");
 }
 
 static void
@@ -550,7 +552,8 @@ cmsg_transport_cpg_server_destroy (cmsg_server *server)
      */
     ret = g_hash_table_remove (cpg_group_name_to_server_hash_table_h,
                                server->_transport->config.cpg.group_name.value);
-    DEBUG (CMSG_INFO, "[TRANSPORT] cpg group name hash table remove, result %d\n", ret);
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cpg group name hash table remove, result %d\n",
+                ret);
 
     /* Leave the CPG group.
      */
@@ -561,7 +564,7 @@ cmsg_transport_cpg_server_destroy (cmsg_server *server)
      */
     if (g_hash_table_size (cpg_group_name_to_server_hash_table_h) == 0)
     {
-        DEBUG (CMSG_INFO, "[TRANSPORT] finalize the CPG connection\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] finalize the CPG connection\n");
         res = cpg_finalize (server->connection.cpg.handle);
 
         if (res != CPG_OK)
@@ -572,7 +575,7 @@ cmsg_transport_cpg_server_destroy (cmsg_server *server)
         cmsg_cpg_handle = 0;
     }
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] cpg destroy done\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cpg destroy done\n");
 }
 
 
@@ -697,5 +700,5 @@ cmsg_transport_cpg_init (cmsg_transport *transport)
                               cmsg_transport_cpg_group_equal_function);
     }
 
-    DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
+    CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }

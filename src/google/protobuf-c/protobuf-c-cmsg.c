@@ -75,7 +75,7 @@ cmsg_buffer_print (void *buffer, uint32_t size)
     }
 
     output_ptr += sprintf (output_ptr, "[Buffer] #################################\n");
-    DEBUG (CMSG_INFO, "%s", output_str);
+    CMSG_DEBUG (CMSG_INFO, "%s", output_str);
 #endif
 }
 
@@ -159,28 +159,28 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
     header_converted->status_code =
         (cmsg_status_code) ntohl ((uint32_t) header_received->status_code);
 
-    DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
     cmsg_buffer_print ((void *) &header_received, sizeof (cmsg_header));
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] msg_type host: %d, wire: %d\n",
-           header_converted->msg_type, header_received->msg_type);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] msg_type host: %d, wire: %d\n",
+                header_converted->msg_type, header_received->msg_type);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] header_length host: %d, wire: %d\n",
-           header_converted->header_length, header_received->header_length);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] header_length host: %d, wire: %d\n",
+                header_converted->header_length, header_received->header_length);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] message_length host: %d, wire: %d\n",
-           header_converted->message_length, header_received->message_length);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] message_length host: %d, wire: %d\n",
+                header_converted->message_length, header_received->message_length);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] method_index   host: %d, wire: %d\n",
-           header_converted->method_index, header_received->method_index);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] method_index   host: %d, wire: %d\n",
+                header_converted->method_index, header_received->method_index);
 
-    DEBUG (CMSG_INFO,
-           "[TRANSPORT] status_code host: %d, wire: %d\n",
-           header_converted->status_code, header_received->status_code);
+    CMSG_DEBUG (CMSG_INFO,
+                "[TRANSPORT] status_code host: %d, wire: %d\n",
+                header_converted->status_code, header_received->status_code);
 
     // Check the data for correctness
     switch (header_converted->msg_type)
