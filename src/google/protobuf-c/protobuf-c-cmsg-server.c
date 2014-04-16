@@ -150,6 +150,77 @@ cmsg_server_get_socket (cmsg_server *server)
     return socket;
 }
 
+cmsg_server_list *
+cmsg_server_list_new (void)
+{
+    cmsg_server_list *server_list;
+
+    server_list = (cmsg_server_list *) CMSG_CALLOC (1, sizeof (cmsg_server_list));
+    if (server_list)
+    {
+        if (pthread_mutex_init (&server_list->server_mutex, NULL) != 0)
+        {
+            CMSG_LOG_GEN_ERROR ("Failed to create server list mutex");
+        }
+    }
+    else
+    {
+        CMSG_LOG_GEN_ERROR ("Unable to create server list.");
+    }
+
+    return server_list;
+}
+
+void
+cmsg_server_list_destroy (cmsg_server_list *server_list)
+{
+    CMSG_ASSERT_RETURN_VOID (server_list != NULL);
+    CMSG_ASSERT_RETURN_VOID (g_list_length (server_list->list) == 0);
+
+    if (pthread_mutex_destroy (&server_list->server_mutex) != 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to destroy server list mutex");
+    }
+
+    CMSG_FREE (server_list);
+}
+
+int
+cmsg_server_list_is_empty (cmsg_server_list *server_list)
+{
+    int ret = TRUE;
+
+    if (server_list != NULL)
+    {
+        pthread_mutex_lock (&server_list->server_mutex);
+        ret = g_list_length (server_list->list) == 0;
+        pthread_mutex_unlock (&server_list->server_mutex);
+    }
+
+    return ret;
+}
+
+void
+cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server)
+{
+    CMSG_ASSERT_RETURN_VOID (server_list);
+    CMSG_ASSERT_RETURN_VOID (server);
+
+    pthread_mutex_lock (&server_list->server_mutex);
+    server_list->list = g_list_prepend (server_list->list, server);
+    pthread_mutex_unlock (&server_list->server_mutex);
+}
+
+void
+cmsg_server_list_remove_server (cmsg_server_list *server_list, cmsg_server *server)
+{
+    CMSG_ASSERT_RETURN_VOID (server_list);
+    CMSG_ASSERT_RETURN_VOID (server);
+
+    pthread_mutex_lock (&server_list->server_mutex);
+    server_list->list = g_list_remove (server_list->list, server);
+    pthread_mutex_unlock (&server_list->server_mutex);
+}
 
 /**
  * cmsg_server_receive_poll
@@ -241,7 +312,7 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
  * On success returns 0, failure returns -1.
  */
 int32_t
-cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
+cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms)
 {
     struct timeval timeout = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
     cmsg_server *server = NULL;
@@ -253,17 +324,26 @@ cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
     int fd;
     int newfd;
 
-    if (g_list_length (server_list) == 0)
+    if (!server_list)
     {
+        return 0;
+    }
+
+    pthread_mutex_lock (&server_list->server_mutex);
+    if (g_list_length (server_list->list) == 0)
+    {
+        pthread_mutex_unlock (&server_list->server_mutex);
+
         // Nothing to do
         return 0;
     }
 
     FD_ZERO (&read_fds);
 
-    // Collect fds to examine
+    // Collect fds to examine, make sure the list cannot be changed while we traverse it.
     fdmax = 0;
-    for (node = g_list_first (server_list); node && node->data; node = g_list_next (node))
+    for (node = g_list_first (server_list->list); node && node->data;
+         node = g_list_next (node))
     {
         server = (cmsg_server *) node->data;
 
@@ -280,6 +360,7 @@ cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
         }
         fdmax = MAX (fdmax, server->accepted_fdmax);
     }
+    pthread_mutex_unlock (&server_list->server_mutex);
 
     // Check any data is available
     ret = select (fdmax + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
@@ -296,8 +377,12 @@ cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
         return CMSG_RET_OK;
     }
 
-    // Process any data available on the sockets
-    for (node = g_list_first (server_list); node && node->data; node = g_list_next (node))
+    // Process any data available on the sockets, make sure the list cannot be changed while
+    // we traverse it. Changes between the first and second traversal should not cause any
+    // problems.
+    pthread_mutex_lock (&server_list->server_mutex);
+    for (node = g_list_first (server_list->list); node && node->data;
+         node = g_list_next (node))
     {
         server = (cmsg_server *) node->data;
         listen_socket = cmsg_server_get_socket (server);
@@ -329,10 +414,13 @@ cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms)
                             server->accepted_fdmax--;
                         }
                     }
+
+                    FD_CLR (fd, &read_fds);
                 }
             }
         }
     }
+    pthread_mutex_unlock (&server_list->server_mutex);
 
     return CMSG_RET_OK;
 }
@@ -765,9 +853,11 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                                                     total_message_size, 0);
 
         if (send_ret < (int) total_message_size)
-            CMSG_DEBUG (CMSG_ERROR,
-                        "[SERVER] sending if response failed send:%d of %d\n",
-                        send_ret, total_message_size);
+        {
+            CMSG_LOG_SERVER_ERROR (server,
+                                   "sending if response failed send:%d of %d, error %s\n",
+                                   send_ret, total_message_size, strerror (errno));
+        }
 
         CMSG_FREE (buffer);
     }

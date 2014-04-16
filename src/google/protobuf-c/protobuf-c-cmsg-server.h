@@ -63,6 +63,12 @@ typedef struct _cmsg_server_s
 } cmsg_server;
 
 
+typedef struct _cmsg_server_list_s
+{
+    GList *list;
+    pthread_mutex_t server_mutex; // Used to protect list access.
+} cmsg_server_list;
+
 cmsg_server *cmsg_server_new (cmsg_transport *transport, ProtobufCService *service);
 
 void cmsg_server_destroy (cmsg_server *server);
@@ -72,7 +78,7 @@ int cmsg_server_get_socket (cmsg_server *server);
 int32_t cmsg_server_receive_poll (cmsg_server *server,
                                   int32_t timeout_ms, fd_set *master_fdset, int *fdmax);
 
-int32_t cmsg_server_receive_poll_list (GList *server_list, int32_t timeout_ms);
+int32_t cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms);
 
 int32_t cmsg_server_receive (cmsg_server *server, int32_t server_socket);
 
@@ -141,5 +147,16 @@ cmsg_server *cmsg_create_server_tipc_oneway (const char *server_name, int member
                                              int scope, ProtobufCService *descriptor);
 
 void cmsg_destroy_server_and_transport (cmsg_server *server);
+
+
+cmsg_server_list *cmsg_server_list_new (void);
+
+void cmsg_server_list_destroy (cmsg_server_list *server_list);
+
+int cmsg_server_list_is_empty (cmsg_server_list *server_list);
+
+void cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server);
+
+void cmsg_server_list_remove_server (cmsg_server_list *server_list, cmsg_server *server);
 
 #endif
