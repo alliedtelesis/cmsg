@@ -208,7 +208,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         // read the message
         if (peek)
         {
-            nbytes = recv (handle, buffer, dyn_len, 0);
+            nbytes = recv (handle, buffer, dyn_len, MSG_WAITALL);
             buffer_data = buffer + sizeof (cmsg_header);
         }
         else
@@ -225,7 +225,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                                      cmsg_prof_time_toc (&server->prof));
 
         if (cmsg_tlv_header_process (buffer_data, &server_request, extra_header_size,
-                                     server->service->descriptor) == CMSG_RET_METHOD_NOT_FOUND)
+                                     server->service->descriptor) ==
+            CMSG_RET_METHOD_NOT_FOUND)
         {
             cmsg_server_empty_method_reply_send (server,
                                                  CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,

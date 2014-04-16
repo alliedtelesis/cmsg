@@ -3,6 +3,12 @@
 #include "protobuf-c-cmsg-server.h"
 #include "protobuf-c-cmsg-error.h"
 
+/* This value is used to limit the timeout for client message peek to 100s */
+#define MAX_CLIENT_PEEK_LOOP (100000)
+
+/* This value is used to limit the timeout for server message peek to 10s */
+#define MAX_SERVER_PEEK_LOOP (10000)
+
 
 /**
  * Create a TIPC socket connection.
@@ -149,26 +155,110 @@ cmsg_transport_tipc_recv (void *handle, void *buff, int len, int flags)
     return recv (*sock, buff, len, flags);
 }
 
+/* Poll for the header data, give up if we timeout. This is used to avoid blocking forever
+ * on the receive if the data is never sent or is partially sent.
+ */
+static cmsg_status_code
+csmg_transport_peek_for_header (cmsg_object *obj, cmsg_transport *transport, int32_t socket,
+                                int32_t maxLoop)
+{
+    cmsg_status_code ret = CMSG_STATUS_CODE_SUCCESS;
+    int count = 0;
+    int nbytes = 0;
+    cmsg_header header_received;
+
+    /* Peek until data arrives, this allows us to timeout and recover if no data arrives. */
+    while ((count < maxLoop) && (nbytes != (int) sizeof (cmsg_header)))
+    {
+        nbytes =
+            recv (socket, &header_received, sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
+        if (nbytes == (int) sizeof (cmsg_header))
+        {
+            break;
+        }
+        else
+        {
+            if (nbytes == 0)
+            {
+                return CMSG_STATUS_CODE_SERVICE_FAILED;
+            }
+            else if (nbytes == -1)
+            {
+                if (errno == ECONNRESET)
+                {
+                    CMSG_DEBUG (CMSG_INFO,
+                                "[TRANSPORT] receive failed %d %s", nbytes,
+                                strerror (errno));
+                    return CMSG_STATUS_CODE_SERVER_CONNRESET;
+                }
+                else if (errno == EINTR)
+                {
+                    // We were interrupted, this is transient so just try again without a delay.
+                    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] receive interrupted %d %s",
+                                nbytes, strerror (errno));
+                    continue;
+                }
+                else if (errno == EAGAIN || errno == EWOULDBLOCK)
+                {
+                    // This is normal, sometimes the data is not ready, just wait and try again.
+                    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] receive data not ready");
+                }
+                else
+                {
+                    // This was unexpected, try again after a delay.
+                    CMSG_LOG_OBJ_ONLY_ERROR (obj, transport, "Receive failed %d %s",
+                                             nbytes, strerror (errno));
+                }
+            }
+        }
+        usleep (1000);
+        count++;
+    }
+
+    if (count >= maxLoop)
+    {
+        // Report the failure and try to recover
+        CMSG_LOG_OBJ_ONLY_ERROR (obj, transport,
+                                 "Receive timed out socket %d nbytes was %d last error %s",
+                                 socket, nbytes, strerror (errno));
+
+        ret = CMSG_STATUS_CODE_SERVICE_FAILED;
+    }
+    else if (count >= maxLoop / 2)
+    {
+        // This should not really happen, log it
+        CMSG_LOG_OBJ_ONLY_ERROR (obj, transport, "Receive looped %d times", count);
+    }
+
+    return ret;
+}
 
 static int32_t
 cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
 {
-    int32_t ret = 0;
+    int32_t ret = CMSG_RET_ERR;
 
     if (!server || server_socket < 0)
     {
         CMSG_LOG_SERVER_ERROR (server, "Bad parameter for server recv. Server:%p Socket:%d",
                                server, server_socket);
-        return -1;
     }
-    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] socket %d\n", server_socket);
+    else
+    {
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] socket %d\n", server_socket);
 
+        /* Remember the client socket to use when send reply */
+        server->connection.sockets.client_socket = server_socket;
 
-    /* Remember the client socket to use when send reply */
-    server->connection.sockets.client_socket = server_socket;
-
-    ret = cmsg_transport_server_recv (cmsg_transport_tipc_recv, (void *) &server_socket,
-                                      server);
+        if (csmg_transport_peek_for_header (&server->self, server->_transport,
+                                            server_socket,
+                                            MAX_SERVER_PEEK_LOOP) ==
+            CMSG_STATUS_CODE_SUCCESS)
+        {
+            ret = cmsg_transport_server_recv (cmsg_transport_tipc_recv,
+                                              (void *) &server_socket, server);
+        }
+    }
 
     return ret;
 }
@@ -215,6 +305,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     const ProtobufCMessageDescriptor *desc;
     uint32_t extra_header_size;
     cmsg_server_request server_request;
+    cmsg_status_code ret;
 
     *messagePtPt = NULL;
 
@@ -224,6 +315,13 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     }
 
     CMSG_PROF_TIME_TIC (&client->prof);
+
+    ret = csmg_transport_peek_for_header (&client->self, client->_transport,
+                                          client->connection.socket, MAX_CLIENT_PEEK_LOOP);
+    if (ret != CMSG_STATUS_CODE_SUCCESS)
+    {
+        return ret;
+    }
 
     nbytes = recv (client->connection.socket,
                    &header_received, sizeof (cmsg_header), MSG_WAITALL);

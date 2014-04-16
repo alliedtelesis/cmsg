@@ -32,6 +32,14 @@
         } \
     } while (0)
 
+#define CMSG_LOG_OBJ_ONLY_ERROR(obj, tport, msg, ...) \
+    do { \
+         if (obj) { \
+         syslog (LOG_ERR | LOG_LOCAL6, "CMSG(%d).%s%s: " msg, __LINE__, obj->obj_id, tport ? (tport)->tport_id : "", ## __VA_ARGS__); \
+       } \
+    } while (0)
+
+
 /* User this error for general messages */
 #define CMSG_LOG_GEN_ERROR(msg, ...)  syslog (LOG_ERR | LOG_LOCAL6, "CMSG(%d): " msg, __LINE__, ## __VA_ARGS__)
 
