@@ -167,6 +167,18 @@ csmg_transport_peek_for_header (cmsg_object *obj, cmsg_transport *transport, int
     int nbytes = 0;
     cmsg_header header_received;
 
+    struct timeval timeout = { 1, 0 };
+    fd_set read_fds;
+    int maxfd;
+
+    FD_ZERO (&read_fds);
+    FD_SET (socket, &read_fds);
+    maxfd = socket;
+
+    /* Do select() on the socket to prevent it to go to usleep instantaneously in the loop
+     * if the data is not yet available.*/
+    select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
+
     /* Peek until data arrives, this allows us to timeout and recover if no data arrives. */
     while ((count < maxLoop) && (nbytes != (int) sizeof (cmsg_header)))
     {
