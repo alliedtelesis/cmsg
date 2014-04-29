@@ -185,7 +185,6 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 {
     int nbytes = 0;
     uint32_t dyn_len = 0;
-    ProtobufCMessage *ret = NULL;
     cmsg_header header_received;
     cmsg_header header_converted;
     uint8_t *recv_buffer = 0;
@@ -281,8 +280,6 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d no data\n",
                         client->connection.socket);
-
-            ret = 0;
         }
         if (recv_buffer != (void *) buf_static)
         {
@@ -304,13 +301,11 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         nbytes = recv (client->connection.socket, recv_buffer, nbytes, MSG_WAITALL);
         CMSG_FREE (recv_buffer);
         recv_buffer = 0;
-        ret = 0;
     }
     else if (nbytes == 0)
     {
         //Normal socket shutdown case. Return other than TRANSPORT_OK to
         //have socket removed from select set.
-        ret = 0;
     }
     else
     {
@@ -325,7 +320,6 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
             CMSG_LOG_CLIENT_ERROR (client, "Receive error for socket %d. Error: %s",
                                    client->connection.socket, strerror (errno));
         }
-        ret = 0;
     }
 
     return CMSG_STATUS_CODE_SERVICE_FAILED;
