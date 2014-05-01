@@ -111,6 +111,10 @@ cmsg_transport_new (cmsg_transport_type type)
         cmsg_transport_oneway_udt_init (transport);
         break;
 
+    case CMSG_TRANSPORT_LOOPBACK_ONEWAY:
+        cmsg_transport_oneway_loopback_init (transport);
+        break;
+
     default:
         CMSG_LOG_GEN_ERROR ("Transport type not supported. Type:%d", transport->type);
         CMSG_FREE (transport);

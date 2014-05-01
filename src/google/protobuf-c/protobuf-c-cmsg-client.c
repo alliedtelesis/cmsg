@@ -562,6 +562,33 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 }
 
 
+/**
+ * Invoking like this will call the server invoke directly without packing
+ * and sending the rpc.
+ *
+ * No queuing or filtering is performed.
+ *
+ * There is nothing to be returned so closure will not get set at all.
+ */
+int32_t
+cmsg_client_invoke_oneway_direct (ProtobufCService *service, unsigned method_index,
+                                  const ProtobufCMessage *input, ProtobufCClosure closure,
+                                  void *closure_data)
+{
+
+    /* The service is actually a cmsg_client so we can typecast here. */
+    cmsg_client *client = (cmsg_client *) service;
+
+    /* use the client to get the service pointer that the server requires to call
+     * the proper function.
+     */
+    cmsg_server_invoke_oneway_direct (client->_transport->config.lpb_service, method_index,
+                                      input);
+
+    return CMSG_RET_OK;
+}
+
+
 int32_t
 cmsg_client_get_socket (cmsg_client *client)
 {
@@ -1074,6 +1101,29 @@ cmsg_create_client_tipc_oneway (const char *server_name, int member_id, int scop
 
     return _cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
                                      CMSG_TRANSPORT_ONEWAY_TIPC);
+}
+
+/**
+ * Creates a Client of type Loopback Oneway and sets all the correct
+ * fields.
+ *
+ * Returns CMSG_RET_ERR if failed to create anything - malloc problems.
+ */
+cmsg_client *
+cmsg_create_client_loopback_oneway (ProtobufCService *service)
+{
+    cmsg_transport *client_transport;
+
+    client_transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK_ONEWAY);
+    if (client_transport == NULL)
+    {
+        return NULL;
+    }
+
+    /* point the client transport at the service to allow it call the proper fn */
+    client_transport->config.lpb_service = service;
+
+    return cmsg_client_new (client_transport, service->descriptor);
 }
 
 /* Destroy a cmsg client and its transport with TIPC */

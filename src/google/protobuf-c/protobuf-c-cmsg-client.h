@@ -84,6 +84,11 @@ int32_t cmsg_client_invoke_oneway (ProtobufCService *service,
                                    const ProtobufCMessage *input,
                                    ProtobufCClosure closure, void *closure_data);
 
+int32_t
+cmsg_client_invoke_oneway_direct (ProtobufCService *service, unsigned method_index,
+                                  const ProtobufCMessage *input, ProtobufCClosure closure,
+                                  void *closure_data);
+
 int32_t cmsg_client_send_echo_request (cmsg_client *client);
 
 cmsg_status_code cmsg_client_recv_echo_reply (cmsg_client *client);
@@ -137,6 +142,8 @@ cmsg_client *cmsg_create_client_tipc_rpc (const char *server_name, int member_id
 cmsg_client *cmsg_create_client_tipc_oneway (const char *server_name, int member_id,
                                              int scope,
                                              ProtobufCServiceDescriptor *descriptor);
+
+cmsg_client *cmsg_create_client_loopback_oneway (ProtobufCService *service);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
 #endif
