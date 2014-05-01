@@ -2,6 +2,7 @@
 #define __CMSG_CLIENT_H_
 
 #include "protobuf-c-cmsg.h"
+#include "protobuf-c-cmsg-private.h" // to be removed when this file is split private/public
 #include "protobuf-c-cmsg-queue.h"
 #include "protobuf-c-cmsg-transport.h"
 

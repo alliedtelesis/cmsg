@@ -12,6 +12,7 @@
 #endif
 
 #include "protobuf-c-cmsg.h"
+#include "protobuf-c-cmsg-private.h" // to be removed when this file is split private/public
 
 
 //forward delarations

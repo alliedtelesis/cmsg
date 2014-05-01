@@ -1,4 +1,5 @@
 #include "protobuf-c-cmsg.h"
+#include "protobuf-c-cmsg-private.h"
 #include "protobuf-c-cmsg-error.h"
 
 
@@ -85,8 +86,8 @@ cmsg_buffer_print (void *buffer, uint32_t size)
  * Adds sub headers as appropriate and returns header in network byte order
  */
 cmsg_old_header
-cmsg_old_header_create (cmsg_msg_type msg_type, uint32_t packed_size,
-                        uint32_t method_index, cmsg_status_code status_code)
+cmsg_old_header_create (cmsg_old_msg_type msg_type, uint32_t packed_size,
+                        uint32_t method_index, uint32_t status_code)
 {
     cmsg_old_header header;
 
