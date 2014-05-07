@@ -975,7 +975,7 @@ cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
 int32_t
 cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_size)
 {
-    int ret = 0;
+    int ret = CMSG_RET_ERR;
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
@@ -983,7 +983,7 @@ cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_s
     ret = _cmsg_client_buffer_send (client, buffer, buffer_size);
     pthread_mutex_unlock (&client->connection_mutex);
 
-    return CMSG_RET_ERR;
+    return ret;
 }
 
 static int32_t
