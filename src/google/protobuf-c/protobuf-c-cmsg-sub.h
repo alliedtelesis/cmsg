@@ -2,6 +2,7 @@
 #define __CMSG_SUB_H_
 
 #include "protobuf-c-cmsg.h"
+#include "protobuf-c-cmsg-private.h" // to be removed when this file is split private/public
 #include "protobuf-c-cmsg-client.h"
 #include "protobuf-c-cmsg-server.h"
 #include "protobuf-c-cmsg-sub-service.pb-c.h"

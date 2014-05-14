@@ -1,3 +1,4 @@
+#include "protobuf-c-cmsg-private.h"
 #include "protobuf-c-cmsg-transport.h"
 #include "protobuf-c-cmsg-server.h"
 #include "protobuf-c-cmsg-error.h"
@@ -67,6 +68,11 @@ cmsg_transport_write_id (cmsg_transport *tport)
             break;
         }
 
+    case CMSG_TRANSPORT_LOOPBACK_ONEWAY:
+        {
+            strncpy (tport->tport_id, ".lpb", CMSG_MAX_TPORT_ID_LEN);
+            break;
+        }
     default:
         strncpy (tport->tport_id, ".unknown_transport", CMSG_MAX_TPORT_ID_LEN);
     }
@@ -108,6 +114,10 @@ cmsg_transport_new (cmsg_transport_type type)
 #endif
     case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
         cmsg_transport_oneway_udt_init (transport);
+        break;
+
+    case CMSG_TRANSPORT_LOOPBACK_ONEWAY:
+        cmsg_transport_oneway_loopback_init (transport);
         break;
 
     default:

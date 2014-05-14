@@ -1,3 +1,4 @@
+#include "protobuf-c-cmsg-private.h"
 #include "protobuf-c-cmsg-server.h"
 #include "protobuf-c-cmsg-error.h"
 
@@ -534,6 +535,31 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
         // Don't want to do anything in this case.
         break;
     }
+}
+
+
+/**
+ * Invokes for a oneway where there is nothing actually sent or received -
+ * it is a direct function call from the client invoke to this function.
+ */
+void
+cmsg_server_invoke_oneway_direct (ProtobufCService *service, unsigned method_index,
+                                  const ProtobufCMessage *input)
+{
+    cmsg_server_closure_data closure_data;
+
+    CMSG_ASSERT_RETURN_VOID (service != NULL);
+
+    /* Setup closure_data so it can be used to ensure that there are no
+     * uninitialised variables.
+     */
+    closure_data.server = NULL;
+    closure_data.method_processing_reason = CMSG_METHOD_OK_TO_INVOKE;
+
+    service->invoke (service,
+                     method_index,
+                     input,
+                     cmsg_server_closure_oneway, (void *) &closure_data);
 }
 
 
@@ -1261,6 +1287,26 @@ cmsg_create_server_tipc_oneway (const char *server_name, int member_id, int scop
 
     return _cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
                                      CMSG_TRANSPORT_ONEWAY_TIPC);
+}
+
+/**
+ * Creates a Server of type Loopback Oneway and sets all the correct
+ * fields.
+ *
+ * Returns NULL if failed to create anything - malloc problems.
+ */
+cmsg_server *
+cmsg_create_server_loopback_oneway (ProtobufCService *service)
+{
+    cmsg_transport *server_transport;
+
+    server_transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK_ONEWAY);
+    if (server_transport == NULL)
+    {
+        return NULL;
+    }
+
+    return cmsg_server_new (server_transport, service);
 }
 
 void

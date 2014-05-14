@@ -1,3 +1,4 @@
+#include "protobuf-c-cmsg-private.h"
 #include "protobuf-c-cmsg-sub.h"
 #include "protobuf-c-cmsg-error.h"
 

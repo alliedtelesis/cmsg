@@ -12,6 +12,7 @@
 #endif
 
 #include "protobuf-c-cmsg.h"
+#include "protobuf-c-cmsg-private.h" // to be removed when this file is split private/public
 
 
 //forward delarations
@@ -100,6 +101,7 @@ typedef union _cmsg_transport_config_u
     cmsg_socket socket;
     cmsg_cpg cpg;
     cmsg_udt udt;
+    ProtobufCService *lpb_service;
 } cmsg_transport_config;
 
 
@@ -113,6 +115,7 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_CPG,
     CMSG_TRANSPORT_ONEWAY_USERDEFINED,
     CMSG_TRANSPORT_BROADCAST,
+    CMSG_TRANSPORT_LOOPBACK_ONEWAY,
 } cmsg_transport_type;
 
 typedef int (*client_conect_f) (cmsg_client *client);
@@ -195,6 +198,7 @@ void cmsg_transport_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_tipc_init (cmsg_transport *transport);
 void cmsg_transport_oneway_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_cpumail_init (cmsg_transport *transport);
+void cmsg_transport_oneway_loopback_init (cmsg_transport *transport);
 
 #ifdef HAVE_VCSTACK
 void cmsg_transport_cpg_init (cmsg_transport *transport);

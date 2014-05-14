@@ -17,6 +17,7 @@
  * handling.
  *
  */
+#include "protobuf-c-cmsg-private.h"
 #include "protobuf-c-cmsg-transport.h"
 #include "protobuf-c-cmsg-client.h"
 #include "protobuf-c-cmsg-server.h"
