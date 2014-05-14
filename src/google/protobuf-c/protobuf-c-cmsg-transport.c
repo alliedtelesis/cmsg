@@ -68,6 +68,11 @@ cmsg_transport_write_id (cmsg_transport *tport)
             break;
         }
 
+    case CMSG_TRANSPORT_LOOPBACK_ONEWAY:
+        {
+            strncpy (tport->tport_id, ".lpb", CMSG_MAX_TPORT_ID_LEN);
+            break;
+        }
     default:
         strncpy (tport->tport_id, ".unknown_transport", CMSG_MAX_TPORT_ID_LEN);
     }
