@@ -58,6 +58,11 @@ typedef struct _cmsg_server_s
     fd_set accepted_fdset;
     int accepted_fdmax;
 
+    //counter information
+    void *cntr_session;
+    // counterd counters
+    void *cntr_unknown_rpc;
+    void *cntr_rpc;
 #ifdef HAVE_CMSG_PROFILING
     cmsg_prof prof;
 #endif

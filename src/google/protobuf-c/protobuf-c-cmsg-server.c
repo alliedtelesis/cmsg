@@ -2,6 +2,11 @@
 #include "protobuf-c-cmsg-server.h"
 #include "protobuf-c-cmsg-error.h"
 
+#include "cntrd_app_defines.h"
+#include "cntrd_app_api.h"
+
+
+
 static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
                                                           uint8_t *buffer_data);
 
@@ -90,6 +95,20 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
         server->queue_in_process = 0;
 
         pthread_mutex_unlock (&server->queueing_state_mutex);
+
+        // lastly, initialise our counters
+        char app_name[40];
+        snprintf (app_name, 40, "cmsg.Server %s", server->self.obj_id);
+        if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
+                                (void **)&server->cntr_session)
+            == CNTRD_APP_SUCCESS )
+        {
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Unknown RPC",
+                                             &server->cntr_unknown_rpc);
+            cntrd_app_register_ctr_in_group (server->cntr_session, "RPC Calls",
+                                             &server->cntr_rpc);
+        }
+
 
 #ifdef HAVE_CMSG_PROFILING
         memset (&server->prof, 0, sizeof (cmsg_prof));
@@ -587,13 +606,15 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_unknown_rpc);
         CMSG_LOG_SERVER_ERROR (server,
                                "Server request method index is too high. idx %d, max %d.",
                                server_request->method_index,
                                server->service->descriptor->n_methods);
         return CMSG_RET_ERR;
     }
-
+    // test - increment the counter on every rpc to see if this is working
+    cntrd_app_inc_ctr (server->cntr_session, server->cntr_rpc);
     if (buffer_data)
     {
         CMSG_DEBUG (CMSG_INFO, "[SERVER] processsing message with data\n");

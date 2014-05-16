@@ -2,6 +2,9 @@
 #include "protobuf-c-cmsg-client.h"
 #include "protobuf-c-cmsg-error.h"
 
+#include "cntrd_app_defines.h"
+#include "cntrd_app_api.h"
+
 static int32_t _cmsg_client_buffer_send_retry_once (cmsg_client *client,
                                                     uint8_t *queue_buffer,
                                                     uint32_t queue_buffer_size,
@@ -88,6 +91,18 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
 #ifdef HAVE_CMSG_PROFILING
         memset (&client->prof, 0, sizeof (cmsg_prof));
 #endif
+        // lastly, initialise our counters
+        char app_name[40];
+        snprintf (app_name, 40, "cmsg.Client %s", client->self.obj_id);
+        if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
+                                (void **)&(client->cntr_session))
+            == CNTRD_APP_SUCCESS )
+        {
+            cntrd_app_register_ctr_in_group (client->cntr_session, "Unknown RPC",
+                                             &(client->cntr_unknown_rpc));
+            cntrd_app_register_ctr_in_group (client->cntr_session, "RPC Calls",
+                                             &(client->cntr_rpc));
+        }
     }
     else
     {
@@ -177,6 +192,8 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
 
     CMSG_PROF_TIME_TIC (&client->prof);
+    // test - increment the counter on every rpc to see if this is working
+    cntrd_app_inc_ctr (client->cntr_session, client->cntr_rpc);
 
     /* pack the data */
     /* send */
@@ -363,6 +380,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     else if (status_code == CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND)
     {
         CMSG_DEBUG (CMSG_INFO, "[CLIENT] info: response message METHOD NOT FOUND\n");
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_unknown_rpc);
         return CMSG_RET_METHOD_NOT_FOUND;
     }
     else if (message_pt == NULL)
@@ -416,6 +434,9 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
+
+    // test - increment the counter on every rpc to see if this is working
+    cntrd_app_inc_ctr (client->cntr_session, client->cntr_rpc);
 
     method_name = service->descriptor->methods[method_index].name;
 
