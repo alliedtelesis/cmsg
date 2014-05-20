@@ -575,15 +575,76 @@ cmsg_client_invoke_oneway_direct (ProtobufCService *service, unsigned method_ind
                                   const ProtobufCMessage *input, ProtobufCClosure closure,
                                   void *closure_data)
 {
+    int32_t ret;
+    const char *method_name;
+    uint8_t buf_static[512];
+    uint8_t *buffer = NULL;
+    uint32_t packed_size;
+
+    method_name = service->descriptor->methods[method_index].name;
 
     /* The service is actually a cmsg_client so we can typecast here. */
     cmsg_client *client = (cmsg_client *) service;
+
+    packed_size = protobuf_c_message_get_packed_size (input);
+
+    if (packed_size < sizeof (buf_static))
+    {
+        buffer = &buf_static[0];
+    }
+    else
+    {
+        buffer = CMSG_CALLOC (1, packed_size);
+    }
+
+    if (!buffer)
+    {
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Unable to allocate memory for message. (method: %s)",
+                               method_name);
+
+        return CMSG_RET_ERR;
+    }
+
+    ret = protobuf_c_message_pack (input, buffer);
+
+    if (ret < packed_size)
+    {
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Underpacked message data. Packed %d of %d bytes. (method: %s)",
+                               ret, packed_size, method_name);
+
+        if (buffer != &buf_static[0])
+        {
+            CMSG_FREE (buffer);
+        }
+
+        return CMSG_RET_ERR;
+    }
+    else if (ret > packed_size)
+    {
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Overpacked message data. Packed %d of %d bytes. (method: %s)",
+                               ret, packed_size, method_name);
+
+        if (buffer != &buf_static[0])
+        {
+            CMSG_FREE (buffer);
+        }
+
+        return CMSG_RET_ERR;
+    }
 
     /* use the client to get the service pointer that the server requires to call
      * the proper function.
      */
     cmsg_server_invoke_oneway_direct (client->_transport->config.lpb_service, method_index,
-                                      input);
+                                      buffer, packed_size);
+
+    if (buffer != &buf_static[0])
+    {
+        CMSG_FREE (buffer);
+    }
 
     return CMSG_RET_OK;
 }

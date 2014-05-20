@@ -252,7 +252,7 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
  */
 void
 cmsg_server_invoke_oneway_direct (ProtobufCService *service, unsigned method_index,
-                                  const ProtobufCMessage *input);
+                                  uint8_t *buffer, uint32_t packed_size);
 
 #define CMSG_MALLOC(size)           cmsg_malloc ((size), __FILE__, __LINE__)
 #define CMSG_CALLOC(nmemb,size)     cmsg_calloc ((nmemb), (size), __FILE__,  __LINE__)
