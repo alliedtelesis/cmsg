@@ -23,6 +23,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 {
     int32_t ret = 0;
     cmsg_server *server = NULL;
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
     CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (transport != NULL, NULL);
@@ -97,8 +98,9 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
         pthread_mutex_unlock (&server->queueing_state_mutex);
 
         // lastly, initialise our counters
-        char app_name[40];
-        snprintf (app_name, 40, "cmsg.Server %s", server->self.obj_id);
+        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "CMSG %s%s Server",
+                  service->descriptor->name, transport->tport_id);
+
         if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
                                 (void **)&server->cntr_session)
             == CNTRD_APP_SUCCESS )

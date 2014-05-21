@@ -25,6 +25,8 @@ static cmsg_client *_cmsg_create_client_tipc (const char *server, int member_id,
 cmsg_client *
 cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *descriptor)
 {
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
+
     CMSG_ASSERT_RETURN_VAL (transport != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
@@ -92,8 +94,9 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
         memset (&client->prof, 0, sizeof (cmsg_prof));
 #endif
         // lastly, initialise our counters
-        char app_name[40];
-        snprintf (app_name, 40, "cmsg.Client %s", client->self.obj_id);
+        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "CMSG %s%s Client",
+                  descriptor->name, transport->tport_id);
+
         if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
                                 (void **)&(client->cntr_session))
             == CNTRD_APP_SUCCESS )
