@@ -56,9 +56,7 @@ cmsg_transport_write_id (cmsg_transport *tport)
         }
     case CMSG_TRANSPORT_BROADCAST:
         {
-            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tipcb[%d,%d]",
-                      tport->config.socket.sockaddr.tipc.addr.nameseq.lower,
-                      tport->config.socket.sockaddr.tipc.addr.nameseq.upper);
+            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tipcb");
             break;
         }
 #endif
