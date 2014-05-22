@@ -94,16 +94,16 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
         memset (&client->prof, 0, sizeof (cmsg_prof));
 #endif
         // lastly, initialise our counters
-        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "CMSG %s%s Client",
+        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "CMSG %s%s",
                   descriptor->name, transport->tport_id);
 
         if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
                                 (void **)&(client->cntr_session))
             == CNTRD_APP_SUCCESS )
         {
-            cntrd_app_register_ctr_in_group (client->cntr_session, "Unknown RPC",
+            cntrd_app_register_ctr_in_group (client->cntr_session, "Client Unknown RPC",
                                              &(client->cntr_unknown_rpc));
-            cntrd_app_register_ctr_in_group (client->cntr_session, "RPC Calls",
+            cntrd_app_register_ctr_in_group (client->cntr_session, "Client RPC Calls",
                                              &(client->cntr_rpc));
         }
     }

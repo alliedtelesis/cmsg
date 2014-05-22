@@ -98,16 +98,16 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
         pthread_mutex_unlock (&server->queueing_state_mutex);
 
         // lastly, initialise our counters
-        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "CMSG %s%s Server",
+        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "CMSG %s%s",
                   service->descriptor->name, transport->tport_id);
 
         if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
                                 (void **)&server->cntr_session)
             == CNTRD_APP_SUCCESS )
         {
-            cntrd_app_register_ctr_in_group (server->cntr_session, "Unknown RPC",
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Unknown RPC",
                                              &server->cntr_unknown_rpc);
-            cntrd_app_register_ctr_in_group (server->cntr_session, "RPC Calls",
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Server RPC Calls",
                                              &server->cntr_rpc);
         }
 
