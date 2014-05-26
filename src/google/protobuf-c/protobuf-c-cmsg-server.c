@@ -109,6 +109,9 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
                                              &server->cntr_unknown_rpc);
             cntrd_app_register_ctr_in_group (server->cntr_session, "Server RPC Calls",
                                              &server->cntr_rpc);
+
+            /* Tell cntrd not to destroy the counter data in the shared memory */
+            cntrd_app_set_shutdown_instruction (app_name, CNTRD_SHUTDOWN_RESTART);
         }
 
 
@@ -141,6 +144,10 @@ cmsg_server_destroy (cmsg_server *server)
             close (fd);
         }
     }
+
+    /* Free counter session info but do not destroy counter data in the shared memory */
+    cntrd_app_unInit_app (&server->cntr_session, CNTRD_APP_PERSISTENT);
+    server->cntr_session = NULL;
 
     cmsg_queue_filter_free (server->queue_filter_hash_table, server->service->descriptor);
     g_hash_table_destroy (server->queue_filter_hash_table);
