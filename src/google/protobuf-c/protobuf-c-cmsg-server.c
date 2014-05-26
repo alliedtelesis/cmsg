@@ -98,7 +98,8 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
         pthread_mutex_unlock (&server->queueing_state_mutex);
 
         // lastly, initialise our counters
-        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "CMSG %s%s",
+        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
+                  CMSG_COUNTER_APP_NAME_PREFIX,
                   service->descriptor->name, transport->tport_id);
 
         if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,

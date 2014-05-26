@@ -94,8 +94,8 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
         memset (&client->prof, 0, sizeof (cmsg_prof));
 #endif
         // lastly, initialise our counters
-        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "CMSG %s%s",
-                  descriptor->name, transport->tport_id);
+        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
+                  CMSG_COUNTER_APP_NAME_PREFIX, descriptor->name, transport->tport_id);
 
         if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
                                 (void **)&(client->cntr_session))

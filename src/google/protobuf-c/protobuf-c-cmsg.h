@@ -10,6 +10,8 @@
 #define CMSG_RET_QUEUED 1
 #define CMSG_RET_DROPPED 2
 
+#define CMSG_COUNTER_APP_NAME_PREFIX    "CMSG "
+
 void cmsg_malloc_init (int mtype);
 
 // macro to free messages returned back to the API
