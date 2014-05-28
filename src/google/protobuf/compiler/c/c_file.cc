@@ -348,6 +348,9 @@ void FileGenerator::GenerateAtlApiSource(io::Printer* printer) {
     "#include \"$basename$.h\"\n",
     "basename", GetAtlApiFilename(file_->name()));
 
+  // include the cmsg error header so the api can output errors
+  printer->Print("#include <google/protobuf-c/protobuf-c-cmsg-error.h>\n");
+
   for (int i = 0; i < file_->service_count(); i++) {
     atl_code_generators_[i]->GenerateClientCFile(printer);
   }

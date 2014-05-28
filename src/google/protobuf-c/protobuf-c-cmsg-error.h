@@ -23,6 +23,8 @@
 
 /* For publisher object debug messages */
 #define CMSG_LOG_PUBLISHER_DEBUG(publisher, msg, ...) CMSG_LOG_OBJ_DEBUG (publisher, publisher->sub_server->_transport, msg, ## __VA_ARGS__)
+/* For client object debug messages */
+#define CMSG_LOG_CLIENT_DEBUG(client, msg, ...) CMSG_LOG_OBJ_DEBUG (client, client->_transport, msg, ## __VA_ARGS__)
 
 /* General object debug messages */
 #define CMSG_LOG_OBJ_DEBUG(obj, tport, msg, ...) \
