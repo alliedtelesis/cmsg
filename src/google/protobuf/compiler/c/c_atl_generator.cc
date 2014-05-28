@@ -197,6 +197,26 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Outdent();
     printer->Print("}\n");
 
+    //
+    // finally, test that the recv msg pointer is NULL.
+    // if it is, set it to NULL, but yell loudly that this is happening
+    // (in case this is a memory leak).
+    //
+    if (method->output_type()->field_count() > 0)
+    {
+      printer->Print("\n");
+      printer->Print("/* test that the pointer to the recv msg is NULL. If it isn't, set it to\n");
+      printer->Print(" * NULL but complain loudly that the api is not being used correctly  */\n");
+      printer->Print("if (*(_recv_msg) != NULL)\n");
+      printer->Print("{\n");
+      printer->Indent();
+      printer->Print("*(_recv_msg) = NULL;\n");
+      printer->Print("CMSG_LOG_CLIENT_DEBUG (_client, \"WARNING: %s API called with Non-NULL recv_msg! Setting to NULL! (This may be a leak!)\", __FUNCTION__);\n");
+      printer->Outdent();
+      printer->Print("}\n");
+    }
+
+
     printer->Print("\n");
 
     //
