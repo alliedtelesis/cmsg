@@ -15,8 +15,11 @@
 void cmsg_malloc_init (int mtype);
 
 // macro to free messages returned back to the API
-#define CMSG_FREE_RECV_MSG(_name) \
-    protobuf_c_message_free_unpacked ((ProtobufCMessage *)(_name), &protobuf_c_default_allocator)
+#define CMSG_FREE_RECV_MSG(_name)                                                                      \
+    do {                                                                                               \
+        protobuf_c_message_free_unpacked ((ProtobufCMessage *)(_name), &protobuf_c_default_allocator); \
+        (_name) = NULL;                                                                                \
+    } while (0)
 
 // macro to free _only_ the unknown fields that may be present
 // in a message returned back to the API
