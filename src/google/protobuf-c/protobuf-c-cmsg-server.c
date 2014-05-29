@@ -600,11 +600,21 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
  */
 void
 cmsg_server_invoke_oneway_direct (ProtobufCService *service, unsigned method_index,
-                                  const ProtobufCMessage *input)
+                                  uint8_t *buffer, uint32_t packed_size)
 {
     cmsg_server_closure_data closure_data;
+    ProtobufCMessage *message = NULL;
+    ProtobufCAllocator *allocator = &protobuf_c_default_allocator;
+    const ProtobufCMessageDescriptor *desc;
 
     CMSG_ASSERT_RETURN_VOID (service != NULL);
+
+    desc = service->descriptor->methods[method_index].input;
+
+    CMSG_DEBUG (CMSG_INFO, "[SERVER] unpacking message\n");
+    /* Unpack the message. protobuf_c_message_unpack () is safe to call if packed_size is 0
+     * and buffer is NULL. */
+    message = protobuf_c_message_unpack (desc, allocator, packed_size, buffer);
 
     /* Setup closure_data so it can be used to ensure that there are no
      * uninitialised variables.
@@ -614,8 +624,11 @@ cmsg_server_invoke_oneway_direct (ProtobufCService *service, unsigned method_ind
 
     service->invoke (service,
                      method_index,
-                     input,
-                     cmsg_server_closure_oneway, (void *) &closure_data);
+                     message,
+                     cmsg_server_closure_oneway,
+                     (void *) &closure_data);
+
+    protobuf_c_message_free_unpacked (message, allocator);
 }
 
 
