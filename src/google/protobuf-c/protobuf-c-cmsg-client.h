@@ -64,6 +64,11 @@ typedef struct _cmsg_client_s
     // counterd counters
     void *cntr_unknown_rpc;
     void *cntr_rpc;
+    void *cntr_unknown_fields;
+    void *cntr_messages_queued;
+    void *cntr_messages_dropped;
+    void *cntr_connection_attempts;
+    void *cntr_errors;
 #ifdef HAVE_CMSG_PROFILING
     cmsg_prof prof;
 #endif
