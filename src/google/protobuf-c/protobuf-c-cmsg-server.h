@@ -67,6 +67,7 @@ typedef struct _cmsg_server_s
     void *cntr_messages_queued;
     void *cntr_messages_dropped;
     void *cntr_connections_accepted;
+    void *cntr_connections_closed;
     void *cntr_errors;
 #ifdef HAVE_CMSG_PROFILING
     cmsg_prof prof;

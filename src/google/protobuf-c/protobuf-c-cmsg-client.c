@@ -361,6 +361,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     status_code = cmsg_client_response_receive (client, &message_pt);
 
     if (status_code == CMSG_STATUS_CODE_SERVICE_FAILED ||
+        status_code == CMSG_STATUS_CODE_CONNECTION_CLOSED ||
         status_code == CMSG_STATUS_CODE_SERVER_CONNRESET)
     {
         /* CMSG_STATUS_CODE_SERVER_CONNRESET happens when the socket is reset by peer,

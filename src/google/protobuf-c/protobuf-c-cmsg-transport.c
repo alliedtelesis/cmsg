@@ -290,7 +290,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     {
         //Normal socket shutdown case. Return other than TRANSPORT_OK to
         //have socket removed from select set.
-        ret = CMSG_RET_ERR;
+        ret = CMSG_RET_CLOSED;
     }
     else
     {

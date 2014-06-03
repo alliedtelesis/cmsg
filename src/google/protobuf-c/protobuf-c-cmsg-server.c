@@ -118,6 +118,8 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
                                              &server->cntr_messages_dropped);
             cntrd_app_register_ctr_in_group (server->cntr_session, "Server Connect Accepts",
                                              &server->cntr_connections_accepted);
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Connect Closed",
+                                             &server->cntr_connections_closed);
             cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors",
                                              &server->cntr_errors);
 
@@ -494,7 +496,15 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
                     "[SERVER] server receive failed, server %s transport type %d socket %d ret %d\n",
                     server->service->descriptor->name, server->_transport->type, socket,
                     ret);
-        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+        if (ret == CMSG_RET_CLOSED)
+        {
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_connections_closed);
+        }
+        else
+        {
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+        }
+
         return CMSG_RET_ERR;
     }
 
