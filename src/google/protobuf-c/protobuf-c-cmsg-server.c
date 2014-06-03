@@ -1341,7 +1341,6 @@ _cmsg_create_server_tipc (const char *server_name, int member_id, int scope,
     transport = cmsg_create_transport_tipc (server_name, member_id, scope, transport_type);
     if (transport == NULL)
     {
-        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
         return NULL;
     }
 
