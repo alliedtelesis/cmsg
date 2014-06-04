@@ -535,6 +535,22 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 
 
 /**
+ * Callback function for CMSG server when a new socket is accepted.
+ * This function is for applications that accept sockets by other than CMSG API,
+ * cmsg_server_accept() (e.g. by using liboop socket utility functions).
+ */
+void
+cmsg_server_accept_callback (cmsg_server *server, int32_t sock)
+{
+    // count the accepted connection
+    if (server != NULL)
+    {
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_connections_accepted);
+    }
+}
+
+
+/**
  * Assumes that server_request will have been set in the server by the caller.
  */
 void

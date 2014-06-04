@@ -86,6 +86,21 @@ cmsg_sub_server_accept (cmsg_sub *subscriber, int32_t listen_socket)
 }
 
 
+/**
+ * Callback function for CMSG subscriber when a new socket is accepted.
+ * This function is for applications that accept sockets by other than CMSG API,
+ * cmsg_sub_server_accept() (e.g. by using liboop socket utility functions).
+ */
+void
+cmsg_sub_server_accept_callback (cmsg_sub *subscriber, int32_t sock)
+{
+    if (subscriber != NULL)
+    {
+        cmsg_server_accept_callback (subscriber->pub_server, sock);
+    }
+}
+
+
 int32_t
 cmsg_sub_subscribe (cmsg_sub *subscriber,
                     cmsg_transport *sub_client_transport, char *method_name)
