@@ -31,6 +31,9 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
     server = (cmsg_server *) CMSG_CALLOC (1, sizeof (cmsg_server));
     if (server)
     {
+        /* Generate transport unique id */
+        cmsg_transport_write_id (transport);
+
         server->_transport = transport;
         server->service = service;
         server->allocator = &protobuf_c_default_allocator;  //initialize alloc and free for message_unpack() and message_free()

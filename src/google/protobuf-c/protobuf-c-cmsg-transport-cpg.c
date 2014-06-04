@@ -317,8 +317,6 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
                     server->_transport->config.cpg.group_name.value);
     }
 
-    cmsg_transport_write_id (server->_transport);
-
     /* If CPG connection has not been created do it now.
      */
     if (cmsg_cpg_handle == 0)
