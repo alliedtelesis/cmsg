@@ -17,13 +17,15 @@ static cmsg_server * _cmsg_create_server_tipc (const char *server_name, int memb
                                                int scope, ProtobufCService *descriptor,
                                                cmsg_transport_type transport_type);
 
+static int32_t cmsg_server_counter_create (cmsg_server *server,
+                                           ProtobufCService *service,
+                                           cmsg_transport *transport);
 
 cmsg_server *
 cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 {
     int32_t ret = 0;
     cmsg_server *server = NULL;
-    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
     CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (transport != NULL, NULL);
@@ -101,35 +103,11 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
         pthread_mutex_unlock (&server->queueing_state_mutex);
 
         // lastly, initialise our counters
-        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
-                  CMSG_COUNTER_APP_NAME_PREFIX,
-                  service->descriptor->name, transport->tport_id);
-
-        if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
-                                (void **)&server->cntr_session)
-            == CNTRD_APP_SUCCESS )
+        if (cmsg_server_counter_create (server, service, transport) != CMSG_RET_OK)
         {
-            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Unknown RPC",
-                                             &server->cntr_unknown_rpc);
-            cntrd_app_register_ctr_in_group (server->cntr_session, "Server RPC Calls",
-                                             &server->cntr_rpc);
-            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Unknown Fields",
-                                             &server->cntr_unknown_fields);
-            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Msgs Queued",
-                                             &server->cntr_messages_queued);
-            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Msgs Dropped",
-                                             &server->cntr_messages_dropped);
-            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Connect Accepts",
-                                             &server->cntr_connections_accepted);
-            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Connect Closed",
-                                             &server->cntr_connections_closed);
-            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors",
-                                             &server->cntr_errors);
-
-            /* Tell cntrd not to destroy the counter data in the shared memory */
-            cntrd_app_set_shutdown_instruction (app_name, CNTRD_SHUTDOWN_RESTART);
+            CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create server counters.",
+                                service->descriptor->name, transport->tport_id);
         }
-
 
 #ifdef HAVE_CMSG_PROFILING
         memset (&server->prof, 0, sizeof (cmsg_prof));
@@ -179,6 +157,45 @@ cmsg_server_destroy (cmsg_server *server)
     CMSG_FREE (server);
 }
 
+// create counters
+static int32_t
+cmsg_server_counter_create (cmsg_server *server, ProtobufCService *service,
+                            cmsg_transport *transport)
+{
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
+    int32_t ret = CMSG_RET_ERR;
+
+    snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
+              CMSG_COUNTER_APP_NAME_PREFIX,
+              service->descriptor->name, transport->tport_id);
+
+    if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
+                            (void **)&server->cntr_session)
+        == CNTRD_APP_SUCCESS )
+    {
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Unknown RPC",
+                                         &server->cntr_unknown_rpc);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server RPC Calls",
+                                         &server->cntr_rpc);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Unknown Fields",
+                                         &server->cntr_unknown_fields);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Msgs Queued",
+                                         &server->cntr_messages_queued);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Msgs Dropped",
+                                         &server->cntr_messages_dropped);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Connect Accepts",
+                                         &server->cntr_connections_accepted);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Connect Closed",
+                                         &server->cntr_connections_closed);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors",
+                                         &server->cntr_errors);
+
+        /* Tell cntrd not to destroy the counter data in the shared memory */
+        cntrd_app_set_shutdown_instruction (app_name, CNTRD_SHUTDOWN_RESTART);
+        ret = CMSG_RET_OK;
+    }
+    return ret;
+}
 
 int
 cmsg_server_get_socket (cmsg_server *server)
