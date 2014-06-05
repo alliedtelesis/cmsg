@@ -59,6 +59,16 @@ typedef struct _cmsg_client_s
     uint32_t queue_process_count;
     pthread_t self_thread_id;
 
+    //counter information
+    void *cntr_session;
+    // counterd counters
+    void *cntr_unknown_rpc;
+    void *cntr_rpc;
+    void *cntr_unknown_fields;
+    void *cntr_messages_queued;
+    void *cntr_messages_dropped;
+    void *cntr_connection_attempts;
+    void *cntr_errors;
 #ifdef HAVE_CMSG_PROFILING
     cmsg_prof prof;
 #endif

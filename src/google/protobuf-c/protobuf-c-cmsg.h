@@ -4,11 +4,14 @@
 #include "protobuf-c.h"
 
 // Return codes
-#define CMSG_RET_OK   0
-#define CMSG_RET_ERR -1
-#define CMSG_RET_METHOD_NOT_FOUND -2
-#define CMSG_RET_QUEUED 1
-#define CMSG_RET_DROPPED 2
+#define CMSG_RET_OK                 0
+#define CMSG_RET_QUEUED             1
+#define CMSG_RET_DROPPED            2
+#define CMSG_RET_ERR                -1
+#define CMSG_RET_METHOD_NOT_FOUND   -2
+#define CMSG_RET_CLOSED             -3
+
+#define CMSG_COUNTER_APP_NAME_PREFIX    "CMSG "
 
 void cmsg_malloc_init (int mtype);
 

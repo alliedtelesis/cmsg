@@ -2,6 +2,9 @@
 #include "protobuf-c-cmsg-client.h"
 #include "protobuf-c-cmsg-error.h"
 
+#include "cntrd_app_defines.h"
+#include "cntrd_app_api.h"
+
 static int32_t _cmsg_client_buffer_send_retry_once (cmsg_client *client,
                                                     uint8_t *queue_buffer,
                                                     uint32_t queue_buffer_size,
@@ -22,6 +25,8 @@ static cmsg_client *_cmsg_create_client_tipc (const char *server, int member_id,
 cmsg_client *
 cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *descriptor)
 {
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
+
     CMSG_ASSERT_RETURN_VAL (transport != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
@@ -88,6 +93,32 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
 #ifdef HAVE_CMSG_PROFILING
         memset (&client->prof, 0, sizeof (cmsg_prof));
 #endif
+        // lastly, initialise our counters
+        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
+                  CMSG_COUNTER_APP_NAME_PREFIX, descriptor->name, transport->tport_id);
+
+        if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
+                                (void **)&(client->cntr_session))
+            == CNTRD_APP_SUCCESS )
+        {
+            cntrd_app_register_ctr_in_group (client->cntr_session, "Client Unknown RPC",
+                                             &(client->cntr_unknown_rpc));
+            cntrd_app_register_ctr_in_group (client->cntr_session, "Client RPC Calls",
+                                             &(client->cntr_rpc));
+            cntrd_app_register_ctr_in_group (client->cntr_session, "Client Unknown Fields",
+                                             &client->cntr_unknown_fields);
+            cntrd_app_register_ctr_in_group (client->cntr_session, "Client Msgs Queued",
+                                             &client->cntr_messages_queued);
+            cntrd_app_register_ctr_in_group (client->cntr_session, "Client Msgs Dropped",
+                                             &client->cntr_messages_dropped);
+            cntrd_app_register_ctr_in_group (client->cntr_session, "Client Connect Attempts",
+                                             &client->cntr_connection_attempts);
+            cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors",
+                                             &client->cntr_errors);
+
+            /* Tell cntrd not to destroy the counter data in the shared memory */
+            cntrd_app_set_shutdown_instruction (app_name, CNTRD_SHUTDOWN_RESTART);
+        }
     }
     else
     {
@@ -102,6 +133,10 @@ void
 cmsg_client_destroy (cmsg_client *client)
 {
     CMSG_ASSERT_RETURN_VOID (client != NULL);
+
+    /* Free counter session info but do not destroy counter data in the shared memory */
+    cntrd_app_unInit_app (&client->cntr_session, CNTRD_APP_PERSISTENT);
+    client->cntr_session = NULL;
 
     cmsg_queue_filter_free (client->queue_filter_hash_table, client->descriptor);
     pthread_mutex_destroy (&client->queue_process_mutex);
@@ -151,6 +186,8 @@ cmsg_client_connect (cmsg_client *client)
     else
     {
         ret = client->_transport->connect (client);
+        // count the connection attempt
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_connection_attempts);
     }
 
     return ret;
@@ -177,6 +214,8 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
 
     CMSG_PROF_TIME_TIC (&client->prof);
+    // count every rpc call
+    cntrd_app_inc_ctr (client->cntr_session, client->cntr_rpc);
 
     /* pack the data */
     /* send */
@@ -196,6 +235,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                         method_name, connect_error);
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         return CMSG_RET_ERR;
     }
     method_length = strlen (method_name) + 1;
@@ -215,6 +255,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         CMSG_LOG_CLIENT_ERROR (client,
                                "Unable to allocate memory for message. (method: %s).",
                                method_name);
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         return CMSG_RET_ERR;
     }
 
@@ -233,6 +274,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
                                ret, packed_size, method_name);
 
         CMSG_FREE (buffer);
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         return CMSG_RET_ERR;
     }
     else if (ret > packed_size)
@@ -242,6 +284,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
                                ret, packed_size, method_name);
 
         CMSG_FREE (buffer);
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         return CMSG_RET_ERR;
     }
 
@@ -294,6 +337,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
                                            method_name);
                 }
 
+                cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
                 CMSG_FREE (buffer);
                 return CMSG_RET_ERR;
             }
@@ -303,6 +347,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
             CMSG_LOG_DEBUG ("[CLIENT] couldn't reconnect client! (method: %s, error: %d)",
                             method_name, connect_error);
 
+            cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
             CMSG_FREE (buffer);
             return CMSG_RET_ERR;
         }
@@ -316,6 +361,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     status_code = cmsg_client_response_receive (client, &message_pt);
 
     if (status_code == CMSG_STATUS_CODE_SERVICE_FAILED ||
+        status_code == CMSG_STATUS_CODE_CONNECTION_CLOSED ||
         status_code == CMSG_STATUS_CODE_SERVER_CONNRESET)
     {
         /* CMSG_STATUS_CODE_SERVER_CONNRESET happens when the socket is reset by peer,
@@ -337,6 +383,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         client->state = CMSG_CLIENT_STATE_CLOSED;
         client->_transport->client_close (client);
 
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         CMSG_FREE (buffer);
         return CMSG_RET_ERR;
     }
@@ -363,6 +410,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     else if (status_code == CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND)
     {
         CMSG_DEBUG (CMSG_INFO, "[CLIENT] info: response message METHOD NOT FOUND\n");
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_unknown_rpc);
         return CMSG_RET_METHOD_NOT_FOUND;
     }
     else if (message_pt == NULL)
@@ -377,8 +425,15 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
             CMSG_LOG_CLIENT_ERROR (client,
                                    "Response message not valid or empty. (method: %s)",
                                    method_name);
+            cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
             return CMSG_RET_ERR;
         }
+    }
+
+    // increment the counter if this message has unknown fields,
+    if (message_pt->unknown_fields)
+    {
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_unknown_fields);
     }
 
     if (closure_data)
@@ -417,6 +472,9 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
 
+    // test - increment the counter on every rpc to see if this is working
+    cntrd_app_inc_ctr (client->cntr_session, client->cntr_rpc);
+
     method_name = service->descriptor->methods[method_index].name;
 
     CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
@@ -438,17 +496,20 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             CMSG_LOG_CLIENT_ERROR (client,
                                    "Error occurred with queue_lookup_filter. (method: %s).",
                                    method_name);
-
+            cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
             return CMSG_RET_ERR;
         }
         else if (action == CMSG_QUEUE_FILTER_DROP)
         {
             CMSG_DEBUG (CMSG_INFO, "[CLIENT] dropping message: %s\n", method_name);
+            cntrd_app_inc_ctr (client->cntr_session, client->cntr_messages_dropped);
             return CMSG_RET_DROPPED;
         }
         else if (action == CMSG_QUEUE_FILTER_QUEUE)
         {
             do_queue = 1;
+            // count this as queued
+            cntrd_app_inc_ctr (client->cntr_session, client->cntr_messages_queued);
         }
         else if (action == CMSG_QUEUE_FILTER_PROCESS)
         {
@@ -472,7 +533,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
         CMSG_LOG_CLIENT_ERROR (client,
                                "Unable to allocate memory for message. (method: %s)",
                                method_name);
-
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         return CMSG_RET_ERR;
     }
 
@@ -488,7 +549,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
         CMSG_LOG_CLIENT_ERROR (client,
                                "Underpacked message data. Packed %d of %d bytes. (method: %s)",
                                ret, packed_size, method_name);
-
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         CMSG_FREE (buffer);
         return CMSG_RET_ERR;
     }
@@ -497,7 +558,7 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
         CMSG_LOG_CLIENT_ERROR (client,
                                "Overpacked message data. Packed %d of %d bytes. (method: %s)",
                                ret, packed_size, method_name);
-
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         CMSG_FREE (buffer);
         return CMSG_RET_ERR;
     }
@@ -664,6 +725,7 @@ cmsg_client_get_socket (cmsg_client *client)
     else
     {
         CMSG_LOG_CLIENT_ERROR (client, "Failed to get socket. Client not connected.");
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         return -1;
     }
 
@@ -696,6 +758,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
     if (client->state != CMSG_CLIENT_STATE_CONNECTED)
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected (error: %d)", connect_error);
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         return -1;
     }
 
@@ -729,6 +792,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
                 CMSG_LOG_CLIENT_ERROR (client,
                                        "Sending echo request failed. sent:%d of %u bytes.",
                                        ret, (uint32_t) sizeof (header));
+                cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
                 return -1;
             }
         }
@@ -736,6 +800,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
         {
             CMSG_LOG_DEBUG ("[CLIENT] couldn't reconnect client! (error: %d)",
                             connect_error);
+            cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
             return -1;
         }
     }
@@ -873,7 +938,7 @@ _cmsg_client_queue_process_all_internal (cmsg_client *client)
                                    "Server not reachable after %d tries. (method: %s).",
                                    CMSG_TRANSPORT_CLIENT_SEND_TRIES,
                                    queue_entry->method_name);
-
+            cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
             return CMSG_RET_ERR;
         }
 
@@ -894,7 +959,10 @@ _cmsg_client_queue_process_all_direct (cmsg_client *client)
     pthread_mutex_t *queue_mutex = &client->queue_mutex;
 
     if (!queue)
+    {
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         return CMSG_RET_ERR;
+    }
 
     ret = _cmsg_client_queue_process_all_internal (client);
 
@@ -907,6 +975,7 @@ _cmsg_client_queue_process_all_direct (cmsg_client *client)
 
         CMSG_LOG_CLIENT_ERROR (client, "Server not reachable after %d tries.",
                                CMSG_TRANSPORT_CLIENT_SEND_TRIES);
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
     }
 
     return ret;
@@ -943,7 +1012,7 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                         method_name, connect_error);
-
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         return CMSG_RET_ERR;
     }
 
@@ -992,7 +1061,7 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
                                            send_ret, (uint32_t) (queue_buffer_size),
                                            method_name);
                 }
-
+                cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
                 return CMSG_RET_ERR;
             }
         }
@@ -1000,7 +1069,7 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
         {
             CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                             method_name, connect_error);
-
+            cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
             return CMSG_RET_ERR;
         }
     }
@@ -1069,7 +1138,7 @@ _cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected, error: %d)", ret);
     }
-
+    cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
     return CMSG_RET_ERR;
 }
 
@@ -1137,6 +1206,7 @@ _cmsg_create_client_tipc (const char *server, int member_id, int scope,
     {
         cmsg_transport_destroy (transport);
         CMSG_LOG_CLIENT_ERROR (client, "No TIPC client to member %d", member_id);
+        cntrd_app_inc_ctr (client->cntr_session, client->cntr_errors);
         return NULL;
     }
     return client;
@@ -1168,7 +1238,7 @@ cmsg_create_client_tipc_oneway (const char *server_name, int member_id, int scop
  * Creates a Client of type Loopback Oneway and sets all the correct
  * fields.
  *
- * Returns CMSG_RET_ERR if failed to create anything - malloc problems.
+ * Returns NULL if failed to create anything - malloc problems.
  */
 cmsg_client *
 cmsg_create_client_loopback_oneway (ProtobufCService *service)

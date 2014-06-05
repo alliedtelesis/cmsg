@@ -123,7 +123,6 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     }
 
     server->connection.sockets.listening_socket = listening_socket;
-    cmsg_transport_write_id (server->_transport);
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tipc socket: %d\n", listening_socket);
 
@@ -193,7 +192,7 @@ csmg_transport_peek_for_header (cmsg_object *obj, cmsg_transport *transport, int
         {
             if (nbytes == 0)
             {
-                return CMSG_STATUS_CODE_SERVICE_FAILED;
+                return CMSG_STATUS_CODE_CONNECTION_CLOSED;
             }
             else if (nbytes == -1)
             {
@@ -250,6 +249,7 @@ static int32_t
 cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
 {
     int32_t ret = CMSG_RET_ERR;
+    cmsg_status_code peek_status;
 
     if (!server || server_socket < 0)
     {
@@ -263,13 +263,16 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
         /* Remember the client socket to use when send reply */
         server->connection.sockets.client_socket = server_socket;
 
-        if (csmg_transport_peek_for_header (&server->self, server->_transport,
-                                            server_socket,
-                                            MAX_SERVER_PEEK_LOOP) ==
-            CMSG_STATUS_CODE_SUCCESS)
+        peek_status = csmg_transport_peek_for_header (&server->self, server->_transport,
+                                                      server_socket, MAX_SERVER_PEEK_LOOP);
+        if (peek_status == CMSG_STATUS_CODE_SUCCESS)
         {
             ret = cmsg_transport_server_recv (cmsg_transport_tipc_recv,
                                               (void *) &server_socket, server);
+        }
+        else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
+        {
+            ret = CMSG_RET_CLOSED;
         }
     }
 

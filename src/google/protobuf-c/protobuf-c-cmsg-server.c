@@ -2,6 +2,11 @@
 #include "protobuf-c-cmsg-server.h"
 #include "protobuf-c-cmsg-error.h"
 
+#include "cntrd_app_defines.h"
+#include "cntrd_app_api.h"
+
+
+
 static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
                                                           uint8_t *buffer_data);
 
@@ -18,6 +23,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 {
     int32_t ret = 0;
     cmsg_server *server = NULL;
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
     CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (transport != NULL, NULL);
@@ -25,6 +31,9 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
     server = (cmsg_server *) CMSG_CALLOC (1, sizeof (cmsg_server));
     if (server)
     {
+        /* Generate transport unique id */
+        cmsg_transport_write_id (transport);
+
         server->_transport = transport;
         server->service = service;
         server->allocator = &protobuf_c_default_allocator;  //initialize alloc and free for message_unpack() and message_free()
@@ -91,6 +100,37 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 
         pthread_mutex_unlock (&server->queueing_state_mutex);
 
+        // lastly, initialise our counters
+        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
+                  CMSG_COUNTER_APP_NAME_PREFIX,
+                  service->descriptor->name, transport->tport_id);
+
+        if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
+                                (void **)&server->cntr_session)
+            == CNTRD_APP_SUCCESS )
+        {
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Unknown RPC",
+                                             &server->cntr_unknown_rpc);
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Server RPC Calls",
+                                             &server->cntr_rpc);
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Unknown Fields",
+                                             &server->cntr_unknown_fields);
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Msgs Queued",
+                                             &server->cntr_messages_queued);
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Msgs Dropped",
+                                             &server->cntr_messages_dropped);
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Connect Accepts",
+                                             &server->cntr_connections_accepted);
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Connect Closed",
+                                             &server->cntr_connections_closed);
+            cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors",
+                                             &server->cntr_errors);
+
+            /* Tell cntrd not to destroy the counter data in the shared memory */
+            cntrd_app_set_shutdown_instruction (app_name, CNTRD_SHUTDOWN_RESTART);
+        }
+
+
 #ifdef HAVE_CMSG_PROFILING
         memset (&server->prof, 0, sizeof (cmsg_prof));
 #endif
@@ -120,6 +160,10 @@ cmsg_server_destroy (cmsg_server *server)
             close (fd);
         }
     }
+
+    /* Free counter session info but do not destroy counter data in the shared memory */
+    cntrd_app_unInit_app (&server->cntr_session, CNTRD_APP_PERSISTENT);
+    server->cntr_session = NULL;
 
     cmsg_queue_filter_free (server->queue_filter_hash_table, server->service->descriptor);
     g_hash_table_destroy (server->queue_filter_hash_table);
@@ -254,6 +298,7 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
         CMSG_LOG_SERVER_ERROR (server,
                                "An error occurred with receive poll (timeout %dms): %s.",
                                timeout_ms, strerror (errno));
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
         return CMSG_RET_ERR;
     }
     else if (ret == 0)
@@ -327,6 +372,7 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
 
     if (!server_list)
     {
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
         return 0;
     }
 
@@ -370,6 +416,7 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
         CMSG_LOG_SERVER_ERROR (server,
                                "An error occurred with list receive poll (timeout: %dms): %s.",
                                timeout_ms, strerror (errno));
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
         return CMSG_RET_ERR;
     }
     else if (ret == 0)
@@ -452,6 +499,15 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
                     "[SERVER] server receive failed, server %s transport type %d socket %d ret %d\n",
                     server->service->descriptor->name, server->_transport->type, socket,
                     ret);
+        if (ret == CMSG_RET_CLOSED)
+        {
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_connections_closed);
+        }
+        else
+        {
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+        }
+
         return CMSG_RET_ERR;
     }
 
@@ -470,9 +526,27 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
     if (server->_transport->server_accept != NULL)
     {
         sock = server->_transport->server_accept (listen_socket, server);
+        // count the accepted connection
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_connections_accepted);
     }
 
     return sock;
+}
+
+
+/**
+ * Callback function for CMSG server when a new socket is accepted.
+ * This function is for applications that accept sockets by other than CMSG API,
+ * cmsg_server_accept() (e.g. by using liboop socket utility functions).
+ */
+void
+cmsg_server_accept_callback (cmsg_server *server, int32_t sock)
+{
+    // count the accepted connection
+    if (server != NULL)
+    {
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_connections_accepted);
+    }
 }
 
 
@@ -491,6 +565,12 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
     // Setup closure_data so it can be used no matter what the action is
     closure_data.server = server;
     closure_data.method_processing_reason = process_reason;
+
+    // increment the counter if this message has unknown fields,
+    if (message->unknown_fields)
+    {
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_unknown_fields);
+    }
 
     switch (process_reason)
     {
@@ -521,11 +601,16 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
 
         // Send response, if required by the closure function
         server->_transport->closure (message, (void *) &closure_data);
+        // count this as queued
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_messages_queued);
         break;
 
     case CMSG_METHOD_DROPPED:
         // Send response, if required by the closure function
         server->_transport->closure (message, (void *) &closure_data);
+
+        // count this as dropped
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_messages_dropped);
 
         // Free the unpacked message
         protobuf_c_message_free_unpacked (message, server->allocator);
@@ -600,13 +685,16 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
 
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
+        // count this as an unknown rpc request
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_unknown_rpc);
         CMSG_LOG_SERVER_ERROR (server,
                                "Server request method index is too high. idx %d, max %d.",
                                server_request->method_index,
                                server->service->descriptor->n_methods);
         return CMSG_RET_ERR;
     }
-
+    // count every rpc call
+    cntrd_app_inc_ctr (server->cntr_session, server->cntr_rpc);
     if (buffer_data)
     {
         CMSG_DEBUG (CMSG_INFO, "[SERVER] processsing message with data\n");
@@ -627,6 +715,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     if (message == NULL)
     {
         CMSG_LOG_SERVER_ERROR (server, "Error unpacking the message. No message.");
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
     }
 
     CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "unpack",
@@ -647,7 +736,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
             CMSG_LOG_SERVER_ERROR (server,
                                    "An error occurred with queue_lookup_filter: %s.",
                                    method_name);
-
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
             // Free unpacked message prior to return
             protobuf_c_message_free_unpacked (message, allocator);
             return CMSG_RET_ERR;
@@ -699,6 +788,7 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
     {
         CMSG_LOG_SERVER_ERROR (server, "Sending of echo reply failed. Sent:%d of %u bytes.",
                                ret, (uint32_t) sizeof (header));
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
         return CMSG_RET_ERR;
     }
     return CMSG_RET_OK;
@@ -734,6 +824,7 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
         CMSG_LOG_SERVER_ERROR (server,
                                "Received a message type the server doesn't support: %d.",
                                server_request->msg_type);
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
         return CMSG_RET_ERR;
     }
 
@@ -762,6 +853,7 @@ cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code statu
         CMSG_DEBUG (CMSG_ERROR,
                     "[SERVER] error: sending of response failed sent:%d of %d bytes.\n",
                     ret, (int) sizeof (header));
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
         return;
     }
     return;
@@ -831,6 +923,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
 
         cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
                                              server_request->method_index);
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
         return;
     }
     /* Method has executed normally and has a response to be sent.
@@ -854,6 +947,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         if (!buffer)
         {
             CMSG_LOG_SERVER_ERROR (server, "Unable to allocate memory for message.");
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
             return;
         }
 
@@ -867,7 +961,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
             CMSG_LOG_SERVER_ERROR (server,
                                    "Underpacked message data. Packed %d of %d bytes.", ret,
                                    packed_size);
-
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
             CMSG_FREE (buffer);
             return;
         }
@@ -876,7 +970,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
             CMSG_LOG_SERVER_ERROR
                 (server, "Overpacked message data. Packed %d of %d bytes.", ret,
                  packed_size);
-
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
             CMSG_FREE (buffer);
             return;
         }
@@ -896,6 +990,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
             CMSG_LOG_SERVER_ERROR (server,
                                    "sending if response failed send:%d of %d, error %s\n",
                                    send_ret, total_message_size, strerror (errno));
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
         }
 
         CMSG_FREE (buffer);

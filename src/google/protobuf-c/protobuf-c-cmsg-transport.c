@@ -33,15 +33,15 @@ cmsg_transport_write_id (cmsg_transport *tport)
         {
             char ip4[INET_ADDRSTRLEN];
             snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tcp[%s:%d]",
-                      inet_ntop (AF_INET, &(tport->config.socket.sockaddr.in), ip4,
+                      inet_ntop (AF_INET, &(tport->config.socket.sockaddr.in.sin_addr), ip4,
                                  INET_ADDRSTRLEN),
-                      tport->config.socket.sockaddr.in.sin_port);
+                      ntohs (tport->config.socket.sockaddr.in.sin_port));
             break;
         }
     case CMSG_TRANSPORT_RPC_TIPC:
     case CMSG_TRANSPORT_ONEWAY_TIPC:
         {
-            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tipc[%d]",
+            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tipc[%02d]",
                       tport->config.socket.sockaddr.tipc.addr.name.name.instance);
             break;
         }
@@ -56,9 +56,7 @@ cmsg_transport_write_id (cmsg_transport *tport)
         }
     case CMSG_TRANSPORT_BROADCAST:
         {
-            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tipcb[%d,%d]",
-                      tport->config.socket.sockaddr.tipc.addr.nameseq.lower,
-                      tport->config.socket.sockaddr.tipc.addr.nameseq.upper);
+            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tipcb");
             break;
         }
 #endif
@@ -292,7 +290,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     {
         //Normal socket shutdown case. Return other than TRANSPORT_OK to
         //have socket removed from select set.
-        ret = CMSG_RET_ERR;
+        ret = CMSG_RET_CLOSED;
     }
     else
     {

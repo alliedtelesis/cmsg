@@ -58,6 +58,17 @@ typedef struct _cmsg_server_s
     fd_set accepted_fdset;
     int accepted_fdmax;
 
+    //counter information
+    void *cntr_session;
+    // counterd counters
+    void *cntr_unknown_rpc;
+    void *cntr_rpc;
+    void *cntr_unknown_fields;
+    void *cntr_messages_queued;
+    void *cntr_messages_dropped;
+    void *cntr_connections_accepted;
+    void *cntr_connections_closed;
+    void *cntr_errors;
 #ifdef HAVE_CMSG_PROFILING
     cmsg_prof prof;
 #endif
@@ -84,6 +95,8 @@ int32_t cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t ti
 int32_t cmsg_server_receive (cmsg_server *server, int32_t server_socket);
 
 int32_t cmsg_server_accept (cmsg_server *server, int32_t listen_socket);
+
+void cmsg_server_accept_callback (cmsg_server *server, int32_t sock);
 
 void cmsg_server_invoke (cmsg_server *server,
                          uint32_t method_index,
