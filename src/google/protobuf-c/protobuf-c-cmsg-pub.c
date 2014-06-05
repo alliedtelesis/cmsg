@@ -617,6 +617,15 @@ cmsg_pub_server_accept (cmsg_pub *publisher, int32_t listen_socket)
     return cmsg_server_accept (publisher->sub_server, listen_socket);
 }
 
+void
+cmsg_pub_server_accept_callback (cmsg_pub *publisher, int32_t sd)
+{
+    if (publisher != NULL)
+    {
+        cmsg_server_accept_callback (publisher->sub_server, sd);
+    }
+}
+
 int32_t
 cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
