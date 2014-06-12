@@ -1,10 +1,15 @@
 #include "protobuf-c-cmsg-private.h"
 #include "protobuf-c-cmsg-sub.h"
 #include "protobuf-c-cmsg-error.h"
+#include "cntrd_app_defines.h"
 
 static cmsg_sub * _cmsg_create_subscriber_tipc (const char *server_name, int member_id,
                                                 int scope, ProtobufCService *descriptor,
                                                 cmsg_transport_type transport_type);
+
+extern cmsg_client *cmsg_client_create (cmsg_transport *transport,
+                                        const ProtobufCServiceDescriptor *descriptor);
+extern int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
 
 
 cmsg_sub *
@@ -116,6 +121,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     cmsg_client_closure_data closure_data = { NULL, NULL};
     cmsg_sub_entry_transport_info register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_INIT;
     cmsg_sub_entry_response *response = NULL;
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
     register_entry.add = 1;
     register_entry.method_name = method_name;
@@ -158,8 +164,9 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
         return CMSG_RET_ERR;
     }
 
-    register_client = cmsg_client_new (sub_client_transport,
-                                       &cmsg_sub_service_descriptor);
+    register_client = cmsg_client_create (sub_client_transport,
+                                          &cmsg_sub_service_descriptor);
+
     if (!register_client)
     {
         CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create register client for subscriber.",
@@ -167,6 +174,18 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
                             sub_client_transport->tport_id);
         CMSG_FREE (register_client);
         return CMSG_RET_ERR;
+    }
+
+    /* Append "_sub" suffix to the counter app_name for subscriber */
+    snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s_sub",
+              CMSG_COUNTER_APP_NAME_PREFIX,
+              subscriber->pub_server->service->descriptor->name,
+              sub_client_transport->tport_id);
+
+    /* Initialise counters */
+    if (cmsg_client_counter_create (register_client, app_name) != CMSG_RET_OK)
+    {
+        CMSG_LOG_GEN_ERROR ("[%s] Unable to create client counters.", app_name);
     }
 
     return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,
@@ -198,6 +217,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     cmsg_client_closure_data closure_data = { NULL, NULL};
     cmsg_sub_entry_transport_info register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_INIT;
     cmsg_sub_entry_response *response = NULL;
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
     CMSG_ASSERT_RETURN_VAL (subscriber != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (subscriber->pub_server != NULL, CMSG_RET_ERR);
@@ -246,8 +266,8 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
         return CMSG_RET_ERR;
     }
 
-    register_client = cmsg_client_new (sub_client_transport,
-                                       &cmsg_sub_service_descriptor);
+    register_client = cmsg_client_create (sub_client_transport,
+                                          &cmsg_sub_service_descriptor);
     if (!register_client)
     {
         CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create register client for subscriber.",
@@ -255,6 +275,18 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
                             sub_client_transport->tport_id);
         CMSG_FREE (register_client);
         return CMSG_RET_ERR;
+    }
+
+    /* Append "_sub" suffix to the counter app_name for subscriber */
+    snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s_sub",
+              CMSG_COUNTER_APP_NAME_PREFIX,
+              subscriber->pub_server->service->descriptor->name,
+              sub_client_transport->tport_id);
+
+    /* Initialise counters */
+    if (cmsg_client_counter_create (register_client, app_name) != CMSG_RET_OK)
+    {
+        CMSG_LOG_GEN_ERROR ("[%s] Unable to create client counters.", app_name);
     }
 
     return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,

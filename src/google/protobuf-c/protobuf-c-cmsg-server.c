@@ -17,12 +17,17 @@ static cmsg_server * _cmsg_create_server_tipc (const char *server_name, int memb
                                                int scope, ProtobufCService *descriptor,
                                                cmsg_transport_type transport_type);
 
-static int32_t cmsg_server_counter_create (cmsg_server *server,
-                                           ProtobufCService *service,
-                                           cmsg_transport *transport);
+int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
 
+
+/*
+ * This is an internal function which can be called from CMSG library.
+ * Applications should use cmsg_server_new() instead.
+ *
+ * Create a new CMSG server (but without creating counters).
+ */
 cmsg_server *
-cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
+cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
 {
     int32_t ret = 0;
     cmsg_server *server = NULL;
@@ -78,13 +83,13 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
         if (pthread_mutex_init (&server->queueing_state_mutex, NULL) != 0)
         {
             CMSG_LOG_SERVER_ERROR (server, "Init failed for queueing_state_mutex.");
-            return 0;
+            return NULL;
         }
 
         if (pthread_mutex_init (&server->queue_filter_mutex, NULL) != 0)
         {
             CMSG_LOG_SERVER_ERROR (server, "Init failed for queue_filter_mutex.");
-            return 0;
+            return NULL;
         }
 
         server->self_thread_id = pthread_self ();
@@ -102,13 +107,6 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
 
         pthread_mutex_unlock (&server->queueing_state_mutex);
 
-        // lastly, initialise our counters
-        if (cmsg_server_counter_create (server, service, transport) != CMSG_RET_OK)
-        {
-            CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create server counters.",
-                                service->descriptor->name, transport->tport_id);
-        }
-
 #ifdef HAVE_CMSG_PROFILING
         memset (&server->prof, 0, sizeof (cmsg_prof));
 #endif
@@ -117,6 +115,34 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
     {
         CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create server.", service->descriptor->name,
                             transport->tport_id);
+    }
+
+    return server;
+}
+
+
+/*
+ * Create a new CMSG server.
+ */
+cmsg_server *
+cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
+{
+    cmsg_server *server;
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
+
+    server = cmsg_server_create (transport, service);
+
+    /* initialise our counters */
+    if (server != NULL)
+    {
+        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
+                  CMSG_COUNTER_APP_NAME_PREFIX, service->descriptor->name,
+                  transport->tport_id);
+
+        if (cmsg_server_counter_create (server, app_name) != CMSG_RET_OK)
+        {
+            CMSG_LOG_GEN_ERROR ("[%s] Unable to create server counters.", app_name);
+        }
     }
 
     return server;
@@ -158,19 +184,12 @@ cmsg_server_destroy (cmsg_server *server)
 }
 
 // create counters
-static int32_t
-cmsg_server_counter_create (cmsg_server *server, ProtobufCService *service,
-                            cmsg_transport *transport)
+int32_t
+cmsg_server_counter_create (cmsg_server *server, char *app_name)
 {
-    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
     int32_t ret = CMSG_RET_ERR;
 
-    snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
-              CMSG_COUNTER_APP_NAME_PREFIX,
-              service->descriptor->name, transport->tport_id);
-
-    if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
-                            (void **)&server->cntr_session)
+    if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT, (void **)&server->cntr_session)
         == CNTRD_APP_SUCCESS )
     {
         cntrd_app_register_ctr_in_group (server->cntr_session, "Server Unknown RPC",
@@ -208,6 +227,7 @@ cmsg_server_counter_create (cmsg_server *server, ProtobufCService *service,
         cntrd_app_set_shutdown_instruction (app_name, CNTRD_SHUTDOWN_RESTART);
         ret = CMSG_RET_OK;
     }
+
     return ret;
 }
 

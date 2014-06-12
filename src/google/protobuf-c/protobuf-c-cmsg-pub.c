@@ -1,6 +1,7 @@
 #include "protobuf-c-cmsg-private.h"
 #include "protobuf-c-cmsg-pub.h"
 #include "protobuf-c-cmsg-error.h"
+#include "cntrd_app_defines.h"
 
 //macro for register handler implentation
 cmsg_sub_service_Service cmsg_pub_subscriber_service = CMSG_SUB_SERVICE_INIT (cmsg_pub_);
@@ -14,6 +15,10 @@ static void _cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
 static cmsg_pub * _cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
                                                ProtobufCServiceDescriptor *descriptor,
                                                cmsg_transport_type transport_type);
+
+extern cmsg_server *cmsg_server_create (cmsg_transport *transport,
+                                        ProtobufCService *service);
+extern int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
 
 
 int32_t
@@ -118,6 +123,8 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     CMSG_ASSERT_RETURN_VAL (pub_service != NULL, NULL);
 
     cmsg_pub *publisher = (cmsg_pub *) CMSG_CALLOC (1, sizeof (cmsg_pub));
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
+
     if (!publisher)
     {
         CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create publisher.", pub_service->name,
@@ -125,15 +132,25 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
         return NULL;
     }
 
-    publisher->sub_server =
-        cmsg_server_new (sub_server_transport,
-                         (ProtobufCService *) &cmsg_pub_subscriber_service);
+    publisher->sub_server = cmsg_server_create (sub_server_transport,
+                                                CMSG_SERVICE (cmsg_pub, subscriber));
     if (!publisher->sub_server)
     {
         CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create publisher sub_server.",
                             pub_service->name, sub_server_transport->tport_id);
         CMSG_FREE (publisher);
         return NULL;
+    }
+
+    /* Append "_pub" suffix to the counter app_name for publisher */
+    snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s_pub",
+              CMSG_COUNTER_APP_NAME_PREFIX,
+              pub_service->name, sub_server_transport->tport_id);
+
+    /* Initialise counters */
+    if (cmsg_server_counter_create (publisher->sub_server, app_name) != CMSG_RET_OK)
+    {
+        CMSG_LOG_GEN_ERROR ("[%s] Unable to create server counters.", app_name);
     }
 
     publisher->sub_server->message_processor = cmsg_pub_message_processor;
@@ -156,7 +173,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     if (pthread_mutex_init (&publisher->queue_mutex, NULL) != 0)
     {
         CMSG_LOG_PUBLISHER_ERROR (publisher, "Init failed for queue_mutex.");
-        return 0;
+        return NULL;
     }
 
     publisher->queue = g_queue_new ();
@@ -166,19 +183,19 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     if (pthread_cond_init (&publisher->queue_process_cond, NULL) != 0)
     {
         CMSG_LOG_PUBLISHER_ERROR (publisher, "Init failed for queue_process_cond.");
-        return 0;
+        return NULL;
     }
 
     if (pthread_mutex_init (&publisher->queue_process_mutex, NULL) != 0)
     {
         CMSG_LOG_PUBLISHER_ERROR (publisher, "Init failed queue_process_mutex.");
-        return 0;
+        return NULL;
     }
 
     if (pthread_mutex_init (&publisher->subscriber_list_mutex, NULL) != 0)
     {
         CMSG_LOG_PUBLISHER_ERROR (publisher, "Init failed for subscriber_list_mutex.");
-        return 0;
+        return NULL;
     }
 
     publisher->self_thread_id = pthread_self ();

@@ -22,17 +22,23 @@ static cmsg_client *_cmsg_create_client_tipc (const char *server, int member_id,
                                               ProtobufCServiceDescriptor *descriptor,
                                               cmsg_transport_type transport_type);
 
-static int32_t cmsg_client_counter_create (cmsg_client *client,
-                                           const ProtobufCServiceDescriptor *descriptor,
-                                           cmsg_transport *transport);
+int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
 
+
+/*
+ * This is an internal function which can be called from CMSG library.
+ * Applications should use cmsg_client_new() instead.
+ *
+ * Create a new CMSG client (but without creating counters).
+ */
 cmsg_client *
-cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *descriptor)
+cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor *descriptor)
 {
     CMSG_ASSERT_RETURN_VAL (transport != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
     cmsg_client *client = (cmsg_client *) CMSG_CALLOC (1, sizeof (cmsg_client));
+
     if (client)
     {
         client->base_service.destroy = NULL;
@@ -73,37 +79,28 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
         if (pthread_cond_init (&client->queue_process_cond, NULL) != 0)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_cond.");
-            return 0;
+            return NULL;
         }
 
         if (pthread_mutex_init (&client->queue_process_mutex, NULL) != 0)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_mutex.");
-            return 0;
+            return NULL;
         }
 
         if (pthread_mutex_init (&client->connection_mutex, NULL) != 0)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Init failed for connection_mutex.");
-            return 0;
+            return NULL;
         }
 
         client->self_thread_id = pthread_self ();
 
         cmsg_client_queue_filter_init (client);
 
-        // lastly, initialise our counters
-        if (cmsg_client_counter_create (client, descriptor, transport) != CMSG_RET_OK)
-        {
-            CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create client counters.",
-                                descriptor->name, transport->tport_id);
-        }
-
 #ifdef HAVE_CMSG_PROFILING
         memset (&client->prof, 0, sizeof (cmsg_prof));
 #endif
-        // lastly, initialise our counters
-
     }
     else
     {
@@ -113,6 +110,34 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
 
     return client;
 }
+
+
+/*
+ * Create a new CMSG client.
+ */
+cmsg_client *
+cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *descriptor)
+{
+    cmsg_client *client;
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
+
+    client = cmsg_client_create (transport, descriptor);
+
+    /* initialise our counters */
+    if (client != NULL)
+    {
+        snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
+                  CMSG_COUNTER_APP_NAME_PREFIX, descriptor->name, transport->tport_id);
+
+        if (cmsg_client_counter_create (client, app_name) != CMSG_RET_OK)
+        {
+            CMSG_LOG_GEN_ERROR ("[%s] Unable to create client counters.", app_name);
+        }
+    }
+
+    return client;
+}
+
 
 void
 cmsg_client_destroy (cmsg_client *client)
@@ -144,16 +169,10 @@ cmsg_client_destroy (cmsg_client *client)
 }
 
 // create counters
-static int32_t
-cmsg_client_counter_create (cmsg_client *client,
-                            const ProtobufCServiceDescriptor *descriptor,
-                            cmsg_transport *transport)
+int32_t
+cmsg_client_counter_create (cmsg_client *client, char *app_name)
 {
-    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
     int32_t ret = CMSG_RET_ERR;
-
-    snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
-              CMSG_COUNTER_APP_NAME_PREFIX, descriptor->name, transport->tport_id);
 
     if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
                             (void **)&(client->cntr_session))
