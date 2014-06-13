@@ -187,21 +187,21 @@ cmsg_server_counter_create (cmsg_server *server, ProtobufCService *service,
                                          &server->cntr_connections_accepted);
         cntrd_app_register_ctr_in_group (server->cntr_session, "Server Connect Closed",
                                          &server->cntr_connections_closed);
-        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors",
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors: General",
                                          &server->cntr_errors);
-        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Poll Errors",
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors: Poll",
                                          &server->cntr_poll_errors);
-        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Recv Errors",
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors: Recv",
                                          &server->cntr_recv_errors);
-        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Send Errors",
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors: Send",
                                          &server->cntr_send_errors);
-        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Pack Errors",
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors: Pack",
                                          &server->cntr_pack_errors);
-        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Memory Errors",
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors: Memory",
                                          &server->cntr_memory_errors);
-        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Protocol Errors",
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors: Protocol",
                                          &server->cntr_protocol_errors);
-        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Queue Errors",
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors: Queue",
                                          &server->cntr_queue_errors);
 
         /* Tell cntrd not to destroy the counter data in the shared memory */

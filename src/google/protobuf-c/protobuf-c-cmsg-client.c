@@ -171,21 +171,21 @@ cmsg_client_counter_create (cmsg_client *client,
                                          &client->cntr_messages_dropped);
         cntrd_app_register_ctr_in_group (client->cntr_session, "Client Connect Attempts",
                                          &client->cntr_connection_attempts);
-        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors",
+        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: General",
                                          &client->cntr_errors);
-        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Connect Errors",
+        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: Connect",
                                          &client->cntr_connect_errors);
-        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Recv Errors",
+        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: Recv",
                                          &client->cntr_recv_errors);
-        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Send Errors",
+        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: Send",
                                          &client->cntr_send_errors);
-        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Pack Errors",
+        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: Pack",
                                          &client->cntr_pack_errors);
-        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Memory Errors",
+        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: Memory",
                                          &client->cntr_memory_errors);
-        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Protocol Errors",
+        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: Protocol",
                                          &client->cntr_protocol_errors);
-        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Queue Errors",
+        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: Queue",
                                          &client->cntr_queue_errors);
 
         /* Tell cntrd not to destroy the counter data in the shared memory */
