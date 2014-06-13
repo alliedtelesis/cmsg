@@ -189,6 +189,20 @@ cmsg_server_counter_create (cmsg_server *server, ProtobufCService *service,
                                          &server->cntr_connections_closed);
         cntrd_app_register_ctr_in_group (server->cntr_session, "Server Errors",
                                          &server->cntr_errors);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Poll Errors",
+                                         &server->cntr_poll_errors);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Recv Errors",
+                                         &server->cntr_recv_errors);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Send Errors",
+                                         &server->cntr_send_errors);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Pack Errors",
+                                         &server->cntr_pack_errors);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Memory Errors",
+                                         &server->cntr_memory_errors);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Protocol Errors",
+                                         &server->cntr_protocol_errors);
+        cntrd_app_register_ctr_in_group (server->cntr_session, "Server Queue Errors",
+                                         &server->cntr_queue_errors);
 
         /* Tell cntrd not to destroy the counter data in the shared memory */
         cntrd_app_set_shutdown_instruction (app_name, CNTRD_SHUTDOWN_RESTART);
@@ -315,7 +329,7 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
         CMSG_LOG_SERVER_ERROR (server,
                                "An error occurred with receive poll (timeout %dms): %s.",
                                timeout_ms, strerror (errno));
-        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_poll_errors);
         return CMSG_RET_ERR;
     }
     else if (ret == 0)
@@ -433,7 +447,7 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
         CMSG_LOG_SERVER_ERROR (server,
                                "An error occurred with list receive poll (timeout: %dms): %s.",
                                timeout_ms, strerror (errno));
-        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_poll_errors);
         return CMSG_RET_ERR;
     }
     else if (ret == 0)
@@ -522,7 +536,7 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
         }
         else
         {
-            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_recv_errors);
         }
 
         return CMSG_RET_ERR;
@@ -732,7 +746,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     if (message == NULL)
     {
         CMSG_LOG_SERVER_ERROR (server, "Error unpacking the message. No message.");
-        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_pack_errors);
     }
 
     CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "unpack",
@@ -753,7 +767,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
             CMSG_LOG_SERVER_ERROR (server,
                                    "An error occurred with queue_lookup_filter: %s.",
                                    method_name);
-            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_queue_errors);
             // Free unpacked message prior to return
             protobuf_c_message_free_unpacked (message, allocator);
             return CMSG_RET_ERR;
@@ -805,7 +819,7 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
     {
         CMSG_LOG_SERVER_ERROR (server, "Sending of echo reply failed. Sent:%d of %u bytes.",
                                ret, (uint32_t) sizeof (header));
-        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_send_errors);
         return CMSG_RET_ERR;
     }
     return CMSG_RET_OK;
@@ -841,7 +855,7 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
         CMSG_LOG_SERVER_ERROR (server,
                                "Received a message type the server doesn't support: %d.",
                                server_request->msg_type);
-        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_protocol_errors);
         return CMSG_RET_ERR;
     }
 
@@ -870,7 +884,7 @@ cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code statu
         CMSG_DEBUG (CMSG_ERROR,
                     "[SERVER] error: sending of response failed sent:%d of %d bytes.\n",
                     ret, (int) sizeof (header));
-        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_send_errors);
         return;
     }
     return;
@@ -940,7 +954,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
 
         cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
                                              server_request->method_index);
-        cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+        cntrd_app_inc_ctr (server->cntr_session, server->cntr_memory_errors);
         return;
     }
     /* Method has executed normally and has a response to be sent.
@@ -964,7 +978,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         if (!buffer)
         {
             CMSG_LOG_SERVER_ERROR (server, "Unable to allocate memory for message.");
-            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_memory_errors);
             return;
         }
 
@@ -978,7 +992,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
             CMSG_LOG_SERVER_ERROR (server,
                                    "Underpacked message data. Packed %d of %d bytes.", ret,
                                    packed_size);
-            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_pack_errors);
             CMSG_FREE (buffer);
             return;
         }
@@ -987,7 +1001,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
             CMSG_LOG_SERVER_ERROR
                 (server, "Overpacked message data. Packed %d of %d bytes.", ret,
                  packed_size);
-            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_pack_errors);
             CMSG_FREE (buffer);
             return;
         }
@@ -1007,7 +1021,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
             CMSG_LOG_SERVER_ERROR (server,
                                    "sending if response failed send:%d of %d, error %s\n",
                                    send_ret, total_message_size, strerror (errno));
-            cntrd_app_inc_ctr (server->cntr_session, server->cntr_errors);
+            cntrd_app_inc_ctr (server->cntr_session, server->cntr_send_errors);
         }
 
         CMSG_FREE (buffer);
