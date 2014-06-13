@@ -69,6 +69,13 @@ typedef struct _cmsg_client_s
     void *cntr_messages_dropped;
     void *cntr_connection_attempts;
     void *cntr_errors;
+    void *cntr_connect_errors;
+    void *cntr_recv_errors;
+    void *cntr_send_errors;
+    void *cntr_pack_errors;
+    void *cntr_memory_errors;
+    void *cntr_protocol_errors;
+    void *cntr_queue_errors;
 #ifdef HAVE_CMSG_PROFILING
     cmsg_prof prof;
 #endif
