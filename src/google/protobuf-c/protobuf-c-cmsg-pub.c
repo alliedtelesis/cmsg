@@ -1,7 +1,10 @@
 #include "protobuf-c-cmsg-private.h"
 #include "protobuf-c-cmsg-pub.h"
 #include "protobuf-c-cmsg-error.h"
+
+#ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
+#endif
 
 //macro for register handler implentation
 cmsg_sub_service_Service cmsg_pub_subscriber_service = CMSG_SUB_SERVICE_INIT (cmsg_pub_);
@@ -123,7 +126,6 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     CMSG_ASSERT_RETURN_VAL (pub_service != NULL, NULL);
 
     cmsg_pub *publisher = (cmsg_pub *) CMSG_CALLOC (1, sizeof (cmsg_pub));
-    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
     if (!publisher)
     {
@@ -142,6 +144,9 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
         return NULL;
     }
 
+#ifdef HAVE_COUNTERD
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
+
     /* Append "_pub" suffix to the counter app_name for publisher */
     snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s_pub",
               CMSG_COUNTER_APP_NAME_PREFIX,
@@ -152,6 +157,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     {
         CMSG_LOG_GEN_ERROR ("[%s] Unable to create server counters.", app_name);
     }
+#endif
 
     publisher->sub_server->message_processor = cmsg_pub_message_processor;
 

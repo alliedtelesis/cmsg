@@ -300,4 +300,10 @@ void cmsg_prof_disable (cmsg_prof *perf);
 #define CMSG_PROF_DISABLE(ARGS...)
 #endif //HAVE_CMSG_PROFILING
 
+#ifdef HAVE_COUNTERD
+#define CMSG_COUNTER_INC(x, t) cntrd_app_inc_ctr(x->cntr_session, x->t)
+#else
+#define CMSG_COUNTER_INC(x, t)
+#endif //HAVE_COUNTERD
+
 #endif /* __CMSG_PRIVATE_H_ */

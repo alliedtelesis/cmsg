@@ -45,6 +45,13 @@ AC_ARG_ENABLE(vcstack, [  --enable-vcstack    Enable VCStack],
               fi)
 AM_CONDITIONAL(HAVE_VCSTACK, test $HAVE_VCSTACK = 1)
 
+# --- Check if counterd is enabled
+HAVE_COUNTERD=0
+AC_ARG_ENABLE(counterd, [  --enable-counterd    Enable counterd],
+              if test "x$enableval" = xyes ; then
+                HAVE_COUNTERD=1
+              fi)
+AM_CONDITIONAL(HAVE_COUNTERD, test $HAVE_COUNTERD = 1)
 
 # --- Check for the protobuf library. ---
 if test $BUILD_PROTOC_C = 1; then
@@ -163,4 +170,14 @@ AC_DEFINE_UNQUOTED(IS_LITTLE_ENDIAN, $is_little_endian)
 
 AC_OUTPUT(Makefile src/Makefile src/test/Makefile src/tools/Makefile pkgwriteinfo libprotobuf-c.pc)
 
+cat <<EOF
+
+$PACKAGE-$VERSION configuration summary:
+
+    Build proto-c .................... : ${BUILD_PROTOC_C}
+    Enable CMSG performance tools..... : ${HAVE_CMSG_PROFILING}
+    Enable VCStack.................... : ${HAVE_VCSTACK}
+    Enable counterd................... : ${HAVE_COUNTERD}
+
+EOF
 

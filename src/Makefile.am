@@ -54,7 +54,12 @@ libprotobuf_c_la_LDFLAGS = \
 -no-undefined \
 -version-info 0:0:0
 
-libprotobuf_c_la_LIBADD = -lglib-2.0 -lcntr
+
+libprotobuf_c_la_LIBADD = -lglib-2.0
+
+if HAVE_COUNTERD
+libprotobuf_c_la_LIBADD += -lcntr
+endif
 
 if HAVE_VCSTACK
 libprotobuf_c_la_SOURCES += \ 
