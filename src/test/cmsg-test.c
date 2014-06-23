@@ -421,7 +421,7 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
         strcpy (server_transport->config.cpg.group_name.value, "cpg_bm");
         server_transport->config.cpg.group_name.length = 6;
         cpg_server =
-            cmsg_server_new (server_transport, CMSG_SERVICE (my_package, my_service));
+            cmsg_server_new (server_transport, CMSG_SERVICE (cmsg, test));
 #endif
     }
     else if (transport_type == 4)

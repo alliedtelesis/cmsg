@@ -41,6 +41,8 @@ fi
 if [ $ENABLE_VCSTACK = 1 ]; then
     CONFIGURE_OPTIONS+="--enable-vcstack "
     CFLAGS_OPTIONS+="-DHAVE_VCSTACK "
+    CPPFLAGS+=" -I$(pwd)/../corosync/build/include "
+    LDFLAGS+=" -L$(pwd)/../corosync/build/lib "
 fi
 
 if [ $ENABLE_COUNTERD = 1 ]; then
@@ -52,7 +54,7 @@ fi
 
 ./configure --prefix=$(pwd)/build $CONFIGURE_OPTIONS \
     CPPFLAGS="$CPPFLAGS -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include/ -I$(pwd)/../../protobuf/build/include" \
-    LDFLAGS="-L$(pwd)/../../protobuf/build/lib" \
+    LDFLAGS="$LDFLAGS -L$(pwd)/../../protobuf/build/lib" \
     CFLAGS="$CFLAGS_OPTIONS"
 
 make

@@ -416,8 +416,9 @@ cmsg_transport_cpg_is_congested (cmsg_client *client)
         if ((cpg_error_count % 16) == 0)
         {
             CMSG_LOG_CLIENT_ERROR (client,
-                                   "Unable to get CPG flow control state - hndl %#llx %u",
-                                   client->connection.handle, cpg_rc);
+                                   "Unable to get CPG flow control state - hndl %llx %d",
+                                   (long long int)client->connection.handle,
+                                   (int)cpg_rc);
         }
         cpg_error_count++;
         return TRUE;
