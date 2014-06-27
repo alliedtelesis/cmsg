@@ -181,9 +181,9 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
   printer->Print(vars_, "const unsigned $lcfullname$_method_indices_by_name[] = {\n");
   for (int i = 0; i < n_methods; i++) {
     vars_["i"] = SimpleItoa(mi_array[i].i);
-    vars_["name"] = mi_array[i].name;
+    vars_["method"] = mi_array[i].name;
     vars_["comma"] = (i + 1 < n_methods) ? "," : " ";
-    printer->Print(vars_, "  $i$$comma$        /* $name$ */\n");
+    printer->Print(vars_, "  $i$$comma$        /* $method$ */\n");
   }
   printer->Print(vars_, "};\n");
 
