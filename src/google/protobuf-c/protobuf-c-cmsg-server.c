@@ -1047,7 +1047,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         if (send_ret < (int) total_message_size)
         {
             CMSG_LOG_SERVER_ERROR (server,
-                                   "sending if response failed send:%d of %d, error %s\n",
+                                   "sending of reply failed send:%d of %d, error %s\n",
                                    send_ret, total_message_size, strerror (errno));
             CMSG_COUNTER_INC (server, cntr_send_errors);
         }

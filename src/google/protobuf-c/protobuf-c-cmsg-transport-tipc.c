@@ -315,8 +315,8 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
     uint32_t dyn_len = 0;
     cmsg_header header_received;
     cmsg_header header_converted;
-    uint8_t *recv_buffer = 0;
-    uint8_t *buffer = 0;
+    uint8_t *recv_buffer = NULL;
+    uint8_t *buffer = NULL;
     uint8_t buf_static[512];
     const ProtobufCMessageDescriptor *desc;
     uint32_t extra_header_size;
@@ -362,8 +362,14 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
         // read the message
 
+        // Take into account that someone may have changed the size of the header
+        // and we don't know about it, make sure we receive all the information.
+        // Any TLV is taken into account in the header length.
+        dyn_len = header_converted.message_length +
+            header_converted.header_length - sizeof (cmsg_header);
+
         // There is no more data to read so exit.
-        if (header_converted.message_length == 0)
+        if (dyn_len == 0)
         {
             // May have been queued, dropped or there was no message returned
             CMSG_DEBUG (CMSG_INFO,
@@ -374,14 +380,19 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             return header_converted.status_code;
         }
 
-        // Take into account that someone may have changed the size of the header
-        // and we don't know about it, make sure we receive all the information.
-        dyn_len = header_converted.message_length +
-            header_converted.header_length - sizeof (cmsg_header);
-
         if (dyn_len > sizeof (buf_static))
         {
             recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
+            if (recv_buffer == NULL)
+            {
+                /* Didn't allocate memory for recv buffer.  This is an error.
+                 * Shut the socket down, it will reopen on the next api call.
+                 * Record and return an error. */
+                client->_transport->client_close (client);
+                CMSG_LOG_CLIENT_ERROR (client,
+                                       "Couldn't allocate memory for server reply (TLV + message), closed the socket");
+                return CMSG_STATUS_CODE_SERVICE_FAILED;
+            }
         }
         else
         {
@@ -405,46 +416,52 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
             cmsg_buffer_print (buffer, dyn_len);
 
-            //todo: call cmsg_client_response_message_processor
-            ProtobufCMessage *message = 0;
-            ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
-
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
-
-            desc = client->descriptor->methods[server_request.method_index].output;
-            message = protobuf_c_message_unpack (desc, allocator,
-                                                 header_converted.message_length,
-                                                 buffer);
-
-            // Free the allocated buffer
-            if (recv_buffer != (void *) buf_static)
+            /* Message is only returned if the server returned Success,
+             */
+            if (header_converted.status_code == CMSG_STATUS_CODE_SUCCESS)
             {
-                if (recv_buffer)
+                ProtobufCMessage *message = NULL;
+                ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
+
+                CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
+
+                desc = client->descriptor->methods[server_request.method_index].output;
+                message = protobuf_c_message_unpack (desc, allocator,
+                                                     header_converted.message_length,
+                                                     buffer);
+
+                // Free the allocated buffer
+                if (recv_buffer != (void *) buf_static)
                 {
-                    CMSG_FREE (recv_buffer);
-                    recv_buffer = 0;
+                    if (recv_buffer)
+                    {
+                        CMSG_FREE (recv_buffer);
+                        recv_buffer = NULL;
+                    }
                 }
-            }
 
-            // Msg not unpacked correctly
-            if (message == NULL)
-            {
-                CMSG_LOG_CLIENT_ERROR (client,
-                                       "Error unpacking response message. Msg length:%d",
-                                       header_converted.message_length);
+                // Msg not unpacked correctly
+                if (message == NULL)
+                {
+                    CMSG_LOG_CLIENT_ERROR (client,
+                                           "Error unpacking response message. Msg length:%d",
+                                           header_converted.message_length);
+                    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
+                                                 cmsg_prof_time_toc (&client->prof));
+                    return CMSG_STATUS_CODE_SERVICE_FAILED;
+                }
+                *messagePtPt = message;
                 CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
                                              cmsg_prof_time_toc (&client->prof));
-                return CMSG_STATUS_CODE_SERVICE_FAILED;
             }
-            *messagePtPt = message;
-            CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
-                                         cmsg_prof_time_toc (&client->prof));
-            return CMSG_STATUS_CODE_SUCCESS;
+
+            // Make sure we return the status from the server
+            return header_converted.status_code;
         }
         else
         {
-            CMSG_LOG_CLIENT_ERROR (client, "No data for recv. socket:%d, dyn_len:%d",
-                                   client->connection.socket, dyn_len);
+            CMSG_LOG_CLIENT_ERROR (client, "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
+                                   client->connection.socket, dyn_len, nbytes, errno, strerror (errno));
 
         }
         if (recv_buffer != (void *) buf_static)
@@ -452,7 +469,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
             if (recv_buffer)
             {
                 CMSG_FREE (recv_buffer);
-                recv_buffer = 0;
+                recv_buffer = NULL;
             }
         }
     }
@@ -467,7 +484,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
         nbytes = recv (client->connection.socket, recv_buffer, nbytes, MSG_WAITALL);
         CMSG_FREE (recv_buffer);
-        recv_buffer = 0;
+        recv_buffer = NULL;
     }
     else if (nbytes == 0)
     {
