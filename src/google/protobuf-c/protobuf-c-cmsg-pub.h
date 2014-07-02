@@ -31,7 +31,8 @@ typedef struct _cmsg_sub_entry_s
     char method_name[128];
     cmsg_client *client;
     cmsg_transport *transport;
-    time_t attempted_remove_time;
+    int in_use;
+    int to_be_removed;
 } cmsg_sub_entry;
 
 
