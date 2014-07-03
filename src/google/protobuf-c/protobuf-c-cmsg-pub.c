@@ -9,6 +9,8 @@
 //macro for register handler implentation
 cmsg_sub_service_Service cmsg_pub_subscriber_service = CMSG_SUB_SERVICE_INIT (cmsg_pub_);
 
+static void _cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry);
+
 static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
 
 static void _cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
@@ -340,34 +342,25 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
     CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] adding subscriber to list\n");
     CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] entry->method_name: %s\n", entry->method_name);
 
-    int add = 1;
-
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
-    // check if the entry already exists first
+    /* Delete old subscriber entry (if any) */
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
 
+        subscriber_list = g_list_next (subscriber_list);
+
         if (cmsg_sub_entry_compare (entry, list_entry))
         {
-            add = 0;
+            _cmsg_pub_subscriber_remove (publisher, list_entry);
         }
-
-        subscriber_list = g_list_next (subscriber_list);
     }
 
-    // if the entry isn't already in the list
-    if (add)
-    {
-        publisher->subscriber_list = g_list_append (publisher->subscriber_list, entry);
-        publisher->subscriber_count++;
-    }
-    else
-    {
-        CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] not a new entry doing nothing\n");
-    }
+    /* Add a new subscriber entry */
+    publisher->subscriber_list = g_list_append (publisher->subscriber_list, entry);
+    publisher->subscriber_count++;
 
 #ifndef DEBUG_DISABLED
     CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] listing all list entries\n");
