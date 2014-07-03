@@ -995,16 +995,20 @@ _cmsg_client_queue_process_all_internal (cmsg_client *client)
                                                  queue_entry->queue_buffer_size,
                                                  CMSG_TRANSPORT_CLIENT_SEND_TRIES);
 
-        CMSG_FREE (queue_entry->queue_buffer);
-        CMSG_FREE (queue_entry);
-        queue_entry = NULL;
-
         if (ret == CMSG_RET_ERR)
         {
             CMSG_LOG_CLIENT_ERROR (client,
                                    "Server not reachable after %d tries. (method: %s).",
                                    CMSG_TRANSPORT_CLIENT_SEND_TRIES,
                                    queue_entry->method_name);
+        }
+
+        CMSG_FREE (queue_entry->queue_buffer);
+        CMSG_FREE (queue_entry);
+        queue_entry = NULL;
+
+        if (ret == CMSG_RET_ERR)
+        {
             CMSG_COUNTER_INC (client, cntr_connect_errors);
             return CMSG_RET_ERR;
         }

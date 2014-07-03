@@ -559,22 +559,11 @@ cmsg_pub_subscriber_remove_all (cmsg_pub *publisher)
 int32_t
 cmsg_pub_server_receive (cmsg_pub *publisher, int32_t server_socket)
 {
-    int32_t ret = 0;
-
     CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
 
     CMSG_DEBUG (CMSG_INFO, "[PUB]\n");
 
-    ret = publisher->sub_server->_transport->server_recv (server_socket,
-                                                          publisher->sub_server);
-
-    if (ret < 0)
-    {
-        CMSG_DEBUG (CMSG_ERROR, "[SERVER] server receive failed\n");
-        return -1;
-    }
-
-    return ret;
+    return cmsg_server_receive (publisher->sub_server, server_socket);
 }
 
 int32_t
