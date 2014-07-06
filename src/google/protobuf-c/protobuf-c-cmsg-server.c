@@ -557,14 +557,15 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
                     "[SERVER] server receive failed, server %s transport type %d socket %d ret %d\n",
                     server->service->descriptor->name, server->_transport->type, socket,
                     ret);
-        if (ret == CMSG_RET_CLOSED)
-        {
-            CMSG_COUNTER_INC (server, cntr_connections_closed);
-        }
-        else
+
+        /* Do not count as an error if the peer has performed an orderly shutdown */
+        if (ret != CMSG_RET_CLOSED)
         {
             CMSG_COUNTER_INC (server, cntr_recv_errors);
         }
+
+        /* Caller function closes this socket on failure */
+        CMSG_COUNTER_INC (server, cntr_connections_closed);
 
         return CMSG_RET_ERR;
     }
