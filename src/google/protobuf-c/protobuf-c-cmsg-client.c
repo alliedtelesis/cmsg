@@ -75,8 +75,7 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         }
 
         client->queue = g_queue_new ();
-        client->queue_filter_hash_table = g_hash_table_new (cmsg_queue_filter_hash_function,
-                                                            cmsg_queue_filter_hash_equal_function);
+        client->queue_filter_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
 
         if (pthread_cond_init (&client->queue_process_cond, NULL) != 0)
         {

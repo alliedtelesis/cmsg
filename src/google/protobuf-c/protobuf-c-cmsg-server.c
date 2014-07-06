@@ -79,8 +79,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
         FD_ZERO (&server->accepted_fdset);
         server->maxQueueLength = 0;
         server->queue = g_queue_new ();
-        server->queue_filter_hash_table = g_hash_table_new (cmsg_queue_filter_hash_function,
-                                                            cmsg_queue_filter_hash_equal_function);
+        server->queue_filter_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
 
         if (pthread_mutex_init (&server->queueing_state_mutex, NULL) != 0)
         {

@@ -9,7 +9,8 @@
 //macro for register handler implentation
 cmsg_sub_service_Service cmsg_pub_subscriber_service = CMSG_SUB_SERVICE_INIT (cmsg_pub_);
 
-static void _cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry);
+static void _cmsg_pub_subscriber_delete (cmsg_pub *publisher, cmsg_sub_entry *entry);
+static void _cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link);
 
 static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
 
@@ -24,9 +25,15 @@ extern cmsg_server *cmsg_server_create (cmsg_transport *transport,
 extern int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
 
 
-int32_t
-cmsg_sub_entry_compare (cmsg_sub_entry *one, cmsg_sub_entry *two)
+/*
+ * Return 0 if two entries are same otherwise return -1.
+ */
+gint
+cmsg_sub_entry_compare (gconstpointer a, gconstpointer b)
 {
+    const cmsg_sub_entry *one = (const cmsg_sub_entry *) a;
+    const cmsg_sub_entry *two = (const cmsg_sub_entry *) b;
+
     if ((one->transport->config.socket.family == two->transport->config.socket.family) &&
         (one->transport->type == two->transport->type) &&
         (one->transport->config.socket.sockaddr.in.sin_addr.s_addr ==
@@ -51,10 +58,10 @@ cmsg_sub_entry_compare (cmsg_sub_entry *one, cmsg_sub_entry *two)
         // If either entry has been marked for deletion, don't match it
         (!one->to_be_removed && !two->to_be_removed))
     {
-        return TRUE;
+        return 0;
     }
 
-    return FALSE;
+    return -1;
 }
 
 int32_t
@@ -181,8 +188,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     }
 
     publisher->queue = g_queue_new ();
-    publisher->queue_filter_hash_table = g_hash_table_new (cmsg_queue_filter_hash_function,
-                                                           cmsg_queue_filter_hash_equal_function);
+    publisher->queue_filter_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
 
     if (pthread_cond_init (&publisher->queue_process_cond, NULL) != 0)
     {
@@ -336,6 +342,8 @@ cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher, cmsg_transport *t
 int32_t
 cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
+    GList *list = NULL;
+
     CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (entry != NULL, CMSG_RET_ERR);
 
@@ -344,18 +352,11 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
-    /* Delete old subscriber entry (if any) */
-    GList *subscriber_list = g_list_first (publisher->subscriber_list);
-    while (subscriber_list)
+    /* Delete an old subscriber entry if exists */
+    list = g_list_find_custom (publisher->subscriber_list, entry, cmsg_sub_entry_compare);
+    if (list != NULL)
     {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
-
-        subscriber_list = g_list_next (subscriber_list);
-
-        if (cmsg_sub_entry_compare (entry, list_entry))
-        {
-            _cmsg_pub_subscriber_remove (publisher, list_entry);
-        }
+        _cmsg_pub_subscriber_delete_link (publisher, list);
     }
 
     /* Add a new subscriber entry */
@@ -381,7 +382,42 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 
 
 /**
- * Delete a subscriber entry from the publisher.
+ * Delete and free a subscriber entry (by the specified link) from the publisher.
+ * If the entry is currently "in-use", the entry is marks as "to-be-removed",
+ * and will be removed later from cmsg_pub_invoke() after use.
+ *
+ * This function should be called after acquiring the lock on subscriber_list_mutex.
+ */
+static void
+_cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link)
+{
+    cmsg_sub_entry *entry = NULL;
+
+    entry = (cmsg_sub_entry *) link->data;
+
+    if (entry->in_use)
+    {
+        CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for deletion\n");
+        entry->to_be_removed = TRUE;
+    }
+    else
+    {
+        CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
+
+        link->data = NULL;
+
+        publisher->subscriber_list = g_list_delete_link (publisher->subscriber_list, link);
+        publisher->subscriber_count--;
+
+        cmsg_client_destroy (entry->client);
+        cmsg_transport_destroy (entry->transport);
+        CMSG_FREE (entry);
+    }
+}
+
+
+/**
+ * Delete and free a subscriber entry from the publisher.
  * If the entry is currently "in-use", the entry is marks as "to-be-removed",
  * and will be removed later from cmsg_pub_invoke() after use.
  *
@@ -390,39 +426,17 @@ cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
  * the lock on subscriber_list_mutex.
  */
 static void
-_cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry)
+_cmsg_pub_subscriber_delete (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
+    GList *link = NULL;
+
     CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] Removing subscriber entry->method_name: %s\n",
                 entry->method_name);
 
-    GList *list = NULL;
-    GList *list_next = NULL;
-
-    for (list = g_list_first (publisher->subscriber_list); list; list = list_next)
+    link = g_list_find_custom (publisher->subscriber_list, entry, cmsg_sub_entry_compare);
+    if (link != NULL)
     {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) list->data;
-        list_next = g_list_next (list);
-
-        if (cmsg_sub_entry_compare (list_entry, entry))
-        {
-            if (list_entry->in_use)
-            {
-                CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for deletion\n");
-                list_entry->to_be_removed = TRUE;
-            }
-            else
-            {
-                CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] deleting entry\n");
-                publisher->subscriber_list = g_list_remove (publisher->subscriber_list,
-                                                            list_entry);
-
-                cmsg_client_destroy (list_entry->client);
-                cmsg_transport_destroy (list_entry->transport);
-                CMSG_FREE (list_entry);
-                publisher->subscriber_count--;
-            }
-            break;
-        }
+        _cmsg_pub_subscriber_delete_link (publisher, link);
     }
 
 #ifndef DEBUG_DISABLED
@@ -449,7 +463,7 @@ cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry)
 
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
-    _cmsg_pub_subscriber_remove (publisher, entry);
+    _cmsg_pub_subscriber_delete (publisher, entry);
 
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 
@@ -464,19 +478,16 @@ int32_t
 cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
                                                cmsg_transport *transport)
 {
+    GList *list = NULL;
+    GList *list_next = NULL;
+
     CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (transport != NULL, CMSG_RET_ERR);
 
     CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] removing subscriber from list\n");
     CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] transport: type %d\n", transport->type);
 
-    GList *list;
-    GList *list_next;
-    time_t current_time = 0;
-
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
-
-    current_time = time (NULL);
 
     for (list = g_list_first (publisher->subscriber_list); list; list = list_next)
     {
@@ -489,7 +500,7 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
                         list_entry->method_name);
 
             cmsg_send_queue_free_all_by_transport (publisher->queue, transport);
-            _cmsg_pub_subscriber_remove (publisher, list_entry);
+            _cmsg_pub_subscriber_delete_link (publisher, list);
         }
     }
 
@@ -649,6 +660,8 @@ cmsg_pub_invoke (ProtobufCService *service,
     int ret = CMSG_RET_OK;
     cmsg_pub *publisher = (cmsg_pub *) service;
     const char *method_name;
+    GList *list = NULL;
+    GList *list_next = NULL;
 
     CMSG_ASSERT_RETURN_VAL (service != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (service->descriptor != NULL, CMSG_RET_ERR);
@@ -677,37 +690,17 @@ cmsg_pub_invoke (ProtobufCService *service,
 
     //for each entry in pub->subscriber_entry
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
-    GList *subscriber_list = g_list_first (publisher->subscriber_list);
-    while (subscriber_list)
+
+    for (list = g_list_first (publisher->subscriber_list); list; list = list_next)
     {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
+        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) list->data;
 
-        if (!list_entry)
+        // Sanity check and skip if this entry is not for the specified notification
+        if (!list_entry || !list_entry->client || !list_entry->transport ||
+            strcmp (method_name, list_entry->method_name) != 0)
         {
-            //skip this entry is not what we want
-            subscriber_list = g_list_next (subscriber_list);
-            continue;
-        }
-
-        if (!list_entry->client)
-        {
-            //skip this entry is not what we want
-            subscriber_list = g_list_next (subscriber_list);
-            continue;
-        }
-
-        if (!list_entry->transport)
-        {
-            //skip this entry is not what we want
-            subscriber_list = g_list_next (subscriber_list);
-            continue;
-        }
-
-        //just send to this client if it has subscribed for this notification before
-        if (strcmp (method_name, list_entry->method_name) != 0)
-        {
-            //skip this entry is not what we want
-            subscriber_list = g_list_next (subscriber_list);
+            //skip this entry - it is not what we want
+            list_next = g_list_next (list);
             continue;
         }
         else
@@ -771,20 +764,20 @@ cmsg_pub_invoke (ProtobufCService *service,
         // Now unset "in-use" mark after sending notification
         list_entry->in_use = FALSE;
 
-        subscriber_list = g_list_next (subscriber_list);
+        list_next = g_list_next (list);
 
         if (ret == CMSG_RET_ERR)
         {
             CMSG_LOG_PUBLISHER_ERROR (publisher,
                                       "Failed to send notification (method: %s) (queue: %d). Removing subscription",
                                       method_name, action == CMSG_QUEUE_FILTER_QUEUE);
-            _cmsg_pub_subscriber_remove (publisher, list_entry);
+            _cmsg_pub_subscriber_delete_link (publisher, list);
         }
         else
         {
             if (list_entry->to_be_removed)
             {
-                _cmsg_pub_subscriber_remove (publisher, list_entry);
+                _cmsg_pub_subscriber_delete_link (publisher, list);
             }
         }
     }

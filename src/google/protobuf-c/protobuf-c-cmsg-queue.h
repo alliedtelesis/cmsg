@@ -48,10 +48,6 @@ void cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *trans
 void cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transport,
                                                char *method_name);
 
-guint cmsg_queue_filter_hash_function (gconstpointer key);
-
-gboolean cmsg_queue_filter_hash_equal_function (gconstpointer a, gconstpointer b);
-
 void cmsg_queue_filter_set_all (GHashTable *queue_filter_hash_table,
                                 const ProtobufCServiceDescriptor *descriptor,
                                 cmsg_queue_filter_type filter_type);

@@ -270,25 +270,6 @@ cmsg_receive_queue_free_all (GQueue *queue)
 /*****************************************************************************/
 /*****************************************************************************/
 
-guint
-cmsg_queue_filter_hash_function (gconstpointer key)
-{
-    char *string = (char *) key;
-    guint hash = 0;
-    int i = 0;
-
-    for (i = 0; string[i] != 0; i++)
-        hash += (guint) string[i];
-
-    return (guint) hash;
-}
-
-gboolean
-cmsg_queue_filter_hash_equal_function (gconstpointer a, gconstpointer b)
-{
-    return (strcmp ((char *) a, (char *) b) == 0);
-}
-
 void
 cmsg_queue_filter_set_all (GHashTable *queue_filter_hash_table,
                            const ProtobufCServiceDescriptor *descriptor,

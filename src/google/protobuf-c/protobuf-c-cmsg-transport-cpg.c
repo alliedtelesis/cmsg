@@ -604,35 +604,6 @@ cmsg_transport_cpg_client_get_socket (cmsg_client *client)
 }
 
 
-/**
- * Private function used by the hash table for cpg group names.
- *
- * Name is a string so add all characters together to generate a hash
- */
-static guint
-cmsg_transport_cpg_group_hash_function (gconstpointer key)
-{
-    char *string = (char *) key;
-    guint hash = 0;
-    int i = 0;
-
-    for (i = 0; string[i] != 0; i++)
-        hash += (guint) string[i];
-
-    return (guint) hash;
-}
-
-
-/**
- * Private function used by the hash table for cpg handles.
- */
-static gboolean
-cmsg_transport_cpg_group_equal_function (gconstpointer a, gconstpointer b)
-{
-    return (strcmp ((char *) a, (char *) b) == 0);
-}
-
-
 int32_t
 cmsg_transport_cpg_send_called_multi_threads_enable (cmsg_transport *transport,
                                                      uint32_t enable)
@@ -695,9 +666,7 @@ cmsg_transport_cpg_init (cmsg_transport *transport)
 
     if (cpg_group_name_to_server_hash_table_h == NULL)
     {
-        cpg_group_name_to_server_hash_table_h =
-            g_hash_table_new (cmsg_transport_cpg_group_hash_function,
-                              cmsg_transport_cpg_group_equal_function);
+        cpg_group_name_to_server_hash_table_h = g_hash_table_new (g_str_hash, g_str_equal);
     }
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
