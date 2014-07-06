@@ -195,11 +195,13 @@ cmsg_client_counter_create (cmsg_client *client, char *app_name)
         cntrd_app_register_ctr_in_group (client->cntr_session, "Client Msgs Dropped",
                                          &client->cntr_messages_dropped);
         cntrd_app_register_ctr_in_group (client->cntr_session, "Client Connect Attempts",
-                                         &client->cntr_connection_attempts);
+                                         &client->cntr_connect_attempts);
+        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Connect Failures",
+                                         &client->cntr_connect_failures);
         cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: General",
                                          &client->cntr_errors);
-        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: Connect",
-                                         &client->cntr_connect_errors);
+        cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: Connection",
+                                         &client->cntr_connection_errors);
         cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: Recv",
                                          &client->cntr_recv_errors);
         cntrd_app_register_ctr_in_group (client->cntr_session, "Client Errors: Send",
@@ -248,9 +250,16 @@ cmsg_client_connect (cmsg_client *client)
     }
     else
     {
-        ret = client->_transport->connect (client);
         // count the connection attempt
-        CMSG_COUNTER_INC (client, cntr_connection_attempts);
+        CMSG_COUNTER_INC (client, cntr_connect_attempts);
+
+        ret = client->_transport->connect (client);
+
+        if (ret < 0)
+        {
+            // count the connection failure
+            CMSG_COUNTER_INC (client, cntr_connect_failures);
+        }
     }
 
     return ret;
@@ -298,7 +307,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                         method_name, connect_error);
-        CMSG_COUNTER_INC (client, cntr_connect_errors);
         return CMSG_RET_ERR;
     }
     method_length = strlen (method_name) + 1;
@@ -410,7 +418,6 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
             CMSG_LOG_DEBUG ("[CLIENT] couldn't reconnect client! (method: %s, error: %d)",
                             method_name, connect_error);
 
-            CMSG_COUNTER_INC (client, cntr_connect_errors);
             CMSG_FREE (buffer);
             return CMSG_RET_ERR;
         }
@@ -791,7 +798,7 @@ cmsg_client_get_socket (cmsg_client *client)
     else
     {
         CMSG_LOG_CLIENT_ERROR (client, "Failed to get socket. Client not connected.");
-        CMSG_COUNTER_INC (client, cntr_connect_errors);
+        CMSG_COUNTER_INC (client, cntr_connection_errors);
         return -1;
     }
 
@@ -824,7 +831,6 @@ cmsg_client_send_echo_request (cmsg_client *client)
     if (client->state != CMSG_CLIENT_STATE_CONNECTED)
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected (error: %d)", connect_error);
-        CMSG_COUNTER_INC (client, cntr_connect_errors);
         return -1;
     }
 
@@ -866,7 +872,6 @@ cmsg_client_send_echo_request (cmsg_client *client)
         {
             CMSG_LOG_DEBUG ("[CLIENT] couldn't reconnect client! (error: %d)",
                             connect_error);
-            CMSG_COUNTER_INC (client, cntr_connect_errors);
             return -1;
         }
     }
@@ -1008,7 +1013,6 @@ _cmsg_client_queue_process_all_internal (cmsg_client *client)
 
         if (ret == CMSG_RET_ERR)
         {
-            CMSG_COUNTER_INC (client, cntr_connect_errors);
             return CMSG_RET_ERR;
         }
 
@@ -1045,7 +1049,6 @@ _cmsg_client_queue_process_all_direct (cmsg_client *client)
 
         CMSG_LOG_CLIENT_ERROR (client, "Server not reachable after %d tries.",
                                CMSG_TRANSPORT_CLIENT_SEND_TRIES);
-        CMSG_COUNTER_INC (client, cntr_connect_errors);
     }
 
     return ret;
@@ -1082,7 +1085,6 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                         method_name, connect_error);
-        CMSG_COUNTER_INC (client, cntr_connect_errors);
         return CMSG_RET_ERR;
     }
 
@@ -1139,7 +1141,6 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
         {
             CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                             method_name, connect_error);
-            CMSG_COUNTER_INC (client, cntr_connect_errors);
             return CMSG_RET_ERR;
         }
     }
@@ -1208,7 +1209,6 @@ _cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_
     else
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected, error: %d)", ret);
-        CMSG_COUNTER_INC (client, cntr_connect_errors);
     }
     return CMSG_RET_ERR;
 }

@@ -67,9 +67,10 @@ typedef struct _cmsg_client_s
     void *cntr_unknown_fields;
     void *cntr_messages_queued;
     void *cntr_messages_dropped;
-    void *cntr_connection_attempts;
+    void *cntr_connect_attempts;
+    void *cntr_connect_failures;
     void *cntr_errors;
-    void *cntr_connect_errors;
+    void *cntr_connection_errors;
     void *cntr_recv_errors;
     void *cntr_send_errors;
     void *cntr_pack_errors;
