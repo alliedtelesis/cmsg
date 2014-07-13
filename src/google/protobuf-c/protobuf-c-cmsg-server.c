@@ -558,8 +558,13 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
                     server->service->descriptor->name, server->_transport->type, socket,
                     ret);
 
+        /* Count an unknown method error separately */
+        if (ret == CMSG_RET_METHOD_NOT_FOUND)
+        {
+            CMSG_COUNTER_INC (server, cntr_unknown_rpc);
+        }
         /* Do not count as an error if the peer has performed an orderly shutdown */
-        if (ret != CMSG_RET_CLOSED)
+        else if (ret != CMSG_RET_CLOSED)
         {
             CMSG_COUNTER_INC (server, cntr_recv_errors);
         }

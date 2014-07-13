@@ -188,6 +188,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         // Header is good so make use of it.
         server_request.msg_type = header_converted.msg_type;
         server_request.message_length = header_converted.message_length;
+        server_request.method_index = UNDEFINED_METHOD;
+        memset (&(server_request.method_name_recvd), 0, CMSG_SERVER_REQUEST_MAX_NAME_LENGTH);
 
         extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
@@ -232,13 +234,17 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "receive",
                                      cmsg_prof_time_toc (&server->prof));
 
-        if (cmsg_tlv_header_process (buffer_data, &server_request, extra_header_size,
-                                     server->service->descriptor) ==
-            CMSG_RET_METHOD_NOT_FOUND)
+        ret = cmsg_tlv_header_process (buffer_data, &server_request, extra_header_size,
+                                       server->service->descriptor);
+
+        if (ret != CMSG_RET_OK)
         {
-            cmsg_server_empty_method_reply_send (server,
-                                                 CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,
-                                                 UNDEFINED_METHOD);
+            if (ret == CMSG_RET_METHOD_NOT_FOUND)
+            {
+                cmsg_server_empty_method_reply_send (server,
+                                                     CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,
+                                                     UNDEFINED_METHOD);
+            }
         }
         else
         {

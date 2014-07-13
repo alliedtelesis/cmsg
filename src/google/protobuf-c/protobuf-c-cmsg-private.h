@@ -70,6 +70,7 @@
 #define CMSG_RECV_BUFFER_SZ                        512
 #define CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT    3000  //ms
 #define CMSG_TRANSPORT_CLIENT_SEND_TRIES           10
+#define CMSG_SERVER_REQUEST_MAX_NAME_LENGTH        128
 
 #define CMSG_TLV_SIZE(x) ((2 * sizeof (uint32_t)) + (x))
 
@@ -226,7 +227,7 @@ typedef struct _cmsg_server_request_s
     cmsg_msg_type msg_type;
     uint32_t message_length;
     uint32_t method_index;
-    char method_name_recvd[128];
+    char method_name_recvd[CMSG_SERVER_REQUEST_MAX_NAME_LENGTH];
 } cmsg_server_request;
 
 uint32_t cmsg_common_uint32_to_le (uint32_t le);

@@ -204,6 +204,11 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
     return CMSG_RET_OK;
 }
 
+
+/**
+ * Process the tlv header(s). Performs error checking on the received tlv header(s), and
+ * processes the information sent in them.
+ */
 int
 cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
                          uint32_t extra_header_size,
@@ -212,43 +217,66 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
     cmsg_tlv_method_header *tlv_method_header;
     cmsg_tlv_header *tlv_header;
 
-    while (extra_header_size > 0)
+    /* If there is no tlv header, we have nothing to process */
+    if (extra_header_size == 0)
+    {
+        return CMSG_RET_OK;
+    }
+
+    /* Make sure that there is at least enough extra_header_size for the minimum tlv
+     * header */
+    while (extra_header_size >= CMSG_TLV_SIZE (0))
     {
         tlv_header = (cmsg_tlv_header *) buf;
         tlv_header->type = ntohl (tlv_header->type);
         tlv_header->tlv_value_length = ntohl (tlv_header->tlv_value_length);
 
-        switch (tlv_header->type)
+        /* Make sure there is enough extra_header_size for the entire tlv header */
+        if (extra_header_size >= CMSG_TLV_SIZE (tlv_header->tlv_value_length))
         {
-        case CMSG_TLV_METHOD_TYPE:
-            tlv_method_header = (cmsg_tlv_method_header *) buf;
-
-            server_request->method_index =
-                           protobuf_c_service_descriptor_get_method_index_by_name
-                                               (descriptor, tlv_method_header->method);
-            /*
-             * It is possible that we could receive a method that we do not know. In this
-             * case, there is nothing we can do to process the message. We need to reply
-             * to the client to unblock it (if the transport is two-way). Therefore, we
-             * overwrite the msg_type, and return CMSG_RET_METHOD_NOT_FOUND.
-             */
-            if (!(IS_METHOD_DEFINED (server_request->method_index)))
+            switch (tlv_header->type)
             {
-                CMSG_LOG_GEN_ERROR ("Undefined Method - %s", tlv_method_header->method);
-                return CMSG_RET_METHOD_NOT_FOUND;
+            case CMSG_TLV_METHOD_TYPE:
+                tlv_method_header = (cmsg_tlv_method_header *) buf;
+
+                server_request->method_index =
+                        protobuf_c_service_descriptor_get_method_index_by_name
+                        (descriptor, tlv_method_header->method);
+                /*
+                 * It is possible that we could receive a method that we do not know. In
+                 * this case, there is nothing we can do to process the message. We need to
+                 * reply to the client to unblock it (if the transport is two-way).
+                 * Therefore, we overwrite the msg_type, and return
+                 * CMSG_RET_METHOD_NOT_FOUND.
+                 */
+                if (!(IS_METHOD_DEFINED (server_request->method_index)))
+                {
+                    CMSG_LOG_GEN_INFO ("Undefined Method - %s", tlv_method_header->method);
+                    return CMSG_RET_METHOD_NOT_FOUND;
+                }
+
+                strncpy (server_request->method_name_recvd, tlv_method_header->method,
+                         MIN (tlv_method_header->method_length, CMSG_SERVER_REQUEST_MAX_NAME_LENGTH));
+                break;
+
+            default:
+                CMSG_LOG_GEN_ERROR ("Processing TLV header, bad TLV type value - %d",
+                                    tlv_header->type);
+                return CMSG_RET_ERR;
             }
-
-            strncpy (server_request->method_name_recvd, tlv_method_header->method,
-                     tlv_method_header->method_length);
-            break;
-
-        default:
-            CMSG_LOG_GEN_ERROR ("Processing TLV header, bad TLV type value - %d",
-                                tlv_header->type);
-            return CMSG_RET_ERR;
         }
+
         buf = buf + CMSG_TLV_SIZE (tlv_header->tlv_value_length);
         extra_header_size = extra_header_size - CMSG_TLV_SIZE (tlv_header->tlv_value_length);
+    }
+
+    /* At this point, there should be no extra_header_size left over. If there is, this
+     * is a problem that we should track. */
+    if (extra_header_size != 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Finished processing TLV header, %u bytes unused",
+                            extra_header_size);
+        return CMSG_RET_ERR;
     }
 
     return CMSG_RET_OK;

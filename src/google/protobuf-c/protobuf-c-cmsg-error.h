@@ -45,6 +45,8 @@
 /* User this error for general messages */
 #define CMSG_LOG_GEN_ERROR(msg, ...)  syslog (LOG_ERR | LOG_LOCAL6, "CMSG(%d): " msg, __LINE__, ## __VA_ARGS__)
 
+#define CMSG_LOG_GEN_INFO(msg, ...)  syslog (LOG_INFO | LOG_LOCAL6, "CMSG(%d): " msg, __LINE__, ## __VA_ARGS__)
+
 /* These errors are intended to assert preconditions.  Failure should be unexpected. */
 #define CMSG_ASSERT_RETURN_VAL(cond, retval) \
     do { \
