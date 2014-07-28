@@ -778,8 +778,12 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
 
     if (message == NULL)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Error unpacking the message. No message.");
+        CMSG_LOG_SERVER_ERROR (server,
+                               "Error unpacking the message for method %s. No message.",
+                               method_name);
         CMSG_COUNTER_INC (server, cntr_pack_errors);
+
+        return CMSG_RET_ERR;
     }
 
     CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "unpack",
