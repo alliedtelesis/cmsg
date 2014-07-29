@@ -281,7 +281,7 @@ cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
         if (list_entry->client == NULL)
         {
-            CMSG_LOG_PUBLISHER_ERROR (publisher,
+            CMSG_LOG_PUBLISHER_DEBUG (publisher,
                                       "[PUB] [LIST] Couldn't get subscriber client!\n");
 
             pthread_mutex_unlock (&publisher->subscriber_list_mutex);
@@ -291,7 +291,7 @@ cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
         {
             if (cmsg_client_connect (list_entry->client) != CMSG_RET_OK)
             {
-                CMSG_LOG_PUBLISHER_ERROR (publisher,
+                CMSG_LOG_PUBLISHER_DEBUG (publisher,
                                           "[PUB] [LIST] Couldn't connect to subscriber!\n");
 
                 pthread_mutex_unlock (&publisher->subscriber_list_mutex);
