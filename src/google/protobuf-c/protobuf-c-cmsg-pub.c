@@ -889,6 +889,23 @@ cmsg_pub_queue_enable (cmsg_pub *publisher)
     cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_QUEUE);
 }
 
+void
+cmsg_pub_queue_free_all (cmsg_pub *publisher)
+{
+    pthread_mutex_lock (&publisher->queue_mutex);
+    cmsg_send_queue_free_all (publisher->queue);
+    pthread_mutex_unlock (&publisher->queue_mutex);
+
+    if (publisher->self_thread_id != pthread_self ())
+    {
+        //send signal to  cmsg_pub_queue_process_all
+        pthread_mutex_lock (&publisher->queue_process_mutex);
+        publisher->queue_process_count = -1;
+        pthread_cond_signal (&publisher->queue_process_cond);
+        pthread_mutex_unlock (&publisher->queue_process_mutex);
+    }
+}
+
 int32_t
 cmsg_pub_queue_disable (cmsg_pub *publisher)
 {

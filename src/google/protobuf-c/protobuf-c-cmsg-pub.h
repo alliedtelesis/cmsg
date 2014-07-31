@@ -120,6 +120,8 @@ int32_t cmsg_pub_subscribe (cmsg_sub_service_Service *service,
 //queue api
 void cmsg_pub_queue_enable (cmsg_pub *publisher);
 
+void cmsg_pub_queue_free_all (cmsg_pub *publisher);
+
 int32_t cmsg_pub_queue_disable (cmsg_pub *publisher);
 
 uint32_t cmsg_pub_queue_get_length (cmsg_pub *publisher);
