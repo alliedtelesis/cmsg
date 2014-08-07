@@ -20,13 +20,13 @@
 
 // Modified to implement C code by Dave Benson.
 
-#include <google/protobuf/compiler/c/c_file.h>
-#include <google/protobuf/compiler/c/c_enum.h>
-#include <google/protobuf/compiler/c/c_service.h>
-#include <google/protobuf/compiler/c/c_atl_generator.h>
-#include <google/protobuf/compiler/c/c_extension.h>
-#include <google/protobuf/compiler/c/c_helpers.h>
-#include <google/protobuf/compiler/c/c_message.h>
+#include <protoc-cmsg/c_file.h>
+#include <protoc-cmsg/c_enum.h>
+#include <protoc-cmsg/c_service.h>
+#include <protoc-cmsg/c_atl_generator.h>
+#include <protoc-cmsg/c_extension.h>
+#include <protoc-cmsg/c_helpers.h>
+#include <protoc-cmsg/c_message.h>
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/descriptor.pb.h>
 

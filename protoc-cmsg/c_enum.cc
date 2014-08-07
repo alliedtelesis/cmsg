@@ -23,8 +23,8 @@
 #include <set>
 #include <map>
 
-#include <google/protobuf/compiler/c/c_enum.h>
-#include <google/protobuf/compiler/c/c_helpers.h>
+#include <protoc-cmsg/c_enum.h>
+#include <protoc-cmsg/c_helpers.h>
 #include <google/protobuf/io/printer.h>
 
 namespace google {

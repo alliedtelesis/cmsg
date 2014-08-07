@@ -32,7 +32,7 @@
 
 #include <map>
 
-#include <google/protobuf/compiler/c/c_generator.h>
+#include <protoc-cmsg/c_generator.h>
 #include <google/protobuf/compiler/importer.h>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>

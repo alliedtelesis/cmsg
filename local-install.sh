@@ -50,7 +50,7 @@ if [ $ENABLE_COUNTERD = 1 ]; then
     CFLAGS_OPTIONS+="-DHAVE_COUNTERD "
 fi
 
-./bootstrap
+./autogen.sh
 
 ./configure --prefix=$(pwd)/build $CONFIGURE_OPTIONS \
     CPPFLAGS="$CPPFLAGS -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include/ -I$(pwd)/../../protobuf/build/include" \

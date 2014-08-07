@@ -179,6 +179,53 @@ EXTRA_DIST += \
 	t/generated-code2/common-test-arrays.h
 
 #
+# protoc-cmsg
+#
+
+if BUILD_PROTOC_CMSG
+
+bin_PROGRAMS += protoc-cmsg/protoc-cmsg
+protoc_cmsg_protoc_cmsg_SOURCES = \
+	protoc-cmsg/c_atl_generator.cc \
+	protoc-cmsg/c_atl_generator.h \
+	protoc-cmsg/c_bytes_field.cc \
+	protoc-cmsg/c_bytes_field.h \
+	protoc-cmsg/c_enum.cc \
+	protoc-cmsg/c_enum.h \
+	protoc-cmsg/c_enum_field.cc \
+	protoc-cmsg/c_enum_field.h \
+	protoc-cmsg/c_extension.cc \
+	protoc-cmsg/c_extension.h \
+	protoc-cmsg/c_field.cc \
+	protoc-cmsg/c_field.h \
+	protoc-cmsg/c_file.cc \
+	protoc-cmsg/c_file.h \
+	protoc-cmsg/c_generator.cc \
+	protoc-cmsg/c_generator.h \
+	protoc-cmsg/c_helpers.cc \
+	protoc-cmsg/c_helpers.h \
+	protoc-cmsg/c_message.cc \
+	protoc-cmsg/c_message.h \
+	protoc-cmsg/c_message_field.cc \
+	protoc-cmsg/c_message_field.h \
+	protoc-cmsg/c_primitive_field.cc \
+	protoc-cmsg/c_primitive_field.h \
+	protoc-cmsg/c_service.cc \
+	protoc-cmsg/c_service.h \
+	protoc-cmsg/c_string_field.cc \
+	protoc-cmsg/c_string_field.h \
+	protoc-cmsg/main.cc
+protoc_cmsg_protoc_cmsg_CXXFLAGS = \
+	$(AM_CXXFLAGS) \
+	$(protobuf_CFLAGS)
+protoc_cmsg_protoc_cmsg_LDADD = \
+	$(protobuf_LIBS) \
+	-lprotoc \
+	-lprotobuf
+
+endif # BUILD_PROTOC_CMSG
+
+#
 #
 #
 

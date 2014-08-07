@@ -27,7 +27,7 @@
 #include <vector>
 #include <fstream>
 #include <google/protobuf/stubs/common.h>
-#include <google/protobuf/compiler/c/c_field.h>
+#include <protoc-cmsg/c_field.h>
 
 namespace google {
 namespace protobuf {
