@@ -5,7 +5,7 @@
 #define PROTOBUF_C_NO_DEPRECATED
 #endif
 
-#include "protobuf-c-cmsg-sub-service.pb-c.h"
+#include "cmsg_sub_service.pb-c.h"
 void   cmsg_sub_entry_transport_info_init
                      (cmsg_sub_entry_transport_info         *message)
 {
@@ -309,7 +309,7 @@ const ProtobufCServiceDescriptor cmsg_sub_service_descriptor =
 {
   PROTOBUF_C_SERVICE_DESCRIPTOR_MAGIC,
   "cmsg.sub_service",
-  "sub_service",
+  "subscribe",
   "cmsg_sub_service",
   "cmsg",
   1,

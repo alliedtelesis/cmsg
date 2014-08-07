@@ -6,7 +6,7 @@
 #include "cmsg_queue.h"
 #include "cmsg_client.h"
 #include "cmsg_server.h"
-#include "protobuf-c-cmsg-sub-service.pb-c.h"
+#include "cmsg_sub_service.pb-c.h"
 
 
 /* This defines the minimum amount of time that should lapse between a remove subscriber

@@ -256,14 +256,14 @@ cmsg_libcmsg_la_SOURCES = \
 	cmsg/cmsg_server.h \
 	cmsg/cmsg_sub.c \
 	cmsg/cmsg_sub.h \
+	cmsg/cmsg_sub_service.pb-c.c \
+	cmsg/cmsg_sub_service.pb-c.h \
 	cmsg/cmsg_transport.c \
 	cmsg/cmsg_transport.h \
 	cmsg/cmsg_transport_loopback.c \
 	cmsg/cmsg_transport_tcp.c \
 	cmsg/cmsg_transport_tipc.c \
-	cmsg/cmsg_transport_udt.c \
-	cmsg/protobuf-c-cmsg-sub-service.pb-c.c \
-	cmsg/protobuf-c-cmsg-sub-service.pb-c.h
+	cmsg/cmsg_transport_udt.c
 
 cmsg_libcmsg_la_LIBADD = -lglib-2.0
 
