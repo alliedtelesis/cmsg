@@ -33,6 +33,13 @@ AM_COND_IF([HAVE_DOXYGEN],
             AC_SUBST(DOXYGEN_INPUT)
            ])
 
+PKG_CHECK_MODULES(GLIB, glib-2.0 >=  2.2.0, HAVE_GLIB="yes", sweep_config_ok="no")
+AC_SUBST(GLIB_CFLAGS)
+AC_SUBST(GLIB_LIBS)
+if test "x$HAVE_GLIB" != xyes ; then
+  AC_CHECK_LIB(glib-2.0, g_list_append, HAVE_GLIB="maybe", sweep_config_ok="no")
+fi
+
 PKG_PROG_PKG_CONFIG
 if test -n "$PKG_CONFIG"; then
     # Horrible hack for systems where the pkg-config install directory is simply wrong!
@@ -68,6 +75,37 @@ else
 fi
 AM_CONDITIONAL([BUILD_COMPILER], [test "x$enable_protoc" != "xno"])
 
+BUILD_PROTOC_CMSG=1
+AC_ARG_ENABLE(protoc-cmsg, [  --disable-protoc-cmsg   Suppress build of protoc-cmsg],
+if test "x$enableval" = xno ; then
+  BUILD_PROTOC_CMSG=0
+fi)
+AM_CONDITIONAL(BUILD_PROTOC_CMSG, test $BUILD_PROTOC_CMSG = 1)
+
+# --- Check CMSG PERF is enabled
+HAVE_CMSG_PROFILING=0
+AC_ARG_ENABLE(cmsg_prof, [  --enable-cmsg-prof      Enable build of cmsg profiling],
+if test "x$enableval" = xyes ; then
+  HAVE_CMSG_PROFILING=1
+fi)
+AM_CONDITIONAL(HAVE_CMSG_PROFILING, test $HAVE_CMSG_PROFILING = 1)
+
+# --- Check VCStack is enabled
+HAVE_VCSTACK=0
+AC_ARG_ENABLE(vcstack, [  --enable-vcstack        Enable VCStack],
+if test "x$enableval" = xyes ; then
+  HAVE_VCSTACK=1
+fi)
+AM_CONDITIONAL(HAVE_VCSTACK, test $HAVE_VCSTACK = 1)
+
+# --- Check if counterd is enabled
+HAVE_COUNTERD=0
+AC_ARG_ENABLE(counterd, [  --enable-counterd       Enable counterd],
+if test "x$enableval" = xyes ; then
+  HAVE_COUNTERD=1
+fi)
+AM_CONDITIONAL(HAVE_COUNTERD, test $HAVE_COUNTERD = 1)
+
 gl_LD_VERSION_SCRIPT
 
 gl_VALGRIND_TESTS
@@ -95,4 +133,10 @@ AC_MSG_RESULT([
 
         bigendian:              ${ac_cv_c_bigendian}
         protobuf version:       ${PROTOBUF_VERSION}
+
+    cmsg options
+        protoc-cmsg:            ${BUILD_PROTOC_CMSG}
+        cmsg-tools:             ${HAVE_CMSG_PROFILING}
+        VCStack:                ${HAVE_VCSTACK}
+        counterd:               ${HAVE_COUNTERD}
 ])
