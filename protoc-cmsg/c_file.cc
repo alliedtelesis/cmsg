@@ -91,7 +91,7 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
     "#ifndef PROTOBUF_C_$filename_identifier$_INCLUDED\n"
     "#define PROTOBUF_C_$filename_identifier$_INCLUDED\n"
     "\n"
-    "#include <google/protobuf-c/protobuf-c.h>\n"
+    "#include <cmsg/protobuf-c.h>\n"
     "\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
@@ -251,8 +251,8 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
     "\n"
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
-    "#include <google/protobuf-c/protobuf-c.h>\n"
-    "#include <google/protobuf-c/protobuf-c-cmsg.h>\n"
+    "#include <cmsg/protobuf-c.h>\n"
+    "#include <cmsg/cmsg.h>\n"
     "\n"
     "PROTOBUF_C_BEGIN_DECLS\n"
     "\n",
@@ -313,7 +313,7 @@ void FileGenerator::GenerateAtlApiHeader(io::Printer* printer) {
   printer->Print("#include <string.h>\n");
   printer->Print("#include <stdlib.h>\n");
   printer->Print("/* include the cmsg_client definition for the api function */\n");
-  printer->Print("#include <google/protobuf-c/protobuf-c-cmsg-client.h>\n");
+  printer->Print("#include <cmsg/cmsg_client.h>\n");
 
   printer->Print("\n");
 
@@ -349,7 +349,7 @@ void FileGenerator::GenerateAtlApiSource(io::Printer* printer) {
     "basename", GetAtlApiFilename(file_->name()));
 
   // include the cmsg error header so the api can output errors
-  printer->Print("#include <google/protobuf-c/protobuf-c-cmsg-error.h>\n");
+  printer->Print("#include <cmsg/cmsg_error.h>\n");
 
   for (int i = 0; i < file_->service_count(); i++) {
     atl_code_generators_[i]->GenerateClientCFile(printer);
@@ -381,7 +381,7 @@ void FileGenerator::GenerateAtlImplHeader(io::Printer* printer) {
   printer->Print("#include <string.h>\n");
   printer->Print("#include <stdlib.h>\n");
   // users of the impl will need the server definitions
-  printer->Print("#include <google/protobuf-c/protobuf-c-cmsg-server.h>\n");
+  printer->Print("#include <cmsg/cmsg_server.h>\n");
 
 
   printer->Print("\n");
