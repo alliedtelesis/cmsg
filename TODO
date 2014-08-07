@@ -4,15 +4,8 @@
 - ensure enums are int-size
 - per comments on the main page: wire_format_inl.h is now
   wire_format_lite_inl.h .. adjust somehow .. possibly write an email
-- rpc protocol should not hardcode method_index (although it's fine
-  for API to do so)
 - BUG? shouldn't enum..by_name[] and enum..by_number[] in the generated-code
   be static??
-- dispatch-within-dispatch protection needed (ie assert that you can't
-  recursively invoke the main-loop)
-- uh not sure i like the hash-based situation for required values.
-  perhaps we need a message-descriptor flag to help out. (Could always use
-  different hashes and sizes)
 
 --------------------
 --- NEEDED TESTS ---
@@ -26,7 +19,6 @@
   - message unpack alloc failures when allocating unknown field buffers
   - packed message corruption.
     - meta-todo: get a list of all the unpack errors together to check off
-- run gcov
 
 ---------------------
 --- DOCUMENTATION ---

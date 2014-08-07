@@ -1,183 +1,98 @@
-AC_INIT([protobuf-c], [0.15])
-AM_INIT_AUTOMAKE([1.9 foreign])
-PACKAGE=protobuf-c
-AC_PROG_CC
+AC_PREREQ(2.64)
+
+AC_INIT([protobuf-c],
+        [1.0.0],
+        [https://github.com/protobuf-c/protobuf-c/issues],
+        [protobuf-c],
+        [https://github.com/protobuf-c/protobuf-c])
+PACKAGE_DESCRIPTION="Protocol Buffers implementation in C"
+AC_SUBST(PACKAGE_DESCRIPTION)
+
+AC_CONFIG_SRCDIR([protobuf-c/protobuf-c.c])
+AC_CONFIG_AUX_DIR([build-aux])
+AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules subdir-objects])
+AC_PROG_CC_STDC
 AC_PROG_CXX
-AC_PROG_LIBTOOL
-AC_PATH_PROG(PROTOC, protoc)
-AC_CHECK_HEADERS(inttypes.h)
-AC_CHECK_HEADERS(sys/poll.h)
-AC_CHECK_HEADERS(sys/select.h)
-AC_CHECK_HEADERS(alloca.h)
-AC_CHECK_HEADERS(malloc.h)
-AC_CHECK_HEADERS(winsock.h)
-AC_CHECK_HEADERS(io.h)
-AC_CHECK_HEADERS(sys/uio.h)
-AC_CHECK_HEADERS(unistd.h)
+AC_PROG_LN_S
+AC_PROG_MKDIR_P
+AC_USE_SYSTEM_EXTENSIONS
+AC_SYS_LARGEFILE
+AC_CONFIG_MACRO_DIR([m4])
+AM_SILENT_RULES([yes])
+LT_INIT
 
-PKG_CHECK_MODULES(GLIB, glib-2.0 >=  2.2.0, HAVE_GLIB="yes", sweep_config_ok="no")
-AC_SUBST(GLIB_CFLAGS)
-AC_SUBST(GLIB_LIBS)
-if test "x$HAVE_GLIB" != xyes ; then
-  AC_CHECK_LIB(glib-2.0, g_list_append, HAVE_GLIB="maybe", sweep_config_ok="no")
+AC_CONFIG_HEADERS(config.h)
+AC_CONFIG_FILES([Makefile protobuf-c/libprotobuf-c.pc])
+
+AC_CHECK_PROGS([DOXYGEN], [doxygen])
+AM_CONDITIONAL([HAVE_DOXYGEN],
+               [test -n "$DOXYGEN"])
+AM_COND_IF([HAVE_DOXYGEN],
+           [AC_CONFIG_FILES([Doxyfile])
+            DOXYGEN_INPUT="${srcdir}/protobuf-c"
+            AC_SUBST(DOXYGEN_INPUT)
+           ])
+
+PKG_PROG_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+    # Horrible hack for systems where the pkg-config install directory is simply wrong!
+    if $PKG_CONFIG --variable=pc_path pkg-config 2>/dev/null | grep -q /libdata/; then
+        PKG_INSTALLDIR(['${prefix}/libdata/pkgconfig'])
+    else
+        PKG_INSTALLDIR
+    fi
 fi
 
-BUILD_PROTOC_C=1
-AC_ARG_ENABLE(protoc, [  --disable-protoc    Suppress build of protoc_c],
-              if test "x$enableval" = xno ; then
-	        BUILD_PROTOC_C=0
-              fi)
-AM_CONDITIONAL(BUILD_PROTOC_C, test $BUILD_PROTOC_C = 1)
-
-# --- Check CMSG PERF is enabled
-HAVE_CMSG_PROFILING=0
-AC_ARG_ENABLE(cmsg_prof, [  --enable-cmsg-prof    Enable build of cmsg profiling],
-              if test "x$enableval" = xyes ; then
-	        HAVE_CMSG_PROFILING=1
-              fi)
-AM_CONDITIONAL(HAVE_CMSG_PROFILING, test $HAVE_CMSG_PROFILING = 1)
-
-# --- Check VCStack is enabled
-HAVE_VCSTACK=0
-AC_ARG_ENABLE(vcstack, [  --enable-vcstack    Enable VCStack],
-              if test "x$enableval" = xyes ; then
-	        HAVE_VCSTACK=1
-              fi)
-AM_CONDITIONAL(HAVE_VCSTACK, test $HAVE_VCSTACK = 1)
-
-# --- Check if counterd is enabled
-HAVE_COUNTERD=0
-AC_ARG_ENABLE(counterd, [  --enable-counterd    Enable counterd],
-              if test "x$enableval" = xyes ; then
-                HAVE_COUNTERD=1
-              fi)
-AM_CONDITIONAL(HAVE_COUNTERD, test $HAVE_COUNTERD = 1)
-
-# --- Check for the protobuf library. ---
-if test $BUILD_PROTOC_C = 1; then
+AC_ARG_ENABLE([protoc],
+  AS_HELP_STRING([--disable-protoc], [Disable building protoc_c (also disables tests)]))
+if test "x$enable_protoc" != "xno"; then
   AC_LANG_PUSH([C++])
-  AC_CHECK_HEADER(google/protobuf/stubs/common.h,,
-		  [AC_MSG_ERROR([
-  ERROR: protobuf headers are required.
+  PKG_CHECK_MODULES([protobuf], [protobuf])
 
-  You must either install protobuf from google,
-  or if you have it installed in a custom location
-  you must add '-Iincludedir' to CXXFLAGS
-  and '-Llibdir' to LDFLAGS.
+  save_CPPFLAGS="$CPPFLAGS"
+  CPPFLAGS="$save_CPPFLAGS $protobuf_CFLAGS"
+  AC_CHECK_HEADERS([google/protobuf/compiler/command_line_interface.h],
+                   [],
+                   [AC_MSG_ERROR([required protobuf header file not found])])
+  CPPFLAGS="$save_CPPFLAGS"
 
-  You can download the google's protobuf library from
-  the following page:
-      http://code.google.com/p/protobuf/downloads/list
-
-  If you did not specify a prefix when installing
-  protobuf, try 
-    './configure CXXFLAGS=-I/usr/local/include LDFLAGS=-L/usr/local/lib'
-  In some 64-bit environments, try LDFLAGS=-L/usr/local/lib64.
-  ])])
-  pbc_savelibs="$LIBS"
-  LIBS="$LIBS -lprotoc -lprotobuf -lpthread"
-  AC_TRY_LINK([#include <google/protobuf/compiler/command_line_interface.h>],
-	      [google::protobuf::compiler::CommandLineInterface cli;],
-	      [],
-	      [AC_MSG_ERROR([
-  ERROR:
-  protobuf test program failed to link:
-  perhaps you need to add -Llibdir to your LDFLAGS.])])
-  LIBS="$pbc_savelibs"
-  AC_LANG_POP()
-
-  dnl We need $PROTOC around for the test code generation.
-  dnl This is merely needed for c++ packed-data comparison.
-  if test "x$PROTOC" = x; then
-    echo "ERROR: missing google's protoc program; adjust \$PATH (or use --disable-protoc)" 1>&2
-    exit 1
+  AC_ARG_VAR([PROTOC], [protobuf compiler command])
+  AC_PATH_PROG([PROTOC], [protoc], [],
+               [`$PKG_CONFIG --variable=exec_prefix protobuf`/bin:$PATH])
+  if test -z "$PROTOC"; then
+    AC_MSG_ERROR([Please install the protobuf compiler from https://code.google.com/p/protobuf/.])
   fi
-fi
-
-dnl  ------ define IS_LITTLE_ENDIAN ------
-# We try to use, where possible the headers <endian.h>, <mach/endian.h>,
-# and <machine/endian.h>, in that order.  They must define the macros
-# __LITTLE_ENDIAN and __BYTE_ORDER.  We structure the test so that if they 
-# do NOT define __LITTLE_ENDIAN or __BYTE_ORDER then we will disable
-# the little-endian optimizations, so the resulting code should be correct,
-# but not as fast, if there's a broken endian.h somewhere.
-#
-# If none of those headers exist, we fallback on a runtime test.
-knows_endianness=0
-AC_ARG_WITH([endianness],
-  [AS_HELP_STRING([--with-endianness=[little|big]],
-    [use the given endianness instead of testing headers (useful for mingw)])],
-  [],[with_endianness=no])
-AS_IF([test "$with_endianness" != "no"], [
-  AS_IF([test "$with_endianness" == "little"], [
-    is_little_endian=1
-  ], [
-    AS_IF([test "$with_endianness" == "big"], [
-      is_little_endian=0
-    ], [
-      AC_MSG_FAILURE([--with-endianness argument must be 'little' or 'big'])
-    ])
-  ])
-  knows_endianness=1
-])
-
-AS_IF([test $knows_endianness = 0], [
-  AC_CHECK_HEADERS([endian.h], [has_endian_h=1; knows_endianness=1], [has_endian_h=0])
-  if test $knows_endianness = 1 ; then
-    AC_TRY_COMPILE([#include <endian.h>], [
-      switch (1) { case __LITTLE_ENDIAN: break;
-		   case __BYTE_ORDER: break; } ],
-      [is_little_endian=0], [is_little_endian=1])
-  else
-
-    # ------------------ try <mach/endian.h>  ------------------
-    AC_CHECK_HEADERS([mach/endian.h], [has_mach_endian_h=1; knows_endianness=1], [has_mach_endian_h=0])
-    if test $knows_endianness = 1 ; then
-      AC_TRY_COMPILE([#include <mach/endian.h>],[
-        switch (1) { case __LITTLE_ENDIAN: break;
-		     case __BYTE_ORDER: break; } ],
-        [is_little_endian=0], [is_little_endian=1])
-    fi
-    # ------------------ try <machine/endian.h>  ------------------
-    if test $knows_endianness = 0; then
-      AC_CHECK_HEADERS([machine/endian.h], [has_machine_endian_h=1; knows_endianness=1], [has_machine_endian_h=0])
-      if test $knows_endianness = 1 ; then
-        AC_TRY_COMPILE([#include <machine/endian.h>],[
-	  switch (1) { case __LITTLE_ENDIAN: break;
-		       case __BYTE_ORDER: break; } ],
-	  [is_little_endian=0], [is_little_endian=1])
-      fi
-    fi
-    if test $knows_endianness = 0; then
-      AC_MSG_CHECKING([for little-endianness via runtime check])
-      AC_RUN_IFELSE([#include <inttypes.h>
-      int main() {
-        uint32_t v = 0x01020304;
-        return memcmp (&v, "\4\3\2\1", 4) == 0 ? 0 : 1;
-      }
-      ], [is_little_endian=1; result=yes], [is_little_endian=0; result=no])
-      AC_MSG_RESULT($result)
-    fi
-  fi
-])
-
-if test $is_little_endian = 1; then
-  echo "Your system IS little-endian" 1>&2
+  PROTOBUF_VERSION="$($PROTOC --version)"
 else
-  echo "Your system IS NOT little-endian" 1>&2
+  PROTOBUF_VERSION="not required, not building compiler"
 fi
-AC_DEFINE_UNQUOTED(IS_LITTLE_ENDIAN, $is_little_endian)
+AM_CONDITIONAL([BUILD_COMPILER], [test "x$enable_protoc" != "xno"])
 
-AC_OUTPUT(Makefile src/Makefile src/test/Makefile src/tools/Makefile pkgwriteinfo libprotobuf-c.pc)
+gl_LD_VERSION_SCRIPT
 
-cat <<EOF
+gl_VALGRIND_TESTS
 
-$PACKAGE-$VERSION configuration summary:
+MY_CODE_COVERAGE
 
-    Build proto-c .................... : ${BUILD_PROTOC_C}
-    Enable CMSG performance tools..... : ${HAVE_CMSG_PROFILING}
-    Enable VCStack.................... : ${HAVE_VCSTACK}
-    Enable counterd................... : ${HAVE_COUNTERD}
+AC_C_BIGENDIAN
 
-EOF
+AC_OUTPUT
+AC_MSG_RESULT([
+    $PACKAGE $VERSION
 
+        CC:                     ${CC}
+        CFLAGS:                 ${CFLAGS}
+        CXX:                    ${CXX}
+        CXXFLAGS:               ${CXXFLAGS}
+        LDFLAGS:                ${LDFLAGS}
+        LIBS:                   ${LIBS}
+
+        prefix:                 ${prefix}
+        sysconfdir:             ${sysconfdir}
+        libdir:                 ${libdir}
+        includedir:             ${includedir}
+        pkgconfigdir:           ${pkgconfigdir}
+
+        bigendian:              ${ac_cv_c_bigendian}
+        protobuf version:       ${PROTOBUF_VERSION}
+])

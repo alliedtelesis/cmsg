@@ -1,3 +1,2 @@
-#! /bin/sh -e
-./bootstrap
-./configure "$@"
+#!/bin/sh
+exec autoreconf -fvi
