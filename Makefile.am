@@ -285,6 +285,40 @@ cmsg_libcmsg_la_LDFLAGS = $(AM_LDFLAGS) \
 endif # BUILD_CMSG
 
 #
+# cmsg-test
+#
+
+if BUILD_CMSG_TEST
+
+bin_PROGRAMS += cmsg-test/cmsg-test
+cmsg_test_cmsg_test_SOURCES = \
+	cmsg-test/cmsg-test.c \
+	cmsg-test/cmsg-test_api_auto.c \
+	cmsg-test/cmsg-test_impl_auto.c \
+	cmsg-test/cmsg-test.pb-c.c
+
+cmsg_test_cmsg_test_CXXFLAGS = \
+	$(AM_CXXFLAGS) \
+	$(protobuf_CFLAGS)
+
+cmsg_test_cmsg_test_LDADD = \
+	$(protobuf_LIBS) \
+	-lcmsg
+
+cmsg-test/cmsg-test.pb-c.c cmsg-test/cmsg-test.pb-c.h: $(top_builddir)/protoc-cmsg/protoc-cmsg$(EXEEXT) $(top_srcdir)/cmsg-test/cmsg-test.proto
+	$(AM_V_GEN)$(top_builddir)/protoc-cmsg/protoc-cmsg$(EXEEXT) -I$(top_srcdir) --c_out=$(top_builddir) $(top_srcdir)/cmsg-test/cmsg-test.proto
+
+BUILT_SOURCES += \
+	cmsg-test/cmsg-test.pb-c.c cmsg-test/cmsg-test.pb-c.h \
+	cmsg-test/cmsg-test_api_auto.c cmsg-test/cmsg-test_api_auto.h \
+	cmsg-test/cmsg-test_impl_auto.c cmsg-test/cmsg-test_impl_auto.h \
+	cmsg-test/cmsg-test.pb-c.c cmsg-test/cmsg-test.pb-c.h \
+	cmsg-test/cmsg-test_impl_auto-tmp_stubs.c \
+	cmsg-test/cmsg-test_types_auto.h
+
+endif # BUILD_CMSG_TEST
+
+#
 #
 #
 

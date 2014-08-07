@@ -6,11 +6,11 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#include <google/protobuf-c/protobuf-c-cmsg.h>
-#include <google/protobuf-c/protobuf-c-cmsg-client.h>
+#include <cmsg/cmsg.h>
+#include <cmsg/cmsg_client.h>
 
-#include "generated-code/test-cmsg_api_auto.h"
-#include "generated-code/test-cmsg_impl_auto.h"
+#include "cmsg-test_api_auto.h"
+#include "cmsg-test_impl_auto.h"
 
 #define CMSG_TEST_TIPC_SCOPE TIPC_NODE_SCOPE
 

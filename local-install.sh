@@ -2,6 +2,7 @@
 
 CPPFLAGS=' -Wno-unused-but-set-variable -Wno-error=address -DLOCAL_INSTALL'
 
+DISABLE_CMSG_TEST=0
 ENABLE_CMSG_PROF=0
 ENABLE_VCSTACK=0
 ENABLE_COUNTERD=0
@@ -10,11 +11,12 @@ CONFIGURE_OPTIONS=""
 CFLAGS_OPTIONS=""
 
 # read the options
-TEMP=`getopt -o pvh --long enable-cmsg-prof,enable-vcstack,enable-counterd,help -n 'test.sh' -- "$@"`
+TEMP=`getopt -o tpvch --long disable-cmsg-test,enable-cmsg-prof,enable-vcstack,enable-counterd,help -n 'test.sh' -- "$@"`
 eval set -- "$TEMP"
 
 while true ; do
     case "$1" in
+        -t|--disable-cmsg-test) DISABLE_CMSG_TEST=1 ; shift ;;
         -p|--enable-cmsg-prof) ENABLE_CMSG_PROF=1 ; shift ;;
         -v|--enable-vcstack) ENABLE_VCSTACK=1 ; shift ;;
         -c|--enable-counterd) ENABLE_COUNTERD=1 ; shift ;;
@@ -26,6 +28,7 @@ done
 
 if [ $SHOW_HELP = 1 ]; then
     echo "options:"
+    echo "-t or --disable-cmsg-test"
     echo "-p or --enable-cmsg-prof"
     echo "-v or --enable-vcstack"
     echo "-c or --enable-counterd"
@@ -48,6 +51,11 @@ fi
 if [ $ENABLE_COUNTERD = 1 ]; then
     CONFIGURE_OPTIONS+="--enable-counterd "
     CFLAGS_OPTIONS+="-DHAVE_COUNTERD "
+fi
+
+if [ $DISABLE_CMSG_TEST = 0 ]; then
+    CONFIGURE_OPTIONS+="--enable-cmsg-test "
+    CFLAGS_OPTIONS+=" -L$(pwd)/cmsg/.libs "
 fi
 
 ./autogen.sh
