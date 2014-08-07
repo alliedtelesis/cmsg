@@ -11,8 +11,8 @@
 #include <corosync/cpg.h>
 #endif
 
-#include "protobuf-c-cmsg.h"
-#include "protobuf-c-cmsg-private.h" // to be removed when this file is split private/public
+#include "cmsg.h"
+#include "cmsg_private.h" // to be removed when this file is split private/public
 
 
 //forward delarations

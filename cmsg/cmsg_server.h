@@ -3,10 +3,10 @@
 #define __CMSG_SERVER_H_
 
 
-#include "protobuf-c-cmsg.h"
-#include "protobuf-c-cmsg-private.h" // to be removed when this file is split private/public
-#include "protobuf-c-cmsg-transport.h"
-#include "protobuf-c-cmsg-queue.h"
+#include "cmsg.h"
+#include "cmsg_private.h" // to be removed when this file is split private/public
+#include "cmsg_transport.h"
+#include "cmsg_queue.h"
 
 #define CMSG_SERVICE(package,service)     ((ProtobufCService *)&package ## _ ## service ## _service)
 #define CMSG_SERVICE_NOPACKAGE(service)   ((ProtobufCService *)&service ## _service)

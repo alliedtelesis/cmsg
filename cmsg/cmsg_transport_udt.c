@@ -1,5 +1,5 @@
 /**
- * protobuf-c-transport-udt.c
+ * cmsg-transport-udt.c
  *
  * Define a transport mechanism of USER DEFINED.
  * A USER DEFINED transport is defined as one having user functions for the
@@ -17,10 +17,10 @@
  * handling.
  *
  */
-#include "protobuf-c-cmsg-private.h"
-#include "protobuf-c-cmsg-transport.h"
-#include "protobuf-c-cmsg-client.h"
-#include "protobuf-c-cmsg-server.h"
+#include "cmsg_private.h"
+#include "cmsg_transport.h"
+#include "cmsg_client.h"
+#include "cmsg_server.h"
 
 /*
  *

@@ -1,6 +1,6 @@
-#include "protobuf-c-cmsg-private.h"
-#include "protobuf-c-cmsg-server.h"
-#include "protobuf-c-cmsg-error.h"
+#include "cmsg_private.h"
+#include "cmsg_server.h"
+#include "cmsg_error.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"

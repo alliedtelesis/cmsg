@@ -77,8 +77,8 @@
 #endif
 
 #include "protobuf-c.h"
-#include "protobuf-c-cmsg.h"
-#include "protobuf-c-cmsg-private.h"
+#include "cmsg.h"
+#include "cmsg_private.h"
 
 unsigned protobuf_c_major = PROTOBUF_C_MAJOR;
 unsigned protobuf_c_minor = PROTOBUF_C_MINOR;

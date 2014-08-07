@@ -2,7 +2,7 @@
 #define __PROTOBUF_C_CMSG_ERROR__
 
 #include <syslog.h>
-#include "protobuf-c-cmsg.h"
+#include "cmsg.h"
 
 /* For client object errors */
 #define CMSG_LOG_CLIENT_ERROR(client, msg, ...)  CMSG_LOG_OBJ_ERROR (client, client->_transport, msg, ## __VA_ARGS__)

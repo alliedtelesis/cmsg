@@ -82,6 +82,13 @@ if test "x$enableval" = xno ; then
 fi)
 AM_CONDITIONAL(BUILD_PROTOC_CMSG, test $BUILD_PROTOC_CMSG = 1)
 
+BUILD_CMSG=1
+AC_ARG_ENABLE(cmsg, [  --disable-cmsg          Suppress build of the cmsg library],
+if test "x$enableval" = xno ; then
+  BUILD_CMSG=0
+fi)
+AM_CONDITIONAL(BUILD_CMSG, test $BUILD_CMSG = 1)
+
 # --- Check CMSG PERF is enabled
 HAVE_CMSG_PROFILING=0
 AC_ARG_ENABLE(cmsg_prof, [  --enable-cmsg-prof      Enable build of cmsg profiling],
@@ -136,6 +143,7 @@ AC_MSG_RESULT([
 
     cmsg options
         protoc-cmsg:            ${BUILD_PROTOC_CMSG}
+        cmsg:                   ${BUILD_CMSG}
         cmsg-tools:             ${HAVE_CMSG_PROFILING}
         VCStack:                ${HAVE_VCSTACK}
         counterd:               ${HAVE_COUNTERD}

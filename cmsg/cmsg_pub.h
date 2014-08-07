@@ -1,11 +1,11 @@
 #ifndef __CMSG_PUB_H_
 #define __CMSG_PUB_H_
 
-#include "protobuf-c-cmsg.h"
-#include "protobuf-c-cmsg-private.h" // to be removed when this file is split private/public
-#include "protobuf-c-cmsg-queue.h"
-#include "protobuf-c-cmsg-client.h"
-#include "protobuf-c-cmsg-server.h"
+#include "cmsg.h"
+#include "cmsg_private.h" // to be removed when this file is split private/public
+#include "cmsg_queue.h"
+#include "cmsg_client.h"
+#include "cmsg_server.h"
 #include "protobuf-c-cmsg-sub-service.pb-c.h"
 
 

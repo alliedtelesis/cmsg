@@ -1,5 +1,5 @@
 /**
- * protobuf-c-transport-cpg.c
+ * cmsg-transport-cpg.c
  *
  * CPG Transport support
  *
@@ -26,11 +26,11 @@
  * transmission function).
  *
  */
-#include "protobuf-c-cmsg-private.h"
-#include "protobuf-c-cmsg-transport.h"
-#include "protobuf-c-cmsg-client.h"
-#include "protobuf-c-cmsg-server.h"
-#include "protobuf-c-cmsg-error.h"
+#include "cmsg_private.h"
+#include "cmsg_transport.h"
+#include "cmsg_client.h"
+#include "cmsg_server.h"
+#include "cmsg_error.h"
 
 /*
  * Definitions

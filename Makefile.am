@@ -226,6 +226,65 @@ protoc_cmsg_protoc_cmsg_LDADD = \
 endif # BUILD_PROTOC_CMSG
 
 #
+# libcmsg
+#
+
+if BUILD_CMSG
+
+LIBCMSG_CURRENT=1
+LIBCMSG_REVISION=0
+LIBCMSG_AGE=0
+
+lib_LTLIBRARIES += \
+	cmsg/libcmsg.la
+
+cmsg_libcmsg_la_SOURCES = \
+	cmsg/protobuf-c.c \
+	cmsg/protobuf-c.h \
+	cmsg/protobuf-c-private.h \
+	cmsg/cmsg.c \
+	cmsg/cmsg.h \
+	cmsg/cmsg_private.h \
+	cmsg/cmsg_error.h \
+	cmsg/cmsg_client.c \
+	cmsg/cmsg_client.h \
+	cmsg/cmsg_pub.c \
+	cmsg/cmsg_pub.h \
+	cmsg/cmsg_queue.c \
+	cmsg/cmsg_queue.h \
+	cmsg/cmsg_server.c \
+	cmsg/cmsg_server.h \
+	cmsg/cmsg_sub.c \
+	cmsg/cmsg_sub.h \
+	cmsg/cmsg_transport.c \
+	cmsg/cmsg_transport.h \
+	cmsg/cmsg_transport_loopback.c \
+	cmsg/cmsg_transport_tcp.c \
+	cmsg/cmsg_transport_tipc.c \
+	cmsg/cmsg_transport_udt.c \
+	cmsg/protobuf-c-cmsg-sub-service.pb-c.c \
+	cmsg/protobuf-c-cmsg-sub-service.pb-c.h
+
+cmsg_libcmsg_la_LIBADD = -lglib-2.0
+
+if HAVE_COUNTERD
+cmsg_libcmsg_la_LIBADD += -lcntr
+endif
+
+if HAVE_VCSTACK
+cmsg_libcmsg_la_SOURCES += \
+	cmsg/cmsg_transport_cpg.c \
+	cmsg/cmsg_transport_tipc_broadcast.c
+cmsg_libcmsg_la_LIBADD += -lcpg -lcoroipcc
+endif
+
+cmsg_libcmsg_la_LDFLAGS = $(AM_LDFLAGS) \
+	-version-info $(LIBCMSG_CURRENT):$(LIBCMSG_REVISION):$(LIBCMSG_AGE) \
+	-no-undefined
+
+endif # BUILD_CMSG
+
+#
 #
 #
 

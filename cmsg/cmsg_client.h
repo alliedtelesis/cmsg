@@ -1,10 +1,10 @@
 #ifndef __CMSG_CLIENT_H_
 #define __CMSG_CLIENT_H_
 
-#include "protobuf-c-cmsg.h"
-#include "protobuf-c-cmsg-private.h" // to be removed when this file is split private/public
-#include "protobuf-c-cmsg-queue.h"
-#include "protobuf-c-cmsg-transport.h"
+#include "cmsg.h"
+#include "cmsg_private.h" // to be removed when this file is split private/public
+#include "cmsg_queue.h"
+#include "cmsg_transport.h"
 
 
 #define CMSG_DESCRIPTOR(package,service)    ((ProtobufCServiceDescriptor *)&package ## _ ## service ## _descriptor)

@@ -1,6 +1,6 @@
-#include "protobuf-c-cmsg.h"
-#include "protobuf-c-cmsg-private.h"
-#include "protobuf-c-cmsg-error.h"
+#include "cmsg.h"
+#include "cmsg_private.h"
+#include "cmsg_error.h"
 
 
 static int cmsg_mtype = 0;

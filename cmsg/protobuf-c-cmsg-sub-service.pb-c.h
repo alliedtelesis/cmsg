@@ -3,7 +3,7 @@
 #ifndef PROTOBUF_C_protobuf_2dc_2dcmsg_2dsub_2dservice_2eproto_INCLUDED
 #define PROTOBUF_C_protobuf_2dc_2dcmsg_2dsub_2dservice_2eproto_INCLUDED
 
-#include <google/protobuf-c/protobuf-c.h>
+#include <cmsg/protobuf-c.h>
 
 PROTOBUF_C_BEGIN_DECLS
 

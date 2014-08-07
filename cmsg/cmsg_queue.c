@@ -1,6 +1,6 @@
-#include "protobuf-c-cmsg-private.h"
-#include "protobuf-c-cmsg-queue.h"
-#include "protobuf-c-cmsg-error.h"
+#include "cmsg_private.h"
+#include "cmsg_queue.h"
+#include "cmsg_error.h"
 
 uint32_t
 cmsg_queue_get_length (GQueue *queue)

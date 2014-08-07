@@ -1,13 +1,13 @@
 #ifndef PROTOBUFCCMSGQUEUE_H
 #define PROTOBUFCCMSGQUEUE_H
 
-#include "protobuf-c-cmsg.h"
-#include "protobuf-c-cmsg-private.h" // to be removed when this file is split private/public
-#include "protobuf-c-cmsg-client.h"
-#include "protobuf-c-cmsg-server.h"
-#include "protobuf-c-cmsg-sub.h"
-#include "protobuf-c-cmsg-pub.h"
-#include "protobuf-c-cmsg-transport.h"
+#include "cmsg.h"
+#include "cmsg_private.h" // to be removed when this file is split private/public
+#include "cmsg_client.h"
+#include "cmsg_server.h"
+#include "cmsg_sub.h"
+#include "cmsg_pub.h"
+#include "cmsg_transport.h"
 
 
 typedef struct _cmsg_queue_filter_entry_s

@@ -1,7 +1,7 @@
-#include "protobuf-c-cmsg-private.h"
-#include "protobuf-c-cmsg-transport.h"
-#include "protobuf-c-cmsg-server.h"
-#include "protobuf-c-cmsg-error.h"
+#include "cmsg_private.h"
+#include "cmsg_transport.h"
+#include "cmsg_server.h"
+#include "cmsg_error.h"
 #include <arpa/inet.h>
 
 extern void cmsg_transport_oneway_udt_init (cmsg_transport *transport);
