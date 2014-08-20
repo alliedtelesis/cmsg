@@ -240,7 +240,7 @@ cmsg_pub_destroy (cmsg_pub *publisher)
 
     g_hash_table_destroy (publisher->queue_filter_hash_table);
 
-    cmsg_send_queue_free_all (publisher->queue);
+    cmsg_send_queue_destroy (publisher->queue);
 
     pthread_mutex_destroy (&publisher->queue_mutex);
 

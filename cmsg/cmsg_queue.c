@@ -59,9 +59,17 @@ cmsg_send_queue_free_all (GQueue *queue)
         //get the next entry
         queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
     }
+}
+
+
+void
+cmsg_send_queue_destroy (GQueue *queue)
+{
+    cmsg_send_queue_free_all (queue);
 
     g_queue_free (queue);
 }
+
 
 void
 cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport)

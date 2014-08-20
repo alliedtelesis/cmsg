@@ -44,6 +44,8 @@ int32_t cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_si
 
 void cmsg_send_queue_free_all (GQueue *queue);
 
+void cmsg_send_queue_destroy (GQueue *queue);
+
 void cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport);
 void cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transport,
                                                char *method_name);
