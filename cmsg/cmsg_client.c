@@ -157,7 +157,7 @@ cmsg_client_destroy (cmsg_client *client)
     pthread_mutex_destroy (&client->queue_process_mutex);
     pthread_cond_destroy (&client->queue_process_cond);
     g_hash_table_destroy (client->queue_filter_hash_table);
-    cmsg_send_queue_free_all (client->queue);
+    cmsg_send_queue_destroy (client->queue);
     pthread_mutex_destroy (&client->queue_mutex);
 
     // close the connection before destroying the client
