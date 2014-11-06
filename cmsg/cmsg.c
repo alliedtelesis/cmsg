@@ -190,6 +190,7 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
     case CMSG_MSG_TYPE_METHOD_REPLY:
     case CMSG_MSG_TYPE_ECHO_REQ:
     case CMSG_MSG_TYPE_ECHO_REPLY:
+    case CMSG_MSG_TYPE_CONN_OPEN:
         // Known values
         break;
 

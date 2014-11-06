@@ -610,6 +610,13 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
     cmsg_server_closure_data closure_data;
     const ProtobufCMessageDescriptor *desc;
 
+    // Check for a connection open mesage, discard if received as we do not
+    // reply to these.
+    if (server_request->msg_type == CMSG_MSG_TYPE_CONN_OPEN)
+    {
+        return 0;
+    }
+
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
         CMSG_LOG_SERVER_ERROR (server,

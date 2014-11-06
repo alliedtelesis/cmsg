@@ -4,12 +4,16 @@
 #include "cmsg_server.h"
 #include "cmsg_error.h"
 
+
 /* This value is used to limit the timeout for client message peek to 100s */
 #define MAX_CLIENT_PEEK_LOOP (100000)
 
 /* This value is used to limit the timeout for server message peek to 10s */
 #define MAX_SERVER_PEEK_LOOP (10000)
 
+/* Forward function declaration required for tipc connect function */
+static int32_t
+cmsg_transport_tipc_client_send (cmsg_client *client, void *buff, int length, int flag);
 
 /**
  * Create a TIPC socket connection.
@@ -45,9 +49,10 @@ cmsg_transport_tipc_connect (cmsg_client *client)
                     sizeof (int));
     }
 
-    if (connect (client->connection.socket,
-                 (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
-                 sizeof (client->_transport->config.socket.sockaddr.tipc)) < 0)
+    ret = connect (client->connection.socket,
+            (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
+            sizeof (client->_transport->config.socket.sockaddr.tipc));
+    if (ret < 0)
     {
         ret = -errno;
         CMSG_LOG_DEBUG ("[TRANSPORT] error connecting to remote host (port %d inst %d): %s",
@@ -62,12 +67,39 @@ cmsg_transport_tipc_connect (cmsg_client *client)
 
         return ret;
     }
-    else
+
+    /* TIPC has changed stream sockets to do implied connection - where the
+     * connection isn't actually on the connect call if the port is not in
+     * the name table (i.e. hasn't been started).  In this case the connect
+     * call succeeds but the next send will fail with EPIPE.  So by sending
+     * a test packet we can ensure the connection is opened (if possible)
+     * thereby ensuring that the connection is valid once this fn returns.
+     */
+    cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_CONN_OPEN,
+                                             0, 0,
+                                             CMSG_STATUS_CODE_UNSET);
+
+    ret = cmsg_transport_tipc_client_send (client, (void *)&header, sizeof(header), MSG_NOSIGNAL);
+
+    /* Sending in this case should only fail if the server is not present - so
+     * return without printing an error.
+     */
+    if (ret < (int)sizeof(header))
     {
-        client->state = CMSG_CLIENT_STATE_CONNECTED;
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] successfully connected\n");
-        return 0;
+        CMSG_LOG_DEBUG ("[TRANSPORT] error connecting (send) to remote host (port %d inst %d): ret %d %s",
+                       client->_transport->config.socket.sockaddr.tipc.addr.name.name.type,
+                       client->_transport->config.socket.sockaddr.tipc.addr.name.name.instance,
+                       ret, strerror (errno));
+        shutdown (client->connection.socket, SHUT_RDWR);
+        close (client->connection.socket);
+        client->connection.socket = -1;
+        client->state = CMSG_CLIENT_STATE_FAILED;
+        return -1;
     }
+
+    client->state = CMSG_CLIENT_STATE_CONNECTED;
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] successfully connected\n");
+    return 0;
 }
 
 

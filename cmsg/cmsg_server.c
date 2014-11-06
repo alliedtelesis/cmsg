@@ -8,7 +8,6 @@
 #endif
 
 
-
 static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
                                                           uint8_t *buffer_data);
 
@@ -886,6 +885,11 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
     case CMSG_MSG_TYPE_ECHO_REQ:
         return _cmsg_server_echo_req_message_processor (server, buffer_data);
+        break;
+
+    case CMSG_MSG_TYPE_CONN_OPEN:
+        // ignore and return
+        return CMSG_RET_OK;
         break;
 
     default:

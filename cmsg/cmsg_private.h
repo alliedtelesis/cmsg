@@ -101,9 +101,13 @@ typedef struct _cmsg_object_s
 // METHOD_REPLY - server reply to a client for a method request
 // ECHO_REQ - client asking the server to reply if running
 // ECHO_REPLY - server replying to client that it is running
+// CONN_OPEN - client request to open the connection
 
 // NOTE: ECHO is used to implement a healthcheck of the server.
 // Header is sent big-endian/network byte order.
+// NOTE: CONN_OPEN is used to signify a pkt that is being sent that the client
+// needed to.  No response is to be sent.  Only TIPC makes use of it to ensure
+// the stream connection is open in the connect function.
 
 // The fields involved in the header are:
 //    client method request header:
@@ -135,12 +139,20 @@ typedef struct _cmsg_object_s
 //         method_index      0
 //         status_code       0
 
+//    client connection open header:
+//         msg_type          CMSG_MSG_TYPE_CONN_OPEN
+//         header_length     length of this header - may change in the future
+//         message_length    0 as nothing else is sent
+//         method_index      0
+//         status_code       0
+
 typedef enum _cmsg_msg_type_e
 {
     CMSG_MSG_TYPE_METHOD_REQ = 0,   // Request to server to call a method
     CMSG_MSG_TYPE_METHOD_REPLY,     // Reply from server in response to a method request
     CMSG_MSG_TYPE_ECHO_REQ,         // Request to server for a reply - used for a ping/healthcheck
     CMSG_MSG_TYPE_ECHO_REPLY,       // Reply from server in response to an echo request
+    CMSG_MSG_TYPE_CONN_OPEN,        // Request from client to open the connection - only for TIPC
 } cmsg_msg_type;
 
 typedef enum _cmsg_status_code_e
