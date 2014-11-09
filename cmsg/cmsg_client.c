@@ -1305,6 +1305,35 @@ cmsg_create_client_tipc_oneway (const char *server_name, int member_id, int scop
 }
 
 /**
+ * Creates a TIPC RPC client, transport and attempts to connect to the destination.
+ *
+ * If connection fails the client and transport are destroyed and NULL returned.
+ */
+cmsg_client *
+cmsg_create_and_connect_client_tipc_rpc (const char *server_name, int member_id, int scope,
+                                         ProtobufCServiceDescriptor *descriptor)
+{
+    int ret;
+    cmsg_client *client;
+
+    client = cmsg_create_client_tipc_rpc (server_name, member_id, scope, descriptor);
+
+    if (client == NULL)
+    {
+        return NULL;
+    }
+
+    ret = cmsg_client_connect (client);
+    if (ret < 0)
+    {
+        cmsg_destroy_client_and_transport (client);
+        client = NULL;
+    }
+
+    return client;
+}
+
+/**
  * Creates a Client of type Loopback Oneway and sets all the correct
  * fields.
  *

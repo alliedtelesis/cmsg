@@ -163,5 +163,9 @@ cmsg_client *cmsg_create_client_tipc_oneway (const char *server_name, int member
 
 cmsg_client *cmsg_create_client_loopback_oneway (ProtobufCService *service);
 
+cmsg_client *cmsg_create_and_connect_client_tipc_rpc (const char *server_name, int member_id,
+                                          int scope,
+                                          ProtobufCServiceDescriptor *descriptor);
+
 void cmsg_destroy_client_and_transport (cmsg_client *client);
 #endif
