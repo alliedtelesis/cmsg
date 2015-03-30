@@ -50,15 +50,15 @@ cmsg_transport_tipc_connect (cmsg_client *client)
     }
 
     ret = connect (client->connection.socket,
-            (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
-            sizeof (client->_transport->config.socket.sockaddr.tipc));
+                   (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
+                   sizeof (client->_transport->config.socket.sockaddr.tipc));
     if (ret < 0)
     {
         ret = -errno;
         CMSG_LOG_DEBUG ("[TRANSPORT] error connecting to remote host (port %d inst %d): %s",
                         client->_transport->config.socket.sockaddr.tipc.addr.name.name.type,
-                        client->_transport->config.socket.sockaddr.tipc.addr.name.name.instance,
-                        strerror (errno));
+                        client->_transport->config.socket.sockaddr.tipc.addr.name.name.
+                        instance, strerror (errno));
 
         shutdown (client->connection.socket, SHUT_RDWR);
         close (client->connection.socket);
@@ -79,17 +79,20 @@ cmsg_transport_tipc_connect (cmsg_client *client)
                                              0, 0,
                                              CMSG_STATUS_CODE_UNSET);
 
-    ret = cmsg_transport_tipc_client_send (client, (void *)&header, sizeof(header), MSG_NOSIGNAL);
+    ret =
+        cmsg_transport_tipc_client_send (client, (void *) &header, sizeof (header),
+                                         MSG_NOSIGNAL);
 
     /* Sending in this case should only fail if the server is not present - so
      * return without printing an error.
      */
-    if (ret < (int)sizeof(header))
+    if (ret < (int) sizeof (header))
     {
-        CMSG_LOG_DEBUG ("[TRANSPORT] error connecting (send) to remote host (port %d inst %d): ret %d %s",
-                       client->_transport->config.socket.sockaddr.tipc.addr.name.name.type,
-                       client->_transport->config.socket.sockaddr.tipc.addr.name.name.instance,
-                       ret, strerror (errno));
+        CMSG_LOG_DEBUG
+            ("[TRANSPORT] error connecting (send) to remote host (port %d inst %d): ret %d %s",
+             client->_transport->config.socket.sockaddr.tipc.addr.name.name.type,
+             client->_transport->config.socket.sockaddr.tipc.addr.name.name.instance, ret,
+             strerror (errno));
         shutdown (client->connection.socket, SHUT_RDWR);
         close (client->connection.socket);
         client->connection.socket = -1;
@@ -492,8 +495,10 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
         }
         else
         {
-            CMSG_LOG_CLIENT_ERROR (client, "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
-                                   client->connection.socket, dyn_len, nbytes, errno, strerror (errno));
+            CMSG_LOG_CLIENT_ERROR (client,
+                                   "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
+                                   client->connection.socket, dyn_len, nbytes, errno,
+                                   strerror (errno));
 
         }
         if (recv_buffer != (void *) buf_static)
@@ -561,7 +566,8 @@ cmsg_transport_tipc_rpc_server_send (cmsg_server *server, void *buff, int length
  * returns 0.
  */
 static int32_t
-cmsg_transport_tipc_oneway_server_send (cmsg_server *server, void *buff, int length, int flag)
+cmsg_transport_tipc_oneway_server_send (cmsg_server *server, void *buff, int length,
+                                        int flag)
 {
     return 0;
 }
@@ -678,7 +684,8 @@ cmsg_transport_tipc_init (cmsg_transport *transport)
     transport->server_destroy = cmsg_transport_tipc_server_destroy;
 
     transport->is_congested = cmsg_transport_tipc_is_congested;
-    transport->send_called_multi_threads_enable = cmsg_transport_tipc_send_called_multi_threads_enable;
+    transport->send_called_multi_threads_enable =
+        cmsg_transport_tipc_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tipc_send_can_block_enable;
 
@@ -713,7 +720,8 @@ cmsg_transport_oneway_tipc_init (cmsg_transport *transport)
     transport->server_destroy = cmsg_transport_tipc_server_destroy;
 
     transport->is_congested = cmsg_transport_tipc_is_congested;
-    transport->send_called_multi_threads_enable = cmsg_transport_tipc_send_called_multi_threads_enable;
+    transport->send_called_multi_threads_enable =
+        cmsg_transport_tipc_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tipc_send_can_block_enable;
 
@@ -823,8 +831,8 @@ cmsg_tipc_topology_service_connect (void)
  * @return CMSG error code, CMSG_RET_OK for success, CMSG_RET_ERR for failure
  */
 int
-cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t lower, uint32_t upper,
-                                    cmsg_tipc_topology_callback callback)
+cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t lower,
+                                    uint32_t upper, cmsg_tipc_topology_callback callback)
 {
     struct tipc_subscr subscr;
     size_t sub_len;
@@ -864,13 +872,13 @@ cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t 
      *  names (each unit has a different port-name instance based on its stack member-ID) */
     subscr.timeout = TIPC_WAIT_FOREVER; /* don't timeout */
     subscr.seq.type = port;
-    subscr.seq.lower = lower;   /* min member-ID */
-    subscr.seq.upper = upper;   /* max member-ID */
+    subscr.seq.lower = lower;           /* min member-ID */
+    subscr.seq.upper = upper;           /* max member-ID */
     subscr.filter = TIPC_SUB_PORTS;     /* all publish/withdraws */
     memcpy (subscr.usr_handle, &callback, sizeof (cmsg_tipc_topology_callback));
 
     ret = send (sock, &subscr, sub_len, 0);
-    if (ret < 0 || (uint32_t)ret != sub_len)
+    if (ret < 0 || (uint32_t) ret != sub_len)
     {
         CMSG_LOG_GEN_ERROR
             ("TIPC topology do subscription send failure. Server name:%s, [%d,%d]. Error:%s",
@@ -890,14 +898,14 @@ cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t 
  * @return socket on success, -1 on failure
  */
 int
-cmsg_tipc_topology_connect_subscribe (const char *server_name, uint32_t lower, uint32_t upper,
-                                    cmsg_tipc_topology_callback callback)
+cmsg_tipc_topology_connect_subscribe (const char *server_name, uint32_t lower,
+                                      uint32_t upper, cmsg_tipc_topology_callback callback)
 {
     int sock;
     int ret;
 
     sock = cmsg_tipc_topology_service_connect ();
-    if (sock <= 0 )
+    if (sock <= 0)
     {
         return -1;
     }
@@ -1016,8 +1024,7 @@ cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
               ((uint8_t *) event->s.usr_handle)[3],
               ((uint8_t *) event->s.usr_handle)[4],
               ((uint8_t *) event->s.usr_handle)[5],
-              ((uint8_t *) event->s.usr_handle)[6],
-              ((uint8_t *) event->s.usr_handle)[7]);
+              ((uint8_t *) event->s.usr_handle)[6], ((uint8_t *) event->s.usr_handle)[7]);
 
     if (event->s.seq.type == 0)
     {

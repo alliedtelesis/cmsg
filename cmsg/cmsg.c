@@ -140,7 +140,7 @@ cmsg_tlv_method_header_create (uint8_t *buf, cmsg_header header, uint32_t type,
 
     memcpy (buffer_tlv_data_length, &hton_length, sizeof (hton_length));
 
-    uint8_t * buffer_tlv_data_method = buffer_tlv_data_length + sizeof (hton_length);
+    uint8_t *buffer_tlv_data_method = buffer_tlv_data_length + sizeof (hton_length);
     strncpy ((char *) buffer_tlv_data_method, method_name, length);
 
 }
@@ -241,8 +241,8 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
                 tlv_method_header = (cmsg_tlv_method_header *) buf;
 
                 server_request->method_index =
-                        protobuf_c_service_descriptor_get_method_index_by_name
-                        (descriptor, tlv_method_header->method);
+                    protobuf_c_service_descriptor_get_method_index_by_name
+                    (descriptor, tlv_method_header->method);
                 /*
                  * It is possible that we could receive a method that we do not know. In
                  * this case, there is nothing we can do to process the message. We need to
@@ -257,7 +257,8 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
                 }
 
                 strncpy (server_request->method_name_recvd, tlv_method_header->method,
-                         MIN (tlv_method_header->method_length, CMSG_SERVER_REQUEST_MAX_NAME_LENGTH));
+                         MIN (tlv_method_header->method_length,
+                              CMSG_SERVER_REQUEST_MAX_NAME_LENGTH));
                 break;
 
             default:
@@ -268,7 +269,8 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
         }
 
         buf = buf + CMSG_TLV_SIZE (tlv_header->tlv_value_length);
-        extra_header_size = extra_header_size - CMSG_TLV_SIZE (tlv_header->tlv_value_length);
+        extra_header_size =
+            extra_header_size - CMSG_TLV_SIZE (tlv_header->tlv_value_length);
     }
 
     /* At this point, there should be no extra_header_size left over. If there is, this

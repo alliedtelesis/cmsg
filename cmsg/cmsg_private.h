@@ -64,11 +64,11 @@
             syslog (LOG_CRIT | LOG_LOCAL6, "%s:%d "fmt, __FUNCTION__, __LINE__, ##ARGS);\
     } while (0)
 #elif defined(DEBUG_DISABLED)
-#define CMSG_DEBUG(ARGS...)  /* do nothing */
+#define CMSG_DEBUG(ARGS...) /* do nothing */
 #endif
 
 #define CMSG_RECV_BUFFER_SZ                        512
-#define CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT    3000  //ms
+#define CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT    3000 //ms
 #define CMSG_TRANSPORT_CLIENT_SEND_TRIES           10
 #define CMSG_SERVER_REQUEST_MAX_NAME_LENGTH        128
 
