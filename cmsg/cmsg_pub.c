@@ -16,9 +16,10 @@ static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
 
 static void _cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
 
-static cmsg_pub * _cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
-                                               ProtobufCServiceDescriptor *descriptor,
-                                               cmsg_transport_type transport_type);
+static cmsg_pub *_cmsg_create_publisher_tipc (const char *server_name, int member_id,
+                                              int scope,
+                                              ProtobufCServiceDescriptor *descriptor,
+                                              cmsg_transport_type transport_type);
 
 extern cmsg_server *cmsg_server_create (cmsg_transport *transport,
                                         ProtobufCService *service);
@@ -610,6 +611,13 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
     cmsg_server_closure_data closure_data;
     const ProtobufCMessageDescriptor *desc;
 
+    // Check for a connection open mesage, discard if received as we do not
+    // reply to these.
+    if (server_request->msg_type == CMSG_MSG_TYPE_CONN_OPEN)
+    {
+        return 0;
+    }
+
     if (server_request->method_index >= server->service->descriptor->n_methods)
     {
         CMSG_LOG_SERVER_ERROR (server,
@@ -854,7 +862,8 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     //we can just create the client here
     //connecting here will cause deadlocks if the subscriber is single threaded
     //like for example hsl <> exfx
-    subscriber_entry->client = cmsg_client_new (subscriber_entry->transport, publisher->descriptor);
+    subscriber_entry->client =
+        cmsg_client_new (subscriber_entry->transport, publisher->descriptor);
 
     if (input->add)
     {

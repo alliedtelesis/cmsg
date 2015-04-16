@@ -8,16 +8,15 @@
 #endif
 
 
-
 static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
                                                           uint8_t *buffer_data);
 
 static int32_t _cmsg_server_echo_req_message_processor (cmsg_server *server,
                                                         uint8_t *buffer_data);
 
-static cmsg_server * _cmsg_create_server_tipc (const char *server_name, int member_id,
-                                               int scope, ProtobufCService *descriptor,
-                                               cmsg_transport_type transport_type);
+static cmsg_server *_cmsg_create_server_tipc (const char *server_name, int member_id,
+                                              int scope, ProtobufCService *descriptor,
+                                              cmsg_transport_type transport_type);
 
 int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
 
@@ -195,8 +194,8 @@ cmsg_server_counter_create (cmsg_server *server, char *app_name)
     int32_t ret = CMSG_RET_ERR;
 
 #ifdef HAVE_COUNTERD
-    if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT, (void **)&server->cntr_session)
-        == CNTRD_APP_SUCCESS )
+    if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT, (void **) &server->cntr_session)
+        == CNTRD_APP_SUCCESS)
     {
         cntrd_app_register_ctr_in_group (server->cntr_session, "Server Unknown RPC",
                                          &server->cntr_unknown_rpc);
@@ -717,9 +716,7 @@ cmsg_server_invoke_oneway_direct (ProtobufCService *service, unsigned method_ind
 
     service->invoke (service,
                      method_index,
-                     message,
-                     cmsg_server_closure_oneway,
-                     (void *) &closure_data);
+                     message, cmsg_server_closure_oneway, (void *) &closure_data);
 
     protobuf_c_message_free_unpacked (message, allocator);
 }
@@ -888,6 +885,11 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
         return _cmsg_server_echo_req_message_processor (server, buffer_data);
         break;
 
+    case CMSG_MSG_TYPE_CONN_OPEN:
+        // ignore and return
+        return CMSG_RET_OK;
+        break;
+
     default:
         CMSG_LOG_SERVER_ERROR (server,
                                "Received a message type the server doesn't support: %d.",
@@ -1049,9 +1051,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         CMSG_DEBUG (CMSG_INFO, "[SERVER] response data\n");
         cmsg_buffer_print ((void *) buffer_data, packed_size);
 
-        send_ret = server->_transport->server_send (server,
-                                                    buffer,
-                                                    total_message_size, 0);
+        send_ret = server->_transport->server_send (server, buffer, total_message_size, 0);
 
         if (send_ret < (int) total_message_size)
         {
