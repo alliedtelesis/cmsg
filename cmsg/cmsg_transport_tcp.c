@@ -13,6 +13,8 @@ static int32_t
 cmsg_transport_tcp_connect (cmsg_client *client)
 {
     int ret;
+    struct sockaddr *addr;
+    uint32_t addr_len;
 
     if (client == NULL)
         return 0;
@@ -29,9 +31,18 @@ cmsg_transport_tcp_connect (cmsg_client *client)
         return ret;
     }
 
-    if (connect (client->connection.socket,
-                 (struct sockaddr *) &client->_transport->config.socket.sockaddr.in,
-                 sizeof (client->_transport->config.socket.sockaddr.in)) < 0)
+    if (client->_transport->config.socket.family == PF_INET6)
+    {
+        addr = (struct sockaddr *) &client->_transport->config.socket.sockaddr.in6;
+        addr_len = sizeof (client->_transport->config.socket.sockaddr.in6);
+    }
+    else
+    {
+        addr = (struct sockaddr *) &client->_transport->config.socket.sockaddr.in;
+        addr_len = sizeof (client->_transport->config.socket.sockaddr.in);
+    }
+
+    if (connect (client->connection.socket, addr, addr_len) < 0)
     {
         if (errno == EINPROGRESS)
         {
@@ -66,6 +77,7 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     int32_t ret = 0;
     socklen_t addrlen = 0;
     cmsg_transport *transport = NULL;
+    int port = 0;
 
     if (server == NULL)
         return 0;
@@ -90,7 +102,14 @@ cmsg_transport_tcp_listen (cmsg_server *server)
         return -1;
     }
 
-    addrlen = sizeof (transport->config.socket.sockaddr.generic);
+    if (transport->config.socket.family == PF_INET6)
+    {
+        addrlen = sizeof (transport->config.socket.sockaddr.in6);
+    }
+    else
+    {
+        addrlen = sizeof (transport->config.socket.sockaddr.in);
+    }
 
     ret = bind (listening_socket, &transport->config.socket.sockaddr.generic, addrlen);
     if (ret < 0)
@@ -112,9 +131,18 @@ cmsg_transport_tcp_listen (cmsg_server *server)
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tcp socket: %d\n", listening_socket);
 
-    CMSG_DEBUG (CMSG_INFO,
-                "[TRANSPORT] listening on port: %d\n",
-                (int) (ntohs (server->_transport->config.socket.sockaddr.in.sin_port)));
+#ifndef DEBUG_DISABLED
+    if (server->_transport->config.socket.family == PF_INET6)
+    {
+        port = (int) (ntohs (server->_transport->config.socket.sockaddr.in6.sin6_port));
+    }
+    else
+    {
+        port = (int) (ntohs (server->_transport->config.socket.sockaddr.in.sin_port));
+    }
+#endif
+
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on port: %d\n", port);
 
     return 0;
 }
@@ -157,6 +185,7 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
     uint32_t client_len;
     cmsg_transport client_transport;
     int sock;
+    struct sockaddr *addr;
 
     if (!server || listen_socket < 0)
     {
@@ -164,10 +193,18 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
         return -1;
     }
 
-    client_len = sizeof (client_transport.config.socket.sockaddr.in);
-    sock = accept (listen_socket,
-                   (struct sockaddr *) &client_transport.config.socket.sockaddr.in,
-                   &client_len);
+    if (client_transport.config.socket.family == PF_INET6)
+    {
+        addr = (struct sockaddr *) &client_transport.config.socket.sockaddr.in6;
+        client_len = sizeof (client_transport.config.socket.sockaddr.in6);
+    }
+    else
+    {
+        addr = (struct sockaddr *) &client_transport.config.socket.sockaddr.in;
+        client_len = sizeof (client_transport.config.socket.sockaddr.in);
+    }
+
+    sock = accept (listen_socket, addr, &client_len);
 
     if (sock < 0)
     {

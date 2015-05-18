@@ -57,6 +57,7 @@ typedef union _cmsg_socket_address_u
     struct sockaddr_in in;      // INET socket address, for TCP based transport.
     struct sockaddr_tipc tipc;  // TIPC socket address, for TIPC based IPC transport.
     struct sockaddr_un un;      // UNIX socket address, for Unix-domain socket transport.
+    struct sockaddr_in6 in6;    // INET6 socket address, for TCP based transport over IPv6.
 } cmsg_socket_address;
 
 typedef struct _cmsg_socket_s

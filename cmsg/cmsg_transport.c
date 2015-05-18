@@ -31,11 +31,21 @@ cmsg_transport_write_id (cmsg_transport *tport)
     case CMSG_TRANSPORT_RPC_TCP:
     case CMSG_TRANSPORT_ONEWAY_TCP:
         {
-            char ip4[INET_ADDRSTRLEN];
+            char ip[INET6_ADDRSTRLEN];
+            uint16_t port;
+            if (tport->config.socket.family == PF_INET6)
+            {
+                port = ntohs (tport->config.socket.sockaddr.in6.sin6_port);
+            }
+            else
+            {
+                port = ntohs (tport->config.socket.sockaddr.in.sin_port);
+            }
             snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tcp[%s:%d]",
-                      inet_ntop (AF_INET, &(tport->config.socket.sockaddr.in.sin_addr), ip4,
-                                 INET_ADDRSTRLEN),
-                      ntohs (tport->config.socket.sockaddr.in.sin_port));
+                      inet_ntop (tport->config.socket.sockaddr.generic.sa_family,
+                                 &(tport->config.socket.sockaddr.in.sin_addr), ip,
+                                 INET6_ADDRSTRLEN),
+                      port);
             break;
         }
     case CMSG_TRANSPORT_RPC_TIPC:
