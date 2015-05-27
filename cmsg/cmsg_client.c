@@ -975,8 +975,11 @@ cmsg_client_queue_process_all (cmsg_client *client)
             pthread_cond_timedwait (&client->queue_process_cond,
                                     &client->queue_process_mutex, &time_to_wait);
         }
+        pthread_mutex_unlock (&client->queue_process_mutex);
 
         processed = _cmsg_client_queue_process_all_direct (client);
+
+        pthread_mutex_lock (&client->queue_process_mutex);
         client->queue_process_count = client->queue_process_count - 1;
         pthread_mutex_unlock (&client->queue_process_mutex);
 
