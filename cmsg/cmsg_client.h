@@ -25,6 +25,10 @@ typedef struct _cmsg_client_closure_data_s
     ProtobufCAllocator *allocator;
 } cmsg_client_closure_data;
 
+typedef int (*cmsg_queue_filter_func_t) (cmsg_client *, const char *,
+                                         cmsg_queue_filter_type *);
+typedef void (*cmsg_queue_callback_func_t) (cmsg_client *, const char *);
+
 typedef struct _cmsg_client_s
 {
     //this is a hack to get around a check when a client method is called
@@ -46,6 +50,8 @@ typedef struct _cmsg_client_s
     cmsg_object parent;
 
     int queue_enabled_from_parent;
+    cmsg_queue_filter_func_t queue_filter_func;
+    cmsg_queue_callback_func_t queue_callback_func;
 
     //queuing
     pthread_mutex_t queue_mutex;
@@ -135,7 +141,7 @@ cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_s
 
 int32_t cmsg_client_queue_process_all (cmsg_client *client);
 
-//queue filter
+//queue filter : check "CMSG Library" wikipage for detailed API descriptions
 void cmsg_client_queue_filter_set_all (cmsg_client *client,
                                        cmsg_queue_filter_type filter_type);
 
@@ -145,6 +151,12 @@ int32_t cmsg_client_queue_filter_set (cmsg_client *client, const char *method,
                                       cmsg_queue_filter_type filter_type);
 
 int32_t cmsg_client_queue_filter_clear (cmsg_client *client, const char *method);
+
+void cmsg_client_msg_queue_filter_func_set (cmsg_client *client,
+                                            cmsg_queue_filter_func_t func);
+
+void cmsg_client_msg_queue_callback_func_set (cmsg_client *client,
+                                              cmsg_queue_callback_func_t func);
 
 void cmsg_client_queue_filter_init (cmsg_client *client);
 

@@ -557,9 +557,15 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
     }
     else
     {
-        cmsg_queue_filter_type action;
+        cmsg_queue_filter_type action = CMSG_QUEUE_FILTER_ERROR;
 
-        action = cmsg_client_queue_filter_lookup (client, method_name);
+        /* First check queuing action with the filter function if configured.
+         * Otherwise lookup the filter table */
+        if (client->queue_filter_func == NULL ||
+            client->queue_filter_func (client, method_name, &action) != CMSG_RET_OK)
+        {
+            action = cmsg_client_queue_filter_lookup (client, method_name);
+        }
 
         if (action == CMSG_QUEUE_FILTER_ERROR)
         {
@@ -685,6 +691,12 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
             pthread_mutex_unlock (&client->queue_process_mutex);
         }
         ret_val = CMSG_RET_QUEUED;
+
+        // Execute callback function if configured
+        if (client->queue_callback_func != NULL)
+        {
+            client->queue_callback_func (client, method_name);
+        }
     }
 
     CMSG_FREE (buffer);
@@ -1237,6 +1249,25 @@ int32_t
 cmsg_client_queue_filter_clear (cmsg_client *client, const char *method)
 {
     return cmsg_queue_filter_clear (client->queue_filter_hash_table, method);
+}
+
+void
+cmsg_client_msg_queue_filter_func_set (cmsg_client *client, cmsg_queue_filter_func_t func)
+{
+    if (client)
+    {
+        client->queue_filter_func = func;
+    }
+}
+
+void
+cmsg_client_msg_queue_callback_func_set (cmsg_client *client,
+                                         cmsg_queue_callback_func_t func)
+{
+    if (client)
+    {
+        client->queue_callback_func = func;
+    }
 }
 
 void
