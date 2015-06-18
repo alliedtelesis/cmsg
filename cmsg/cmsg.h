@@ -15,6 +15,11 @@
 
 void cmsg_malloc_init (int mtype);
 
+/* note - use CMSG_MSG_ARRAY_ALLOC()/_FREE() instead of calling these directly */
+void **cmsg_msg_array_alloc (size_t struct_size, uint32_t num_structs,
+                             const char *file, int line);
+void cmsg_msg_array_free (void *msg_array, const char *file, int line);
+
 // macro to free messages returned back to the API
 #define CMSG_FREE_RECV_MSG(_name)                                                                      \
     do {                                                                                               \
@@ -53,6 +58,31 @@ void cmsg_malloc_init (int mtype);
 
 #define CMSG_IS_REPEATED_PRESENT(_msg, _field) \
     ((_msg)->n_##_field ? TRUE : FALSE)
+
+/**
+ * Helper macro to allocate an array of message structs used to send a CMSG
+ * message. This is designed to be used with CMSG_SET_FIELD_REPEATED(), where
+ * the repeated field is a message struct.
+ * @param __msg_struct the name of the message struct being used
+ * @param __num the number of message structs we need to allocate
+ * @return a single block of malloc'd memory, which is an array of pointers setup
+ * to point to the message structs. Use CMSG_MSG_ARRAY_FREE() to free this memory
+ * @note that this does not handle mallocing memory for any sub-fields within
+ * the message struct (e.g. strings, MAC addresses, etc). You still need to malloc
+ * and free these yourself.
+ */
+#define CMSG_MSG_ARRAY_ALLOC(__msg_struct, __num) \
+    (__msg_struct **) cmsg_msg_array_alloc (sizeof (__msg_struct), __num, \
+                                            __FILE__, __LINE__)
+
+/**
+ * Frees a message array allocated by CMSG_MSG_ARRAY_ALLOC()
+ * @note that this does not handle freeing memory for any sub-fields within the
+ * message struct (e.g. strings, MAC addresses, etc). You still need to free
+ * these yourself before calling this macro.
+ */
+#define CMSG_MSG_ARRAY_FREE(__msg_array) \
+    cmsg_msg_array_free (__msg_array, __FILE__, __LINE__)
 
 typedef enum _cmsg_old_msg_type_e
 {

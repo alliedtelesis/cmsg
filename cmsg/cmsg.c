@@ -368,6 +368,63 @@ cmsg_malloc_init (int mtype)
     cmsg_mtype = mtype;
 }
 
+/**
+ * Allocates a single piece of memory to hold two arrays: an array of message
+ * structs and an array of pointers to these structs. Sets up the pointer array
+ * so it's ready for use and returns this.
+ * @note You should use CMSG_MSG_ARRAY_ALLOC() rather than calling this function
+ * directly
+ * @returns an array of message pointers (the actual message structs these
+ * pointers reference follows after, on the same block of malloc'd memory).
+ */
+void **
+cmsg_msg_array_alloc (size_t struct_size, uint32_t num_structs, const char *file, int line)
+{
+    void *mem_block;
+    void **ptr_array;
+    void *struct_array;
+    size_t total_ptr_size;
+    size_t total_struct_size;
+    int i;
+
+    /* we need to allocate memory to hold all the CMSG message structs, as well
+     * as pointers to the structs. CMSG messages may only keep a single pointer
+     * to this data, so allocate it all in one block so that we can safely free
+     * it after the cmsg has been sent */
+    total_struct_size = (struct_size * num_structs);
+    total_ptr_size = (sizeof (void *) * num_structs);
+
+    /* we want to use the file/line of the caller code for memory diagnostics,
+     * so call cmsg_malloc() directly here rather than using CMSG_MALLOC() */
+    mem_block = cmsg_malloc (total_struct_size + total_ptr_size, file, line);
+
+    /* Setup the memory. We'll return the pointer array, so this is the first
+     * piece of memory, and the array of structs will go after it */
+    ptr_array = mem_block;
+    struct_array = mem_block + total_ptr_size;
+
+    /* update each pointer so it points to the corresponding message struct.
+     * The first entry just points to the start of the struct array, the next
+     * entry is one struct-size further on in memory, and so on */
+    for (i = 0; i < num_structs; i++)
+    {
+        ptr_array[i] = struct_array + (i * struct_size);
+    }
+
+    return ptr_array;
+}
+
+/**
+ * Frees a message array allocated by cmsg_msg_array_alloc()
+ * @note You should use CMSG_MSG_ARRAY_FREE() rather than calling this function
+ * directly
+ */
+void
+cmsg_msg_array_free (void *msg_array, const char *file, int line)
+{
+    cmsg_free (msg_array, file, line);
+}
+
 #ifdef HAVE_CMSG_PROFILING
 uint32_t
 cmsg_prof_diff_time_in_us (struct timeval start, struct timeval end)
