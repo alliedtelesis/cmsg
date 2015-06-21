@@ -109,6 +109,15 @@ cmsg_transport_loopback_send_can_block_enable (cmsg_transport *transport,
 }
 
 
+int32_t
+cmsg_transport_loopback_ipfree_bind_enable (cmsg_transport *transport,
+                                            cmsg_bool_t use_ipfree_bind)
+{
+    /* not supported yet */
+    return -1;
+}
+
+
 /******************************************************************************
  ******************** Server **************************************************
  *****************************************************************************/
@@ -201,6 +210,7 @@ cmsg_transport_oneway_loopback_init (cmsg_transport *transport)
         cmsg_transport_loopback_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_loopback_send_can_block_enable;
+    transport->ipfree_bind_enable = cmsg_transport_loopback_ipfree_bind_enable;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }

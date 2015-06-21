@@ -102,6 +102,25 @@ cmsg_transport_tcp_listen (cmsg_server *server)
         return -1;
     }
 
+    /* IP_FREEBIND sock opt permits binding to a non-local or non-existent address.
+     * This is done here to resolve the race condition with IPv6 DAD. Until DAD can
+     * confirm that there is no other host with the same address, the address is
+     * considered to be "tentative". While it is in this state, attempts to bind()
+     * to the address fail with EADDRNOTAVAIL, as if the address doesn't exist.
+     * */
+    if (transport->use_ipfree_bind)
+    {
+        ret =
+            setsockopt (listening_socket, IPPROTO_IP, IP_FREEBIND, &yes, sizeof (int32_t));
+        if (ret == -1)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Unable to setsockopt. Error:%s",
+                                   strerror (errno));
+            close (listening_socket);
+            return -1;
+        }
+    }
+
     if (transport->config.socket.family == PF_INET6)
     {
         addrlen = sizeof (transport->config.socket.sockaddr.in6);
@@ -381,7 +400,8 @@ cmsg_transport_tcp_rpc_server_send (cmsg_server *server, void *buff, int length,
  * returns 0.
  */
 static int32_t
-cmsg_transport_tcp_oneway_server_send (cmsg_server *server, void *buff, int length, int flag)
+cmsg_transport_tcp_oneway_server_send (cmsg_server *server, void *buff, int length,
+                                       int flag)
 {
     return 0;
 }
@@ -468,6 +488,16 @@ cmsg_transport_tcp_send_can_block_enable (cmsg_transport *transport,
 }
 
 
+int32_t
+cmsg_transport_tcp_ipfree_bind_enable (cmsg_transport *transport, cmsg_bool_t use_ipfree_bind)
+{
+    if (transport->config.socket.family == PF_INET6)
+    {
+        transport->use_ipfree_bind = use_ipfree_bind;
+    }
+    return 0;
+}
+
 void
 cmsg_transport_tcp_init (cmsg_transport *transport)
 {
@@ -500,6 +530,7 @@ cmsg_transport_tcp_init (cmsg_transport *transport)
         cmsg_transport_tcp_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
+    transport->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
@@ -537,6 +568,7 @@ cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
         cmsg_transport_tcp_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
+    transport->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }

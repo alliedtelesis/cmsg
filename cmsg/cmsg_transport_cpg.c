@@ -417,8 +417,7 @@ cmsg_transport_cpg_is_congested (cmsg_client *client)
         {
             CMSG_LOG_CLIENT_ERROR (client,
                                    "Unable to get CPG flow control state - hndl %llx %d",
-                                   (long long int)client->connection.handle,
-                                   (int)cpg_rc);
+                                   (long long int) client->connection.handle, (int) cpg_rc);
         }
         cpg_error_count++;
         return TRUE;
@@ -631,6 +630,14 @@ cmsg_transport_cpg_send_can_block_enable (cmsg_transport *transport,
 }
 
 
+int32_t
+cmsg_transport_cpg_ipfree_bind_enable (cmsg_transport *transport, cmsg_bool_t use_ipfree_bind)
+{
+    /* not supported yet */
+    return -1;
+}
+
+
 void
 cmsg_transport_cpg_init (cmsg_transport *transport)
 {
@@ -663,6 +670,7 @@ cmsg_transport_cpg_init (cmsg_transport *transport)
         cmsg_transport_cpg_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_cpg_send_can_block_enable;
+    transport->ipfree_bind_enable = cmsg_transport_cpg_ipfree_bind_enable;
 
     if (cpg_group_name_to_server_hash_table_h == NULL)
     {

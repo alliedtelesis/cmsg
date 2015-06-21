@@ -152,7 +152,8 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
                          buff,
                          length,
                          MSG_DONTWAIT,
-                         (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
+                         (struct sockaddr *) &client->_transport->config.socket.
+                         sockaddr.tipc,
                          sizeof (struct sockaddr_tipc));
 
     if (result != length)
@@ -169,8 +170,8 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
                              buff,
                              length,
                              MSG_DONTWAIT,
-                             (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
-                             sizeof (struct sockaddr_tipc));
+                             (struct sockaddr *) &client->_transport->config.
+                             socket.sockaddr.tipc, sizeof (struct sockaddr_tipc));
 
             saved_errno = errno;
         }
@@ -310,6 +311,15 @@ cmsg_transport_tipc_broadcast_send_can_block_enable (cmsg_transport *transport,
 }
 
 
+int32_t
+cmsg_transport_tipc_broadcast_ipfree_bind_enable (cmsg_transport *transport,
+                                                  cmsg_bool_t use_ipfree_bind)
+{
+    /* not supported yet */
+    return -1;
+}
+
+
 /**
  * Setup the transport structure with the appropriate function pointers for
  * TIPC broadcast, and transport family.
@@ -341,6 +351,7 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
         cmsg_transport_tipc_broadcast_send_called_multi_threads_enable;
     transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tipc_broadcast_send_can_block_enable;
+    transport->ipfree_bind_enable = cmsg_transport_tipc_broadcast_ipfree_bind_enable;
 
     transport->closure = cmsg_server_closure_oneway;
     transport->invoke = cmsg_client_invoke_oneway;

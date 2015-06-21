@@ -44,8 +44,7 @@ cmsg_transport_write_id (cmsg_transport *tport)
             snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tcp[%s:%d]",
                       inet_ntop (tport->config.socket.sockaddr.generic.sa_family,
                                  &(tport->config.socket.sockaddr.in.sin_addr), ip,
-                                 INET6_ADDRSTRLEN),
-                      port);
+                                 INET6_ADDRSTRLEN), port);
             break;
         }
     case CMSG_TRANSPORT_RPC_TIPC:
@@ -199,7 +198,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         server_request.msg_type = header_converted.msg_type;
         server_request.message_length = header_converted.message_length;
         server_request.method_index = UNDEFINED_METHOD;
-        memset (&(server_request.method_name_recvd), 0, CMSG_SERVER_REQUEST_MAX_NAME_LENGTH);
+        memset (&(server_request.method_name_recvd), 0,
+                CMSG_SERVER_REQUEST_MAX_NAME_LENGTH);
 
         extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
@@ -362,4 +362,15 @@ int32_t
 cmsg_transport_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
 {
     return transport->send_can_block_enable (transport, send_can_block);
+}
+
+/**
+ * Configure the transport to allow listening socket to bind on non-existent, non-local
+ * IPv6 addresses. This is specifically added to resolve IPv6 DAD race conditions.
+ *
+ */
+int32_t
+cmsg_transport_ipfree_bind_enable (cmsg_transport *transport, cmsg_bool_t ipfree_bind_enable)
+{
+    return transport->ipfree_bind_enable (transport, ipfree_bind_enable);
 }
