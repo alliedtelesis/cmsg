@@ -454,7 +454,7 @@ void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &m
   printer->Print(vars_, "void $lcfullname$_server_$method$Send (const void *_service");
   if (method.output_type()->field_count() > 0)
   {
-    printer->Print(vars_, ", $method_output$ *send_msg");
+    printer->Print(vars_, ", const $method_output$ *send_msg");
   }
   printer->Print(")");
   if (forHeader)
