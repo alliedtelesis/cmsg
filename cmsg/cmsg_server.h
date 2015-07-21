@@ -58,6 +58,17 @@ typedef struct _cmsg_server_s
     fd_set accepted_fdset;
     int accepted_fdmax;
 
+    // memory management
+    // flag to tell the server whether or not the application wants to take ownership
+    // of the current message, and therefore be responsible for freeing it.
+    cmsg_bool_t app_owns_current_msg; //set to FALSE by default, and always reset to FALSE
+                                      //after processing of an impl has finished.
+    // flag to tell the server whether or not the application wants to take ownership
+    // of all received messages, and therefore be responsible for freeing them.
+    cmsg_bool_t app_owns_all_msgs; //set to FALSE by default but can be changed so
+                                   //that cmsg will NEVER free recv msgs for this
+                                   //server
+
     //counter information
     void *cntr_session;
     // counterd counters
@@ -181,5 +192,9 @@ int cmsg_server_list_is_empty (cmsg_server_list *server_list);
 void cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server);
 
 void cmsg_server_list_remove_server (cmsg_server_list *server_list, cmsg_server *server);
+
+void cmsg_server_app_owns_current_msg_set (cmsg_server *server);
+
+void cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner);
 
 #endif
