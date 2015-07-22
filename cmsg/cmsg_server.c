@@ -107,6 +107,9 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
 
         pthread_mutex_unlock (&server->queueing_state_mutex);
 
+        server->app_owns_current_msg = FALSE;
+        server->app_owns_all_msgs = FALSE;
+
 #ifdef HAVE_CMSG_PROFILING
         memset (&server->prof, 0, sizeof (cmsg_prof));
 #endif
@@ -644,7 +647,11 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
                                  message,
                                  server->_transport->closure, (void *) &closure_data);
 
-        protobuf_c_message_free_unpacked (message, server->allocator);
+        if (!(server->app_owns_current_msg || server->app_owns_all_msgs))
+        {
+            protobuf_c_message_free_unpacked (message, server->allocator);
+        }
+        server->app_owns_current_msg = FALSE;
 
         // Closure is called by the invoke.
         break;
@@ -1497,4 +1504,42 @@ cmsg_destroy_server_and_transport (cmsg_server *server)
 
         cmsg_transport_destroy (transport);
     }
+}
+
+/**
+ * @brief Allows the application to take ownership of the current message only.
+ * This flag will be reset after each impl function returns.
+ *
+ * @warning This should only be called from within an impl function.
+ * @warning Taking ownership also means the application is responsible for freeing the msg
+ *
+ * @param server The server you are setting the flag in
+ * @returns nothing
+ */
+void
+cmsg_server_app_owns_current_msg_set (cmsg_server *server)
+{
+    server->app_owns_current_msg = TRUE;
+}
+
+/**
+ * @brief Allows the application to take ownership of all messages.
+ * @brief This flag defaults to FALSE but will never reset once it is set by
+ * @bried the application.
+ *
+ * @warning Taking ownership also means the application is responsible for freeing all msgs
+ * @warning  msgs received from this server.
+ * @warning If you want CMSG to takeover ownership of new received messages, the application
+ * @warning must call this function again with FALSE. Note, the application will still be
+ * @warning responsible for freeing any messages it received before resetting this flag.
+ * @warning There is no way to change ownership of an existing message once the IMPL exits.
+ *
+ * @param server The server you are setting the flag in
+ * @param app_is_owner Is the application the owner of all messages? TRUE or FALSE
+ * @returns nothing
+ */
+void
+cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner)
+{
+    server->app_owns_all_msgs = app_is_owner;
 }
