@@ -12,7 +12,7 @@
 #endif
 
 #include "cmsg.h"
-#include "cmsg_private.h" // to be removed when this file is split private/public
+#include "cmsg_private.h"   // to be removed when this file is split private/public
 
 
 //forward delarations
@@ -150,7 +150,9 @@ typedef int32_t (*send_called_multi_threads_enable_f) (cmsg_transport *transport
 
 typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
 
-typedef void (*cmsg_tipc_topology_callback) (struct tipc_event *event);
+typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
+
+typedef void (*cmsg_tipc_topology_callback) (struct tipc_event * event);
 
 #define CMSG_MAX_TPORT_ID_LEN 32
 
@@ -168,6 +170,9 @@ struct _cmsg_transport_s
 
     // send to block if message cannot be sent
     uint32_t send_can_block;
+
+    // sets IP_FREEBIND in socket options
+    cmsg_bool_t use_ipfree_bind;
 
     //transport function pointers
     client_conect_f connect;                                                // client connect function
@@ -188,7 +193,7 @@ struct _cmsg_transport_s
     is_congested_f is_congested;                                            // Check whether transport is congested
     send_called_multi_threads_enable_f send_called_multi_threads_enable;    // Sets whether the send functionality handles being called from multiple threads
     send_can_block_enable_f send_can_block_enable;
-
+    ipfree_bind_enable_f ipfree_bind_enable;                                // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
     //transport statistics
     uint32_t client_send_tries;
 };
@@ -220,6 +225,9 @@ int32_t cmsg_transport_send_called_multi_threads_enable (cmsg_transport *transpo
 int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
                                               uint32_t send_can_block);
 
+int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
+                                           cmsg_bool_t ipfree_bind_enable);
+
 int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server);
 
 int32_t cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
@@ -237,11 +245,12 @@ cmsg_transport *cmsg_create_transport_tipc_oneway (const char *server_name, int 
 int cmsg_tipc_topology_service_connect (void);
 
 int
-cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t lower, uint32_t upper,
-                                    cmsg_tipc_topology_callback callback);
+cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t lower,
+                                    uint32_t upper, cmsg_tipc_topology_callback callback);
 
 int cmsg_tipc_topology_connect_subscribe (const char *server_name, uint32_t lower,
-                                          uint32_t upper, cmsg_tipc_topology_callback callback);
+                                          uint32_t upper,
+                                          cmsg_tipc_topology_callback callback);
 
 int cmsg_tipc_topology_subscription_read (int sock);
 
