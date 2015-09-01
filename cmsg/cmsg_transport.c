@@ -31,20 +31,28 @@ cmsg_transport_write_id (cmsg_transport *tport)
     case CMSG_TRANSPORT_RPC_TCP:
     case CMSG_TRANSPORT_ONEWAY_TCP:
         {
-            char ip[INET6_ADDRSTRLEN];
+            char ip[INET6_ADDRSTRLEN] = { };
             uint16_t port;
+            const char *fmt;
             if (tport->config.socket.family == PF_INET6)
             {
+                int ip_len = 0;
                 port = ntohs (tport->config.socket.sockaddr.in6.sin6_port);
+                inet_ntop (tport->config.socket.sockaddr.generic.sa_family,
+                           &(tport->config.socket.sockaddr.in6.sin6_addr), ip,
+                           INET6_ADDRSTRLEN);
+                // ipv6 addresses are enclosed in [] in URLs due to ambiguity of :s.
+                fmt = ".tcp[[%s]:%d]";
             }
             else
             {
                 port = ntohs (tport->config.socket.sockaddr.in.sin_port);
+                inet_ntop (tport->config.socket.sockaddr.generic.sa_family,
+                           &(tport->config.socket.sockaddr.in.sin_addr), ip,
+                           INET6_ADDRSTRLEN);
+                fmt = ".tcp[%s:%d]";
             }
-            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tcp[%s:%d]",
-                      inet_ntop (tport->config.socket.sockaddr.generic.sa_family,
-                                 &(tport->config.socket.sockaddr.in.sin_addr), ip,
-                                 INET6_ADDRSTRLEN), port);
+            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, fmt, ip, port);
             break;
         }
     case CMSG_TRANSPORT_RPC_TIPC:

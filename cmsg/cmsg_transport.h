@@ -154,7 +154,7 @@ typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t 
 
 typedef void (*cmsg_tipc_topology_callback) (struct tipc_event * event);
 
-#define CMSG_MAX_TPORT_ID_LEN 32
+#define CMSG_MAX_TPORT_ID_LEN 64
 
 struct _cmsg_transport_s
 {
