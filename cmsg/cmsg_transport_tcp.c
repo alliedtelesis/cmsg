@@ -244,23 +244,25 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     uint32_t dyn_len = 0;
     cmsg_header header_received;
     cmsg_header header_converted;
-    uint8_t *recv_buffer = 0;
+    uint8_t *recv_buffer = NULL;
+    uint8_t *buffer = NULL;
     uint8_t buf_static[512];
-    ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
     const ProtobufCMessageDescriptor *desc;
     uint32_t extra_header_size;
     cmsg_server_request server_request;
+    cmsg_status_code ret;
 
     *messagePtPt = NULL;
 
     if (!client)
     {
-        return CMSG_STATUS_CODE_SUCCESS;
+        return CMSG_STATUS_CODE_SERVICE_FAILED;
     }
 
     nbytes = recv (client->connection.socket,
                    &header_received, sizeof (cmsg_header), MSG_WAITALL);
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "receive",
+                                 cmsg_prof_time_toc (&client->prof));
 
     if (nbytes == (int) sizeof (cmsg_header))
     {
@@ -270,6 +272,8 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
             CMSG_LOG_CLIENT_ERROR (client,
                                    "Unable to process message header for client receive. Bytes:%d",
                                    nbytes);
+            CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
+                                         cmsg_prof_time_toc (&client->prof));
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
@@ -277,23 +281,37 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
         // read the message
 
+        // Take into account that someone may have changed the size of the header
+        // and we don't know about it, make sure we receive all the information.
+        // Any TLV is taken into account in the header length.
+        dyn_len = header_converted.message_length +
+            header_converted.header_length - sizeof (cmsg_header);
+
         // There is no more data to read so exit.
-        if (header_converted.message_length == 0)
+        if (dyn_len == 0)
         {
             // May have been queued, dropped or there was no message returned
             CMSG_DEBUG (CMSG_INFO,
                         "[TRANSPORT] received response without data. server status %d\n",
                         header_converted.status_code);
+            CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
+                                         cmsg_prof_time_toc (&client->prof));
             return header_converted.status_code;
         }
-        extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
-        // Take into account that someone may have changed the size of the header
-        // and we don't know about it, make sure we receive all the information.
-        dyn_len = header_converted.message_length + extra_header_size;
         if (dyn_len > sizeof (buf_static))
         {
             recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
+            if (recv_buffer == NULL)
+            {
+                /* Didn't allocate memory for recv buffer.  This is an error.
+                 * Shut the socket down, it will reopen on the next api call.
+                 * Record and return an error. */
+                client->_transport->client_close (client);
+                CMSG_LOG_CLIENT_ERROR (client,
+                                       "Couldn't allocate memory for server reply (TLV + message), closed the socket");
+                return CMSG_STATUS_CODE_SERVICE_FAILED;
+            }
         }
         else
         {
@@ -306,58 +324,88 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
         if (nbytes == (int) dyn_len)
         {
+            extra_header_size = header_converted.header_length - sizeof (cmsg_header);
+            // Set buffer to take into account a larger header than we expected
+            buffer = recv_buffer;
 
-            cmsg_tlv_header_process (recv_buffer, &server_request, extra_header_size,
+            cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
                                      client->descriptor);
 
-            recv_buffer = recv_buffer + extra_header_size;
+            buffer = buffer + extra_header_size;
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
+            cmsg_buffer_print (buffer, dyn_len);
 
-            cmsg_buffer_print (recv_buffer, dyn_len);
-
-            //todo: call cmsg_client_response_message_processor
-
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
-
-            desc = client->descriptor->methods[server_request.method_index].output;
-            message =
-                protobuf_c_message_unpack (desc, allocator,
-                                           header_converted.message_length, recv_buffer);
-
-            if (message == NULL)
+            /* Message is only returned if the server returned Success,
+             */
+            if (header_converted.status_code == CMSG_STATUS_CODE_SUCCESS)
             {
-                CMSG_LOG_CLIENT_ERROR (client, "Error unpacking response message. Bytes:%d",
-                                       header_converted.message_length);
-                return CMSG_STATUS_CODE_SERVICE_FAILED;
+                ProtobufCMessage *message = NULL;
+                ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
+
+                CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
+
+                desc = client->descriptor->methods[server_request.method_index].output;
+                message = protobuf_c_message_unpack (desc, allocator,
+                                                     header_converted.message_length,
+                                                     buffer);
+
+                // Free the allocated buffer
+                if (recv_buffer != (void *) buf_static)
+                {
+                    if (recv_buffer)
+                    {
+                        CMSG_FREE (recv_buffer);
+                        recv_buffer = NULL;
+                    }
+                }
+
+                // Msg not unpacked correctly
+                if (message == NULL)
+                {
+                    CMSG_LOG_CLIENT_ERROR (client,
+                                           "Error unpacking response message. Msg length:%d",
+                                           header_converted.message_length);
+                    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
+                                                 cmsg_prof_time_toc (&client->prof));
+                    return CMSG_STATUS_CODE_SERVICE_FAILED;
+                }
+                *messagePtPt = message;
+                CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
+                                             cmsg_prof_time_toc (&client->prof));
             }
-            *messagePtPt = message;
-            return CMSG_STATUS_CODE_SUCCESS;
+
+            // Make sure we return the status from the server
+            return header_converted.status_code;
         }
         else
         {
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d no data\n",
-                        client->connection.socket);
+            CMSG_LOG_CLIENT_ERROR (client,
+                                   "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
+                                   client->connection.socket, dyn_len, nbytes, errno,
+                                   strerror (errno));
+
         }
         if (recv_buffer != (void *) buf_static)
         {
             if (recv_buffer)
             {
                 CMSG_FREE (recv_buffer);
-                recv_buffer = 0;
+                recv_buffer = NULL;
             }
         }
     }
     else if (nbytes > 0)
     {
-        CMSG_DEBUG (CMSG_INFO,
-                    "[TRANSPORT] recv socket %d bad header nbytes %d\n",
-                    client->connection.socket, nbytes);
+        /* Didn't receive all of the CMSG header.
+         */
+        CMSG_LOG_CLIENT_ERROR (client, "Bad header length for recv. Socket:%d nbytes:%d",
+                               client->connection.socket, nbytes);
 
         // TEMP to keep things going
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
         nbytes = recv (client->connection.socket, recv_buffer, nbytes, MSG_WAITALL);
         CMSG_FREE (recv_buffer);
-        recv_buffer = 0;
+        recv_buffer = NULL;
     }
     else if (nbytes == 0)
     {
@@ -374,11 +422,13 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         }
         else
         {
-            CMSG_LOG_CLIENT_ERROR (client, "Receive error for socket %d. Error: %s",
+            CMSG_LOG_CLIENT_ERROR (client, "Recv error. Socket:%d Error:%s",
                                    client->connection.socket, strerror (errno));
         }
     }
 
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
+                                 cmsg_prof_time_toc (&client->prof));
     return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 
