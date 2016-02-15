@@ -99,6 +99,8 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
 
         cmsg_client_queue_filter_init (client);
 
+        client->suppress_errors = FALSE;
+
 #ifdef HAVE_CMSG_PROFILING
         memset (&client->prof, 0, sizeof (cmsg_prof));
 #endif
@@ -1289,6 +1291,12 @@ void
 cmsg_client_queue_filter_show (cmsg_client *client)
 {
     cmsg_queue_filter_show (client->queue_filter_hash_table, client->descriptor);
+}
+
+void
+cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable)
+{
+    client->suppress_errors = enable;
 }
 
 /* Create a cmsg client and its transport with TIPC (RPC) */
