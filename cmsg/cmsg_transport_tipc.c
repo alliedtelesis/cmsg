@@ -988,6 +988,44 @@ cmsg_tipc_topology_subscription_read (int sock)
 
 
 /**
+ * Queries the TIPC topology service to check if the port specified is published
+ * @param server_name the name of the TIPC server port (in /etc/services)
+ * @param inst the TIPC instance of the server port (often this is the stack node-ID)
+ * @returns TRUE if the specified server port is published, FALSE if not
+ */
+cmsg_bool_t
+cmsg_tipc_topology_is_port_published (const char *server_name, uint32_t inst)
+{
+    int sd;
+    cmsg_tipc_topology_callback dummy = NULL;
+    struct tipc_event event;
+    cmsg_bool_t is_published = FALSE;
+
+    /* create a temporary subscription for just the port instance we're interested in */
+    sd = cmsg_tipc_topology_connect_subscribe (server_name, inst, inst, dummy);
+
+    if (sd >= 0)
+    {
+        /* if the port is published, there should be an event waiting immediately */
+        if (recv (sd, &event, sizeof (event), MSG_DONTWAIT) == sizeof (event))
+        {
+            /* Check the topology subscription event is valid */
+            if (event.event == TIPC_PUBLISHED &&
+                event.found_lower == inst)
+            {
+                is_published = TRUE;
+            }
+        }
+
+        /* close the temporary subscription */
+        close (sd);
+    }
+
+    return is_published;
+}
+
+
+/**
  * Print to tracelog a message describing the tipc event that is passed in to the
  * function. This includes if the event is published/withdrawn, and address information
  * about the connection that has changed,
