@@ -254,8 +254,6 @@ int cmsg_tipc_topology_connect_subscribe (const char *server_name, uint32_t lowe
 
 int cmsg_tipc_topology_subscription_read (int sock);
 
-cmsg_bool_t cmsg_tipc_topology_is_port_published (const char *server_name, uint32_t inst);
-
 void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
                                              const char *event_str,
                                              struct tipc_event *event);
