@@ -219,7 +219,8 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
     transport->client_send = cmsg_transport_oneway_udt_client_send;
     transport->server_send = cmsg_transport_oneway_udt_server_send;
     transport->closure = cmsg_server_closure_oneway;
-    transport->invoke = cmsg_client_invoke_oneway;
+    transport->invoke_send = cmsg_client_invoke_oneway;
+    transport->invoke_recv = NULL;
     transport->client_close = cmsg_transport_oneway_udt_client_close;
     transport->server_close = cmsg_transport_oneway_udt_server_close;
 

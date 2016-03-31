@@ -751,8 +751,7 @@ cmsg_pub_invoke (ProtobufCService *service,
             //and add it directly to the publisher queue
             //this would remove the publisher dependency in the client and
             //would make the code easier to understand and cleaner
-            ret = cmsg_client_invoke_oneway ((ProtobufCService *) list_entry->client,
-                                             method_index, input, closure, closure_data);
+            ret = cmsg_client_invoke_oneway (list_entry->client, method_index, input);
 
             if (ret == CMSG_RET_ERR)
             {

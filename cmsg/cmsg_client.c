@@ -28,6 +28,11 @@ static int _cmsg_client_apply_send_timeout (int sock, uint32_t timeout);
 
 int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
 
+static int32_t cmsg_client_invoke (ProtobufCService *service,
+                                   unsigned method_index,
+                                   const ProtobufCMessage *input,
+                                   ProtobufCClosure closure,
+                                   void *closure_data);
 
 /*
  * This is an internal function which can be called from CMSG library.
@@ -57,8 +62,10 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         client->descriptor = descriptor;
         client->base_service.descriptor = descriptor;
 
-        client->invoke = transport->invoke;
-        client->base_service.invoke = transport->invoke;
+        client->invoke = cmsg_client_invoke;
+        client->base_service.invoke = cmsg_client_invoke;
+        client->invoke_send = transport->invoke_send;
+        client->invoke_recv = transport->invoke_recv;
 
         client->self.object_type = CMSG_OBJ_TYPE_CLIENT;
         client->self.object = client;
@@ -328,34 +335,22 @@ _cmsg_client_apply_send_timeout (int sockfd, uint32_t timeout)
 
 
 int32_t
-cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
-                        const ProtobufCMessage *input, ProtobufCClosure closure,
-                        void *closure_data)
+cmsg_client_invoke_rpc_send (cmsg_client *client, unsigned method_index,
+                             const ProtobufCMessage *input)
 {
     uint32_t ret = 0;
     int send_ret = 0;
     int connect_error = 0;
-    cmsg_client *client = (cmsg_client *) service;
-    cmsg_status_code status_code;
     ProtobufCMessage *message_pt;
-    const char *method_name;
     int method_length;
     int type = CMSG_TLV_METHOD_TYPE;
     cmsg_header header;
-
-    CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
+    ProtobufCService *service = (ProtobufCService *) client;
+    const char *method_name = service->descriptor->methods[method_index].name;
 
     CMSG_PROF_TIME_TIC (&client->prof);
     // count every rpc call
     CMSG_COUNTER_INC (client, cntr_rpc);
-
-    /* pack the data */
-    /* send */
-    /* depending upon transport wait for response */
-    /* unpack response */
-    /* return response */
-    method_name = service->descriptor->methods[method_index].name;
 
     CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
     // open connection (if it is already open this will just return)
@@ -484,7 +479,21 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         }
     }
 
+    CMSG_FREE (buffer);
+
     CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "send", cmsg_prof_time_toc (&client->prof));
+    return CMSG_RET_OK;
+}
+
+
+int32_t
+cmsg_client_invoke_rpc_recv (cmsg_client *client, unsigned method_index,
+                             ProtobufCClosure closure, void *closure_data)
+{
+    cmsg_status_code status_code;
+    ProtobufCMessage *message_pt;
+    ProtobufCService *service = (ProtobufCService *) client;
+    const char *method_name = service->descriptor->methods[method_index].name;
 
     /* message_pt is filled in by the response receive.  It may be NULL or a valid pointer.
      * status_code will tell us whether it is a valid pointer.
@@ -515,15 +524,10 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
         client->_transport->client_close (client);
 
         CMSG_COUNTER_INC (client, cntr_recv_errors);
-        CMSG_FREE (buffer);
         return CMSG_RET_CLOSED;
     }
 
     CMSG_PROF_TIME_TIC (&client->prof);
-
-    CMSG_FREE (buffer);
-    buffer = NULL;
-    buffer_data = NULL;
 
     /* If the call was queued then no point in calling closure as there is no message.
      * Need to exit.
@@ -586,27 +590,47 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
 }
 
 
-int32_t
-cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
-                           const ProtobufCMessage *input, ProtobufCClosure closure,
-                           void *closure_data)
+static int32_t
+cmsg_client_invoke (ProtobufCService *service, unsigned method_index,
+                    const ProtobufCMessage *input, ProtobufCClosure closure,
+                    void *closure_data)
 {
-    uint32_t ret = 0;
+    int32_t ret;
     cmsg_client *client = (cmsg_client *) service;
-    int do_queue = 0;
-    const char *method_name;
-    uint32_t method_length;
-    int type = CMSG_TLV_METHOD_TYPE;
-    cmsg_header header;
-    int ret_val;
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
 
+    ret = client->invoke_send (client, method_index, input);
+    if (ret != CMSG_RET_OK)
+    {
+        return ret;
+    }
+
+    if (client->invoke_recv)
+    {
+        return client->invoke_recv (client, method_index, closure, closure_data);
+    }
+
+    return CMSG_RET_OK;
+}
+
+
+int32_t
+cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
+                           const ProtobufCMessage *input)
+{
+    uint32_t ret = 0;
+    int do_queue = 0;
+    uint32_t method_length;
+    int type = CMSG_TLV_METHOD_TYPE;
+    cmsg_header header;
+    int ret_val;
+    ProtobufCService *service = (ProtobufCService *) client;
+    const char *method_name = service->descriptor->methods[method_index].name;
+
     // test - increment the counter on every rpc to see if this is working
     CMSG_COUNTER_INC (client, cntr_rpc);
-
-    method_name = service->descriptor->methods[method_index].name;
 
     CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
 
@@ -775,20 +799,15 @@ cmsg_client_invoke_oneway (ProtobufCService *service, unsigned method_index,
  * There is nothing to be returned so closure will not get set at all.
  */
 int32_t
-cmsg_client_invoke_oneway_direct (ProtobufCService *service, unsigned method_index,
-                                  const ProtobufCMessage *input, ProtobufCClosure closure,
-                                  void *closure_data)
+cmsg_client_invoke_oneway_direct (cmsg_client *client, unsigned method_index,
+                                  const ProtobufCMessage *input)
 {
     int32_t ret;
-    const char *method_name;
     uint8_t buf_static[512];
     uint8_t *buffer = NULL;
     uint32_t packed_size;
-
-    method_name = service->descriptor->methods[method_index].name;
-
-    /* The service is actually a cmsg_client so we can typecast here. */
-    cmsg_client *client = (cmsg_client *) service;
+    ProtobufCService *service = (ProtobufCService *) client;
+    const char *method_name = service->descriptor->methods[method_index].name;
 
     packed_size = protobuf_c_message_get_packed_size (input);
 
