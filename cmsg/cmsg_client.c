@@ -573,6 +573,9 @@ cmsg_client_invoke_rpc_recv (cmsg_client *client, unsigned method_index,
 
     if (closure_data)
     {
+        // free unknown fields from received message as the developer doesn't know about them
+        protobuf_c_message_free_unknown_fields (message_pt, client->allocator);
+
         ((cmsg_client_closure_data *) (closure_data))->message = (void *) message_pt;
         ((cmsg_client_closure_data *) (closure_data))->allocator = client->allocator;
     }

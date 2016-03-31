@@ -27,11 +27,6 @@ void cmsg_msg_array_free (void *msg_array, const char *file, int line);
         (_name) = NULL;                                                                                \
     } while (0)
 
-// macro to free _only_ the unknown fields that may be present
-// in a message returned back to the API
-#define CMSG_FREE_RECV_MSG_UNKNOWN_FIELDS(_name) \
-    protobuf_c_message_free_unknown_fields ((ProtobufCMessage *)(_name), &protobuf_c_default_allocator)
-
 /* Macros for setting the fields in a structure, and the associated sub-fields */
 #define CMSG_SET_FIELD_VALUE(_name, _field, _value) \
     do {                                            \

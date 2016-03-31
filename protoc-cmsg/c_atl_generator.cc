@@ -241,10 +241,6 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
       printer->Print("{\n");
       printer->Indent();
 
-      printer->Print("/* Free unknown fields from received message as the developer doesn't know about them */\n");
-      printer->Print("CMSG_FREE_RECV_MSG_UNKNOWN_FIELDS (_closure_data.message);\n");
-      printer->Print("\n");
-
       printer->Print("/* Update developer output msg to point to received message from invoke */\n");
       printer->Print("*(_recv_msg) = _closure_data.message;\n");
       printer->Print("\n");
