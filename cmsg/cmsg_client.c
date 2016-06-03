@@ -457,7 +457,7 @@ cmsg_client_invoke_rpc (ProtobufCService *service, unsigned method_index,
 
         CMSG_COUNTER_INC (client, cntr_recv_errors);
         CMSG_FREE (buffer);
-        return CMSG_RET_ERR;
+        return CMSG_RET_CLOSED;
     }
 
     CMSG_PROF_TIME_TIC (&client->prof);
