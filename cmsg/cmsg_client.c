@@ -43,29 +43,37 @@ static int32_t cmsg_client_invoke (ProtobufCService *service,
 cmsg_client *
 cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor *descriptor)
 {
-    CMSG_ASSERT_RETURN_VAL (transport != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
     cmsg_client *client = (cmsg_client *) CMSG_CALLOC (1, sizeof (cmsg_client));
 
     if (client)
     {
-        client->base_service.destroy = NULL;
-        client->allocator = &protobuf_c_default_allocator;
-        client->_transport = transport;
-        cmsg_transport_write_id (transport);
         client->state = CMSG_CLIENT_STATE_INIT;
         client->connection.socket = -1;
+
+        if (transport)
+        {
+            client->base_service.destroy = NULL;
+            client->allocator = &protobuf_c_default_allocator;
+            client->_transport = transport;
+            cmsg_transport_write_id (transport);
+        }
 
         //for compatibility with current generated code
         //this is a hack to get around a check when a client method is called
         client->descriptor = descriptor;
         client->base_service.descriptor = descriptor;
 
+        // Note these may be subsequently overridden (e.g. composite client)
         client->invoke = cmsg_client_invoke;
         client->base_service.invoke = cmsg_client_invoke;
-        client->invoke_send = transport->invoke_send;
-        client->invoke_recv = transport->invoke_recv;
+
+        if (transport)
+        {
+            client->invoke_send = transport->invoke_send;
+            client->invoke_recv = transport->invoke_recv;
+        }
 
         client->self.object_type = CMSG_OBJ_TYPE_CLIENT;
         client->self.object = client;
@@ -106,10 +114,15 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
 
         client->self_thread_id = pthread_self ();
 
-        cmsg_client_queue_filter_init (client);
+        if (transport)
+        {
+            cmsg_client_queue_filter_init (client);
+        }
 
         client->send_timeout = 0;
         client->suppress_errors = FALSE;
+
+        client->child_clients = NULL;
 
 #ifdef HAVE_CMSG_PROFILING
         memset (&client->prof, 0, sizeof (cmsg_prof));

@@ -160,6 +160,9 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print("{\n");
     printer->Indent();
     printer->Print("int32_t _return_status = CMSG_RET_ERR;\n");
+    printer->Print("int i = 0;\n");
+    printer->Print("int found_data = 0;\n");
+
     //
     // must create send message if it is not supplied by the developer
     // (ie when it has no fields)
@@ -176,7 +179,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     if(method->output_type()->field_count() > 0)
     {
-      printer->Print("cmsg_client_closure_data _closure_data = { NULL, NULL};\n");
+      printer->Print("cmsg_client_closure_data _closure_data[CMSG_RECV_ARRAY_SIZE] = {{NULL, NULL}};\n");
     }
     else
     {
@@ -237,21 +240,27 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     if (method->output_type()->field_count() > 0)
     {
       printer->Print("/* sanity check our returned message pointer */\n");
-      printer->Print("if (_closure_data.message != NULL)\n");
+      printer->Print("while (_closure_data[i].message != NULL)\n");
       printer->Print("{\n");
       printer->Indent();
 
       printer->Print("/* Update developer output msg to point to received message from invoke */\n");
-      printer->Print("*(_recv_msg) = _closure_data.message;\n");
+      printer->Print("_recv_msg[i] = _closure_data[i++].message;\n");
+      printer->Print("found_data = 1;\n");
       printer->Print("\n");
       printer->Outdent();
-      printer->Print("}\n"); //if (_closure_data.message != NULL)
-      printer->Print("else if (_return_status == CMSG_RET_OK)\n");
+      printer->Print("}\n"); //while (_closure_data[i].message != NULL)
+
+      //
+      // check for at least one result and report an error, iff return status
+      // hasn't already been set to an error (may be CMSG_RET_CLOSED already)
+      //
+      printer->Print("if (found_data == 0 && _return_status == CMSG_RET_OK)\n");
       printer->Print("{\n");
       printer->Indent();
       printer->Print("_return_status = CMSG_RET_ERR;\n");
       printer->Outdent();
-      printer->Print("}\n"); //else if (_return_status == CMSG_RET_OK)
+      printer->Print("}\n");
     }
     //
     // finally return something

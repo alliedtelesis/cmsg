@@ -248,6 +248,8 @@ cmsg_libcmsg_la_SOURCES = \
 	cmsg/cmsg_error.h \
 	cmsg/cmsg_client.c \
 	cmsg/cmsg_client.h \
+	cmsg/cmsg_composite_client.c \
+	cmsg/cmsg_composite_client.h \
 	cmsg/cmsg_pub.c \
 	cmsg/cmsg_pub.h \
 	cmsg/cmsg_queue.c \

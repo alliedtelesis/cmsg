@@ -10,6 +10,12 @@
 #define CMSG_DESCRIPTOR(package,service)    ((ProtobufCServiceDescriptor *)&package ## _ ## service ## _descriptor)
 #define CMSG_DESCRIPTOR_NOPACKAGE(service)  ((ProtobufCServiceDescriptor *)&service ## _descriptor)
 
+// Maximum stack nodes possible
+#define CMSG_MAX_CLIENTS 24
+
+// allow room for a NULL array entry at the end
+#define CMSG_RECV_ARRAY_SIZE (CMSG_MAX_CLIENTS + 1)
+
 typedef enum _cmsg_client_state_e
 {
     CMSG_CLIENT_STATE_INIT,         //after creating a new client
@@ -77,6 +83,11 @@ typedef struct _cmsg_client_s
 
     // logging - whether to downgrade errors to debug
     cmsg_bool_t suppress_errors;
+
+    // composite client information
+    GList *child_clients;
+    pthread_mutex_t child_mutex;
+    int last_ret;
 
     //counter information
     void *cntr_session;

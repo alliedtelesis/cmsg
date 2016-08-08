@@ -27,6 +27,16 @@ void cmsg_msg_array_free (void *msg_array, const char *file, int line);
         (_name) = NULL;                                                                                \
     } while (0)
 
+#define CMSG_FREE_RECV_MSG_ARRAY(_array)                                                               \
+    do {                                                                                               \
+        int _i;                                                                                         \
+        for (_i = 0; _array[_i] != NULL; _i++)                                                     \
+        {                                                                                              \
+            CMSG_FREE_RECV_MSG(_array[_i]);                                                            \
+        }                                                                                              \
+    } while (0)
+
+
 /* Macros for setting the fields in a structure, and the associated sub-fields */
 #define CMSG_SET_FIELD_VALUE(_name, _field, _value) \
     do {                                            \
