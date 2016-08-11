@@ -334,8 +334,8 @@ _cmsg_client_apply_send_timeout (int sockfd, uint32_t timeout)
 }
 
 int32_t
-cmsg_client_invoke_rpc_recv (cmsg_client *client, unsigned method_index,
-                             ProtobufCClosure closure, void *closure_data)
+cmsg_client_invoke_recv (cmsg_client *client, unsigned method_index,
+                         ProtobufCClosure closure, void *closure_data)
 {
     cmsg_status_code status_code;
     ProtobufCMessage *message_pt;
@@ -571,8 +571,8 @@ _cmsg_client_add_to_queue (cmsg_client *client, uint8_t *buffer,
 }
 
 int32_t
-cmsg_client_invoke_rpc_send (cmsg_client *client, unsigned method_index,
-                             const ProtobufCMessage *input)
+cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
+                         const ProtobufCMessage *input)
 {
     uint32_t ret = 0;
     bool do_queue = false;
@@ -694,8 +694,8 @@ cmsg_client_invoke_rpc_send (cmsg_client *client, unsigned method_index,
  * There is nothing to be returned so closure will not get set at all.
  */
 int32_t
-cmsg_client_invoke_oneway_direct (cmsg_client *client, unsigned method_index,
-                                  const ProtobufCMessage *input)
+cmsg_client_invoke_send_direct (cmsg_client *client, unsigned method_index,
+                                const ProtobufCMessage *input)
 {
     int32_t ret;
     uint8_t buf_static[512];

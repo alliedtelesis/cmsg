@@ -354,6 +354,6 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->ipfree_bind_enable = cmsg_transport_tipc_broadcast_ipfree_bind_enable;
 
     transport->closure = cmsg_server_closure_oneway;
-    transport->invoke_send = cmsg_client_invoke_rpc_send;
+    transport->invoke_send = cmsg_client_invoke_send;
     transport->invoke_recv = NULL;
 }

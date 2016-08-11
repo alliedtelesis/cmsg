@@ -113,15 +113,14 @@ int cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout);
 cmsg_status_code cmsg_client_response_receive (cmsg_client *client,
                                                ProtobufCMessage **message);
 
-int32_t cmsg_client_invoke_rpc_send (cmsg_client *client, unsigned method_index,
-                                     const ProtobufCMessage *input);
+int32_t cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
+                                 const ProtobufCMessage *input);
 
-int32_t cmsg_client_invoke_rpc_recv (cmsg_client *client, unsigned method_index,
-                                     ProtobufCClosure closure, void *closure_data);
+int32_t cmsg_client_invoke_recv (cmsg_client *client, unsigned method_index,
+                                 ProtobufCClosure closure, void *closure_data);
 
-int32_t
-cmsg_client_invoke_oneway_direct (cmsg_client *client, unsigned method_index,
-                                  const ProtobufCMessage *input);
+int32_t cmsg_client_invoke_send_direct (cmsg_client *client, unsigned method_index,
+                                        const ProtobufCMessage *input);
 
 int32_t cmsg_client_send_echo_request (cmsg_client *client);
 

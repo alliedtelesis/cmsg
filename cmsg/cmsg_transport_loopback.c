@@ -195,7 +195,7 @@ cmsg_transport_oneway_loopback_init (cmsg_transport *transport)
     transport->client_send = cmsg_transport_loopback_client_send;
     transport->server_send = cmsg_transport_loopback_oneway_server_send;
     transport->closure = cmsg_server_closure_oneway;
-    transport->invoke_send = cmsg_client_invoke_oneway_direct;
+    transport->invoke_send = cmsg_client_invoke_send_direct;
     transport->invoke_recv = NULL;
     transport->client_close = cmsg_transport_loopback_client_close;
     transport->server_close = cmsg_transport_loopback_server_close;
