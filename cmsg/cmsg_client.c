@@ -339,10 +339,8 @@ cmsg_client_invoke_rpc_send (cmsg_client *client, unsigned method_index,
                              const ProtobufCMessage *input)
 {
     uint32_t ret = 0;
-    int send_ret = 0;
     int connect_error = 0;
-    ProtobufCMessage *message_pt;
-    int method_length;
+    uint32_t method_length;
     int type = CMSG_TLV_METHOD_TYPE;
     cmsg_header header;
     int ret_val;
@@ -573,6 +571,7 @@ cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
 {
     uint32_t ret = 0;
     int do_queue = 0;
+    int connect_error = 0;
     uint32_t method_length;
     int type = CMSG_TLV_METHOD_TYPE;
     cmsg_header header;
@@ -580,10 +579,23 @@ cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
     ProtobufCService *service = (ProtobufCService *) client;
     const char *method_name = service->descriptor->methods[method_index].name;
 
-    // test - increment the counter on every rpc to see if this is working
+    CMSG_PROF_TIME_TIC (&client->prof);
+    // count every rpc call
     CMSG_COUNTER_INC (client, cntr_rpc);
 
     CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
+    // open connection (if it is already open this will just return)
+    connect_error = cmsg_client_connect (client);
+
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "connect",
+                                 cmsg_prof_time_toc (&client->prof));
+
+    if (client->state != CMSG_CLIENT_STATE_CONNECTED)
+    {
+        CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
+                        method_name, connect_error);
+        return CMSG_RET_ERR;
+    }
 
     if (client->queue_enabled_from_parent)
     {
@@ -630,6 +642,7 @@ cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
     }
 
     method_length = strlen (method_name) + 1;
+    CMSG_PROF_TIME_TIC (&client->prof);
 
     uint32_t packed_size = protobuf_c_message_get_packed_size (input);
     uint32_t extra_header_size = CMSG_TLV_SIZE (method_length);
@@ -643,13 +656,14 @@ cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
     if (!buffer)
     {
         CMSG_LOG_CLIENT_ERROR (client,
-                               "Unable to allocate memory for message. (method: %s)",
+                               "Unable to allocate memory for message. (method: %s).",
                                method_name);
         CMSG_COUNTER_INC (client, cntr_memory_errors);
         return CMSG_RET_ERR;
     }
 
     cmsg_tlv_method_header_create (buffer, header, type, method_length, method_name);
+
     uint8_t *buffer_data = buffer + total_header_size;
 
     CMSG_DEBUG (CMSG_INFO, "[CLIENT] header\n");
@@ -661,8 +675,9 @@ cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
         CMSG_LOG_CLIENT_ERROR (client,
                                "Underpacked message data. Packed %d of %d bytes. (method: %s)",
                                ret, packed_size, method_name);
-        CMSG_COUNTER_INC (client, cntr_pack_errors);
+
         CMSG_FREE (buffer);
+        CMSG_COUNTER_INC (client, cntr_pack_errors);
         return CMSG_RET_ERR;
     }
     else if (ret > packed_size)
@@ -670,13 +685,18 @@ cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
         CMSG_LOG_CLIENT_ERROR (client,
                                "Overpacked message data. Packed %d of %d bytes. (method: %s)",
                                ret, packed_size, method_name);
-        CMSG_COUNTER_INC (client, cntr_pack_errors);
+
         CMSG_FREE (buffer);
+        CMSG_COUNTER_INC (client, cntr_pack_errors);
         return CMSG_RET_ERR;
     }
 
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "pack", cmsg_prof_time_toc (&client->prof));
+
     CMSG_DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
     cmsg_buffer_print (buffer_data, packed_size);
+
+    CMSG_PROF_TIME_TIC (&client->prof);
 
     if (!do_queue)
     {
@@ -737,6 +757,7 @@ cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
 
     CMSG_FREE (buffer);
 
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "send", cmsg_prof_time_toc (&client->prof));
     return ret_val;
 }
 
