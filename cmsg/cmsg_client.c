@@ -345,6 +345,7 @@ cmsg_client_invoke_rpc_send (cmsg_client *client, unsigned method_index,
     int method_length;
     int type = CMSG_TLV_METHOD_TYPE;
     cmsg_header header;
+    int ret_val;
     ProtobufCService *service = (ProtobufCService *) client;
     const char *method_name = service->descriptor->methods[method_index].name;
 
@@ -422,67 +423,14 @@ cmsg_client_invoke_rpc_send (cmsg_client *client, unsigned method_index,
 
     CMSG_PROF_TIME_TIC (&client->prof);
 
-    send_ret = client->_transport->client_send (client,
-                                                buffer, total_message_size, 0);
-
-    if (send_ret < (int) (total_message_size))
-    {
-        // close the connection as something must be wrong
-        client->state = CMSG_CLIENT_STATE_CLOSED;
-        client->_transport->client_close (client);
-        // the connection may be down due to a problem since the last send
-        // attempt once to reconnect and send
-        connect_error = cmsg_client_connect (client);
-
-        if (client->state == CMSG_CLIENT_STATE_CONNECTED)
-        {
-            send_ret = client->_transport->client_send (client,
-                                                        buffer,
-                                                        total_message_size, 0);
-
-            if (send_ret < (int) (total_message_size))
-            {
-                if (send_ret == -1)
-                {
-                    if (errno == EAGAIN)
-                    {
-                        CMSG_LOG_DEBUG ("[CLIENT] client_send failed (method: %s), %s",
-                                        method_name, strerror (errno));
-                    }
-                    else
-                    {
-                        CMSG_LOG_CLIENT_ERROR (client,
-                                               "Client send failed: %s. (method: %s)",
-                                               strerror (errno), method_name);
-                    }
-                }
-                else
-                {
-                    CMSG_LOG_CLIENT_ERROR (client,
-                                           "Client send failed: Only sent %d of %u bytes. (method: %s)",
-                                           send_ret, (uint32_t) (total_message_size),
-                                           method_name);
-                }
-
-                CMSG_COUNTER_INC (client, cntr_send_errors);
-                CMSG_FREE (buffer);
-                return CMSG_RET_ERR;
-            }
-        }
-        else
-        {
-            CMSG_LOG_DEBUG ("[CLIENT] couldn't reconnect client! (method: %s, error: %d)",
-                            method_name, connect_error);
-
-            CMSG_FREE (buffer);
-            return CMSG_RET_ERR;
-        }
-    }
+    ret_val = cmsg_client_buffer_send_retry_once (client, buffer,
+                                                  total_message_size,
+                                                  method_name);
 
     CMSG_FREE (buffer);
 
     CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "send", cmsg_prof_time_toc (&client->prof));
-    return CMSG_RET_OK;
+    return ret_val;
 }
 
 
@@ -917,58 +865,23 @@ cmsg_client_send_echo_request (cmsg_client *client)
 {
     int32_t ret = 0;
     int connect_error = 0;
-
-    CMSG_ASSERT_RETURN_VAL (client != NULL, -1);
-
-    // if not connected connect now
-    connect_error = cmsg_client_connect (client);
-
-    if (client->state != CMSG_CLIENT_STATE_CONNECTED)
-    {
-        CMSG_LOG_DEBUG ("[CLIENT] client is not connected (error: %d)", connect_error);
-        return -1;
-    }
-
     // create header
     cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_ECHO_REQ,
                                              0, 0,
                                              CMSG_STATUS_CODE_UNSET);
 
-    // send
+    CMSG_ASSERT_RETURN_VAL (client != NULL, -1);
+
     CMSG_DEBUG (CMSG_INFO, "[CLIENT] header\n");
     cmsg_buffer_print (&header, sizeof (header));
 
-    ret = client->_transport->client_send (client, &header, sizeof (header), 0);
-    if (ret < (int32_t) (sizeof (header)))
+    ret = cmsg_client_buffer_send_retry_once (client, &header,
+                                              sizeof (header),
+                                              "echo request");
+
+    if (ret != CMSG_RET_OK)
     {
-        CMSG_LOG_CLIENT_ERROR (client, "Failed sending all data");
-
-        // close the connection as something must be wrong
-        client->state = CMSG_CLIENT_STATE_CLOSED;
-        client->_transport->client_close (client);
-
-        // the connection may be down due to a problem since the last send
-        // attempt once to reconnect and send
-        connect_error = cmsg_client_connect (client);
-
-        if (client->state == CMSG_CLIENT_STATE_CONNECTED)
-        {
-            ret = client->_transport->client_send (client, &header, sizeof (header), 0);
-            if (ret < (int32_t) sizeof (header))
-            {
-                CMSG_LOG_CLIENT_ERROR (client,
-                                       "Sending echo request failed. sent:%d of %u bytes.",
-                                       ret, (uint32_t) sizeof (header));
-                CMSG_COUNTER_INC (client, cntr_send_errors);
-                return -1;
-            }
-        }
-        else
-        {
-            CMSG_LOG_DEBUG ("[CLIENT] couldn't reconnect client! (error: %d)",
-                            connect_error);
-            return -1;
-        }
+        return -1;
     }
 
     // return socket to listen on
