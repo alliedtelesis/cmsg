@@ -119,9 +119,6 @@ int32_t cmsg_client_invoke_rpc_send (cmsg_client *client, unsigned method_index,
 int32_t cmsg_client_invoke_rpc_recv (cmsg_client *client, unsigned method_index,
                                      ProtobufCClosure closure, void *closure_data);
 
-int32_t cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
-                                   const ProtobufCMessage *input);
-
 int32_t
 cmsg_client_invoke_oneway_direct (cmsg_client *client, unsigned method_index,
                                   const ProtobufCMessage *input);

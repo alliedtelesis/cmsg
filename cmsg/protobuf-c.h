@@ -43,6 +43,7 @@
 #define __PROTOBUF_C_RUNTIME_H_
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <assert.h>
 #include <limits.h>
 #include <glib.h>

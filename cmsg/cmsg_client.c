@@ -333,105 +333,6 @@ _cmsg_client_apply_send_timeout (int sockfd, uint32_t timeout)
     return 0;
 }
 
-
-int32_t
-cmsg_client_invoke_rpc_send (cmsg_client *client, unsigned method_index,
-                             const ProtobufCMessage *input)
-{
-    uint32_t ret = 0;
-    int connect_error = 0;
-    uint32_t method_length;
-    int type = CMSG_TLV_METHOD_TYPE;
-    cmsg_header header;
-    int ret_val;
-    ProtobufCService *service = (ProtobufCService *) client;
-    const char *method_name = service->descriptor->methods[method_index].name;
-
-    CMSG_PROF_TIME_TIC (&client->prof);
-    // count every rpc call
-    CMSG_COUNTER_INC (client, cntr_rpc);
-
-    CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
-    // open connection (if it is already open this will just return)
-    connect_error = cmsg_client_connect (client);
-
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "connect",
-                                 cmsg_prof_time_toc (&client->prof));
-
-    if (client->state != CMSG_CLIENT_STATE_CONNECTED)
-    {
-        CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
-                        method_name, connect_error);
-        return CMSG_RET_ERR;
-    }
-    method_length = strlen (method_name) + 1;
-    CMSG_PROF_TIME_TIC (&client->prof);
-
-    uint32_t packed_size = protobuf_c_message_get_packed_size (input);
-    uint32_t extra_header_size = CMSG_TLV_SIZE (method_length);
-    uint32_t total_header_size = sizeof (header) + extra_header_size;
-    uint32_t total_message_size = total_header_size + packed_size;
-
-    header = cmsg_header_create (CMSG_MSG_TYPE_METHOD_REQ, extra_header_size,
-                                 packed_size, CMSG_STATUS_CODE_UNSET);
-
-    uint8_t *buffer = (uint8_t *) CMSG_CALLOC (1, total_message_size);
-    if (!buffer)
-    {
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "Unable to allocate memory for message. (method: %s).",
-                               method_name);
-        CMSG_COUNTER_INC (client, cntr_memory_errors);
-        return CMSG_RET_ERR;
-    }
-
-    cmsg_tlv_method_header_create (buffer, header, type, method_length, method_name);
-
-    uint8_t *buffer_data = buffer + total_header_size;
-
-    CMSG_DEBUG (CMSG_INFO, "[CLIENT] header\n");
-    cmsg_buffer_print (&header, sizeof (header));
-
-    ret = protobuf_c_message_pack (input, buffer_data);
-    if (ret < packed_size)
-    {
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "Underpacked message data. Packed %d of %d bytes. (method: %s)",
-                               ret, packed_size, method_name);
-
-        CMSG_FREE (buffer);
-        CMSG_COUNTER_INC (client, cntr_pack_errors);
-        return CMSG_RET_ERR;
-    }
-    else if (ret > packed_size)
-    {
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "Overpacked message data. Packed %d of %d bytes. (method: %s)",
-                               ret, packed_size, method_name);
-
-        CMSG_FREE (buffer);
-        CMSG_COUNTER_INC (client, cntr_pack_errors);
-        return CMSG_RET_ERR;
-    }
-
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "pack", cmsg_prof_time_toc (&client->prof));
-
-    CMSG_DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
-    cmsg_buffer_print (buffer_data, packed_size);
-
-    CMSG_PROF_TIME_TIC (&client->prof);
-
-    ret_val = cmsg_client_buffer_send_retry_once (client, buffer,
-                                                  total_message_size,
-                                                  method_name);
-
-    CMSG_FREE (buffer);
-
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "send", cmsg_prof_time_toc (&client->prof));
-    return ret_val;
-}
-
-
 int32_t
 cmsg_client_invoke_rpc_recv (cmsg_client *client, unsigned method_index,
                              ProtobufCClosure closure, void *closure_data)
@@ -564,44 +465,15 @@ cmsg_client_invoke (ProtobufCService *service, unsigned method_index,
     return CMSG_RET_OK;
 }
 
-
-int32_t
-cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
-                           const ProtobufCMessage *input)
+static int
+_cmsg_client_should_queue (cmsg_client *client, const char *method_name,
+                           bool *do_queue)
 {
-    uint32_t ret = 0;
-    int do_queue = 0;
-    int connect_error = 0;
-    uint32_t method_length;
-    int type = CMSG_TLV_METHOD_TYPE;
-    cmsg_header header;
-    int ret_val;
-    ProtobufCService *service = (ProtobufCService *) client;
-    const char *method_name = service->descriptor->methods[method_index].name;
-
-    CMSG_PROF_TIME_TIC (&client->prof);
-    // count every rpc call
-    CMSG_COUNTER_INC (client, cntr_rpc);
-
-    CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
-    // open connection (if it is already open this will just return)
-    connect_error = cmsg_client_connect (client);
-
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "connect",
-                                 cmsg_prof_time_toc (&client->prof));
-
-    if (client->state != CMSG_CLIENT_STATE_CONNECTED)
-    {
-        CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
-                        method_name, connect_error);
-        return CMSG_RET_ERR;
-    }
-
     if (client->queue_enabled_from_parent)
     {
         // queuing has been enabled from parent publisher
         // so don't do client queue filter lookup
-        do_queue = 1;
+        *do_queue = true;
     }
     else
     {
@@ -631,14 +503,109 @@ cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
         }
         else if (action == CMSG_QUEUE_FILTER_QUEUE)
         {
-            do_queue = 1;
+            *do_queue = true;
             // count this as queued
             CMSG_COUNTER_INC (client, cntr_messages_queued);
         }
         else if (action == CMSG_QUEUE_FILTER_PROCESS)
         {
-            do_queue = 0;
+            *do_queue = false;
         }
+    }
+
+    return CMSG_RET_OK;
+}
+
+static int
+_cmsg_client_add_to_queue (cmsg_client *client, uint8_t *buffer,
+                           uint32_t total_message_size,
+                           const char *method_name)
+{
+    //add to queue
+    if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
+    {
+        cmsg_pub *publisher = (cmsg_pub *) client->parent.object;
+
+        pthread_mutex_lock (&publisher->queue_mutex);
+
+        //todo: check return
+        cmsg_send_queue_push (publisher->queue, buffer,
+                              total_message_size,
+                              client, client->_transport, (char *) method_name);
+
+        pthread_mutex_unlock (&publisher->queue_mutex);
+
+        //send signal to  cmsg_pub_queue_process_all
+        pthread_mutex_lock (&publisher->queue_process_mutex);
+        if (client->queue_process_count == 0)
+            pthread_cond_signal (&publisher->queue_process_cond);
+        publisher->queue_process_count = publisher->queue_process_count + 1;
+        pthread_mutex_unlock (&publisher->queue_process_mutex);
+    }
+    else if (client->parent.object_type == CMSG_OBJ_TYPE_NONE)
+    {
+        pthread_mutex_lock (&client->queue_mutex);
+
+        //todo: check return
+        cmsg_send_queue_push (client->queue, buffer,
+                              total_message_size,
+                              client, client->_transport, (char *) method_name);
+
+        pthread_mutex_unlock (&client->queue_mutex);
+
+        //send signal to cmsg_client_queue_process_all
+        pthread_mutex_lock (&client->queue_process_mutex);
+        if (client->queue_process_count == 0)
+            pthread_cond_signal (&client->queue_process_cond);
+        client->queue_process_count = client->queue_process_count + 1;
+        pthread_mutex_unlock (&client->queue_process_mutex);
+    }
+
+    // Execute callback function if configured
+    if (client->queue_callback_func != NULL)
+    {
+        client->queue_callback_func (client, method_name);
+    }
+
+    return CMSG_RET_QUEUED;
+}
+
+int32_t
+cmsg_client_invoke_rpc_send (cmsg_client *client, unsigned method_index,
+                             const ProtobufCMessage *input)
+{
+    uint32_t ret = 0;
+    bool do_queue = false;
+    int connect_error = 0;
+    uint32_t method_length;
+    int type = CMSG_TLV_METHOD_TYPE;
+    cmsg_header header;
+    int ret_val;
+    ProtobufCService *service = (ProtobufCService *) client;
+    const char *method_name = service->descriptor->methods[method_index].name;
+
+    CMSG_PROF_TIME_TIC (&client->prof);
+    // count every rpc call
+    CMSG_COUNTER_INC (client, cntr_rpc);
+
+    CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
+    // open connection (if it is already open this will just return)
+    connect_error = cmsg_client_connect (client);
+
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "connect",
+                                 cmsg_prof_time_toc (&client->prof));
+
+    if (client->state != CMSG_CLIENT_STATE_CONNECTED)
+    {
+        CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
+                        method_name, connect_error);
+        return CMSG_RET_ERR;
+    }
+
+    ret = _cmsg_client_should_queue (client, method_name, &do_queue);
+    if (ret != CMSG_RET_OK)
+    {
+        return ret;
     }
 
     method_length = strlen (method_name) + 1;
@@ -707,52 +674,8 @@ cmsg_client_invoke_oneway (cmsg_client *client, unsigned method_index,
     }
     else
     {
-        //add to queue
-        if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
-        {
-            cmsg_pub *publisher = (cmsg_pub *) client->parent.object;
-
-            pthread_mutex_lock (&publisher->queue_mutex);
-
-            //todo: check return
-            cmsg_send_queue_push (publisher->queue, buffer,
-                                  total_message_size,
-                                  client, client->_transport, (char *) method_name);
-
-            pthread_mutex_unlock (&publisher->queue_mutex);
-
-            //send signal to  cmsg_pub_queue_process_all
-            pthread_mutex_lock (&publisher->queue_process_mutex);
-            if (client->queue_process_count == 0)
-                pthread_cond_signal (&publisher->queue_process_cond);
-            publisher->queue_process_count = publisher->queue_process_count + 1;
-            pthread_mutex_unlock (&publisher->queue_process_mutex);
-        }
-        else if (client->parent.object_type == CMSG_OBJ_TYPE_NONE)
-        {
-            pthread_mutex_lock (&client->queue_mutex);
-
-            //todo: check return
-            cmsg_send_queue_push (client->queue, buffer,
-                                  total_message_size,
-                                  client, client->_transport, (char *) method_name);
-
-            pthread_mutex_unlock (&client->queue_mutex);
-
-            //send signal to cmsg_client_queue_process_all
-            pthread_mutex_lock (&client->queue_process_mutex);
-            if (client->queue_process_count == 0)
-                pthread_cond_signal (&client->queue_process_cond);
-            client->queue_process_count = client->queue_process_count + 1;
-            pthread_mutex_unlock (&client->queue_process_mutex);
-        }
-        ret_val = CMSG_RET_QUEUED;
-
-        // Execute callback function if configured
-        if (client->queue_callback_func != NULL)
-        {
-            client->queue_callback_func (client, method_name);
-        }
+        ret_val = _cmsg_client_add_to_queue (client, buffer, total_message_size,
+                                             method_name);
     }
 
     CMSG_FREE (buffer);

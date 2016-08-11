@@ -654,7 +654,7 @@ cmsg_transport_cpg_init (cmsg_transport *transport)
     transport->server_send = cmsg_transport_cpg_server_send;
 
     transport->closure = cmsg_server_closure_oneway;
-    transport->invoke_send = cmsg_client_invoke_oneway;
+    transport->invoke_send = cmsg_client_invoke_rpc_send;
     transport->invoke_recv = NULL;
 
     transport->client_close = cmsg_transport_cpg_client_close;

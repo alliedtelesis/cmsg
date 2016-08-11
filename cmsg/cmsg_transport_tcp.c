@@ -604,7 +604,7 @@ cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
     transport->client_send = cmsg_transport_tcp_client_send;
     transport->server_send = cmsg_transport_tcp_oneway_server_send;
     transport->closure = cmsg_server_closure_oneway;
-    transport->invoke_send = cmsg_client_invoke_oneway;
+    transport->invoke_send = cmsg_client_invoke_rpc_send;
     transport->invoke_recv = NULL;
     transport->client_close = cmsg_transport_tcp_client_close;
     transport->server_close = cmsg_transport_tcp_server_close;
