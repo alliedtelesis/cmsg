@@ -79,30 +79,6 @@ void cmsg_msg_array_free (void *msg_array, const char *file, int line);
 #define CMSG_MSG_ARRAY_FREE(__msg_array) \
     cmsg_msg_array_free (__msg_array, __FILE__, __LINE__)
 
-typedef enum _cmsg_old_msg_type_e
-{
-    CMSG_OLD_MSG_TYPE_METHOD_REQ = 0,   // Request to server to call a method
-    CMSG_OLD_MSG_TYPE_METHOD_REPLY,     // Reply from server in response to a method request
-} cmsg_old_msg_type;
-
-/**
- * Warning: This header is only to allow backwards compatibility for
- * rolling reboot between 5.4.4.0 and 5.4.4.1
- * Do not change any of these fields.
- */
-typedef struct _cmsg_old_header_s
-{
-    cmsg_old_msg_type msg_type;     // Do NOT change this field
-    uint32_t header_length;         // Do NOT change this field
-    uint32_t message_length;        // Do NOT change this field
-    uint32_t method_index;          // Only for METHOD_xxx
-    uint32_t status_code;           // Only for METHOD_REPLY - unused
-} cmsg_old_header;
-
-cmsg_old_header cmsg_old_header_create (cmsg_old_msg_type msg_type, uint32_t packed_size,
-                                        uint32_t method_index,
-                                        uint32_t status_code);
-
 int cmsg_service_port_get (const char *name, const char *proto);
 
 #endif
