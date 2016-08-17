@@ -83,6 +83,11 @@ cmsg_composite_client_invoke (ProtobufCService *service, unsigned method_index,
 int32_t
 cmsg_composite_client_add_child (cmsg_client *composite_client, cmsg_client *client)
 {
+    if (composite_client == NULL || client == NULL)
+    {
+        return -1;
+    }
+
     if (client->_transport->type != CMSG_TRANSPORT_RPC_TCP &&
         client->_transport->type != CMSG_TRANSPORT_RPC_TIPC)
     {
@@ -106,6 +111,11 @@ cmsg_composite_client_add_child (cmsg_client *composite_client, cmsg_client *cli
 int32_t
 cmsg_composite_client_delete_child (cmsg_client *composite_client, cmsg_client *client)
 {
+    if (composite_client == NULL || client == NULL)
+    {
+        return -1;
+    }
+
     pthread_mutex_lock (&composite_client->child_mutex);
 
     composite_client->child_clients = g_list_remove (composite_client->child_clients,
@@ -136,7 +146,7 @@ cmsg_composite_client_new (const ProtobufCServiceDescriptor *descriptor)
 
         if (pthread_mutex_init (&client->child_mutex, NULL) != 0)
         {
-            CMSG_LOG_CLIENT_ERROR (client, "Init failed for children_mutex.");
+            CMSG_LOG_CLIENT_ERROR (client, "Init failed for child_mutex.");
             CMSG_FREE (client);
             return NULL;
         }
