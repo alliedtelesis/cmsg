@@ -328,9 +328,12 @@ cmsg_server_list_remove_server (cmsg_server_list *server_list, cmsg_server *serv
 }
 
 /**
- * cmsg_server_receive_poll
- *
  * Wait for any data on a list of sockets or until timeout expires.
+ *
+ * Note: If the select system call is interrupted before any messages
+ *       are received (i.e. returns EINTR) then this function will
+ *       return success (instead of blocking until the timeout expires)
+ *
  * Timeout is specified in 'timeout_ms' (0: return immediately,
  * negative number: no timeout).
  * On success returns 0, failure returns -1.
@@ -355,6 +358,12 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
     ret = select (nfds + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
     if (ret == -1)
     {
+        if (errno == EINTR)
+        {
+            // We were interrupted, this is transient so just pretend we timed out.
+            return CMSG_RET_OK;
+        }
+
         CMSG_LOG_SERVER_ERROR (server,
                                "An error occurred with receive poll (timeout %dms): %s.",
                                timeout_ms, strerror (errno));
@@ -414,6 +423,11 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
 
 /**
  * Perform server receive on a list of cmsg servers.
+ *
+ * Note: If the select system call is interrupted before any messages
+ *       are received (i.e. returns EINTR) then this function will
+ *       return success (instead of blocking until the timeout expires)
+ *
  * Timeout : (0: return immediately, +: wait in milli-seconds, -: no timeout).
  * On success returns 0, failure returns -1.
  */
@@ -473,6 +487,12 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     ret = select (fdmax + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
     if (ret == -1)
     {
+        if (errno == EINTR)
+        {
+            // We were interrupted, this is transient so just pretend we timed out.
+            return CMSG_RET_OK;
+        }
+
         CMSG_LOG_SERVER_ERROR (server,
                                "An error occurred with list receive poll (timeout: %dms): %s.",
                                timeout_ms, strerror (errno));
