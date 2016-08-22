@@ -589,7 +589,6 @@ cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
 {
     uint32_t ret = 0;
     bool do_queue = false;
-    int connect_error = 0;
     uint32_t method_length;
     int type = CMSG_TLV_METHOD_TYPE;
     cmsg_header header;
@@ -602,18 +601,6 @@ cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
     CMSG_COUNTER_INC (client, cntr_rpc);
 
     CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
-    // open connection (if it is already open this will just return)
-    connect_error = cmsg_client_connect (client);
-
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "connect",
-                                 cmsg_prof_time_toc (&client->prof));
-
-    if (client->state != CMSG_CLIENT_STATE_CONNECTED)
-    {
-        CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
-                        method_name, connect_error);
-        return CMSG_RET_ERR;
-    }
 
     ret = _cmsg_client_should_queue (client, method_name, &do_queue);
     if (ret != CMSG_RET_OK)
