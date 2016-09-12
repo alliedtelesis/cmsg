@@ -541,10 +541,7 @@ cmsg_transport_tcp_send_can_block_enable (cmsg_transport *transport,
 int32_t
 cmsg_transport_tcp_ipfree_bind_enable (cmsg_transport *transport, cmsg_bool_t use_ipfree_bind)
 {
-    if (transport->config.socket.family == PF_INET6)
-    {
-        transport->use_ipfree_bind = use_ipfree_bind;
-    }
+    transport->use_ipfree_bind = use_ipfree_bind;
     return 0;
 }
 
