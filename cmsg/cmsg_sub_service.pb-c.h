@@ -9,6 +9,7 @@ PROTOBUF_C_BEGIN_DECLS
 
 #include <string.h>
 #include <stdlib.h>
+#include "cmsg_transport.h"
 
 typedef struct _cmsg_sub_entry_transport_info cmsg_sub_entry_transport_info;
 typedef struct _cmsg_sub_entry_response cmsg_sub_entry_response;
@@ -41,6 +42,8 @@ struct  _cmsg_sub_entry_transport_info
   uint32_t tipc_addr_name_domain;
   protobuf_c_boolean has_tipc_scope;
   uint32_t tipc_scope;
+  protobuf_c_boolean has_un_sun_path;
+  uint8_t un_sun_path[SUN_PATH_SIZE];
 };
 #define CMSG_SUB_ENTRY_TRANSPORT_INFO_INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cmsg_sub_entry_transport_info_descriptor) \

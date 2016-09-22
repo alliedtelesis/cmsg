@@ -1313,6 +1313,57 @@ cmsg_create_and_connect_client_tipc_rpc (const char *server_name, int member_id,
     return client;
 }
 
+/* Create a cmsg client and its transport over a UNIX socket */
+static cmsg_client *
+_cmsg_create_client_unix (const char *sun_path, ProtobufCServiceDescriptor *descriptor,
+                          cmsg_transport_type transport_type)
+{
+    cmsg_transport *transport;
+    cmsg_client *client;
+
+    transport = cmsg_create_transport_unix (sun_path, transport_type);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    client = cmsg_client_new (transport, descriptor);
+    if (!client)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_CLIENT_ERROR (client, "No UNIX IPC client on socket %s", sun_path);
+        return NULL;
+    }
+    return client;
+}
+
+cmsg_client *
+cmsg_create_client_unix (const char *sun_path, ProtobufCServiceDescriptor *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_client_unix (sun_path, descriptor, CMSG_TRANSPORT_RPC_UNIX);
+}
+
+cmsg_client *
+cmsg_create_client_unix_oneway (const char *sun_path,
+                                ProtobufCServiceDescriptor *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_client_unix (sun_path, descriptor, CMSG_TRANSPORT_ONEWAY_UNIX);
+}
+
+int32_t
+cmsg_client_unix_server_ready (const char *sun_path)
+{
+    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
+
+    return access (sun_path, F_OK);
+}
+
 /**
  * Creates a Client of type Loopback Oneway and sets all the correct
  * fields.

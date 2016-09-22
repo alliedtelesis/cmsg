@@ -1,6 +1,7 @@
 #include "cmsg_private.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
+#include "cmsg_transport.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
@@ -1490,6 +1491,50 @@ cmsg_create_server_tipc_oneway (const char *server_name, int member_id, int scop
 
     return _cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
                                      CMSG_TRANSPORT_ONEWAY_TIPC);
+}
+
+static cmsg_server *
+_cmsg_create_server_unix (const char *sun_path, ProtobufCService *descriptor,
+                          cmsg_transport_type transport_type)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_server *server = NULL;
+
+    transport = cmsg_create_transport_unix (sun_path, transport_type);
+    if (transport == NULL)
+    {
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, descriptor);
+    if (server == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("[%s%s] Failed to create UNIX IPC server.",
+                            descriptor->descriptor->name, sun_path);
+        return NULL;
+    }
+
+    return server;
+}
+
+cmsg_server *
+cmsg_create_server_unix_rpc (const char *sun_path, ProtobufCService *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_server_unix (sun_path, descriptor, CMSG_TRANSPORT_RPC_UNIX);
+}
+
+cmsg_server *
+cmsg_create_server_unix_oneway (const char *sun_path, ProtobufCService *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_server_unix (sun_path, descriptor,
+                                     CMSG_TRANSPORT_ONEWAY_UNIX);
 }
 
 /**

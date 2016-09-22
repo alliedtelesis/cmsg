@@ -14,6 +14,10 @@
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 
+/* Define the size of the sun_path field in struct sockaddr_un. This structure is very
+ * old and there is no API define for the size of the sun_path array */
+#define SUN_PATH_SIZE   108
+
 
 //forward delarations
 typedef struct _cmsg_client_s cmsg_client;
@@ -117,6 +121,8 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_ONEWAY_USERDEFINED,
     CMSG_TRANSPORT_BROADCAST,
     CMSG_TRANSPORT_LOOPBACK_ONEWAY,
+    CMSG_TRANSPORT_RPC_UNIX,
+    CMSG_TRANSPORT_ONEWAY_UNIX,
 } cmsg_transport_type;
 
 typedef int (*client_conect_f) (cmsg_client *client);
@@ -260,4 +266,9 @@ void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
                                              struct tipc_event *event);
 
 void cmsg_transport_write_id (cmsg_transport *tport);
+
+void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
+void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
+cmsg_transport *cmsg_create_transport_unix (const char *sun_path,
+                                            cmsg_transport_type transport_type);
 #endif

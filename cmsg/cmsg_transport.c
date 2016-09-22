@@ -88,6 +88,15 @@ cmsg_transport_write_id (cmsg_transport *tport)
             strncpy (tport->tport_id, ".lpb", CMSG_MAX_TPORT_ID_LEN);
             break;
         }
+
+    case CMSG_TRANSPORT_RPC_UNIX:
+    case CMSG_TRANSPORT_ONEWAY_UNIX:
+        {
+            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, "%s",
+                      tport->config.socket.sockaddr.un.sun_path);
+            break;
+        }
+
     default:
         strncpy (tport->tport_id, ".unknown_transport", CMSG_MAX_TPORT_ID_LEN);
     }
@@ -99,7 +108,7 @@ cmsg_transport_write_id (cmsg_transport *tport)
 cmsg_transport *
 cmsg_transport_new (cmsg_transport_type type)
 {
-    cmsg_transport *transport = 0;
+    cmsg_transport *transport = NULL;
     transport = (cmsg_transport *) CMSG_CALLOC (1, sizeof (cmsg_transport));
     memset (transport, 0, sizeof (cmsg_transport));
 
@@ -135,13 +144,23 @@ cmsg_transport_new (cmsg_transport_type type)
         cmsg_transport_oneway_loopback_init (transport);
         break;
 
+    case CMSG_TRANSPORT_ONEWAY_UNIX:
+        cmsg_transport_oneway_unix_init (transport);
+        break;
+    case CMSG_TRANSPORT_RPC_UNIX:
+        cmsg_transport_rpc_unix_init (transport);
+        break;
+
     default:
         CMSG_LOG_GEN_ERROR ("Transport type not supported. Type:%d", transport->type);
         CMSG_FREE (transport);
-        transport = 0;
+        transport = NULL;
     }
 
-    transport->client_send_tries = 0;
+    if (transport)
+    {
+        transport->client_send_tries = 0;
+    }
 
     return transport;
 }
