@@ -201,11 +201,17 @@ cmsg_client *cmsg_create_client_unix_oneway (const char *sun_path,
                                              ProtobufCServiceDescriptor *descriptor);
 int32_t cmsg_client_unix_server_ready (const char *sun_path);
 
+cmsg_client *cmsg_create_client_tcp_rpc (cmsg_socket *config,
+                                         ProtobufCServiceDescriptor *descriptor);
+cmsg_client *cmsg_create_client_tcp_oneway (cmsg_socket *config,
+                                            ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_loopback_oneway (ProtobufCService *service);
 
 cmsg_client *cmsg_create_and_connect_client_tipc_rpc (const char *server_name, int member_id,
                                           int scope,
                                           ProtobufCServiceDescriptor *descriptor);
+
+void cmsg_client_close_wrapper (cmsg_client *client);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
 #endif
