@@ -41,17 +41,19 @@ typedef struct _cpg_server_connection_s
 } cmsg_cpg_server_connection;
 #endif
 
-typedef int (*encrypt_f) (void *context, void *inbuf, int length, \
-                          void *outbuf, int outbuf_size);
-typedef int (*decrypt_f) (void *context, void *inbuf, int length, \
-                          void *outbuf, int outbuf_size);
-typedef void (*close_f) (void *context);
+typedef int (*encrypt_f) (int sock, void *inbuf, int length, void *outbuf, int outbuf_size);
+typedef int (*decrypt_f) (int sock, void *inbuf, int length, void *outbuf, int outbuf_size);
+typedef void (*close_f) (int sock);
+typedef void (*accept_f) (int sock);
+typedef void (*connect_f) (void *context, int sock);
 
 typedef struct _connection_crypto_callbacks_s
 {
     encrypt_f encrypt;
     decrypt_f decrypt;
     close_f close;
+    accept_f accept;
+    connect_f connect;
 } cmsg_connection_crypto_callbacks;
 
 typedef struct _generic_server_connection_s

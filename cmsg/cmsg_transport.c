@@ -431,6 +431,7 @@ cmsg_transport_server_recv_crypto_msg (cmsg_server *server, int32_t msg_length,
     uint8_t buf_static[512];
     uint32_t extra_header_size = 0;
     int32_t ret = CMSG_RET_OK;
+    int sock = server->connection.sockets.client_socket;
 
     if (msg_length < sizeof (buf_static))
     {
@@ -446,7 +447,7 @@ cmsg_transport_server_recv_crypto_msg (cmsg_server *server, int32_t msg_length,
     }
 
     decoded_bytes =
-        server->_transport->config.socket.crypto.decrypt (server, buffer, msg_length,
+        server->_transport->config.socket.crypto.decrypt (sock, buffer, msg_length,
                                                           decoded_data, msg_length);
     if (decoded_bytes == 0)
     {
@@ -494,7 +495,7 @@ cmsg_transport_server_recv_crypto_msg (cmsg_server *server, int32_t msg_length,
         buffer_data = decoded_data + sizeof (cmsg_header);
 
         ret = cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
-                                                  dyn_len, decoded_bytes, &header_converted);
+                                                  dyn_len, dyn_len, &header_converted);
     }
 
     if (decoded_data != buf_static)
@@ -810,6 +811,7 @@ _cmsg_transport_client_recv_crypto_msg (cmsg_client *client, int32_t msg_length,
     cmsg_server_request server_request;
     *messagePtPt = NULL;
     cmsg_status_code code = CMSG_STATUS_CODE_SUCCESS;
+    int sock = client->connection.socket;
 
     if (msg_length < sizeof (buf_static))
     {
@@ -827,7 +829,7 @@ _cmsg_transport_client_recv_crypto_msg (cmsg_client *client, int32_t msg_length,
     }
 
     decoded_bytes =
-        client->_transport->config.socket.crypto.decrypt (client, buffer, msg_length,
+        client->_transport->config.socket.crypto.decrypt (sock, buffer, msg_length,
                                                           decoded_data, msg_length);
     if (decoded_bytes >= (int) sizeof (cmsg_header))
     {
@@ -1097,5 +1099,7 @@ cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *config)
     transport->config.socket.crypto.encrypt = config->crypto.encrypt;
     transport->config.socket.crypto.decrypt = config->crypto.decrypt;
     transport->config.socket.crypto.close = config->crypto.close;
+    transport->config.socket.crypto.accept = config->crypto.accept;
+    transport->config.socket.crypto.connect = config->crypto.connect;
     transport->use_crypto = TRUE;
 }

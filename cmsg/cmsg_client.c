@@ -264,6 +264,7 @@ int32_t
 cmsg_client_connect (cmsg_client *client)
 {
     int32_t ret = 0;
+    int sock;
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
@@ -285,14 +286,24 @@ cmsg_client_connect (cmsg_client *client)
             // count the connection failure
             CMSG_COUNTER_INC (client, cntr_connect_failures);
         }
-        else if (client->send_timeout > 0)
+        else
         {
-            // Set send timeout on the socket if needed
-            if (_cmsg_client_apply_send_timeout (client->connection.socket,
-                                                 client->send_timeout) < 0)
+            sock = client->connection.socket;
+            if (sock >= 0 && client->_transport->use_crypto &&
+                client->_transport->config.socket.crypto.connect)
             {
-                CMSG_DEBUG (CMSG_INFO, "[CLIENT] failed to set send timeout (errno=%d)\n",
-                            errno);
+                client->_transport->config.socket.crypto.connect (client, sock);
+            }
+
+            if (client->send_timeout > 0)
+            {
+                // Set send timeout on the socket if needed
+                if (_cmsg_client_apply_send_timeout (client->connection.socket,
+                                                     client->send_timeout) < 0)
+                {
+                    CMSG_DEBUG (CMSG_INFO, "[CLIENT] failed to set send timeout (errno=%d)\n",
+                                errno);
+                }
             }
         }
     }
@@ -594,6 +605,7 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
     uint8_t *encrypt_buffer;
     int encrypt_length;
     encrypt_f encrypt_func;
+    int sock;
     int ret;
 
     /* if the message should be encrypted, then pass it back to the user
@@ -608,8 +620,8 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
                                    client->connection.socket);
             return -1;
         }
-
-        encrypt_length = encrypt_func (client, buffer, length, encrypt_buffer,
+        sock = client->connection.socket;
+        encrypt_length = encrypt_func (sock, buffer, length, encrypt_buffer,
                                        length + ENCRYPT_EXTRA);
         if (encrypt_length < 0)
         {
@@ -1492,12 +1504,13 @@ cmsg_create_client_loopback_oneway (ProtobufCService *service)
 void
 cmsg_client_close_wrapper (cmsg_client *client)
 {
-    client->_transport->client_close (client);
+    int sock = client->connection.socket;
 
     if (client->_transport->config.socket.crypto.close)
     {
-        client->_transport->config.socket.crypto.close (client);
+        client->_transport->config.socket.crypto.close (sock);
     }
+    client->_transport->client_close (client);
 }
 
 /* Destroy a cmsg client and its transport with TIPC */

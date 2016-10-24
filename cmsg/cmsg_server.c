@@ -613,6 +613,11 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
     if (server->_transport->server_accept != NULL)
     {
         sock = server->_transport->server_accept (listen_socket, server);
+        if (sock >= 0 && server->_transport->use_crypto &&
+            server->_transport->config.socket.crypto.accept)
+        {
+            server->_transport->config.socket.crypto.accept (sock);
+        }
         // count the accepted connection
         CMSG_COUNTER_INC (server, cntr_connections_accepted);
     }
@@ -868,9 +873,11 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
     uint8_t *encrypt_buffer;
     int encrypt_length;
     int ret = 0;
+    int sock;
 
     if (server->_transport->config.socket.crypto.encrypt)
     {
+        sock = server->connection.sockets.client_socket;
         encrypt_buffer = (uint8_t *) CMSG_CALLOC (1, length + ENCRYPT_EXTRA);
         if (encrypt_buffer == NULL)
         {
@@ -880,7 +887,7 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
         }
 
         encrypt_length =
-                server->_transport->config.socket.crypto.encrypt (server, buff, length,
+                server->_transport->config.socket.crypto.encrypt (sock, buff, length,
                                                                   encrypt_buffer,
                                                                   length + ENCRYPT_EXTRA);
         if (encrypt_length < 0)
@@ -1718,9 +1725,11 @@ cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner
 void
 cmsg_server_close_wrapper (cmsg_server *server)
 {
+    int sock = server->connection.sockets.client_socket;
+
     if (server->_transport->config.socket.crypto.close)
     {
-        server->_transport->config.socket.crypto.close (server);
+        server->_transport->config.socket.crypto.close (sock);
     }
 
     server->_transport->server_close (server);
