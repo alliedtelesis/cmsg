@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #include "cmsg_private.h"
 #include "cmsg_client.h"
 #include "cmsg_error.h"
@@ -31,8 +34,7 @@ int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
 static int32_t cmsg_client_invoke (ProtobufCService *service,
                                    unsigned method_index,
                                    const ProtobufCMessage *input,
-                                   ProtobufCClosure closure,
-                                   void *closure_data);
+                                   ProtobufCClosure closure, void *closure_data);
 
 /*
  * This is an internal function which can be called from CMSG library.
@@ -206,8 +208,7 @@ cmsg_client_counter_create (cmsg_client *client, char *app_name)
 
 #ifdef HAVE_COUNTERD
     if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
-                            (void **)&(client->cntr_session))
-        == CNTRD_APP_SUCCESS )
+                            (void **) &(client->cntr_session)) == CNTRD_APP_SUCCESS)
     {
         cntrd_app_register_ctr_in_group (client->cntr_session, "Client Unknown RPC",
                                          &(client->cntr_unknown_rpc));
@@ -479,8 +480,7 @@ cmsg_client_invoke (ProtobufCService *service, unsigned method_index,
 }
 
 static int
-_cmsg_client_should_queue (cmsg_client *client, const char *method_name,
-                           bool *do_queue)
+_cmsg_client_should_queue (cmsg_client *client, const char *method_name, bool *do_queue)
 {
     if (client->queue_enabled_from_parent)
     {
@@ -531,8 +531,7 @@ _cmsg_client_should_queue (cmsg_client *client, const char *method_name,
 
 static int
 _cmsg_client_add_to_queue (cmsg_client *client, uint8_t *buffer,
-                           uint32_t total_message_size,
-                           const char *method_name)
+                           uint32_t total_message_size, const char *method_name)
 {
     //add to queue
     if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
@@ -551,7 +550,9 @@ _cmsg_client_add_to_queue (cmsg_client *client, uint8_t *buffer,
         //send signal to  cmsg_pub_queue_process_all
         pthread_mutex_lock (&publisher->queue_process_mutex);
         if (client->queue_process_count == 0)
+        {
             pthread_cond_signal (&publisher->queue_process_cond);
+        }
         publisher->queue_process_count = publisher->queue_process_count + 1;
         pthread_mutex_unlock (&publisher->queue_process_mutex);
     }
@@ -569,7 +570,9 @@ _cmsg_client_add_to_queue (cmsg_client *client, uint8_t *buffer,
         //send signal to cmsg_client_queue_process_all
         pthread_mutex_lock (&client->queue_process_mutex);
         if (client->queue_process_count == 0)
+        {
             pthread_cond_signal (&client->queue_process_cond);
+        }
         client->queue_process_count = client->queue_process_count + 1;
         pthread_mutex_unlock (&client->queue_process_mutex);
     }
@@ -669,8 +672,7 @@ cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
     {
         ret_val = cmsg_client_buffer_send_retry_once (client,
                                                       buffer,
-                                                      total_message_size,
-                                                      method_name);
+                                                      total_message_size, method_name);
     }
     else
     {
@@ -820,8 +822,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
     cmsg_buffer_print (&header, sizeof (header));
 
     ret = cmsg_client_buffer_send_retry_once (client, &header,
-                                              sizeof (header),
-                                              "echo request");
+                                              sizeof (header), "echo request");
 
     if (ret != CMSG_RET_OK)
     {
@@ -942,7 +943,9 @@ _cmsg_client_queue_process_all_internal (cmsg_client *client)
 
     pthread_mutex_lock (queue_mutex);
     if (g_queue_get_length (queue))
+    {
         queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
+    }
     pthread_mutex_unlock (queue_mutex);
 
     while (queue_entry)
@@ -1043,9 +1046,7 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
         return CMSG_RET_ERR;
     }
 
-    send_ret = client->_transport->client_send (client,
-                                                queue_buffer,
-                                                queue_buffer_size, 0);
+    send_ret = client->_transport->client_send (client, queue_buffer, queue_buffer_size, 0);
 
     if (send_ret < (int) (queue_buffer_size))
     {
@@ -1059,9 +1060,7 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
         if (client->state == CMSG_CLIENT_STATE_CONNECTED)
         {
             send_ret = client->_transport->client_send (client,
-                                                        queue_buffer,
-                                                        queue_buffer_size,
-                                                        0);
+                                                        queue_buffer, queue_buffer_size, 0);
 
             if (send_ret < (int) (queue_buffer_size))
             {
@@ -1119,9 +1118,13 @@ cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
         pthread_mutex_unlock (&client->connection_mutex);
 
         if (ret == CMSG_RET_OK)
+        {
             return CMSG_RET_OK;
+        }
         else
+        {
             usleep (200000);
+        }
     }
     CMSG_DEBUG (CMSG_WARN, "[CLIENT] send tries %d\n", max_tries);
 
@@ -1240,8 +1243,8 @@ cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable)
 /* Create a cmsg client and its transport with TIPC (RPC) */
 static cmsg_client *
 _cmsg_create_client_tipc (const char *server, int member_id, int scope,
-                         ProtobufCServiceDescriptor *descriptor,
-                         cmsg_transport_type transport_type)
+                          ProtobufCServiceDescriptor *descriptor,
+                          cmsg_transport_type transport_type)
 {
     cmsg_transport *transport;
     cmsg_client *client;

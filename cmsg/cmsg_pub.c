@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #include "cmsg_private.h"
 #include "cmsg_pub.h"
 #include "cmsg_error.h"
@@ -812,7 +815,9 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     struct sockaddr_tipc *tipc = NULL;
 
     if (server->parent.object_type == CMSG_OBJ_TYPE_PUB)
+    {
         publisher = (cmsg_pub *) server->parent.object;
+    }
 
     cmsg_sub_entry_response response = CMSG_SUB_ENTRY_RESPONSE_INIT;
 
@@ -974,11 +979,15 @@ _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
     cmsg_client *send_client = 0;
 
     if (!queue || !descriptor)
+    {
         return 0;
+    }
 
     pthread_mutex_lock (queue_mutex);
     if (g_queue_get_length (queue))
+    {
         queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
+    }
     pthread_mutex_unlock (queue_mutex);
 
 
@@ -992,7 +1001,9 @@ _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
                                                  CMSG_TRANSPORT_CLIENT_SEND_TRIES);
 
         if (ret == CMSG_RET_OK)
+        {
             processed++;
+        }
         else
         {
             /* if all subscribers already un-subscribed during the retry period,

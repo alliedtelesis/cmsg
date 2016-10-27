@@ -1,8 +1,11 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #ifndef __CMSG_PUB_H_
 #define __CMSG_PUB_H_
 
 #include "cmsg.h"
-#include "cmsg_private.h" // to be removed when this file is split private/public
+#include "cmsg_private.h"   // to be removed when this file is split private/public
 #include "cmsg_queue.h"
 #include "cmsg_client.h"
 #include "cmsg_server.h"
@@ -93,9 +96,7 @@ int32_t cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
                                                        cmsg_transport *transport);
 
 int32_t cmsg_publisher_receive_poll (cmsg_pub *publisher,
-                                     int32_t timeout_ms,
-                                     fd_set *master_fdset,
-                                     int *fdmax);
+                                     int32_t timeout_ms, fd_set *master_fdset, int *fdmax);
 
 void cmsg_pub_subscriber_remove_all (cmsg_pub *publisher);
 
@@ -135,8 +136,7 @@ void cmsg_pub_queue_filter_set_all (cmsg_pub *publisher,
 void cmsg_pub_queue_filter_clear_all (cmsg_pub *publisher);
 
 int32_t cmsg_pub_queue_filter_set (cmsg_pub *publisher,
-                                   const char *method,
-                                   cmsg_queue_filter_type filter_type);
+                                   const char *method, cmsg_queue_filter_type filter_type);
 
 int32_t cmsg_pub_queue_filter_clear (cmsg_pub *publisher, const char *method);
 

@@ -25,6 +25,7 @@
  * they only send 1 message at a time (typically use a mutex/lock/sem in the
  * transmission function).
  *
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
@@ -169,7 +170,9 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
         buffer = buffer + extra_header_size;
 
         if (server->message_processor (server, buffer))
+        {
             CMSG_LOG_SERVER_ERROR (server, "Unable to process message header");
+        }
     }
 }
 
@@ -466,7 +469,9 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
 
         /* Check this CPG's flow control status from the AIS library */
         if (!cmsg_transport_cpg_is_congested (client))
+        {
             break;
+        }
 
         /* Give CPG a chance to relieve the congestion */
         usleep (1000);
@@ -482,7 +487,9 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
         /* Attempt to send message. */
         res = cpg_mcast_joined (client->connection.handle, CPG_TYPE_AGREED, &iov, 1);
         if (res != CPG_ERR_TRY_AGAIN)
+        {
             break;  /* message sent, or failure, quit loop now. */
+        }
 
         /* Give CPG a chance to relieve the congestion */
         usleep (100000);
@@ -631,7 +638,8 @@ cmsg_transport_cpg_send_can_block_enable (cmsg_transport *transport,
 
 
 int32_t
-cmsg_transport_cpg_ipfree_bind_enable (cmsg_transport *transport, cmsg_bool_t use_ipfree_bind)
+cmsg_transport_cpg_ipfree_bind_enable (cmsg_transport *transport,
+                                       cmsg_bool_t use_ipfree_bind)
 {
     /* not supported yet */
     return -1;
@@ -642,7 +650,9 @@ void
 cmsg_transport_cpg_init (cmsg_transport *transport)
 {
     if (transport == NULL)
+    {
         return;
+    }
 
     transport->config.cpg.configchg_cb = NULL;
 

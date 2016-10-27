@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #include "cmsg_private.h"
 #include "cmsg_queue.h"
 #include "cmsg_error.h"
@@ -217,10 +220,7 @@ cmsg_receive_queue_process_all (GQueue *queue,
     while (processed != 0)
     {
         processed = cmsg_receive_queue_process_some (queue,
-                                                     queue_mutex,
-                                                     descriptor,
-                                                     server,
-                                                     50);
+                                                     queue_mutex, descriptor, server, 50);
         total_processed += processed;
     }
     return total_processed;
@@ -233,7 +233,8 @@ cmsg_receive_queue_process_all (GQueue *queue,
 int32_t
 cmsg_receive_queue_push (GQueue *queue, uint8_t *buffer, uint32_t method_index)
 {
-    cmsg_receive_queue_entry *queue_entry = (cmsg_receive_queue_entry *) CMSG_CALLOC (1, sizeof (cmsg_receive_queue_entry));
+    cmsg_receive_queue_entry *queue_entry =
+        (cmsg_receive_queue_entry *) CMSG_CALLOC (1, sizeof (cmsg_receive_queue_entry));
     if (!queue_entry)
     {
         CMSG_LOG_GEN_ERROR ("Unable to allocate queue entry. Method index:%d",
@@ -292,7 +293,8 @@ cmsg_queue_filter_set_all (GHashTable *queue_filter_hash_table,
         cmsg_queue_filter_entry *entry;
         entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer)
-                                                                 descriptor->methods[i].name);
+                                                                 descriptor->
+                                                                 methods[i].name);
 
         entry->type = filter_type;
     }
@@ -311,7 +313,8 @@ cmsg_queue_filter_clear_all (GHashTable *queue_filter_hash_table,
         cmsg_queue_filter_entry *entry;
         entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer)
-                                                                 descriptor->methods[i].name);
+                                                                 descriptor->
+                                                                 methods[i].name);
 
         entry->type = CMSG_QUEUE_FILTER_PROCESS;
     }
@@ -323,7 +326,8 @@ cmsg_queue_filter_set (GHashTable *queue_filter_hash_table, const char *method,
 {
     //add filter for single method with filter type
     cmsg_queue_filter_entry *entry;
-    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table, method);
+    entry =
+        (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table, method);
 
     if (entry)
     {
@@ -339,7 +343,8 @@ cmsg_queue_filter_clear (GHashTable *queue_filter_hash_table, const char *method
 {
     //clear filter for single method
     cmsg_queue_filter_entry *entry;
-    entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table, method);
+    entry =
+        (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table, method);
 
     if (entry)
     {
@@ -358,7 +363,8 @@ cmsg_queue_filter_init (GHashTable *queue_filter_hash_table,
     uint32_t i = 0;
     for (i = 0; i < descriptor->n_methods; i++)
     {
-        cmsg_queue_filter_entry *entry = (cmsg_queue_filter_entry *) CMSG_CALLOC (1, sizeof (cmsg_queue_filter_entry));
+        cmsg_queue_filter_entry *entry =
+            (cmsg_queue_filter_entry *) CMSG_CALLOC (1, sizeof (cmsg_queue_filter_entry));
         sprintf (entry->method_name, "%s", descriptor->methods[i].name);
         entry->type = CMSG_QUEUE_FILTER_PROCESS;
 
@@ -377,7 +383,8 @@ cmsg_queue_filter_free (GHashTable *queue_filter_hash_table,
         cmsg_queue_filter_entry *entry;
         entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer)
-                                                                 descriptor->methods[i].name);
+                                                                 descriptor->
+                                                                 methods[i].name);
 
         CMSG_FREE (entry);
 
@@ -414,7 +421,8 @@ cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
         cmsg_queue_filter_entry *entry;
         entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer)
-                                                                 descriptor->methods[i].name);
+                                                                 descriptor->
+                                                                 methods[i].name);
 
         switch (entry->type)
         {
@@ -446,7 +454,8 @@ cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
         cmsg_queue_filter_entry *entry;
         entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
                                                                  (gconstpointer)
-                                                                 descriptor->methods[i].name);
+                                                                 descriptor->
+                                                                 methods[i].name);
 
         if (entry->type == CMSG_QUEUE_FILTER_QUEUE)
         {
@@ -480,7 +489,9 @@ cmsg_queue_filter_copy (GHashTable *src_queue_filter_hash_table,
                                                              descriptor->methods[i].name);
 
         if (!src_entry || !dst_entry)
+        {
             return CMSG_RET_ERR;
+        }
 
         dst_entry = src_entry;
     }

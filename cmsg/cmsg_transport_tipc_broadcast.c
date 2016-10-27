@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
 #include "cmsg_client.h"
@@ -17,7 +20,9 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_broadcast_connect\n");
 
     if (client == NULL)
+    {
         return 0;
+    }
 
     client->connection.socket = socket (client->_transport->config.socket.family,
                                         SOCK_RDM, 0);
@@ -49,7 +54,9 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
     cmsg_transport *transport = NULL;
 
     if (server == NULL)
+    {
         return 0;
+    }
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] Creating listen socket\n");
     server->connection.sockets.listening_socket = 0;
@@ -328,7 +335,9 @@ void
 cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
 {
     if (transport == NULL)
+    {
         return;
+    }
 
     transport->config.socket.family = AF_TIPC;
     transport->config.socket.sockaddr.tipc.family = AF_TIPC;

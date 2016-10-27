@@ -16,6 +16,7 @@
  * msg_processor function.  This is the responsibility of the user receive
  * handling.
  *
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
@@ -189,7 +190,8 @@ cmsg_transport_udt_send_can_block_enable (cmsg_transport *transport,
 
 
 int32_t
-cmsg_transport_udt_ipfree_bind_enable (cmsg_transport *transport, cmsg_bool_t use_ipfree_bind)
+cmsg_transport_udt_ipfree_bind_enable (cmsg_transport *transport,
+                                       cmsg_bool_t use_ipfree_bind)
 {
     /* not supported yet */
     return -1;

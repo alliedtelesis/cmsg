@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
 #include "cmsg_server.h"
@@ -156,7 +159,9 @@ cmsg_transport_destroy (cmsg_transport *transport)
         return 0;
     }
     else
+    {
         return 1;
+    }
 }
 
 
@@ -243,9 +248,13 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         {
             //Even if no packed data, TLV header should be read.
             if (header_converted.message_length + extra_header_size)
+            {
                 nbytes = recv (handle, buffer, dyn_len, MSG_WAITALL);
+            }
             else
+            {
                 nbytes = 0;
+            }
             buffer_data = buffer;
         }
 
@@ -276,8 +285,10 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                 cmsg_buffer_print (buffer_data, dyn_len);
                 server->server_request = &server_request;
                 if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
+                {
                     CMSG_LOG_SERVER_ERROR (server,
                                            "Server message processing returned an error.");
+                }
 
             }
             else
@@ -378,7 +389,8 @@ cmsg_transport_send_can_block_enable (cmsg_transport *transport, uint32_t send_c
  *
  */
 int32_t
-cmsg_transport_ipfree_bind_enable (cmsg_transport *transport, cmsg_bool_t ipfree_bind_enable)
+cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
+                                   cmsg_bool_t ipfree_bind_enable)
 {
     return transport->ipfree_bind_enable (transport, ipfree_bind_enable);
 }

@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
 #include "cmsg_client.h"
@@ -19,7 +22,9 @@ cmsg_transport_tcp_connect (cmsg_client *client)
     uint32_t addr_len;
 
     if (client == NULL)
+    {
         return 0;
+    }
 
     client->connection.socket = socket (client->_transport->config.socket.family,
                                         SOCK_STREAM, 0);
@@ -82,7 +87,9 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     int port = 0;
 
     if (server == NULL)
+    {
         return 0;
+    }
 
     server->connection.sockets.listening_socket = 0;
     server->connection.sockets.client_socket = 0;
@@ -582,7 +589,8 @@ cmsg_transport_tcp_send_can_block_enable (cmsg_transport *transport,
 
 
 int32_t
-cmsg_transport_tcp_ipfree_bind_enable (cmsg_transport *transport, cmsg_bool_t use_ipfree_bind)
+cmsg_transport_tcp_ipfree_bind_enable (cmsg_transport *transport,
+                                       cmsg_bool_t use_ipfree_bind)
 {
     if (transport->config.socket.family == PF_INET6)
     {
@@ -621,7 +629,9 @@ void
 cmsg_transport_tcp_init (cmsg_transport *transport)
 {
     if (transport == NULL)
+    {
         return;
+    }
 
     _cmsg_transport_tcp_init_common (transport);
 
@@ -637,7 +647,9 @@ void
 cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
 {
     if (transport == NULL)
+    {
         return;
+    }
 
     _cmsg_transport_tcp_init_common (transport);
 

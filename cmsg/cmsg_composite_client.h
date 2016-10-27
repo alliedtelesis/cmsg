@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #ifndef __CMSG_COMPOSITE_CLIENT_H_
 #define __CMSG_COMPOSITE_CLIENT_H_
 

@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
@@ -305,24 +308,24 @@ prof_test_impl_all_repeated (const void *service,
 }
 
 //implement the rest of the implementations using macros
-IMPLEMENT_PROF_REPEATED (int8_t *, int8, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (uint8_t *, uint8, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (int16_t *, int16, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (uint16_t *, uint16, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (int32_t *, int32, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (int32_t *, sint32, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (int32_t *, sfixed32, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (uint32_t *, uint32, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (uint32_t *, fixed32, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (int64_t *, int64, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (int64_t *, sint64, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (int64_t *, sfixed64, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (uint64_t *, uint64, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (uint64_t *, fixed64, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (float *, float, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (double *, double, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (cmsg_bool_t *, bool, 0xffffffff)
-IMPLEMENT_PROF_REPEATED (char **, string, 0xffffffff)
+IMPLEMENT_PROF_REPEATED (int8_t *, int8, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (uint8_t *, uint8, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (int16_t *, int16, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (uint16_t *, uint16, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (int32_t *, int32, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (int32_t *, sint32, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (int32_t *, sfixed32, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (uint32_t *, uint32, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (uint32_t *, fixed32, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (int64_t *, int64, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (int64_t *, sint64, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (int64_t *, sfixed64, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (uint64_t *, uint64, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (uint64_t *, fixed64, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (float *, float, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (double *, double, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (cmsg_bool_t *, bool, 0xffffffff);
+IMPLEMENT_PROF_REPEATED (char **, string, 0xffffffff);
 
 void
 server_test (char *log_file)
@@ -345,7 +348,9 @@ server_test (char *log_file)
     int fd = cmsg_server_get_socket (server);
     int fd_max = fd + 1;
     if (!fd)
+    {
         printf ("initialized rpc failed (socket %d)\n", fd);
+    }
 
     fd_set readfds;
     FD_ZERO (&readfds);
@@ -392,9 +397,13 @@ main (int argc, char *argv[])
     else if (!strcmp (argv[1], "--client"))
     {
         if (argv[2])
+        {
             sprintf (file_name_prefix, "%s", argv[2]);
+        }
         else
+        {
             sprintf (file_name_prefix, "noprefix");
+        }
         printf ("starting client\n");
         char log_file[256];
         sprintf (log_file, "%s-cmsg_prof.csv", file_name_prefix);
@@ -404,7 +413,9 @@ main (int argc, char *argv[])
     {
         pid = fork ();
         if (pid == -1)
+        {
             exit (0);
+        }
         else if (pid == 0)  //child
         {
             printf ("starting server\n");

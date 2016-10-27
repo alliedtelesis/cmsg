@@ -1,8 +1,11 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #ifndef __CMSG_SUB_H_
 #define __CMSG_SUB_H_
 
 #include "cmsg.h"
-#include "cmsg_private.h" // to be removed when this file is split private/public
+#include "cmsg_private.h"   // to be removed when this file is split private/public
 #include "cmsg_client.h"
 #include "cmsg_server.h"
 #include "cmsg_sub_service.pb-c.h"

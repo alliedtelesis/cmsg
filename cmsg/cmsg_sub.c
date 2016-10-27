@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #include "cmsg_private.h"
 #include "cmsg_sub.h"
 #include "cmsg_error.h"
@@ -6,9 +9,9 @@
 #include "cntrd_app_defines.h"
 #endif
 
-static cmsg_sub * _cmsg_create_subscriber_tipc (const char *server_name, int member_id,
-                                                int scope, ProtobufCService *descriptor,
-                                                cmsg_transport_type transport_type);
+static cmsg_sub *_cmsg_create_subscriber_tipc (const char *server_name, int member_id,
+                                               int scope, ProtobufCService *descriptor,
+                                               cmsg_transport_type transport_type);
 
 extern cmsg_client *cmsg_client_create (cmsg_transport *transport,
                                         const ProtobufCServiceDescriptor *descriptor);
@@ -121,7 +124,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
 
     cmsg_client *register_client = NULL;
     int32_t return_value = CMSG_RET_ERR;
-    cmsg_client_closure_data closure_data = { NULL, NULL};
+    cmsg_client_closure_data closure_data = { NULL, NULL };
     cmsg_sub_entry_transport_info register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_INIT;
     cmsg_sub_entry_response *response = NULL;
 
@@ -148,12 +151,21 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
         register_entry.has_tipc_addr_name_name_type = 1;
         register_entry.has_tipc_scope = 1;
 
-        register_entry.tipc_family = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.family;
-        register_entry.tipc_addrtype = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addrtype;
-        register_entry.tipc_addr_name_domain = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.domain;
-        register_entry.tipc_addr_name_name_instance = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.instance;
-        register_entry.tipc_addr_name_name_type = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.type;
-        register_entry.tipc_scope = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
+        register_entry.tipc_family =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.family;
+        register_entry.tipc_addrtype =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addrtype;
+        register_entry.tipc_addr_name_domain =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.
+            name.domain;
+        register_entry.tipc_addr_name_name_instance =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
+            name.instance;
+        register_entry.tipc_addr_name_name_type =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
+            name.type;
+        register_entry.tipc_scope =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
     }
     else
     {
@@ -195,15 +207,15 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
 #endif
 
     return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,
-                                               &register_entry,
-                                               NULL,
-                                               &closure_data);
+                                               &register_entry, NULL, &closure_data);
 
     if (closure_data.message)
     {
         response = closure_data.message;
         if (response->return_value == CMSG_RET_ERR)
+        {
             return_value = CMSG_RET_ERR;
+        }
 
         protobuf_c_message_free_unpacked (closure_data.message, closure_data.allocator);
     }
@@ -220,7 +232,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
 {
     cmsg_client *register_client = NULL;
     int32_t return_value = CMSG_RET_ERR;
-    cmsg_client_closure_data closure_data = { NULL, NULL};
+    cmsg_client_closure_data closure_data = { NULL, NULL };
     cmsg_sub_entry_transport_info register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_INIT;
     cmsg_sub_entry_response *response = NULL;
 
@@ -253,12 +265,21 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
         register_entry.has_tipc_addr_name_name_type = 1;
         register_entry.has_tipc_scope = 1;
 
-        register_entry.tipc_family = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.family;
-        register_entry.tipc_addrtype = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addrtype;
-        register_entry.tipc_addr_name_domain = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.domain;
-        register_entry.tipc_addr_name_name_instance = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.instance;
-        register_entry.tipc_addr_name_name_type = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.name.type;
-        register_entry.tipc_scope = subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
+        register_entry.tipc_family =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.family;
+        register_entry.tipc_addrtype =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addrtype;
+        register_entry.tipc_addr_name_domain =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.
+            name.domain;
+        register_entry.tipc_addr_name_name_instance =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
+            name.instance;
+        register_entry.tipc_addr_name_name_type =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
+            name.type;
+        register_entry.tipc_scope =
+            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
     }
     else
     {
@@ -299,15 +320,15 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
 #endif
 
     return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,
-                                               &register_entry,
-                                               NULL,
-                                               &closure_data);
+                                               &register_entry, NULL, &closure_data);
 
     if (closure_data.message)
     {
         response = closure_data.message;
         if (response->return_value == CMSG_RET_ERR)
+        {
             return_value = CMSG_RET_ERR;
+        }
 
         protobuf_c_message_free_unpacked (closure_data.message, closure_data.allocator);
     }
@@ -351,7 +372,7 @@ cmsg_create_subscriber_tipc_rpc (const char *server_name, int member_id, int sco
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
     return _cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
-                                        CMSG_TRANSPORT_RPC_TIPC);
+                                         CMSG_TRANSPORT_RPC_TIPC);
 }
 
 cmsg_sub *
@@ -362,7 +383,7 @@ cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int 
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
     return _cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
-                                        CMSG_TRANSPORT_ONEWAY_TIPC);
+                                         CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 void
