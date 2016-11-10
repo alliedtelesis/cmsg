@@ -135,7 +135,7 @@ typedef union _cmsg_transport_config_u
     cmsg_socket socket;
     cmsg_cpg cpg;
     cmsg_udt udt;
-    ProtobufCService *lpb_service;
+    cmsg_server *loopback_server;
 } cmsg_transport_config;
 
 
@@ -149,7 +149,7 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_CPG,
     CMSG_TRANSPORT_ONEWAY_USERDEFINED,
     CMSG_TRANSPORT_BROADCAST,
-    CMSG_TRANSPORT_LOOPBACK_ONEWAY,
+    CMSG_TRANSPORT_LOOPBACK,
     CMSG_TRANSPORT_RPC_UNIX,
     CMSG_TRANSPORT_ONEWAY_UNIX,
 } cmsg_transport_type;
@@ -245,7 +245,7 @@ void cmsg_transport_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_tipc_init (cmsg_transport *transport);
 void cmsg_transport_oneway_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_cpumail_init (cmsg_transport *transport);
-void cmsg_transport_oneway_loopback_init (cmsg_transport *transport);
+void cmsg_transport_loopback_init (cmsg_transport *transport);
 
 #ifdef HAVE_VCSTACK
 void cmsg_transport_cpg_init (cmsg_transport *transport);

@@ -9,6 +9,7 @@
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"
 #endif
+#include <fcntl.h>
 
 static int32_t _cmsg_client_buffer_send_retry_once (cmsg_client *client,
                                                     uint8_t *queue_buffer,
@@ -634,7 +635,8 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
             return -1;
         }
 
-        ret = client->_transport->client_send (client, encrypt_buffer, encrypt_length, flag);
+        ret = client->_transport->client_send (client, encrypt_buffer, encrypt_length,
+                                               flag);
         /* if the send was successful, fixup the return length to match the original
          * plaintext length so callers are unaware of the encryption */
         if (encrypt_length == ret)
@@ -754,85 +756,68 @@ cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
 
 
 /**
- * Invoking like this will call the server invoke directly without packing
- * and sending the rpc.
+ * Invoking like this will call the server invoke directly in the same
+ * process/thread as the client. No queuing or filtering is performed.
  *
- * No queuing or filtering is performed.
- *
- * There is nothing to be returned so closure will not get set at all.
+ * The reply from the server will be written onto a pipe internally.
  */
 int32_t
 cmsg_client_invoke_send_direct (cmsg_client *client, unsigned method_index,
                                 const ProtobufCMessage *input)
 {
-    int32_t ret;
-    uint8_t buf_static[512];
-    uint8_t *buffer = NULL;
-    uint32_t packed_size;
+    cmsg_server_invoke_direct (client->_transport->config.loopback_server, input,
+                               method_index);
+
+    return CMSG_RET_OK;
+}
+
+
+/**
+ * Receive the reply from the server that was invoked directly using
+ * cmsg_client_invoke_send_direct(). The reply from the server is
+ * read off the pipe used to simulate a socket for a loopback client.
+ */
+int32_t
+cmsg_client_invoke_recv_direct (cmsg_client *client, unsigned method_index,
+                                ProtobufCClosure closure, void *closure_data)
+{
     ProtobufCService *service = (ProtobufCService *) client;
     const char *method_name = service->descriptor->methods[method_index].name;
+    ProtobufCMessage *message_pt = NULL;
+    cmsg_status_code status_code;
 
-    packed_size = protobuf_c_message_get_packed_size (input);
+    /* message_pt is filled in by the response receive.  It may be NULL or a valid pointer.
+     * status_code will tell us whether it is a valid pointer.
+     */
+    status_code = cmsg_client_response_receive (client, &message_pt);
 
-    if (packed_size < sizeof (buf_static))
+    if (message_pt == NULL)
     {
-        buffer = &buf_static[0];
+        /* There may be no message if the server has sent an empty message which is ok. */
+        if (status_code == CMSG_STATUS_CODE_SUCCESS)
+        {
+            return CMSG_RET_OK;
+        }
+        else
+        {
+            CMSG_LOG_CLIENT_ERROR (client,
+                                   "Response message not valid or empty. (method: %s)",
+                                   method_name);
+            CMSG_COUNTER_INC (client, cntr_protocol_errors);
+            return CMSG_RET_ERR;
+        }
+    }
+
+    if (closure_data)
+    {
+        ((cmsg_client_closure_data *) (closure_data))->message = (void *) message_pt;
+        ((cmsg_client_closure_data *) (closure_data))->allocator = client->allocator;
     }
     else
     {
-        buffer = CMSG_CALLOC (1, packed_size);
-    }
-
-    if (!buffer)
-    {
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "Unable to allocate memory for message. (method: %s)",
-                               method_name);
-        CMSG_COUNTER_INC (client, cntr_memory_errors);
-
-        return CMSG_RET_ERR;
-    }
-
-    ret = protobuf_c_message_pack (input, buffer);
-
-    if (ret < packed_size)
-    {
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "Underpacked message data. Packed %d of %d bytes. (method: %s)",
-                               ret, packed_size, method_name);
-        CMSG_COUNTER_INC (client, cntr_pack_errors);
-
-        if (buffer != &buf_static[0])
-        {
-            CMSG_FREE (buffer);
-        }
-
-        return CMSG_RET_ERR;
-    }
-    else if (ret > packed_size)
-    {
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "Overpacked message data. Packed %d of %d bytes. (method: %s)",
-                               ret, packed_size, method_name);
-        CMSG_COUNTER_INC (client, cntr_pack_errors);
-
-        if (buffer != &buf_static[0])
-        {
-            CMSG_FREE (buffer);
-        }
-
-        return CMSG_RET_ERR;
-    }
-
-    /* use the client to get the service pointer that the server requires to call
-     * the proper function.
-     */
-    cmsg_server_invoke_oneway_direct (client->_transport->config.lpb_service, method_index,
-                                      buffer, packed_size);
-
-    if (buffer != &buf_static[0])
-    {
-        CMSG_FREE (buffer);
+        /* only cleanup if the message is not passed back to the
+         * api through the closure_data (above) */
+        protobuf_c_message_free_unpacked (message_pt, client->allocator);
     }
 
     return CMSG_RET_OK;
@@ -1124,7 +1109,8 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
 
         if (client->state == CMSG_CLIENT_STATE_CONNECTED)
         {
-            send_ret = cmsg_client_send_wrapper (client, queue_buffer, queue_buffer_size, 0);
+            send_ret = cmsg_client_send_wrapper (client, queue_buffer,
+                                                 queue_buffer_size, 0);
 
             if (send_ret < (int) (queue_buffer_size))
             {
@@ -1476,26 +1462,75 @@ cmsg_create_client_tcp_oneway (cmsg_socket *config, ProtobufCServiceDescriptor *
 }
 
 /**
- * Creates a Client of type Loopback Oneway and sets all the correct
- * fields.
+ * Creates a client of type Loopback and sets all the correct fields.
  *
  * Returns NULL if failed to create anything - malloc problems.
  */
 cmsg_client *
-cmsg_create_client_loopback_oneway (ProtobufCService *service)
+cmsg_create_client_loopback (ProtobufCService *service)
 {
-    cmsg_transport *client_transport;
+    cmsg_transport *transport;
+    cmsg_server *server;
+    cmsg_client *client;
+    int pipe_fds[2] = { -1, -1 };
 
-    client_transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK_ONEWAY);
-    if (client_transport == NULL)
+    transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
+    if (transport == NULL)
     {
         return NULL;
     }
 
-    /* point the client transport at the service to allow it call the proper fn */
-    client_transport->config.lpb_service = service;
+    /* The point of the loopback is to process the CMSG within the same process-
+     * space, without using RPC. So the client actually does the server-side
+     * processing as well */
+    server = cmsg_server_new (transport, service);
+    if (server == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Could not create server for loopback transport\n");
+        cmsg_transport_destroy (transport);
+        return NULL;
+    }
 
-    return cmsg_client_new (client_transport, service->descriptor);
+    /* When using a loopback client/server the server_invoke gets given the
+     * memory that the client declared the message in. We don't want the server
+     * trying to free this memory (often it is on the stack) so let it know that
+     * it does not own the memory for the messages. */
+    cmsg_server_app_owns_all_msgs_set (server, TRUE);
+
+    /* the transport stores a pointer to the server so we can access it later to
+     * invoke the implementation function directly. */
+    transport->config.loopback_server = server;
+
+    client = cmsg_client_new (transport, service->descriptor);
+
+    if (client == NULL)
+    {
+        syslog (LOG_ERR, "Could not create loopback client");
+        cmsg_destroy_server_and_transport (server);
+        return NULL;
+    }
+
+    /* Create a pipe to allow the server to send RPC replies back to the client.
+     * The server writes to the pipe and the client reads the reply off the pipe.
+     * This is slightly inefficient, but code-wise it's the easiest way to get
+     * the _impl_ response back to the client code */
+    if (pipe (pipe_fds) == -1)
+    {
+        CMSG_LOG_GEN_ERROR ("Could not create pipe for loopback transport");
+        cmsg_destroy_server_and_transport (server);
+
+        return NULL;
+    }
+
+    /* don't block on either socket */
+    fcntl (pipe_fds[0], F_SETFL, O_NONBLOCK);
+    fcntl (pipe_fds[1], F_SETFL, O_NONBLOCK);
+
+    /* client uses the pipe's read socket, server uses the write socket */
+    client->connection.socket = pipe_fds[0];
+    server->connection.sockets.client_socket = pipe_fds[1];
+
+    return client;
 }
 
 /**

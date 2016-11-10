@@ -101,7 +101,7 @@ cmsg_transport_write_id (cmsg_transport *tport)
             break;
         }
 
-    case CMSG_TRANSPORT_LOOPBACK_ONEWAY:
+    case CMSG_TRANSPORT_LOOPBACK:
         {
             strncpy (tport->tport_id, ".lpb", CMSG_MAX_TPORT_ID_LEN);
             break;
@@ -158,8 +158,8 @@ cmsg_transport_new (cmsg_transport_type type)
         cmsg_transport_oneway_udt_init (transport);
         break;
 
-    case CMSG_TRANSPORT_LOOPBACK_ONEWAY:
-        cmsg_transport_oneway_loopback_init (transport);
+    case CMSG_TRANSPORT_LOOPBACK:
+        cmsg_transport_loopback_init (transport);
         break;
 
     case CMSG_TRANSPORT_ONEWAY_UNIX:
@@ -253,8 +253,7 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
     server_request.msg_type = header_converted->msg_type;
     server_request.message_length = header_converted->message_length;
     server_request.method_index = UNDEFINED_METHOD;
-    memset (&(server_request.method_name_recvd), 0,
-            CMSG_SERVER_REQUEST_MAX_NAME_LENGTH);
+    memset (&(server_request.method_name_recvd), 0, CMSG_SERVER_REQUEST_MAX_NAME_LENGTH);
 
     ret = cmsg_tlv_header_process (buffer_data, &server_request, extra_header_size,
                                    server->service->descriptor);
@@ -280,8 +279,10 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
             cmsg_buffer_print (buffer_data, dyn_len);
             server->server_request = &server_request;
             if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
+            {
                 CMSG_LOG_SERVER_ERROR (server,
                                        "Server message processing returned an error.");
+            }
 
         }
         else
@@ -560,7 +561,8 @@ _cmsg_transport_server_crypto_recv (cmsg_recv_func recv, void *handle, cmsg_serv
     else if (nbytes > 0)
     {
         CMSG_LOG_SERVER_ERROR (server, "Bad msg on recv socket %d. Number: %d - %d",
-                               server->connection.sockets.client_socket, nbytes, msg_length);
+                               server->connection.sockets.client_socket, nbytes,
+                               msg_length);
         ret = CMSG_RET_ERR;
     }
     else if (nbytes == 0)
@@ -865,7 +867,7 @@ _cmsg_transport_client_recv_crypto_msg (cmsg_client *client, int32_t msg_length,
         // and we don't know about it, make sure we receive all the information.
         // Any TLV is taken into account in the header length.
         dyn_len = header_converted.message_length +
-                header_converted.header_length - sizeof (cmsg_header);
+            header_converted.header_length - sizeof (cmsg_header);
 
         // There is no more data to read so exit.
         if (dyn_len == 0)

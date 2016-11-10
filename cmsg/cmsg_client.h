@@ -136,6 +136,9 @@ int32_t cmsg_client_invoke_recv (cmsg_client *client, unsigned method_index,
 int32_t cmsg_client_invoke_send_direct (cmsg_client *client, unsigned method_index,
                                         const ProtobufCMessage *input);
 
+int32_t cmsg_client_invoke_recv_direct (cmsg_client *client, unsigned method_index,
+                                        ProtobufCClosure closure, void *closure_data);
+
 int32_t cmsg_client_send_echo_request (cmsg_client *client);
 
 cmsg_status_code cmsg_client_recv_echo_reply (cmsg_client *client);
@@ -208,7 +211,7 @@ cmsg_client *cmsg_create_client_tcp_rpc (cmsg_socket *config,
                                          ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_tcp_oneway (cmsg_socket *config,
                                             ProtobufCServiceDescriptor *descriptor);
-cmsg_client *cmsg_create_client_loopback_oneway (ProtobufCService *service);
+cmsg_client *cmsg_create_client_loopback (ProtobufCService *service);
 
 cmsg_client *cmsg_create_and_connect_client_tipc_rpc (const char *server_name,
                                                       int member_id, int scope,
