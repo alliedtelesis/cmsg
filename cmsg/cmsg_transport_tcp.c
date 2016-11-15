@@ -168,6 +168,47 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     return 0;
 }
 
+/**
+ *  MSG_WAITALL will cause the recv call to block until all data has been
+ *  received, but it appears that in cases where the size of the data to
+ *  be received is close to or larger than the size of sockets receive
+ *  buffer it may be possible for the TCP connection to deadlock as the
+ *  receiver is waiting for the sender to send more, and the sender is
+ *  waiting for the receiver to receive more.
+ *
+ *  To avoid this situation, the data is now read in chunks that are
+ *  significantly smaller than the receive buffer.
+ */
+static ssize_t
+recv_all (int sockfd, void *buf, size_t len, int flag)
+{
+    size_t chunk_size;
+    size_t nbytes = 0;
+    ssize_t ret;
+    ssize_t bytes_left = 0;
+
+    while (nbytes < len)
+    {
+        /* Do not read past the end of the message */
+        bytes_left = len - nbytes;
+        chunk_size = MIN (bytes_left, CMSG_RECV_ALL_CHUNK_SIZE);
+
+        ret = recv (sockfd, buf + nbytes, chunk_size, flag);
+        if (ret < 0)
+        {
+            /* error */
+            return ret;
+        }
+        else if (ret == 0)
+        {
+            /* shutdown */
+            return nbytes;
+        }
+        nbytes += ret;
+    }
+
+    return nbytes;
+}
 
 /* Wrapper function to call "recv" on a TCP socket */
 int
@@ -175,7 +216,7 @@ cmsg_transport_tcp_recv (void *handle, void *buff, int len, int flags)
 {
     int *sock = (int *) handle;
 
-    return recv (*sock, buff, len, flags);
+    return recv_all (*sock, buff, len, flags);
 }
 
 
@@ -236,48 +277,6 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
     }
 
     return sock;
-}
-
-/**
- *  MSG_WAITALL will cause the recv call to block until all data has been
- *  received, but it appears that in cases where the size of the data to
- *  be received is close to or larger than the size of sockets receive
- *  buffer it may be possible for the TCP connection to deadlock as the
- *  receiver is waiting for the sender to send more, and the sender is
- *  waiting for the receiver to receive more.
- *
- *  To avoid this situation, the data is now read in chunks that are
- *  significantly smaller than the receive buffer.
- */
-static ssize_t
-recv_all (int sockfd, void *buf, size_t len, int flag)
-{
-    size_t chunk_size;
-    size_t nbytes = 0;
-    ssize_t ret;
-    ssize_t bytes_left = 0;
-
-    while (nbytes < len)
-    {
-        /* Do not read pass the end of the message */
-        bytes_left = len - nbytes;
-        chunk_size = MIN (bytes_left, CMSG_RECV_ALL_CHUNK_SIZE);
-
-        ret = recv (sockfd, buf + nbytes, chunk_size, flag);
-        if (ret < 0)
-        {
-            /* error */
-            return ret;
-        }
-        else if (ret == 0)
-        {
-            /* shutdown */
-            return nbytes;
-        }
-        nbytes += ret;
-    }
-
-    return nbytes;
 }
 
 static cmsg_status_code
