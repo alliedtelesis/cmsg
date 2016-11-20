@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #ifndef __CMSG_H_
 #define __CMSG_H_
 

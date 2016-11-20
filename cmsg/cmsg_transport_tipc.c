@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
 #include "cmsg_client.h"
@@ -27,7 +30,9 @@ cmsg_transport_tipc_connect (cmsg_client *client)
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_connect\n");
 
     if (client == NULL)
+    {
         return 0;
+    }
 
     client->connection.socket = socket (client->_transport->config.socket.family,
                                         SOCK_STREAM, 0);
@@ -117,7 +122,9 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     cmsg_transport *transport = NULL;
 
     if (server == NULL)
+    {
         return 0;
+    }
 
     server->connection.sockets.listening_socket = 0;
     server->connection.sockets.client_socket = 0;
@@ -658,7 +665,8 @@ cmsg_transport_tipc_send_can_block_enable (cmsg_transport *transport,
 
 
 int32_t
-cmsg_transport_tipc_ipfree_bind_enable (cmsg_transport *transport, cmsg_bool_t use_ipfree_bind)
+cmsg_transport_tipc_ipfree_bind_enable (cmsg_transport *transport,
+                                        cmsg_bool_t use_ipfree_bind)
 {
     /* not supported yet */
     return -1;
@@ -695,7 +703,9 @@ void
 cmsg_transport_tipc_init (cmsg_transport *transport)
 {
     if (transport == NULL)
+    {
         return;
+    }
 
     _cmsg_transport_tipc_init_common (transport);
 
@@ -710,7 +720,9 @@ void
 cmsg_transport_oneway_tipc_init (cmsg_transport *transport)
 {
     if (transport == NULL)
+    {
         return;
+    }
 
     _cmsg_transport_tipc_init_common (transport);
 

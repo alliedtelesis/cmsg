@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #ifndef __PROTOBUF_C_CMSG_ERROR__
 #define __PROTOBUF_C_CMSG_ERROR__
 

@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -40,7 +43,8 @@ cmsg_test_impl_ping (const void *service, const cmsg_ping_request *recv_msg)
     value1 = rand () % 100;
     value2 = rand () % 100;
 
-    printf ("[IMPL]: %s : send code=%d, value1=%d, value2=%d\n", __func__, code, value1, value2);
+    printf ("[IMPL]: %s : send code=%d, value1=%d, value2=%d\n", __func__, code, value1,
+            value2);
     CMSG_SET_FIELD_VALUE (&send_msg, random, value1);
     CMSG_SET_FIELD_VALUE (&send_msg, randomm, value2);
     CMSG_SET_FIELD_VALUE (&send_msg, return_code, code);
@@ -83,7 +87,8 @@ cmsg_test_impl_ping_pong (const void *service, const cmsg_ping_requests *recv_ms
         CMSG_SET_FIELD_VALUE (&pongs[i], random, recv_msg->pings[i]->random);
         CMSG_SET_FIELD_VALUE (&pongs[i], randomm, recv_msg->pings[i]->randomm);
         CMSG_SET_FIELD_PTR (&send_msg, pongs[i], &pongs[i]);
-        printf ("[SERVER] setting pong value pair: %d, %d.\n", pongs[i].random, pongs[i].randomm);
+        printf ("[SERVER] setting pong value pair: %d, %d.\n", pongs[i].random,
+                pongs[i].randomm);
     }
     send_msg.n_pongs = n_pongs;
     CMSG_SET_FIELD_VALUE (&send_msg, return_code, 1);
@@ -96,12 +101,13 @@ cmsg_test_impl_ping_pong (const void *service, const cmsg_ping_requests *recv_ms
 }
 
 void
-cmsg_test_impl_notify_priority (const void *service, const cmsg_priority_notification *recv_msg)
+cmsg_test_impl_notify_priority (const void *service,
+                                const cmsg_priority_notification *recv_msg)
 {
     static int status = 0;
     status++;
     printf ("[IMPL]: %s : port=%d, priority=%d, enum=%d --> send status=%d\n", __func__,
-              recv_msg->port, recv_msg->priority, recv_msg->count, status);
+            recv_msg->port, recv_msg->priority, recv_msg->count, status);
 
     cmsg_test_server_notify_prioritySend (service);
 }
@@ -223,7 +229,9 @@ run_pub (void *arg)
     int fd = cmsg_pub_get_server_socket (pub);
     int fd_max = fd + 1;
     if (!fd)
+    {
         printf ("initialized rpc failed (socket %d)\n", fd);
+    }
 
     fd_set readfds;
     FD_ZERO (&readfds);
@@ -242,7 +250,7 @@ run_pub (void *arg)
             printf ("[PUBLISHER] count_stop reached, destroying publisher\n");
             printf ("[PUBLISHER] end queue length: %d\n", cmsg_pub_queue_get_length (pub));
 
-            sleep (2); //give the subscriber a chance to process messages
+            sleep (2);  //give the subscriber a chance to process messages
 
             run_thread_run = 0;
 
@@ -283,7 +291,7 @@ run_pub (void *arg)
         }
     }
 
-CLEAN_EXIT:
+  CLEAN_EXIT:
     cmsg_pub_destroy (pub);
     cmsg_transport_destroy (transport_register);
 
@@ -306,9 +314,13 @@ run_server (void *arg)
     if (transport_type == 1)
     {
         if (is_one_way == 1)
+        {
             transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_TCP);
+        }
         else
+        {
             transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
+        }
 
         transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_ANY);
         transport->config.socket.sockaddr.in.sin_port = htons ((unsigned short) 18888);
@@ -316,9 +328,13 @@ run_server (void *arg)
     else if (transport_type == 2)
     {
         if (is_one_way == 1)
+        {
             transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_TIPC);
+        }
         else
+        {
             transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TIPC);
+        }
 
         transport->config.socket.sockaddr.tipc.family = AF_TIPC;
         transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
@@ -384,9 +400,13 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
     if (transport_type == 1)
     {
         if (is_one_way == 1)
+        {
             transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_TCP);
+        }
         else
+        {
             transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
+        }
 
         transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (0x7f000001);
         transport->config.socket.sockaddr.in.sin_port = htons ((unsigned short) 18888);
@@ -395,9 +415,13 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
     {
 
         if (is_one_way == 1)
+        {
             transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_TIPC);
+        }
         else
+        {
             transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TIPC);
+        }
 
         transport->config.socket.sockaddr.tipc.family = AF_TIPC;
         transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
@@ -420,8 +444,7 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
         server_transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
         strcpy (server_transport->config.cpg.group_name.value, "cpg_bm");
         server_transport->config.cpg.group_name.length = 6;
-        cpg_server =
-            cmsg_server_new (server_transport, CMSG_SERVICE (cmsg, test));
+        cpg_server = cmsg_server_new (server_transport, CMSG_SERVICE (cmsg, test));
 #endif
     }
     else if (transport_type == 4)
@@ -486,7 +509,7 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
             sleep (1);
         }
     }
-    else // repeated = yes
+    else    // repeated = yes
     {
         int i = 0;
         cmsg_ping_requests send_msg = CMSG_PING_REQUESTS_INIT;
@@ -504,7 +527,8 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
             CMSG_SET_FIELD_VALUE (&pings[i], random, i);
             CMSG_SET_FIELD_VALUE (&pings[i], randomm, i * 2);
             CMSG_SET_FIELD_PTR (&send_msg, pings[i], &pings[i]);
-            printf ("[CLIENT] setting ping value pair: %d, %d.\n", pings[i].random, pings[i].randomm);
+            printf ("[CLIENT] setting ping value pair: %d, %d.\n", pings[i].random,
+                    pings[i].randomm);
         }
         send_msg.n_pings = n_pings;
 
@@ -520,7 +544,8 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
             printf ("[CLIENT] received pong status: %d\n", recv_msg->return_code);
             for (i = 0; i < recv_msg->n_pongs; i++)
             {
-                printf ("[CLIENT] received pong value pair: %d, %d.\n", recv_msg->pongs[i]->random, recv_msg->pongs[i]->randomm);
+                printf ("[CLIENT] received pong value pair: %d, %d.\n",
+                        recv_msg->pongs[i]->random, recv_msg->pongs[i]->randomm);
             }
             // free the recv message
             CMSG_FREE_RECV_MSG (recv_msg);
@@ -563,36 +588,56 @@ main (int argc, char *argv[])
     for (i = 1; i < (unsigned) argc; i++)
     {
         if (starts_with (argv[i], "--cs"))
+        {
             mode = 1;
+        }
 
         if (starts_with (argv[i], "--repeat"))
+        {
             repeated = 1;
+        }
 
         if (starts_with (argv[i], "--ps"))
+        {
             mode = 2;
+        }
 
         if (starts_with (argv[i], "--tcp"))
+        {
             transport_type = 1;
+        }
 
         if (starts_with (argv[i], "--tipc"))
+        {
             transport_type = 2;
+        }
 
 #ifdef HAVE_VCSTACK
         if (starts_with (argv[i], "--cpg"))
+        {
             transport_type = 3;
+        }
 
         if (starts_with (argv[i], "--tipc-broadcast"))
+        {
             transport_type = 4;
+        }
 #endif
 
         if (starts_with (argv[i], "--oneway"))
+        {
             is_one_way = 1;
+        }
 
         if (starts_with (argv[i], "--queue"))
+        {
             queue = 1;
+        }
 
         if (starts_with (argv[i], "--test"))
+        {
             test = 1;
+        }
     }
 
     if ((transport_type == 0 || mode == 0) && (test == 0))
@@ -631,7 +676,7 @@ main (int argc, char *argv[])
         sleep (1);
         run_client (transport_type, is_one_way, queue, repeated);
 
-        sleep (2); //wait for the server to process the messages
+        sleep (2);  //wait for the server to process the messages
         run_thread_run = 0;
         pthread_join (thread, NULL);
     }

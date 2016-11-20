@@ -7,6 +7,7 @@
  * It's based on the composite design pattern, in that this client is used in essentially
  * the same way as a regular client.
  *
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 
 #include "cmsg_private.h"

@@ -1,10 +1,12 @@
-
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #ifndef __CMSG_SERVER_H_
 #define __CMSG_SERVER_H_
 
 
 #include "cmsg.h"
-#include "cmsg_private.h" // to be removed when this file is split private/public
+#include "cmsg_private.h"   // to be removed when this file is split private/public
 #include "cmsg_transport.h"
 #include "cmsg_queue.h"
 
@@ -61,13 +63,13 @@ typedef struct _cmsg_server_s
     // memory management
     // flag to tell the server whether or not the application wants to take ownership
     // of the current message, and therefore be responsible for freeing it.
-    cmsg_bool_t app_owns_current_msg; //set to FALSE by default, and always reset to FALSE
-                                      //after processing of an impl has finished.
+    cmsg_bool_t app_owns_current_msg;   //set to FALSE by default, and always reset to FALSE
+    //after processing of an impl has finished.
     // flag to tell the server whether or not the application wants to take ownership
     // of all received messages, and therefore be responsible for freeing them.
-    cmsg_bool_t app_owns_all_msgs; //set to FALSE by default but can be changed so
-                                   //that cmsg will NEVER free recv msgs for this
-                                   //server
+    cmsg_bool_t app_owns_all_msgs;      //set to FALSE by default but can be changed so
+    //that cmsg will NEVER free recv msgs for this
+    //server
 
     //counter information
     void *cntr_session;
@@ -96,7 +98,7 @@ typedef struct _cmsg_server_s
 typedef struct _cmsg_server_list_s
 {
     GList *list;
-    pthread_mutex_t server_mutex; // Used to protect list access.
+    pthread_mutex_t server_mutex;   // Used to protect list access.
 } cmsg_server_list;
 
 cmsg_server *cmsg_server_new (cmsg_transport *transport, ProtobufCService *service);

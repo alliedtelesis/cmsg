@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #ifndef __CMSG_TRANSPORT_H_
 #define __CMSG_TRANSPORT_H_
 
@@ -98,11 +101,11 @@ typedef struct _cmsg_socket_s
 
 #ifdef HAVE_VCSTACK
 typedef void (*cpg_configchg_cb_f) (cmsg_server *server,
-                                    const struct cpg_address * member_list,
+                                    const struct cpg_address *member_list,
                                     int member_list_entries,
-                                    const struct cpg_address * left_list,
+                                    const struct cpg_address *left_list,
                                     int left_list_entries,
-                                    const struct cpg_address * joined_list,
+                                    const struct cpg_address *joined_list,
                                     int joined_list_entries);
 #endif
 
@@ -184,7 +187,7 @@ typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t 
 
 typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
 
-typedef void (*cmsg_tipc_topology_callback) (struct tipc_event * event);
+typedef void (*cmsg_tipc_topology_callback) (struct tipc_event *event);
 
 #define CMSG_MAX_TPORT_ID_LEN 64
 

@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 //types not yet tested:
 //PROTOBUF_C_TYPE_ENUM,
 //PROTOBUF_C_TYPE_BYTES,

@@ -1,3 +1,6 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #include "cmsg_private.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
@@ -1192,19 +1195,25 @@ cmsg_server_queue_process (cmsg_server *server)
         }
 
         if (server->queue_process_number >= 0)
+        {
             processed =
                 cmsg_receive_queue_process_some (server->queue, &server->queue_mutex,
                                                  server->service->descriptor, server,
                                                  server->queue_process_number);
+        }
         else if (server->queue_process_number == -1)
+        {
             processed = cmsg_receive_queue_process_all (server->queue, &server->queue_mutex,
                                                         server->service->descriptor,
                                                         server);
+        }
 
         if (processed > 0)
+        {
             CMSG_DEBUG (CMSG_INFO,
                         "server has processed: %d messages in CMSG_QUEUE_STATE_TO_DISABLED state",
                         processed);
+        }
 
         if (cmsg_server_queue_get_length (server) == 0)
         {
@@ -1222,18 +1231,24 @@ cmsg_server_queue_process (cmsg_server *server)
     else if (server->queueing_state == CMSG_QUEUE_STATE_ENABLED)
     {
         if (server->queue_process_number >= 0)
+        {
             processed =
                 cmsg_receive_queue_process_some (server->queue, &server->queue_mutex,
                                                  server->service->descriptor, server,
                                                  server->queue_process_number);
+        }
         else if (server->queue_process_number == -1)
+        {
             processed = cmsg_receive_queue_process_all (server->queue, &server->queue_mutex,
                                                         server->service->descriptor,
                                                         server);
+        }
         if (processed > 0)
+        {
             CMSG_DEBUG (CMSG_INFO,
                         "server has processed: %d messages in CMSG_QUEUE_STATE_ENABLED state",
                         processed);
+        }
     }
 
     if (server->queueing_state != server->queueing_state_last)
@@ -1316,7 +1331,9 @@ uint32_t
 cmsg_server_queue_get_length (cmsg_server *server)
 {
     if (server == NULL)
+    {
         return 0;
+    }
 
     pthread_mutex_lock (&server->queue_mutex);
     uint32_t queue_length = g_queue_get_length (server->queue);
@@ -1330,7 +1347,9 @@ uint32_t
 cmsg_server_queue_max_length_get (cmsg_server *server)
 {
     if (server == NULL)
+    {
         return 0;
+    }
 
     return server->maxQueueLength;
 }
@@ -1410,9 +1429,13 @@ cmsg_server_queue_filter_set_all (cmsg_server *server, cmsg_queue_filter_type fi
 
     if ((filter_type == CMSG_QUEUE_FILTER_PROCESS) ||
         (filter_type == CMSG_QUEUE_FILTER_DROP))
+    {
         server->queueing_state = CMSG_QUEUE_STATE_TO_DISABLED;
+    }
     else if (filter_type == CMSG_QUEUE_FILTER_QUEUE)
+    {
         server->queueing_state = CMSG_QUEUE_STATE_ENABLED;
+    }
 
     pthread_mutex_lock (&server->queue_filter_mutex);
     cmsg_queue_filter_set_all (server->queue_filter_hash_table, server->service->descriptor,

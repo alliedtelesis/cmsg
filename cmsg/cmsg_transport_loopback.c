@@ -7,6 +7,7 @@
  * application generic just the initialisation can be changed to allow the same api
  * and impls to be used.
  *
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #include "cmsg_transport.h"
 #include "cmsg_client.h"
@@ -183,7 +184,9 @@ void
 cmsg_transport_oneway_loopback_init (cmsg_transport *transport)
 {
     if (transport == NULL)
+    {
         return;
+    }
 
     /* No Socket information so don't set anything */
 

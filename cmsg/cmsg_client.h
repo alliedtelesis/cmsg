@@ -1,8 +1,11 @@
+/*
+ * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+ */
 #ifndef __CMSG_CLIENT_H_
 #define __CMSG_CLIENT_H_
 
 #include "cmsg.h"
-#include "cmsg_private.h" // to be removed when this file is split private/public
+#include "cmsg_private.h"   // to be removed when this file is split private/public
 #include "cmsg_queue.h"
 #include "cmsg_transport.h"
 
@@ -207,9 +210,10 @@ cmsg_client *cmsg_create_client_tcp_oneway (cmsg_socket *config,
                                             ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_loopback_oneway (ProtobufCService *service);
 
-cmsg_client *cmsg_create_and_connect_client_tipc_rpc (const char *server_name, int member_id,
-                                          int scope,
-                                          ProtobufCServiceDescriptor *descriptor);
+cmsg_client *cmsg_create_and_connect_client_tipc_rpc (const char *server_name,
+                                                      int member_id, int scope,
+                                                      ProtobufCServiceDescriptor
+                                                      *descriptor);
 
 void cmsg_client_close_wrapper (cmsg_client *client);
 
