@@ -37,6 +37,8 @@ if test -n "$PKG_CONFIG"; then
     fi
 fi
 
+AC_ARG_VAR(PROTOC_CMSG_PATH, [  Path to the protoc-cmsg compiler])
+
 BUILD_PROTOC_CMSG=1
 AC_ARG_ENABLE(protoc-cmsg, [  --disable-protoc-cmsg   Suppress build of protoc-cmsg],
 if test "x$enableval" = xno ; then
@@ -112,6 +114,7 @@ AC_MSG_RESULT([
 
     cmsg options
         protoc-cmsg:            ${BUILD_PROTOC_CMSG}
+        protoc-cmsg-path:       ${PROTOC_CMSG_PATH}
         cmsg:                   ${BUILD_CMSG}
         cmsg-test:              ${BUILD_CMSG_TEST}
         cmsg-tools:             ${HAVE_CMSG_PROFILING}
