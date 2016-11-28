@@ -4,6 +4,7 @@
 #include "cmsg_private.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
+#include "cmsg_transport.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
@@ -399,7 +400,7 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
                 if (cmsg_server_receive (server, fd) < 0)
                 {
                     // only close the socket if we have errored
-                    server->_transport->server_close (server);
+                    cmsg_server_close_wrapper (server);
                     FD_CLR (fd, master_fdset);
                     check_fdmax = TRUE;
                 }
@@ -538,7 +539,7 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
                     if (cmsg_server_receive (server, fd) < 0)
                     {
                         // only close the socket if we have errored
-                        server->_transport->server_close (server);
+                        cmsg_server_close_wrapper (server);
                         FD_CLR (fd, &server->accepted_fdset);
                         if (server->accepted_fdmax == fd)
                         {
@@ -615,6 +616,11 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
     if (server->_transport->server_accept != NULL)
     {
         sock = server->_transport->server_accept (listen_socket, server);
+        if (sock >= 0 && server->_transport->use_crypto &&
+            server->_transport->config.socket.crypto.accept)
+        {
+            server->_transport->config.socket.crypto.accept (sock);
+        }
         // count the accepted connection
         CMSG_COUNTER_INC (server, cntr_connections_accepted);
     }
@@ -859,6 +865,59 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     return CMSG_RET_OK;
 }
 
+/**
+ * Wrap the sending of a buffer so that the input buffer can be encrypted if required
+ *
+ * @returns -1 on failure, 0 on success
+ */
+static int
+cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
+{
+    uint8_t *encrypt_buffer;
+    int encrypt_length;
+    int ret = 0;
+    int sock;
+
+    if (server->_transport->config.socket.crypto.encrypt)
+    {
+        sock = server->connection.sockets.client_socket;
+        encrypt_buffer = (uint8_t *) CMSG_CALLOC (1, length + ENCRYPT_EXTRA);
+        if (encrypt_buffer == NULL)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Server failed to allocate buffer on socket %d",
+                                   server->connection.sockets.client_socket);
+            return -1;
+        }
+
+        encrypt_length =
+                server->_transport->config.socket.crypto.encrypt (sock, buff, length,
+                                                                  encrypt_buffer,
+                                                                  length + ENCRYPT_EXTRA);
+        if (encrypt_length < 0)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Server encrypt on socket %d failed",
+                                   server->connection.sockets.client_socket);
+            CMSG_FREE (encrypt_buffer);
+            return -1;
+        }
+
+        ret = server->_transport->server_send (server, encrypt_buffer, encrypt_length, 0);
+        /* if the send was successful, fixup the return length to match the original
+         * plaintext length so callers are unaware of the encryption */
+        if (encrypt_length == ret)
+        {
+            ret = length;
+        }
+
+        CMSG_FREE (encrypt_buffer);
+    }
+    else
+    {
+        ret = server->_transport->server_send (server, buff, length, 0);
+    }
+
+    return ret;
+}
 
 /**
  * Process ECHO_REQ message
@@ -878,7 +937,7 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = server->_transport->server_send (server, &header, sizeof (header), 0);
+    ret = cmsg_server_send_wrapper (server, &header, sizeof (header), 0);
     if (ret < (int) sizeof (header))
     {
         CMSG_LOG_SERVER_ERROR (server, "Sending of echo reply failed. Sent:%d of %u bytes.",
@@ -947,7 +1006,7 @@ cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code statu
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = server->_transport->server_send (server, &header, sizeof (header), 0);
+    ret = cmsg_server_send_wrapper (server, &header, sizeof (header), 0);
     if (ret < (int) sizeof (header))
     {
         CMSG_DEBUG (CMSG_ERROR,
@@ -1081,7 +1140,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         CMSG_DEBUG (CMSG_INFO, "[SERVER] response data\n");
         cmsg_buffer_print ((void *) buffer_data, packed_size);
 
-        send_ret = server->_transport->server_send (server, buffer, total_message_size, 0);
+        send_ret = cmsg_server_send_wrapper (server, buffer, total_message_size, 0);
 
         if (send_ret < (int) total_message_size)
         {
@@ -1515,6 +1574,96 @@ cmsg_create_server_tipc_oneway (const char *server_name, int member_id, int scop
                                      CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
+static cmsg_server *
+_cmsg_create_server_unix (const char *sun_path, ProtobufCService *descriptor,
+                          cmsg_transport_type transport_type)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_server *server = NULL;
+
+    transport = cmsg_create_transport_unix (sun_path, transport_type);
+    if (transport == NULL)
+    {
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, descriptor);
+    if (server == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("[%s%s] Failed to create UNIX IPC server.",
+                            descriptor->descriptor->name, sun_path);
+        return NULL;
+    }
+
+    return server;
+}
+
+cmsg_server *
+cmsg_create_server_unix_rpc (const char *sun_path, ProtobufCService *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_server_unix (sun_path, descriptor, CMSG_TRANSPORT_RPC_UNIX);
+}
+
+cmsg_server *
+cmsg_create_server_unix_oneway (const char *sun_path, ProtobufCService *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_server_unix (sun_path, descriptor,
+                                     CMSG_TRANSPORT_ONEWAY_UNIX);
+}
+
+static cmsg_server *
+_cmsg_create_server_tcp (cmsg_socket *config, ProtobufCService *descriptor,
+                         cmsg_transport_type transport_type)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_server *server = NULL;
+
+    transport = cmsg_create_transport_tcp (config, transport_type);
+    if (transport == NULL)
+    {
+        return NULL;
+    }
+
+    /* Configure the transport to enable non-existent, non-local address binding */
+    cmsg_transport_ipfree_bind_enable (transport, TRUE);
+
+    server = cmsg_server_new (transport, descriptor);
+    if (server == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("[%s] Failed to create TCP RPC server.",
+                            descriptor->descriptor->name);
+        return NULL;
+    }
+
+    return server;
+}
+
+cmsg_server *
+cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_server_tcp (config, descriptor, CMSG_TRANSPORT_RPC_TCP);
+}
+
+cmsg_server *
+cmsg_create_server_tcp_oneway (cmsg_socket *config, ProtobufCService *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_server_tcp (config, descriptor, CMSG_TRANSPORT_ONEWAY_TCP);
+}
+
 /**
  * Creates a Server of type Loopback Oneway and sets all the correct
  * fields.
@@ -1585,4 +1734,26 @@ void
 cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner)
 {
     server->app_owns_all_msgs = app_is_owner;
+}
+
+/**
+ * Close a server socket to a remote client. If the server is using crypto then
+ * call out to the server application so it can cleanup any associated
+ * crypto structures.
+ *
+ * NOTE user applications should not call this routine directly
+ *
+ * @param server - the server that is closing the current client connection
+ */
+void
+cmsg_server_close_wrapper (cmsg_server *server)
+{
+    int sock = server->connection.sockets.client_socket;
+
+    if (server->_transport->config.socket.crypto.close)
+    {
+        server->_transport->config.socket.crypto.close (sock);
+    }
+
+    server->_transport->server_close (server);
 }

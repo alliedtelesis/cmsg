@@ -6,7 +6,7 @@
 #include "cmsg_client.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
-
+#include <arpa/inet.h>
 /* Limit the size of message read */
 #define CMSG_RECV_ALL_CHUNK_SIZE  (16 * 1024)
 
@@ -175,6 +175,47 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     return 0;
 }
 
+/**
+ *  MSG_WAITALL will cause the recv call to block until all data has been
+ *  received, but it appears that in cases where the size of the data to
+ *  be received is close to or larger than the size of sockets receive
+ *  buffer it may be possible for the TCP connection to deadlock as the
+ *  receiver is waiting for the sender to send more, and the sender is
+ *  waiting for the receiver to receive more.
+ *
+ *  To avoid this situation, the data is now read in chunks that are
+ *  significantly smaller than the receive buffer.
+ */
+static ssize_t
+recv_all (int sockfd, void *buf, size_t len, int flag)
+{
+    size_t chunk_size;
+    size_t nbytes = 0;
+    ssize_t ret;
+    ssize_t bytes_left = 0;
+
+    while (nbytes < len)
+    {
+        /* Do not read past the end of the message */
+        bytes_left = len - nbytes;
+        chunk_size = MIN (bytes_left, CMSG_RECV_ALL_CHUNK_SIZE);
+
+        ret = recv (sockfd, buf + nbytes, chunk_size, flag);
+        if (ret < 0)
+        {
+            /* error */
+            return ret;
+        }
+        else if (ret == 0)
+        {
+            /* shutdown */
+            return nbytes;
+        }
+        nbytes += ret;
+    }
+
+    return nbytes;
+}
 
 /* Wrapper function to call "recv" on a TCP socket */
 int
@@ -182,7 +223,7 @@ cmsg_transport_tcp_recv (void *handle, void *buff, int len, int flags)
 {
     int *sock = (int *) handle;
 
-    return recv (*sock, buff, len, flags);
+    return recv_all (*sock, buff, len, flags);
 }
 
 
@@ -245,61 +286,9 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
     return sock;
 }
 
-/**
- *  MSG_WAITALL will cause the recv call to block until all data has been
- *  received, but it appears that in cases where the size of the data to
- *  be received is close to or larger than the size of sockets receive
- *  buffer it may be possible for the TCP connection to deadlock as the
- *  receiver is waiting for the sender to send more, and the sender is
- *  waiting for the receiver to receive more.
- *
- *  To avoid this situation, the data is now read in chunks that are
- *  significantly smaller than the receive buffer.
- */
-static ssize_t
-recv_all (int sockfd, void *buf, size_t len, int flag)
-{
-    size_t chunk_size;
-    size_t nbytes = 0;
-    ssize_t ret;
-    ssize_t bytes_left = 0;
-
-    while (nbytes < len)
-    {
-        /* Do not read pass the end of the message */
-        bytes_left = len - nbytes;
-        chunk_size = MIN (bytes_left, CMSG_RECV_ALL_CHUNK_SIZE);
-
-        ret = recv (sockfd, buf + nbytes, chunk_size, flag);
-        if (ret < 0)
-        {
-            /* error */
-            return ret;
-        }
-        else if (ret == 0)
-        {
-            /* shutdown */
-            return nbytes;
-        }
-        nbytes += ret;
-    }
-
-    return nbytes;
-}
-
 static cmsg_status_code
 cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
 {
-    int nbytes = 0;
-    uint32_t dyn_len = 0;
-    cmsg_header header_received;
-    cmsg_header header_converted;
-    uint8_t *recv_buffer = NULL;
-    uint8_t *buffer = NULL;
-    uint8_t buf_static[512];
-    const ProtobufCMessageDescriptor *desc;
-    uint32_t extra_header_size;
-    cmsg_server_request server_request;
     cmsg_status_code ret;
 
     *messagePtPt = NULL;
@@ -309,177 +298,11 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
         return CMSG_STATUS_CODE_SERVICE_FAILED;
     }
 
-    nbytes = recv (client->connection.socket,
-                   &header_received, sizeof (cmsg_header), MSG_WAITALL);
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "receive",
-                                 cmsg_prof_time_toc (&client->prof));
+    ret = cmsg_transport_client_recv (cmsg_transport_tcp_recv,
+                                      (void *) &client->connection.socket, client,
+                                      messagePtPt);
 
-    if (nbytes == (int) sizeof (cmsg_header))
-    {
-        if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
-        {
-            // Couldn't process the header for some reason
-            CMSG_LOG_CLIENT_ERROR (client,
-                                   "Unable to process message header for client receive. Bytes:%d",
-                                   nbytes);
-            CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
-                                         cmsg_prof_time_toc (&client->prof));
-            return CMSG_STATUS_CODE_SERVICE_FAILED;
-        }
-
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
-
-        // read the message
-
-        // Take into account that someone may have changed the size of the header
-        // and we don't know about it, make sure we receive all the information.
-        // Any TLV is taken into account in the header length.
-        dyn_len = header_converted.message_length +
-            header_converted.header_length - sizeof (cmsg_header);
-
-        // There is no more data to read so exit.
-        if (dyn_len == 0)
-        {
-            // May have been queued, dropped or there was no message returned
-            CMSG_DEBUG (CMSG_INFO,
-                        "[TRANSPORT] received response without data. server status %d\n",
-                        header_converted.status_code);
-            CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
-                                         cmsg_prof_time_toc (&client->prof));
-            return header_converted.status_code;
-        }
-
-        if (dyn_len > sizeof (buf_static))
-        {
-            recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
-            if (recv_buffer == NULL)
-            {
-                /* Didn't allocate memory for recv buffer.  This is an error.
-                 * Shut the socket down, it will reopen on the next api call.
-                 * Record and return an error. */
-                client->_transport->client_close (client);
-                CMSG_LOG_CLIENT_ERROR (client,
-                                       "Couldn't allocate memory for server reply (TLV + message), closed the socket");
-                return CMSG_STATUS_CODE_SERVICE_FAILED;
-            }
-        }
-        else
-        {
-            recv_buffer = (uint8_t *) buf_static;
-            memset (recv_buffer, 0, sizeof (buf_static));
-        }
-
-        //just recv the rest of the data to clear the socket
-        nbytes = recv_all (client->connection.socket, recv_buffer, dyn_len, MSG_WAITALL);
-
-        if (nbytes == (int) dyn_len)
-        {
-            extra_header_size = header_converted.header_length - sizeof (cmsg_header);
-            // Set buffer to take into account a larger header than we expected
-            buffer = recv_buffer;
-
-            cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
-                                     client->descriptor);
-
-            buffer = buffer + extra_header_size;
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
-            cmsg_buffer_print (buffer, dyn_len);
-
-            /* Message is only returned if the server returned Success,
-             */
-            if (header_converted.status_code == CMSG_STATUS_CODE_SUCCESS)
-            {
-                ProtobufCMessage *message = NULL;
-                ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
-
-                CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
-
-                desc = client->descriptor->methods[server_request.method_index].output;
-                message = protobuf_c_message_unpack (desc, allocator,
-                                                     header_converted.message_length,
-                                                     buffer);
-
-                // Free the allocated buffer
-                if (recv_buffer != (void *) buf_static)
-                {
-                    if (recv_buffer)
-                    {
-                        CMSG_FREE (recv_buffer);
-                        recv_buffer = NULL;
-                    }
-                }
-
-                // Msg not unpacked correctly
-                if (message == NULL)
-                {
-                    CMSG_LOG_CLIENT_ERROR (client,
-                                           "Error unpacking response message. Msg length:%d",
-                                           header_converted.message_length);
-                    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
-                                                 cmsg_prof_time_toc (&client->prof));
-                    return CMSG_STATUS_CODE_SERVICE_FAILED;
-                }
-                *messagePtPt = message;
-                CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
-                                             cmsg_prof_time_toc (&client->prof));
-            }
-
-            // Make sure we return the status from the server
-            return header_converted.status_code;
-        }
-        else
-        {
-            CMSG_LOG_CLIENT_ERROR (client,
-                                   "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
-                                   client->connection.socket, dyn_len, nbytes, errno,
-                                   strerror (errno));
-
-        }
-        if (recv_buffer != (void *) buf_static)
-        {
-            if (recv_buffer)
-            {
-                CMSG_FREE (recv_buffer);
-                recv_buffer = NULL;
-            }
-        }
-    }
-    else if (nbytes > 0)
-    {
-        /* Didn't receive all of the CMSG header.
-         */
-        CMSG_LOG_CLIENT_ERROR (client, "Bad header length for recv. Socket:%d nbytes:%d",
-                               client->connection.socket, nbytes);
-
-        // TEMP to keep things going
-        recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
-        nbytes = recv_all (client->connection.socket, recv_buffer, nbytes, MSG_WAITALL);
-        CMSG_FREE (recv_buffer);
-        recv_buffer = NULL;
-    }
-    else if (nbytes == 0)
-    {
-        //Normal socket shutdown case. Return other than TRANSPORT_OK to
-        //have socket removed from select set.
-    }
-    else
-    {
-        if (errno == ECONNRESET)
-        {
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                        client->connection.socket, strerror (errno));
-            return CMSG_STATUS_CODE_SERVER_CONNRESET;
-        }
-        else
-        {
-            CMSG_LOG_CLIENT_ERROR (client, "Recv error. Socket:%d Error:%s",
-                                   client->connection.socket, strerror (errno));
-        }
-    }
-
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
-                                 cmsg_prof_time_toc (&client->prof));
-    return CMSG_STATUS_CODE_SERVICE_FAILED;
+    return ret;
 }
 
 
@@ -592,10 +415,7 @@ int32_t
 cmsg_transport_tcp_ipfree_bind_enable (cmsg_transport *transport,
                                        cmsg_bool_t use_ipfree_bind)
 {
-    if (transport->config.socket.family == PF_INET6)
-    {
-        transport->use_ipfree_bind = use_ipfree_bind;
-    }
+    transport->use_ipfree_bind = use_ipfree_bind;
     return 0;
 }
 
@@ -658,4 +478,52 @@ cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
     transport->invoke_recv = NULL;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
+}
+
+cmsg_transport *
+cmsg_create_transport_tcp (cmsg_socket *config, cmsg_transport_type transport_type)
+{
+    cmsg_transport *transport = NULL;
+
+    transport = cmsg_transport_new (transport_type);
+    if (transport == NULL)
+    {
+        char ip[INET6_ADDRSTRLEN] = { };
+        uint16_t port;
+
+        if (config->family == PF_INET6)
+        {
+            port = ntohs (config->sockaddr.in6.sin6_port);
+            inet_ntop (config->sockaddr.generic.sa_family,
+                       &(config->sockaddr.in6.sin6_addr), ip,
+                       INET6_ADDRSTRLEN);
+        }
+        else
+        {
+            port = ntohs (config->sockaddr.in.sin_port);
+            inet_ntop (config->sockaddr.generic.sa_family,
+                       &(config->sockaddr.in.sin_addr), ip,
+                       INET6_ADDRSTRLEN);
+        }
+
+        CMSG_LOG_GEN_ERROR ("Unable to create TCP RPC transport. tcp[[%s]:%d]",
+                            ip, port);
+
+        return NULL;
+    }
+
+    transport->config.socket.family = config->family;
+    if (config->family == PF_INET6)
+    {
+        memcpy (&transport->config.socket.sockaddr.in6, &config->sockaddr.in6,
+                sizeof (struct sockaddr_in6));
+    }
+    else
+    {
+        memcpy (&transport->config.socket.sockaddr.in, &config->sockaddr.in,
+                sizeof (struct sockaddr_in));
+    }
+    cmsg_transport_ipfree_bind_enable (transport, TRUE);
+
+    return transport;
 }
