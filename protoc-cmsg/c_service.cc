@@ -20,8 +20,13 @@
 
 // Modified to implement C code by Dave Benson.
 
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_service.h>
 #include <protoc-cmsg/c_helpers.h>
+#else
+#include <google/protobuf/compiler/c/c_service.h>
+#include <google/protobuf/compiler/c/c_helpers.h>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 
 namespace google {
@@ -70,35 +75,56 @@ void ServiceGenerator::GenerateVfuncs(io::Printer* printer)
     vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
     vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
     printer->Print(vars_,
+#ifdef ATL_CHANGE
                    "  int32_t (*$method$)($cname$_Service *service,\n"
+#else
+                   "  void (*$method$)($cname$_Service *service,\n"
+#endif /* ATL_CHANGE */
                    "         $metpad$  const $input_typename$ *input,\n"
                    "         $metpad$  $output_typename$_Closure closure,\n"
                    "         $metpad$  void *closure_data);\n");
   }
+#ifdef ATL_CHANGE
   printer->Print(vars_,
                  "  void *closure;\n"
                  "  void *closure_data;\n");
+#endif /* ATL_CHANGE */
   printer->Print(vars_,
 		 "};\n");
   printer->Print(vars_,
 		 "typedef void (*$cname$_ServiceDestroy)($cname$_Service *);\n"
+#ifdef ATL_CHANGE
 		 "void $lcfullname$_init ($cname$_Service *service,\n"
+#else
+		 "void $lcfullname$__init ($cname$_Service *service,\n"
+#endif /* ATL_CHANGE */
 		 "     $lcfullpadd$        $cname$_ServiceDestroy destroy);\n");
 }
 void ServiceGenerator::GenerateInitMacros(io::Printer* printer)
 {
   printer->Print(vars_,
+#ifdef ATL_CHANGE
 		 "#define $ucfullname$_BASE_INIT \\\n"
 		 "    { &$lcfullname$_descriptor, protobuf_c_service_invoke_internal, NULL }\n"
 		 "#define $ucfullname$_INIT(function_prefix_) \\\n"
 		 "    { $ucfullname$_BASE_INIT");
+#else
+		 "#define $ucfullname$__BASE_INIT \\\n"
+		 "    { &$lcfullname$__descriptor, protobuf_c_service_invoke_internal, NULL }\n"
+		 "#define $ucfullname$__INIT(function_prefix__) \\\n"
+		 "    { $ucfullname$__BASE_INIT");
+#endif /* ATL_CHANGE */
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
     string lcname = CamelToLower(method->name());
     vars_["method"] = lcname;
     vars_["metpad"] = ConvertToSpaces(lcname);
     printer->Print(vars_,
+#ifdef ATL_CHANGE
                    ",\\\n      function_prefix_ ## $method$");
+#else
+                   ",\\\n      function_prefix__ ## $method$");
+#endif /* ATL_CHANGE */
   }
   printer->Print(vars_,
 		 "  }\n");
@@ -113,18 +139,33 @@ void ServiceGenerator::GenerateCallersDeclarations(io::Printer* printer)
     vars_["metpad"] = ConvertToSpaces(lcname);
     vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
     vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
+#ifdef ATL_CHANGE
     vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_" + lcname);
+#else
+    vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "__" + lcname);
+#endif /* ATL_CHANGE */
     printer->Print(vars_,
+#ifdef ATL_CHANGE
                    "int32_t $lcfullname$_$method$(ProtobufCService *service,\n"
                    "        $padddddddddddddddddd$ const $input_typename$ *input,\n"
                    "        $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
                    "        $padddddddddddddddddd$ void *closure_data);\n");
+#else
+                   "void $lcfullname$__$method$(ProtobufCService *service,\n"
+                   "     $padddddddddddddddddd$ const $input_typename$ *input,\n"
+                   "     $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
+                   "     $padddddddddddddddddd$ void *closure_data);\n");
+#endif /* ATL_CHANGE */
   }
 }
 
 void ServiceGenerator::GenerateDescriptorDeclarations(io::Printer* printer)
 {
+#ifdef ATL_CHANGE
   printer->Print(vars_, "extern const ProtobufCServiceDescriptor $lcfullname$_descriptor;\n");
+#else
+  printer->Print(vars_, "extern const ProtobufCServiceDescriptor $lcfullname$__descriptor;\n");
+#endif /* ATL_CHANGE */
 }
 
 
@@ -138,11 +179,19 @@ void ServiceGenerator::GenerateCFile(io::Printer* printer)
 void ServiceGenerator::GenerateInit(io::Printer* printer)
 {
   printer->Print(vars_,
+#ifdef ATL_CHANGE
 		 "void $lcfullname$_init ($cname$_Service *service,\n"
+#else
+		 "void $lcfullname$__init ($cname$_Service *service,\n"
+#endif /* ATL_CHANGE */
 		 "     $lcfullpadd$        $cname$_ServiceDestroy destroy)\n"
 		 "{\n"
 		 "  protobuf_c_service_generated_init (&service->base,\n"
+#ifdef ATL_CHANGE
 		 "                                     &$lcfullname$_descriptor,\n"
+#else
+		 "                                     &$lcfullname$__descriptor,\n"
+#endif /* ATL_CHANGE */
 		 "                                     (ProtobufCServiceDestroy) destroy);\n"
 		 "}\n");
 }
@@ -162,13 +211,22 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
   MethodIndexAndName *mi_array = new MethodIndexAndName[n_methods];
   
   vars_["n_methods"] = SimpleItoa(n_methods);
+#ifdef ATL_CHANGE
   printer->Print(vars_, "static const ProtobufCMethodDescriptor $lcfullname$_method_descriptors[$n_methods$] =\n"
+#else
+  printer->Print(vars_, "static const ProtobufCMethodDescriptor $lcfullname$__method_descriptors[$n_methods$] =\n"
+#endif /* ATL_CHANGE */
                        "{\n");
   for (int i = 0; i < n_methods; i++) {
     const MethodDescriptor *method = descriptor_->method(i);
     vars_["method"] = method->name();
+#ifdef ATL_CHANGE
     vars_["input_descriptor"] = "&" + FullNameToLower(method->input_type()->full_name()) + "_descriptor";
     vars_["output_descriptor"] = "&" + FullNameToLower(method->output_type()->full_name()) + "_descriptor";
+#else
+    vars_["input_descriptor"] = "&" + FullNameToLower(method->input_type()->full_name()) + "__descriptor";
+    vars_["output_descriptor"] = "&" + FullNameToLower(method->output_type()->full_name()) + "__descriptor";
+#endif /* ATL_CHANGE */
     printer->Print(vars_,
              "  { \"$method$\", $input_descriptor$, $output_descriptor$ },\n");
     mi_array[i].i = i;
@@ -178,16 +236,32 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
 
   qsort ((void*)mi_array, n_methods, sizeof (MethodIndexAndName),
          compare_method_index_and_name_by_name);
+#ifdef ATL_CHANGE
   printer->Print(vars_, "const unsigned $lcfullname$_method_indices_by_name[] = {\n");
+#else
+  printer->Print(vars_, "const unsigned $lcfullname$__method_indices_by_name[] = {\n");
+#endif /* ATL_CHANGE */
   for (int i = 0; i < n_methods; i++) {
     vars_["i"] = SimpleItoa(mi_array[i].i);
+#ifdef ATL_CHANGE
     vars_["method"] = mi_array[i].name;
+#else
+    vars_["name"] = mi_array[i].name;
+#endif /* ATL_CHANGE */
     vars_["comma"] = (i + 1 < n_methods) ? "," : " ";
+#ifdef ATL_CHANGE
     printer->Print(vars_, "  $i$$comma$        /* $method$ */\n");
+#else
+    printer->Print(vars_, "  $i$$comma$        /* $name$ */\n");
+#endif /* ATL_CHANGE */
   }
   printer->Print(vars_, "};\n");
 
+#ifdef ATL_CHANGE
   printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$_descriptor =\n"
+#else
+  printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$__descriptor =\n"
+#endif /* ATL_CHANGE */
                        "{\n"
 		       "  PROTOBUF_C_SERVICE_DESCRIPTOR_MAGIC,\n"
 		       "  \"$fullname$\",\n"
@@ -195,11 +269,17 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
 		       "  \"$cname$\",\n"
 		       "  \"$package$\",\n"
 		       "  $n_methods$,\n"
+#ifdef ATL_CHANGE
 		       "  $lcfullname$_method_descriptors,\n"
 		       "  $lcfullname$_method_indices_by_name\n"
+#else
+		       "  $lcfullname$__method_descriptors,\n"
+		       "  $lcfullname$__method_indices_by_name\n"
+#endif /* ATL_CHANGE */
 		       "};\n");
-
+#ifdef ATL_CHANGE
   delete[] mi_array;
+#endif /* ATL_CHANGE */
 }
 
 void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
@@ -212,17 +292,34 @@ void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
     vars_["metpad"] = ConvertToSpaces(lcname);
     vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
     vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
+#ifdef ATL_CHANGE
     vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_" + lcname);
+#else
+    vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "__" + lcname);
+#endif /* ATL_CHANGE */
     vars_["index"] = SimpleItoa(i);
      
     printer->Print(vars_,
+#ifdef ATL_CHANGE
                    "int32_t $lcfullname$_$method$(ProtobufCService *service,\n"
                    "        $padddddddddddddddddd$ const $input_typename$ *input,\n"
                    "        $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
                    "        $padddddddddddddddddd$ void *closure_data)\n"
+#else
+                   "void $lcfullname$__$method$(ProtobufCService *service,\n"
+                   "     $padddddddddddddddddd$ const $input_typename$ *input,\n"
+                   "     $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
+                   "     $padddddddddddddddddd$ void *closure_data)\n"
+#endif /* ATL_CHANGE */
 		   "{\n"
+#ifdef ATL_CHANGE
 		   "  PROTOBUF_C_ASSERT (service->descriptor == &$lcfullname$_descriptor);\n"
 		   "  return service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
+#else
+		   "  PROTOBUF_C_ASSERT (service->descriptor == &$lcfullname$__descriptor);\n"
+		   "  service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
+
+#endif /* ATL_CHANGE */
 		   "}\n");
   }
 }

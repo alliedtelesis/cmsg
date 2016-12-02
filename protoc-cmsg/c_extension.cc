@@ -20,8 +20,13 @@
 
 // Modified to implement C code by Dave Benson.
 
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_extension.h>
 #include <protoc-cmsg/c_helpers.h>
+#else
+#include <google/protobuf/compiler/c/c_extension.h>
+#include <google/protobuf/compiler/c/c_helpers.h>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 
 namespace google {

@@ -20,8 +20,13 @@
 
 // Modified to implement C code by Dave Benson.
 
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_message_field.h>
 #include <protoc-cmsg/c_helpers.h>
+#else
+#include <google/protobuf/compiler/c/c_message_field.h>
+#include <google/protobuf/compiler/c/c_helpers.h>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/wire_format.h>
 
@@ -46,7 +51,6 @@ void MessageFieldGenerator::GenerateStructMembers(io::Printer* printer) const
   map<string, string> vars;
   vars["name"] = FieldName(descriptor_);
   vars["type"] = FullNameToC(descriptor_->message_type()->full_name());
-
   vars["deprecated"] = FieldDeprecated(descriptor_);
   switch (descriptor_->label()) {
     case FieldDescriptor::LABEL_REQUIRED:
@@ -80,7 +84,11 @@ void MessageFieldGenerator::GenerateStaticInit(io::Printer* printer) const
 }
 void MessageFieldGenerator::GenerateDescriptorInitializer(io::Printer* printer) const
 {
+#ifdef ATL_CHANGE
   string addr = "&" + FullNameToLower(descriptor_->message_type()->full_name()) + "_descriptor";
+#else
+  string addr = "&" + FullNameToLower(descriptor_->message_type()->full_name()) + "__descriptor";
+#endif /* ATL_CHANGE */
   GenerateDescriptorInitializerGeneric(printer, false, "MESSAGE", addr);
 }
 

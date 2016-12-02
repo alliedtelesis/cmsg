@@ -22,10 +22,17 @@
 
 #include <algorithm>
 #include <map>
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_message.h>
 #include <protoc-cmsg/c_enum.h>
 #include <protoc-cmsg/c_extension.h>
 #include <protoc-cmsg/c_helpers.h>
+#else
+#include <google/protobuf/compiler/c/c_message.h>
+#include <google/protobuf/compiler/c/c_enum.h>
+#include <google/protobuf/compiler/c/c_extension.h>
+#include <google/protobuf/compiler/c/c_helpers.h>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/wire_format.h>
@@ -129,8 +136,13 @@ GenerateStructDefinition(io::Printer* printer) {
     }
   }
 
+#ifdef ATL_CHANGE
   printer->Print(vars, "#define $ucclassname$_INIT \\\n"
 		       " { PROTOBUF_C_MESSAGE_INIT (&$lcclassname$_descriptor) \\\n    ");
+#else
+  printer->Print(vars, "#define $ucclassname$__INIT \\\n"
+		       " { PROTOBUF_C_MESSAGE_INIT (&$lcclassname$__descriptor) \\\n    ");
+#endif /* ATL_CHANGE */
   for (int i = 0; i < descriptor_->field_count(); i++) {
     const FieldDescriptor *field = descriptor_->field(i);
     printer->Print(", ");
@@ -152,25 +164,49 @@ GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage)
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
   printer->Print(vars,
 		 "/* $classname$ methods */\n"
+#ifdef ATL_CHANGE
 		 "void   $lcclassname$_init\n"
+#else
+		 "void   $lcclassname$__init\n"
+#endif /* ATL_CHANGE */
 		 "                     ($classname$         *message);\n"
 		);
   if (!is_submessage) {
     printer->Print(vars,
+#ifdef ATL_CHANGE
 		 "size_t $lcclassname$_get_packed_size\n"
+#else
+		 "size_t $lcclassname$__get_packed_size\n"
+#endif /* ATL_CHANGE */
 		 "                     (const $classname$   *message);\n"
+#ifdef ATL_CHANGE
 		 "size_t $lcclassname$_pack\n"
+#else
+		 "size_t $lcclassname$__pack\n"
+#endif /* ATL_CHANGE */
 		 "                     (const $classname$   *message,\n"
 		 "                      uint8_t             *out);\n"
+#ifdef ATL_CHANGE
 		 "size_t $lcclassname$_pack_to_buffer\n"
+#else
+		 "size_t $lcclassname$__pack_to_buffer\n"
+#endif /* ATL_CHANGE */
 		 "                     (const $classname$   *message,\n"
 		 "                      ProtobufCBuffer     *buffer);\n"
 		 "$classname$ *\n"
+#ifdef ATL_CHANGE
 		 "       $lcclassname$_unpack\n"
+#else
+		 "       $lcclassname$__unpack\n"
+#endif /* ATL_CHANGE */
 		 "                     (ProtobufCAllocator  *allocator,\n"
                  "                      size_t               len,\n"
                  "                      const uint8_t       *data);\n"
+#ifdef ATL_CHANGE
 		 "void   $lcclassname$_free_unpacked\n"
+#else
+		 "void   $lcclassname$__free_unpacked\n"
+#endif /* ATL_CHANGE */
 		 "                     ($classname$ *message,\n"
 		 "                      ProtobufCAllocator *allocator);\n"
 		);
@@ -179,7 +215,11 @@ GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage)
 
 void MessageGenerator::
 GenerateDescriptorDeclarations(io::Printer* printer) {
+#ifdef ATL_CHANGE
   printer->Print("extern const ProtobufCMessageDescriptor $name$_descriptor;\n",
+#else
+  printer->Print("extern const ProtobufCMessageDescriptor $name$__descriptor;\n",
+#endif /* ATL_CHANGE */
                  "name", FullNameToLower(descriptor_->full_name()));
 
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
@@ -225,49 +265,97 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
   vars["ucclassname"] = FullNameToUpper(descriptor_->full_name());
   printer->Print(vars,
+#ifdef ATL_CHANGE
 		 "void   $lcclassname$_init\n"
+#else
+		 "void   $lcclassname$__init\n"
+#endif /* ATL_CHANGE */
 		 "                     ($classname$         *message)\n"
 		 "{\n"
+#ifdef ATL_CHANGE
 		 "  static $classname$ init_value = $ucclassname$_INIT;\n"
+#else
+		 "  static $classname$ init_value = $ucclassname$__INIT;\n"
+#endif /* ATL_CHANGE */
 		 "  *message = init_value;\n"
 		 "}\n");
   if (!is_submessage) {
     printer->Print(vars,
+#ifdef ATL_CHANGE
 		 "size_t $lcclassname$_get_packed_size\n"
+#else
+		 "size_t $lcclassname$__get_packed_size\n"
+#endif /* ATL_CHANGE */
 		 "                     (const $classname$ *message)\n"
 		 "{\n"
+#ifdef ATL_CHANGE
 		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$_descriptor);\n"
+#else
+		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$__descriptor);\n"
+#endif /* ATL_CHANGE */
 		 "  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));\n"
 		 "}\n"
+#ifdef ATL_CHANGE
 		 "size_t $lcclassname$_pack\n"
+#else
+		 "size_t $lcclassname$__pack\n"
+#endif /* ATL_CHANGE */
 		 "                     (const $classname$ *message,\n"
 		 "                      uint8_t       *out)\n"
 		 "{\n"
+#ifdef ATL_CHANGE
 		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$_descriptor);\n"
+#else
+		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$__descriptor);\n"
+#endif /* ATL_CHANGE */
 		 "  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);\n"
 		 "}\n"
+#ifdef ATL_CHANGE
 		 "size_t $lcclassname$_pack_to_buffer\n"
+#else
+		 "size_t $lcclassname$__pack_to_buffer\n"
+#endif /* ATL_CHANGE */
 		 "                     (const $classname$ *message,\n"
 		 "                      ProtobufCBuffer *buffer)\n"
 		 "{\n"
+#ifdef ATL_CHANGE
 		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$_descriptor);\n"
+#else
+		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$__descriptor);\n"
+#endif /* ATL_CHANGE */
 		 "  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);\n"
 		 "}\n"
 		 "$classname$ *\n"
+#ifdef ATL_CHANGE
 		 "       $lcclassname$_unpack\n"
+#else
+		 "       $lcclassname$__unpack\n"
+#endif /* ATL_CHANGE */
 		 "                     (ProtobufCAllocator  *allocator,\n"
 		 "                      size_t               len,\n"
                  "                      const uint8_t       *data)\n"
 		 "{\n"
 		 "  return ($classname$ *)\n"
+#ifdef ATL_CHANGE
 		 "     protobuf_c_message_unpack (&$lcclassname$_descriptor,\n"
+#else
+		 "     protobuf_c_message_unpack (&$lcclassname$__descriptor,\n"
+#endif /* ATL_CHANGE */
 		 "                                allocator, len, data);\n"
 		 "}\n"
+#ifdef ATL_CHANGE
 		 "void   $lcclassname$_free_unpacked\n"
+#else
+		 "void   $lcclassname$__free_unpacked\n"
+#endif /* ATL_CHANGE */
 		 "                     ($classname$ *message,\n"
 		 "                      ProtobufCAllocator *allocator)\n"
 		 "{\n"
+#ifdef ATL_CHANGE
 		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$_descriptor);\n"
+#else
+		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$__descriptor);\n"
+#endif /* ATL_CHANGE */
 		 "  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);\n"
 		 "}\n"
 		);
@@ -362,13 +450,21 @@ GenerateMessageDescriptor(io::Printer* printer) {
 	  break;
 	}
 	if (!already_defined)
+#ifdef ATL_CHANGE
 	  printer->Print(vars, "$maybe_static$const $field_dv_ctype$ $lcclassname$_$lcname$_default_value$field_dv_ctype_suffix$ = $default_value$;\n");
+#else
+	  printer->Print(vars, "$maybe_static$const $field_dv_ctype$ $lcclassname$__$lcname$__default_value$field_dv_ctype_suffix$ = $default_value$;\n");
+#endif /* ATL_CHANGE */
       }
     }
 
     if ( descriptor_->field_count() ) {
   printer->Print(vars,
+#ifdef ATL_CHANGE
 	"static const ProtobufCFieldDescriptor $lcclassname$_field_descriptors[$n_fields$] =\n"
+#else
+	"static const ProtobufCFieldDescriptor $lcclassname$__field_descriptors[$n_fields$] =\n"
+#endif /* ATL_CHANGE */
 	"{\n");
   printer->Indent();
   const FieldDescriptor **sorted_fields = new const FieldDescriptor *[descriptor_->field_count()];
@@ -392,7 +488,11 @@ GenerateMessageDescriptor(io::Printer* printer) {
   }
   qsort (field_indices, descriptor_->field_count(), sizeof (NameIndex),
          compare_name_indices_by_name);
+#ifdef ATL_CHANGE
   printer->Print(vars, "static const unsigned $lcclassname$_field_indices_by_name[] = {\n");
+#else
+  printer->Print(vars, "static const unsigned $lcclassname$__field_indices_by_name[] = {\n");
+#endif /* ATL_CHANGE */
   for (int i = 0; i < descriptor_->field_count(); i++) {
     vars["index"] = SimpleItoa(field_indices[i].index);
     vars["name"] = field_indices[i].name;
@@ -407,7 +507,11 @@ GenerateMessageDescriptor(io::Printer* printer) {
   }
   int n_ranges = WriteIntRanges(printer,
 				descriptor_->field_count(), values,
+#ifdef ATL_CHANGE
 				vars["lcclassname"] + "_number_ranges");
+#else
+				vars["lcclassname"] + "__number_ranges");
+#endif /* ATL_CHANGE */
   delete [] values;
   delete [] sorted_fields;
 
@@ -418,13 +522,23 @@ GenerateMessageDescriptor(io::Printer* printer) {
        * not a standard. */
       vars["n_ranges"] = "0";
   printer->Print(vars,
+#ifdef ATL_CHANGE
         "#define $lcclassname$_field_descriptors NULL\n"
         "#define $lcclassname$_field_indices_by_name NULL\n"
         "#define $lcclassname$_number_ranges NULL\n");
+#else
+        "#define $lcclassname$__field_descriptors NULL\n"
+        "#define $lcclassname$__field_indices_by_name NULL\n"
+        "#define $lcclassname$__number_ranges NULL\n");
+#endif /* ATL_CHANGE */
     }
   
   printer->Print(vars,
+#ifdef ATL_CHANGE
   "const ProtobufCMessageDescriptor $lcclassname$_descriptor =\n"
+#else
+  "const ProtobufCMessageDescriptor $lcclassname$__descriptor =\n"
+#endif /* ATL_CHANGE */
   "{\n"
   "  PROTOBUF_C_MESSAGE_DESCRIPTOR_MAGIC,\n"
   "  \"$fullname$\",\n"
@@ -433,11 +547,21 @@ GenerateMessageDescriptor(io::Printer* printer) {
   "  \"$packagename$\",\n"
   "  sizeof($classname$),\n"
   "  $n_fields$,\n"
+#ifdef ATL_CHANGE
   "  $lcclassname$_field_descriptors,\n"
   "  $lcclassname$_field_indices_by_name,\n"
+#else
+  "  $lcclassname$__field_descriptors,\n"
+  "  $lcclassname$__field_indices_by_name,\n"
+#endif /* ATL_CHANGE */
   "  $n_ranges$,"
+#ifdef ATL_CHANGE
   "  $lcclassname$_number_ranges,\n"
   "  (ProtobufCMessageInit) $lcclassname$_init,\n"
+#else
+  "  $lcclassname$__number_ranges,\n"
+  "  (ProtobufCMessageInit) $lcclassname$__init,\n"
+#endif /* ATL_CHANGE */
   "  NULL,NULL,NULL    /* reserved[123] */\n"
   "};\n");
 }

@@ -20,13 +20,22 @@
 
 // Modified to implement C code by Dave Benson.
 
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_generator.h>
+#else
+#include <google/protobuf/compiler/c/c_generator.h>
+#endif /* ATL_CHANGE */
 
 #include <vector>
 #include <utility>
 
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_file.h>
 #include <protoc-cmsg/c_helpers.h>
+#else
+#include <google/protobuf/compiler/c/c_file.h>
+#include <google/protobuf/compiler/c/c_helpers.h>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/io/zero_copy_stream.h>
 #include <google/protobuf/descriptor.pb.h>
@@ -86,8 +95,13 @@ bool CGenerator::Generate(const FileDescriptor* file,
   //   class FOO_EXPORT Foo {
   //     ...
   //   }
+#ifdef ATL_CHANGE
   // FOO_EXPORT is a macro which should expand to _declspec(dllexport) or
   // _declspec(dllimport) depending on what is being compiled.
+#else
+  // FOO_EXPORT is a macro which should expand to __declspec(dllexport) or
+  // __declspec(dllimport) depending on what is being compiled.
+#endif /* ATL_CHANGE */
   string dllexport_decl;
 
   for (unsigned i = 0; i < options.size(); i++) {
@@ -123,6 +137,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
     file_generator.GenerateSource(&printer);
   }
 
+#ifdef ATL_CHANGE
   // generate the atl types header file
   string types_basename = GetAtlTypesFilename(file->name());
 
@@ -176,6 +191,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlImplStubs(&printer);
   }
+#endif /* ATL_CHANGE */
 
   return true;
 }

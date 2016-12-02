@@ -25,7 +25,11 @@
 #include <stdio.h>		// for snprintf
 #include <float.h>
 
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_helpers.h>
+#else
+#include <google/protobuf/compiler/c/c_helpers.h>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/stubs/common.h>
 
 namespace google {
@@ -91,10 +95,16 @@ string CamelToLower(const string &name) {
   for (int i = 0; i < len; i++) {
     bool is_upper = isupper(name[i]);
     if (is_upper) {
+#ifdef ATL_CHANGE
       //if (!was_upper)
       //  rv += '_';
       //rv += tolower(name[i]);
       rv += name[i];
+#else
+      if (!was_upper)
+	rv += '_';
+      rv += tolower(name[i]);
+#endif /* ATL_CHANGE */
     } else {
       rv += name[i];
     }
@@ -116,8 +126,12 @@ string ToLower(const string &name) {
   string rv = "";
   int len = name.length();
   for (int i = 0; i < len; i++) {
+#ifdef ATL_CHANGE
     //rv += tolower(name[i]);
     rv += name[i];
+#else
+    rv += tolower(name[i]);
+#endif /* ATL_CHANGE */
   }
   return rv;
 }
@@ -129,8 +143,12 @@ string ToCamel(const string &name) {
     if (name[i] == '_') {
       next_is_upper = true;
     } else if (next_is_upper) {
+#ifdef ATL_CHANGE
       //rv += toupper (name[i]);
       rv += name[i];
+#else
+      rv += toupper (name[i]);
+#endif /* ATL_CHANGE */
       next_is_upper = false;
     } else {
       rv += name[i];
@@ -145,9 +163,14 @@ string FullNameToLower(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
+#ifdef ATL_CHANGE
     if (rv != "") rv += "_";
     //rv += CamelToLower(pieces[i]);
     rv += pieces[i];
+#else
+    if (rv != "") rv += "__";
+    rv += CamelToLower(pieces[i]);
+#endif /* ATL_CHANGE */
   }
   return rv;
 }
@@ -157,7 +180,11 @@ string FullNameToUpper(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
+#ifdef ATL_CHANGE
     if (rv != "") rv += "_";
+#else
+    if (rv != "") rv += "__";
+#endif /* ATL_CHANGE */
     rv += CamelToUpper(pieces[i]);
   }
   return rv;
@@ -168,9 +195,14 @@ string FullNameToC(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
+#ifdef ATL_CHANGE
     if (rv != "") rv += "_";
     //rv += ToCamel(pieces[i]);
     rv += pieces[i];
+#else
+    if (rv != "") rv += "__";
+    rv += ToCamel(pieces[i]);
+#endif /* ATL_CHANGE */
   }
   return rv;
 }
@@ -500,7 +532,7 @@ string CEscape(const string& src) {
   GOOGLE_DCHECK_GE(len, 0);
   return string(dest.get(), len);
 }
-
+#ifdef ATL_CHANGE
 string GetAtlFilename(const string &protoname, const string &filetype)
 {
   //
@@ -586,6 +618,7 @@ string MakeHeaderDefineFromFilename(const string &prefix, const string &filename
   result += "_INCLUDED";
   return result;
 }
+#endif /* ATL_CHANGE */
 
 }  // namespace c
 }  // namespace compiler

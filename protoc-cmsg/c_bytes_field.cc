@@ -20,8 +20,13 @@
 
 // Modified to implement C code by Dave Benson.
 
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_bytes_field.h>
 #include <protoc-cmsg/c_helpers.h>
+#else
+#include <google/protobuf/compiler/c/c_bytes_field.h>
+#include <google/protobuf/compiler/c/c_helpers.h>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/wire_format.h>
 #include <google/protobuf/descriptor.pb.h>
@@ -66,7 +71,11 @@ void BytesFieldGenerator::GenerateStructMembers(io::Printer* printer) const
       break;
     case FieldDescriptor::LABEL_REPEATED:
       printer->Print(variables_, "size_t n_$name$$deprecated$;\n");
+#ifdef ATL_CHANGE
       printer->Print(variables_, "ProtobufCBinaryData **$name$$deprecated$;\n");
+#else
+      printer->Print(variables_, "ProtobufCBinaryData *$name$$deprecated$;\n");
+#endif
       break;
   }
 }
@@ -74,7 +83,11 @@ void BytesFieldGenerator::GenerateDefaultValueDeclarations(io::Printer* printer)
 {
   std::map<string, string> vars;
   vars["default_value_data"] = FullNameToLower(descriptor_->full_name())
+#ifdef ATL_CHANGE
 	                     + "_default_value_data";
+#else
+	                     + "__default_value_data";
+#endif /* ATL_CHANGE */
   printer->Print(vars, "extern uint8_t $default_value_data$[];\n");
 }
 
@@ -82,7 +95,11 @@ void BytesFieldGenerator::GenerateDefaultValueImplementations(io::Printer* print
 {
   std::map<string, string> vars;
   vars["default_value_data"] = FullNameToLower(descriptor_->full_name())
+#ifdef ATL_CHANGE
 	                     + "_default_value_data";
+#else
+	                     + "__default_value_data";
+#endif /* ATL_CHANGE */
   vars["escaped"] = CEscape(descriptor_->default_value_string());
   printer->Print(vars, "uint8_t $default_value_data$[] = \"$escaped$\";\n");
 }
@@ -92,7 +109,11 @@ string BytesFieldGenerator::GetDefaultValue(void) const
 	+ SimpleItoa(descriptor_->default_value_string().size())
 	+ ", "
 	+ FullNameToLower(descriptor_->full_name())
+#ifdef ATL_CHANGE
 	+ "_default_value_data }";
+#else
+	+ "__default_value_data }";
+#endif /* ATL_CHANGE */
 }
 void BytesFieldGenerator::GenerateStaticInit(io::Printer* printer) const
 {

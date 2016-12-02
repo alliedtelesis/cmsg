@@ -20,8 +20,13 @@
 
 // Modified to implement C code by Dave Benson.
 
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_enum_field.h>
 #include <protoc-cmsg/c_helpers.h>
+#else
+#include <google/protobuf/compiler/c/c_enum_field.h>
+#include <google/protobuf/compiler/c/c_helpers.h>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/wire_format.h>
 
@@ -41,8 +46,13 @@ void SetEnumVariables(const FieldDescriptor* descriptor,
   (*variables)["type"] = FullNameToC(descriptor->enum_type()->full_name());
   if (descriptor->has_default_value()) {
     const EnumValueDescriptor* default_value = descriptor->default_value_enum();
+#ifdef ATL_CHANGE
     (*variables)["default"] = GetPackageNameUpper(descriptor->full_name()) + "_" +
                                                   ToUpper(default_value->name());
+#else
+    (*variables)["default"] = FullNameToUpper(default_value->type()->full_name())
+			    + "__" + ToUpper(default_value->name());
+#endif /* ATL_CHANGE */
   } else
     (*variables)["default"] = "0";
   (*variables)["deprecated"] = FieldDeprecated(descriptor);
@@ -98,7 +108,11 @@ void EnumFieldGenerator::GenerateStaticInit(io::Printer* printer) const
 
 void EnumFieldGenerator::GenerateDescriptorInitializer(io::Printer* printer) const
 {
+#ifdef ATL_CHANGE
   string addr = "&" + FullNameToLower(descriptor_->enum_type()->full_name()) + "_descriptor";
+#else
+  string addr = "&" + FullNameToLower(descriptor_->enum_type()->full_name()) + "__descriptor";
+#endif /* ATL_CHANGE */
   GenerateDescriptorInitializerGeneric(printer, true, "ENUM", addr);
 }
 

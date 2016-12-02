@@ -20,6 +20,7 @@
 
 // Modified to implement C code by Dave Benson.
 
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_field.h>
 #include <protoc-cmsg/c_primitive_field.h>
 #include <protoc-cmsg/c_string_field.h>
@@ -27,6 +28,15 @@
 #include <protoc-cmsg/c_enum_field.h>
 #include <protoc-cmsg/c_message_field.h>
 #include <protoc-cmsg/c_helpers.h>
+#else
+#include <google/protobuf/compiler/c/c_field.h>
+#include <google/protobuf/compiler/c/c_primitive_field.h>
+#include <google/protobuf/compiler/c/c_string_field.h>
+#include <google/protobuf/compiler/c/c_bytes_field.h>
+#include <google/protobuf/compiler/c/c_enum_field.h>
+#include <google/protobuf/compiler/c/c_message_field.h>
+#include <google/protobuf/compiler/c/c_helpers.h>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/descriptor.pb.h>
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/io/printer.h>
@@ -54,11 +64,15 @@ static bool is_packable_type(FieldDescriptor::Type type)
       || type == FieldDescriptor::TYPE_SFIXED32
       || type == FieldDescriptor::TYPE_SFIXED64
       || type == FieldDescriptor::TYPE_SINT32
+#ifdef ATL_CHANGE
       || type == FieldDescriptor::TYPE_SINT64
       || type == FieldDescriptor::TYPE_INT8
       || type == FieldDescriptor::TYPE_UINT8
       || type == FieldDescriptor::TYPE_INT16
       || type == FieldDescriptor::TYPE_UINT16;
+#else
+      || type == FieldDescriptor::TYPE_SINT64;
+#endif /* ATL_CHANGE */
     //TYPE_BYTES
     //TYPE_STRING
     //TYPE_GROUP
@@ -74,7 +88,6 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
   variables["LABEL"] = CamelToUpper(GetLabelName(descriptor_->label()));
   variables["TYPE"] = type_macro;
   variables["classname"] = FullNameToC(FieldScope(descriptor_)->full_name());
-
   variables["name"] = FieldName(descriptor_);
   variables["proto_name"] = descriptor_->name();
   variables["descriptor_addr"] = descriptor_addr;
@@ -83,7 +96,11 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
   if (descriptor_->has_default_value()) {
     variables["default_value"] = string("&")
                                + FullNameToLower(descriptor_->full_name())
+#ifdef ATL_CHANGE
 			       + "_default_value";
+#else
+			       + "__default_value";
+#endif /* ATL_CHANGE */
   } else {
     variables["default_value"] = "NULL";
   }

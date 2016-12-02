@@ -20,8 +20,13 @@
 
 // Modified to implement C code by Dave Benson.
 
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_string_field.h>
 #include <protoc-cmsg/c_helpers.h>
+#else
+#include <google/protobuf/compiler/c/c_string_field.h>
+#include <google/protobuf/compiler/c/c_helpers.h>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/wire_format.h>
 #include <google/protobuf/descriptor.pb.h>
@@ -37,7 +42,11 @@ void SetStringVariables(const FieldDescriptor* descriptor,
                         map<string, string>* variables) {
   (*variables)["name"] = FieldName(descriptor);
   (*variables)["default"] = FullNameToLower(descriptor->full_name())
+#ifdef ATL_CHANGE
 	+ "_default_value";
+#else
+	+ "__default_value";
+#endif /* ATL_CHANGE */
   (*variables)["deprecated"] = FieldDeprecated(descriptor);
 }
 

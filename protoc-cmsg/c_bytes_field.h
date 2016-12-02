@@ -25,7 +25,11 @@
 
 #include <map>
 #include <string>
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_field.h>
+#else
+#include <google/protobuf/compiler/c/c_field.h>
+#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {

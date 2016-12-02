@@ -25,7 +25,11 @@
 
 #include <string>
 #include <google/protobuf/stubs/common.h>
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_field.h>
+#else
+#include <google/protobuf/compiler/c/c_field.h>
+#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {
@@ -66,7 +70,11 @@ class MessageGenerator {
   // Generate definitions for this class and all its nested types.
   void GenerateStructDefinition(io::Printer* printer);
 
+#ifdef ATL_CHANGE
   // Generate _INIT macro for populating this structure
+#else
+  // Generate __INIT macro for populating this structure
+#endif /* ATL_CHANGE */
   void GenerateStructStaticInitMacro(io::Printer* printer);
 
   // Generate standard helper functions declarations for this message.

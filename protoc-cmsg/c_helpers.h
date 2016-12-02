@@ -40,7 +40,11 @@ namespace c {
 //   package foo.bar;
 //   message Baz { message Qux {} }
 // Then the qualified ClassName for Qux would be:
+#ifdef ATL_CHANGE
 //   Foo_Bar_Baz_Qux
+#else
+//   Foo__Bar__Baz_Qux
+#endif /* ATL_CHANGE */
 // While the non-qualified version would be:
 //   Baz_Qux
 string ClassName(const Descriptor* descriptor, bool qualified);
@@ -58,6 +62,7 @@ string SimpleDtoa(double f);
 void SplitStringUsing(const string &str, const char *delim, std::vector<string> *out);
 string CEscape(const string& src);
 string StringReplace(const string& s, const string& oldsub, const string& newsub, bool replace_all);
+#ifdef ATL_CHANGE
 // ----------------------------------------------------------------------
 // HasPrefixString()
 //    Check if a string begins with a given prefix.
@@ -79,6 +84,7 @@ inline string StripPrefixString(const string& str, const string& prefix) {
     return str;
   }
 }
+#endif /* ATL_CHANGE */
 inline bool HasSuffixString(const string& str, const string& suffix) { return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0; }
 inline string StripSuffixString(const string& str, const string& suffix) { if (HasSuffixString(str, suffix)) { return str.substr(0, str.size() - suffix.size()); } else { return str; } }
 char* FastHexToBuffer(int i, char* buffer);
@@ -145,6 +151,7 @@ string GlobalBuildDescriptorsName(const string& filename);
 // return 'required', 'optional', or 'repeated'
 string GetLabelName(FieldDescriptor::Label label);
 
+#ifdef ATL_CHANGE
 string GetAtlFilename(const string &protoname, const string &filetype);
 string GetAtlTypesFilename(const string &protoname);
 string GetAtlApiFilename(const string &protoname);
@@ -153,7 +160,7 @@ string GetAtlGlobalFilename(const string &protoname);
 string GetPackageName(const string &full_name);
 string GetPackageNameUpper(const string &full_name);
 string MakeHeaderDefineFromFilename(const string &prefix, const string &filename);
-
+#endif /* ATL_CHANGE */
 
 // write IntRanges entries for a bunch of sorted values.
 // returns the number of ranges there are to bsearch.

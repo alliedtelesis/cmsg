@@ -23,8 +23,13 @@
 #include <set>
 #include <map>
 
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_enum.h>
 #include <protoc-cmsg/c_helpers.h>
+#else
+#include <google/protobuf/compiler/c/c_enum.h>
+#include <google/protobuf/compiler/c/c_helpers.h>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 
 namespace google {
@@ -44,8 +49,10 @@ void EnumGenerator::GenerateDefinition(io::Printer* printer) {
   map<string, string> vars;
   vars["classname"] = FullNameToC(descriptor_->full_name());
   vars["shortname"] = descriptor_->name();
-  vars["uc_name"] = FullNameToUpper(descriptor_->full_name());
 
+#ifdef ATL_CHANGE
+  vars["uc_name"] = FullNameToUpper(descriptor_->full_name());
+#endif /* ATL_CHANGE */
   printer->Print(vars, "typedef enum _$classname$ {\n");
   printer->Indent();
 
@@ -53,6 +60,7 @@ void EnumGenerator::GenerateDefinition(io::Printer* printer) {
   const EnumValueDescriptor* max_value = descriptor_->value(0);
 
   vars["opt_comma"] = ",";
+#ifdef ATL_CHANGE
   if (descriptor_->file()->package() != "")
   {
     vars["prefix"] = ToUpper(descriptor_->file()->package()) + "_";
@@ -61,10 +69,16 @@ void EnumGenerator::GenerateDefinition(io::Printer* printer) {
   {
     vars["prefix"] = "";
   }
+#endif /* ATL_CHANGE */
 
   for (int i = 0; i < descriptor_->value_count(); i++) {
     vars["name"] = descriptor_->value(i)->name();
     vars["number"] = SimpleItoa(descriptor_->value(i)->number());
+#ifdef ATL_CHANGE
+    /* prefix is set above */
+#else
+    vars["prefix"] = FullNameToUpper(descriptor_->full_name()) + "__";
+#endif /* ATL_CHANGE */
     if (i + 1 == descriptor_->value_count())
       vars["opt_comma"] = "";
 
@@ -78,7 +92,9 @@ void EnumGenerator::GenerateDefinition(io::Printer* printer) {
     }
   }
 
+#ifdef ATL_CHANGE
   printer->Print(vars, "  _PROTOBUF_C_FORCE_ENUM_TO_BE_INT_SIZE($uc_name$)\n");
+#endif /* ATL_CHANGE */
   printer->Outdent();
   printer->Print(vars, "} $classname$;\n");
 }
@@ -94,7 +110,11 @@ void EnumGenerator::GenerateDescriptorDeclarations(io::Printer* printer) {
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
 
   printer->Print(vars,
+#ifdef ATL_CHANGE
     "extern $dllexport$const ProtobufCEnumDescriptor    $lcclassname$_descriptor;\n");
+#else
+    "extern $dllexport$const ProtobufCEnumDescriptor    $lcclassname$__descriptor;\n");
+#endif
 }
 
 struct ValueIndex
@@ -109,8 +129,12 @@ void EnumGenerator::GenerateValueInitializer(io::Printer *printer, int index)
   const EnumValueDescriptor *vd = descriptor_->value(index);
   map<string, string> vars;
   vars["enum_value_name"] = vd->name();
+#ifdef ATL_CHANGE
   vars["c_enum_value_name"] = GetPackageNameUpper(descriptor_->full_name()) + "_" +
                                                   ToUpper(vd->name());
+#else
+  vars["c_enum_value_name"] = FullNameToUpper(descriptor_->full_name()) + "__" + ToUpper(vd->name());
+#endif ATL_CHANGE
   vars["value"] = SimpleItoa(vd->number());
   printer->Print(vars,
    "  { \"$enum_value_name$\", \"$c_enum_value_name$\", $value$ },\n");
@@ -175,7 +199,11 @@ void EnumGenerator::GenerateEnumDescriptor(io::Printer* printer) {
 
   vars["unique_value_count"] = SimpleItoa(n_unique_values);
   printer->Print(vars,
+#ifdef ATL_CHANGE
     "const ProtobufCEnumValue $lcclassname$_enum_values_by_number[$unique_value_count$] =\n"
+#else
+    "const ProtobufCEnumValue $lcclassname$__enum_values_by_number[$unique_value_count$] =\n"
+#endif /* ATL_CHANGE */
     "{\n");
   if (descriptor_->value_count() > 0) {
     GenerateValueInitializer(printer, value_index[0].index);
@@ -186,7 +214,11 @@ void EnumGenerator::GenerateEnumDescriptor(io::Printer* printer) {
     }
   }
   printer->Print(vars, "};\n");
+#ifdef ATL_CHANGE
   printer->Print(vars, "static const ProtobufCIntRange $lcclassname$_value_ranges[] = {\n");
+#else
+  printer->Print(vars, "static const ProtobufCIntRange $lcclassname$__value_ranges[] = {\n");
+#endif /* ATL_CHANGE */
   unsigned n_ranges = 0;
   if (descriptor_->value_count() > 0) {
     unsigned range_start = 0;
@@ -228,7 +260,11 @@ void EnumGenerator::GenerateEnumDescriptor(io::Printer* printer) {
   qsort(value_index, descriptor_->value_count(),
         sizeof(ValueIndex), compare_value_indices_by_name);
   printer->Print(vars,
+#ifdef ATL_CHANGE
     "const ProtobufCEnumValueIndex $lcclassname$_enum_values_by_name[$value_count$] =\n"
+#else
+    "const ProtobufCEnumValueIndex $lcclassname$__enum_values_by_name[$value_count$] =\n"
+#endif /* ATL_CHANGE */
     "{\n");
   for (int j = 0; j < descriptor_->value_count(); j++) {
     vars["index"] = SimpleItoa(value_index[j].final_index);
@@ -238,7 +274,11 @@ void EnumGenerator::GenerateEnumDescriptor(io::Printer* printer) {
   printer->Print(vars, "};\n");
 
   printer->Print(vars,
+#ifdef ATL_CHANGE
     "const ProtobufCEnumDescriptor $lcclassname$_descriptor =\n"
+#else
+    "const ProtobufCEnumDescriptor $lcclassname$__descriptor =\n"
+#endif /* ATL_CHANGE */
     "{\n"
     "  PROTOBUF_C_ENUM_DESCRIPTOR_MAGIC,\n"
     "  \"$fullname$\",\n"
@@ -246,11 +286,23 @@ void EnumGenerator::GenerateEnumDescriptor(io::Printer* printer) {
     "  \"$cname$\",\n"
     "  \"$packagename$\",\n"
     "  $unique_value_count$,\n"
+#ifdef ATL_CHANGE
     "  $lcclassname$_enum_values_by_number,\n"
+#else
+    "  $lcclassname$__enum_values_by_number,\n"
+#endif /* ATL_CHANGE */
     "  $value_count$,\n"
+#ifdef ATL_CHANGE
     "  $lcclassname$_enum_values_by_name,\n"
+#else
+    "  $lcclassname$__enum_values_by_name,\n"
+#endif /* ATL_CHANGE */
     "  $n_ranges$,\n"
+#ifdef ATL_CHANGE
     "  $lcclassname$_value_ranges,\n"
+#else
+    "  $lcclassname$__value_ranges,\n"
+#endif /* ATL_CHANGE */
     "  NULL,NULL,NULL,NULL   /* reserved[1234] */\n"
     "};\n");
 }

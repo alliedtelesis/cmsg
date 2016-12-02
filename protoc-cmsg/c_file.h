@@ -25,9 +25,15 @@
 
 #include <string>
 #include <vector>
+#ifdef ATL_CHANGE
 #include <fstream>
+#endif /* ATL_CHANGE */
 #include <google/protobuf/stubs/common.h>
+#ifdef ATL_CHANGE
 #include <protoc-cmsg/c_field.h>
+#else
+#include <google/protobuf/compiler/c/c_field.h>
+#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {
@@ -44,7 +50,9 @@ namespace c {
 class EnumGenerator;           // enum.h
 class MessageGenerator;        // message.h
 class ServiceGenerator;        // service.h
+#ifdef ATL_CHANGE
 class AtlCodeGenerator;        // atl_generator.h
+#endif /* ATL_CHANGE */
 class ExtensionGenerator;      // extension.h
 
 class FileGenerator {
@@ -56,12 +64,14 @@ class FileGenerator {
 
   void GenerateHeader(io::Printer* printer);
   void GenerateSource(io::Printer* printer);
+#ifdef ATL_CHANGE
   void GenerateAtlTypesHeader(io::Printer* printer);
   void GenerateAtlApiHeader(io::Printer* printer);
   void GenerateAtlApiSource(io::Printer* printer);
   void GenerateAtlImplHeader(io::Printer* printer);
   void GenerateAtlImplSource(io::Printer* printer);
   void GenerateAtlImplStubs(io::Printer* printer);
+#endif /* ATL_CHANGE */
 
  private:
   const FileDescriptor* file_;
@@ -69,7 +79,9 @@ class FileGenerator {
   scoped_array<scoped_ptr<MessageGenerator> > message_generators_;
   scoped_array<scoped_ptr<EnumGenerator> > enum_generators_;
   scoped_array<scoped_ptr<ServiceGenerator> > service_generators_;
+#ifdef ATL_CHANGE
   scoped_array<scoped_ptr<AtlCodeGenerator> > atl_code_generators_;
+#endif /* ATL_CHANGE */
   scoped_array<scoped_ptr<ExtensionGenerator> > extension_generators_;
 
   // E.g. if the package is foo.bar, package_parts_ is {"foo", "bar"}.
