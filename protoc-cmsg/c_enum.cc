@@ -63,7 +63,7 @@ void EnumGenerator::GenerateDefinition(io::Printer* printer) {
 #ifdef ATL_CHANGE
   if (descriptor_->file()->package() != "")
   {
-    vars["prefix"] = ToUpper(descriptor_->file()->package()) + "_";
+    vars["prefix"] = FullNameToUpper(descriptor_->file()->package()) + "_";
   }
   else
   {

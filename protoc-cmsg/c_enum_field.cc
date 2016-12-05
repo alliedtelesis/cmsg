@@ -47,8 +47,8 @@ void SetEnumVariables(const FieldDescriptor* descriptor,
   if (descriptor->has_default_value()) {
     const EnumValueDescriptor* default_value = descriptor->default_value_enum();
 #ifdef ATL_CHANGE
-    (*variables)["default"] = GetPackageNameUpper(descriptor->full_name()) + "_" +
-                                                  ToUpper(default_value->name());
+    (*variables)["default"] = FullNameToUpper(descriptor->file()->package()) + "_" +
+                                              ToUpper(default_value->name());
 #else
     (*variables)["default"] = FullNameToUpper(default_value->type()->full_name())
 			    + "__" + ToUpper(default_value->name());
