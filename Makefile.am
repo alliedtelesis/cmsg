@@ -123,6 +123,24 @@ cmsg_libcmsg_la_LDFLAGS = $(AM_LDFLAGS) \
 	-version-info $(LIBCMSG_CURRENT):$(LIBCMSG_REVISION):$(LIBCMSG_AGE) \
 	-no-undefined
 
+
+LIBCMSGPROXY_CURRENT=1
+LIBCMSGPROXY_REVISION=0
+LIBCMSGPROXY_AGE=0
+
+lib_LTLIBRARIES += \
+	cmsg/libcmsgproxy.la
+
+cmsg_libcmsgproxy_la_SOURCES = \
+	cmsg-proxy/cmsg_proxy.c \
+	cmsg-proxy/cmsg_proxy.h
+
+cmsg_libcmsgproxy_la_LIBADD = -lglib-2.0
+
+cmsg_libcmsgproxy_la_LDFLAGS = $(AM_LDFLAGS) \
+	-version-info $(LIBCMSGPROXY_CURRENT):$(LIBCMSGPROXY_REVISION):$(LIBCMSGPROXY_AGE) \
+	-no-undefined
+
 endif # BUILD_CMSG
 
 #
