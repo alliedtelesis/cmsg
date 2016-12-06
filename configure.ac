@@ -20,22 +20,8 @@ LT_INIT
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([Makefile])
 
-PKG_CHECK_MODULES(GLIB, glib-2.0 >=  2.2.0, HAVE_GLIB="yes", sweep_config_ok="no")
-AC_SUBST(GLIB_CFLAGS)
-AC_SUBST(GLIB_LIBS)
-if test "x$HAVE_GLIB" != xyes ; then
-  AC_CHECK_LIB(glib-2.0, g_list_append, HAVE_GLIB="maybe", sweep_config_ok="no")
-fi
-
-PKG_PROG_PKG_CONFIG
-if test -n "$PKG_CONFIG"; then
-    # Horrible hack for systems where the pkg-config install directory is simply wrong!
-    if $PKG_CONFIG --variable=pc_path pkg-config 2>/dev/null | grep -q /libdata/; then
-        PKG_INSTALLDIR(['${prefix}/libdata/pkgconfig'])
-    else
-        PKG_INSTALLDIR
-    fi
-fi
+PKG_CHECK_MODULES([GLIB],[glib-2.0])
+PKG_CHECK_MODULES([NOVAPROVA],[novaprova],[],[unittest_prereq=no])
 
 AC_ARG_VAR(PROTOC_CMSG_PATH, [  Path to the protoc-cmsg compiler])
 
@@ -52,6 +38,13 @@ if test "x$enableval" = xno ; then
   BUILD_CMSG=0
 fi)
 AM_CONDITIONAL(BUILD_CMSG, test $BUILD_CMSG = 1)
+
+HAVE_UNITTEST=0
+AC_ARG_ENABLE(unittest, [  --enable-unittest      Enable build of cmsg-proxy unit tests],
+if test "x$enableval" = xyes ; then
+  HAVE_UNITTEST=1
+fi)
+AM_CONDITIONAL(HAVE_UNITTEST, test $HAVE_UNITTEST = 1)
 
 BUILD_CMSG_TEST=0
 AC_ARG_ENABLE(cmsg-test, [  --enable-cmsg-test      Enable build of cmsg-test],

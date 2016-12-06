@@ -8,7 +8,7 @@ AM_CPPFLAGS = \
 	-I${top_srcdir}/protobuf-c \
 	-I${top_builddir} \
 	-I${top_srcdir}
-AM_CFLAGS = ${my_CFLAGS}
+AM_CFLAGS = ${my_CFLAGS} $(NOVAPROVA_CFLAGS) $(GLIB_CFLAGS)
 AM_LDFLAGS =
 
 #
@@ -106,7 +106,7 @@ cmsg_libcmsg_la_SOURCES = \
 	cmsg/cmsg_transport_tipc.c \
 	cmsg/cmsg_transport_udt.c
 
-cmsg_libcmsg_la_LIBADD = -lglib-2.0
+cmsg_libcmsg_la_LIBADD = $(GLIB_LIBS) -lutility
 
 if HAVE_COUNTERD
 cmsg_libcmsg_la_LIBADD += -lcntr
@@ -135,13 +135,21 @@ cmsg_libcmsgproxy_la_SOURCES = \
 	cmsg-proxy/cmsg_proxy.c \
 	cmsg-proxy/cmsg_proxy.h
 
-cmsg_libcmsgproxy_la_LIBADD = -lglib-2.0
+cmsg_libcmsgproxy_la_LIBADD = $(GLIB_LIBS)
 
 cmsg_libcmsgproxy_la_LDFLAGS = $(AM_LDFLAGS) \
 	-version-info $(LIBCMSGPROXY_CURRENT):$(LIBCMSGPROXY_REVISION):$(LIBCMSGPROXY_AGE) \
 	-no-undefined
 
 endif # BUILD_CMSG
+
+if HAVE_UNITTEST
+bin_PROGRAMS += cmsg-proxy/cmsg_proxy_unit_tests
+cmsg_proxy_cmsg_proxy_unit_tests_SOURCES = cmsg-proxy/cmsg_proxy_unit_tests.c
+cmsg_proxy_cmsg_proxy_unit_tests_CFLAGS  = $(AM_CFLAGS) -g $(NOVAPROVA_CFLAGS)
+cmsg_proxy_cmsg_proxy_unit_tests_LDFLAGS = -static
+cmsg_proxy_cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS)
+endif
 
 #
 # cmsg-test
