@@ -50,9 +50,20 @@
  * Proxy an HTTP request into the AW+ CMSG internal API. Uses the HttpRules defined
  * for each rpc defined in the CMSG .proto files.
  *
- * @param url - URL the HTTP request is for
- * @param http_verb - The HTTP verb sent with the HTTP request
- * @param input_json - A string representing the JSON data sent with the HTTP request
+ * @param url - URL the HTTP request is for.
+ * @param http_verb - The HTTP verb sent with the HTTP request.
+ * @param input_json - A string representing the JSON data sent with the HTTP request.
+ * @param output_json - A pointer to a string that will store the output JSON data to.
+ *                      be sent with the HTTP response. This pointer may be NULL if the
+ *                      rpc does not send any response data and the pointer must be
+ *                      freed by the caller (if it is non NULL).
+ * @param http_status - A pointer to an integer that will store the HTTP status code to
+ *                      be sent with the HTTP response.
+ *
+ * @return - true if the CMSG proxy actioned the request (i.e. it knew about the URL
+ *           because it is defined on an rpc in the .proto files).
+ *           false if the CMSG proxy performed no action (i.e. it could not map the URL
+ *           to a CMSG API).
  */
 bool
 cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
