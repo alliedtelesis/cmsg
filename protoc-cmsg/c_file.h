@@ -71,6 +71,7 @@ class FileGenerator {
   void GenerateAtlImplHeader(io::Printer* printer);
   void GenerateAtlImplSource(io::Printer* printer);
   void GenerateAtlImplStubs(io::Printer* printer);
+  void GenerateAtlHttpProxyDefinition(io::Printer* printer);
 #endif /* ATL_CHANGE */
 
  private:
