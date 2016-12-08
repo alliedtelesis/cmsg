@@ -192,12 +192,20 @@ bool CGenerator::Generate(const FileDescriptor* file,
     file_generator.GenerateAtlImplStubs(&printer);
   }
 
-  // Generate http proxy file
+  // Generate http proxy source file
   {
     scoped_ptr<io::ZeroCopyOutputStream> output(
           output_directory->Open(StripProto(file->name()) + "_proxy_def.c"));
     io::Printer printer(output.get(), '$');
-    file_generator.GenerateAtlHttpProxyDefinition(&printer);
+    file_generator.GenerateAtlHttpProxySource(&printer);
+  }
+
+  // Generate http proxy header file
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(StripProto(file->name()) + "_proxy_def.h"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlHttpProxyHeader(&printer);
   }
 #endif /* ATL_CHANGE */
 
