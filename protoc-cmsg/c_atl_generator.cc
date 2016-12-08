@@ -100,6 +100,26 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntries(io::Printer* printer)
     }
 }
 
+// Generate the http proxy array functions
+void AtlCodeGenerator::GenerateHttpProxyArrayFunctions(io::Printer* printer, const string basename)
+{
+    vars_["function_base"] = basename;
+    // generate the cmsg proxy array functions
+    printer->Print(vars_, "cmsg_service_info *$function_base$_proxy_array_get (void)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return service_info_entries;\n");
+    printer->Outdent();
+    printer->Print("}\n\n");
+
+    printer->Print(vars_, "int $function_base$_proxy_array_size (void)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return num_service_info_entries;\n");
+    printer->Outdent();
+    printer->Print("}\n\n");
+}
+
 void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const MethodDescriptor &method, io::Printer* printer)
 {
   string lcname = CamelToLower(method.name());
