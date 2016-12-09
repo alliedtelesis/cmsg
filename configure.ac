@@ -39,6 +39,13 @@ if test "x$enableval" = xno ; then
 fi)
 AM_CONDITIONAL(BUILD_CMSG, test $BUILD_CMSG = 1)
 
+BUILD_CMSG_PROXY=1
+AC_ARG_ENABLE(cmsg-proxy, [  --disable-cmsg-proxy          Suppress build of the cmsg proxy library],
+if test "x$enableval" = xno ; then
+  BUILD_CMSG_PROXY=0
+fi)
+AM_CONDITIONAL(BUILD_CMSG_PROXY, test $BUILD_CMSG_PROXY = 1)
+
 HAVE_UNITTEST=0
 AC_ARG_ENABLE(unittest, [  --enable-unittest      Enable build of cmsg-proxy unit tests],
 if test "x$enableval" = xyes ; then

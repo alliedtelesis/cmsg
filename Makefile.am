@@ -124,25 +124,28 @@ cmsg_libcmsg_la_LDFLAGS = $(AM_LDFLAGS) \
 	-version-info $(LIBCMSG_CURRENT):$(LIBCMSG_REVISION):$(LIBCMSG_AGE) \
 	-no-undefined
 
+endif # BUILD_CMSG
+
+if BUILD_CMSG_PROXY
 
 LIBCMSGPROXY_CURRENT=1
 LIBCMSGPROXY_REVISION=0
 LIBCMSGPROXY_AGE=0
 
 lib_LTLIBRARIES += \
-	cmsg/libcmsgproxy.la
+	cmsg-proxy/libcmsgproxy.la
 
-cmsg_libcmsgproxy_la_SOURCES = \
+cmsg_proxy_libcmsgproxy_la_SOURCES = \
 	cmsg-proxy/cmsg_proxy.c \
 	cmsg-proxy/cmsg_proxy.h
 
-cmsg_libcmsgproxy_la_LIBADD = $(GLIB_LIBS)
+cmsg_proxy_libcmsgproxy_la_LIBADD = $(GLIB_LIBS)
 
-cmsg_libcmsgproxy_la_LDFLAGS = $(AM_LDFLAGS) \
+cmsg_proxy_libcmsgproxy_la_LDFLAGS = $(AM_LDFLAGS) \
 	-version-info $(LIBCMSGPROXY_CURRENT):$(LIBCMSGPROXY_REVISION):$(LIBCMSGPROXY_AGE) \
 	-no-undefined
 
-endif # BUILD_CMSG
+endif # BUILD_CMSG_PROXY
 
 if HAVE_UNITTEST
 bin_PROGRAMS += cmsg-proxy/cmsg_proxy_unit_tests
