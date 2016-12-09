@@ -475,6 +475,9 @@ void FileGenerator::GenerateAtlHttpProxySource(io::Printer* printer) {
     "#include \"$basename$_proxy_def.h\"\n",
     "basename", basename);
 
+  printer->Print("#include \"$api_filename$.h\"\n",
+                 "api_filename", GetAtlApiFilename(file_->name()));
+
   // Don't bother generating code if the file has no services
   if (file_->service_count() == 0)
   {
