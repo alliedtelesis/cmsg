@@ -821,7 +821,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
     CMSG_DEBUG (CMSG_INFO, "[CLIENT] header\n");
     cmsg_buffer_print (&header, sizeof (header));
 
-    ret = cmsg_client_buffer_send_retry_once (client, &header,
+    ret = cmsg_client_buffer_send_retry_once (client, (uint8_t *) &header,
                                               sizeof (header), "echo request");
 
     if (ret != CMSG_RET_OK)

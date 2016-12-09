@@ -8,7 +8,8 @@ AM_CPPFLAGS = \
 	-I${top_srcdir}/protobuf-c \
 	-I${top_builddir} \
 	-I${top_srcdir}
-AM_CFLAGS = ${my_CFLAGS} $(NOVAPROVA_CFLAGS) $(GLIB_CFLAGS)
+AM_CFLAGS = ${my_CFLAGS} $(NOVAPROVA_CFLAGS) $(GLIB_CFLAGS) -Werror
+AM_CXXFLAGS = -Werror
 AM_LDFLAGS =
 
 #

@@ -14,6 +14,8 @@
 #include "cmsg_client.h"
 #include "cmsg_error.h"
 
+extern cmsg_client *cmsg_client_create (cmsg_transport *transport,
+                                        const ProtobufCServiceDescriptor *descriptor);
 
 /**
  * Send message to a group of clients. If any one message fails, an error is returned.
