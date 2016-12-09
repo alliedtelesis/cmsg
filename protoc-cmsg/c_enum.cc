@@ -134,7 +134,7 @@ void EnumGenerator::GenerateValueInitializer(io::Printer *printer, int index)
                                                   ToUpper(vd->name());
 #else
   vars["c_enum_value_name"] = FullNameToUpper(descriptor_->full_name()) + "__" + ToUpper(vd->name());
-#endif ATL_CHANGE
+#endif /* ATL_CHANGE */
   vars["value"] = SimpleItoa(vd->number());
   printer->Print(vars,
    "  { \"$enum_value_name$\", \"$c_enum_value_name$\", $value$ },\n");
