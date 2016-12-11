@@ -28,6 +28,7 @@ typedef struct _cmsg_service_info
     cmsg_http_verb http_verb;
 } cmsg_service_info;
 
+void cmsg_proxy_init (void);
 bool cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
                  char **output_json, int *http_status);
 

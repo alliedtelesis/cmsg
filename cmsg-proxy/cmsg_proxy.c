@@ -2,7 +2,10 @@
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 
+#include <config.h>
 #include "cmsg_proxy.h"
+#include <glib.h>
+#include <ipc/statmond_proxy_def.h>
 
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
@@ -45,6 +48,27 @@
 #define HTTP_CODE_GATEWAY_TIMEOUT           504 /* The server gateway timed out waiting for the upstream server */
 #define HTTP_CODE_BAD_VERSION               505 /* The server does not support the HTTP protocol version */
 #define HTTP_CODE_INSUFFICIENT_STORAGE      507 /* The server has insufficient storage to complete the request */
+
+static GList *proxy_list = NULL;
+
+static void
+_cmsg_proxy_init (cmsg_service_info *array, int length)
+{
+    int i = 0;
+
+    for (i = 0; i < length; i++)
+    {
+        proxy_list = g_list_append (proxy_list, (void *) &array[i]);
+    }
+}
+
+#ifndef HAVE_UNITTEST
+void
+cmsg_proxy_init (void)
+{
+    _cmsg_proxy_init (statmond_proxy_array_get (), statmond_proxy_array_size ());
+}
+#endif /* !HAVE_UNITTEST */
 
 /**
  * Proxy an HTTP request into the AW+ CMSG internal API. Uses the HttpRules defined

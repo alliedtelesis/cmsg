@@ -1,0 +1,37 @@
+/**
+ * Interface statistics monitoring service and related messages.
+ */
+
+package cmsg_proxy_unit_tests;
+
+message dummy
+{
+    /* Empty message that can be used when you don't want to return and/or send a message */
+}
+
+message return_value
+{
+    optional sint32 retval = 1;
+}
+
+message cmsg_bool
+{
+    optional bool value = 1;
+}
+
+service interface
+{
+    rpc test_put (cmsg_bool) returns (dummy) {
+        option http = {
+            put: "/v1/test",
+            body: "*"
+        };
+    }
+
+    rpc test_get (dummy) returns (cmsg_bool) {
+        option http = {
+            get: "/v1/test",
+            body: "*"
+        };
+    }
+}
