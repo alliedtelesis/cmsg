@@ -77,3 +77,54 @@ test_cmsg_proxy_find_service_from_url_and_verb (void)
     entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PATCH);
     NP_ASSERT_PTR_EQUAL (entry, NULL);
 }
+
+/**
+ * Function Tested: _cmsg_proxy_convert_json_to_protobuf()
+ *
+ * Tests that valid input is correctly converted into a protobuf message
+ */
+void
+test_cmsg_proxy_convert_json_to_protobuf__valid_input (void)
+{
+    ProtobufCMessage *output = NULL;
+    bool ret;
+    char *json_str = "{\n    \"value\":true\n}";
+
+    ret = _cmsg_proxy_convert_json_to_protobuf (json_str,
+                                                &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
+                                                &output);
+
+    free (output);
+    NP_ASSERT_TRUE (ret);
+}
+
+/**
+ * Function Tested: _cmsg_proxy_convert_json_to_protobuf()
+ *
+ * Tests that invalid input fails to be converted into a protobuf message
+ */
+void
+test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
+{
+    ProtobufCMessage *output = NULL;
+    bool ret;
+    char *json_str;
+
+    /* value is not quoted correctly */
+    json_str = "{\n    value\":true\n}";
+
+    ret = _cmsg_proxy_convert_json_to_protobuf (json_str,
+                                                &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
+                                                &output);
+
+    NP_ASSERT_FALSE (ret);
+
+    /* json string is missing closing bracket */
+    json_str = "{\n    \"value\":true\n";
+
+    ret = _cmsg_proxy_convert_json_to_protobuf (json_str,
+                                                &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
+                                                &output);
+
+    NP_ASSERT_FALSE (ret);
+}

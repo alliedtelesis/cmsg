@@ -7,6 +7,7 @@
 #include <glib.h>
 #include <ipc/statmond_proxy_def.h>
 #include <string.h>
+#include <protobuf2json.h>
 
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
@@ -88,6 +89,31 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
     }
 
     return NULL;
+}
+
+/**
+ * Convert the input json string into a protobuf message structure.
+ *
+ * @param input_json - The json string to convert.
+ * @param msg_descriptor - The message descriptor that defines the protobuf
+ *                         message to convert the json string to.
+ * @param output_protobuf - A pointer to store the output protobuf message.
+ *                          If the conversion succeeds then this pointer must
+ *                          be freed by the caller.
+ *
+ * @return - true on success, false on failure.
+ */
+static bool
+_cmsg_proxy_convert_json_to_protobuf (char *input_json,
+                                      const ProtobufCMessageDescriptor *msg_descriptor,
+                                      ProtobufCMessage **output_protobuf)
+{
+    if (json2protobuf_string (input_json, 0, msg_descriptor, output_protobuf, NULL, 0) < 0)
+    {
+        return false;
+    }
+
+    return true;
 }
 
 #ifndef HAVE_UNITTEST
