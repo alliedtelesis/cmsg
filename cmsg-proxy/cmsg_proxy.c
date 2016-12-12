@@ -54,7 +54,7 @@
 static GList *proxy_list = NULL;
 
 static void
-_cmsg_proxy_init (cmsg_service_info *array, int length)
+_cmsg_proxy_list_init (cmsg_service_info *array, int length)
 {
     int i = 0;
 
@@ -120,7 +120,7 @@ _cmsg_proxy_convert_json_to_protobuf (char *input_json,
 void
 cmsg_proxy_init (void)
 {
-    _cmsg_proxy_init (statmond_proxy_array_get (), statmond_proxy_array_size ());
+    _cmsg_proxy_list_init (statmond_proxy_array_get (), statmond_proxy_array_size ());
 }
 #endif /* !HAVE_UNITTEST */
 
