@@ -48,3 +48,32 @@ test_cmsg_proxy_init__proxy_list_entries (void)
                          &cmsg_proxy_unit_tests_interface_descriptor);
     NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_PUT);
 }
+
+/**
+ * Function Tested: _cmsg_proxy_find_service_from_url_and_verb()
+ *
+ * Tests that the function finds the correct service entry when passed
+ * a known URL and verb or returns NULL for an unknown URL and verb.
+ */
+void
+test_cmsg_proxy_find_service_from_url_and_verb (void)
+{
+    const cmsg_service_info *entry;
+
+    _cmsg_proxy_init (cmsg_proxy_unit_tests_proxy_array_get (),
+                      cmsg_proxy_unit_tests_proxy_array_size ());
+
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT);
+    NP_ASSERT_PTR_NOT_EQUAL (entry, NULL);
+    NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_PUT);
+
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("BAD URL", CMSG_HTTP_PUT);
+    NP_ASSERT_PTR_EQUAL (entry, NULL);
+
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_GET);
+    NP_ASSERT_PTR_NOT_EQUAL (entry, NULL);
+    NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_GET);
+
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PATCH);
+    NP_ASSERT_PTR_EQUAL (entry, NULL);
+}

@@ -6,6 +6,7 @@
 #include "cmsg_proxy.h"
 #include <glib.h>
 #include <ipc/statmond_proxy_def.h>
+#include <string.h>
 
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
@@ -60,6 +61,33 @@ _cmsg_proxy_init (cmsg_service_info *array, int length)
     {
         proxy_list = g_list_append (proxy_list, (void *) &array[i]);
     }
+}
+
+/**
+ * Lookup a cmsg_service_info entry from the proxy list based on URL and
+ * HTTP verb.
+ *
+ * @param url - URL string to use for the lookup.
+ * @param http_verb -HTTP verb to use for the lookup.
+ *
+ * @return - Pointer to the cmsg_service_info entry if found, NULL otherwise.
+ */
+static const cmsg_service_info *
+_cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb)
+{
+    GList *iter;
+    cmsg_service_info *iter_data;
+
+    for (iter = proxy_list; iter != NULL; iter = g_list_next (iter))
+    {
+        iter_data = (cmsg_service_info *) iter->data;
+        if ((strcmp (url, iter_data->url_string) == 0) && (iter_data->http_verb == verb))
+        {
+            return iter_data;
+        }
+    }
+
+    return NULL;
 }
 
 #ifndef HAVE_UNITTEST
