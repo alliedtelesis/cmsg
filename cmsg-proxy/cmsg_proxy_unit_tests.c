@@ -173,3 +173,23 @@ test_cmsg_proxy_create_client (void)
 
     NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
 }
+
+/**
+ * Function Tested: _cmsg_proxy_clients_init()
+ *
+ * Tests that the function correctly creates the required CMSG clients
+ */
+void
+test_cmsg_proxy_clients_init (void)
+{
+    np_mock (getservbyname, sm_mock_getservbyname);
+
+    _cmsg_proxy_list_init (cmsg_proxy_unit_tests_proxy_array_get (),
+                           cmsg_proxy_unit_tests_proxy_array_size ());
+
+    _cmsg_proxy_clients_init ();
+    NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
+
+    _cmsg_proxy_clients_init ();
+    NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
+}

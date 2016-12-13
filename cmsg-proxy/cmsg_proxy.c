@@ -69,6 +69,31 @@ _cmsg_proxy_list_init (cmsg_service_info *array, int length)
 }
 
 /**
+ * Lookup a CMSG client from the proxy_clients_list based on service_descriptor
+ *
+ * @param service_descriptor - CMSG service descriptor to use for the lookup
+ *
+ * @return - Pointer to the CMSG client if found, NULL otherwise.
+ */
+static cmsg_client *
+_cmsg_proxy_find_client_by_service (const ProtobufCServiceDescriptor *service_descriptor)
+{
+    GList *iter;
+    cmsg_client *iter_data;
+
+    for (iter = proxy_clients_list; iter != NULL; iter = g_list_next (iter))
+    {
+        iter_data = (cmsg_client *) iter->data;
+        if (strcmp (iter_data->descriptor->name, service_descriptor->name) == 0)
+        {
+            return iter_data;
+        }
+    }
+
+    return NULL;
+}
+
+/**
  * Get the CMSG server name from the CMSG service descriptor in the format
  * expected by the getservbyname() function.
  *
@@ -147,6 +172,26 @@ _cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
 }
 
 /**
+ * Initialise the CMSG clients required to connect to every service descriptor
+ * used in the CMSG proxy entries list.
+ */
+static void
+_cmsg_proxy_clients_init (void)
+{
+    GList *iter;
+    cmsg_service_info *iter_data;
+
+    for (iter = proxy_entries_list; iter != NULL; iter = g_list_next (iter))
+    {
+        iter_data = (cmsg_service_info *) iter->data;
+        if (!_cmsg_proxy_find_client_by_service (iter_data->service_descriptor))
+        {
+            _cmsg_proxy_create_client (iter_data->service_descriptor);
+        }
+    }
+}
+
+/**
  * Lookup a cmsg_service_info entry from the proxy list based on URL and
  * HTTP verb.
  *
@@ -205,6 +250,8 @@ cmsg_proxy_init (void)
 #ifdef HAVE_STATMOND
     _cmsg_proxy_list_init (statmond_proxy_array_get (), statmond_proxy_array_size ());
 #endif /* HAVE_STATMOND */
+
+    _cmsg_proxy_clients_init ();
 }
 #endif /* !HAVE_UNITTEST */
 
