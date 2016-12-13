@@ -5,7 +5,9 @@
 #include <config.h>
 #include "cmsg_proxy.h"
 #include <glib.h>
+#ifdef HAVE_STATMOND
 #include <ipc/statmond_proxy_def.h>
+#endif /* HAVE_STATMOND */
 #include <string.h>
 #include <protobuf2json.h>
 
@@ -149,7 +151,9 @@ _cmsg_proxy_convert_json_to_protobuf (char *input_json,
 void
 cmsg_proxy_init (void)
 {
+#ifdef HAVE_STATMOND
     _cmsg_proxy_list_init (statmond_proxy_array_get (), statmond_proxy_array_size ());
+#endif /* HAVE_STATMOND */
 }
 #endif /* !HAVE_UNITTEST */
 
