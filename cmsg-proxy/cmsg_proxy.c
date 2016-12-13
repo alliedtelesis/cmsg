@@ -162,6 +162,7 @@ _cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
     if (!client)
     {
         fprintf (stderr, "Failed to create client for %s service", server_name);
+        free (transport);
         free (server_name);
         return;
     }

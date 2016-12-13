@@ -174,6 +174,31 @@ test_cmsg_proxy_create_client (void)
     NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
 }
 
+struct cmsg_client *
+sm_mock_cmsg_client_new__returns_null (cmsg_transport *transport,
+                                       const ProtobufCServiceDescriptor *descriptor)
+{
+    return NULL;
+}
+
+/**
+ * Function Tested: _cmsg_proxy_create_client()
+ *
+ * Tests that no memory is leaked if the internal cmsg_client_new()
+ * function fails
+ */
+void
+test_cmsg_proxy_create_client__memory_leaks (void)
+{
+    np_mock (getservbyname, sm_mock_getservbyname);
+    np_mock (cmsg_client_new, sm_mock_cmsg_client_new__returns_null);
+
+    _cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
+    _cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
+
+    NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 0);
+}
+
 /**
  * Function Tested: _cmsg_proxy_clients_init()
  *
