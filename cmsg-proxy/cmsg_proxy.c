@@ -65,6 +65,35 @@ _cmsg_proxy_list_init (cmsg_service_info *array, int length)
 }
 
 /**
+ * Get the CMSG server name from the CMSG service descriptor in the format
+ * expected by the getservbyname() function.
+ *
+ * @param service_descriptor - CMSG service descriptor to get server name from
+ *
+ * @return - String representing the server name. The memory for this string must
+ *           be freed by the caller.
+ */
+static char *
+_cmsg_proxy_server_name_get (const ProtobufCServiceDescriptor *service_descriptor)
+{
+    char *copy_str = strdup (service_descriptor->name);
+    char *iter;
+
+    /* Replace the '.' in the name with '-' */
+    iter = copy_str;
+    while (*iter)
+    {
+        if (*iter == '.')
+        {
+            *iter = '-';
+        }
+        iter++;
+    }
+
+    return copy_str;
+}
+
+/**
  * Lookup a cmsg_service_info entry from the proxy list based on URL and
  * HTTP verb.
  *

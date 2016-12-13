@@ -128,3 +128,20 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
 
     NP_ASSERT_FALSE (ret);
 }
+
+/**
+ * Function Tested: _cmsg_proxy_server_name_get()
+ *
+ * Tests that the correct server name is returned from the
+ * CMSG service descriptor
+ */
+void
+test_cmsg_proxy_server_name_get (void)
+{
+    char *svr_name = NULL;
+
+    svr_name = _cmsg_proxy_server_name_get (&cmsg_proxy_unit_tests_interface_descriptor);
+
+    NP_ASSERT_STR_EQUAL (svr_name, "cmsg_proxy_unit_tests-interface");
+    free (svr_name);
+}
