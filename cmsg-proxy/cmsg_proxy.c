@@ -245,6 +245,27 @@ _cmsg_proxy_convert_json_to_protobuf (char *input_json,
 }
 
 /**
+ * Convert the input protobuf message into a json string.
+ *
+ * @param input_protobuf - The protobuf message to convert.
+ * @param output_json - A pointer to store the output json string.
+ *                      If the conversion succeeds then this pointer must
+ *                      be freed by the caller.
+ *
+ * @return - true on success, false on failure.
+ */
+static bool
+_cmsg_proxy_convert_protobuf_to_json (ProtobufCMessage *input_protobuf, char **output_json)
+{
+    if (protobuf2json_string (input_protobuf, JSON_INDENT (4), output_json, NULL, 0) < 0)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * Helper function to call the CMSG api function pointer in the
  * cmsg service info entry. This is required as the api function
  * takes a different number of parameters depending on the input/

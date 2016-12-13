@@ -218,3 +218,25 @@ test_cmsg_proxy_clients_init (void)
     _cmsg_proxy_clients_init ();
     NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
 }
+
+/**
+ * Function Tested: _cmsg_proxy_convert_protobuf_to_json()
+ *
+ * Tests that valid input is correctly converted into a json string
+ */
+void
+test_cmsg_proxy_convert_protobuf_to_json (void)
+{
+    cmsg_proxy_unit_tests_cmsg_bool proto_msg = CMSG_PROXY_UNIT_TESTS_CMSG_BOOL_INIT;
+    char *json_str = NULL;
+    bool ret = false;
+
+    CMSG_SET_FIELD_VALUE (&proto_msg, value, true);
+
+    ret = _cmsg_proxy_convert_protobuf_to_json ((ProtobufCMessage *) &proto_msg, &json_str);
+
+    NP_ASSERT_TRUE (ret);
+    NP_ASSERT_STR_EQUAL (json_str, "{\n    \"value\": true\n}");
+
+    free (json_str);
+}
