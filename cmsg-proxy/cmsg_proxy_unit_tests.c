@@ -18,16 +18,17 @@ test_cmsg_proxy_list_init__list_length (void)
 {
     _cmsg_proxy_list_init (cmsg_proxy_unit_tests_proxy_array_get (),
                            cmsg_proxy_unit_tests_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_list_length (proxy_list), cmsg_proxy_unit_tests_proxy_array_size ());
+    NP_ASSERT_EQUAL (g_list_length (proxy_entries_list),
+                     cmsg_proxy_unit_tests_proxy_array_size ());
 
     _cmsg_proxy_list_init (cmsg_proxy_unit_tests_proxy_array_get (),
                            cmsg_proxy_unit_tests_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_list_length (proxy_list),
+    NP_ASSERT_EQUAL (g_list_length (proxy_entries_list),
                      cmsg_proxy_unit_tests_proxy_array_size () * 2);
 
     _cmsg_proxy_list_init (cmsg_proxy_unit_tests_proxy_array_get (),
                            cmsg_proxy_unit_tests_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_list_length (proxy_list),
+    NP_ASSERT_EQUAL (g_list_length (proxy_entries_list),
                      cmsg_proxy_unit_tests_proxy_array_size () * 3);
 }
 
@@ -41,7 +42,8 @@ test_cmsg_proxy_list_init__list_entries (void)
 {
     _cmsg_proxy_list_init (cmsg_proxy_unit_tests_proxy_array_get (),
                            cmsg_proxy_unit_tests_proxy_array_size ());
-    cmsg_service_info *entry = (cmsg_service_info *) (g_list_first (proxy_list))->data;
+    cmsg_service_info *entry =
+        (cmsg_service_info *) (g_list_first (proxy_entries_list))->data;
 
     NP_ASSERT_PTR_EQUAL (entry, cmsg_proxy_unit_tests_proxy_array_get ());
     NP_ASSERT_PTR_EQUAL (entry->service_descriptor,

@@ -54,7 +54,7 @@
 #define HTTP_CODE_BAD_VERSION               505 /* The server does not support the HTTP protocol version */
 #define HTTP_CODE_INSUFFICIENT_STORAGE      507 /* The server has insufficient storage to complete the request */
 
-static GList *proxy_list = NULL;
+static GList *proxy_entries_list = NULL;
 static GList *proxy_clients_list = NULL;
 
 static void
@@ -64,7 +64,7 @@ _cmsg_proxy_list_init (cmsg_service_info *array, int length)
 
     for (i = 0; i < length; i++)
     {
-        proxy_list = g_list_append (proxy_list, (void *) &array[i]);
+        proxy_entries_list = g_list_append (proxy_entries_list, (void *) &array[i]);
     }
 }
 
@@ -161,7 +161,7 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
     GList *iter;
     cmsg_service_info *iter_data;
 
-    for (iter = proxy_list; iter != NULL; iter = g_list_next (iter))
+    for (iter = proxy_entries_list; iter != NULL; iter = g_list_next (iter))
     {
         iter_data = (cmsg_service_info *) iter->data;
         if ((strcmp (url, iter_data->url_string) == 0) && (iter_data->http_verb == verb))
