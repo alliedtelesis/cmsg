@@ -10,6 +10,7 @@
 #endif /* HAVE_STATMOND */
 #include <string.h>
 #include <protobuf2json.h>
+#include <cmsg/cmsg_client.h>
 
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
@@ -54,6 +55,7 @@
 #define HTTP_CODE_INSUFFICIENT_STORAGE      507 /* The server has insufficient storage to complete the request */
 
 static GList *proxy_list = NULL;
+static GList *proxy_clients_list = NULL;
 
 static void
 _cmsg_proxy_list_init (cmsg_service_info *array, int length)
@@ -96,11 +98,60 @@ _cmsg_proxy_server_name_get (const ProtobufCServiceDescriptor *service_descripto
 }
 
 /**
+ * Create a CMSG client to connect to the input service descriptor and
+ * add this client to the proxy clients list.
+ *
+ * @param service_descriptor - CMSG service descriptor to connect the client to
+ */
+static void
+_cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
+{
+    cmsg_transport *transport = NULL;
+    struct servent *service_pt = NULL;
+    cmsg_client *client = NULL;
+    char *server_name = _cmsg_proxy_server_name_get (service_descriptor);
+
+    /* todo: INTSTAT: Once the project is rebased from mainline all internal API servers
+     *                must use unix sockets for efficiency */
+    service_pt = getservbyname (server_name, "tcp");
+    if (service_pt == NULL)
+    {
+        fprintf (stderr, "Failed to get port number for %s service", server_name);
+        free (server_name);
+        return;
+    }
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
+    if (!transport)
+    {
+        fprintf (stderr, "Failed get server transport for %s service", server_name);
+        free (server_name);
+        return;
+    }
+
+    transport->config.socket.sockaddr.in.sin_family = AF_INET;
+    transport->config.socket.sockaddr.in.sin_port = service_pt->s_port;
+    transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+
+    client = cmsg_client_new (transport, service_descriptor);
+    if (!client)
+    {
+        fprintf (stderr, "Failed to create client for %s service", server_name);
+        free (server_name);
+        return;
+    }
+
+    proxy_clients_list = g_list_append (proxy_clients_list, (void *) client);
+    free (server_name);
+    return;
+}
+
+/**
  * Lookup a cmsg_service_info entry from the proxy list based on URL and
  * HTTP verb.
  *
  * @param url - URL string to use for the lookup.
- * @param http_verb -HTTP verb to use for the lookup.
+ * @param http_verb - HTTP verb to use for the lookup.
  *
  * @return - Pointer to the cmsg_service_info entry if found, NULL otherwise.
  */

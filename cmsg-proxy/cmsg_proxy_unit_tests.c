@@ -145,3 +145,29 @@ test_cmsg_proxy_server_name_get (void)
     NP_ASSERT_STR_EQUAL (svr_name, "cmsg_proxy_unit_tests-interface");
     free (svr_name);
 }
+
+struct servent mock_servent_data;
+
+struct servent *
+sm_mock_getservbyname (char *unused1, char *unused2)
+{
+    mock_servent_data.s_port = 10000;
+
+    return &mock_servent_data;
+}
+
+/**
+ * Function Tested: _cmsg_proxy_create_client()
+ *
+ * Tests that the function correctly creates a CMSG client
+ * from a valid descriptor
+ */
+void
+test_cmsg_proxy_create_client (void)
+{
+    np_mock (getservbyname, sm_mock_getservbyname);
+
+    _cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
+
+    NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
+}
