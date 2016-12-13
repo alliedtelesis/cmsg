@@ -243,6 +243,39 @@ _cmsg_proxy_convert_json_to_protobuf (char *input_json,
     return true;
 }
 
+/**
+ * Helper function to call the CMSG api function pointer in the
+ * cmsg service info entry. This is required as the api function
+ * takes a different number of parameters depending on the input/
+ * output message types.
+ *
+ * @param client - CMSG client to call the API with
+ * @param input_msg - Input message to send with the API
+ * @param output_msg - Pointer for the received message from the API
+ *                     to be stored in.
+ * @param service_info - Service info entry that contains the API
+ *                       function to call.
+ *
+ * @returns - CMSG_RET_OK on success, other CMSG return codes otherwise.
+ */
+static int
+_cmsg_proxy_call_cmsg_api (cmsg_client *client, ProtobufCMessage *input_msg,
+                           ProtobufCMessage **output_msg, cmsg_service_info *service_info)
+{
+    if (strcmp (service_info->input_msg_descriptor->name, "dummy") == 0)
+    {
+        return service_info->api_ptr (client, output_msg);
+    }
+    else if (strcmp (service_info->output_msg_descriptor->name, "dummy") == 0)
+    {
+        return service_info->api_ptr (client, input_msg);
+    }
+    else
+    {
+        return service_info->api_ptr (client, input_msg, output_msg);
+    }
+}
+
 #ifndef HAVE_UNITTEST
 void
 cmsg_proxy_init (void)
