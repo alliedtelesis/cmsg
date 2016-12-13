@@ -278,5 +278,5 @@ bool
 cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
             char **output_json, int *http_status)
 {
-    return true;
+    return false;
 }
