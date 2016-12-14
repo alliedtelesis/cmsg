@@ -145,12 +145,15 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
     variables["default_value"] = "NULL";
   }
 
+  variables["flags"] = "0";
+
   if (descriptor_->label() == FieldDescriptor::LABEL_REPEATED
    && is_packable_type (descriptor_->type())
    && descriptor_->options().packed())
-    variables["packed"] = "1";
-  else
-    variables["packed"] = "0";
+    variables["flags"] += " | PROTOBUF_C_FIELD_FLAG_PACKED";
+
+  if (descriptor_->options().deprecated())
+    variables["flags"] += " | PROTOBUF_C_FIELD_FLAG_DEPRECATED";
 
   printer->Print(variables,
     "{\n"
@@ -158,26 +161,25 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
     "  $value$,\n"
     "  PROTOBUF_C_LABEL_$LABEL$,\n"
     "  PROTOBUF_C_TYPE_$TYPE$,\n");
-  bool packed = false;
   switch (descriptor_->label()) {
     case FieldDescriptor::LABEL_REQUIRED:
       printer->Print(variables, "  0,   /* quantifier_offset */\n");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
       if (optional_uses_has) {
-	printer->Print(variables, "  PROTOBUF_C_OFFSETOF($classname$, has_$name$),\n");
+	printer->Print(variables, "  offsetof($classname$, has_$name$),\n");
       } else {
 	printer->Print(variables, "  0,   /* quantifier_offset */\n");
       }
       break;
     case FieldDescriptor::LABEL_REPEATED:
-      printer->Print(variables, "  PROTOBUF_C_OFFSETOF($classname$, n_$name$),\n");
+      printer->Print(variables, "  offsetof($classname$, n_$name$),\n");
       break;
   }
-  printer->Print(variables, "  PROTOBUF_C_OFFSETOF($classname$, $name$),\n");
+  printer->Print(variables, "  offsetof($classname$, $name$),\n");
   printer->Print(variables, "  $descriptor_addr$,\n");
   printer->Print(variables, "  $default_value$,\n");
-  printer->Print(variables, "  $packed$,            /* packed */\n");
+  printer->Print(variables, "  $flags$,             /* flags */\n");
   printer->Print(variables, "  0,NULL,NULL    /* reserved1,reserved2, etc */\n");
   printer->Print("},\n");
 }
