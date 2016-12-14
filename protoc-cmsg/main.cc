@@ -2,7 +2,7 @@
 #ifdef ATL_CHANGE
 #include <protoc-cmsg/c_generator.h>
 #else
-#include <google/protobuf/compiler/c/c_generator.h>
+#include <protoc-c/c_generator.h>
 #endif /* ATL_CHANGE */
 
 int main(int argc, char* argv[]) {
