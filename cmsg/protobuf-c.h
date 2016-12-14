@@ -49,17 +49,17 @@
 #include <glib.h>
 
 #ifdef __cplusplus
-# define PROTOBUF_C_BEGIN_DECLS    extern "C" {
-# define PROTOBUF_C_END_DECLS      }
+# define PROTOBUF_C__BEGIN_DECLS    extern "C" {
+# define PROTOBUF_C__END_DECLS      }
 #else
-# define PROTOBUF_C_BEGIN_DECLS
-# define PROTOBUF_C_END_DECLS
+# define PROTOBUF_C__BEGIN_DECLS
+# define PROTOBUF_C__END_DECLS
 #endif
 
-#if !defined(PROTOBUF_C_NO_DEPRECATED) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))
-#define PROTOBUF_C_DEPRECATED __attribute__((__deprecated__))
+#if !defined(PROTOBUF_C__NO_DEPRECATED) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))
+#define PROTOBUF_C__DEPRECATED __attribute__((__deprecated__))
 #else
-#define PROTOBUF_C_DEPRECATED
+#define PROTOBUF_C__DEPRECATED
 #endif
 
 /* The version of protobuf-c you are compiling against. */
@@ -110,7 +110,7 @@ extern unsigned protobuf_c_minor;
 #endif
 
 
-PROTOBUF_C_BEGIN_DECLS
+PROTOBUF_C__BEGIN_DECLS
 
 typedef enum
 {
@@ -525,10 +525,16 @@ extern ProtobufCCType protobuf_c_type_to_ctype (ProtobufCType type);
 #define protobuf_c_type_to_ctype(type) \
   ((ProtobufCCType)(protobuf_c_type_to_ctype_array[(type)]))
 
+/**
+ * The version of the protobuf-c headers, represented as an integer using the
+ * same format as protobuf_c_version_number().
+ */
+#define PROTOBUF_C_VERSION_NUMBER   1000000
+
 /* ====== private ====== */
 #include "protobuf-c-private.h"
 
 
-PROTOBUF_C_END_DECLS
+PROTOBUF_C__END_DECLS
 
 #endif /* __PROTOBUF_C_RUNTIME_H_ */

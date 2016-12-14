@@ -325,7 +325,7 @@ string FieldName(const FieldDescriptor* field) {
 
 string FieldDeprecated(const FieldDescriptor* field) {
   if (field->options().deprecated()) {
-    return " PROTOBUF_C_DEPRECATED";
+    return " PROTOBUF_C__DEPRECATED";
   }
   return "";
 }
