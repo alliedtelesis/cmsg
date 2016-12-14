@@ -139,7 +139,13 @@ cmsg_proxy_libcmsgproxy_la_SOURCES = \
 	cmsg-proxy/cmsg_proxy.c \
 	cmsg-proxy/cmsg_proxy.h
 
-cmsg_proxy_libcmsgproxy_la_LIBADD = $(GLIB_LIBS)
+cmsg_proxy_libcmsgproxy_la_LIBADD = \
+	$(GLIB_LIBS) \
+	-lcmsg \
+	-lstatmond_proto_proxy_def \
+	-lstatmond_proto_api \
+	-lprotobuf2json-c \
+	-lcommon_proto_api
 
 cmsg_proxy_libcmsgproxy_la_LDFLAGS = $(AM_LDFLAGS) \
 	-version-info $(LIBCMSGPROXY_CURRENT):$(LIBCMSGPROXY_REVISION):$(LIBCMSGPROXY_AGE) \
