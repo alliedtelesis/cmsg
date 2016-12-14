@@ -278,24 +278,44 @@ _cmsg_proxy_convert_protobuf_to_json (ProtobufCMessage *input_protobuf, char **o
  * @param service_info - Service info entry that contains the API
  *                       function to call.
  *
- * @returns - CMSG_RET_OK on success, other CMSG return codes otherwise.
+ * @returns - HTTP_CODE_OK on success,
+ *            HTTP_CODE_BAD_REQUEST if the input message is NULL when the
+ *            api expects an input message,
+ *            HTTP_CODE_INTERNAL_SERVER_ERROR if CMSG fails internally.
  */
 static int
 _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_msg,
                            ProtobufCMessage **output_msg,
                            const cmsg_service_info *service_info)
 {
+    int ret;
+
+    if (input_msg == NULL &&
+        strcmp (service_info->input_msg_descriptor->name, "dummy") != 0)
+    {
+        return HTTP_CODE_BAD_REQUEST;
+    }
+
     if (strcmp (service_info->input_msg_descriptor->name, "dummy") == 0)
     {
-        return service_info->api_ptr (client, output_msg);
+        ret = service_info->api_ptr (client, output_msg);
     }
     else if (strcmp (service_info->output_msg_descriptor->name, "dummy") == 0)
     {
-        return service_info->api_ptr (client, input_msg);
+        ret = service_info->api_ptr (client, input_msg);
     }
     else
     {
-        return service_info->api_ptr (client, input_msg, output_msg);
+        ret = service_info->api_ptr (client, input_msg, output_msg);
+    }
+
+    if (ret == CMSG_RET_OK)
+    {
+        return HTTP_CODE_OK;
+    }
+    else
+    {
+        return HTTP_CODE_INTERNAL_SERVER_ERROR;
     }
 }
 
@@ -356,23 +376,26 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         return true;
     }
 
-    ret = _cmsg_proxy_convert_json_to_protobuf ((char *) input_json,
-                                                service_info->input_msg_descriptor,
-                                                &input_proto_message);
-    if (!ret)
+    if (input_json)
     {
-        /* The JSON sent with the request is malformed */
-        *http_status = HTTP_CODE_BAD_REQUEST;
-        return true;
+        ret = _cmsg_proxy_convert_json_to_protobuf ((char *) input_json,
+                                                    service_info->input_msg_descriptor,
+                                                    &input_proto_message);
+        if (!ret)
+        {
+            /* The JSON sent with the request is malformed */
+            *http_status = HTTP_CODE_BAD_REQUEST;
+            return true;
+        }
     }
 
     result = _cmsg_proxy_call_cmsg_api (client, input_proto_message,
                                         &output_proto_message, service_info);
-    if (result != CMSG_RET_OK)
+    if (result != HTTP_CODE_OK)
     {
         /* Something went wrong calling the CMSG api */
         free (input_proto_message);
-        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        *http_status = result;
         return true;
     }
 
