@@ -130,7 +130,7 @@ alloc_failed_warning (unsigned size, const char *filename, unsigned line)
 
 
 #define ASSERT_IS_ENUM_DESCRIPTOR(desc) \
-  assert((desc)->magic == PROTOBUF_C_ENUM_DESCRIPTOR_MAGIC)
+  assert((desc)->magic == PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC)
 #define ASSERT_IS_MESSAGE_DESCRIPTOR(desc) \
   assert((desc)->magic == PROTOBUF_C_MESSAGE_DESCRIPTOR_MAGIC)
 #define ASSERT_IS_MESSAGE(message) \

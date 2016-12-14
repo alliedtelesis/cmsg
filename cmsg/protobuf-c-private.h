@@ -44,8 +44,8 @@
    be larger than 32-bits.
  
    This is written assuming it is appended to a list w/o a tail comma. */
-#ifndef _PROTOBUF_C_FORCE_ENUM_TO_BE_INT_SIZE
-  #define _PROTOBUF_C_FORCE_ENUM_TO_BE_INT_SIZE(enum_name) \
+#ifndef PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE
+  #define PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(enum_name) \
     , _##enum_name##_IS_INT_SIZE = INT_MAX
 #endif
 
@@ -89,7 +89,7 @@ int protobuf_c_int_ranges_lookup (unsigned n_ranges,
 
 #define PROTOBUF_C_SERVICE_DESCRIPTOR_MAGIC  0x14159bc3
 #define PROTOBUF_C_MESSAGE_DESCRIPTOR_MAGIC  0x28aaeef9
-#define PROTOBUF_C_ENUM_DESCRIPTOR_MAGIC     0x114315af
+#define PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC    0x114315af
 
 /* === behind the scenes on the generated service's __init functions */
 typedef void (*ProtobufCServiceDestroy) (ProtobufCService *service);
