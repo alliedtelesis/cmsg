@@ -149,7 +149,6 @@ typedef enum
 typedef int protobuf_c_boolean;
 typedef protobuf_c_boolean cmsg_bool_t;
 
-#define PROTOBUF_C_ASSERT(condition) assert(condition)
 #define PROTOBUF_C_ASSERT_NOT_REACHED() assert(0)
 
 typedef struct _ProtobufCBinaryData ProtobufCBinaryData;

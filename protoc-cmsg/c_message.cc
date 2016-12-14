@@ -329,9 +329,9 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
 		 "                     (const $classname$ *message)\n"
 		 "{\n"
 #ifdef ATL_CHANGE
-		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$_descriptor);\n"
+		 "  assert(message->base.descriptor == &$lcclassname$_descriptor);\n"
 #else
-		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$__descriptor);\n"
+		 "  assert(message->base.descriptor == &$lcclassname$__descriptor);\n"
 #endif /* ATL_CHANGE */
 		 "  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));\n"
 		 "}\n"
@@ -344,9 +344,9 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
 		 "                      uint8_t       *out)\n"
 		 "{\n"
 #ifdef ATL_CHANGE
-		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$_descriptor);\n"
+		 "  assert(message->base.descriptor == &$lcclassname$_descriptor);\n"
 #else
-		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$__descriptor);\n"
+		 "  assert(message->base.descriptor == &$lcclassname$__descriptor);\n"
 #endif /* ATL_CHANGE */
 		 "  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);\n"
 		 "}\n"
@@ -359,9 +359,9 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
 		 "                      ProtobufCBuffer *buffer)\n"
 		 "{\n"
 #ifdef ATL_CHANGE
-		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$_descriptor);\n"
+		 "  assert(message->base.descriptor == &$lcclassname$_descriptor);\n"
 #else
-		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$__descriptor);\n"
+		 "  assert(message->base.descriptor == &$lcclassname$__descriptor);\n"
 #endif /* ATL_CHANGE */
 		 "  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);\n"
 		 "}\n"
@@ -392,9 +392,9 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
 		 "                      ProtobufCAllocator *allocator)\n"
 		 "{\n"
 #ifdef ATL_CHANGE
-		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$_descriptor);\n"
+		 "  assert(message->base.descriptor == &$lcclassname$_descriptor);\n"
 #else
-		 "  PROTOBUF_C_ASSERT (message->base.descriptor == &$lcclassname$__descriptor);\n"
+		 "  assert(message->base.descriptor == &$lcclassname$__descriptor);\n"
 #endif /* ATL_CHANGE */
 		 "  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);\n"
 		 "}\n"
@@ -539,6 +539,7 @@ GenerateMessageDescriptor(io::Printer* printer) {
     printer->Print(vars, "  $index$,   /* field[$index$] = $name$ */\n");
   }
   printer->Print("};\n");
+  delete[] field_indices;
 
   // create range initializers
   int *values = new int[descriptor_->field_count()];
@@ -580,7 +581,7 @@ GenerateMessageDescriptor(io::Printer* printer) {
   "const ProtobufCMessageDescriptor $lcclassname$__descriptor =\n"
 #endif /* ATL_CHANGE */
   "{\n"
-  "  PROTOBUF_C_MESSAGE_DESCRIPTOR_MAGIC,\n"
+  "  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,\n"
   "  \"$fullname$\",\n"
   "  \"$shortname$\",\n"
   "  \"$classname$\",\n"

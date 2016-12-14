@@ -132,7 +132,7 @@ alloc_failed_warning (unsigned size, const char *filename, unsigned line)
 #define ASSERT_IS_ENUM_DESCRIPTOR(desc) \
   assert((desc)->magic == PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC)
 #define ASSERT_IS_MESSAGE_DESCRIPTOR(desc) \
-  assert((desc)->magic == PROTOBUF_C_MESSAGE_DESCRIPTOR_MAGIC)
+  assert((desc)->magic == PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC)
 #define ASSERT_IS_MESSAGE(message) \
   ASSERT_IS_MESSAGE_DESCRIPTOR((message)->descriptor)
 #define ASSERT_IS_SERVICE_DESCRIPTOR(desc) \
@@ -2784,7 +2784,7 @@ protobuf_c_service_invoke_internal(ProtobufCService *service,
      If this fails, you are likely invoking a newly added
      method on an old service.  (Although other memory corruption
      bugs can cause this assertion too) */
-  PROTOBUF_C_ASSERT (method_index < service->descriptor->n_methods);
+  assert (method_index < service->descriptor->n_methods);
 
   /* Get the array of virtual methods (which are enumerated by 
      the generated code) */

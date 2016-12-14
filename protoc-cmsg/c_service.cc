@@ -353,10 +353,10 @@ void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
 #endif /* ATL_CHANGE */
 		   "{\n"
 #ifdef ATL_CHANGE
-		   "  PROTOBUF_C_ASSERT (service->descriptor == &$lcfullname$_descriptor);\n"
+		   "  assert (service->descriptor == &$lcfullname$_descriptor);\n"
 		   "  return service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
 #else
-		   "  PROTOBUF_C_ASSERT (service->descriptor == &$lcfullname$__descriptor);\n"
+		   "  assert (service->descriptor == &$lcfullname$__descriptor);\n"
 		   "  service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
 
 #endif /* ATL_CHANGE */
