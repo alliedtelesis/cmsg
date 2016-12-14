@@ -303,7 +303,7 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
   printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$__descriptor =\n"
 #endif /* ATL_CHANGE */
                        "{\n"
-		       "  PROTOBUF_C_SERVICE_DESCRIPTOR_MAGIC,\n"
+		       "  PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC,\n"
 		       "  \"$fullname$\",\n"
 		       "  \"$name$\",\n"
 		       "  \"$cname$\",\n"
@@ -317,9 +317,8 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
 		       "  $lcfullname$__method_indices_by_name\n"
 #endif /* ATL_CHANGE */
 		       "};\n");
-#ifdef ATL_CHANGE
+
   delete[] mi_array;
-#endif /* ATL_CHANGE */
 }
 
 void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
@@ -353,10 +352,10 @@ void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
 #endif /* ATL_CHANGE */
 		   "{\n"
 #ifdef ATL_CHANGE
-		   "  assert (service->descriptor == &$lcfullname$_descriptor);\n"
+		   "  assert(service->descriptor == &$lcfullname$_descriptor);\n"
 		   "  return service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
 #else
-		   "  assert (service->descriptor == &$lcfullname$__descriptor);\n"
+		   "  assert(service->descriptor == &$lcfullname$__descriptor);\n"
 		   "  service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
 
 #endif /* ATL_CHANGE */

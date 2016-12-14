@@ -136,7 +136,7 @@ alloc_failed_warning (unsigned size, const char *filename, unsigned line)
 #define ASSERT_IS_MESSAGE(message) \
   ASSERT_IS_MESSAGE_DESCRIPTOR((message)->descriptor)
 #define ASSERT_IS_SERVICE_DESCRIPTOR(desc) \
-  assert((desc)->magic == PROTOBUF_C_SERVICE_DESCRIPTOR_MAGIC)
+  assert((desc)->magic == PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC)
 
 /* --- allocator --- */
 
