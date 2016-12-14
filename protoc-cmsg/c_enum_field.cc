@@ -91,7 +91,7 @@ void SetEnumVariables(const FieldDescriptor* descriptor,
                                               ToUpper(default_value->name());
 #else
     (*variables)["default"] = FullNameToUpper(default_value->type()->full_name())
-			    + "__" + ToUpper(default_value->name());
+			    + "__" + default_value->name();
 #endif /* ATL_CHANGE */
   } else
     (*variables)["default"] = "0";
