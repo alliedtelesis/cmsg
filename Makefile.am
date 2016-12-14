@@ -142,10 +142,14 @@ cmsg_proxy_libcmsgproxy_la_SOURCES = \
 cmsg_proxy_libcmsgproxy_la_LIBADD = \
 	$(GLIB_LIBS) \
 	-lcmsg \
-	-lstatmond_proto_proxy_def \
-	-lstatmond_proto_api \
 	-lprotobuf2json-c \
 	-lcommon_proto_api
+
+if BUILD_STATMOND
+cmsg_proxy_libcmsgproxy_la_LIBADD += \
+	-lstatmond_proto_proxy_def \
+	-lstatmond_proto_api
+endif # BUILD_STATMOND
 
 cmsg_proxy_libcmsgproxy_la_LDFLAGS = $(AM_LDFLAGS) \
 	-version-info $(LIBCMSGPROXY_CURRENT):$(LIBCMSGPROXY_REVISION):$(LIBCMSGPROXY_AGE) \

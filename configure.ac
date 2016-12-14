@@ -54,6 +54,14 @@ if test "x$enableval" = xyes ; then
 fi)
 AM_CONDITIONAL(BUILD_UNITTEST, test $BUILD_UNITTEST = 1)
 
+BUILD_STATMOND=0
+AC_ARG_ENABLE(statmond, [  --enable-interface-statistics-monitoring      Enable interface statistics monitoring],
+if test "x$enableval" = xyes ; then
+  BUILD_STATMOND=1
+  AC_DEFINE(HAVE_STATMOND, 1, [enable interface statistics monitoring code])
+fi)
+AM_CONDITIONAL(BUILD_STATMOND, test $BUILD_STATMOND = 1)
+
 BUILD_CMSG_TEST=0
 AC_ARG_ENABLE(cmsg-test, [  --enable-cmsg-test      Enable build of cmsg-test],
 if test "x$enableval" = xyes ; then
