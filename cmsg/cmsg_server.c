@@ -47,7 +47,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
 
         server->_transport = transport;
         server->service = service;
-        server->allocator = &protobuf_c_default_allocator;  //initialize alloc and free for message_unpack() and message_free()
+        server->allocator = NULL;
         server->message_processor = cmsg_server_message_processor;
 
         server->self.object_type = CMSG_OBJ_TYPE_SERVER;
@@ -726,7 +726,7 @@ cmsg_server_invoke_oneway_direct (ProtobufCService *service, unsigned method_ind
 {
     cmsg_server_closure_data closure_data;
     ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = &protobuf_c_default_allocator;
+    ProtobufCAllocator *allocator = NULL;
     const ProtobufCMessageDescriptor *desc;
 
     CMSG_ASSERT_RETURN_VOID (service != NULL);
