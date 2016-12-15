@@ -83,7 +83,6 @@ cmsg_libcmsg_la_SOURCES = \
 	cmsg/cmsg_sub_service.pb-c.h \
 	cmsg/protobuf-c.c \
 	cmsg/protobuf-c.h \
-	cmsg/protobuf-c-private.h \
 	cmsg/cmsg.c \
 	cmsg/cmsg.h \
 	cmsg/cmsg_private.h \
