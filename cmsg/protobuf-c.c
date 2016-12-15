@@ -77,8 +77,10 @@
 #endif
 
 #include "protobuf-c.h"
+#ifdef ATL_CHANGE
 #include "cmsg.h"
 #include "cmsg_private.h"
+#endif /* ATL_CHANGE */
 
 unsigned protobuf_c_major = PROTOBUF_C_MAJOR;
 unsigned protobuf_c_minor = PROTOBUF_C_MINOR;
@@ -104,6 +106,11 @@ unsigned protobuf_c_minor = PROTOBUF_C_MINOR;
     (*(member_type*) STRUCT_MEMBER_P ((struct_p), (struct_offset)))
 #define STRUCT_MEMBER_PTR(member_type, struct_p, struct_offset)   \
     ((member_type*) STRUCT_MEMBER_P ((struct_p), (struct_offset)))
+#ifdef ATL_CHANGE
+#else
+#define TRUE 1
+#define FALSE 0
+#endif /* ATL_CHANGE */
 
 static void
 alloc_failed_warning (unsigned size, const char *filename, unsigned line)
@@ -129,6 +136,7 @@ alloc_failed_warning (unsigned size, const char *filename, unsigned line)
 
 
 
+#ifdef ATL_CHANGE
 #define ASSERT_IS_ENUM_DESCRIPTOR(desc) \
   assert((desc)->magic == PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC)
 #define ASSERT_IS_MESSAGE_DESCRIPTOR(desc) \
@@ -137,6 +145,16 @@ alloc_failed_warning (unsigned size, const char *filename, unsigned line)
   ASSERT_IS_MESSAGE_DESCRIPTOR((message)->descriptor)
 #define ASSERT_IS_SERVICE_DESCRIPTOR(desc) \
   assert((desc)->magic == PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC)
+#else
+#define ASSERT_IS_ENUM_DESCRIPTOR(desc) \
+  assert((desc)->magic == PROTOBUF_C_ENUM_DESCRIPTOR_MAGIC)
+#define ASSERT_IS_MESSAGE_DESCRIPTOR(desc) \
+  assert((desc)->magic == PROTOBUF_C_MESSAGE_DESCRIPTOR_MAGIC)
+#define ASSERT_IS_MESSAGE(message) \
+  ASSERT_IS_MESSAGE_DESCRIPTOR((message)->descriptor)
+#define ASSERT_IS_SERVICE_DESCRIPTOR(desc) \
+  assert((desc)->magic == PROTOBUF_C_SERVICE_DESCRIPTOR_MAGIC)
+#endif /* ATL_CHANGE */
 
 /* --- allocator --- */
 
@@ -153,7 +171,11 @@ static void *system_alloc(void *allocator_data, size_t size)
   (void) allocator_data;
   if (size == 0)
     return NULL;
+#ifdef ATL_CHANGE
   rv = CMSG_MALLOC (size);
+#else
+  rv = malloc (size);
+#endif /* ATL_CHANGE */
   if (rv == NULL)
     protobuf_c_out_of_memory ();
   return rv;
@@ -163,7 +185,11 @@ static void system_free (void *allocator_data, void *data)
 {
   (void) allocator_data;
   if (data)
+#ifdef ATL_CHANGE
     CMSG_FREE (data);
+#else
+    free (data);
+#endif /* ATL_CHANGE */
 }
 
 /* Some users may configure the default allocator;
@@ -390,6 +416,7 @@ required_field_get_packed_size (const ProtobufCFieldDescriptor *field,
         size_t subrv = msg ? protobuf_c_message_get_packed_size (msg) : 0;
         return rv + uint32_size (subrv) + subrv;
       }
+#ifdef ATL_CHANGE
     case PROTOBUF_C_TYPE_INT8:
       return rv + int32_size (*(const int8_t *) member);
     case PROTOBUF_C_TYPE_UINT8:
@@ -398,6 +425,7 @@ required_field_get_packed_size (const ProtobufCFieldDescriptor *field,
       return rv + int32_size (*(const int16_t *) member);
     case PROTOBUF_C_TYPE_UINT16:
       return rv + uint32_size (*(const uint16_t *) member);
+#endif /* ATL_CHANGE */
     }
   PROTOBUF_C_ASSERT_NOT_REACHED ();
   return 0;
@@ -504,6 +532,7 @@ repeated_field_get_packed_size (const ProtobufCFieldDescriptor *field,
         }
       break;
     //case PROTOBUF_C_TYPE_GROUP:          // NOT SUPPORTED
+#ifdef ATL_CHANGE
     case PROTOBUF_C_TYPE_INT8:
       for (i = 0; i < count; i++)
         rv += int32_size (((int8_t *)array)[i]);
@@ -520,6 +549,7 @@ repeated_field_get_packed_size (const ProtobufCFieldDescriptor *field,
       for (i = 0; i < count; i++)
         rv += uint32_size (((uint16_t *)array)[i]);
       break;
+#endif /* ATL_CHANGE */
     }
   if (field->packed)
     header_size += uint32_size (rv);
@@ -828,6 +858,7 @@ required_field_pack (const ProtobufCFieldDescriptor *field,
         return rv + prefixed_message_pack (*(ProtobufCMessage * const *) member,
                                            out + rv);
       }
+#ifdef ATL_CHANGE
     case PROTOBUF_C_TYPE_INT8:
       out[0] |= PROTOBUF_C_WIRE_TYPE_VARINT;
       return rv + int32_pack (*(const int8_t *) member, out + rv);
@@ -840,6 +871,7 @@ required_field_pack (const ProtobufCFieldDescriptor *field,
     case PROTOBUF_C_TYPE_UINT16:
       out[0] |= PROTOBUF_C_WIRE_TYPE_VARINT;
       return rv + uint32_pack (*(const uint16_t *) member, out + rv);
+#endif /* ATL_CHANGE */
     }
   PROTOBUF_C_ASSERT_NOT_REACHED ();
   return 0;
@@ -894,12 +926,14 @@ sizeof_elt_in_repeated_array (ProtobufCType type)
       return sizeof (void *);
     case PROTOBUF_C_TYPE_BYTES:
       return sizeof (ProtobufCBinaryData);
+#ifdef ATL_CHANGE
     case PROTOBUF_C_TYPE_INT8:
     case PROTOBUF_C_TYPE_UINT8:
       return 1;
     case PROTOBUF_C_TYPE_INT16:
     case PROTOBUF_C_TYPE_UINT16:
       return 2;
+#endif /* ATL_CHANGE */
     }
   PROTOBUF_C_ASSERT_NOT_REACHED ();
   return 0;
@@ -1032,6 +1066,7 @@ repeated_field_pack (const ProtobufCFieldDescriptor *field,
               payload_at += boolean_pack (arr[i], payload_at);
           }
           break;
+#ifdef ATL_CHANGE
         case PROTOBUF_C_TYPE_INT8:
           {
             const int8_t *arr = (const int8_t *) array;
@@ -1059,6 +1094,8 @@ repeated_field_pack (const ProtobufCFieldDescriptor *field,
               payload_at += uint32_pack (arr[i], payload_at);
           }
           break;
+#endif /* ATL_CHANGE */
+          
         default:
           assert (0);
         }
@@ -1230,6 +1267,7 @@ required_field_pack_to_buffer (const ProtobufCFieldDescriptor *field,
         PROTOBUF_C_BUFFER_SIMPLE_CLEAR (&simple_buffer);
         break;
       }
+#ifdef ATL_CHANGE
     case PROTOBUF_C_TYPE_INT8:
       scratch[0] |= PROTOBUF_C_WIRE_TYPE_VARINT;
       rv += int32_pack (*(const int8_t *) member, scratch + rv);
@@ -1250,6 +1288,7 @@ required_field_pack_to_buffer (const ProtobufCFieldDescriptor *field,
       rv += uint32_pack (*(const uint16_t *) member, scratch + rv);
       buffer->append (buffer, rv, scratch);
       break;
+#endif /* ATL_CHANGE */
     default:
       PROTOBUF_C_ASSERT_NOT_REACHED ();
     }
@@ -1337,6 +1376,7 @@ get_packed_payload_length (const ProtobufCFieldDescriptor *field,
       break;
     case PROTOBUF_C_TYPE_BOOL:
       return count;
+#ifdef ATL_CHANGE
     case PROTOBUF_C_TYPE_INT8:
       {
         const int8_t *arr = (const int8_t *) array;
@@ -1365,6 +1405,7 @@ get_packed_payload_length (const ProtobufCFieldDescriptor *field,
           rv += uint32_size (arr[i]);
       }
       break;
+#endif /* ATL_CHANGE */
     default:
       assert (0);
     }
@@ -1463,6 +1504,7 @@ pack_buffer_packed_payload (const ProtobufCFieldDescriptor *field,
             rv += len;
           }
         return count;
+#ifdef ATL_CHANGE
       case PROTOBUF_C_TYPE_INT8:
         for (i = 0; i < count; i++)
           {
@@ -1495,16 +1537,23 @@ pack_buffer_packed_payload (const ProtobufCFieldDescriptor *field,
             rv += len;
           }
         break;
+#endif /* ATL_CHANGE */
       default:
         assert(0);
     }
   return rv;
 
+#ifdef ATL_CHANGE
 #if IS_LITTLE_ENDIAN
 no_packing_needed:
   buffer->append (buffer, rv, array);
   return rv;
 #endif
+#else
+no_packing_needed:
+  buffer->append (buffer, rv, array);
+  return rv;
+#endif /* ATL_CHANGE */
 }
 
 static size_t
@@ -1748,11 +1797,12 @@ count_packed_elements (ProtobufCType type,
         }
       *count_out = len / 8;
       return TRUE;
-
+#ifdef ATL_CHANGE
     case PROTOBUF_C_TYPE_INT8:
     case PROTOBUF_C_TYPE_UINT8:
     case PROTOBUF_C_TYPE_UINT16:
     case PROTOBUF_C_TYPE_INT16:
+#endif /* ATL_CHANGE */
 
     case PROTOBUF_C_TYPE_INT32:
     case PROTOBUF_C_TYPE_SINT32:
@@ -1985,6 +2035,7 @@ parse_required_member (ScannedMember *scanned_member,
           return 0;
         return 1;
       }
+#ifdef ATL_CHANGE
     case PROTOBUF_C_TYPE_INT8:
       if (wire_type != PROTOBUF_C_WIRE_TYPE_VARINT)
         return 0;
@@ -2005,6 +2056,7 @@ parse_required_member (ScannedMember *scanned_member,
         return 0;
       *(uint16_t*)member = (uint16_t) parse_uint32 (len, data);
       return 1;
+#endif /* ATL_CHANGE */
     }
   return 0;
 }
@@ -2185,6 +2237,7 @@ parse_packed_repeated_member (ScannedMember *scanned_member,
             ((protobuf_c_boolean*)array)[i] = at[i];
           }
         break;
+#ifdef ATL_CHANGE
       case PROTOBUF_C_TYPE_INT8:
         while (rem > 0)
           {
@@ -2241,18 +2294,26 @@ parse_packed_repeated_member (ScannedMember *scanned_member,
             rem -= s;
           }
         break;
+#endif /* ATL_CHANGE */
       default:
         assert(0);
     }
   *p_n += count;
   return TRUE;
 
+#ifdef ATL_CHANGE
 #if IS_LITTLE_ENDIAN
 no_unpacking_needed:
   memcpy (array, at, count * siz);
   *p_n += count;
   return TRUE;
 #endif
+#else
+no_unpacking_needed:
+  memcpy (array, at, count * siz);
+  *p_n += count;
+  return TRUE;
+#endif /* ATL_CHANGE */
 }
 
 static protobuf_c_boolean
@@ -2350,6 +2411,7 @@ protobuf_c_message_init_generic (const ProtobufCMessageDescriptor *desc,
              which is totally unavoidable. */
           *(const void**)field = dv;
           break;
+#ifdef ATL_CHANGE
         case PROTOBUF_C_TYPE_INT8:
         case PROTOBUF_C_TYPE_UINT8:
           memcpy (field, dv, 1);
@@ -2358,6 +2420,7 @@ protobuf_c_message_init_generic (const ProtobufCMessageDescriptor *desc,
         case PROTOBUF_C_TYPE_UINT16:
           memcpy (field, dv, 2);
           break;
+#endif /* ATL_CHANGE */
         }
       }
 }
@@ -2406,6 +2469,10 @@ protobuf_c_message_unpack         (const ProtobufCMessageDescriptor *desc,
   unsigned i_slab;
   unsigned last_field_index = 0;
   unsigned char required_fields_bitmap[MAX_MEMBERS_FOR_HASH_SIZE/8] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,};
+#ifdef ATL_CHANGE
+#else
+  static const unsigned word_bits = sizeof(long) * 8;
+#endif /* ATL_CHANGE */
 
   ASSERT_IS_MESSAGE_DESCRIPTOR (desc);
 
@@ -2413,10 +2480,17 @@ protobuf_c_message_unpack         (const ProtobufCMessageDescriptor *desc,
     allocator = &protobuf_c_default_allocator;
 
   /* We treat all fields % (16*8), which should be good enough. */
+#ifdef ATL_CHANGE
 #define REQUIRED_FIELD_BITMAP_SET(index)   \
   (required_fields_bitmap[(index/8)%sizeof(required_fields_bitmap)] |= (1<<((index)%8)))
 #define REQUIRED_FIELD_BITMAP_IS_SET(index)   \
   (required_fields_bitmap[(index/8)%sizeof(required_fields_bitmap)] & (1<<((index)%8)))
+#else
+#define REQUIRED_FIELD_BITMAP_SET(index)   \
+  required_fields_bitmap[(index/8)%sizeof(required_fields_bitmap)] |= (1<<((index)%8))
+#define REQUIRED_FIELD_BITMAP_IS_SET(index)   \
+  required_fields_bitmap[(index/8)%sizeof(required_fields_bitmap)] & (1<<((index)%8))
+#endif /* ATL_CHANGE */
 
   DO_ALLOC (rv, allocator, desc->sizeof_message, return NULL);
   scanned_member_slabs[0] = first_member_slab;
@@ -2504,7 +2578,11 @@ protobuf_c_message_unpack         (const ProtobufCMessageDescriptor *desc,
           break;
         case PROTOBUF_C_WIRE_TYPE_LENGTH_PREFIXED:
           {
+#ifdef ATL_CHANGE
             size_t pref_len = 0;
+#else
+            size_t pref_len;
+#endif /* ATL_CHANGE */
             tmp.len = scan_length_prefixed_data (rem, at, &pref_len);
             if (tmp.len == 0)
               {
@@ -2667,7 +2745,8 @@ error_cleanup_during_scan:
 }
 
 /* === free_unpacked === */
-void     
+#ifdef ATL_CHANGE
+void
 protobuf_c_message_free_unknown_fields (ProtobufCMessage    *message,
                                         ProtobufCAllocator  *allocator)
 {
@@ -2685,20 +2764,26 @@ protobuf_c_message_free_unknown_fields (ProtobufCMessage    *message,
   message->n_unknown_fields = 0;
   message->unknown_fields = NULL;
 }
+#endif /* ATL_CHANGE */
 
-void
+void     
 protobuf_c_message_free_unpacked  (ProtobufCMessage    *message,
                                    ProtobufCAllocator  *allocator)
 {
+#ifdef ATL_CHANGE
   const ProtobufCMessageDescriptor *desc;
+#else
+  const ProtobufCMessageDescriptor *desc = message->descriptor;
+#endif /* ATL_CHANGE */
   unsigned f;
-
+#ifdef ATL_CHANGE
   if (message == NULL)
     return;
-
+#endif /* ATL_CHANGE */
   ASSERT_IS_MESSAGE (message);
-
+#ifdef ATL_CHANGE
   desc = message->descriptor;
+#endif /* ATL_CHANGE */
   if (allocator == NULL)
     allocator = &protobuf_c_default_allocator;
   message->descriptor = NULL;
@@ -2753,7 +2838,14 @@ protobuf_c_message_free_unpacked  (ProtobufCMessage    *message,
         }
     }
 
+#ifdef ATL_CHANGE
   protobuf_c_message_free_unknown_fields (message, allocator);
+#else
+  for (f = 0; f < message->n_unknown_fields; f++)
+    FREE (allocator, message->unknown_fields[f].data);
+  if (message->unknown_fields != NULL)
+    FREE (allocator, message->unknown_fields);
+#endif /* ATL_CHANGE */
 
   FREE (allocator, message);
 }
@@ -2766,16 +2858,32 @@ protobuf_c_message_init (const ProtobufCMessageDescriptor *descriptor,
 }
 
 /* === services === */
+#ifdef ATL_CHANGE
 typedef int32_t (*GenericHandler)(void *service,
                                   const ProtobufCMessage *input,
                                   ProtobufCClosure  closure,
                                   void             *closure_data);
+#else
+typedef void (*GenericHandler)(void *service,
+                               const ProtobufCMessage *input,
+                               ProtobufCClosure  closure,
+                               void             *closure_data);
+#endif /* ATL_CHANGE */
+#ifdef ATL_CHANGE
 int32_t
 protobuf_c_service_invoke_internal(ProtobufCService *service,
                                   unsigned          method_index,
                                   const ProtobufCMessage *input,
                                   ProtobufCClosure  closure,
                                   void             *closure_data)
+#else
+void 
+protobuf_c_service_invoke_internal(ProtobufCService *service,
+                                  unsigned          method_index,
+                                  const ProtobufCMessage *input,
+                                  ProtobufCClosure  closure,
+                                  void             *closure_data)
+#endif /* ATL_CHANGE */
 {
   GenericHandler *handlers;
   GenericHandler handler;
@@ -2784,7 +2892,11 @@ protobuf_c_service_invoke_internal(ProtobufCService *service,
      If this fails, you are likely invoking a newly added
      method on an old service.  (Although other memory corruption
      bugs can cause this assertion too) */
+#ifdef ATL_CHANGE
   assert (method_index < service->descriptor->n_methods);
+#else
+  PROTOBUF_C_ASSERT (method_index < service->descriptor->n_methods);
+#endif /* ATL_CHANGE */
 
   /* Get the array of virtual methods (which are enumerated by 
      the generated code) */
@@ -2794,7 +2906,11 @@ protobuf_c_service_invoke_internal(ProtobufCService *service,
   /* TODO: seems like handler==NULL is a situation that
      needs handling */
   handler = handlers[method_index];
+#ifdef ATL_CHANGE
   return (*handler) (service, input, closure, closure_data);
+#else
+  (*handler) (service, input, closure, closure_data);
+#endif /* ATL_CHANGE */
 }
 
 void
@@ -2896,10 +3012,17 @@ protobuf_c_message_descriptor_get_field
   return desc->fields + rv;
 }
 
+#ifdef ATL_CHANGE
 uint32_t
 protobuf_c_service_descriptor_get_method_index_by_name
                          (const ProtobufCServiceDescriptor *desc,
                           const char                       *name)
+#else
+const ProtobufCMethodDescriptor *
+protobuf_c_service_descriptor_get_method_by_name
+                         (const ProtobufCServiceDescriptor *desc,
+                          const char                       *name)
+#endif /* ATL_CHANGE */
 {
   unsigned start = 0, count = desc->n_methods;
   while (count > 1)
@@ -2909,7 +3032,11 @@ protobuf_c_service_descriptor_get_method_index_by_name
       const char *mid_name = desc->methods[mid_index].name;
       int rv = strcmp (mid_name, name);
       if (rv == 0)
+#ifdef ATL_CHANGE
         return desc->method_indices_by_name[mid];
+#else
+        return desc->methods + desc->method_indices_by_name[mid];
+#endif /* ATL_CHANGE */
       if (rv < 0)
         {
           count = start + count - (mid + 1);
@@ -2921,8 +3048,17 @@ protobuf_c_service_descriptor_get_method_index_by_name
         }
     }
   if (count == 0)
+#ifdef ATL_CHANGE
     return UNDEFINED_METHOD;
+#else
+    return NULL;
+#endif /* ATL_CHANGE */
   if (strcmp (desc->methods[desc->method_indices_by_name[start]].name, name) == 0)
+#ifdef ATL_CHANGE
     return desc->method_indices_by_name[start];
   return UNDEFINED_METHOD;
+#else
+    return desc->methods + desc->method_indices_by_name[start];
+  return NULL;
+#endif /* ATL_CHANGE */
 }

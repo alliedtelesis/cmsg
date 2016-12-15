@@ -44,10 +44,17 @@
    be larger than 32-bits.
  
    This is written assuming it is appended to a list w/o a tail comma. */
+#ifdef ATL_CHANGE
 #ifndef PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE
   #define PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(enum_name) \
     , _##enum_name##_IS_INT_SIZE = INT_MAX
 #endif
+#else
+#ifndef _PROTOBUF_C_FORCE_ENUM_TO_BE_INT_SIZE
+  #define _PROTOBUF_C_FORCE_ENUM_TO_BE_INT_SIZE(enum_name) \
+    , _##enum_name##_IS_INT_SIZE = INT_MAX
+#endif
+#endif /* ATL_CHANGE */
 
 /* === needs to be declared for the PROTOBUF_C_BUFFER_SIMPLE_INIT macro === */
 
@@ -87,9 +94,15 @@ struct _ProtobufCIntRange
 int protobuf_c_int_ranges_lookup (unsigned n_ranges,
                                   ProtobufCIntRange *ranges);
 
+#ifdef ATL_CHANGE
 #define PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC 0x14159bc3
 #define PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC 0x28aaeef9
 #define PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC    0x114315af
+#else
+#define PROTOBUF_C_SERVICE_DESCRIPTOR_MAGIC  0x14159bc3
+#define PROTOBUF_C_MESSAGE_DESCRIPTOR_MAGIC  0x28aaeef9
+#define PROTOBUF_C_ENUM_DESCRIPTOR_MAGIC     0x114315af
+#endif /* ATL_CHANGE */
 
 /* === behind the scenes on the generated service's __init functions */
 typedef void (*ProtobufCServiceDestroy) (ProtobufCService *service);
@@ -98,7 +111,11 @@ protobuf_c_service_generated_init (ProtobufCService *service,
                                    const ProtobufCServiceDescriptor *descriptor,
                                    ProtobufCServiceDestroy destroy);
 
+#ifdef ATL_CHANGE
 int32_t
+#else
+void 
+#endif /* ATL_CHANGE */
 protobuf_c_service_invoke_internal(ProtobufCService *service,
                                   unsigned          method_index,
                                   const ProtobufCMessage *input,

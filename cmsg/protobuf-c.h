@@ -43,11 +43,14 @@
 #define __PROTOBUF_C_RUNTIME_H_
 
 #include <stddef.h>
-#include <stdbool.h>
 #include <assert.h>
 #include <limits.h>
+#ifdef ATL_CHANGE
+#include <stdbool.h>
 #include <glib.h>
+#endif /* ATL_CHANGE */
 
+#ifdef ATL_CHANGE
 #ifdef __cplusplus
 # define PROTOBUF_C__BEGIN_DECLS    extern "C" {
 # define PROTOBUF_C__END_DECLS      }
@@ -61,6 +64,21 @@
 #else
 #define PROTOBUF_C__DEPRECATED
 #endif
+#else
+#ifdef __cplusplus
+# define PROTOBUF_C_BEGIN_DECLS    extern "C" {
+# define PROTOBUF_C_END_DECLS      }
+#else
+# define PROTOBUF_C_BEGIN_DECLS
+# define PROTOBUF_C_END_DECLS
+#endif
+
+#if !defined(PROTOBUF_C_NO_DEPRECATED) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))
+#define PROTOBUF_C_DEPRECATED __attribute__((__deprecated__))
+#else
+#define PROTOBUF_C_DEPRECATED
+#endif
+#endif /* ATL_CHANGE */
 
 /* The version of protobuf-c you are compiling against. */
 #define PROTOBUF_C_MAJOR                0
@@ -110,7 +128,11 @@ extern unsigned protobuf_c_minor;
 #endif
 
 
+#ifdef ATL_CHANGE
 PROTOBUF_C__BEGIN_DECLS
+#else
+PROTOBUF_C_BEGIN_DECLS
+#endif /* ATL_CHANGE */
 
 typedef enum
 {
@@ -139,16 +161,26 @@ typedef enum
   PROTOBUF_C_TYPE_BYTES,
   //PROTOBUF_C_TYPE_GROUP,          // NOT SUPPORTED
   PROTOBUF_C_TYPE_MESSAGE,
+#ifdef ATL_CHANGE
   PROTOBUF_C_TYPE_INT8,
   PROTOBUF_C_TYPE_UINT8,
   PROTOBUF_C_TYPE_INT16,
   PROTOBUF_C_TYPE_UINT16,
+#endif /* ATL_CHANGE */
 } ProtobufCType;
 
 
 typedef int protobuf_c_boolean;
+#ifdef ATL_CHANGE
 typedef protobuf_c_boolean cmsg_bool_t;
+#else
+#define PROTOBUF_C_OFFSETOF(struct, member) offsetof(struct, member)
+#endif /* ATL_CHANGE */
 
+#ifdef ATL_CHANGE
+#else
+#define PROTOBUF_C_ASSERT(condition) assert(condition)
+#endif /* ATL_CHANGE */
 #define PROTOBUF_C_ASSERT_NOT_REACHED() assert(0)
 
 typedef struct _ProtobufCBinaryData ProtobufCBinaryData;
@@ -390,8 +422,10 @@ PROTOBUF_C_API ProtobufCMessage *
                                              ProtobufCAllocator  *allocator,
                                              size_t               len,
                                              const uint8_t       *data);
+#ifdef ATL_CHANGE
 PROTOBUF_C_API void      protobuf_c_message_free_unknown_fields (ProtobufCMessage    *message,
                                              ProtobufCAllocator  *allocator);
+#endif /* ATL_CHANGE */
 PROTOBUF_C_API void      protobuf_c_message_free_unpacked  (ProtobufCMessage    *message,
                                              ProtobufCAllocator  *allocator);
 
@@ -429,11 +463,19 @@ typedef void (*ProtobufCClosure)(const ProtobufCMessage *message,
 struct _ProtobufCService
 {
   const ProtobufCServiceDescriptor *descriptor;
+#ifdef ATL_CHANGE
   int32_t (*invoke)(ProtobufCService *service,
                    unsigned          method_index,
                    const ProtobufCMessage *input,
                    ProtobufCClosure  closure,
                    void             *closure_data);
+#else
+  void (*invoke)(ProtobufCService *service,
+                 unsigned          method_index,
+                 const ProtobufCMessage *input,
+                 ProtobufCClosure  closure,
+                 void             *closure_data);
+#endif /* ATL_CHANGE */
   void (*destroy) (ProtobufCService *service);
 };
 
@@ -458,8 +500,13 @@ PROTOBUF_C_API const ProtobufCFieldDescriptor *
 protobuf_c_message_descriptor_get_field        
                          (const ProtobufCMessageDescriptor *desc,
                           unsigned                          value);
+#ifdef ATL_CHANGE
 PROTOBUF_C_API uint32_t
 protobuf_c_service_descriptor_get_method_index_by_name
+#else
+PROTOBUF_C_API const ProtobufCMethodDescriptor *
+protobuf_c_service_descriptor_get_method_by_name
+#endif /* ATL_CHANGE */
                          (const ProtobufCServiceDescriptor *desc,
                           const char                       *name);
 
@@ -514,26 +561,33 @@ typedef enum
   PROTOBUF_C_CTYPE_STRING,
   PROTOBUF_C_CTYPE_BYTES,
   PROTOBUF_C_CTYPE_MESSAGE,
+#ifdef ATL_CHANGE
   PROTOBUF_C_CTYPE_INT8,
   PROTOBUF_C_CTYPE_UINT8,
   PROTOBUF_C_CTYPE_INT16,
   PROTOBUF_C_CTYPE_UINT16,
+#endif /* ATL_CHANGE */
 } ProtobufCCType;
 
 extern ProtobufCCType protobuf_c_type_to_ctype (ProtobufCType type);
 #define protobuf_c_type_to_ctype(type) \
   ((ProtobufCCType)(protobuf_c_type_to_ctype_array[(type)]))
-
+#ifdef ATL_CHANGE
 /**
  * The version of the protobuf-c headers, represented as an integer using the
  * same format as protobuf_c_version_number().
  */
 #define PROTOBUF_C_VERSION_NUMBER   1000000
+#endif /* ATL_CHANGE */
 
 /* ====== private ====== */
 #include "protobuf-c-private.h"
 
 
+#ifdef ATL_CHANGE
 PROTOBUF_C__END_DECLS
+#else
+PROTOBUF_C_END_DECLS
+#endif /* ATL_CHANGE */
 
 #endif /* __PROTOBUF_C_RUNTIME_H_ */
