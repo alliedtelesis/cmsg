@@ -1828,9 +1828,17 @@ pack_buffer_packed_payload(const ProtobufCFieldDescriptor *field,
 	}
 	return rv;
 
+#ifdef ATL_CHANGE
+#if !defined(WORDS_BIGENDIAN)
 no_packing_needed:
 	buffer->append(buffer, rv, array);
 	return rv;
+#endif /* !defined(WORDS_BIGENDIAN) */
+#else
+no_packing_needed:
+	buffer->append(buffer, rv, array);
+	return rv;
+#endif /* ATL_CHANGE */
 }
 
 static size_t
