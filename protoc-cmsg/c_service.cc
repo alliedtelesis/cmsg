@@ -249,7 +249,11 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
 {
   int n_methods = descriptor_->method_count();
   MethodIndexAndName *mi_array = new MethodIndexAndName[n_methods];
-  
+
+  bool optimize_code_size = descriptor_->file()->options().has_optimize_for() &&
+    descriptor_->file()->options().optimize_for() ==
+    FileOptions_OptimizeMode_CODE_SIZE;
+
   vars_["n_methods"] = SimpleItoa(n_methods);
 #ifdef ATL_CHANGE
   printer->Print(vars_, "static const ProtobufCMethodDescriptor $lcfullname$_method_descriptors[$n_methods$] =\n"
@@ -267,56 +271,83 @@ void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
     vars_["input_descriptor"] = "&" + FullNameToLower(method->input_type()->full_name()) + "__descriptor";
     vars_["output_descriptor"] = "&" + FullNameToLower(method->output_type()->full_name()) + "__descriptor";
 #endif /* ATL_CHANGE */
-    printer->Print(vars_,
-             "  { \"$method$\", $input_descriptor$, $output_descriptor$ },\n");
+    if (optimize_code_size) {
+      printer->Print(vars_,
+          "  { NULL, $input_descriptor$, $output_descriptor$ }, /* CODE_SIZE */\n");
+    } else {
+      printer->Print(vars_,
+          "  { \"$method$\", $input_descriptor$, $output_descriptor$ },\n");
+    }
     mi_array[i].i = i;
     mi_array[i].name = method->name().c_str();
   }
   printer->Print(vars_, "};\n");
 
-  qsort ((void*)mi_array, n_methods, sizeof (MethodIndexAndName),
-         compare_method_index_and_name_by_name);
+  if (!optimize_code_size) {
+    qsort ((void*)mi_array, n_methods, sizeof (MethodIndexAndName),
+        compare_method_index_and_name_by_name);
 #ifdef ATL_CHANGE
-  printer->Print(vars_, "const unsigned $lcfullname$_method_indices_by_name[] = {\n");
+    printer->Print(vars_, "const unsigned $lcfullname$_method_indices_by_name[] = {\n");
 #else
-  printer->Print(vars_, "const unsigned $lcfullname$__method_indices_by_name[] = {\n");
+    printer->Print(vars_, "const unsigned $lcfullname$__method_indices_by_name[] = {\n");
 #endif /* ATL_CHANGE */
-  for (int i = 0; i < n_methods; i++) {
-    vars_["i"] = SimpleItoa(mi_array[i].i);
+    for (int i = 0; i < n_methods; i++) {
+      vars_["i"] = SimpleItoa(mi_array[i].i);
 #ifdef ATL_CHANGE
-    vars_["method"] = mi_array[i].name;
+      vars_["method"] = mi_array[i].name;
 #else
-    vars_["name"] = mi_array[i].name;
+      vars_["name"] = mi_array[i].name;
 #endif /* ATL_CHANGE */
-    vars_["comma"] = (i + 1 < n_methods) ? "," : " ";
+      vars_["comma"] = (i + 1 < n_methods) ? "," : " ";
 #ifdef ATL_CHANGE
-    printer->Print(vars_, "  $i$$comma$        /* $method$ */\n");
+      printer->Print(vars_, "  $i$$comma$        /* $method$ */\n");
 #else
-    printer->Print(vars_, "  $i$$comma$        /* $name$ */\n");
+      printer->Print(vars_, "  $i$$comma$        /* $name$ */\n");
 #endif /* ATL_CHANGE */
+    }
+    printer->Print(vars_, "};\n");
+    vars_["name"] = descriptor_->name();
   }
-  printer->Print(vars_, "};\n");
 
+  if (optimize_code_size) {
 #ifdef ATL_CHANGE
-  printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$_descriptor =\n"
+    printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$_descriptor =\n"
 #else
-  printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$__descriptor =\n"
+    printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$__descriptor =\n"
 #endif /* ATL_CHANGE */
-                       "{\n"
-		       "  PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC,\n"
-		       "  \"$fullname$\",\n"
-		       "  \"$name$\",\n"
-		       "  \"$cname$\",\n"
-		       "  \"$package$\",\n"
-		       "  $n_methods$,\n"
+        "{\n"
+        "  PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC,\n"
+        "  NULL,NULL,NULL,NULL, /* CODE_SIZE */\n"
+        "  $n_methods$,\n"
 #ifdef ATL_CHANGE
-		       "  $lcfullname$_method_descriptors,\n"
-		       "  $lcfullname$_method_indices_by_name\n"
+        "  $lcfullname$_method_descriptors,\n"
 #else
-		       "  $lcfullname$__method_descriptors,\n"
-		       "  $lcfullname$__method_indices_by_name\n"
+        "  $lcfullname$__method_descriptors,\n"
 #endif /* ATL_CHANGE */
-		       "};\n");
+        "  NULL /* CODE_SIZE */\n"
+        "};\n");
+  } else {
+#ifdef ATL_CHANGE
+    printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$_descriptor =\n"
+#else
+    printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$__descriptor =\n"
+#endif /* ATL_CHANGE */
+        "{\n"
+        "  PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC,\n"
+        "  \"$fullname$\",\n"
+        "  \"$name$\",\n"
+        "  \"$cname$\",\n"
+        "  \"$package$\",\n"
+        "  $n_methods$,\n"
+#ifdef ATL_CHANGE
+        "  $lcfullname$_method_descriptors,\n"
+        "  $lcfullname$_method_indices_by_name\n"
+#else
+        "  $lcfullname$__method_descriptors,\n"
+        "  $lcfullname$__method_indices_by_name\n"
+#endif /* ATL_CHANGE */
+        "};\n");
+  }
 
   delete[] mi_array;
 }
@@ -337,7 +368,7 @@ void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
     vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "__" + lcname);
 #endif /* ATL_CHANGE */
     vars_["index"] = SimpleItoa(i);
-     
+
     printer->Print(vars_,
 #ifdef ATL_CHANGE
                    "int32_t $lcfullname$_$method$(ProtobufCService *service,\n"

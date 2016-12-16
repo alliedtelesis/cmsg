@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2014, Dave Benson and the protobuf-c authors.
+ * Copyright (c) 2008-2016, Dave Benson and the protobuf-c authors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -106,9 +106,25 @@ extern const ProtobufCMessageDescriptor foo__bar__baz_bah__descriptor;
  * sufficient to allow them to be cast to `ProtobufCMessage`.
  *
  * For each message defined in a `.proto` file, we generate a number of
- * functions. Each function name contains a prefix based on the package name and
- * message name in order to make it a unique C identifier.
+ * functions and macros. Each function name contains a prefix based on the
+ * package name and message name in order to make it a unique C identifier.
  *
+ * - `INIT`. Statically initializes a message object, initializing its
+ *   descriptor and setting its fields to default values. Uninitialized
+ *   messages cannot be processed by the protobuf-c library.
+ *
+~~~{.c}
+#define FOO__BAR__BAZ_BAH__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&foo__bar__baz_bah__descriptor), 0 }
+~~~
+ * - `init()`. Initializes a message object, initializing its descriptor and
+ *   setting its fields to default values. Uninitialized messages cannot be
+ *   processed by the protobuf-c library.
+ *
+~~~{.c}
+void foo__bar__baz_bah__init
+                     (Foo__Bar__BazBah *message);
+~~~
  * - `unpack()`. Unpacks data for a particular message format. Note that the
  *   `allocator` parameter is usually `NULL` to indicate that the system's
  *   `malloc()` and `free()` functions should be used for dynamically allocating
@@ -209,10 +225,9 @@ PROTOBUF_C__BEGIN_DECLS
 # define PROTOBUF_C__API
 #endif
 
-#if !defined(PROTOBUF_C__NO_DEPRECATED)
-# if (__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)
-#  define PROTOBUF_C__DEPRECATED __attribute__((__deprecated__))
-# endif
+#if !defined(PROTOBUF_C__NO_DEPRECATED) && \
+	((__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))
+# define PROTOBUF_C__DEPRECATED __attribute__((__deprecated__))
 #else
 # define PROTOBUF_C__DEPRECATED
 #endif
@@ -244,6 +259,9 @@ typedef enum {
 
 	/** Set if the field is marked with the `deprecated` option. */
 	PROTOBUF_C_FIELD_FLAG_DEPRECATED	= (1 << 1),
+
+	/** Set if the field is a member of a oneof (union). */
+	PROTOBUF_C_FIELD_FLAG_ONEOF		= (1 << 2),
 } ProtobufCFieldFlag;
 
 /**
@@ -559,7 +577,7 @@ struct ProtobufCFieldDescriptor {
 	/**
 	 * The offset in bytes of the message's C structure's quantifier field
 	 * (the `has_MEMBER` field for optional members or the `n_MEMBER` field
-	 * for repeated members.
+	 * for repeated members or the case enum for oneofs).
 	 */
 	unsigned		quantifier_offset;
 
@@ -780,13 +798,13 @@ protobuf_c_version_number(void);
  * The version of the protobuf-c headers, represented as a string using the same
  * format as protobuf_c_version().
  */
-#define PROTOBUF_C_VERSION		"1.0.0"
+#define PROTOBUF_C_VERSION		"1.2.1"
 
 /**
  * The version of the protobuf-c headers, represented as an integer using the
  * same format as protobuf_c_version_number().
  */
-#define PROTOBUF_C_VERSION_NUMBER	1000000
+#define PROTOBUF_C_VERSION_NUMBER	1002001
 
 /**
  * The minimum protoc-c version which works with the current version of the
@@ -805,7 +823,7 @@ protobuf_c_version_number(void);
  * \return
  *      A `ProtobufCEnumValue` object.
  * \retval NULL
- *      If not found.
+ *      If not found or if the optimize_for = CODE_SIZE option was set.
  */
 PROTOBUF_C__API
 const ProtobufCEnumValue *
@@ -845,7 +863,7 @@ protobuf_c_enum_descriptor_get_value(
  * \return
  *      A `ProtobufCFieldDescriptor` object.
  * \retval NULL
- *      If not found.
+ *      If not found or if the optimize_for = CODE_SIZE option was set.
  */
 PROTOBUF_C__API
 const ProtobufCFieldDescriptor *
@@ -1019,7 +1037,7 @@ protobuf_c_service_destroy(ProtobufCService *service);
  * \return
  *      A `ProtobufCMethodDescriptor` object.
  * \retval NULL
- *      If not found.
+ *      If not found or if the optimize_for = CODE_SIZE option was set.
  */
 PROTOBUF_C__API
 #ifdef ATL_CHANGE

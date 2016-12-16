@@ -132,6 +132,9 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
   variables["proto_name"] = descriptor_->name();
   variables["descriptor_addr"] = descriptor_addr;
   variables["value"] = SimpleItoa(descriptor_->number());
+  const OneofDescriptor *oneof = descriptor_->containing_oneof();
+  if (oneof != NULL)
+    variables["oneofname"] = FullNameToLower(oneof->name());
 
   if (descriptor_->has_default_value()) {
     variables["default_value"] = string("&")
@@ -155,9 +158,18 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
   if (descriptor_->options().deprecated())
     variables["flags"] += " | PROTOBUF_C_FIELD_FLAG_DEPRECATED";
 
+  if (oneof != NULL)
+    variables["flags"] += " | PROTOBUF_C_FIELD_FLAG_ONEOF";
+
+  printer->Print("{\n");
+  if (descriptor_->file()->options().has_optimize_for() &&
+        descriptor_->file()->options().optimize_for() ==
+        FileOptions_OptimizeMode_CODE_SIZE) {
+     printer->Print("  NULL, /* CODE_SIZE */\n");
+  } else {
+     printer->Print(variables, "  \"$proto_name$\",\n");
+  }
   printer->Print(variables,
-    "{\n"
-    "  \"$proto_name$\",\n"
     "  $value$,\n"
     "  PROTOBUF_C_LABEL_$LABEL$,\n"
     "  PROTOBUF_C_TYPE_$TYPE$,\n");
@@ -166,7 +178,9 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
       printer->Print(variables, "  0,   /* quantifier_offset */\n");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      if (optional_uses_has) {
+      if (oneof != NULL) {
+        printer->Print(variables, "  offsetof($classname$, $oneofname$_case),\n");
+      } else if (optional_uses_has) {
 	printer->Print(variables, "  offsetof($classname$, has_$name$),\n");
       } else {
 	printer->Print(variables, "  0,   /* quantifier_offset */\n");

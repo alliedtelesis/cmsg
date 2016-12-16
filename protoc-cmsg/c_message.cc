@@ -154,6 +154,29 @@ GenerateStructDefinition(io::Printer* printer) {
     vars["dllexport"] = dllexport_decl_ + " ";
   }
 
+  // Generate the case enums for unions
+  for (int i = 0; i < descriptor_->oneof_decl_count(); i++) {
+    const OneofDescriptor *oneof = descriptor_->oneof_decl(i);
+    vars["oneofname"] = FullNameToUpper(oneof->name());
+    vars["foneofname"] = FullNameToC(oneof->full_name());
+
+    printer->Print("typedef enum {\n");
+    printer->Indent();
+    printer->Print(vars, "$ucclassname$__$oneofname$__NOT_SET = 0,\n");
+    for (int j = 0; j < oneof->field_count(); j++) {
+      const FieldDescriptor *field = oneof->field(j);
+      vars["fieldname"] = FullNameToUpper(field->name());
+      vars["fieldnum"] = SimpleItoa(field->number());
+      printer->Print(vars, "$ucclassname$__$oneofname$_$fieldname$ = $fieldnum$,\n");
+    }
+    printer->Outdent();
+    printer->Print(vars, "} $foneofname$Case;\n\n");
+  }
+
+  SourceLocation msgSourceLoc;
+  descriptor_->GetSourceLocation(&msgSourceLoc);
+  PrintComment (printer, msgSourceLoc.leading_comments);
+
   printer->Print(vars,
     "struct $dllexport$ _$classname$\n"
     "{\n"
@@ -163,7 +186,37 @@ GenerateStructDefinition(io::Printer* printer) {
   printer->Indent();
   for (int i = 0; i < descriptor_->field_count(); i++) {
     const FieldDescriptor *field = descriptor_->field(i);
-    field_generators_.get(field).GenerateStructMembers(printer);
+    if (field->containing_oneof() == NULL) {
+      SourceLocation fieldSourceLoc;
+      field->GetSourceLocation(&fieldSourceLoc);
+
+      PrintComment (printer, fieldSourceLoc.leading_comments);
+      PrintComment (printer, fieldSourceLoc.trailing_comments);
+      field_generators_.get(field).GenerateStructMembers(printer);
+    }
+  }
+
+  // Generate unions from oneofs.
+  for (int i = 0; i < descriptor_->oneof_decl_count(); i++) {
+    const OneofDescriptor *oneof = descriptor_->oneof_decl(i);
+    vars["oneofname"] = FullNameToLower(oneof->name());
+    vars["foneofname"] = FullNameToC(oneof->full_name());
+
+    printer->Print(vars, "$foneofname$Case $oneofname$_case;\n");
+
+    printer->Print("union {\n");
+    printer->Indent();
+    for (int j = 0; j < oneof->field_count(); j++) {
+      const FieldDescriptor *field = oneof->field(j);
+      SourceLocation fieldSourceLoc;
+      field->GetSourceLocation(&fieldSourceLoc);
+
+      PrintComment (printer, fieldSourceLoc.leading_comments);
+      PrintComment (printer, fieldSourceLoc.trailing_comments);
+      field_generators_.get(field).GenerateStructMembers(printer);
+    }
+    printer->Outdent();
+    printer->Print(vars, "};\n");
   }
   printer->Outdent();
 
@@ -185,8 +238,18 @@ GenerateStructDefinition(io::Printer* printer) {
 #endif /* ATL_CHANGE */
   for (int i = 0; i < descriptor_->field_count(); i++) {
     const FieldDescriptor *field = descriptor_->field(i);
-    printer->Print(", ");
-    field_generators_.get(field).GenerateStaticInit(printer);
+    if (field->containing_oneof() == NULL) {
+      printer->Print(", ");
+      field_generators_.get(field).GenerateStaticInit(printer);
+    }
+  }
+  for (int i = 0; i < descriptor_->oneof_decl_count(); i++) {
+    const OneofDescriptor *oneof = descriptor_->oneof_decl(i);
+    vars["foneofname"] = FullNameToUpper(oneof->full_name());
+    // Initialize the case enum
+    printer->Print(vars, ", $foneofname$__NOT_SET");
+    // Initialize the union
+    printer->Print(", {0}");
   }
   printer->Print(" }\n\n\n");
 
@@ -412,6 +475,10 @@ GenerateMessageDescriptor(io::Printer* printer) {
     vars["n_fields"] = SimpleItoa(descriptor_->field_count());
     vars["packagename"] = descriptor_->file()->package();
 
+    bool optimize_code_size = descriptor_->file()->options().has_optimize_for() &&
+        descriptor_->file()->options().optimize_for() ==
+        FileOptions_OptimizeMode_CODE_SIZE;
+
     for (int i = 0; i < descriptor_->nested_type_count(); i++) {
       nested_generators_[i]->GenerateMessageDescriptor(printer);
     }
@@ -521,25 +588,27 @@ GenerateMessageDescriptor(io::Printer* printer) {
   printer->Outdent();
   printer->Print(vars, "};\n");
 
-  NameIndex *field_indices = new NameIndex [descriptor_->field_count()];
-  for (int i = 0; i < descriptor_->field_count(); i++) {
-    field_indices[i].name = sorted_fields[i]->name().c_str();
-    field_indices[i].index = i;
-  }
-  qsort (field_indices, descriptor_->field_count(), sizeof (NameIndex),
-         compare_name_indices_by_name);
+  if (!optimize_code_size) {
+    NameIndex *field_indices = new NameIndex [descriptor_->field_count()];
+    for (int i = 0; i < descriptor_->field_count(); i++) {
+      field_indices[i].name = sorted_fields[i]->name().c_str();
+      field_indices[i].index = i;
+    }
+    qsort (field_indices, descriptor_->field_count(), sizeof (NameIndex),
+        compare_name_indices_by_name);
 #ifdef ATL_CHANGE
-  printer->Print(vars, "static const unsigned $lcclassname$_field_indices_by_name[] = {\n");
+    printer->Print(vars, "static const unsigned $lcclassname$_field_indices_by_name[] = {\n");
 #else
-  printer->Print(vars, "static const unsigned $lcclassname$__field_indices_by_name[] = {\n");
+    printer->Print(vars, "static const unsigned $lcclassname$__field_indices_by_name[] = {\n");
 #endif /* ATL_CHANGE */
-  for (int i = 0; i < descriptor_->field_count(); i++) {
-    vars["index"] = SimpleItoa(field_indices[i].index);
-    vars["name"] = field_indices[i].name;
-    printer->Print(vars, "  $index$,   /* field[$index$] = $name$ */\n");
+    for (int i = 0; i < descriptor_->field_count(); i++) {
+      vars["index"] = SimpleItoa(field_indices[i].index);
+      vars["name"] = field_indices[i].name;
+      printer->Print(vars, "  $index$,   /* field[$index$] = $name$ */\n");
+    }
+    printer->Print("};\n");
+    delete[] field_indices;
   }
-  printer->Print("};\n");
-  delete[] field_indices;
 
   // create range initializers
   int *values = new int[descriptor_->field_count()];
@@ -573,38 +642,53 @@ GenerateMessageDescriptor(io::Printer* printer) {
         "#define $lcclassname$__number_ranges NULL\n");
 #endif /* ATL_CHANGE */
     }
-  
+
   printer->Print(vars,
 #ifdef ATL_CHANGE
   "const ProtobufCMessageDescriptor $lcclassname$_descriptor =\n"
 #else
-  "const ProtobufCMessageDescriptor $lcclassname$__descriptor =\n"
+      "const ProtobufCMessageDescriptor $lcclassname$__descriptor =\n"
 #endif /* ATL_CHANGE */
-  "{\n"
-  "  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,\n"
-  "  \"$fullname$\",\n"
-  "  \"$shortname$\",\n"
-  "  \"$classname$\",\n"
-  "  \"$packagename$\",\n"
-  "  sizeof($classname$),\n"
-  "  $n_fields$,\n"
+      "{\n"
+      "  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,\n");
+  if (optimize_code_size) {
+    printer->Print("  NULL,NULL,NULL,NULL, /* CODE_SIZE */\n");
+  } else {
+    printer->Print(vars,
+        "  \"$fullname$\",\n"
+        "  \"$shortname$\",\n"
+        "  \"$classname$\",\n"
+        "  \"$packagename$\",\n");
+  }
+  printer->Print(vars,
+      "  sizeof($classname$),\n"
+      "  $n_fields$,\n"
 #ifdef ATL_CHANGE
-  "  $lcclassname$_field_descriptors,\n"
-  "  $lcclassname$_field_indices_by_name,\n"
+      "  $lcclassname$_field_descriptors,\n");
 #else
-  "  $lcclassname$__field_descriptors,\n"
-  "  $lcclassname$__field_indices_by_name,\n"
+      "  $lcclassname$__field_descriptors,\n");
 #endif /* ATL_CHANGE */
-  "  $n_ranges$,"
+  if (optimize_code_size) {
+    printer->Print("  NULL, /* CODE_SIZE */\n");
+  } else {
+    printer->Print(vars,
 #ifdef ATL_CHANGE
-  "  $lcclassname$_number_ranges,\n"
-  "  (ProtobufCMessageInit) $lcclassname$_init,\n"
+        "  $lcclassname$_field_indices_by_name,\n");
 #else
-  "  $lcclassname$__number_ranges,\n"
-  "  (ProtobufCMessageInit) $lcclassname$__init,\n"
+        "  $lcclassname$__field_indices_by_name,\n");
 #endif /* ATL_CHANGE */
-  "  NULL,NULL,NULL    /* reserved[123] */\n"
-  "};\n");
+  }
+  printer->Print(vars,
+      "  $n_ranges$,"
+#ifdef ATL_CHANGE
+      "  $lcclassname$_number_ranges,\n"
+      "  (ProtobufCMessageInit) $lcclassname$_init,\n"
+#else
+      "  $lcclassname$__number_ranges,\n"
+      "  (ProtobufCMessageInit) $lcclassname$__init,\n"
+#endif /* ATL_CHANGE */
+      "  NULL,NULL,NULL    /* reserved[123] */\n"
+      "};\n");
 }
 
 }  // namespace c
