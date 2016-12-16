@@ -552,14 +552,11 @@ static void
 cmsg_transport_cpg_server_destroy (cmsg_server *server)
 {
     int res;
-    gboolean ret;
 
     /* Cleanup our entries in the hash table.
      */
-    ret = g_hash_table_remove (cpg_group_name_to_server_hash_table_h,
-                               server->_transport->config.cpg.group_name.value);
-    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cpg group name hash table remove, result %d\n",
-                ret);
+    g_hash_table_remove (cpg_group_name_to_server_hash_table_h,
+                         server->_transport->config.cpg.group_name.value);
 
     /* Leave the CPG group.
      */

@@ -84,7 +84,6 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     int32_t ret = 0;
     socklen_t addrlen = 0;
     cmsg_transport *transport = NULL;
-    int port = 0;
 
     if (server == NULL)
     {
@@ -221,7 +220,7 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
         return -1;
     }
 
-    if (client_transport.config.socket.family == PF_INET6)
+    if (server->_transport->config.socket.family == PF_INET6)
     {
         addr = (struct sockaddr *) &client_transport.config.socket.sockaddr.in6;
         client_len = sizeof (client_transport.config.socket.sockaddr.in6);
@@ -300,7 +299,6 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     const ProtobufCMessageDescriptor *desc;
     uint32_t extra_header_size;
     cmsg_server_request server_request;
-    cmsg_status_code ret;
 
     *messagePtPt = NULL;
 

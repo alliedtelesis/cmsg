@@ -39,7 +39,6 @@ cmsg_transport_write_id (cmsg_transport *tport)
             const char *fmt;
             if (tport->config.socket.family == PF_INET6)
             {
-                int ip_len = 0;
                 port = ntohs (tport->config.socket.sockaddr.in6.sin6_port);
                 inet_ntop (tport->config.socket.sockaddr.generic.sa_family,
                            &(tport->config.socket.sockaddr.in6.sin6_addr), ip,

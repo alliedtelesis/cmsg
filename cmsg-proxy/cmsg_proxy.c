@@ -319,17 +319,20 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
     }
 }
 
-#ifndef HAVE_UNITTEST
 void
 cmsg_proxy_init (void)
 {
+    /* This is to pass some build targets with interface statistics monitoring
+     * disabled. Once we find a way to initialize the proxy list at compile
+     * time or similar, we can remove the code. */
+    _cmsg_proxy_list_init (NULL, 0);
+
 #ifdef HAVE_STATMOND
     _cmsg_proxy_list_init (statmond_proxy_array_get (), statmond_proxy_array_size ());
 #endif /* HAVE_STATMOND */
 
     _cmsg_proxy_clients_init ();
 }
-#endif /* !HAVE_UNITTEST */
 
 /**
  * Proxy an HTTP request into the AW+ CMSG internal API. Uses the HttpRules defined

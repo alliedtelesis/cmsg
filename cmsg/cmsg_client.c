@@ -810,7 +810,6 @@ int32_t
 cmsg_client_send_echo_request (cmsg_client *client)
 {
     int32_t ret = 0;
-    int connect_error = 0;
     // create header
     cmsg_header header = cmsg_header_create (CMSG_MSG_TYPE_ECHO_REQ,
                                              0, 0,
