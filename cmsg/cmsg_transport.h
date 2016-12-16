@@ -17,6 +17,18 @@
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 
+/* Define the size of the sun_path field in struct sockaddr_un. This structure is very
+ * old and there is no API define for the size of the sun_path array */
+#define SUN_PATH_SIZE   108
+
+/* Define a magic value for CMSG crypto traffic. This magic value plus
+ * the length of the encrypted buffer are passed as a special security header
+ * before the encrypted data */
+#define CMSG_CRYPTO_MAGIC        0xa5a50001
+
+/* Allow for encrypted data possibly requiring more buffer space than plain-text data
+ * to pad the end of the last data block */
+#define ENCRYPT_EXTRA   64
 
 //forward delarations
 typedef struct _cmsg_client_s cmsg_client;
@@ -31,6 +43,21 @@ typedef struct _cpg_server_connection_s
     int fd; //file descriptor for listening
 } cmsg_cpg_server_connection;
 #endif
+
+typedef int (*encrypt_f) (int sock, void *inbuf, int length, void *outbuf, int outbuf_size);
+typedef int (*decrypt_f) (int sock, void *inbuf, int length, void *outbuf, int outbuf_size);
+typedef void (*close_f) (int sock);
+typedef void (*accept_f) (int sock);
+typedef void (*connect_f) (void *context, int sock);
+
+typedef struct _connection_crypto_callbacks_s
+{
+    encrypt_f encrypt;
+    decrypt_f decrypt;
+    close_f close;
+    accept_f accept;
+    connect_f connect;
+} cmsg_connection_crypto_callbacks;
 
 typedef struct _generic_server_connection_s
 {
@@ -67,6 +94,9 @@ typedef struct _cmsg_socket_s
 {
     int family;
     cmsg_socket_address sockaddr;
+
+    //transport crypto callbacks
+    cmsg_connection_crypto_callbacks crypto;
 } cmsg_socket;
 
 #ifdef HAVE_VCSTACK
@@ -120,6 +150,8 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_ONEWAY_USERDEFINED,
     CMSG_TRANSPORT_BROADCAST,
     CMSG_TRANSPORT_LOOPBACK_ONEWAY,
+    CMSG_TRANSPORT_RPC_UNIX,
+    CMSG_TRANSPORT_ONEWAY_UNIX,
 } cmsg_transport_type;
 
 typedef int (*client_conect_f) (cmsg_client *client);
@@ -176,6 +208,11 @@ struct _cmsg_transport_s
 
     // sets IP_FREEBIND in socket options
     cmsg_bool_t use_ipfree_bind;
+
+    // security - this is not directly used by CMSG. It is used by
+    // applications using tcp_secure.
+    void *crypto_context;
+    cmsg_bool_t use_crypto;
 
     //transport function pointers
     client_conect_f connect;                                                // client connect function
@@ -237,6 +274,9 @@ int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_serv
 int32_t cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
                                               cmsg_server *server);
 
+int32_t cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_client *client,
+                                    ProtobufCMessage **messagePtPt);
+
 cmsg_transport *cmsg_create_transport_tipc (const char *server_name, int member_id,
                                             int scope, cmsg_transport_type transport_type);
 
@@ -263,4 +303,12 @@ void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
                                              struct tipc_event *event);
 
 void cmsg_transport_write_id (cmsg_transport *tport);
+void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
+void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
+cmsg_transport *cmsg_create_transport_unix (const char *sun_path,
+                                            cmsg_transport_type transport_type);
+cmsg_transport *cmsg_create_transport_tcp (cmsg_socket *config,
+                                           cmsg_transport_type transport_type);
+
+void cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *config);
 #endif

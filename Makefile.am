@@ -104,7 +104,8 @@ cmsg_libcmsg_la_SOURCES = \
 	cmsg/cmsg_transport_loopback.c \
 	cmsg/cmsg_transport_tcp.c \
 	cmsg/cmsg_transport_tipc.c \
-	cmsg/cmsg_transport_udt.c
+	cmsg/cmsg_transport_udt.c \
+	cmsg/cmsg_transport_unix.c
 
 cmsg_libcmsg_la_LIBADD = $(GLIB_LIBS) -lutility
 

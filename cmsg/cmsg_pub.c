@@ -813,6 +813,7 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     cmsg_pub *publisher = NULL;
     struct sockaddr_in *in = NULL;
     struct sockaddr_tipc *tipc = NULL;
+    struct sockaddr_un *un = NULL;
 
     if (server->parent.object_type == CMSG_OBJ_TYPE_PUB)
     {
@@ -821,8 +822,9 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
 
     cmsg_sub_entry_response response = CMSG_SUB_ENTRY_RESPONSE_INIT;
 
-    if ((input->transport_type != CMSG_TRANSPORT_ONEWAY_TCP) &&
-        (input->transport_type != CMSG_TRANSPORT_ONEWAY_TIPC))
+    if (input->transport_type != CMSG_TRANSPORT_ONEWAY_TCP &&
+        input->transport_type != CMSG_TRANSPORT_ONEWAY_TIPC &&
+        input->transport_type != CMSG_TRANSPORT_ONEWAY_UNIX)
     {
         CMSG_LOG_PUBLISHER_ERROR (publisher, "Subscriber transport not supported. Type:%d",
                                   input->transport_type);
@@ -861,6 +863,15 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
         tipc->addr.name.name.instance = input->tipc_addr_name_name_instance;
         tipc->addr.name.name.type = input->tipc_addr_name_name_type;
         tipc->scope = input->tipc_scope;
+    }
+    else if (input->transport_type == CMSG_TRANSPORT_ONEWAY_UNIX)
+    {
+        subscriber_entry->transport->config.socket.sockaddr.generic.sa_family = PF_UNIX;
+        subscriber_entry->transport->config.socket.family = PF_UNIX;
+
+        subscriber_entry->transport->type = (cmsg_transport_type) input->transport_type;
+        un = &subscriber_entry->transport->config.socket.sockaddr.un;
+        strncpy (un->sun_path, (char *) input->un_sun_path, sizeof (un->sun_path) - 1);
     }
 
     //we can just create the client here
