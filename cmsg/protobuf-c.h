@@ -200,10 +200,6 @@ size_t foo__bar__baz_bah__pack_to_buffer
 #include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
-#ifdef ATL_CHANGE
-#include <stdbool.h>
-#include <glib.h>
-#endif /* ATL_CHANGE */
 
 #ifdef __cplusplus
 # define PROTOBUF_C__BEGIN_DECLS	extern "C" {

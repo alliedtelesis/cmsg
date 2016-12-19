@@ -5,6 +5,8 @@
 #define __CMSG_H_
 
 #include "protobuf-c.h"
+#include <glib.h>
+#include <stdbool.h>
 
 // Return codes
 #define CMSG_RET_OK                 0

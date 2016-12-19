@@ -12,7 +12,6 @@
 #include <poll.h>
 #include <pthread.h>
 #include <time.h>
-#include <glib.h>
 #include <netdb.h>
 #include <syslog.h>
 #include <sys/select.h>

@@ -48,17 +48,13 @@
 #include <stdlib.h>	/* for malloc, free */
 #include <string.h>	/* for strcmp, strlen, memcpy, memmove, memset */
 #ifdef ATL_CHANGE
-#include "cmsg.h"
 #include "cmsg_private.h"
 #endif /* ATL_CHANGE */
 
 #include "protobuf-c.h"
 
-#ifdef ATL_CHANGE
-#else
 #define TRUE				1
 #define FALSE				0
-#endif /* ATL_CHANGE */
 
 #define PROTOBUF_C__ASSERT_NOT_REACHED() assert(0)
 
