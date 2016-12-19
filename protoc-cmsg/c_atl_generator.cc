@@ -658,7 +658,7 @@ string AtlCodeGenerator::TypeToString(FieldDescriptor::Type type)
         description = "uint32_t";
         break;
     case FieldDescriptor::TYPE_BOOL:
-        description = "cmsg_bool_t";
+        description = "protobuf_c_boolean";
         break;
     case FieldDescriptor::TYPE_STRING:
         description = "char *";

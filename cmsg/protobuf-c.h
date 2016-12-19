@@ -370,9 +370,6 @@ typedef struct ProtobufCServiceDescriptor ProtobufCServiceDescriptor;
 
 /** Boolean type. */
 typedef int protobuf_c_boolean;
-#ifdef ATL_CHANGE
-typedef protobuf_c_boolean cmsg_bool_t;
-#endif /* ATL_CHANGE */
 
 typedef void (*ProtobufCClosure)(const ProtobufCMessage *, void *closure_data);
 typedef void (*ProtobufCMessageInit)(ProtobufCMessage *);

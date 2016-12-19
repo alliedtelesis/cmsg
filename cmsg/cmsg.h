@@ -18,6 +18,8 @@
 
 #define CMSG_COUNTER_APP_NAME_PREFIX    "CMSG "
 
+typedef protobuf_c_boolean cmsg_bool_t;
+
 void cmsg_malloc_init (int mtype);
 
 /* note - use CMSG_MSG_ARRAY_ALLOC()/_FREE() instead of calling these directly */
