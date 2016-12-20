@@ -8,6 +8,18 @@
 #include "cmsg_proxy_unit_tests_api_auto.h"
 
 /**
+ * Novaprova setup function
+ */
+static int
+setup (void)
+{
+    /* Create GNode cmsg proxy entry tree */
+    proxy_entries_tree = g_node_new ("CMSG_API");
+
+    return 0;
+}
+
+/**
  * Function Tested: _cmsg_proxy_list_init()
  *
  * Tests that the proxy list is the correct length after _cmsg_proxy_list_init()
@@ -239,4 +251,29 @@ test_cmsg_proxy_convert_protobuf_to_json (void)
     NP_ASSERT_STR_EQUAL (json_str, "{\n    \"value\": true\n}");
 
     free (json_str);
+}
+
+/**
+ * Function Tested: _cmsg_proxy_add_service_info()
+ *
+ * Tests that input URL string is correctly tokenized into the tree
+ */
+void
+test_cmsg_proxy_add_service_info (void)
+{
+    _cmsg_proxy_add_service_info ("/v1/statistics/interfaces/enabled");
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 5);
+
+    _cmsg_proxy_add_service_info ("/v1/statistics/interfaces/disabled");
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 6);
+
+    _cmsg_proxy_add_service_info ("/v1/statistics/disabled");
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 7);
+
+    _cmsg_proxy_add_service_info ("/v2/statistics/interfaces/disabled");
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 11);
+
+    /* Add the same URL again. */
+    _cmsg_proxy_add_service_info ("/v2/statistics/interfaces/disabled");
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 11);
 }

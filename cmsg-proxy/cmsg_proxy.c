@@ -54,8 +54,95 @@
 #define HTTP_CODE_BAD_VERSION               505 /* The server does not support the HTTP protocol version */
 #define HTTP_CODE_INSUFFICIENT_STORAGE      507 /* The server has insufficient storage to complete the request */
 
+/* Current CMSG API version string */
+#define CMSG_API_VERSION_STR                "CMSG-API"
+
 static GList *proxy_entries_list = NULL;
 static GList *proxy_clients_list = NULL;
+static GNode *proxy_entries_tree = NULL;
+
+/**
+ * Parse the given URL string and add to proxy_entries_tree.
+ * The parser believes the received 'url' is in the correct format.
+ * eg: url_string = "/v5_4_7/statistics/interfaces/enabled"
+ *     url_string = "/v5_4_8/statistics/interfaces/enabled"
+ *     url_string = "/v5_4_8/statistics/interfaces/<name>/history"
+ *     url_string = "/v5_4_8/statistics/interfaces/<name>/current"
+ *
+ *             --------
+ *            |CMSG-API|   <====Root Node
+ *             --------
+ *            /        \
+ *           /          \
+ *       ------        ------
+ *      |v5_4_7|      |v5_4_8|  <==== First children
+ *       ------        ------
+ *         |             |
+ *         |             |
+ *     ----------      ----------
+ *    |statistics|    |statistics|
+ *     ----------      ----------
+ *         |              |
+ *         |              |
+ *     ----------      ----------
+ *    |interfaces|    |interfaces|
+ *     ----------      ----------
+ *         |              /      \
+ *         |             /        \
+ *      -------       -------    ------
+ *     |enabled|     |enabled|  |<name>| <=== Parameter "<name>" is stored in the tree
+ *      -------       -------    ------
+ *                                /   \
+ *                               /     \
+ *                              /       \
+ *                          -------     -------
+ *                         |history|   |current|
+ *                          -------     -------
+ * @param url The URL string to be tokenized and added to the tree
+ */
+static gboolean
+_cmsg_proxy_add_service_info (const char *url)
+{
+    char *tmp_url = NULL;
+    char *next_entry = NULL;
+    char *rest = NULL;
+    GNode *parent_node = g_node_get_root (proxy_entries_tree);
+    GNode *node = NULL;
+    gboolean found;
+
+    tmp_url = strdup (url);
+
+    for (next_entry = strtok_r (tmp_url, "/", &rest); next_entry;
+         next_entry = strtok_r (NULL, "/", &rest))
+    {
+        found = FALSE;
+
+        /* Check whether the node already existis in the tree. */
+        node = g_node_first_child (parent_node);
+
+        while (node)
+        {
+            if (strcmp (node->data, next_entry) == 0)
+            {
+                found = TRUE;
+                break;
+            }
+            node = g_node_next_sibling (node);
+        }
+
+        /* Add if it doesn't exist. */
+        if (found == FALSE)
+        {
+            node = g_node_append_data (parent_node, g_strdup (next_entry));
+        }
+
+        parent_node = node;
+    }
+
+    free (tmp_url);
+
+    return TRUE;
+}
 
 static void
 _cmsg_proxy_list_init (cmsg_service_info *array, int length)
@@ -64,6 +151,8 @@ _cmsg_proxy_list_init (cmsg_service_info *array, int length)
 
     for (i = 0; i < length; i++)
     {
+        _cmsg_proxy_add_service_info (array[i].url_string);
+
         proxy_entries_list = g_list_append (proxy_entries_list, (void *) &array[i]);
     }
 }
@@ -326,6 +415,9 @@ cmsg_proxy_init (void)
      * disabled. Once we find a way to initialize the proxy list at compile
      * time or similar, we can remove the code. */
     _cmsg_proxy_list_init (NULL, 0);
+
+    /* Create GNode proxy entries tree. */
+    proxy_entries_tree = g_node_new (CMSG_API_VERSION_STR);
 
 #ifdef HAVE_STATMOND
     _cmsg_proxy_list_init (statmond_proxy_array_get (), statmond_proxy_array_size ());
