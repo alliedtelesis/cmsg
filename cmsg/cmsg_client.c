@@ -1309,7 +1309,7 @@ _cmsg_create_client_tipc (const char *server, int member_id, int scope,
     if (!client)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_CLIENT_ERROR (client, "No TIPC client to member %d", member_id);
+        CMSG_LOG_GEN_ERROR ("No TIPC client to member %d", member_id);
         return NULL;
     }
     return client;
@@ -1385,7 +1385,7 @@ _cmsg_create_client_unix (const char *sun_path,
     if (!client)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_CLIENT_ERROR (client, "No UNIX IPC client on socket %s", sun_path);
+        CMSG_LOG_GEN_ERROR ("No UNIX IPC client on socket %s", sun_path);
         return NULL;
     }
     return client;
@@ -1437,7 +1437,7 @@ _cmsg_create_client_tcp (cmsg_socket *config, ProtobufCServiceDescriptor *descri
     if (!client)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_CLIENT_ERROR (client, "No TCP IPC client on %s", descriptor->name);
+        CMSG_LOG_GEN_ERROR ("No TCP IPC client on %s", descriptor->name);
         return NULL;
     }
 
