@@ -202,9 +202,9 @@ cmsg_client *cmsg_create_client_tipc_oneway (const char *server_name, int member
                                              ProtobufCServiceDescriptor *descriptor);
 
 cmsg_client *cmsg_create_client_unix (const char *sun_path,
-                                      ProtobufCServiceDescriptor *descriptor);
+                                      const ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_unix_oneway (const char *sun_path,
-                                             ProtobufCServiceDescriptor *descriptor);
+                                             const ProtobufCServiceDescriptor *descriptor);
 int32_t cmsg_client_unix_server_ready (const char *sun_path);
 
 cmsg_client *cmsg_create_client_tcp_rpc (cmsg_socket *config,

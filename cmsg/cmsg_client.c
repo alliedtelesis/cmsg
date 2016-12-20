@@ -1368,7 +1368,8 @@ cmsg_create_and_connect_client_tipc_rpc (const char *server_name, int member_id,
 
 /* Create a cmsg client and its transport over a UNIX socket */
 static cmsg_client *
-_cmsg_create_client_unix (const char *sun_path, ProtobufCServiceDescriptor *descriptor,
+_cmsg_create_client_unix (const char *sun_path,
+                          const ProtobufCServiceDescriptor *descriptor,
                           cmsg_transport_type transport_type)
 {
     cmsg_transport *transport;
@@ -1391,7 +1392,7 @@ _cmsg_create_client_unix (const char *sun_path, ProtobufCServiceDescriptor *desc
 }
 
 cmsg_client *
-cmsg_create_client_unix (const char *sun_path, ProtobufCServiceDescriptor *descriptor)
+cmsg_create_client_unix (const char *sun_path, const ProtobufCServiceDescriptor *descriptor)
 {
     CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
@@ -1401,7 +1402,7 @@ cmsg_create_client_unix (const char *sun_path, ProtobufCServiceDescriptor *descr
 
 cmsg_client *
 cmsg_create_client_unix_oneway (const char *sun_path,
-                                ProtobufCServiceDescriptor *descriptor)
+                                const ProtobufCServiceDescriptor *descriptor)
 {
     CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);

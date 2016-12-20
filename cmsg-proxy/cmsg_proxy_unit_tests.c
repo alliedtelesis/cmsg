@@ -144,30 +144,21 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
 }
 
 /**
- * Function Tested: _cmsg_proxy_server_name_get()
+ * Function Tested: _cmsg_proxy_server_socket_name_get()
  *
- * Tests that the correct server name is returned from the
+ * Tests that the correct server socket name is returned from the
  * CMSG service descriptor
  */
 void
-test_cmsg_proxy_server_name_get (void)
+test_cmsg_proxy_server_socket_name_get (void)
 {
     char *svr_name = NULL;
 
-    svr_name = _cmsg_proxy_server_name_get (&cmsg_proxy_unit_tests_interface_descriptor);
+    svr_name =
+        _cmsg_proxy_server_socket_name_get (&cmsg_proxy_unit_tests_interface_descriptor);
 
-    NP_ASSERT_STR_EQUAL (svr_name, "cmsg_proxy_unit_tests-interface");
+    NP_ASSERT_STR_EQUAL (svr_name, "/tmp/cmsg_proxy_unit_tests_interface");
     free (svr_name);
-}
-
-struct servent mock_servent_data;
-
-struct servent *
-sm_mock_getservbyname (char *unused1, char *unused2)
-{
-    mock_servent_data.s_port = 10000;
-
-    return &mock_servent_data;
 }
 
 /**
@@ -179,16 +170,14 @@ sm_mock_getservbyname (char *unused1, char *unused2)
 void
 test_cmsg_proxy_create_client (void)
 {
-    np_mock (getservbyname, sm_mock_getservbyname);
-
     _cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
 
     NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
 }
 
 struct cmsg_client *
-sm_mock_cmsg_client_new__returns_null (cmsg_transport *transport,
-                                       const ProtobufCServiceDescriptor *descriptor)
+sm_mock_cmsg_create_client_unix__returns_null (cmsg_transport *transport,
+                                               const ProtobufCServiceDescriptor *descriptor)
 {
     return NULL;
 }
@@ -196,14 +185,13 @@ sm_mock_cmsg_client_new__returns_null (cmsg_transport *transport,
 /**
  * Function Tested: _cmsg_proxy_create_client()
  *
- * Tests that no memory is leaked if the internal cmsg_client_new()
+ * Tests that no memory is leaked if the internal cmsg_create_client_unix()
  * function fails
  */
 void
 test_cmsg_proxy_create_client__memory_leaks (void)
 {
-    np_mock (getservbyname, sm_mock_getservbyname);
-    np_mock (cmsg_client_new, sm_mock_cmsg_client_new__returns_null);
+    np_mock (cmsg_create_client_unix, sm_mock_cmsg_create_client_unix__returns_null);
 
     _cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
     _cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
@@ -219,8 +207,6 @@ test_cmsg_proxy_create_client__memory_leaks (void)
 void
 test_cmsg_proxy_clients_init (void)
 {
-    np_mock (getservbyname, sm_mock_getservbyname);
-
     _cmsg_proxy_list_init (cmsg_proxy_unit_tests_proxy_array_get (),
                            cmsg_proxy_unit_tests_proxy_array_size ());
 

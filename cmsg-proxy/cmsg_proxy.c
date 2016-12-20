@@ -183,27 +183,28 @@ _cmsg_proxy_find_client_by_service (const ProtobufCServiceDescriptor *service_de
 }
 
 /**
- * Get the CMSG server name from the CMSG service descriptor in the format
- * expected by the getservbyname() function.
+ * Get the CMSG server socket name from the CMSG service descriptor.
  *
- * @param service_descriptor - CMSG service descriptor to get server name from
+ * @param service_descriptor - CMSG service descriptor to get server socket name from
  *
- * @return - String representing the server name. The memory for this string must
+ * @return - String representing the server socket name. The memory for this string must
  *           be freed by the caller.
  */
 static char *
-_cmsg_proxy_server_name_get (const ProtobufCServiceDescriptor *service_descriptor)
+_cmsg_proxy_server_socket_name_get (const ProtobufCServiceDescriptor *service_descriptor)
 {
-    char *copy_str = strdup (service_descriptor->name);
+    char *copy_str = NULL;
     char *iter;
 
-    /* Replace the '.' in the name with '-' */
+    asprintf (&copy_str, "/tmp/%s", service_descriptor->name);
+
+    /* Replace the '.' in the name with '_' */
     iter = copy_str;
     while (*iter)
     {
         if (*iter == '.')
         {
-            *iter = '-';
+            *iter = '_';
         }
         iter++;
     }
@@ -220,44 +221,19 @@ _cmsg_proxy_server_name_get (const ProtobufCServiceDescriptor *service_descripto
 static void
 _cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
 {
-    cmsg_transport *transport = NULL;
-    struct servent *service_pt = NULL;
     cmsg_client *client = NULL;
-    char *server_name = _cmsg_proxy_server_name_get (service_descriptor);
+    char *server_socket_name = _cmsg_proxy_server_socket_name_get (service_descriptor);
 
-    /* todo: INTSTAT: Once the project is rebased from mainline all internal API servers
-     *                must use unix sockets for efficiency */
-    service_pt = getservbyname (server_name, "tcp");
-    if (service_pt == NULL)
-    {
-        fprintf (stderr, "Failed to get port number for %s service", server_name);
-        free (server_name);
-        return;
-    }
-
-    transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
-    if (!transport)
-    {
-        fprintf (stderr, "Failed get server transport for %s service", server_name);
-        free (server_name);
-        return;
-    }
-
-    transport->config.socket.sockaddr.in.sin_family = AF_INET;
-    transport->config.socket.sockaddr.in.sin_port = service_pt->s_port;
-    transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
-
-    client = cmsg_client_new (transport, service_descriptor);
+    client = cmsg_create_client_unix (server_socket_name, service_descriptor);
     if (!client)
     {
-        fprintf (stderr, "Failed to create client for %s service", server_name);
-        free (transport);
-        free (server_name);
+        fprintf (stderr, "Failed to create client for unix socket %s", server_socket_name);
+        free (server_socket_name);
         return;
     }
 
     proxy_clients_list = g_list_append (proxy_clients_list, (void *) client);
-    free (server_name);
+    free (server_socket_name);
     return;
 }
 
