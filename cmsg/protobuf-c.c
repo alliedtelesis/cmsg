@@ -47,9 +47,6 @@
 
 #include <stdlib.h>	/* for malloc, free */
 #include <string.h>	/* for strcmp, strlen, memcpy, memmove, memset */
-#ifdef ATL_CHANGE
-#include "cmsg_private.h"
-#endif /* ATL_CHANGE */
 
 #include "protobuf-c.h"
 

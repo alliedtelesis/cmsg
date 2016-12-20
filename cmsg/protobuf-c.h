@@ -237,6 +237,10 @@ PROTOBUF_C__BEGIN_DECLS
 #define PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC    0x28aaeef9
 #define PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC       0x114315af
 
+#ifdef ATL_CHANGE
+#define UNDEFINED_METHOD 0xffffffff
+#endif /* ATL_CHANGE */
+
 /**
  * \defgroup api Public API
  *
