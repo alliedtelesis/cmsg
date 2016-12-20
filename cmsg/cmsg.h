@@ -27,10 +27,12 @@ void **cmsg_msg_array_alloc (size_t struct_size, uint32_t num_structs,
                              const char *file, int line);
 void cmsg_msg_array_free (void *msg_array, const char *file, int line);
 
+extern ProtobufCAllocator cmsg_memory_allocator;
+
 // macro to free messages returned back to the API
 #define CMSG_FREE_RECV_MSG(_name)                                                                      \
     do {                                                                                               \
-        protobuf_c_message_free_unpacked ((ProtobufCMessage *)(_name), NULL); \
+        protobuf_c_message_free_unpacked ((ProtobufCMessage *)(_name), &cmsg_memory_allocator);       \
         (_name) = NULL;                                                                                \
     } while (0)
 

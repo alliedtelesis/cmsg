@@ -414,6 +414,29 @@ cmsg_msg_array_free (void *msg_array, const char *file, int line)
     cmsg_free (msg_array, file, line);
 }
 
+static void *
+cmsg_memory_alloc (void *allocator_data, size_t size)
+{
+    return CMSG_MALLOC (size);
+}
+
+static void
+cmsg_memory_free (void *allocator_data, void *data)
+{
+    CMSG_FREE (data);
+}
+
+/**
+ * The memory allocator CMSG uses with the protobuf-c library.
+ * This is done so that memory usage in the protobuf-c library
+ * can be tracked.
+ */
+ProtobufCAllocator cmsg_memory_allocator = {
+    .alloc = &cmsg_memory_alloc,
+    .free = &cmsg_memory_free,
+    .allocator_data = NULL,
+};
+
 #ifdef HAVE_CMSG_PROFILING
 uint32_t
 cmsg_prof_diff_time_in_us (struct timeval start, struct timeval end)

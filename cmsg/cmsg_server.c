@@ -48,7 +48,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
 
         server->_transport = transport;
         server->service = service;
-        server->allocator = NULL;
+        server->allocator = &cmsg_memory_allocator;
         server->message_processor = cmsg_server_message_processor;
 
         server->self.object_type = CMSG_OBJ_TYPE_SERVER;

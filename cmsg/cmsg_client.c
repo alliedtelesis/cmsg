@@ -58,7 +58,7 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         if (transport)
         {
             client->base_service.destroy = NULL;
-            client->allocator = NULL;
+            client->allocator = &cmsg_memory_allocator;
             client->_transport = transport;
             cmsg_transport_write_id (transport);
         }

@@ -149,21 +149,13 @@ protobuf_c_version_number(void)
 static void *
 system_alloc(void *allocator_data, size_t size)
 {
-#ifdef ATL_CHANGE
-	return CMSG_MALLOC (size);
-#else
 	return malloc(size);
-#endif /* ATL_CHANGE */
 }
 
 static void
 system_free(void *allocator_data, void *data)
 {
-#ifdef ATL_CHANGE
-	CMSG_FREE (data);
-#else
 	free(data);
-#endif /* ATL_CHANGE */
 }
 
 static inline void *
