@@ -764,7 +764,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     cmsg_queue_filter_type action;
     cmsg_method_processing_reason processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = (ProtobufCAllocator *) server->allocator;
+    ProtobufCAllocator *allocator = server->allocator;
     cmsg_server_request *server_request = server->server_request;
     const char *method_name;
     const ProtobufCMessageDescriptor *desc;

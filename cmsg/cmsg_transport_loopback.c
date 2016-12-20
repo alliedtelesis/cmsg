@@ -201,7 +201,7 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
     uint8_t *recv_buffer = 0;
     uint8_t buf_static[512];
     ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
+    ProtobufCAllocator *allocator = client->allocator;
     const ProtobufCMessageDescriptor *desc;
     uint32_t extra_header_size;
     cmsg_server_request server_request;
