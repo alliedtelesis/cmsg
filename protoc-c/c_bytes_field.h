@@ -60,26 +60,22 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifndef GOOGLE_PROTOBUF_COMPILER_C_STRING_FIELD_H__
-#define GOOGLE_PROTOBUF_COMPILER_C_STRING_FIELD_H__
+#ifndef GOOGLE_PROTOBUF_COMPILER_C_BYTES_FIELD_H__
+#define GOOGLE_PROTOBUF_COMPILER_C_BYTES_FIELD_H__
 
 #include <map>
 #include <string>
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_field.h>
-#else
 #include <protoc-c/c_field.h>
-#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {
 namespace compiler {
 namespace c {
 
-class StringFieldGenerator : public FieldGenerator {
+class BytesFieldGenerator : public FieldGenerator {
  public:
-  explicit StringFieldGenerator(const FieldDescriptor* descriptor);
-  ~StringFieldGenerator();
+  explicit BytesFieldGenerator(const FieldDescriptor* descriptor);
+  ~BytesFieldGenerator();
 
   // implements FieldGenerator ---------------------------------------
   void GenerateStructMembers(io::Printer* printer) const;
@@ -92,13 +88,13 @@ class StringFieldGenerator : public FieldGenerator {
  private:
   map<string, string> variables_;
 
-  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(StringFieldGenerator);
+  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(BytesFieldGenerator);
 };
 
 
 }  // namespace c
 }  // namespace compiler
 }  // namespace protobuf
-
 }  // namespace google
+
 #endif  // GOOGLE_PROTOBUF_COMPILER_C_STRING_FIELD_H__

@@ -60,37 +60,35 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifndef GOOGLE_PROTOBUF_COMPILER_C_ENUM_FIELD_H__
-#define GOOGLE_PROTOBUF_COMPILER_C_ENUM_FIELD_H__
+#ifndef GOOGLE_PROTOBUF_COMPILER_C_STRING_FIELD_H__
+#define GOOGLE_PROTOBUF_COMPILER_C_STRING_FIELD_H__
 
 #include <map>
 #include <string>
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_field.h>
-#else
 #include <protoc-c/c_field.h>
-#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {
 namespace compiler {
 namespace c {
 
-class EnumFieldGenerator : public FieldGenerator {
+class StringFieldGenerator : public FieldGenerator {
  public:
-  explicit EnumFieldGenerator(const FieldDescriptor* descriptor);
-  ~EnumFieldGenerator();
+  explicit StringFieldGenerator(const FieldDescriptor* descriptor);
+  ~StringFieldGenerator();
 
   // implements FieldGenerator ---------------------------------------
   void GenerateStructMembers(io::Printer* printer) const;
   void GenerateDescriptorInitializer(io::Printer* printer) const;
+  void GenerateDefaultValueDeclarations(io::Printer* printer) const;
+  void GenerateDefaultValueImplementations(io::Printer* printer) const;
   string GetDefaultValue(void) const;
   void GenerateStaticInit(io::Printer* printer) const;
 
  private:
   map<string, string> variables_;
 
-  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(EnumFieldGenerator);
+  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(StringFieldGenerator);
 };
 
 
@@ -99,4 +97,4 @@ class EnumFieldGenerator : public FieldGenerator {
 }  // namespace protobuf
 
 }  // namespace google
-#endif  // GOOGLE_PROTOBUF_COMPILER_C_ENUM_FIELD_H__
+#endif  // GOOGLE_PROTOBUF_COMPILER_C_STRING_FIELD_H__

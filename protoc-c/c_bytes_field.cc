@@ -60,13 +60,8 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_bytes_field.h>
-#include <protoc-cmsg/c_helpers.h>
-#else
 #include <protoc-c/c_bytes_field.h>
 #include <protoc-c/c_helpers.h>
-#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/wire_format.h>
 #include <google/protobuf/descriptor.pb.h>

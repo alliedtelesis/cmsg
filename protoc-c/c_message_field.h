@@ -60,36 +60,38 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_extension.h>
-#include <protoc-cmsg/c_helpers.h>
-#else
-#include <protoc-c/c_extension.h>
-#include <protoc-c/c_helpers.h>
-#endif /* ATL_CHANGE */
-#include <google/protobuf/io/printer.h>
+#ifndef GOOGLE_PROTOBUF_COMPILER_C_MESSAGE_FIELD_H__
+#define GOOGLE_PROTOBUF_COMPILER_C_MESSAGE_FIELD_H__
+
+#include <map>
+#include <string>
+#include <protoc-c/c_field.h>
 
 namespace google {
 namespace protobuf {
 namespace compiler {
 namespace c {
 
-ExtensionGenerator::ExtensionGenerator(const FieldDescriptor* descriptor,
-                                       const string& dllexport_decl)
-  : descriptor_(descriptor),
-    dllexport_decl_(dllexport_decl) {
-}
+class MessageFieldGenerator : public FieldGenerator {
+ public:
+  explicit MessageFieldGenerator(const FieldDescriptor* descriptor);
+  ~MessageFieldGenerator();
 
-ExtensionGenerator::~ExtensionGenerator() {}
+  // implements FieldGenerator ---------------------------------------
+  void GenerateStructMembers(io::Printer* printer) const;
+  void GenerateDescriptorInitializer(io::Printer* printer) const;
+  string GetDefaultValue(void) const;
+  void GenerateStaticInit(io::Printer* printer) const;
 
-void ExtensionGenerator::GenerateDeclaration(io::Printer* printer) {
-}
+ private:
 
-void ExtensionGenerator::GenerateDefinition(io::Printer* printer) {
-}
+  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MessageFieldGenerator);
+};
+
 
 }  // namespace c
 }  // namespace compiler
 }  // namespace protobuf
 
 }  // namespace google
+#endif  // GOOGLE_PROTOBUF_COMPILER_C_MESSAGE_FIELD_H__

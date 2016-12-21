@@ -60,79 +60,77 @@
 
 // Modified to implement C code by Dave Benson.
 
+#ifndef GOOGLE_PROTOBUF_COMPILER_C_FILE_H__
+#define GOOGLE_PROTOBUF_COMPILER_C_FILE_H__
+
+#include <string>
+#include <vector>
 #ifdef ATL_CHANGE
-#include <protoc-cmsg/c_message_field.h>
-#include <protoc-cmsg/c_helpers.h>
-#else
-#include <protoc-c/c_message_field.h>
-#include <protoc-c/c_helpers.h>
+#include <fstream>
 #endif /* ATL_CHANGE */
-#include <google/protobuf/io/printer.h>
-#include <google/protobuf/wire_format.h>
+#include <google/protobuf/stubs/common.h>
+#include <protoc-c/c_field.h>
 
 namespace google {
+namespace protobuf {
+  class FileDescriptor;        // descriptor.h
+  namespace io {
+    class Printer;             // printer.h
+  }
+}
+
 namespace protobuf {
 namespace compiler {
 namespace c {
 
-using internal::WireFormat;
-
-// ===================================================================
-
-MessageFieldGenerator::
-MessageFieldGenerator(const FieldDescriptor* descriptor)
-  : FieldGenerator(descriptor) {
-}
-
-MessageFieldGenerator::~MessageFieldGenerator() {}
-
-void MessageFieldGenerator::GenerateStructMembers(io::Printer* printer) const
-{
-  map<string, string> vars;
-  vars["name"] = FieldName(descriptor_);
-  vars["type"] = FullNameToC(descriptor_->message_type()->full_name());
-  vars["deprecated"] = FieldDeprecated(descriptor_);
-  switch (descriptor_->label()) {
-    case FieldDescriptor::LABEL_REQUIRED:
-    case FieldDescriptor::LABEL_OPTIONAL:
-      printer->Print(vars, "$type$ *$name$$deprecated$;\n");
-      break;
-    case FieldDescriptor::LABEL_REPEATED:
-      printer->Print(vars, "size_t n_$name$$deprecated$;\n");
-      printer->Print(vars, "$type$ **$name$$deprecated$;\n");
-      break;
-  }
-}
-string MessageFieldGenerator::GetDefaultValue(void) const
-{
-  /* XXX: update when protobuf gets support
-   *   for default-values of message fields.
-   */
-  return "NULL";
-}
-void MessageFieldGenerator::GenerateStaticInit(io::Printer* printer) const
-{
-  switch (descriptor_->label()) {
-    case FieldDescriptor::LABEL_REQUIRED:
-    case FieldDescriptor::LABEL_OPTIONAL:
-      printer->Print("NULL");
-      break;
-    case FieldDescriptor::LABEL_REPEATED:
-      printer->Print("0,NULL");
-      break;
-  }
-}
-void MessageFieldGenerator::GenerateDescriptorInitializer(io::Printer* printer) const
-{
+class EnumGenerator;           // enum.h
+class MessageGenerator;        // message.h
+class ServiceGenerator;        // service.h
 #ifdef ATL_CHANGE
-  string addr = "&" + FullNameToLower(descriptor_->message_type()->full_name()) + "_descriptor";
-#else
-  string addr = "&" + FullNameToLower(descriptor_->message_type()->full_name()) + "__descriptor";
+class AtlCodeGenerator;        // atl_generator.h
 #endif /* ATL_CHANGE */
-  GenerateDescriptorInitializerGeneric(printer, false, "MESSAGE", addr);
-}
+class ExtensionGenerator;      // extension.h
+
+class FileGenerator {
+ public:
+  // See generator.cc for the meaning of dllexport_decl.
+  explicit FileGenerator(const FileDescriptor* file,
+                         const string& dllexport_decl);
+  ~FileGenerator();
+
+  void GenerateHeader(io::Printer* printer);
+  void GenerateSource(io::Printer* printer);
+#ifdef ATL_CHANGE
+  void GenerateAtlTypesHeader(io::Printer* printer);
+  void GenerateAtlApiHeader(io::Printer* printer);
+  void GenerateAtlApiSource(io::Printer* printer);
+  void GenerateAtlImplHeader(io::Printer* printer);
+  void GenerateAtlImplSource(io::Printer* printer);
+  void GenerateAtlImplStubs(io::Printer* printer);
+  void GenerateAtlHttpProxySource(io::Printer* printer);
+  void GenerateAtlHttpProxyHeader(io::Printer* printer);
+#endif /* ATL_CHANGE */
+
+ private:
+  const FileDescriptor* file_;
+
+  scoped_array<scoped_ptr<MessageGenerator> > message_generators_;
+  scoped_array<scoped_ptr<EnumGenerator> > enum_generators_;
+  scoped_array<scoped_ptr<ServiceGenerator> > service_generators_;
+#ifdef ATL_CHANGE
+  scoped_array<scoped_ptr<AtlCodeGenerator> > atl_code_generators_;
+#endif /* ATL_CHANGE */
+  scoped_array<scoped_ptr<ExtensionGenerator> > extension_generators_;
+
+  // E.g. if the package is foo.bar, package_parts_ is {"foo", "bar"}.
+  vector<string> package_parts_;
+
+  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(FileGenerator);
+};
 
 }  // namespace c
 }  // namespace compiler
 }  // namespace protobuf
+
 }  // namespace google
+#endif  // GOOGLE_PROTOBUF_COMPILER_C_FILE_H__

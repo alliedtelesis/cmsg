@@ -60,15 +60,6 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_field.h>
-#include <protoc-cmsg/c_primitive_field.h>
-#include <protoc-cmsg/c_string_field.h>
-#include <protoc-cmsg/c_bytes_field.h>
-#include <protoc-cmsg/c_enum_field.h>
-#include <protoc-cmsg/c_message_field.h>
-#include <protoc-cmsg/c_helpers.h>
-#else
 #include <protoc-c/c_field.h>
 #include <protoc-c/c_primitive_field.h>
 #include <protoc-c/c_string_field.h>
@@ -76,7 +67,6 @@
 #include <protoc-c/c_enum_field.h>
 #include <protoc-c/c_message_field.h>
 #include <protoc-c/c_helpers.h>
-#endif /* ATL_CHANGE */
 #include <google/protobuf/descriptor.pb.h>
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/io/printer.h>

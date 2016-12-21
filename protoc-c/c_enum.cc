@@ -63,13 +63,8 @@
 #include <set>
 #include <map>
 
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_enum.h>
-#include <protoc-cmsg/c_helpers.h>
-#else
 #include <protoc-c/c_enum.h>
 #include <protoc-c/c_helpers.h>
-#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 
 namespace google {

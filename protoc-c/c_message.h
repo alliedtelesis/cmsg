@@ -60,99 +60,86 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_string_field.h>
-#include <protoc-cmsg/c_helpers.h>
-#else
-#include <protoc-c/c_string_field.h>
-#include <protoc-c/c_helpers.h>
-#endif /* ATL_CHANGE */
-#include <google/protobuf/io/printer.h>
-#include <google/protobuf/wire_format.h>
-#include <google/protobuf/descriptor.pb.h>
+#ifndef GOOGLE_PROTOBUF_COMPILER_C_MESSAGE_H__
+#define GOOGLE_PROTOBUF_COMPILER_C_MESSAGE_H__
+
+#include <string>
+#include <google/protobuf/stubs/common.h>
+#include <protoc-c/c_field.h>
 
 namespace google {
+namespace protobuf {
+  namespace io {
+    class Printer;             // printer.h
+  }
+}
+
 namespace protobuf {
 namespace compiler {
 namespace c {
 
-using internal::WireFormat;
+class EnumGenerator;           // enum.h
+class ExtensionGenerator;      // extension.h
 
-void SetStringVariables(const FieldDescriptor* descriptor,
-                        map<string, string>* variables) {
-  (*variables)["name"] = FieldName(descriptor);
-  (*variables)["default"] = FullNameToLower(descriptor->full_name())
+class MessageGenerator {
+ public:
+  // See generator.cc for the meaning of dllexport_decl.
+  explicit MessageGenerator(const Descriptor* descriptor,
+                            const string& dllexport_decl);
+  ~MessageGenerator();
+
+  // Header stuff.
+
+  // Generate typedef.
+  void GenerateStructTypedef(io::Printer* printer);
+
+  // Generate descriptor prototype
+  void GenerateDescriptorDeclarations(io::Printer* printer);
+
+  // Generate descriptor prototype
+  void GenerateClosureTypedef(io::Printer* printer);
+
+  // Generate definitions of all nested enums (must come before class
+  // definitions because those classes use the enums definitions).
+  void GenerateEnumDefinitions(io::Printer* printer);
+
+  // Generate definitions for this class and all its nested types.
+  void GenerateStructDefinition(io::Printer* printer);
+
 #ifdef ATL_CHANGE
-	+ "_default_value";
+  // Generate _INIT macro for populating this structure
 #else
-	+ "__default_value";
+  // Generate __INIT macro for populating this structure
 #endif /* ATL_CHANGE */
-  (*variables)["deprecated"] = FieldDeprecated(descriptor);
-}
+  void GenerateStructStaticInitMacro(io::Printer* printer);
 
-// ===================================================================
+  // Generate standard helper functions declarations for this message.
+  void GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage);
 
-StringFieldGenerator::
-StringFieldGenerator(const FieldDescriptor* descriptor)
-  : FieldGenerator(descriptor) {
-  SetStringVariables(descriptor, &variables_);
-}
+  // Source file stuff.
 
-StringFieldGenerator::~StringFieldGenerator() {}
+  // Generate code that initializes the global variable storing the message's
+  // descriptor.
+  void GenerateMessageDescriptor(io::Printer* printer);
+  void GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage);
 
-void StringFieldGenerator::GenerateStructMembers(io::Printer* printer) const
-{
-  switch (descriptor_->label()) {
-    case FieldDescriptor::LABEL_REQUIRED:
-    case FieldDescriptor::LABEL_OPTIONAL:
-      printer->Print(variables_, "char *$name$$deprecated$;\n");
-      break;
-    case FieldDescriptor::LABEL_REPEATED:
-      printer->Print(variables_, "size_t n_$name$$deprecated$;\n");
-      printer->Print(variables_, "char **$name$$deprecated$;\n");
-      break;
-  }
-}
-void StringFieldGenerator::GenerateDefaultValueDeclarations(io::Printer* printer) const
-{
-  printer->Print(variables_, "extern char $default$[];\n");
-}
-void StringFieldGenerator::GenerateDefaultValueImplementations(io::Printer* printer) const
-{
-  std::map<string, string> vars;
-  vars["default"] = variables_.find("default")->second;
-  vars["escaped"] = CEscape(descriptor_->default_value_string());
-  printer->Print(vars, "char $default$[] = \"$escaped$\";\n");
-}
+ private:
 
-string StringFieldGenerator::GetDefaultValue(void) const
-{
-  return variables_.find("default")->second;
-}
-void StringFieldGenerator::GenerateStaticInit(io::Printer* printer) const
-{
-  std::map<string, string> vars;
-  if (descriptor_->has_default_value()) {
-    vars["default"] = GetDefaultValue();
-  } else {
-    vars["default"] = "NULL";
-  }
-  switch (descriptor_->label()) {
-    case FieldDescriptor::LABEL_REQUIRED:
-    case FieldDescriptor::LABEL_OPTIONAL:
-      printer->Print(vars, "$default$");
-      break;
-    case FieldDescriptor::LABEL_REPEATED:
-      printer->Print(vars, "0,NULL");
-      break;
-  }
-}
-void StringFieldGenerator::GenerateDescriptorInitializer(io::Printer* printer) const
-{
-  GenerateDescriptorInitializerGeneric(printer, false, "STRING", "NULL");
-}
+  string GetDefaultValueC(const FieldDescriptor *fd);
+
+  const Descriptor* descriptor_;
+  string dllexport_decl_;
+  FieldGeneratorMap field_generators_;
+  scoped_array<scoped_ptr<MessageGenerator> > nested_generators_;
+  scoped_array<scoped_ptr<EnumGenerator> > enum_generators_;
+  scoped_array<scoped_ptr<ExtensionGenerator> > extension_generators_;
+
+  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MessageGenerator);
+};
 
 }  // namespace c
 }  // namespace compiler
 }  // namespace protobuf
+
 }  // namespace google
+#endif  // GOOGLE_PROTOBUF_COMPILER_C_MESSAGE_H__

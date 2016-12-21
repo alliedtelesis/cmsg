@@ -60,45 +60,31 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifndef GOOGLE_PROTOBUF_COMPILER_C_BYTES_FIELD_H__
-#define GOOGLE_PROTOBUF_COMPILER_C_BYTES_FIELD_H__
-
-#include <map>
-#include <string>
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_field.h>
-#else
-#include <protoc-c/c_field.h>
-#endif /* ATL_CHANGE */
+#include <protoc-c/c_extension.h>
+#include <protoc-c/c_helpers.h>
+#include <google/protobuf/io/printer.h>
 
 namespace google {
 namespace protobuf {
 namespace compiler {
 namespace c {
 
-class BytesFieldGenerator : public FieldGenerator {
- public:
-  explicit BytesFieldGenerator(const FieldDescriptor* descriptor);
-  ~BytesFieldGenerator();
+ExtensionGenerator::ExtensionGenerator(const FieldDescriptor* descriptor,
+                                       const string& dllexport_decl)
+  : descriptor_(descriptor),
+    dllexport_decl_(dllexport_decl) {
+}
 
-  // implements FieldGenerator ---------------------------------------
-  void GenerateStructMembers(io::Printer* printer) const;
-  void GenerateDescriptorInitializer(io::Printer* printer) const;
-  void GenerateDefaultValueDeclarations(io::Printer* printer) const;
-  void GenerateDefaultValueImplementations(io::Printer* printer) const;
-  string GetDefaultValue(void) const;
-  void GenerateStaticInit(io::Printer* printer) const;
+ExtensionGenerator::~ExtensionGenerator() {}
 
- private:
-  map<string, string> variables_;
+void ExtensionGenerator::GenerateDeclaration(io::Printer* printer) {
+}
 
-  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(BytesFieldGenerator);
-};
-
+void ExtensionGenerator::GenerateDefinition(io::Printer* printer) {
+}
 
 }  // namespace c
 }  // namespace compiler
 }  // namespace protobuf
-}  // namespace google
 
-#endif  // GOOGLE_PROTOBUF_COMPILER_C_STRING_FIELD_H__
+}  // namespace google

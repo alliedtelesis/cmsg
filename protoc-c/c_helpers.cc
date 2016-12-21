@@ -65,11 +65,7 @@
 #include <stdio.h>		// for snprintf
 #include <float.h>
 
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_helpers.h>
-#else
 #include <protoc-c/c_helpers.h>
-#endif /* ATL_CHANGE */
 #include <google/protobuf/stubs/common.h>
 
 namespace google {

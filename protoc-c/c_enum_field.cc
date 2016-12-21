@@ -60,90 +60,100 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifndef GOOGLE_PROTOBUF_COMPILER_C_MESSAGE_H__
-#define GOOGLE_PROTOBUF_COMPILER_C_MESSAGE_H__
-
-#include <string>
-#include <google/protobuf/stubs/common.h>
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_field.h>
-#else
-#include <protoc-c/c_field.h>
-#endif /* ATL_CHANGE */
+#include <protoc-c/c_enum_field.h>
+#include <protoc-c/c_helpers.h>
+#include <google/protobuf/io/printer.h>
+#include <google/protobuf/wire_format.h>
 
 namespace google {
-namespace protobuf {
-  namespace io {
-    class Printer;             // printer.h
-  }
-}
-
 namespace protobuf {
 namespace compiler {
 namespace c {
 
-class EnumGenerator;           // enum.h
-class ExtensionGenerator;      // extension.h
+using internal::WireFormat;
 
-class MessageGenerator {
- public:
-  // See generator.cc for the meaning of dllexport_decl.
-  explicit MessageGenerator(const Descriptor* descriptor,
-                            const string& dllexport_decl);
-  ~MessageGenerator();
+// TODO(kenton):  Factor out a "SetCommonFieldVariables()" to get rid of
+//   repeat code between this and the other field types.
+void SetEnumVariables(const FieldDescriptor* descriptor,
+                      map<string, string>* variables) {
 
-  // Header stuff.
-
-  // Generate typedef.
-  void GenerateStructTypedef(io::Printer* printer);
-
-  // Generate descriptor prototype
-  void GenerateDescriptorDeclarations(io::Printer* printer);
-
-  // Generate descriptor prototype
-  void GenerateClosureTypedef(io::Printer* printer);
-
-  // Generate definitions of all nested enums (must come before class
-  // definitions because those classes use the enums definitions).
-  void GenerateEnumDefinitions(io::Printer* printer);
-
-  // Generate definitions for this class and all its nested types.
-  void GenerateStructDefinition(io::Printer* printer);
-
+  (*variables)["name"] = FieldName(descriptor);
+  (*variables)["type"] = FullNameToC(descriptor->enum_type()->full_name());
+  if (descriptor->has_default_value()) {
+    const EnumValueDescriptor* default_value = descriptor->default_value_enum();
 #ifdef ATL_CHANGE
-  // Generate _INIT macro for populating this structure
+    (*variables)["default"] = FullNameToUpper(descriptor->file()->package()) + "_" +
+                                              ToUpper(default_value->name());
 #else
-  // Generate __INIT macro for populating this structure
+    (*variables)["default"] = FullNameToUpper(default_value->type()->full_name())
+			    + "__" + default_value->name();
 #endif /* ATL_CHANGE */
-  void GenerateStructStaticInitMacro(io::Printer* printer);
+  } else
+    (*variables)["default"] = "0";
+  (*variables)["deprecated"] = FieldDeprecated(descriptor);
+}
 
-  // Generate standard helper functions declarations for this message.
-  void GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage);
+// ===================================================================
 
-  // Source file stuff.
+EnumFieldGenerator::
+EnumFieldGenerator(const FieldDescriptor* descriptor)
+  : FieldGenerator(descriptor)
+{
+  SetEnumVariables(descriptor, &variables_);
+}
 
-  // Generate code that initializes the global variable storing the message's
-  // descriptor.
-  void GenerateMessageDescriptor(io::Printer* printer);
-  void GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage);
+EnumFieldGenerator::~EnumFieldGenerator() {}
 
- private:
+void EnumFieldGenerator::GenerateStructMembers(io::Printer* printer) const
+{
+  switch (descriptor_->label()) {
+    case FieldDescriptor::LABEL_REQUIRED:
+      printer->Print(variables_, "$type$ $name$$deprecated$;\n");
+      break;
+    case FieldDescriptor::LABEL_OPTIONAL:
+      if (descriptor_->containing_oneof() == NULL)
+        printer->Print(variables_, "protobuf_c_boolean has_$name$$deprecated$;\n");
+      printer->Print(variables_, "$type$ $name$$deprecated$;\n");
+      break;
+    case FieldDescriptor::LABEL_REPEATED:
+      printer->Print(variables_, "size_t n_$name$$deprecated$;\n");
+      printer->Print(variables_, "$type$ *$name$$deprecated$;\n");
+      break;
+  }
+}
 
-  string GetDefaultValueC(const FieldDescriptor *fd);
+string EnumFieldGenerator::GetDefaultValue(void) const
+{
+  return variables_.find("default")->second;
+}
+void EnumFieldGenerator::GenerateStaticInit(io::Printer* printer) const
+{
+  switch (descriptor_->label()) {
+    case FieldDescriptor::LABEL_REQUIRED:
+      printer->Print(variables_, "$default$");
+      break;
+    case FieldDescriptor::LABEL_OPTIONAL:
+      printer->Print(variables_, "0,$default$");
+      break;
+    case FieldDescriptor::LABEL_REPEATED:
+      // no support for default?
+      printer->Print("0,NULL");
+      break;
+  }
+}
 
-  const Descriptor* descriptor_;
-  string dllexport_decl_;
-  FieldGeneratorMap field_generators_;
-  scoped_array<scoped_ptr<MessageGenerator> > nested_generators_;
-  scoped_array<scoped_ptr<EnumGenerator> > enum_generators_;
-  scoped_array<scoped_ptr<ExtensionGenerator> > extension_generators_;
+void EnumFieldGenerator::GenerateDescriptorInitializer(io::Printer* printer) const
+{
+#ifdef ATL_CHANGE
+  string addr = "&" + FullNameToLower(descriptor_->enum_type()->full_name()) + "_descriptor";
+#else
+  string addr = "&" + FullNameToLower(descriptor_->enum_type()->full_name()) + "__descriptor";
+#endif /* ATL_CHANGE */
+  GenerateDescriptorInitializerGeneric(printer, true, "ENUM", addr);
+}
 
-  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MessageGenerator);
-};
 
 }  // namespace c
 }  // namespace compiler
 }  // namespace protobuf
-
 }  // namespace google
-#endif  // GOOGLE_PROTOBUF_COMPILER_C_MESSAGE_H__

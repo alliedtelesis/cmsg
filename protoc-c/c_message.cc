@@ -62,17 +62,10 @@
 
 #include <algorithm>
 #include <map>
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_message.h>
-#include <protoc-cmsg/c_enum.h>
-#include <protoc-cmsg/c_extension.h>
-#include <protoc-cmsg/c_helpers.h>
-#else
 #include <protoc-c/c_message.h>
 #include <protoc-c/c_enum.h>
 #include <protoc-c/c_extension.h>
 #include <protoc-c/c_helpers.h>
-#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/wire_format.h>

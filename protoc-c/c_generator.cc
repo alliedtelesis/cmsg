@@ -60,22 +60,13 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_generator.h>
-#else
 #include <protoc-c/c_generator.h>
-#endif /* ATL_CHANGE */
 
 #include <vector>
 #include <utility>
 
-#ifdef ATL_CHANGE
-#include <protoc-cmsg/c_file.h>
-#include <protoc-cmsg/c_helpers.h>
-#else
 #include <protoc-c/c_file.h>
 #include <protoc-c/c_helpers.h>
-#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/io/zero_copy_stream.h>
 #include <google/protobuf/descriptor.pb.h>

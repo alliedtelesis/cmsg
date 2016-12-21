@@ -62,21 +62,14 @@
 // Modified to implement C code by Dave Benson.
 
 #ifdef ATL_CHANGE
-#include <protoc-cmsg/c_file.h>
-#include <protoc-cmsg/c_enum.h>
-#include <protoc-cmsg/c_service.h>
-#include <protoc-cmsg/c_atl_generator.h>
-#include <protoc-cmsg/c_extension.h>
-#include <protoc-cmsg/c_helpers.h>
-#include <protoc-cmsg/c_message.h>
-#else
+#include <protoc-c/c_atl_generator.h>
+#endif /* ATL_CHANGE */
 #include <protoc-c/c_file.h>
 #include <protoc-c/c_enum.h>
 #include <protoc-c/c_service.h>
 #include <protoc-c/c_extension.h>
 #include <protoc-c/c_helpers.h>
 #include <protoc-c/c_message.h>
-#endif /* ATL_CHANGE */
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/descriptor.pb.h>
 
