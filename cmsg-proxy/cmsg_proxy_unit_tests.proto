@@ -34,4 +34,10 @@ service interface
             body: "*"
         };
     }
+    rpc test1_get (dummy) returns (cmsg_bool) {
+        option http = {
+            get: "/v1/test/test1",
+            body: "*"
+        };
+    }
 }

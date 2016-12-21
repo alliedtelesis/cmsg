@@ -247,19 +247,19 @@ test_cmsg_proxy_convert_protobuf_to_json (void)
 void
 test_cmsg_proxy_add_service_info (void)
 {
-    _cmsg_proxy_add_service_info ("/v1/statistics/interfaces/enabled");
+    cmsg_service_info *array = cmsg_proxy_unit_tests_proxy_array_get ();
+
+    _cmsg_proxy_add_service_info (&array[2]);
     NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 5);
 
-    _cmsg_proxy_add_service_info ("/v1/statistics/interfaces/disabled");
+    _cmsg_proxy_add_service_info (&array[0]);
     NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 6);
 
-    _cmsg_proxy_add_service_info ("/v1/statistics/disabled");
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 7);
+    /* Add the same service info again. */
+    _cmsg_proxy_add_service_info (&array[0]);
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 6);
 
-    _cmsg_proxy_add_service_info ("/v2/statistics/interfaces/disabled");
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 11);
-
-    /* Add the same URL again. */
-    _cmsg_proxy_add_service_info ("/v2/statistics/interfaces/disabled");
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 11);
+    /* Add the different service info with same URL. */
+    _cmsg_proxy_add_service_info (&array[1]);
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 6);
 }

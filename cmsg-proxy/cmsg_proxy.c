@@ -62,12 +62,135 @@ static GList *proxy_clients_list = NULL;
 static GNode *proxy_entries_tree = NULL;
 
 /**
+ * Fill CMSG service info details to the proxy tree
+ *
+ * @param leaf_node    Add the CMSG service info to this leaf node
+ * @param service_info CMSG service info to be added
+ */
+static void
+_cmsg_proxy_fill_info (GNode *leaf_node, cmsg_service_info *service_info)
+{
+    cmsg_proxy_api_info *api_info = leaf_node->data;
+
+    switch (service_info->http_verb)
+    {
+    case CMSG_HTTP_GET:
+        api_info->cmsg_http_get = service_info;
+        break;
+    case CMSG_HTTP_PUT:
+        api_info->cmsg_http_put = service_info;
+        break;
+    case CMSG_HTTP_POST:
+        api_info->cmsg_http_post = service_info;
+        break;
+    case CMSG_HTTP_DELETE:
+        api_info->cmsg_http_delete = service_info;
+        break;
+    case CMSG_HTTP_PATCH:
+        api_info->cmsg_http_patch = service_info;
+        break;
+    }
+}
+
+/**
+ * Get CMSG proxy API info node from the last node of a URL. If the API
+ * info node doesn't exist create one otherwise return the existing
+ * one. If the last node corresponding to a URL is the leaf node, then
+ * we need to create one. If the last node is not a leaf node, check
+ * its first child. If the first child is not a leaf node, create
+ * cmsg_api_info_node. cmsg_api_info_node is always inserted as the
+ * first child.
+ * eg: url_string1 = "/v1/A/B/C"
+ *     url_string2 = "/v1/A/B/C/D"
+ *     url_string3 = "/v1/A/B"
+ *     url_string4 = "/v1/A/B/C/E"
+ *     url_string5 = "/v1/A/B/C/F"
+ *     url_string6 = "/v1/A/B/C/G"
+ *     url_string7 = "/v1/A/B/C/G/H"
+ *
+ *           --------
+ *          |CMSG-API|   <====Root Node
+ *           --------
+ *              |
+ *              |
+ *            ------
+ *           |  v1  | <=== Level 1
+ *            ------
+ *              |
+ *              |
+ *            -----
+ *           |  A  |  <=== Level 2
+ *            -----
+ *              |
+ *              |
+ *            -----
+ *           |  B  |  <=== Level 3
+ *            -----
+ *           /    \
+ *          /      \
+ *     --------   -----
+ *    |API INFO| |  C  |--------------------------------------- <=== Level 3
+ *     --------   -----               |            |          |
+ *               /     \              |            |          |
+ *              /       \             |            |          |
+ *         --------     -----        -----       -----      -----
+ *        |API INFO|   |  D  |      |  E  |     |  F  |    |  G  |------ <=== Level 4
+ *         --------     -----        -----       -----      -----       |
+ *                        |            |           |          |         |
+ *                     --------     --------    --------   --------   -----
+ *                    |API INFO|   |API INFO|  |API INFO| |API INFO| |  H  | <=== Level 5
+ *                     --------     --------    --------   --------   -----
+ *                                                                      |
+ *                                                                   --------
+ *                                                                  |API INFO|
+ *                                                                   --------
+ *
+ *  Important Note: API INFO is added as the first child for a URL.
+ *
+ *  @param last_node Last GNode corresponding to a URL
+ *  @return  Newly created cmsg_api_info_node or the existing one if found.
+ */
+static GNode *
+_cmsg_proxy_get_api_info_node (GNode *last_node)
+{
+    GNode *first_child = NULL;
+    GNode *cmsg_api_info_node = NULL;
+    cmsg_proxy_api_info *cmsg_proxy_api_ptr;
+
+    /* Insert cmsg_api_info_node as the first child of the last_node. */
+    if (G_NODE_IS_LEAF (last_node))
+    {
+        cmsg_proxy_api_ptr = calloc (1, sizeof (*cmsg_proxy_api_ptr));
+        cmsg_api_info_node = g_node_insert_data (last_node, 0, cmsg_proxy_api_ptr);
+    }
+    else
+    {
+        first_child = g_node_first_child (last_node);
+        /* Check whether the first child is API info node. Otherwise create one and
+         * insert as the first child.*/
+        if (G_NODE_IS_LEAF (first_child))
+        {
+            cmsg_api_info_node = first_child;
+        }
+        else
+        {
+            cmsg_proxy_api_ptr = calloc (1, sizeof (*cmsg_proxy_api_ptr));
+            cmsg_api_info_node = g_node_insert_data (last_node, 0, cmsg_proxy_api_ptr);
+        }
+    }
+
+    return cmsg_api_info_node;
+}
+
+/**
  * Parse the given URL string and add to proxy_entries_tree.
+ * Add 'cmsg_service_info' to the leaf node.
  * The parser believes the received 'url' is in the correct format.
  * eg: url_string = "/v5_4_7/statistics/interfaces/enabled"
  *     url_string = "/v5_4_8/statistics/interfaces/enabled"
  *     url_string = "/v5_4_8/statistics/interfaces/<name>/history"
  *     url_string = "/v5_4_8/statistics/interfaces/<name>/current"
+ *     url_string = "/v5_4_8/statistics/interfaces"
  *
  *             --------
  *            |CMSG-API|   <====Root Node
@@ -85,44 +208,55 @@ static GNode *proxy_entries_tree = NULL;
  *         |              |
  *         |              |
  *     ----------      ----------
- *    |interfaces|    |interfaces|
- *     ----------      ----------
- *         |              /      \
- *         |             /        \
- *      -------       -------    ------
- *     |enabled|     |enabled|  |<name>| <=== Parameter "<name>" is stored in the tree
- *      -------       -------    ------
- *                                /   \
- *                               /     \
- *                              /       \
- *                          -------     -------
- *                         |history|   |current|
- *                          -------     -------
- * @param url The URL string to be tokenized and added to the tree
+ *    |interfaces|    |interfaces|----------
+ *     ----------      ----------           |
+ *      |               /      \            |
+ *      |              /        \           |
+ *   -------        --------    ------     ------
+ *  |enabled|      |API INFO|  |enabled|  |<name>| <=== Parameter "<name>" is stored in the tree
+ *   -------        --------    ------     ------
+ *       |                       |         /   \
+ *       |                       |        /     \
+ *   --------                ---------   /       \
+ *  |API INFO|              |API INFO | |         |
+ *   --------                ---------  |         |
+ *                                   -------  -------
+ *                                  |history| |current|
+ *                                   -------   -------
+ *                                     |          |
+ *                                     |          |
+ *                                  --------   ---------
+ *                                 |API INFO| |API INFO |
+ *                                  --------   ---------
+ * API INFO at the leaf node points to the corresponding cmsg_service_info
+ *
+ * @param service_info CMSG service information
  */
 static gboolean
-_cmsg_proxy_add_service_info (const char *url)
+_cmsg_proxy_add_service_info (cmsg_service_info *service_info)
 {
     char *tmp_url = NULL;
     char *next_entry = NULL;
     char *rest = NULL;
     GNode *parent_node = g_node_get_root (proxy_entries_tree);
     GNode *node = NULL;
+    GNode *cmsg_api_info_node = NULL;
     gboolean found;
 
-    tmp_url = strdup (url);
+    tmp_url = strdup (service_info->url_string);
 
     for (next_entry = strtok_r (tmp_url, "/", &rest); next_entry;
          next_entry = strtok_r (NULL, "/", &rest))
     {
         found = FALSE;
 
-        /* Check whether the node already existis in the tree. */
+        /* Check whether the node already exists in the tree. */
         node = g_node_first_child (parent_node);
 
         while (node)
         {
-            if (strcmp (node->data, next_entry) == 0)
+            /* API info node should be skipped */
+            if (!G_NODE_IS_LEAF (node) && strcmp (node->data, next_entry) == 0)
             {
                 found = TRUE;
                 break;
@@ -130,14 +264,19 @@ _cmsg_proxy_add_service_info (const char *url)
             node = g_node_next_sibling (node);
         }
 
-        /* Add if it doesn't exist. */
+        /* Add if it doesn't exist. Insert as the last child of parent_node. */
         if (found == FALSE)
         {
-            node = g_node_append_data (parent_node, g_strdup (next_entry));
+            node = g_node_insert_data (parent_node, -1, g_strdup (next_entry));
         }
 
         parent_node = node;
     }
+
+    cmsg_api_info_node = _cmsg_proxy_get_api_info_node (parent_node);
+
+    /* Fill the cmsg_service_info to the leaf node */
+    _cmsg_proxy_fill_info (cmsg_api_info_node, service_info);
 
     free (tmp_url);
 
@@ -151,7 +290,7 @@ _cmsg_proxy_list_init (cmsg_service_info *array, int length)
 
     for (i = 0; i < length; i++)
     {
-        _cmsg_proxy_add_service_info (array[i].url_string);
+        _cmsg_proxy_add_service_info (&array[i]);
 
         proxy_entries_list = g_list_append (proxy_entries_list, (void *) &array[i]);
     }
