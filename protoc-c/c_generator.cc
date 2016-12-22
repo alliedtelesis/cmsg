@@ -126,8 +126,13 @@ bool CGenerator::Generate(const FileDescriptor* file,
   //   class FOO_EXPORT Foo {
   //     ...
   //   }
+#ifdef ATL_CHANGE
+  // FOO_EXPORT is a macro which should expand to _declspec(dllexport) or
+  // _declspec(dllimport) depending on what is being compiled.
+#else
   // FOO_EXPORT is a macro which should expand to __declspec(dllexport) or
   // __declspec(dllimport) depending on what is being compiled.
+#endif /* ATL_CHANGE */
   string dllexport_decl;
 
   for (unsigned i = 0; i < options.size(); i++) {
@@ -162,6 +167,78 @@ bool CGenerator::Generate(const FileDescriptor* file,
     io::Printer printer(output.get(), '$');
     file_generator.GenerateSource(&printer);
   }
+
+#ifdef ATL_CHANGE
+  // generate the atl types header file
+  string types_basename = GetAtlTypesFilename(file->name());
+
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(types_basename + ".h"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlTypesHeader(&printer);
+  }
+
+  // generate the atl api header and source files
+  string api_basename = GetAtlApiFilename(file->name());
+
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(api_basename + ".h"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlApiHeader(&printer);
+  }
+
+  // Generate c file.
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(api_basename + ".c"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlApiSource(&printer);
+  }
+
+  // now generate the atl impl header and source files
+  string impl_basename = GetAtlImplFilename(file->name());
+
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(impl_basename + ".h"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlImplHeader(&printer);
+  }
+
+  // Generate c file.
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(impl_basename + ".c"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlImplSource(&printer);
+  }
+
+  // Generate impl stubs file.
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(impl_basename + "-tmp_stubs.c"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlImplStubs(&printer);
+  }
+
+  // Generate http proxy source file
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(StripProto(file->name()) + "_proxy_def.c"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlHttpProxySource(&printer);
+  }
+
+  // Generate http proxy header file
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(StripProto(file->name()) + "_proxy_def.h"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlHttpProxyHeader(&printer);
+  }
+#endif /* ATL_CHANGE */
 
   return true;
 }

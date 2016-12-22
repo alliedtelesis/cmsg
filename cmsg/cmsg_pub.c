@@ -610,7 +610,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
     cmsg_server_request *server_request = server->server_request;
     ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = (ProtobufCAllocator *) server->allocator;
+    ProtobufCAllocator *allocator = server->allocator;
     cmsg_server_closure_data closure_data;
     const ProtobufCMessageDescriptor *desc;
 
@@ -871,7 +871,7 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
 
         subscriber_entry->transport->type = (cmsg_transport_type) input->transport_type;
         un = &subscriber_entry->transport->config.socket.sockaddr.un;
-        strncpy (un->sun_path, input->un_sun_path, sizeof (un->sun_path) - 1);
+        strncpy (un->sun_path, (char *) input->un_sun_path, sizeof (un->sun_path) - 1);
     }
 
     //we can just create the client here

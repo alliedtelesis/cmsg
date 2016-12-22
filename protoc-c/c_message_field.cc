@@ -119,7 +119,11 @@ void MessageFieldGenerator::GenerateStaticInit(io::Printer* printer) const
 }
 void MessageFieldGenerator::GenerateDescriptorInitializer(io::Printer* printer) const
 {
+#ifdef ATL_CHANGE
+  string addr = "&" + FullNameToLower(descriptor_->message_type()->full_name()) + "_descriptor";
+#else
   string addr = "&" + FullNameToLower(descriptor_->message_type()->full_name()) + "__descriptor";
+#endif /* ATL_CHANGE */
   GenerateDescriptorInitializerGeneric(printer, false, "MESSAGE", addr);
 }
 

@@ -14,6 +14,8 @@
 #include "cmsg_client.h"
 #include "cmsg_error.h"
 
+extern cmsg_client *cmsg_client_create (cmsg_transport *transport,
+                                        const ProtobufCServiceDescriptor *descriptor);
 
 /**
  * Send message to a group of clients. If any one message fails, an error is returned.
@@ -90,7 +92,8 @@ cmsg_composite_client_add_child (cmsg_client *composite_client, cmsg_client *cli
     }
 
     if (client->_transport->type != CMSG_TRANSPORT_RPC_TCP &&
-        client->_transport->type != CMSG_TRANSPORT_RPC_TIPC)
+        client->_transport->type != CMSG_TRANSPORT_RPC_TIPC &&
+        client->_transport->type != CMSG_TRANSPORT_LOOPBACK)
     {
         CMSG_LOG_CLIENT_ERROR (client,
                                "Transport type %d not supported for composite clients",

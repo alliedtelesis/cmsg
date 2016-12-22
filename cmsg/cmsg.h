@@ -5,6 +5,8 @@
 #define __CMSG_H_
 
 #include "protobuf-c.h"
+#include <glib.h>
+#include <stdbool.h>
 
 // Return codes
 #define CMSG_RET_OK                 0
@@ -16,6 +18,8 @@
 
 #define CMSG_COUNTER_APP_NAME_PREFIX    "CMSG "
 
+typedef protobuf_c_boolean cmsg_bool_t;
+
 void cmsg_malloc_init (int mtype);
 
 /* note - use CMSG_MSG_ARRAY_ALLOC()/_FREE() instead of calling these directly */
@@ -23,10 +27,12 @@ void **cmsg_msg_array_alloc (size_t struct_size, uint32_t num_structs,
                              const char *file, int line);
 void cmsg_msg_array_free (void *msg_array, const char *file, int line);
 
+extern ProtobufCAllocator cmsg_memory_allocator;
+
 // macro to free messages returned back to the API
 #define CMSG_FREE_RECV_MSG(_name)                                                                      \
     do {                                                                                               \
-        protobuf_c_message_free_unpacked ((ProtobufCMessage *)(_name), &protobuf_c_default_allocator); \
+        protobuf_c_message_free_unpacked ((ProtobufCMessage *)(_name), &cmsg_memory_allocator);       \
         (_name) = NULL;                                                                                \
     } while (0)
 

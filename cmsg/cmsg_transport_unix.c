@@ -26,7 +26,9 @@ cmsg_transport_unix_connect (cmsg_client *client)
     uint32_t addrlen;
 
     if (client == NULL)
+    {
         return 0;
+    }
 
 
     client->connection.socket = socket (client->_transport->config.socket.family,
@@ -75,7 +77,9 @@ cmsg_transport_unix_listen (cmsg_server *server)
     cmsg_transport *transport = NULL;
 
     if (server == NULL)
+    {
         return 0;
+    }
 
     server->connection.sockets.listening_socket = 0;
     server->connection.sockets.client_socket = 0;
@@ -119,7 +123,8 @@ cmsg_transport_unix_listen (cmsg_server *server)
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on unix socket: %d\n", listening_socket);
 
-    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on: %s\n", transport->config.socket.sockaddr.un.sun_path);
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on: %s\n",
+                transport->config.socket.sockaddr.un.sun_path);
 
     return 0;
 }
@@ -289,7 +294,7 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
             if (header_converted.status_code == CMSG_STATUS_CODE_SUCCESS)
             {
                 ProtobufCMessage *message = NULL;
-                ProtobufCAllocator *allocator = (ProtobufCAllocator *) client->allocator;
+                ProtobufCAllocator *allocator = client->allocator;
 
                 CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
@@ -400,7 +405,7 @@ cmsg_transport_unix_server_send (cmsg_server *server, void *buff, int length, in
  */
 static int32_t
 cmsg_transport_unix_oneway_server_send (cmsg_server *server, void *buff, int length,
-                                       int flag)
+                                        int flag)
 {
     return 0;
 }
@@ -471,7 +476,7 @@ cmsg_transport_unix_is_congested (cmsg_client *client)
 
 int32_t
 cmsg_transport_unix_send_called_multi_threads_enable (cmsg_transport *transport,
-                                                     uint32_t enable)
+                                                      uint32_t enable)
 {
     // Don't support sending from multiple threads
     return -1;
@@ -480,7 +485,7 @@ cmsg_transport_unix_send_called_multi_threads_enable (cmsg_transport *transport,
 
 int32_t
 cmsg_transport_unix_send_can_block_enable (cmsg_transport *transport,
-                                          uint32_t send_can_block)
+                                           uint32_t send_can_block)
 {
     transport->send_can_block = send_can_block;
     return 0;
@@ -517,7 +522,9 @@ void
 cmsg_transport_rpc_unix_init (cmsg_transport *transport)
 {
     if (transport == NULL)
+    {
         return;
+    }
 
     _cmsg_transport_unix_init_common (transport);
 
@@ -533,7 +540,9 @@ void
 cmsg_transport_oneway_unix_init (cmsg_transport *transport)
 {
     if (transport == NULL)
+    {
         return;
+    }
 
     _cmsg_transport_unix_init_common (transport);
 
@@ -552,15 +561,14 @@ cmsg_create_transport_unix (const char *sun_path, cmsg_transport_type transport_
     transport = cmsg_transport_new (transport_type);
     if (transport == NULL)
     {
-        CMSG_LOG_GEN_ERROR ("Unable to create UNIX IPC transport. Path name:%s",
-                            sun_path);
+        CMSG_LOG_GEN_ERROR ("Unable to create UNIX IPC transport. Path name:%s", sun_path);
         return NULL;
     }
 
     transport->config.socket.family = AF_UNIX;
     transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
     strncpy (transport->config.socket.sockaddr.un.sun_path, sun_path,
-             sizeof (transport->config.socket.sockaddr.un.sun_path)- 1);
+             sizeof (transport->config.socket.sockaddr.un.sun_path) - 1);
 
     return transport;
 }

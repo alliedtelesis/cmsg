@@ -131,9 +131,16 @@ string CamelToLower(const string &name) {
   for (int i = 0; i < len; i++) {
     bool is_upper = isupper(name[i]);
     if (is_upper) {
+#ifdef ATL_CHANGE
+      //if (!was_upper)
+      //  rv += '_';
+      //rv += tolower(name[i]);
+      rv += name[i];
+#else
       if (!was_upper)
 	rv += '_';
       rv += tolower(name[i]);
+#endif /* ATL_CHANGE */
     } else {
       rv += name[i];
     }
@@ -155,7 +162,12 @@ string ToLower(const string &name) {
   string rv = "";
   int len = name.length();
   for (int i = 0; i < len; i++) {
+#ifdef ATL_CHANGE
+    //rv += tolower(name[i]);
+    rv += name[i];
+#else
     rv += tolower(name[i]);
+#endif /* ATL_CHANGE */
   }
   return rv;
 }
@@ -167,7 +179,12 @@ string ToCamel(const string &name) {
     if (name[i] == '_') {
       next_is_upper = true;
     } else if (next_is_upper) {
+#ifdef ATL_CHANGE
+      //rv += toupper (name[i]);
+      rv += name[i];
+#else
       rv += toupper (name[i]);
+#endif /* ATL_CHANGE */
       next_is_upper = false;
     } else {
       rv += name[i];
@@ -182,8 +199,14 @@ string FullNameToLower(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
+#ifdef ATL_CHANGE
+    if (rv != "") rv += "_";
+    //rv += CamelToLower(pieces[i]);
+    rv += pieces[i];
+#else
     if (rv != "") rv += "__";
     rv += CamelToLower(pieces[i]);
+#endif /* ATL_CHANGE */
   }
   return rv;
 }
@@ -193,7 +216,11 @@ string FullNameToUpper(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
+#ifdef ATL_CHANGE
+    if (rv != "") rv += "_";
+#else
     if (rv != "") rv += "__";
+#endif /* ATL_CHANGE */
     rv += CamelToUpper(pieces[i]);
   }
   return rv;
@@ -204,10 +231,46 @@ string FullNameToC(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
+#ifdef ATL_CHANGE
+    if (rv != "") rv += "_";
+    //rv += ToCamel(pieces[i]);
+    rv += pieces[i];
+#else
     if (rv != "") rv += "__";
     rv += ToCamel(pieces[i]);
+#endif /* ATL_CHANGE */
   }
   return rv;
+}
+
+void PrintComment (io::Printer* printer, string comment)
+{
+   if (!comment.empty())
+   {
+      vector<string> comment_lines;
+      SplitStringUsing (comment, "\r\n", &comment_lines);
+      printer->Print ("/*\n");
+      for (int i = 0; i < comment_lines.size(); i++)
+      {
+         if (!comment_lines[i].empty())
+         {
+            /* Make sure we don't inadvertently close the comment block */
+            if (comment_lines[i][0] == '/')
+               comment_lines[i] = ' ' + comment_lines[i];
+
+            /* Or cause other compiler issues. */
+            size_t delim_i;
+            while ((delim_i = comment_lines[i].find("/*")) != string::npos)
+               comment_lines[i][delim_i] = ' ';
+
+            while ((delim_i = comment_lines[i].find("*/")) != string::npos)
+               comment_lines[i][delim_i + 1] = ' ';
+
+            printer->Print (" *$line$\n", "line", comment_lines[i]);
+         }
+      }
+      printer->Print (" */\n");
+   }
 }
 
 string ConvertToSpaces(const string &input) {
@@ -535,6 +598,93 @@ string CEscape(const string& src) {
   GOOGLE_DCHECK_GE(len, 0);
   return string(dest.get(), len);
 }
+#ifdef ATL_CHANGE
+string GetAtlFilename(const string &protoname, const string &filetype)
+{
+  //
+  // we want to:
+  //    strip the .proto from the proto filename to get the basename
+  //    add the filetype after the basename
+  return StripProto(protoname) + "_" + filetype;
+}
+
+string GetAtlTypesFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "types_auto");
+}
+
+string GetAtlApiFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "api_auto");
+}
+
+string GetAtlImplFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "impl_auto");
+}
+
+string GetAtlGlobalFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "proto_global");
+}
+
+string GetPackageName(const string &full_name) {
+  vector<string> pieces;
+  SplitStringUsing(full_name, ".", &pieces);
+  string rv = "";
+  //loop through the pieces of the string until we get find
+  //the first one that isn't empty.
+  for (unsigned i = 0; i < pieces.size(); i++) {
+    if (pieces[i] == "")
+    {
+      continue;
+    }
+    else
+    {
+      rv = pieces[i];
+      break;
+    }
+  }
+  // return the first non-empty piece of the name
+  return rv;
+}
+
+string GetPackageNameUpper(const string &full_name) {
+  return ToUpper(GetPackageName(full_name));
+}
+
+// Convert a file name into a valid identifier.
+string MakeHeaderDefineFromFilename(const string &prefix, const string &filename) {
+  string result = prefix;
+  bool last_char_was_hyphen = false;
+
+  for (unsigned i = 0; i < filename.size(); i++) {
+    if (isalnum(filename[i]))
+    {
+      result.push_back(filename[i]);
+      last_char_was_hyphen = false;
+    }
+    else if (filename[i] == '-')
+    {
+      // the char is a hyphen so convert it to an underscore
+      result.push_back('_');
+      last_char_was_hyphen = true;
+    }
+    else
+    {
+      // Not alphanumeric.  To avoid any possibility of name conflicts we
+      // use the hex code for the character.
+      if (last_char_was_hyphen == false)
+        result.push_back('_');
+      char buffer[32];
+      result.append(FastHexToBuffer(static_cast<uint8>(filename[i]), buffer));
+      last_char_was_hyphen = false;
+    }
+  }
+  result += "_INCLUDED";
+  return result;
+}
+#endif /* ATL_CHANGE */
 
 }  // namespace c
 }  // namespace compiler

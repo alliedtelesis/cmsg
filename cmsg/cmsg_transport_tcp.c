@@ -84,7 +84,6 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     int32_t ret = 0;
     socklen_t addrlen = 0;
     cmsg_transport *transport = NULL;
-    int port = 0;
 
     if (server == NULL)
     {
@@ -262,7 +261,7 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
         return -1;
     }
 
-    if (client_transport.config.socket.family == PF_INET6)
+    if (server->_transport->config.socket.family == PF_INET6)
     {
         addr = (struct sockaddr *) &client_transport.config.socket.sockaddr.in6;
         client_len = sizeof (client_transport.config.socket.sockaddr.in6);
@@ -495,19 +494,16 @@ cmsg_create_transport_tcp (cmsg_socket *config, cmsg_transport_type transport_ty
         {
             port = ntohs (config->sockaddr.in6.sin6_port);
             inet_ntop (config->sockaddr.generic.sa_family,
-                       &(config->sockaddr.in6.sin6_addr), ip,
-                       INET6_ADDRSTRLEN);
+                       &(config->sockaddr.in6.sin6_addr), ip, INET6_ADDRSTRLEN);
         }
         else
         {
             port = ntohs (config->sockaddr.in.sin_port);
             inet_ntop (config->sockaddr.generic.sa_family,
-                       &(config->sockaddr.in.sin_addr), ip,
-                       INET6_ADDRSTRLEN);
+                       &(config->sockaddr.in.sin_addr), ip, INET6_ADDRSTRLEN);
         }
 
-        CMSG_LOG_GEN_ERROR ("Unable to create TCP RPC transport. tcp[[%s]:%d]",
-                            ip, port);
+        CMSG_LOG_GEN_ERROR ("Unable to create TCP RPC transport. tcp[[%s]:%d]", ip, port);
 
         return NULL;
     }

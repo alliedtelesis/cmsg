@@ -48,7 +48,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
 
         server->_transport = transport;
         server->service = service;
-        server->allocator = &protobuf_c_default_allocator;  //initialize alloc and free for message_unpack() and message_free()
+        server->allocator = &cmsg_memory_allocator;
         server->message_processor = cmsg_server_message_processor;
 
         server->self.object_type = CMSG_OBJ_TYPE_SERVER;
@@ -723,38 +723,30 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
 
 
 /**
- * Invokes for a oneway where there is nothing actually sent or received -
- * it is a direct function call from the client invoke to this function.
+ * Invokes the server _impl_ function directly. Used by the loopback client,
+ * which has no actual IPC involved (i.e. the client _api_ call actually invokes
+ * the _impl_ code in the same process space).
  */
 void
-cmsg_server_invoke_oneway_direct (ProtobufCService *service, unsigned method_index,
-                                  uint8_t *buffer, uint32_t packed_size)
+cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
+                           uint32_t method_index)
 {
-    cmsg_server_closure_data closure_data;
-    ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = &protobuf_c_default_allocator;
-    const ProtobufCMessageDescriptor *desc;
+    cmsg_server_request server_request;
+    ProtobufCService *service = server->service;
+    const char *method_name;
 
-    CMSG_ASSERT_RETURN_VOID (service != NULL);
+    method_name = service->descriptor->methods[method_index].name;
 
-    desc = service->descriptor->methods[method_index].input;
+    /* setup the server request, which is needed to get a response sent back */
+    server_request.msg_type = CMSG_MSG_TYPE_METHOD_REQ;
+    server_request.message_length = protobuf_c_message_get_packed_size (input);
+    server_request.method_index = method_index;
+    strcpy (server_request.method_name_recvd, method_name);
+    server->server_request = &server_request;
 
-    CMSG_DEBUG (CMSG_INFO, "[SERVER] unpacking message\n");
-    /* Unpack the message. protobuf_c_message_unpack () is safe to call if packed_size is 0
-     * and buffer is NULL. */
-    message = protobuf_c_message_unpack (desc, allocator, packed_size, buffer);
-
-    /* Setup closure_data so it can be used to ensure that there are no
-     * uninitialised variables.
-     */
-    closure_data.server = NULL;
-    closure_data.method_processing_reason = CMSG_METHOD_OK_TO_INVOKE;
-
-    service->invoke (service,
-                     method_index,
-                     message, cmsg_server_closure_oneway, (void *) &closure_data);
-
-    protobuf_c_message_free_unpacked (message, allocator);
+    /* call the server invoke function. */
+    cmsg_server_invoke (server, method_index, (ProtobufCMessage *) input,
+                        CMSG_METHOD_OK_TO_INVOKE);
 }
 
 
@@ -772,7 +764,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     cmsg_queue_filter_type action;
     cmsg_method_processing_reason processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = (ProtobufCAllocator *) server->allocator;
+    ProtobufCAllocator *allocator = server->allocator;
     cmsg_server_request *server_request = server->server_request;
     const char *method_name;
     const ProtobufCMessageDescriptor *desc;
@@ -890,9 +882,9 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
         }
 
         encrypt_length =
-                server->_transport->config.socket.crypto.encrypt (sock, buff, length,
-                                                                  encrypt_buffer,
-                                                                  length + ENCRYPT_EXTRA);
+            server->_transport->config.socket.crypto.encrypt (sock, buff, length,
+                                                              encrypt_buffer,
+                                                              length + ENCRYPT_EXTRA);
         if (encrypt_length < 0)
         {
             CMSG_LOG_SERVER_ERROR (server, "Server encrypt on socket %d failed",
@@ -1614,8 +1606,7 @@ cmsg_create_server_unix_oneway (const char *sun_path, ProtobufCService *descript
     CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
-    return _cmsg_create_server_unix (sun_path, descriptor,
-                                     CMSG_TRANSPORT_ONEWAY_UNIX);
+    return _cmsg_create_server_unix (sun_path, descriptor, CMSG_TRANSPORT_ONEWAY_UNIX);
 }
 
 static cmsg_server *
@@ -1662,26 +1653,6 @@ cmsg_create_server_tcp_oneway (cmsg_socket *config, ProtobufCService *descriptor
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
     return _cmsg_create_server_tcp (config, descriptor, CMSG_TRANSPORT_ONEWAY_TCP);
-}
-
-/**
- * Creates a Server of type Loopback Oneway and sets all the correct
- * fields.
- *
- * Returns NULL if failed to create anything - malloc problems.
- */
-cmsg_server *
-cmsg_create_server_loopback_oneway (ProtobufCService *service)
-{
-    cmsg_transport *server_transport;
-
-    server_transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK_ONEWAY);
-    if (server_transport == NULL)
-    {
-        return NULL;
-    }
-
-    return cmsg_server_new (server_transport, service);
 }
 
 void

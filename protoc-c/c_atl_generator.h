@@ -54,6 +54,12 @@ class AtlCodeGenerator {
   void GenerateClientCFile(io::Printer* printer);
   void GenerateServerCFile(io::Printer* printer);
 
+  // Http proxy stuff
+  void GenerateHttpProxyArrayEntries(io::Printer* printer);
+  void GenerateHttpProxyArrayEntry(const MethodDescriptor &method, io::Printer* printer);
+  void GenerateHttpProxyArrayFunctions(io::Printer* printer, const string basename);
+  void GenerateHttpProxyArrayFunctionDefs(io::Printer* printer, const string basename);
+
   // helper function for the conversion of AW+ to use cmsg
   void GenerateAtlServerImplStubs(io::Printer* printer);
 

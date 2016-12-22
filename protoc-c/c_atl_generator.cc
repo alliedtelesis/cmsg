@@ -20,8 +20,8 @@
 
 // Modified to implement C code by Dave Benson.
 
-#include <protoc-cmsg/c_atl_generator.h>
-#include <protoc-cmsg/c_helpers.h>
+#include <protoc-c/c_atl_generator.h>
+#include <protoc-c/c_helpers.h>
 #include <google/protobuf/io/printer.h>
 
 namespace google {
@@ -89,6 +89,102 @@ void AtlCodeGenerator::GenerateServerCFile(io::Printer* printer)
   printer->Print("\n/* Start of Server Implementation */\n\n");
   GenerateAtlServerImplementation(printer);
   printer->Print("\n/* End of Server Implementation */\n");
+}
+
+// Generate the http proxy array entries
+void AtlCodeGenerator::GenerateHttpProxyArrayEntries(io::Printer* printer)
+{
+    for (int i = 0; i < descriptor_->method_count(); i++) {
+        const MethodDescriptor *method = descriptor_->method(i);
+        GenerateHttpProxyArrayEntry(*method, printer);
+    }
+}
+
+// Generate the http proxy array functions
+void AtlCodeGenerator::GenerateHttpProxyArrayFunctions(io::Printer* printer, const string basename)
+{
+    vars_["function_base"] = basename;
+    // generate the cmsg proxy array functions
+    printer->Print(vars_, "cmsg_service_info *$function_base$_proxy_array_get (void)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return service_info_entries;\n");
+    printer->Outdent();
+    printer->Print("}\n\n");
+
+    printer->Print(vars_, "int $function_base$_proxy_array_size (void)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return num_service_info_entries;\n");
+    printer->Outdent();
+    printer->Print("}\n\n");
+}
+
+void AtlCodeGenerator::GenerateHttpProxyArrayFunctionDefs(io::Printer* printer, const string basename)
+{
+    vars_["function_base"] = basename;
+    // generate the cmsg proxy array functions
+    printer->Print(vars_, "cmsg_service_info *$function_base$_proxy_array_get (void);\n");
+    printer->Print(vars_, "int $function_base$_proxy_array_size (void);\n");
+}
+
+void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const MethodDescriptor &method, io::Printer* printer)
+{
+  string lcname = CamelToLower(method.name());
+  vars_["method"] = lcname;
+  vars_["inputname"] = FullNameToLower(method.input_type()->full_name());
+  vars_["outputname"] = FullNameToLower(method.output_type()->full_name());
+
+  if (method.options().has_http())
+  {
+    printer->Indent();
+    printer->Print("{\n");
+
+    printer->Indent();
+    printer->Print(vars_, ".service_descriptor = &$lcfullname$_descriptor,\n");
+    printer->Print(vars_, ".input_msg_descriptor = &$inputname$_descriptor,\n");
+    printer->Print(vars_, ".output_msg_descriptor = &$outputname$_descriptor,\n");
+    printer->Print(vars_, ".api_ptr = &$lcfullname$_api_$method$,\n");
+
+    if (method.options().http().has_get())
+    {
+        vars_["url"] = method.options().http().get();
+        printer->Print(vars_, ".url_string = \"$url$\",\n");
+        printer->Print(".http_verb = CMSG_HTTP_GET,\n");
+    }
+    else if (method.options().http().has_put())
+    {
+        vars_["url"] = method.options().http().put();
+        printer->Print(vars_, ".url_string = \"$url$\",\n");
+        printer->Print(".http_verb = CMSG_HTTP_PUT,\n");
+    }
+    else if (method.options().http().has_post ())
+    {
+        vars_["url"] = method.options().http().post();
+        printer->Print(vars_, ".url_string = \"$url$\",\n");
+        printer->Print(".http_verb = CMSG_HTTP_POST,\n");
+    }
+    else if (method.options().http().has_delete_())
+    {
+        vars_["url"] = method.options().http().delete_();
+        printer->Print(vars_, ".url_string = \"$url$\",\n");
+        printer->Print(".http_verb = CMSG_HTTP_DELETE,\n");
+    }
+    else if (method.options().http().has_patch())
+    {
+        vars_["url"] = method.options().http().patch();
+        printer->Print(vars_, ".url_string = \"$url$\",\n");
+        printer->Print(".http_verb = CMSG_HTTP_PATCH,\n");
+    }
+    else
+    {
+        assert (false && "Error: a valid HTTP verb must be specified");
+    }
+
+    printer->Outdent();
+    printer->Print("},\n");
+    printer->Outdent();
+  }
 }
 
 //
@@ -562,7 +658,7 @@ string AtlCodeGenerator::TypeToString(FieldDescriptor::Type type)
         description = "uint32_t";
         break;
     case FieldDescriptor::TYPE_BOOL:
-        description = "cmsg_bool_t";
+        description = "protobuf_c_boolean";
         break;
     case FieldDescriptor::TYPE_STRING:
         description = "char *";

@@ -12,7 +12,6 @@
 #include <poll.h>
 #include <pthread.h>
 #include <time.h>
-#include <glib.h>
 #include <netdb.h>
 #include <syslog.h>
 #include <sys/select.h>
@@ -76,8 +75,6 @@
 #define CMSG_SERVER_REQUEST_MAX_NAME_LENGTH        128
 
 #define CMSG_TLV_SIZE(x) ((2 * sizeof (uint32_t)) + (x))
-
-#define UNDEFINED_METHOD 0xffffffff
 
 #define IS_METHOD_DEFINED(x)  (x == UNDEFINED_METHOD ? FALSE : TRUE)
 
@@ -263,13 +260,6 @@ int
 cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
                          uint32_t extra_header_size,
                          const ProtobufCServiceDescriptor *descriptor);
-
-/* Prototyped here to allow this function to be called in cmsg_client after
- * being defined in cmsg_server.
- */
-void
-cmsg_server_invoke_oneway_direct (ProtobufCService *service, unsigned method_index,
-                                  uint8_t *buffer, uint32_t packed_size);
 
 #define CMSG_MALLOC(size)           cmsg_malloc ((size), __FILE__, __LINE__)
 #define CMSG_CALLOC(nmemb,size)     cmsg_calloc ((nmemb), (size), __FILE__,  __LINE__)
