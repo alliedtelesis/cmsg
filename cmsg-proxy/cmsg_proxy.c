@@ -472,8 +472,12 @@ _cmsg_proxy_clients_init (void)
 {
     GNode *root = g_node_get_root (proxy_entries_tree);
 
-    g_node_traverse (root, G_LEVEL_ORDER, G_TRAVERSE_LEAVES, -1, _cmsg_proxy_clients_add,
-                     NULL);
+    /* Do not traverse if proxy_entries_tree is empty. */
+    if (!G_NODE_IS_LEAF (root))
+    {
+        g_node_traverse (root, G_LEVEL_ORDER, G_TRAVERSE_LEAVES, -1,
+                         _cmsg_proxy_clients_add, NULL);
+    }
 }
 
 /**
