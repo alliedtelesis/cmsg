@@ -407,47 +407,169 @@ _cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
 }
 
 /**
- * Initialise the CMSG clients required to connect to every service descriptor
- * used in the CMSG proxy entries list.
+ * Find CMSG service info corresponding to the given cmsg_http_verb from cmsg_proxy_api_info
+ *
+ * @param api_info - CMSG API info
+ * @param verb - HTTP action verb
+ *
+ * @return Returns matching cmsg_service_info from api_info if not NULL
  */
-static void
-_cmsg_proxy_clients_init (void)
+static const cmsg_service_info *
+cmsg_proxy_service_info_get (cmsg_proxy_api_info *api_info, cmsg_http_verb verb)
 {
-    GList *iter;
-    cmsg_service_info *iter_data;
-
-    for (iter = proxy_entries_list; iter != NULL; iter = g_list_next (iter))
+    switch (verb)
     {
-        iter_data = (cmsg_service_info *) iter->data;
-        if (!_cmsg_proxy_find_client_by_service (iter_data->service_descriptor))
-        {
-            _cmsg_proxy_create_client (iter_data->service_descriptor);
-        }
+    case CMSG_HTTP_GET:
+        return api_info->cmsg_http_get;
+    case CMSG_HTTP_PUT:
+        return api_info->cmsg_http_put;
+    case CMSG_HTTP_POST:
+        return api_info->cmsg_http_post;
+    case CMSG_HTTP_DELETE:
+        return api_info->cmsg_http_delete;
+    case CMSG_HTTP_PATCH:
+        return api_info->cmsg_http_patch;
+    default:
+        return NULL;
     }
 }
 
 /**
- * Lookup a cmsg_service_info entry from the proxy list based on URL and
- * HTTP verb.
+ * Callback to add CMSG clients.
+ *
+ * @param leaf_node - leaf node that contains cmsg_proxy_api_info
+ * @param data - data passed in by the caller. This is NULL
+ *
+ * @returns TRUE always
+ */
+static gboolean
+_cmsg_proxy_clients_add (GNode *leaf_node, gpointer data)
+{
+    cmsg_proxy_api_info *api_info = leaf_node->data;
+    const cmsg_service_info *service_info;
+    int action;
+
+    for (action = CMSG_HTTP_GET; action <= CMSG_HTTP_PATCH; action++)
+    {
+        service_info = cmsg_proxy_service_info_get (api_info, action);
+        if (service_info &&
+            !_cmsg_proxy_find_client_by_service (service_info->service_descriptor))
+        {
+            _cmsg_proxy_create_client (service_info->service_descriptor);
+        }
+    }
+
+    return TRUE;
+}
+
+/**
+ * Initialise the CMSG clients required to connect to every service descriptor
+ * used in the CMSG proxy entries tree. Traverse all the leaf nodes in the
+ * GNode proxy entry tree. All the leaf nodes should be contain cmsg_proxy_api_info.
+ */
+static void
+_cmsg_proxy_clients_init (void)
+{
+    GNode *root = g_node_get_root (proxy_entries_tree);
+
+    g_node_traverse (root, G_LEVEL_ORDER, G_TRAVERSE_LEAVES, -1, _cmsg_proxy_clients_add,
+                     NULL);
+}
+
+/**
+ * Update the json object according to the new key,value pair. The 'key'
+ * is within '< >' so we need to get rid of it before creating the new object.
+ *
+ * @json_object - json object to update
+ * @key - key used to create new json object
+ * @value - value for the new json object
+ */
+static void
+_cmsg_proxy_json_object_create (json_t **json_object, const char *key, const char *value)
+{
+    json_t *new_object;
+    char *tmp_key;
+    char *ptr;
+
+    tmp_key = strdup (key);
+    ptr = tmp_key;
+
+    ptr++;
+    ptr[strlen (ptr) - 1] = '\0';
+
+    new_object = json_pack ("{ss}", ptr, value);
+
+    if (*json_object)
+    {
+        json_object_update (*json_object, new_object);
+    }
+    else
+    {
+        *json_object = new_object;
+    }
+
+    free (tmp_key);
+}
+
+/**
+ * Lookup a cmsg_service_info entry from the proxy tree based on URL and
+ * HTTP verb and update jason_object if any parameter found in the URL
  *
  * @param url - URL string to use for the lookup.
  * @param http_verb - HTTP verb to use for the lookup.
+ * @param json_object - jason object to update
  *
  * @return - Pointer to the cmsg_service_info entry if found, NULL otherwise.
  */
 static const cmsg_service_info *
-_cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb)
+_cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb,
+                                            json_t **json_object)
 {
-    GList *iter;
-    cmsg_service_info *iter_data;
+    GNode *node;
+    char *tmp_url;
+    char *next_entry = NULL;
+    char *rest = NULL;
+    GNode *parent_node;
+    GNode *info_node;
 
-    for (iter = proxy_entries_list; iter != NULL; iter = g_list_next (iter))
+    tmp_url = strdup (url);
+    parent_node = g_node_get_root (proxy_entries_tree);
+
+    for (next_entry = strtok_r (tmp_url, "/", &rest); next_entry;
+         next_entry = strtok_r (NULL, "/", &rest))
     {
-        iter_data = (cmsg_service_info *) iter->data;
-        if ((strcmp (url, iter_data->url_string) == 0) && (iter_data->http_verb == verb))
+        node = g_node_first_child (parent_node);
+        while (node)
         {
-            return iter_data;
+            if (!G_NODE_IS_LEAF (node) && strcmp (next_entry, node->data) == 0)
+            {
+                parent_node = node;
+                break;
+            }
+            else if (((char *) node->data)[0] == '<')
+            {
+                _cmsg_proxy_json_object_create (json_object, node->data, next_entry);
+                parent_node = node;
+                break;
+            }
+            node = g_node_next_sibling (node);
         }
+
+        /* No match found. */
+        if (node == NULL)
+        {
+            free (tmp_url);
+            return NULL;
+        }
+    }
+
+    free (tmp_url);
+
+    info_node = g_node_first_child (parent_node);
+    if ((info_node) != NULL && G_NODE_IS_LEAF (info_node))
+    {
+        return cmsg_proxy_service_info_get (info_node->data, verb);
+
     }
 
     return NULL;
@@ -466,11 +588,11 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
  * @return - true on success, false on failure.
  */
 static bool
-_cmsg_proxy_convert_json_to_protobuf (char *input_json,
+_cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
                                       const ProtobufCMessageDescriptor *msg_descriptor,
                                       ProtobufCMessage **output_protobuf)
 {
-    if (json2protobuf_string (input_json, 0, msg_descriptor, output_protobuf, NULL, 0) < 0)
+    if (json2protobuf_object (json_object, msg_descriptor, output_protobuf, NULL, 0) < 0)
     {
         return false;
     }
@@ -603,12 +725,22 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     ProtobufCMessage *output_proto_message = NULL;
     bool ret = false;
     int result;
+    json_error_t error;
+    json_t *json_object = NULL;
+    bool rc = false;
 
-    service_info = _cmsg_proxy_find_service_from_url_and_verb (url, http_verb);
+    if (input_json)
+    {
+        json_object = json_loads (input_json, 0, &error);
+    }
+
+    service_info =
+        _cmsg_proxy_find_service_from_url_and_verb (url, http_verb, &json_object);
     if (service_info == NULL)
     {
         /* The cmsg proxy does not know about this url and verb combination */
-        return false;
+        rc = false;
+        goto json_object_free_return;
     }
 
     client = _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
@@ -616,19 +748,21 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     {
         /* This should not occur but check for it */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-        return true;
+        rc = true;
+        goto json_object_free_return;
     }
 
-    if (input_json)
+    if (json_object)
     {
-        ret = _cmsg_proxy_convert_json_to_protobuf ((char *) input_json,
+        ret = _cmsg_proxy_convert_json_to_protobuf (json_object,
                                                     service_info->input_msg_descriptor,
                                                     &input_proto_message);
         if (!ret)
         {
             /* The JSON sent with the request is malformed */
             *http_status = HTTP_CODE_BAD_REQUEST;
-            return true;
+            rc = true;
+            goto json_object_free_return;
         }
     }
 
@@ -639,7 +773,8 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         /* Something went wrong calling the CMSG api */
         free (input_proto_message);
         *http_status = result;
-        return true;
+        rc = true;
+        goto json_object_free_return;
     }
 
     free (input_proto_message);
@@ -651,10 +786,18 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
          * by the CMSG api should always be well formed) but check for it */
         CMSG_FREE_RECV_MSG (output_proto_message);
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-        return true;
+        rc = true;
+        goto json_object_free_return;
     }
 
     CMSG_FREE_RECV_MSG (output_proto_message);
     *http_status = HTTP_CODE_OK;
-    return true;
+    rc = true;
+
+  json_object_free_return:
+    if (json_object)
+    {
+        json_decref (json_object);
+    }
+    return rc;
 }

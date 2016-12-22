@@ -73,22 +73,30 @@ void
 test_cmsg_proxy_find_service_from_url_and_verb (void)
 {
     const cmsg_service_info *entry;
+    json_t *json_object;
 
     _cmsg_proxy_list_init (cmsg_proxy_unit_tests_proxy_array_get (),
                            cmsg_proxy_unit_tests_proxy_array_size ());
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT);
+    entry =
+        _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT,
+                                                    &json_object);
     NP_ASSERT_PTR_NOT_EQUAL (entry, NULL);
     NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_PUT);
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("BAD URL", CMSG_HTTP_PUT);
+    entry =
+        _cmsg_proxy_find_service_from_url_and_verb ("BAD URL", CMSG_HTTP_PUT, &json_object);
     NP_ASSERT_PTR_EQUAL (entry, NULL);
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_GET);
+    entry =
+        _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_GET,
+                                                    &json_object);
     NP_ASSERT_PTR_NOT_EQUAL (entry, NULL);
     NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_GET);
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PATCH);
+    entry =
+        _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PATCH,
+                                                    &json_object);
     NP_ASSERT_PTR_EQUAL (entry, NULL);
 }
 
@@ -102,12 +110,14 @@ test_cmsg_proxy_convert_json_to_protobuf__valid_input (void)
 {
     ProtobufCMessage *output = NULL;
     bool ret;
-    char *json_str = "{\n    \"value\":true\n}";
+    json_error_t error;
+    json_t *json_obj = json_loads ("{\n    \"value\":true\n}", 0, &error);
 
-    ret = _cmsg_proxy_convert_json_to_protobuf (json_str,
+    ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
                                                 &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
                                                 &output);
 
+    json_decref (json_obj);
     free (output);
     NP_ASSERT_TRUE (ret);
 }
@@ -122,24 +132,26 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
 {
     ProtobufCMessage *output = NULL;
     bool ret;
-    char *json_str;
+    json_error_t error;
+    json_t *json_obj;
 
     /* value is not quoted correctly */
-    json_str = "{\n    value\":true\n}";
+    json_obj = json_loads ("{\n    value\":true\n}", 0, &error);
 
-    ret = _cmsg_proxy_convert_json_to_protobuf (json_str,
+    ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
                                                 &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
                                                 &output);
 
     NP_ASSERT_FALSE (ret);
+    json_decref (json_obj);
 
     /* json string is missing closing bracket */
-    json_str = "{\n    \"value\":true\n";
+    json_obj = json_loads ("{\n    \"value\":true\n", 0, &error);
 
-    ret = _cmsg_proxy_convert_json_to_protobuf (json_str,
+    ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
                                                 &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
                                                 &output);
-
+    json_decref (json_obj);
     NP_ASSERT_FALSE (ret);
 }
 
