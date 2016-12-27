@@ -305,10 +305,12 @@ void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
 void cmsg_transport_write_id (cmsg_transport *tport);
 void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
 void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
-cmsg_transport *cmsg_create_transport_unix (const char *sun_path,
+cmsg_transport *cmsg_create_transport_unix (const ProtobufCServiceDescriptor *descriptor,
                                             cmsg_transport_type transport_type);
 cmsg_transport *cmsg_create_transport_tcp (cmsg_socket *config,
                                            cmsg_transport_type transport_type);
 
 void cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *config);
+
+char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor);
 #endif

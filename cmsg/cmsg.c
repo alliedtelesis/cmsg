@@ -289,6 +289,12 @@ cmsg_service_port_get (const char *name, const char *proto)
     return port;
 }
 
+const char *
+cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor)
+{
+    return descriptor->name;
+}
+
 void *
 cmsg_malloc (size_t size, const char *filename, int line)
 {

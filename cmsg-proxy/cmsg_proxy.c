@@ -352,36 +352,6 @@ _cmsg_proxy_find_client_by_service (const ProtobufCServiceDescriptor *service_de
 }
 
 /**
- * Get the CMSG server socket name from the CMSG service descriptor.
- *
- * @param service_descriptor - CMSG service descriptor to get server socket name from
- *
- * @return - String representing the server socket name. The memory for this string must
- *           be freed by the caller.
- */
-static char *
-_cmsg_proxy_server_socket_name_get (const ProtobufCServiceDescriptor *service_descriptor)
-{
-    char *copy_str = NULL;
-    char *iter;
-
-    asprintf (&copy_str, "/tmp/%s", service_descriptor->name);
-
-    /* Replace the '.' in the name with '_' */
-    iter = copy_str;
-    while (*iter)
-    {
-        if (*iter == '.')
-        {
-            *iter = '_';
-        }
-        iter++;
-    }
-
-    return copy_str;
-}
-
-/**
  * Create a CMSG client to connect to the input service descriptor and
  * add this client to the proxy clients list.
  *
@@ -391,18 +361,16 @@ static void
 _cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
 {
     cmsg_client *client = NULL;
-    char *server_socket_name = _cmsg_proxy_server_socket_name_get (service_descriptor);
 
-    client = cmsg_create_client_unix (server_socket_name, service_descriptor);
+    client = cmsg_create_client_unix (service_descriptor);
     if (!client)
     {
-        fprintf (stderr, "Failed to create client for unix socket %s", server_socket_name);
-        free (server_socket_name);
+        fprintf (stderr, "Failed to create client for service: %s",
+                 service_descriptor->name);
         return;
     }
 
     proxy_clients_list = g_list_append (proxy_clients_list, (void *) client);
-    free (server_socket_name);
     return;
 }
 

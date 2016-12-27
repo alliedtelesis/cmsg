@@ -100,4 +100,6 @@ extern ProtobufCAllocator cmsg_memory_allocator;
 
 int cmsg_service_port_get (const char *name, const char *proto);
 
+const char *cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor);
+
 #endif

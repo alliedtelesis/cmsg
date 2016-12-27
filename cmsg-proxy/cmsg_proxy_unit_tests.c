@@ -188,8 +188,7 @@ test_cmsg_proxy_create_client (void)
 }
 
 struct cmsg_client *
-sm_mock_cmsg_create_client_unix__returns_null (cmsg_transport *transport,
-                                               const ProtobufCServiceDescriptor *descriptor)
+sm_mock_cmsg_create_client_unix__returns_null (const ProtobufCServiceDescriptor *descriptor)
 {
     return NULL;
 }
