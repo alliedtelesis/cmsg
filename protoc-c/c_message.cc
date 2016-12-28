@@ -155,12 +155,20 @@ GenerateStructDefinition(io::Printer* printer) {
 
     printer->Print("typedef enum {\n");
     printer->Indent();
+#ifdef ATL_CHANGE
+    printer->Print(vars, "$ucclassname$_$oneofname$_NOT_SET = 0,\n");
+#else
     printer->Print(vars, "$ucclassname$__$oneofname$__NOT_SET = 0,\n");
+#endif
     for (int j = 0; j < oneof->field_count(); j++) {
       const FieldDescriptor *field = oneof->field(j);
       vars["fieldname"] = FullNameToUpper(field->name());
       vars["fieldnum"] = SimpleItoa(field->number());
+#ifdef ATL_CHANGE
+      printer->Print(vars, "$ucclassname$_$oneofname$_$fieldname$ = $fieldnum$,\n");
+#else
       printer->Print(vars, "$ucclassname$__$oneofname$_$fieldname$ = $fieldnum$,\n");
+#endif
     }
     printer->Outdent();
     printer->Print(vars, "} $foneofname$Case;\n\n");
@@ -240,7 +248,11 @@ GenerateStructDefinition(io::Printer* printer) {
     const OneofDescriptor *oneof = descriptor_->oneof_decl(i);
     vars["foneofname"] = FullNameToUpper(oneof->full_name());
     // Initialize the case enum
+#ifdef ATL_CHANGE
+    printer->Print(vars, ", $foneofname$_NOT_SET");
+#else
     printer->Print(vars, ", $foneofname$__NOT_SET");
+#endif
     // Initialize the union
     printer->Print(", {0}");
   }
