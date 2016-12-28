@@ -383,7 +383,7 @@ _cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
  * @return Returns matching cmsg_service_info from api_info if not NULL
  */
 static const cmsg_service_info *
-cmsg_proxy_service_info_get (cmsg_proxy_api_info *api_info, cmsg_http_verb verb)
+cmsg_proxy_service_info_get (const cmsg_proxy_api_info *api_info, cmsg_http_verb verb)
 {
     switch (verb)
     {
@@ -449,19 +449,58 @@ _cmsg_proxy_clients_init (void)
 }
 
 /**
+ * Create a new json object from the given json string
+ *
+ * @param json_object - Place holder for the created json object
+ * @param input_json - input json string to create the json object
+ */
+static void
+_cmsg_proxy_json_object_create (json_t **json_object, const char *input_json)
+{
+    json_error_t error;
+
+    *json_object = json_loads (input_json, 0, &error);
+}
+
+/**
+ *
+ * Destroy the given json object
+ *
+ * @param json_object - json object to be destroyed
+ */
+static void
+_cmsg_proxy_json_object_destroy (json_t *json_object)
+{
+    if (json_object)
+    {
+        json_decref (json_object);
+    }
+}
+
+/**
  * Update the json object according to the new key,value pair. The 'key'
- * is within '< >' so we need to get rid of it before creating the new object.
+ * is within '{ }' so we need to parse it to remove the symbols before
+ * creating the new object.
  *
  * @json_object - json object to update
  * @key - key used to create new json object
  * @value - value for the new json object
+ *
+ * @returns TRUE if the key is parsed and updated the json object successfully
+ * otherwise FALSE
  */
-static void
-_cmsg_proxy_json_object_create (json_t **json_object, const char *key, const char *value)
+static gboolean
+_cmsg_proxy_key_parser (json_t **json_object, const char *key, const char *value)
 {
     json_t *new_object;
     char *tmp_key;
     char *ptr;
+
+    /* Return early if 'key' is not in '{ }' */
+    if (key[0] != '{' && key[strlen (key)] != '}')
+    {
+        return FALSE;
+    }
 
     tmp_key = strdup (key);
     ptr = tmp_key;
@@ -481,6 +520,8 @@ _cmsg_proxy_json_object_create (json_t **json_object, const char *key, const cha
     }
 
     free (tmp_key);
+
+    return TRUE;
 }
 
 /**
@@ -503,6 +544,7 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
     char *rest = NULL;
     GNode *parent_node;
     GNode *info_node;
+    const char *key;
 
     tmp_url = strdup (url);
     parent_node = g_node_get_root (proxy_entries_tree);
@@ -518,11 +560,15 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
                 parent_node = node;
                 break;
             }
-            else if (((char *) node->data)[0] == '<')
+            else
             {
-                _cmsg_proxy_json_object_create (json_object, node->data, next_entry);
-                parent_node = node;
-                break;
+                key = (const char *) node->data;
+                /* If a key is found, go to the next level of the GNode tree. */
+                if (_cmsg_proxy_key_parser (json_object, key, next_entry))
+                {
+                    parent_node = node;
+                    break;
+                }
             }
             node = g_node_next_sibling (node);
         }
@@ -697,22 +743,20 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     ProtobufCMessage *output_proto_message = NULL;
     bool ret = false;
     int result;
-    json_error_t error;
     json_t *json_object = NULL;
-    bool rc = false;
 
     if (input_json)
     {
-        json_object = json_loads (input_json, 0, &error);
+        _cmsg_proxy_json_object_create (&json_object, input_json);
     }
 
-    service_info =
-        _cmsg_proxy_find_service_from_url_and_verb (url, http_verb, &json_object);
+    service_info = _cmsg_proxy_find_service_from_url_and_verb (url, http_verb,
+                                                               &json_object);
     if (service_info == NULL)
     {
         /* The cmsg proxy does not know about this url and verb combination */
-        rc = false;
-        goto json_object_free_return;
+        _cmsg_proxy_json_object_destroy (json_object);
+        return false;
     }
 
     client = _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
@@ -720,8 +764,8 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     {
         /* This should not occur but check for it */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-        rc = true;
-        goto json_object_free_return;
+        _cmsg_proxy_json_object_destroy (json_object);
+        return true;
     }
 
     if (json_object)
@@ -733,8 +777,8 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         {
             /* The JSON sent with the request is malformed */
             *http_status = HTTP_CODE_BAD_REQUEST;
-            rc = true;
-            goto json_object_free_return;
+            _cmsg_proxy_json_object_destroy (json_object);
+            return true;
         }
     }
 
@@ -745,8 +789,8 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         /* Something went wrong calling the CMSG api */
         free (input_proto_message);
         *http_status = result;
-        rc = true;
-        goto json_object_free_return;
+        _cmsg_proxy_json_object_destroy (json_object);
+        return true;
     }
 
     free (input_proto_message);
@@ -758,18 +802,13 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
          * by the CMSG api should always be well formed) but check for it */
         CMSG_FREE_RECV_MSG (output_proto_message);
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-        rc = true;
-        goto json_object_free_return;
+
+        _cmsg_proxy_json_object_destroy (json_object);
+        return true;
     }
 
+    _cmsg_proxy_json_object_destroy (json_object);
     CMSG_FREE_RECV_MSG (output_proto_message);
     *http_status = HTTP_CODE_OK;
-    rc = true;
-
-  json_object_free_return:
-    if (json_object)
-    {
-        json_decref (json_object);
-    }
-    return rc;
+    return true;
 }
