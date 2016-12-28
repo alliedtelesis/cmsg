@@ -153,24 +153,6 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
 }
 
 /**
- * Function Tested: _cmsg_proxy_server_socket_name_get()
- *
- * Tests that the correct server socket name is returned from the
- * CMSG service descriptor
- */
-void
-test_cmsg_proxy_server_socket_name_get (void)
-{
-    char *svr_name = NULL;
-
-    svr_name =
-        _cmsg_proxy_server_socket_name_get (&cmsg_proxy_unit_tests_interface_descriptor);
-
-    NP_ASSERT_STR_EQUAL (svr_name, "/tmp/cmsg_proxy_unit_tests_interface");
-    free (svr_name);
-}
-
-/**
  * Function Tested: _cmsg_proxy_create_client()
  *
  * Tests that the function correctly creates a CMSG client
