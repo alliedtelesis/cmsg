@@ -68,18 +68,17 @@
 /* Current CMSG API version string */
 #define CMSG_API_VERSION_STR                "CMSG-API"
 
-static GList *proxy_entries_list = NULL;
 static GList *proxy_clients_list = NULL;
 static GNode *proxy_entries_tree = NULL;
 
 /**
- * Fill CMSG service info details to the proxy tree
+ * SET CMSG API info details to the proxy tree
  *
- * @param leaf_node    Add the CMSG service info to this leaf node
- * @param service_info CMSG service info to be added
+ * @param leaf_node - Add the CMSG service info to this leaf node
+ * @param service_info - CMSG service info to be added
  */
 static void
-_cmsg_proxy_fill_info (GNode *leaf_node, cmsg_service_info *service_info)
+_cmsg_proxy_api_info_node_set (GNode *leaf_node, cmsg_service_info *service_info)
 {
     cmsg_proxy_api_info *api_info = leaf_node->data;
 
@@ -162,7 +161,7 @@ _cmsg_proxy_fill_info (GNode *leaf_node, cmsg_service_info *service_info)
  *  @return  Newly created cmsg_api_info_node or the existing one if found.
  */
 static GNode *
-_cmsg_proxy_get_api_info_node (GNode *last_node)
+_cmsg_proxy_api_info_node_new (GNode *last_node)
 {
     GNode *first_child = NULL;
     GNode *cmsg_api_info_node = NULL;
@@ -244,7 +243,7 @@ _cmsg_proxy_get_api_info_node (GNode *last_node)
  * @param service_info CMSG service information
  */
 static gboolean
-_cmsg_proxy_add_service_info (cmsg_service_info *service_info)
+_cmsg_proxy_service_info_add (cmsg_service_info *service_info)
 {
     char *tmp_url = NULL;
     char *next_entry = NULL;
@@ -284,10 +283,10 @@ _cmsg_proxy_add_service_info (cmsg_service_info *service_info)
         parent_node = node;
     }
 
-    cmsg_api_info_node = _cmsg_proxy_get_api_info_node (parent_node);
+    cmsg_api_info_node = _cmsg_proxy_api_info_node_new (parent_node);
 
     /* Fill the cmsg_service_info to the leaf node */
-    _cmsg_proxy_fill_info (cmsg_api_info_node, service_info);
+    _cmsg_proxy_api_info_node_set (cmsg_api_info_node, service_info);
 
     free (tmp_url);
 
@@ -301,15 +300,13 @@ _cmsg_proxy_add_service_info (cmsg_service_info *service_info)
  * @param length - Length of the array
  */
 static void
-_cmsg_proxy_list_init (cmsg_service_info *array, int length)
+_cmsg_proxy_service_info_init (cmsg_service_info *array, int length)
 {
     int i = 0;
 
     for (i = 0; i < length; i++)
     {
-        _cmsg_proxy_add_service_info (&array[i]);
-
-        proxy_entries_list = g_list_append (proxy_entries_list, (void *) &array[i]);
+        _cmsg_proxy_service_info_add (&array[i]);
     }
 }
 
@@ -702,13 +699,14 @@ cmsg_proxy_init (void)
     /* This is to pass some build targets with interface statistics monitoring
      * disabled. Once we find a way to initialize the proxy list at compile
      * time or similar, we can remove the code. */
-    _cmsg_proxy_list_init (NULL, 0);
+    _cmsg_proxy_service_info_init (NULL, 0);
 
     /* Create GNode proxy entries tree. */
     proxy_entries_tree = g_node_new (CMSG_API_VERSION_STR);
 
 #ifdef HAVE_STATMOND
-    _cmsg_proxy_list_init (statmond_proxy_array_get (), statmond_proxy_array_size ());
+    _cmsg_proxy_service_info_init (statmond_proxy_array_get (),
+                                   statmond_proxy_array_size ());
 #endif /* HAVE_STATMOND */
 
     _cmsg_proxy_clients_init ();
