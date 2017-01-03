@@ -162,3 +162,34 @@ cmsg_composite_client_new (const ProtobufCServiceDescriptor *descriptor)
 
     return client;
 }
+
+/**
+ * Find a child client within a composite client based on tipc node id.
+ *
+ * @param composite_client - The composite client to look for the child client in.
+ * @param id - The tipc id to lookup the child client by.
+ *
+ * @return - Pointer to the child client if found, NULL otherwise.
+ */
+cmsg_client *
+cmsg_composite_client_lookup_by_tipc_id (cmsg_client *composite_client, uint32_t id)
+{
+    GList *l;
+    cmsg_client *child;
+
+    pthread_mutex_lock (&composite_client->child_mutex);
+
+    for (l = composite_client->child_clients; l != NULL; l = l->next)
+    {
+        child = (cmsg_client *) l->data;
+        if (child->_transport->type == CMSG_TRANSPORT_RPC_TIPC &&
+            child->_transport->config.socket.sockaddr.tipc.addr.name.name.instance == id)
+        {
+            pthread_mutex_unlock (&composite_client->child_mutex);
+            return child;
+        }
+    }
+
+    pthread_mutex_unlock (&composite_client->child_mutex);
+    return NULL;
+}
