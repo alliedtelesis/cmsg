@@ -16,12 +16,10 @@
 #include <config.h>
 #include "cmsg_proxy.h"
 #include <glib.h>
-#ifdef HAVE_STATMOND
-#include <ipc/statmond_proxy_def.h>
-#endif /* HAVE_STATMOND */
 #include <string.h>
 #include <protobuf2json.h>
 #include <cmsg/cmsg_client.h>
+#include <dlfcn.h>
 
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
@@ -64,6 +62,9 @@
 #define HTTP_CODE_GATEWAY_TIMEOUT           504 /* The server gateway timed out waiting for the upstream server */
 #define HTTP_CODE_BAD_VERSION               505 /* The server does not support the HTTP protocol version */
 #define HTTP_CODE_INSUFFICIENT_STORAGE      507 /* The server has insufficient storage to complete the request */
+
+typedef cmsg_service_info *(*proxy_defs_array_get_func_ptr) ();
+typedef int (*proxy_defs_array_size_func_ptr) ();
 
 /* Current CMSG API version string */
 #define CMSG_API_VERSION_STR                "CMSG-API"
@@ -796,18 +797,22 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
 void
 cmsg_proxy_init (void)
 {
-    /* This is to pass some build targets with interface statistics monitoring
-     * disabled. Once we find a way to initialize the proxy list at compile
-     * time or similar, we can remove the code. */
-    _cmsg_proxy_service_info_init (NULL, 0);
+    void *lib_handle;
+    proxy_defs_array_get_func_ptr get_func_addr;
+    proxy_defs_array_size_func_ptr size_func_addr;
 
     /* Create GNode proxy entries tree. */
     proxy_entries_tree = g_node_new (g_strdup (CMSG_API_VERSION_STR));
 
-#ifdef HAVE_STATMOND
-    _cmsg_proxy_service_info_init (statmond_proxy_array_get (),
-                                   statmond_proxy_array_size ());
-#endif /* HAVE_STATMOND */
+    lib_handle = dlopen ("/opt/1/lib/libstatmond_proto_proxy_def.so",
+                         RTLD_NOW | RTLD_GLOBAL);
+    if (lib_handle)
+    {
+        get_func_addr = dlsym (lib_handle, "statmond_proxy_array_get");
+        size_func_addr = dlsym (lib_handle, "statmond_proxy_array_size");
+
+        _cmsg_proxy_service_info_init (get_func_addr (), size_func_addr ());
+    }
 
     _cmsg_proxy_clients_init ();
 }

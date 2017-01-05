@@ -145,14 +145,7 @@ cmsg_proxy_libcmsgproxy_la_LIBADD = \
 	$(GLIB_LIBS) \
 	-lcmsg \
 	-ljansson \
-	-lprotobuf2json-c \
-	-lcommon_proto_api
-
-if BUILD_STATMOND
-cmsg_proxy_libcmsgproxy_la_LIBADD += \
-	-lstatmond_proto_proxy_def \
-	-lstatmond_proto_api
-endif # BUILD_STATMOND
+	-lprotobuf2json-c
 
 cmsg_proxy_libcmsgproxy_la_CFLAGS = -Werror $(AM_CFLAGS)
 
@@ -178,8 +171,7 @@ cmsg_proxy_cmsg_proxy_unit_tests_SOURCES = \
 cmsg_proxy_cmsg_proxy_unit_tests_CFLAGS  = $(AM_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_proxy_cmsg_proxy_unit_tests_LDFLAGS = -static
 cmsg_proxy_cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
-                                           -lcmsg -lcommon_proto_api -lprotobuf2json-c \
-                                           -lstatmond_proto_proxy_def -lstatmond_proto_api \
+                                           -lcmsg -lprotobuf2json-c \
                                            -ljansson
 endif
 
