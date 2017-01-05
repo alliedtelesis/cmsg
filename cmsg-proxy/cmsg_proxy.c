@@ -830,8 +830,8 @@ cmsg_proxy_init (void)
                          RTLD_NOW | RTLD_GLOBAL);
     if (lib_handle)
     {
-        get_func_addr = dlsym (lib_handle, "statmond_proxy_array_get");
-        size_func_addr = dlsym (lib_handle, "statmond_proxy_array_size");
+        get_func_addr = dlsym (lib_handle, "cmsg_proxy_array_get");
+        size_func_addr = dlsym (lib_handle, "cmsg_proxy_array_size");
 
         _cmsg_proxy_service_info_init (get_func_addr (), size_func_addr ());
 

@@ -28,16 +28,13 @@ setup (void)
 void
 test_cmsg_proxy_service_info_init__list_length (void)
 {
-    _cmsg_proxy_service_info_init (cmsg_proxy_unit_tests_proxy_array_get (),
-                                   cmsg_proxy_unit_tests_proxy_array_size ());
+    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
     NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 6);
 
-    _cmsg_proxy_service_info_init (cmsg_proxy_unit_tests_proxy_array_get (),
-                                   cmsg_proxy_unit_tests_proxy_array_size ());
+    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
     NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 6);
 
-    _cmsg_proxy_service_info_init (cmsg_proxy_unit_tests_proxy_array_get (),
-                                   cmsg_proxy_unit_tests_proxy_array_size ());
+    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
     NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 6);
 }
 
@@ -49,13 +46,12 @@ test_cmsg_proxy_service_info_init__list_length (void)
 void
 test_cmsg_proxy_service_info_init__list_entries (void)
 {
-    _cmsg_proxy_service_info_init (cmsg_proxy_unit_tests_proxy_array_get (),
-                                   cmsg_proxy_unit_tests_proxy_array_size ());
+    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
     cmsg_service_info *entry =
         _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT,
                                                     NULL);
 
-    NP_ASSERT_PTR_EQUAL (entry, cmsg_proxy_unit_tests_proxy_array_get ());
+    NP_ASSERT_PTR_EQUAL (entry, cmsg_proxy_array_get ());
     NP_ASSERT_PTR_EQUAL (entry->service_descriptor,
                          &cmsg_proxy_unit_tests_interface_descriptor);
     NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_PUT);
@@ -73,8 +69,7 @@ test_cmsg_proxy_find_service_from_url_and_verb (void)
     const cmsg_service_info *entry;
     json_t *json_object;
 
-    _cmsg_proxy_service_info_init (cmsg_proxy_unit_tests_proxy_array_get (),
-                                   cmsg_proxy_unit_tests_proxy_array_size ());
+    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
     entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test",
                                                         CMSG_HTTP_PUT, &json_object);
@@ -195,8 +190,7 @@ test_cmsg_proxy_create_client__memory_leaks (void)
 void
 test_cmsg_proxy_clients_init (void)
 {
-    _cmsg_proxy_service_info_init (cmsg_proxy_unit_tests_proxy_array_get (),
-                                   cmsg_proxy_unit_tests_proxy_array_size ());
+    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
     _cmsg_proxy_clients_init ();
     NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
@@ -235,7 +229,7 @@ test_cmsg_proxy_convert_protobuf_to_json (void)
 void
 test_cmsg_proxy_service_info_add (void)
 {
-    cmsg_service_info *array = cmsg_proxy_unit_tests_proxy_array_get ();
+    cmsg_service_info *array = cmsg_proxy_array_get ();
 
     _cmsg_proxy_service_info_add (&array[2]);
     NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 5);
@@ -260,8 +254,7 @@ test_cmsg_proxy_service_info_add (void)
 void
 test_cmsg_proxy_deinit (void)
 {
-    _cmsg_proxy_service_info_init (cmsg_proxy_unit_tests_proxy_array_get (),
-                                   cmsg_proxy_unit_tests_proxy_array_size ());
+    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
     _cmsg_proxy_clients_init ();
     NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
