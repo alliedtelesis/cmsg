@@ -20,6 +20,7 @@
 #include <protobuf2json.h>
 #include <cmsg/cmsg_client.h>
 #include <dlfcn.h>
+#include <dirent.h>
 
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
@@ -558,13 +559,73 @@ _cmsg_proxy_dlclose (gpointer data)
 }
 
 /**
- * Deinitialise the loaded library handles.
+ * Close the loaded library handles.
  */
 static void
-_cmsg_proxy_library_handles_deinit (void)
+_cmsg_proxy_library_handles_close (void)
 {
     g_list_free_full (library_handles_list, _cmsg_proxy_dlclose);
     library_handles_list = NULL;
+}
+
+/**
+ * Loads all of the *_proto_proxy_def.so libraries that exist in /opt/1/lib/
+ * into the cmsg proxy library.
+ */
+static void
+_cmsg_proxy_library_handles_load (void)
+{
+    DIR *d = NULL;
+    struct dirent *dir = NULL;
+    void *lib_handle = NULL;
+    proxy_defs_array_get_func_ptr get_func_addr = NULL;
+    proxy_defs_array_size_func_ptr size_func_addr = NULL;
+    char *library_path = NULL;
+
+    d = opendir ("/opt/1/lib");
+    if (d == NULL)
+    {
+        fprintf (stderr, "Directory '/opt/1/lib' could not be opened\n");
+        return;
+    }
+
+    while ((dir = readdir (d)) != NULL)
+    {
+        /* Check that dir points to a file, not (sym)link or directory */
+        if (dir->d_type == DT_REG && strstr (dir->d_name, "proto_proxy_def.so"))
+        {
+            if (asprintf (&library_path, "/opt/1/lib/%s", dir->d_name) < 0)
+            {
+                fprintf (stderr, "Memory allocation error\n");
+                continue;
+            }
+
+            lib_handle = dlopen (library_path, RTLD_NOW | RTLD_GLOBAL);
+            if (lib_handle)
+            {
+                get_func_addr = dlsym (lib_handle, "cmsg_proxy_array_get");
+                size_func_addr = dlsym (lib_handle, "cmsg_proxy_array_size");
+
+                if (get_func_addr && size_func_addr)
+                {
+                    _cmsg_proxy_service_info_init (get_func_addr (), size_func_addr ());
+
+                    /* We need to leave the library loaded in the process address space so
+                     * that the data can be accessed. Store a pointer to the library handle
+                     * so that it can be closed at deinit. */
+                    library_handles_list = g_list_prepend (library_handles_list,
+                                                           lib_handle);
+                }
+                else
+                {
+                    dlclose (lib_handle);
+                }
+            }
+            free (library_path);
+        }
+    }
+
+    closedir (d);
 }
 
 
@@ -819,28 +880,10 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
 void
 cmsg_proxy_init (void)
 {
-    void *lib_handle;
-    proxy_defs_array_get_func_ptr get_func_addr;
-    proxy_defs_array_size_func_ptr size_func_addr;
-
     /* Create GNode proxy entries tree. */
     proxy_entries_tree = g_node_new (g_strdup (CMSG_API_VERSION_STR));
 
-    lib_handle = dlopen ("/opt/1/lib/libstatmond_proto_proxy_def.so",
-                         RTLD_NOW | RTLD_GLOBAL);
-    if (lib_handle)
-    {
-        get_func_addr = dlsym (lib_handle, "cmsg_proxy_array_get");
-        size_func_addr = dlsym (lib_handle, "cmsg_proxy_array_size");
-
-        _cmsg_proxy_service_info_init (get_func_addr (), size_func_addr ());
-
-        /* We need to leave the library loaded in the process address space so
-         * that the data can be accessed. Store a pointer to the library handle
-         * so that it can be closed at deinit. */
-        library_handles_list = g_list_prepend (library_handles_list, lib_handle);
-    }
-
+    _cmsg_proxy_library_handles_load ();
     _cmsg_proxy_clients_init ();
 }
 
@@ -852,7 +895,7 @@ cmsg_proxy_deinit (void)
 {
     _cmsg_proxy_service_info_deinit ();
     _cmsg_proxy_clients_deinit ();
-    _cmsg_proxy_library_handles_deinit ();
+    _cmsg_proxy_library_handles_close ();
 }
 
 /**
