@@ -14,7 +14,7 @@ static int
 setup (void)
 {
     /* Create GNode cmsg proxy entry tree */
-    proxy_entries_tree = g_node_new ("CMSG_API");
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
 
     return 0;
 }
@@ -250,4 +250,23 @@ test_cmsg_proxy_service_info_add (void)
     /* Add the different service info with same URL. */
     _cmsg_proxy_service_info_add (&array[1]);
     NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 6);
+}
+
+/**
+ * Function Tested: _cmsg_proxy_deinit()
+ *
+ * Tests that dynamically allocated memory is freed properly
+ */
+void
+test_cmsg_proxy_deinit (void)
+{
+    _cmsg_proxy_service_info_init (cmsg_proxy_unit_tests_proxy_array_get (),
+                                   cmsg_proxy_unit_tests_proxy_array_size ());
+
+    _cmsg_proxy_clients_init ();
+    NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
+
+    cmsg_proxy_deinit ();
+    NP_ASSERT_PTR_EQUAL (proxy_clients_list, NULL);
+    NP_ASSERT_PTR_EQUAL (proxy_entries_tree, NULL);
 }
