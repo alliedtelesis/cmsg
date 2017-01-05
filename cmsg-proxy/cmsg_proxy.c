@@ -69,6 +69,7 @@ typedef int (*proxy_defs_array_size_func_ptr) ();
 /* Current CMSG API version string */
 #define CMSG_API_VERSION_STR                "CMSG-API"
 
+static GList *library_handles_list = NULL;
 static GList *proxy_clients_list = NULL;
 static GNode *proxy_entries_tree = NULL;
 
@@ -547,6 +548,27 @@ _cmsg_proxy_clients_deinit (void)
 }
 
 /**
+ * Helper function for _cmsg_proxy_library_handles_deinit().
+ * Call dlclose in a way that compiles with g_list_free_full.
+ */
+static void
+_cmsg_proxy_dlclose (gpointer data)
+{
+    dlclose (data);
+}
+
+/**
+ * Deinitialise the loaded library handles.
+ */
+static void
+_cmsg_proxy_library_handles_deinit (void)
+{
+    g_list_free_full (library_handles_list, _cmsg_proxy_dlclose);
+    library_handles_list = NULL;
+}
+
+
+/**
  * Create a new json object from the given json string
  *
  * @param json_object - Place holder for the created json object
@@ -812,6 +834,11 @@ cmsg_proxy_init (void)
         size_func_addr = dlsym (lib_handle, "statmond_proxy_array_size");
 
         _cmsg_proxy_service_info_init (get_func_addr (), size_func_addr ());
+
+        /* We need to leave the library loaded in the process address space so
+         * that the data can be accessed. Store a pointer to the library handle
+         * so that it can be closed at deinit. */
+        library_handles_list = g_list_prepend (library_handles_list, lib_handle);
     }
 
     _cmsg_proxy_clients_init ();
@@ -824,8 +851,8 @@ void
 cmsg_proxy_deinit (void)
 {
     _cmsg_proxy_service_info_deinit ();
-
     _cmsg_proxy_clients_deinit ();
+    _cmsg_proxy_library_handles_deinit ();
 }
 
 /**
