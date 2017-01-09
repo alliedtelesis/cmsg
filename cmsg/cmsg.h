@@ -4,7 +4,7 @@
 #ifndef __CMSG_H_
 #define __CMSG_H_
 
-#include "protobuf-c.h"
+#include <protobuf-c/protobuf-c.h>
 #include <glib.h>
 #include <stdbool.h>
 

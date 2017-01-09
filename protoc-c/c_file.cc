@@ -147,11 +147,7 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
     "#define PROTOBUF_C_$filename_identifier$__INCLUDED\n"
 #endif /* ATL_CHANGE */
     "\n"
-#ifdef ATL_CHANGE
-    "#include <cmsg/protobuf-c.h>\n"
-#else
     "#include <protobuf-c/protobuf-c.h>\n"
-#endif /* ATL_CHANGE */
     "\n"
     "PROTOBUF_C__BEGIN_DECLS\n"
     "\n",
@@ -312,7 +308,7 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
     "\n"
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
-    "#include <cmsg/protobuf-c.h>\n"
+    "#include <protobuf-c/protobuf-c.h>\n"
     "#include <cmsg/cmsg.h>\n"
     "\n"
     "PROTOBUF_C__BEGIN_DECLS\n"

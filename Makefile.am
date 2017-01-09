@@ -81,8 +81,6 @@ cmsg/cmsg_sub_service.pb-c.c cmsg/cmsg_sub_service.pb-c.h: $(PROTOC_CMSG_PATH)$(
 cmsg_libcmsg_la_SOURCES = \
 	cmsg/cmsg_sub_service.pb-c.c \
 	cmsg/cmsg_sub_service.pb-c.h \
-	cmsg/protobuf-c.c \
-	cmsg/protobuf-c.h \
 	cmsg/cmsg.c \
 	cmsg/cmsg.h \
 	cmsg/cmsg_private.h \
@@ -107,7 +105,7 @@ cmsg_libcmsg_la_SOURCES = \
 	cmsg/cmsg_transport_udt.c \
 	cmsg/cmsg_transport_unix.c
 
-cmsg_libcmsg_la_LIBADD = $(GLIB_LIBS) -lutility
+cmsg_libcmsg_la_LIBADD = $(GLIB_LIBS) -lutility -lprotobuf-c
 
 if HAVE_COUNTERD
 cmsg_libcmsg_la_LIBADD += -lcntr
