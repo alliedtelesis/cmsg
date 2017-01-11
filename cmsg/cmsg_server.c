@@ -1567,15 +1567,16 @@ cmsg_create_server_tipc_oneway (const char *server_name, int member_id, int scop
 }
 
 static cmsg_server *
-_cmsg_create_server_unix (const char *sun_path, ProtobufCService *descriptor,
-                          cmsg_transport_type transport_type)
+_cmsg_create_server_unix (ProtobufCService *descriptor, cmsg_transport_type transport_type)
 {
     cmsg_transport *transport = NULL;
     cmsg_server *server = NULL;
 
-    transport = cmsg_create_transport_unix (sun_path, transport_type);
+    transport = cmsg_create_transport_unix (descriptor->descriptor, transport_type);
     if (transport == NULL)
     {
+        CMSG_LOG_GEN_ERROR ("[%s] Failed to create UNIX IPC server.",
+                            descriptor->descriptor->name);
         return NULL;
     }
 
@@ -1583,8 +1584,8 @@ _cmsg_create_server_unix (const char *sun_path, ProtobufCService *descriptor,
     if (server == NULL)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("[%s%s] Failed to create UNIX IPC server.",
-                            descriptor->descriptor->name, sun_path);
+        CMSG_LOG_GEN_ERROR ("[%s] Failed to create UNIX IPC server.",
+                            descriptor->descriptor->name);
         return NULL;
     }
 
@@ -1592,21 +1593,19 @@ _cmsg_create_server_unix (const char *sun_path, ProtobufCService *descriptor,
 }
 
 cmsg_server *
-cmsg_create_server_unix_rpc (const char *sun_path, ProtobufCService *descriptor)
+cmsg_create_server_unix_rpc (ProtobufCService *descriptor)
 {
-    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
-    return _cmsg_create_server_unix (sun_path, descriptor, CMSG_TRANSPORT_RPC_UNIX);
+    return _cmsg_create_server_unix (descriptor, CMSG_TRANSPORT_RPC_UNIX);
 }
 
 cmsg_server *
-cmsg_create_server_unix_oneway (const char *sun_path, ProtobufCService *descriptor)
+cmsg_create_server_unix_oneway (ProtobufCService *descriptor)
 {
-    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
-    return _cmsg_create_server_unix (sun_path, descriptor, CMSG_TRANSPORT_ONEWAY_UNIX);
+    return _cmsg_create_server_unix (descriptor, CMSG_TRANSPORT_ONEWAY_UNIX);
 }
 
 static cmsg_server *

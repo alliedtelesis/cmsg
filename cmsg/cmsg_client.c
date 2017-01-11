@@ -1428,16 +1428,17 @@ cmsg_create_and_connect_client_tipc_rpc (const char *server_name, int member_id,
 
 /* Create a cmsg client and its transport over a UNIX socket */
 static cmsg_client *
-_cmsg_create_client_unix (const char *sun_path,
-                          const ProtobufCServiceDescriptor *descriptor,
+_cmsg_create_client_unix (const ProtobufCServiceDescriptor *descriptor,
                           cmsg_transport_type transport_type)
 {
     cmsg_transport *transport;
     cmsg_client *client;
 
-    transport = cmsg_create_transport_unix (sun_path, transport_type);
+    transport = cmsg_create_transport_unix (descriptor, transport_type);
     if (!transport)
     {
+        CMSG_LOG_GEN_ERROR ("Failed to create UNIX CMSG client for service: %s",
+                            descriptor->name);
         return NULL;
     }
 
@@ -1445,37 +1446,41 @@ _cmsg_create_client_unix (const char *sun_path,
     if (!client)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("No UNIX IPC client on socket %s", sun_path);
+        CMSG_LOG_GEN_ERROR ("Failed to create UNIX CMSG client for service: %s",
+                            descriptor->name);
         return NULL;
     }
     return client;
 }
 
 cmsg_client *
-cmsg_create_client_unix (const char *sun_path, const ProtobufCServiceDescriptor *descriptor)
+cmsg_create_client_unix (const ProtobufCServiceDescriptor *descriptor)
 {
-    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
-    return _cmsg_create_client_unix (sun_path, descriptor, CMSG_TRANSPORT_RPC_UNIX);
+    return _cmsg_create_client_unix (descriptor, CMSG_TRANSPORT_RPC_UNIX);
 }
 
 cmsg_client *
-cmsg_create_client_unix_oneway (const char *sun_path,
-                                const ProtobufCServiceDescriptor *descriptor)
+cmsg_create_client_unix_oneway (const ProtobufCServiceDescriptor *descriptor)
 {
-    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
-    return _cmsg_create_client_unix (sun_path, descriptor, CMSG_TRANSPORT_ONEWAY_UNIX);
+    return _cmsg_create_client_unix (descriptor, CMSG_TRANSPORT_ONEWAY_UNIX);
 }
 
 int32_t
-cmsg_client_unix_server_ready (const char *sun_path)
+cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor)
 {
-    CMSG_ASSERT_RETURN_VAL (sun_path != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, CMSG_RET_ERR);
 
-    return access (sun_path, F_OK);
+    int ret;
+    char *sun_path = cmsg_transport_unix_sun_path (descriptor);
+
+    ret = access (sun_path, F_OK);
+    free (sun_path);
+
+    return ret;
 }
 
 /* Create a cmsg client and its transport over a TCP socket */
