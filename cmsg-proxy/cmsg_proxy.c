@@ -725,6 +725,7 @@ _cmsg_proxy_key_parser (json_t **json_object, const char *key, const char *value
     char *tmp_key;
     char *ptr;
     char *end;
+    long int val;
 
     /* Return early if 'key' is not in '{ }' */
     if (key[0] != '{' && key[strlen (key)] != '}')
@@ -738,7 +739,7 @@ _cmsg_proxy_key_parser (json_t **json_object, const char *key, const char *value
     ptr++;
     ptr[strlen (ptr) - 1] = '\0';
 
-    strtol (value, &end, 10);
+    val = strtol (value, &end, 10);
 
     /* If the key is an integer then write it as an integer in the json structure,
      * otherwise write it as a string. */
@@ -748,7 +749,7 @@ _cmsg_proxy_key_parser (json_t **json_object, const char *key, const char *value
     }
     else
     {
-        new_object = json_pack ("{si}", ptr, value);
+        new_object = json_pack ("{si}", ptr, val);
     }
 
     if (*json_object)
