@@ -539,14 +539,20 @@ cmsg_proxy_service_info_get (const cmsg_proxy_api_info *api_info, cmsg_http_verb
  * @param leaf_node - leaf node that contains cmsg_proxy_api_info
  * @param data - data passed in by the caller. This is NULL
  *
- * @returns TRUE always
+ * @returns FALSE if the traverse need to be continued otherwise TRUE
  */
 static gboolean
 _cmsg_proxy_clients_add (GNode *leaf_node, gpointer data)
 {
-    cmsg_proxy_api_info *api_info = leaf_node->data;
+    cmsg_proxy_api_info *api_info;
     const cmsg_service_info *service_info;
     int action;
+
+    if (leaf_node == NULL)
+    {
+        return TRUE;
+    }
+    api_info = leaf_node->data;
 
     for (action = CMSG_HTTP_GET; action <= CMSG_HTTP_PATCH; action++)
     {
@@ -558,7 +564,7 @@ _cmsg_proxy_clients_add (GNode *leaf_node, gpointer data)
         }
     }
 
-    return TRUE;
+    return FALSE;
 }
 
 /**
