@@ -22,6 +22,8 @@
 #include <dlfcn.h>
 #include <dirent.h>
 
+#define MSG_BUF_LEN 200
+
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
 #define HTTP_CODE_SWITCHING                 101 /* Switching protocols */
@@ -96,7 +98,7 @@ int ant_code_to_http_code_array[] = {
     HTTP_CODE_CONFLICT,                 /* ANT_ALREADY_EXISTS */
     HTTP_CODE_FORBIDDEN,                /* ANT_PERMISSION_DENIED */
     HTTP_CODE_FORBIDDEN,                /* ANT_RESOURCE_EHAUSTED */
-    HTTP_CODE_PRECOND_FAILED,           /* ANT_FAILED_PRECONDITION */
+    HTTP_CODE_BAD_REQUEST,              /* ANT_FAILED_PRECONDITION */
     HTTP_CODE_CONFLICT,                 /* ANT_ABORTED */
     HTTP_CODE_BAD_REQUEST,              /* ANT_OUT_OF_RANGE */
     HTTP_CODE_NOT_IMPLEMENTED,          /* ANT_UNIMPLEMENTED */
@@ -847,19 +849,47 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
  *                          If the conversion succeeds then this pointer must
  *                          be freed by the caller.
  *
- * @return - true on success, false on failure.
+ * @return - 0 on success, HTTP_ERROR on failure.
  */
-static bool
+static int
 _cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
                                       const ProtobufCMessageDescriptor *msg_descriptor,
-                                      ProtobufCMessage **output_protobuf)
+                                      ProtobufCMessage **output_protobuf, char **message)
 {
-    if (json2protobuf_object (json_object, msg_descriptor, output_protobuf, NULL, 0) < 0)
+    char conversion_message[MSG_BUF_LEN] = { 0 };
+    int ret = 0;
+    int res = json2protobuf_object (json_object, msg_descriptor, output_protobuf,
+                                    conversion_message, MSG_BUF_LEN);
+
+    /* Only report messages deemed user-friendly */
+    switch (res)
     {
-        return false;
+    case PROTOBUF2JSON_ERR_REQUIRED_IS_MISSING:
+    case PROTOBUF2JSON_ERR_UNKNOWN_FIELD:
+    case PROTOBUF2JSON_ERR_IS_NOT_OBJECT:
+    case PROTOBUF2JSON_ERR_IS_NOT_ARRAY:
+    case PROTOBUF2JSON_ERR_IS_NOT_INTEGER:
+    case PROTOBUF2JSON_ERR_IS_NOT_INTEGER_OR_REAL:
+    case PROTOBUF2JSON_ERR_IS_NOT_BOOLEAN:
+    case PROTOBUF2JSON_ERR_IS_NOT_STRING:
+    case PROTOBUF2JSON_ERR_UNKNOWN_ENUM_VALUE:
+    case PROTOBUF2JSON_ERR_CANNOT_PARSE_STRING:
+    case PROTOBUF2JSON_ERR_CANNOT_PARSE_FILE:
+    case PROTOBUF2JSON_ERR_UNSUPPORTED_FIELD_TYPE:
+        if (message)
+        {
+            *message = strdup (conversion_message);
+        }
+        ret = HTTP_CODE_BAD_REQUEST;
+        break;
+    case PROTOBUF2JSON_ERR_CANNOT_DUMP_STRING:
+    case PROTOBUF2JSON_ERR_CANNOT_DUMP_FILE:
+    case PROTOBUF2JSON_ERR_JANSSON_INTERNAL:
+    case PROTOBUF2JSON_ERR_CANNOT_ALLOCATE_MEMORY:
+        ret = HTTP_CODE_INTERNAL_SERVER_ERROR;
     }
 
-    return true;
+    return ret;
 }
 
 /**
@@ -1029,8 +1059,9 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     ProtobufCMessage *input_proto_message = NULL;
     ProtobufCMessage *output_proto_message = NULL;
     bool ret = false;
-    int result;
+    int result = HTTP_CODE_OK;
     json_t *json_object = NULL;
+    char *message = NULL;
 
     if (input_json)
     {
@@ -1059,14 +1090,23 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     {
         ret = _cmsg_proxy_convert_json_to_protobuf (json_object,
                                                     service_info->input_msg_descriptor,
-                                                    &input_proto_message);
-        if (!ret)
+                                                    &input_proto_message, &message);
+        if (ret != 0)
         {
             /* The JSON sent with the request is malformed */
-            *http_status = HTTP_CODE_BAD_REQUEST;
+            *http_status = ret;
             _cmsg_proxy_json_object_destroy (json_object);
+            if (output_json)
+            {
+                *output_json = message;
+            }
+            else
+            {
+                free (message);
+            }
             return true;
         }
+        free (message);
     }
 
     result = _cmsg_proxy_call_cmsg_api (client, input_proto_message,

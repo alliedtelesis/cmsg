@@ -121,7 +121,7 @@ void
 test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
 {
     ProtobufCMessage *output = NULL;
-    bool ret;
+    int ret;
     json_error_t error;
     json_t *json_obj;
 
@@ -132,7 +132,7 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
                                                 &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
                                                 &output);
 
-    NP_ASSERT_FALSE (ret);
+    NP_ASSERT_FALSE (ret == 0);
     json_decref (json_obj);
 
     /* json string is missing closing bracket */
@@ -142,7 +142,7 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
                                                 &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
                                                 &output);
     json_decref (json_obj);
-    NP_ASSERT_FALSE (ret);
+    NP_ASSERT_FALSE (ret == 0);
 }
 
 /**
