@@ -144,6 +144,8 @@ _cmsg_proxy_api_info_node_set (GNode *leaf_node, cmsg_service_info *service_info
     case CMSG_HTTP_PATCH:
         api_info->cmsg_http_patch = service_info;
         break;
+    default:
+        break;
     }
 }
 

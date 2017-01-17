@@ -16,6 +16,7 @@ typedef enum _cmsg_http_verb
     CMSG_HTTP_POST = 3,
     CMSG_HTTP_DELETE = 4,
     CMSG_HTTP_PATCH = 5,
+    CMSG_HTTP_INVALID = 6,
 } cmsg_http_verb;
 
 typedef struct _cmsg_service_info
