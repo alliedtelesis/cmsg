@@ -143,7 +143,9 @@ cmsg_proxy_libcmsgproxy_la_LIBADD = \
 	$(GLIB_LIBS) \
 	-lcmsg \
 	-ljansson \
-	-lprotobuf2json-c
+	-lprotobuf2json-c \
+	-lcommon_proto_api \
+	-lsystem_awplus
 
 cmsg_proxy_libcmsgproxy_la_CFLAGS = -Werror $(AM_CFLAGS)
 
