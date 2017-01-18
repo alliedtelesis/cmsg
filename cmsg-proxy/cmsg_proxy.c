@@ -23,6 +23,10 @@
 #include <protobuf2json.h>
 #include <cmsg/cmsg_client.h>
 
+#ifdef HAVE_AMFAPPSD
+#include <ipc/amfblacklist_proxy_def.h>
+#endif /* HAVE_AMFAPPSD */
+
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
 #define HTTP_CODE_SWITCHING                 101 /* Switching protocols */
@@ -692,6 +696,10 @@ cmsg_proxy_init (void)
 
     /* Create GNode proxy entries tree. */
     proxy_entries_tree = g_node_new (CMSG_API_VERSION_STR);
+
+#ifdef HAVE_AMFAPPSD
+    _cmsg_proxy_list_init (cml_amfblacklist_proxy_array_get (), cml_amfblacklist_proxy_array_size ());
+#endif /* HAVE_AMFAPPSD */
 
 #ifdef HAVE_STATMOND
     _cmsg_proxy_list_init (statmond_proxy_array_get (), statmond_proxy_array_size ());

@@ -62,6 +62,14 @@ if test "x$enableval" = xyes ; then
 fi)
 AM_CONDITIONAL(BUILD_STATMOND, test $BUILD_STATMOND = 1)
 
+BUILD_AMFAPPSD=0
+AC_ARG_ENABLE(amf-link-to-applications, [  --enable-amf-link-to-applications     Enable AMF link to applications],
+if test "x$enableval" = xyes ; then
+  BUILD_AMFAPPSD=1
+  AC_DEFINE(HAVE_AMFAPPSD, 1, [enable AMF link to applications code])
+fi)
+AM_CONDITIONAL(BUILD_AMFAPPSD, test $BUILD_AMFAPPSD = 1)
+
 BUILD_CMSG_TEST=0
 AC_ARG_ENABLE(cmsg-test, [  --enable-cmsg-test      Enable build of cmsg-test],
 if test "x$enableval" = xyes ; then
