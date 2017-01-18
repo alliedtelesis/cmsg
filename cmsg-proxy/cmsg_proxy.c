@@ -728,7 +728,7 @@ _cmsg_proxy_key_parser (json_t **json_object, const char *key, const char *value
     long int val;
 
     /* Return early if 'key' is not in '{ }' */
-    if (key[0] != '{' && key[strlen (key)] != '}')
+    if (key[0] != '{' || key[strlen (key) - 1] != '}')
     {
         return FALSE;
     }
@@ -741,7 +741,7 @@ _cmsg_proxy_key_parser (json_t **json_object, const char *key, const char *value
 
     val = strtol (value, &end, 10);
 
-    /* If the key is an integer then write it as an integer in the json structure,
+    /* If the value is an integer then write it as an integer in the json structure,
      * otherwise write it as a string. */
     if (*end)
     {
@@ -1087,11 +1087,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     {
         /* This should not occur (the ProtobufCMessage structure returned
          * by the CMSG api should always be well formed) but check for it */
-        CMSG_FREE_RECV_MSG (output_proto_message);
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-
-        _cmsg_proxy_json_object_destroy (json_object);
-        return true;
     }
 
     _cmsg_proxy_json_object_destroy (json_object);
