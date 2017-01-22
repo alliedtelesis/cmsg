@@ -98,6 +98,12 @@ ARRAY_SIZE_COMPILE_CHECK (ant_code_to_http_code_array, ANT_CODE_MAX);
 typedef cmsg_service_info *(*proxy_defs_array_get_func_ptr) ();
 typedef int (*proxy_defs_array_size_func_ptr) ();
 
+typedef struct
+{
+    char *key;
+    char *value;
+} cmsg_url_parameter;
+
 /* Current CMSG API version string */
 #define CMSG_API_VERSION_STR                "CMSG-API"
 
@@ -758,6 +764,44 @@ _cmsg_proxy_key_parser (json_t **json_object, const char *key, const char *value
 }
 
 /**
+ * Allocate memory and store values for an embedded url parameter
+ *
+ * @param key - The name of the url parameter ie 'id' for /vlan/vlans/{id}
+ * @param value - The parameter ie '5' for /vlan/vlans/5/...
+ * @return - allocated cmsg_url_parameter or NULL if allocation fails
+ */
+static cmsg_url_parameter *
+_cmsg_proxy_create_url_parameter (const char *key, const char *value)
+{
+    cmsg_url_parameter *new = calloc (1, sizeof (cmsg_url_parameter));
+
+    if (new)
+    {
+        /* strip the braces from the parameter name */
+        new->key = strndup (key + 1, strlen (key) - 2);
+        new->value = value ? strdup (value) : NULL;
+    }
+    return new;
+}
+
+/**
+ * Free a cmsg_url_parameter structure
+ * @param ptr - the cms_url_parameter to be freed
+ */
+static void
+_cmsg_proxy_free_url_parameter (gpointer ptr)
+{
+    cmsg_url_parameter *p = (cmsg_url_parameter *) ptr;
+
+    if (p)
+    {
+        free (p->key);
+        free (p->value);
+        free (p);
+    }
+}
+
+/**
  * Lookup a cmsg_service_info entry from the proxy tree based on URL and
  * HTTP verb and update jason_object if any parameter found in the URL
  *
@@ -769,15 +813,17 @@ _cmsg_proxy_key_parser (json_t **json_object, const char *key, const char *value
  */
 static const cmsg_service_info *
 _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb,
-                                            json_t **json_object)
+                                            GList **url_parameters)
 {
     GNode *node;
     char *tmp_url;
     char *next_entry = NULL;
     char *rest = NULL;
+    const char *key = NULL;
     GNode *parent_node;
     GNode *info_node;
-    const char *key;
+    int key_length;
+    cmsg_url_parameter *param = NULL;
 
     tmp_url = strdup (url);
     parent_node = g_node_get_root (proxy_entries_tree);
@@ -796,12 +842,18 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
             else
             {
                 key = (const char *) node->data;
-                /* If a key is found, go to the next level of the GNode tree. */
-                if (_cmsg_proxy_key_parser (json_object, key, next_entry))
+                key_length = key ? strlen (key) : 0;
+
+                /* if this URL segment is a parameter, store it to be parsed later */
+                if (key && key_length && key[0] == '{' && key[key_length - 1] == '}')
                 {
+
+                    param = _cmsg_proxy_create_url_parameter (key, next_entry);
+                    *url_parameters = g_list_prepend (*url_parameters, param);
                     parent_node = node;
                     break;
                 }
+
             }
             node = g_node_next_sibling (node);
         }
@@ -1072,6 +1124,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     bool ret = false;
     ant_code result = ANT_OK;
     json_t *json_object = NULL;
+    GList *url_parameters = NULL;
     char *message = NULL;
 
     if (input_json)
@@ -1080,13 +1133,18 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     }
 
     service_info = _cmsg_proxy_find_service_from_url_and_verb (url, http_verb,
-                                                               &json_object);
+                                                               &url_parameters);
     if (service_info == NULL)
     {
         /* The cmsg proxy does not know about this url and verb combination */
         _cmsg_proxy_json_object_destroy (json_object);
+        g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
         return false;
     }
+
+    // TODO: parse parameters
+
+    g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
 
     client = _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
     if (client == NULL)
