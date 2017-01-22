@@ -22,6 +22,8 @@
 #include <dlfcn.h>
 #include <dirent.h>
 
+#define CMSG_PROXY_LIB_PATH "/var/packages/network/lib"
+
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
 #define HTTP_CODE_SWITCHING                 101 /* Switching protocols */
@@ -617,8 +619,8 @@ _cmsg_proxy_library_handles_close (void)
 }
 
 /**
- * Loads all of the *_proto_proxy_def.so libraries that exist in /opt/1/lib/
- * into the cmsg proxy library.
+ * Loads all of the *_proto_proxy_def.so libraries that exist in
+ * CMSG_PROXY_LIB_PATH into the cmsg proxy library.
  */
 static void
 _cmsg_proxy_library_handles_load (void)
@@ -630,10 +632,10 @@ _cmsg_proxy_library_handles_load (void)
     proxy_defs_array_size_func_ptr size_func_addr = NULL;
     char *library_path = NULL;
 
-    d = opendir ("/opt/1/lib");
+    d = opendir (CMSG_PROXY_LIB_PATH);
     if (d == NULL)
     {
-        fprintf (stderr, "Directory '/opt/1/lib' could not be opened\n");
+        fprintf (stderr, "Directory '%s' could not be opened\n", CMSG_PROXY_LIB_PATH);
         return;
     }
 
@@ -642,7 +644,7 @@ _cmsg_proxy_library_handles_load (void)
         /* Check that dir points to a file, not (sym)link or directory */
         if (dir->d_type == DT_REG && strstr (dir->d_name, "proto_proxy_def.so"))
         {
-            if (asprintf (&library_path, "/opt/1/lib/%s", dir->d_name) < 0)
+            if (asprintf (&library_path, "%s/%s", CMSG_PROXY_LIB_PATH, dir->d_name) < 0)
             {
                 fprintf (stderr, "Memory allocation error\n");
                 continue;
