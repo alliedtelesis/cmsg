@@ -840,6 +840,7 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
     cmsg_url_parameter *p = NULL;
     json_t *new_object = NULL;
+    char *fmt = NULL;
     char *endptr = NULL;
     long long llvalue;
 
@@ -875,13 +876,18 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
             llvalue = strtoll (p->value, &endptr, 0);
             if (endptr && *endptr == '\0')
             {
-                new_object = json_pack ("{si}", p->key, llvalue);
+                fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ?
+                      "{s[i]}" : "{si}";
+                new_object = json_pack (fmt, p->key, llvalue);
                 break;
             }
             /* fall through (storing as string) */
         case PROTOBUF_C_TYPE_ENUM:
         case PROTOBUF_C_TYPE_STRING:
-            new_object = json_pack ("{ss?}", p->key, p->value);
+            fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ?
+                  "{s[s?]}" : "{ss?}";
+
+            new_object = json_pack (fmt, p->key, p->value);
             break;
         /* Not (currently) supported as URL parameters */
         case PROTOBUF_C_TYPE_UINT64:
