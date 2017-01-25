@@ -704,66 +704,6 @@ _cmsg_proxy_json_object_destroy (json_t *json_object)
 }
 
 /**
- * Update the json object according to the new key,value pair. The 'key'
- * is within '{ }' so we need to parse it to remove the symbols before
- * creating the new object.
- *
- * @json_object - json object to update
- * @key - key used to create new json object
- * @value - value for the new json object
- *
- * @returns TRUE if the key is parsed and updated the json object successfully
- * otherwise FALSE
- */
-static gboolean
-_cmsg_proxy_key_parser (json_t **json_object, const char *key, const char *value)
-{
-    json_t *new_object;
-    char *tmp_key;
-    char *ptr;
-    char *end;
-    long int val;
-
-    /* Return early if 'key' is not in '{ }' */
-    if (key[0] != '{' || key[strlen (key) - 1] != '}')
-    {
-        return FALSE;
-    }
-
-    tmp_key = strdup (key);
-    ptr = tmp_key;
-
-    ptr++;
-    ptr[strlen (ptr) - 1] = '\0';
-
-    val = strtol (value, &end, 10);
-
-    /* If the value is an integer then write it as an integer in the json structure,
-     * otherwise write it as a string. */
-    if (*end)
-    {
-        new_object = json_pack ("{ss}", ptr, value);
-    }
-    else
-    {
-        new_object = json_pack ("{si}", ptr, val);
-    }
-
-    if (*json_object)
-    {
-        json_object_update (*json_object, new_object);
-    }
-    else
-    {
-        *json_object = new_object;
-    }
-
-    free (tmp_key);
-
-    return TRUE;
-}
-
-/**
  * Allocate memory and store values for an embedded url parameter
  *
  * @param key - The name of the url parameter ie 'id' for /vlan/vlans/{id}
@@ -876,6 +816,98 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
     }
 
     return NULL;
+}
+
+/**
+ * Convert parameters embedded in the URL into the correct format for the protobuf messages
+ *
+ * If the target protobuf is an integer type: attempt to convert the parameter. If the parameter
+ * cannot be converted, leave as is. The protobuf2json library will raise an error. No sign or overflow
+ * checking is yet performed.
+ *
+ * If the target field is repeated, the parameter will be stored as the first and only
+ * element.
+ *
+ * @param parameters - list of parameter-name & parameter pairs
+ * @param json_object - the message body
+ * @param msg_descriptor - used to determine the target field type when converting to JSON
+ */
+void
+_cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
+                                  const ProtobufCMessageDescriptor *msg_descriptor)
+{
+    GList *iter = NULL;
+    const ProtobufCFieldDescriptor *field_descriptor = NULL;
+    cmsg_url_parameter *p = NULL;
+    json_t *new_object = NULL;
+    char *endptr = NULL;
+    long long llvalue;
+
+    for (iter = parameters; iter; iter = g_list_next (iter))
+    {
+        p = (cmsg_url_parameter *) iter->data;
+
+        if (!p || !p->key)
+        {
+            continue;
+        }
+
+        /* Find the target type */
+        field_descriptor = protobuf_c_message_descriptor_get_field_by_name (msg_descriptor,
+                                                                            p->key);
+
+        if (!field_descriptor)
+        {
+            continue;   /* TODO: add to json as strings (for unexpected argument error) */
+        }
+
+        switch (field_descriptor->type)
+        {
+        case PROTOBUF_C_TYPE_INT32:
+        case PROTOBUF_C_TYPE_SINT32:
+        case PROTOBUF_C_TYPE_SFIXED32:
+        case PROTOBUF_C_TYPE_INT64:
+        case PROTOBUF_C_TYPE_SINT64:
+        case PROTOBUF_C_TYPE_SFIXED64:
+        case PROTOBUF_C_TYPE_UINT32:
+        case PROTOBUF_C_TYPE_FIXED32:
+        case PROTOBUF_C_TYPE_FIXED64:
+            llvalue = strtoll (p->value, &endptr, 0);
+            if (endptr && *endptr == '\0')
+            {
+                new_object = json_pack ("{si}", p->key, llvalue);
+                break;
+            }
+            /* fall through (storing as string) */
+        case PROTOBUF_C_TYPE_ENUM:
+        case PROTOBUF_C_TYPE_STRING:
+            new_object = json_pack ("{ss?}", p->key, p->value);
+            break;
+        /* Not (currently) supported as URL parameters */
+        case PROTOBUF_C_TYPE_UINT64:
+        case PROTOBUF_C_TYPE_FLOAT:
+        case PROTOBUF_C_TYPE_DOUBLE:
+        case PROTOBUF_C_TYPE_BOOL:
+        case PROTOBUF_C_TYPE_BYTES:
+        case PROTOBUF_C_TYPE_MESSAGE:
+        default:
+            break;
+        }
+
+        if (!new_object)
+        {
+            continue;
+        }
+
+        if (*json_object)
+        {
+            json_object_update (*json_object, new_object);
+        }
+        else
+        {
+            *json_object = new_object;
+        }
+    }
 }
 
 /**
@@ -1142,7 +1174,8 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         return false;
     }
 
-    // TODO: parse parameters
+    _cmsg_proxy_parse_url_parameters (url_parameters, &json_object,
+                                      service_info->input_msg_descriptor);
 
     g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
 
