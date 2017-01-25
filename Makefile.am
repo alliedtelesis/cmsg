@@ -172,7 +172,7 @@ cmsg_proxy_cmsg_proxy_unit_tests_CFLAGS  = $(AM_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_proxy_cmsg_proxy_unit_tests_LDFLAGS = -static
 cmsg_proxy_cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
                                            -lcmsg -lprotobuf-c -lprotobuf2json-c \
-                                           -ljansson
+                                           -ljansson -lcommon_proto_api
 endif
 
 #
