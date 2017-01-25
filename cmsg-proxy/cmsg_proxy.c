@@ -92,6 +92,7 @@ int ant_code_to_http_code_array[] = {
     HTTP_CODE_INTERNAL_SERVER_ERROR,    /* ANT_DATALOSS */
     HTTP_CODE_UNAUTHORIZED,             /* ANT_UNAUTHENTICATED */
 };
+
 ARRAY_SIZE_COMPILE_CHECK (ant_code_to_http_code_array, ANT_CODE_MAX);
 
 typedef cmsg_service_info *(*proxy_defs_array_get_func_ptr) ();
@@ -835,15 +836,15 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
  *                          If the conversion succeeds then this pointer must
  *                          be freed by the caller.
  *
- * @return - 0 on success, HTTP_ERROR on failure.
+ * @return - ANT_OK on success, relevant ANT code on failure.
  */
-static int
+static ant_code
 _cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
                                       const ProtobufCMessageDescriptor *msg_descriptor,
                                       ProtobufCMessage **output_protobuf, char **message)
 {
     char conversion_message[MSG_BUF_LEN] = { 0 };
-    int ret = 0;
+    ant_code ret = ANT_OK;
     int res = json2protobuf_object (json_object, msg_descriptor, output_protobuf,
                                     conversion_message, MSG_BUF_LEN);
 
@@ -866,13 +867,13 @@ _cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
         {
             *message = strdup (conversion_message);
         }
-        ret = HTTP_CODE_BAD_REQUEST;
+        ret = ANT_INVALID_ARGUMENT;
         break;
     case PROTOBUF2JSON_ERR_CANNOT_DUMP_STRING:
     case PROTOBUF2JSON_ERR_CANNOT_DUMP_FILE:
     case PROTOBUF2JSON_ERR_JANSSON_INTERNAL:
     case PROTOBUF2JSON_ERR_CANNOT_ALLOCATE_MEMORY:
-        ret = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        ret = ANT_INTERNAL;
     }
 
     return ret;
@@ -912,23 +913,15 @@ _cmsg_proxy_convert_protobuf_to_json (ProtobufCMessage *input_protobuf, char **o
  * @param service_info - Service info entry that contains the API
  *                       function to call.
  *
- * @returns - HTTP_CODE_OK on success,
- *            HTTP_CODE_BAD_REQUEST if the input message is NULL when the
- *            api expects an input message,
- *            HTTP_CODE_INTERNAL_SERVER_ERROR if CMSG fails internally.
+ * @returns - ANT_OK on success,
+ *            ANT_INTERNAL if CMSG fails internally.
  */
-static int
+static ant_code
 _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_msg,
                            ProtobufCMessage **output_msg,
                            const cmsg_service_info *service_info)
 {
     int ret;
-
-    if (input_msg == NULL &&
-        strcmp (service_info->input_msg_descriptor->name, "dummy") != 0)
-    {
-        return HTTP_CODE_BAD_REQUEST;
-    }
 
     if (strcmp (service_info->input_msg_descriptor->name, "dummy") == 0)
     {
@@ -945,11 +938,11 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
 
     if (ret == CMSG_RET_OK)
     {
-        return HTTP_CODE_OK;
+        return ANT_OK;
     }
     else
     {
-        return HTTP_CODE_INTERNAL_SERVER_ERROR;
+        return ANT_INTERNAL;
     }
 }
 
@@ -989,6 +982,38 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
     {
         /* Developer has added an error_info message to the API response
          * but failed to set a return value */
+        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+    }
+}
+
+/**
+ * Generate a ANT_API_RESULT error output for an internal cmsg_proxy error
+ *
+ * @param code_num - ANT_CODE appropriate to the reason for failure
+ * @param message - Descriptive error message
+ * @param output_json - A pointer to a string that will store the output JSON data to
+ *                      be sent with the HTTP response.
+ * @param http_status - A pointer to an integer that will store the HTTP status code to
+ *                      be sent with the HTTP response.
+ */
+void
+_cmsg_proxy_generate_ant_api_result_error (ant_code code_num, char *message,
+                                           int *http_status, char **output_json)
+{
+    ant_api_result_message error = ANT_API_RESULT_MESSAGE_INIT;
+    ant_api_result error_info = ANT_API_RESULT_INIT;
+    bool ret;
+
+    CMSG_SET_FIELD_PTR (&error_info, code, ant_code_string_get (code_num));
+    CMSG_SET_FIELD_PTR (&error_info, message, message);
+    CMSG_SET_FIELD_PTR (&error, error_info, &error_info);
+
+    *http_status = ant_code_to_http_code_array[code_num];
+
+    ret = _cmsg_proxy_convert_protobuf_to_json ((ProtobufCMessage *) &error, output_json);
+
+    if (!ret)
+    {
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
     }
 }
@@ -1045,7 +1070,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     ProtobufCMessage *input_proto_message = NULL;
     ProtobufCMessage *output_proto_message = NULL;
     bool ret = false;
-    int result = HTTP_CODE_OK;
+    ant_code result = ANT_OK;
     json_t *json_object = NULL;
     char *message = NULL;
 
@@ -1069,27 +1094,23 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         /* This should not occur but check for it */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
         _cmsg_proxy_json_object_destroy (json_object);
+        _cmsg_proxy_generate_ant_api_result_error (ANT_INTERNAL, NULL, http_status,
+                                                   output_json);
         return true;
     }
 
     if (json_object)
     {
-        ret = _cmsg_proxy_convert_json_to_protobuf (json_object,
-                                                    service_info->input_msg_descriptor,
-                                                    &input_proto_message, &message);
-        if (ret != 0)
+        result = _cmsg_proxy_convert_json_to_protobuf (json_object,
+                                                       service_info->input_msg_descriptor,
+                                                       &input_proto_message, &message);
+        if (result != ANT_OK)
         {
             /* The JSON sent with the request is malformed */
-            *http_status = ret;
             _cmsg_proxy_json_object_destroy (json_object);
-            if (output_json)
-            {
-                *output_json = message;
-            }
-            else
-            {
-                free (message);
-            }
+            _cmsg_proxy_generate_ant_api_result_error (result, message, http_status,
+                                                       output_json);
+            free (message);
             return true;
         }
         free (message);
@@ -1097,11 +1118,11 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
 
     result = _cmsg_proxy_call_cmsg_api (client, input_proto_message,
                                         &output_proto_message, service_info);
-    if (result != HTTP_CODE_OK)
+    if (result != ANT_OK)
     {
         /* Something went wrong calling the CMSG api */
         free (input_proto_message);
-        *http_status = result;
+        _cmsg_proxy_generate_ant_api_result_error (result, NULL, http_status, output_json);
         _cmsg_proxy_json_object_destroy (json_object);
         return true;
     }
