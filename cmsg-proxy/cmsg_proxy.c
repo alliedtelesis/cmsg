@@ -1165,20 +1165,17 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     GList *url_parameters = NULL;
     char *message = NULL;
 
-    if (input_json)
-    {
-        _cmsg_proxy_json_object_create (&json_object, input_json);
-    }
 
     service_info = _cmsg_proxy_find_service_from_url_and_verb (url, http_verb,
                                                                &url_parameters);
     if (service_info == NULL)
     {
         /* The cmsg proxy does not know about this url and verb combination */
-        _cmsg_proxy_json_object_destroy (json_object);
         g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
         return false;
     }
+
+    _cmsg_proxy_json_object_create (&json_object, input_json);
 
     _cmsg_proxy_parse_url_parameters (url_parameters, &json_object,
                                       service_info->input_msg_descriptor);
