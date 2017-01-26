@@ -757,6 +757,9 @@ _cmsg_proxy_key_parser (json_t **json_object, const char *key, const char *value
     if (*json_object)
     {
         json_object_update (*json_object, new_object);
+
+        /* Free new object as it's updated to existing one */
+        _cmsg_proxy_json_object_destroy (new_object);
     }
     else
     {
@@ -1074,13 +1077,13 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     if (result != HTTP_CODE_OK)
     {
         /* Something went wrong calling the CMSG api */
-        free (input_proto_message);
+        CMSG_FREE_RECV_MSG (input_proto_message);
         *http_status = result;
         _cmsg_proxy_json_object_destroy (json_object);
         return true;
     }
 
-    free (input_proto_message);
+    CMSG_FREE_RECV_MSG (input_proto_message);
 
     _cmsg_proxy_set_http_status (http_status, output_proto_message);
 
