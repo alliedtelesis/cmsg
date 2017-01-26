@@ -18,7 +18,8 @@ AM_SILENT_RULES([yes])
 LT_INIT
 
 AC_CONFIG_HEADERS(config.h)
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile
+  cmsg.pc])
 
 PKG_CHECK_MODULES([GLIB],[glib-2.0])
 PKG_CHECK_MODULES([NOVAPROVA],[novaprova],[],[unittest_prereq=no])

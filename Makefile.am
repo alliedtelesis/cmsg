@@ -3,6 +3,9 @@ lib_LTLIBRARIES =
 BUILT_SOURCES =
 CLEANFILES =
 
+pkgconfiglibdir = $(libdir)/pkgconfig
+pkgconfiglib_DATA = cmsg.pc
+
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
 	-I${top_srcdir}/protobuf-c \
