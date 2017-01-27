@@ -1065,10 +1065,10 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
     field_message = (const ProtobufCMessage **) (((const char *) msg) + field->offset);
     error_message = (ant_api_result *) (*field_message);
 
-    if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code_num))
+    if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
     {
-        *http_status = ant_code_to_http_code_array[error_message->code_num];
-        CMSG_UNSET_AND_ZERO_FIELD_VALUE (error_message, code_num);
+        *http_status = ant_code_to_http_code_array[error_message->code];
+        CMSG_UNSET_AND_ZERO_FIELD_VALUE (error_message, code);
     }
     else
     {
@@ -1083,7 +1083,7 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
 /**
  * Generate a ANT_API_RESULT error output for an internal cmsg_proxy error
  *
- * @param code_num - ANT_CODE appropriate to the reason for failure
+ * @param code - ANT_CODE appropriate to the reason for failure
  * @param message - Descriptive error message
  * @param output_json - A pointer to a string that will store the output JSON data to
  *                      be sent with the HTTP response.
@@ -1091,7 +1091,7 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
  *                      be sent with the HTTP response.
  */
 void
-_cmsg_proxy_generate_ant_api_result_error (ant_code code_num, char *message,
+_cmsg_proxy_generate_ant_api_result_error (ant_code code, char *message,
                                            int *http_status, char **output_json)
 {
     ant_api_result_message error = ANT_API_RESULT_MESSAGE_INIT;
@@ -1102,7 +1102,7 @@ _cmsg_proxy_generate_ant_api_result_error (ant_code code_num, char *message,
     CMSG_SET_FIELD_PTR (&error_info, message, message);
     CMSG_SET_FIELD_PTR (&error, error_info, &error_info);
 
-    *http_status = ant_code_to_http_code_array[code_num];
+    *http_status = ant_code_to_http_code_array[code];
 
     ret = _cmsg_proxy_convert_protobuf_to_json ((ProtobufCMessage *) &error, output_json);
 
