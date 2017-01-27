@@ -1098,7 +1098,7 @@ _cmsg_proxy_generate_ant_api_result_error (ant_code code_num, char *message,
     ant_api_result error_info = ANT_API_RESULT_INIT;
     bool ret;
 
-    CMSG_SET_FIELD_PTR (&error_info, code, ant_code_string_get (code_num));
+    // TODO set the code enum in the message.
     CMSG_SET_FIELD_PTR (&error_info, message, message);
     CMSG_SET_FIELD_PTR (&error, error_info, &error_info);
 
