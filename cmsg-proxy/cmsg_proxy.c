@@ -1055,7 +1055,9 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
     field = protobuf_c_message_descriptor_get_field_by_name (msg->descriptor, "error_info");
     if (field == NULL)
     {
-        /* Developer has failed to put an error_info message in the API response */
+        /* Developer has failed to put an error_info message in the API response
+         * message .proto definition.
+         */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
         return;
     }
@@ -1063,7 +1065,7 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
     field_message = (const ProtobufCMessage **) (((const char *) msg) + field->offset);
     error_message = (ant_api_result *) (*field_message);
 
-    if (CMSG_IS_FIELD_PRESENT (error_message, code_num))
+    if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code_num))
     {
         *http_status = ant_code_to_http_code_array[error_message->code_num];
         CMSG_UNSET_AND_ZERO_FIELD_VALUE (error_message, code_num);
@@ -1071,7 +1073,9 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
     else
     {
         /* Developer has added an error_info message to the API response
-         * but failed to set a return value */
+         * message .proto definition but failed to set this message correctly
+         * in their IMPL function.
+         */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
     }
 }
