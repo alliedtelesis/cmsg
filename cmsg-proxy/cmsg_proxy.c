@@ -1068,7 +1068,6 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
     if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
     {
         *http_status = ant_code_to_http_code_array[error_message->code];
-        CMSG_UNSET_AND_ZERO_FIELD_VALUE (error_message, code);
     }
     else
     {
@@ -1098,7 +1097,7 @@ _cmsg_proxy_generate_ant_api_result_error (ant_code code, char *message,
     ant_api_result error_info = ANT_API_RESULT_INIT;
     bool ret;
 
-    // TODO set the code enum in the message.
+    CMSG_SET_FIELD_VALUE (&error_info, code, code);
     CMSG_SET_FIELD_PTR (&error_info, message, message);
     CMSG_SET_FIELD_PTR (&error, error_info, &error_info);
 
