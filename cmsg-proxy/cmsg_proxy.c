@@ -948,20 +948,23 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
  *
  * @param http_status - Pointer to the http_status integer that should be set
  * @param msg - Pointer to the ProtobufCMessage received from the CMSG API call
+ *
+ * @returns 'true' if error_info is updated with error message otherwise 'false'
  */
-static void
+static bool
 _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
 {
     const ProtobufCFieldDescriptor *field = NULL;
     const ProtobufCMessage **field_message = NULL;
     ant_api_result *error_message = NULL;
+    bool ret = false;
 
     field = protobuf_c_message_descriptor_get_field_by_name (msg->descriptor, "error_info");
     if (field == NULL)
     {
         /* Developer has failed to put an error_info message in the API response */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-        return;
+        return false;
     }
 
     field_message = (const ProtobufCMessage **) (((const char *) msg) + field->offset);
@@ -971,13 +974,17 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
     {
         *http_status = ant_code_to_http_code_array[error_message->code_num];
         CMSG_UNSET_FIELD_VALUE (error_message, code_num);
+        ret = true;
     }
     else
     {
         /* Developer has added an error_info message to the API response
          * but failed to set a return value */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        ret = false;
     }
+
+    return ret;
 }
 
 /**
@@ -1085,7 +1092,10 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
 
     CMSG_FREE_RECV_MSG (input_proto_message);
 
-    _cmsg_proxy_set_http_status (http_status, output_proto_message);
+    if (!_cmsg_proxy_set_http_status (http_status, output_proto_message))
+    {
+        syslog (LOG_DEBUG, "error_info is not set for %s", service_info->url_string);
+    }
 
     ret = _cmsg_proxy_convert_protobuf_to_json (output_proto_message, output_json);
     if (!ret)
