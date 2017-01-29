@@ -487,8 +487,8 @@ _cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
     client = cmsg_create_client_unix (service_descriptor);
     if (!client)
     {
-        fprintf (stderr, "Failed to create client for service: %s",
-                 service_descriptor->name);
+        syslog (LOG_ERR, "Failed to create client for service: %s",
+                service_descriptor->name);
         return;
     }
 
@@ -635,7 +635,7 @@ _cmsg_proxy_library_handles_load (void)
     d = opendir (CMSG_PROXY_LIB_PATH);
     if (d == NULL)
     {
-        fprintf (stderr, "Directory '%s' could not be opened\n", CMSG_PROXY_LIB_PATH);
+        syslog (LOG_ERR, "Directory for cmsg-proxy library could not be opened");
         return;
     }
 
@@ -646,7 +646,7 @@ _cmsg_proxy_library_handles_load (void)
         {
             if (asprintf (&library_path, "%s/%s", CMSG_PROXY_LIB_PATH, dir->d_name) < 0)
             {
-                fprintf (stderr, "Memory allocation error\n");
+                syslog (LOG_ERR, "Memory allocation error");
                 continue;
             }
 
