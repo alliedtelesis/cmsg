@@ -176,6 +176,8 @@ test_cmsg_proxy_create_client__memory_leaks (void)
 {
     np_mock (cmsg_create_client_unix, sm_mock_cmsg_create_client_unix__returns_null);
 
+    np_syslog_ignore ("Failed to create client for service:");
+
     _cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
     _cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
 
