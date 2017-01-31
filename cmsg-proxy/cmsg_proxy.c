@@ -24,10 +24,12 @@
 #include "cmsg_proxy_mem.h"
 #include <ipc/common_types_auto.h>
 #include <utility/sys.h>
+#ifdef HAVE_COUNTERD
+#include "cntrd_app_defines.h"
+#include "cntrd_app_api.h"
+#endif /* HAVE_COUNTERD */
 
 #define MSG_BUF_LEN 200
-#define CMSG_PROXY_LIB_PATH "/var/packages/network/lib"
-
 #define CMSG_PROXY_LIB_PATH "/var/packages/network/lib"
 
 /* Standard HTTP/1.1 status codes */
@@ -114,6 +116,35 @@ static GList *library_handles_list = NULL;
 static GList *proxy_clients_list = NULL;
 static GNode *proxy_entries_tree = NULL;
 
+#ifdef HAVE_COUNTERD
+/* Global counters */
+typedef struct _counter_info
+{
+    /* Counter session */
+    void *cntr_session;
+
+    /* Counters */
+    void *cntr_unknown_service;
+    void *cntr_service_info_loaded;
+    void *cntr_service_info_unloaded;
+    void *cntr_client_create_failure;
+    void *cntr_client_created;
+    void *cntr_client_freed;
+} counter_info;
+
+/* Global counters */
+static counter_info proxy_counter;
+
+#define CMSG_PROXY_COUNTER_REGISTER(info,str,cntr) \
+    cntrd_app_register_ctr_in_group ((info)->cntr_session, (str), &(info)->cntr)
+
+/* Increment global counter */
+#define CMSG_PROXY_COUNTER_INC(counter)     \
+    cntrd_app_inc_ctr (proxy_counter.cntr_session, proxy_counter.counter)
+#else
+#define CMSG_PROXY_COUNTER_INC(counter)
+#endif /* HAVE_COUNTERD */
+
 /**
  * SET CMSG API info details to the proxy tree
  *
@@ -121,7 +152,7 @@ static GNode *proxy_entries_tree = NULL;
  * @param service_info - CMSG service info to be added
  */
 static void
-_cmsg_proxy_api_info_node_set (GNode *leaf_node, cmsg_service_info *service_info)
+_cmsg_proxy_api_info_node_set (GNode *leaf_node, const cmsg_service_info *service_info)
 {
     cmsg_proxy_api_info *api_info = leaf_node->data;
 
@@ -259,6 +290,8 @@ _cmsg_proxy_api_info_free (GNode *leaf_node, gpointer data)
     api_info = leaf_node->data;
     CMSG_PROXY_FREE (api_info);
 
+    CMSG_PROXY_COUNTER_INC (cntr_service_info_unloaded);
+
     return FALSE;
 }
 
@@ -338,7 +371,7 @@ _cmsg_proxy_entry_data_free (GNode *node, gpointer data)
  * @param service_info CMSG service information
  */
 static gboolean
-_cmsg_proxy_service_info_add (cmsg_service_info *service_info)
+_cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
 {
     char *tmp_url = NULL;
     char *next_entry = NULL;
@@ -398,10 +431,16 @@ static void
 _cmsg_proxy_service_info_init (cmsg_service_info *array, int length)
 {
     int i = 0;
+    const cmsg_service_info *service_info;
 
     for (i = 0; i < length; i++)
     {
-        _cmsg_proxy_service_info_add (&array[i]);
+        service_info = &array[i];
+
+        if (_cmsg_proxy_service_info_add (service_info))
+        {
+            CMSG_PROXY_COUNTER_INC (cntr_service_info_loaded);
+        }
     }
 }
 
@@ -487,8 +526,11 @@ _cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
     {
         syslog (LOG_ERR, "Failed to create client for service: %s",
                 service_descriptor->name);
+        CMSG_PROXY_COUNTER_INC (cntr_client_create_failure);
         return;
     }
+
+    CMSG_PROXY_COUNTER_INC (cntr_client_created);
 
     proxy_clients_list = g_list_append (proxy_clients_list, (void *) client);
     return;
@@ -503,6 +545,8 @@ _cmsg_proxy_client_free (gpointer data, gpointer user_data)
     cmsg_client *client = (cmsg_client *) data;
 
     cmsg_destroy_client_and_transport (client);
+
+    CMSG_PROXY_COUNTER_INC (cntr_client_freed);
 }
 
 /**
@@ -1121,6 +1165,61 @@ _cmsg_proxy_generate_ant_api_result_error (ant_code code, char *message,
     }
 }
 
+#ifdef HAVE_COUNTERD
+/**
+ * Initialise couter
+ */
+static void
+_cmsg_proxy_counter_init (void)
+{
+    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
+    int ret;
+
+    /* If it's already initialised, return early */
+    if (proxy_counter.cntr_session)
+    {
+        return;
+    }
+
+    /* Choose counter session name using CMSG service name */
+    snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s",
+              CMSG_PROXY_COUNTER_APP_NAME_PREFIX);
+
+    /* Initialise counters */
+    ret = cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT, &proxy_counter.cntr_session);
+    if (ret == CNTRD_APP_SUCCESS)
+    {
+        CMSG_PROXY_COUNTER_REGISTER (&proxy_counter, "Unknown Service",
+                                     cntr_unknown_service);
+        CMSG_PROXY_COUNTER_REGISTER (&proxy_counter, "Service Info Loaded",
+                                     cntr_service_info_loaded);
+        CMSG_PROXY_COUNTER_REGISTER (&proxy_counter, "Service Info Unloaded",
+                                     cntr_service_info_unloaded);
+        CMSG_PROXY_COUNTER_REGISTER (&proxy_counter, "Client Creation Failed",
+                                     cntr_client_create_failure);
+        CMSG_PROXY_COUNTER_REGISTER (&proxy_counter, "Client Created", cntr_client_created);
+        CMSG_PROXY_COUNTER_REGISTER (&proxy_counter, "Client Freed", cntr_client_freed);
+
+        /* Tell cntrd not to destroy the counter data in the shared memory */
+        cntrd_app_set_shutdown_instruction (app_name, CNTRD_SHUTDOWN_RESTART);
+    }
+}
+
+/**
+ * Deinitialise couter
+ */
+static void
+_cmsg_proxy_counter_deinit (void)
+{
+    if (proxy_counter.cntr_session)
+    {
+        /* Free counter session info but do not destroy counter data in the shared memory */
+        cntrd_app_unInit_app (&proxy_counter.cntr_session, CNTRD_APP_PERSISTENT);
+        proxy_counter.cntr_session = NULL;
+    }
+}
+#endif /* HAVE_COUNTERD */
+
 /**
  * Initialise the cmsg proxy library
  */
@@ -1131,6 +1230,11 @@ cmsg_proxy_init (void)
     /* For developer debugging, turn on memory tracing */
     cmsg_proxy_mem_init (1);
 #endif
+
+#ifdef HAVE_COUNTERD
+    /* Initialise counters */
+    _cmsg_proxy_counter_init ();
+#endif /* HAVE_COUNTERD */
 
     /* Create GNode proxy entries tree. */
     proxy_entries_tree = g_node_new (CMSG_PROXY_STRDUP (CMSG_API_VERSION_STR));
@@ -1148,6 +1252,11 @@ cmsg_proxy_deinit (void)
     _cmsg_proxy_service_info_deinit ();
     _cmsg_proxy_clients_deinit ();
     _cmsg_proxy_library_handles_close ();
+
+#ifdef HAVE_COUNTERD
+    /* Cleanup counters */
+    _cmsg_proxy_counter_deinit ();
+#endif /* HAVE_COUNTERD */
 }
 
 /**
@@ -1183,13 +1292,13 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     GList *url_parameters = NULL;
     char *message = NULL;
 
-
     service_info = _cmsg_proxy_find_service_from_url_and_verb (url, http_verb,
                                                                &url_parameters);
     if (service_info == NULL)
     {
         /* The cmsg proxy does not know about this url and verb combination */
         g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
+        CMSG_PROXY_COUNTER_INC (cntr_unknown_service);
         return false;
     }
 
