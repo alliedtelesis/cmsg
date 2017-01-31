@@ -140,7 +140,9 @@ lib_LTLIBRARIES += \
 
 cmsg_proxy_libcmsgproxy_la_SOURCES = \
 	cmsg-proxy/cmsg_proxy.c \
-	cmsg-proxy/cmsg_proxy.h
+	cmsg-proxy/cmsg_proxy.h \
+	cmsg-proxy/cmsg_proxy_mem.c \
+	cmsg-proxy/cmsg_proxy_mem.h
 
 cmsg_proxy_libcmsgproxy_la_LIBADD = \
 	$(GLIB_LIBS) \

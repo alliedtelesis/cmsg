@@ -21,6 +21,7 @@
 #include <cmsg/cmsg_client.h>
 #include <dlfcn.h>
 #include <dirent.h>
+#include "cmsg_proxy_mem.h"
 #include <ipc/common_types_auto.h>
 #include <utility/sys.h>
 
@@ -214,7 +215,7 @@ _cmsg_proxy_api_info_node_new (GNode *last_node)
     /* Insert cmsg_api_info_node as the first child of the last_node. */
     if (G_NODE_IS_LEAF (last_node))
     {
-        cmsg_proxy_api_ptr = calloc (1, sizeof (*cmsg_proxy_api_ptr));
+        cmsg_proxy_api_ptr = CMSG_PROXY_CALLOC (1, sizeof (*cmsg_proxy_api_ptr));
         cmsg_api_info_node = g_node_insert_data (last_node, 0, cmsg_proxy_api_ptr);
     }
     else
@@ -228,7 +229,7 @@ _cmsg_proxy_api_info_node_new (GNode *last_node)
         }
         else
         {
-            cmsg_proxy_api_ptr = calloc (1, sizeof (*cmsg_proxy_api_ptr));
+            cmsg_proxy_api_ptr = CMSG_PROXY_CALLOC (1, sizeof (*cmsg_proxy_api_ptr));
             cmsg_api_info_node = g_node_insert_data (last_node, 0, cmsg_proxy_api_ptr);
         }
     }
@@ -256,7 +257,7 @@ _cmsg_proxy_api_info_free (GNode *leaf_node, gpointer data)
     }
 
     api_info = leaf_node->data;
-    free (api_info);
+    CMSG_PROXY_FREE (api_info);
 
     return FALSE;
 }
@@ -281,7 +282,7 @@ _cmsg_proxy_entry_data_free (GNode *node, gpointer data)
     }
 
     str = node->data;
-    g_free (str);
+    CMSG_PROXY_FREE (str);
 
     return FALSE;
 }
@@ -347,7 +348,7 @@ _cmsg_proxy_service_info_add (cmsg_service_info *service_info)
     GNode *cmsg_api_info_node = NULL;
     gboolean found;
 
-    tmp_url = strdup (service_info->url_string);
+    tmp_url = CMSG_PROXY_STRDUP (service_info->url_string);
 
     for (next_entry = strtok_r (tmp_url, "/", &rest); next_entry;
          next_entry = strtok_r (NULL, "/", &rest))
@@ -371,7 +372,7 @@ _cmsg_proxy_service_info_add (cmsg_service_info *service_info)
         /* Add if it doesn't exist. Insert as the last child of parent_node. */
         if (found == FALSE)
         {
-            node = g_node_insert_data (parent_node, -1, g_strdup (next_entry));
+            node = g_node_insert_data (parent_node, -1, CMSG_PROXY_STRDUP (next_entry));
         }
 
         parent_node = node;
@@ -382,7 +383,7 @@ _cmsg_proxy_service_info_add (cmsg_service_info *service_info)
     /* Fill the cmsg_service_info to the leaf node */
     _cmsg_proxy_api_info_node_set (cmsg_api_info_node, service_info);
 
-    free (tmp_url);
+    CMSG_PROXY_FREE (tmp_url);
 
     return TRUE;
 }
@@ -643,7 +644,7 @@ _cmsg_proxy_library_handles_load (void)
         {
             if (asprintf (&library_path, "%s/%s", CMSG_PROXY_LIB_PATH, dir->d_name) < 0)
             {
-                syslog (LOG_ERR, "Memory allocation error");
+                syslog (LOG_ERR, "Unable able to load library %s", dir->d_name);
                 continue;
             }
 
@@ -767,7 +768,7 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
     int key_length;
     cmsg_url_parameter *param = NULL;
 
-    tmp_url = strdup (url);
+    tmp_url = CMSG_PROXY_STRDUP (url);
     parent_node = g_node_get_root (proxy_entries_tree);
 
     for (next_entry = strtok_r (tmp_url, "/", &rest); next_entry;
@@ -803,12 +804,12 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
         /* No match found. */
         if (node == NULL)
         {
-            free (tmp_url);
+            CMSG_PROXY_FREE (tmp_url);
             return NULL;
         }
     }
 
-    free (tmp_url);
+    CMSG_PROXY_FREE (tmp_url);
 
     info_node = g_node_first_child (parent_node);
     if ((info_node) != NULL && G_NODE_IS_LEAF (info_node))
@@ -1126,8 +1127,13 @@ _cmsg_proxy_generate_ant_api_result_error (ant_code code, char *message,
 void
 cmsg_proxy_init (void)
 {
+#ifdef CMSG_PROXY_MEM_DEBUG
+    /* For developer debugging, turn on memory tracing */
+    cmsg_proxy_mem_init (1);
+#endif
+
     /* Create GNode proxy entries tree. */
-    proxy_entries_tree = g_node_new (g_strdup (CMSG_API_VERSION_STR));
+    proxy_entries_tree = g_node_new (CMSG_PROXY_STRDUP (CMSG_API_VERSION_STR));
 
     _cmsg_proxy_library_handles_load ();
     _cmsg_proxy_clients_init ();
@@ -1237,7 +1243,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
 
     if (!_cmsg_proxy_set_http_status (http_status, output_proto_message))
     {
-        syslog (LOG_DEBUG, "error_info is not set for %s", service_info->url_string);
+        syslog (LOG_ERR, "error_info is not set for %s", service_info->url_string);
     }
 
     ret = _cmsg_proxy_convert_protobuf_to_json (output_proto_message, output_json);
