@@ -101,15 +101,21 @@ test_cmsg_proxy_convert_json_to_protobuf__valid_input (void)
     ProtobufCMessage *output = NULL;
     bool ret;
     json_error_t error;
+    char *error_message = NULL;
     json_t *json_obj = json_loads ("{\n    \"value\":true\n}", 0, &error);
 
     ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
                                                 &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
-                                                &output);
+                                                &output, &error_message);
 
     json_decref (json_obj);
     free (output);
-    NP_ASSERT_TRUE (ret);
+    if (error_message)
+    {
+        free (error_message);
+        error_message = NULL;
+    }
+    NP_ASSERT_TRUE (ret == 0);
 }
 
 /**
@@ -121,18 +127,25 @@ void
 test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
 {
     ProtobufCMessage *output = NULL;
-    bool ret;
+    int ret;
     json_error_t error;
     json_t *json_obj;
+    char *error_message = NULL;
 
     /* value is not quoted correctly */
     json_obj = json_loads ("{\n    value\":true\n}", 0, &error);
 
     ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
                                                 &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
-                                                &output);
+                                                &output, &error_message);
 
-    NP_ASSERT_FALSE (ret);
+    if (error_message)
+    {
+        free (error_message);
+        error_message = NULL;
+    }
+
+    NP_ASSERT_FALSE (ret == 0);
     json_decref (json_obj);
 
     /* json string is missing closing bracket */
@@ -140,9 +153,16 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
 
     ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
                                                 &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
-                                                &output);
+                                                &output, &error_message);
+
+    if (error_message)
+    {
+        free (error_message);
+        error_message = NULL;
+    }
+
     json_decref (json_obj);
-    NP_ASSERT_FALSE (ret);
+    NP_ASSERT_FALSE (ret == 0);
 }
 
 /**

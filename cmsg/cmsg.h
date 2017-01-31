@@ -53,10 +53,15 @@ extern ProtobufCAllocator cmsg_memory_allocator;
         (_name)->has_##_field = TRUE;               \
     } while (0)
 
-#define CMSG_UNSET_FIELD_VALUE(_name, _field) \
-    do {                                      \
-        (_name)->_field = 0;                  \
-        (_name)->has_##_field = FALSE;        \
+#define CMSG_SET_REQUIRED_FIELD_VALUE(_name, _field, _value) \
+    do {                                                     \
+        (_name)->_field = (_value);                          \
+    } while (0)
+
+#define CMSG_UNSET_AND_ZERO_FIELD_VALUE(_name, _field) \
+    do {                                               \
+        (_name)->_field = 0;                           \
+        (_name)->has_##_field = FALSE;                 \
     } while (0)
 
 #define CMSG_SET_FIELD_PTR(_name, _field, _ptr) \
