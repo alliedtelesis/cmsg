@@ -647,7 +647,7 @@ _cmsg_proxy_library_handles_load (void)
         {
             if (asprintf (&library_path, "%s/%s", CMSG_PROXY_LIB_PATH, dir->d_name) < 0)
             {
-                syslog (LOG_ERR, "Memory allocation error");
+                syslog (LOG_ERR, "Unable able to load library %s", dir->d_name);
                 continue;
             }
 
@@ -1100,7 +1100,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
 
     if (!_cmsg_proxy_set_http_status (http_status, output_proto_message))
     {
-        syslog (LOG_DEBUG, "error_info is not set for %s", service_info->url_string);
+        syslog (LOG_ERR, "error_info is not set for %s", service_info->url_string);
     }
 
     ret = _cmsg_proxy_convert_protobuf_to_json (output_proto_message, output_json);
