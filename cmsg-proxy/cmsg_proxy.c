@@ -842,7 +842,7 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
     json_t *new_object = NULL;
     char *fmt = NULL;
     char *endptr = NULL;
-    long long llvalue;
+    long int lvalue;
 
     for (iter = parameters; iter; iter = g_list_next (iter))
     {
@@ -867,18 +867,14 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
         case PROTOBUF_C_TYPE_INT32:
         case PROTOBUF_C_TYPE_SINT32:
         case PROTOBUF_C_TYPE_SFIXED32:
-        case PROTOBUF_C_TYPE_INT64:
-        case PROTOBUF_C_TYPE_SINT64:
-        case PROTOBUF_C_TYPE_SFIXED64:
         case PROTOBUF_C_TYPE_UINT32:
         case PROTOBUF_C_TYPE_FIXED32:
-        case PROTOBUF_C_TYPE_FIXED64:
-            llvalue = strtoll (p->value, &endptr, 0);
+            lvalue = strtol (p->value, &endptr, 0);
             if (endptr && *endptr == '\0')
             {
                 fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ?
                       "{s[i]}" : "{si}";
-                new_object = json_pack (fmt, p->key, llvalue);
+                new_object = json_pack (fmt, p->key, lvalue);
                 break;
             }
             /* fall through (storing as string) */
@@ -891,6 +887,10 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
             break;
         /* Not (currently) supported as URL parameters */
         case PROTOBUF_C_TYPE_UINT64:
+        case PROTOBUF_C_TYPE_INT64:
+        case PROTOBUF_C_TYPE_SINT64:
+        case PROTOBUF_C_TYPE_SFIXED64:
+        case PROTOBUF_C_TYPE_FIXED64:
         case PROTOBUF_C_TYPE_FLOAT:
         case PROTOBUF_C_TYPE_DOUBLE:
         case PROTOBUF_C_TYPE_BOOL:
