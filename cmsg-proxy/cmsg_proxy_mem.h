@@ -7,6 +7,11 @@
 #ifndef __CMSG_PROXY_MEM_H_
 #define __CMSG_PROXY_MEM_H_
 
+/* For developer debugging, uncomment the following line,
+ * which will generate malloc info to a file on receiving SIGUSR2 signal */
+//#define CMSG_PROXY_MEM_DEBUG
+#define CMSG_PROXY_MEM_OUTPUT_FILE  "/tmp/cmsg-proxy-mem.output"
+
 /* Wrappers for memory tracing */
 #define CMSG_PROXY_CALLOC(n,sz)     cmsg_proxy_mem_calloc ((n), (sz), __FILE__,  __LINE__)
 #define CMSG_PROXY_STRDUP(str)      cmsg_proxy_mem_strdup ((str), __FILE__,  __LINE__)

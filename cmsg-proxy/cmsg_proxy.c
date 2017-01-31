@@ -994,6 +994,11 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
 void
 cmsg_proxy_init (void)
 {
+#ifdef CMSG_PROXY_MEM_DEBUG
+    /* For developer debugging, turn on memory tracing */
+    cmsg_proxy_mem_init (1);
+#endif
+
     /* Create GNode proxy entries tree. */
     proxy_entries_tree = g_node_new (CMSG_PROXY_STRDUP (CMSG_API_VERSION_STR));
 
