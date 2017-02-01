@@ -16,12 +16,19 @@
 #include <config.h>
 #include "cmsg_proxy.h"
 #include <glib.h>
-#ifdef HAVE_STATMOND
-#include <ipc/statmond_proxy_def.h>
-#endif /* HAVE_STATMOND */
 #include <string.h>
 #include <protobuf2json.h>
 #include <cmsg/cmsg_client.h>
+#include <dlfcn.h>
+#include <dirent.h>
+#include "cmsg_proxy_mem.h"
+#include <ipc/common_types_auto.h>
+#include <utility/sys.h>
+
+#define MSG_BUF_LEN 200
+#define CMSG_PROXY_LIB_PATH "/var/packages/network/lib"
+
+#define CMSG_PROXY_LIB_PATH "/var/packages/network/lib"
 
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
@@ -65,21 +72,56 @@
 #define HTTP_CODE_BAD_VERSION               505 /* The server does not support the HTTP protocol version */
 #define HTTP_CODE_INSUFFICIENT_STORAGE      507 /* The server has insufficient storage to complete the request */
 
+/**
+ * Map the ANT code returned from the CMSG API call to the
+ * HTTP response code sent in the HTTP header.
+ */
+int ant_code_to_http_code_array[] = {
+    HTTP_CODE_OK,                       /* ANT_OK */
+    HTTP_CODE_REQUEST_TIMEOUT,          /* ANT_CANCELLED */
+    HTTP_CODE_INTERNAL_SERVER_ERROR,    /* ANT_UNKNOWN */
+    HTTP_CODE_BAD_REQUEST,              /* ANT_INVALID_ARGUMENT */
+    HTTP_CODE_REQUEST_TIMEOUT,          /* ANT_DEADLINE_EXCEEDED */
+    HTTP_CODE_NOT_FOUND,                /* ANT_NOT_FOUND */
+    HTTP_CODE_CONFLICT,                 /* ANT_ALREADY_EXISTS */
+    HTTP_CODE_FORBIDDEN,                /* ANT_PERMISSION_DENIED */
+    HTTP_CODE_FORBIDDEN,                /* ANT_RESOURCE_EHAUSTED */
+    HTTP_CODE_BAD_REQUEST,              /* ANT_FAILED_PRECONDITION */
+    HTTP_CODE_CONFLICT,                 /* ANT_ABORTED */
+    HTTP_CODE_BAD_REQUEST,              /* ANT_OUT_OF_RANGE */
+    HTTP_CODE_NOT_IMPLEMENTED,          /* ANT_UNIMPLEMENTED */
+    HTTP_CODE_INTERNAL_SERVER_ERROR,    /* ANT_INTERNAL */
+    HTTP_CODE_SERVICE_UNAVAILABLE,      /* ANT_UNAVAILABLE */
+    HTTP_CODE_INTERNAL_SERVER_ERROR,    /* ANT_DATALOSS */
+    HTTP_CODE_UNAUTHORIZED,             /* ANT_UNAUTHENTICATED */
+};
+
+ARRAY_SIZE_COMPILE_CHECK (ant_code_to_http_code_array, ANT_CODE_MAX);
+
+typedef cmsg_service_info *(*proxy_defs_array_get_func_ptr) ();
+typedef int (*proxy_defs_array_size_func_ptr) ();
+
+typedef struct
+{
+    char *key;
+    char *value;
+} cmsg_url_parameter;
+
 /* Current CMSG API version string */
 #define CMSG_API_VERSION_STR                "CMSG-API"
 
-static GList *proxy_entries_list = NULL;
+static GList *library_handles_list = NULL;
 static GList *proxy_clients_list = NULL;
 static GNode *proxy_entries_tree = NULL;
 
 /**
- * Fill CMSG service info details to the proxy tree
+ * SET CMSG API info details to the proxy tree
  *
- * @param leaf_node    Add the CMSG service info to this leaf node
- * @param service_info CMSG service info to be added
+ * @param leaf_node - Add the CMSG service info to this leaf node
+ * @param service_info - CMSG service info to be added
  */
 static void
-_cmsg_proxy_fill_info (GNode *leaf_node, cmsg_service_info *service_info)
+_cmsg_proxy_api_info_node_set (GNode *leaf_node, cmsg_service_info *service_info)
 {
     cmsg_proxy_api_info *api_info = leaf_node->data;
 
@@ -99,6 +141,8 @@ _cmsg_proxy_fill_info (GNode *leaf_node, cmsg_service_info *service_info)
         break;
     case CMSG_HTTP_PATCH:
         api_info->cmsg_http_patch = service_info;
+        break;
+    default:
         break;
     }
 }
@@ -162,7 +206,7 @@ _cmsg_proxy_fill_info (GNode *leaf_node, cmsg_service_info *service_info)
  *  @return  Newly created cmsg_api_info_node or the existing one if found.
  */
 static GNode *
-_cmsg_proxy_get_api_info_node (GNode *last_node)
+_cmsg_proxy_api_info_node_new (GNode *last_node)
 {
     GNode *first_child = NULL;
     GNode *cmsg_api_info_node = NULL;
@@ -171,7 +215,7 @@ _cmsg_proxy_get_api_info_node (GNode *last_node)
     /* Insert cmsg_api_info_node as the first child of the last_node. */
     if (G_NODE_IS_LEAF (last_node))
     {
-        cmsg_proxy_api_ptr = calloc (1, sizeof (*cmsg_proxy_api_ptr));
+        cmsg_proxy_api_ptr = CMSG_PROXY_CALLOC (1, sizeof (*cmsg_proxy_api_ptr));
         cmsg_api_info_node = g_node_insert_data (last_node, 0, cmsg_proxy_api_ptr);
     }
     else
@@ -185,12 +229,62 @@ _cmsg_proxy_get_api_info_node (GNode *last_node)
         }
         else
         {
-            cmsg_proxy_api_ptr = calloc (1, sizeof (*cmsg_proxy_api_ptr));
+            cmsg_proxy_api_ptr = CMSG_PROXY_CALLOC (1, sizeof (*cmsg_proxy_api_ptr));
             cmsg_api_info_node = g_node_insert_data (last_node, 0, cmsg_proxy_api_ptr);
         }
     }
 
     return cmsg_api_info_node;
+}
+
+/**
+ * Free CMSG API info data allocated to the leaf nodes
+ *
+ * @param leaf_node - leaf node contains CMSG API info
+ * @param data - Unused data to the callback
+ *
+ * @return - returns TRUE if the received leaf node is NULL otherwise FALSE
+ * The callback should return FALSE to continue the traversal.
+ */
+static gboolean
+_cmsg_proxy_api_info_free (GNode *leaf_node, gpointer data)
+{
+    cmsg_proxy_api_info *api_info;
+
+    if (leaf_node == NULL)
+    {
+        return TRUE;
+    }
+
+    api_info = leaf_node->data;
+    CMSG_PROXY_FREE (api_info);
+
+    return FALSE;
+}
+
+/**
+ * Free each node data allocated to the non leaf nodes
+ *
+ * @param node - node contains allocated string data
+ * @param data - Unused data to the callback
+ *
+ * @return - returns TRUE if the received leaf node is NULL otherwise FALSE
+ * The callback should return FALSE to continue the traversal.
+ */
+static gboolean
+_cmsg_proxy_entry_data_free (GNode *node, gpointer data)
+{
+    char *str;
+
+    if (node == NULL)
+    {
+        return TRUE;
+    }
+
+    str = node->data;
+    CMSG_PROXY_FREE (str);
+
+    return FALSE;
 }
 
 /**
@@ -244,7 +338,7 @@ _cmsg_proxy_get_api_info_node (GNode *last_node)
  * @param service_info CMSG service information
  */
 static gboolean
-_cmsg_proxy_add_service_info (cmsg_service_info *service_info)
+_cmsg_proxy_service_info_add (cmsg_service_info *service_info)
 {
     char *tmp_url = NULL;
     char *next_entry = NULL;
@@ -254,7 +348,7 @@ _cmsg_proxy_add_service_info (cmsg_service_info *service_info)
     GNode *cmsg_api_info_node = NULL;
     gboolean found;
 
-    tmp_url = strdup (service_info->url_string);
+    tmp_url = CMSG_PROXY_STRDUP (service_info->url_string);
 
     for (next_entry = strtok_r (tmp_url, "/", &rest); next_entry;
          next_entry = strtok_r (NULL, "/", &rest))
@@ -278,18 +372,18 @@ _cmsg_proxy_add_service_info (cmsg_service_info *service_info)
         /* Add if it doesn't exist. Insert as the last child of parent_node. */
         if (found == FALSE)
         {
-            node = g_node_insert_data (parent_node, -1, g_strdup (next_entry));
+            node = g_node_insert_data (parent_node, -1, CMSG_PROXY_STRDUP (next_entry));
         }
 
         parent_node = node;
     }
 
-    cmsg_api_info_node = _cmsg_proxy_get_api_info_node (parent_node);
+    cmsg_api_info_node = _cmsg_proxy_api_info_node_new (parent_node);
 
     /* Fill the cmsg_service_info to the leaf node */
-    _cmsg_proxy_fill_info (cmsg_api_info_node, service_info);
+    _cmsg_proxy_api_info_node_set (cmsg_api_info_node, service_info);
 
-    free (tmp_url);
+    CMSG_PROXY_FREE (tmp_url);
 
     return TRUE;
 }
@@ -301,16 +395,42 @@ _cmsg_proxy_add_service_info (cmsg_service_info *service_info)
  * @param length - Length of the array
  */
 static void
-_cmsg_proxy_list_init (cmsg_service_info *array, int length)
+_cmsg_proxy_service_info_init (cmsg_service_info *array, int length)
 {
     int i = 0;
 
     for (i = 0; i < length; i++)
     {
-        _cmsg_proxy_add_service_info (&array[i]);
-
-        proxy_entries_list = g_list_append (proxy_entries_list, (void *) &array[i]);
+        _cmsg_proxy_service_info_add (&array[i]);
     }
+}
+
+/**
+ * Deinitialise the cmsg proxy entry tree with the autogenerated array entries
+ */
+static void
+_cmsg_proxy_service_info_deinit (void)
+{
+    GNode *root = g_node_get_root (proxy_entries_tree);
+
+    /* Free cmsg service API info if proxy_entries_tree is not empty. */
+    if (!G_NODE_IS_LEAF (root))
+    {
+        g_node_traverse (root, G_LEVEL_ORDER, G_TRAVERSE_LEAVES, -1,
+                         _cmsg_proxy_api_info_free, NULL);
+
+        /* Now free all nodes' data */
+        g_node_traverse (root, G_POST_ORDER, G_TRAVERSE_NON_LEAVES, -1,
+                         _cmsg_proxy_entry_data_free, NULL);
+    }
+    else
+    {
+        /* Free the root node's data. */
+        _cmsg_proxy_entry_data_free (root, NULL);
+    }
+
+    g_node_destroy (proxy_entries_tree);
+    proxy_entries_tree = NULL;
 }
 
 /**
@@ -352,36 +472,6 @@ _cmsg_proxy_find_client_by_service (const ProtobufCServiceDescriptor *service_de
 }
 
 /**
- * Get the CMSG server socket name from the CMSG service descriptor.
- *
- * @param service_descriptor - CMSG service descriptor to get server socket name from
- *
- * @return - String representing the server socket name. The memory for this string must
- *           be freed by the caller.
- */
-static char *
-_cmsg_proxy_server_socket_name_get (const ProtobufCServiceDescriptor *service_descriptor)
-{
-    char *copy_str = NULL;
-    char *iter;
-
-    asprintf (&copy_str, "/tmp/%s", service_descriptor->name);
-
-    /* Replace the '.' in the name with '_' */
-    iter = copy_str;
-    while (*iter)
-    {
-        if (*iter == '.')
-        {
-            *iter = '_';
-        }
-        iter++;
-    }
-
-    return copy_str;
-}
-
-/**
  * Create a CMSG client to connect to the input service descriptor and
  * add this client to the proxy clients list.
  *
@@ -391,19 +481,28 @@ static void
 _cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
 {
     cmsg_client *client = NULL;
-    char *server_socket_name = _cmsg_proxy_server_socket_name_get (service_descriptor);
 
-    client = cmsg_create_client_unix (server_socket_name, service_descriptor);
+    client = cmsg_create_client_unix (service_descriptor);
     if (!client)
     {
-        fprintf (stderr, "Failed to create client for unix socket %s", server_socket_name);
-        free (server_socket_name);
+        syslog (LOG_ERR, "Failed to create client for service: %s",
+                service_descriptor->name);
         return;
     }
 
     proxy_clients_list = g_list_append (proxy_clients_list, (void *) client);
-    free (server_socket_name);
     return;
+}
+
+/**
+ * Free the CMSG proxy clients created
+ */
+static void
+_cmsg_proxy_client_free (gpointer data, gpointer user_data)
+{
+    cmsg_client *client = (cmsg_client *) data;
+
+    cmsg_destroy_client_and_transport (client);
 }
 
 /**
@@ -415,7 +514,7 @@ _cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
  * @return Returns matching cmsg_service_info from api_info if not NULL
  */
 static const cmsg_service_info *
-cmsg_proxy_service_info_get (cmsg_proxy_api_info *api_info, cmsg_http_verb verb)
+cmsg_proxy_service_info_get (const cmsg_proxy_api_info *api_info, cmsg_http_verb verb)
 {
     switch (verb)
     {
@@ -440,14 +539,20 @@ cmsg_proxy_service_info_get (cmsg_proxy_api_info *api_info, cmsg_http_verb verb)
  * @param leaf_node - leaf node that contains cmsg_proxy_api_info
  * @param data - data passed in by the caller. This is NULL
  *
- * @returns TRUE always
+ * @returns FALSE if the traverse need to be continued otherwise TRUE
  */
 static gboolean
 _cmsg_proxy_clients_add (GNode *leaf_node, gpointer data)
 {
-    cmsg_proxy_api_info *api_info = leaf_node->data;
+    cmsg_proxy_api_info *api_info;
     const cmsg_service_info *service_info;
     int action;
+
+    if (leaf_node == NULL)
+    {
+        return TRUE;
+    }
+    api_info = leaf_node->data;
 
     for (action = CMSG_HTTP_GET; action <= CMSG_HTTP_PATCH; action++)
     {
@@ -459,7 +564,7 @@ _cmsg_proxy_clients_add (GNode *leaf_node, gpointer data)
         }
     }
 
-    return TRUE;
+    return FALSE;
 }
 
 /**
@@ -481,38 +586,162 @@ _cmsg_proxy_clients_init (void)
 }
 
 /**
- * Update the json object according to the new key,value pair. The 'key'
- * is within '< >' so we need to get rid of it before creating the new object.
- *
- * @json_object - json object to update
- * @key - key used to create new json object
- * @value - value for the new json object
+ * Deinitialise the CMSG clients.
  */
 static void
-_cmsg_proxy_json_object_create (json_t **json_object, const char *key, const char *value)
+_cmsg_proxy_clients_deinit (void)
 {
-    json_t *new_object;
-    char *tmp_key;
-    char *ptr;
+    g_list_foreach (proxy_clients_list, _cmsg_proxy_client_free, NULL);
+    g_list_free (proxy_clients_list);
+    proxy_clients_list = NULL;
+}
 
-    tmp_key = strdup (key);
-    ptr = tmp_key;
+/**
+ * Helper function for _cmsg_proxy_library_handles_deinit().
+ * Call dlclose in a way that compiles with g_list_free_full.
+ */
+static void
+_cmsg_proxy_dlclose (gpointer data)
+{
+    dlclose (data);
+}
 
-    ptr++;
-    ptr[strlen (ptr) - 1] = '\0';
+/**
+ * Close the loaded library handles.
+ */
+static void
+_cmsg_proxy_library_handles_close (void)
+{
+    g_list_free_full (library_handles_list, _cmsg_proxy_dlclose);
+    library_handles_list = NULL;
+}
 
-    new_object = json_pack ("{ss}", ptr, value);
+/**
+ * Loads all of the *_proto_proxy_def.so libraries that exist in
+ * CMSG_PROXY_LIB_PATH into the cmsg proxy library.
+ */
+static void
+_cmsg_proxy_library_handles_load (void)
+{
+    DIR *d = NULL;
+    struct dirent *dir = NULL;
+    void *lib_handle = NULL;
+    proxy_defs_array_get_func_ptr get_func_addr = NULL;
+    proxy_defs_array_size_func_ptr size_func_addr = NULL;
+    char *library_path = NULL;
 
-    if (*json_object)
+    d = opendir (CMSG_PROXY_LIB_PATH);
+    if (d == NULL)
     {
-        json_object_update (*json_object, new_object);
-    }
-    else
-    {
-        *json_object = new_object;
+        syslog (LOG_ERR, "Directory '%s' could not be opened\n", CMSG_PROXY_LIB_PATH);
+        return;
     }
 
-    free (tmp_key);
+    while ((dir = readdir (d)) != NULL)
+    {
+        /* Check that dir points to a file, not (sym)link or directory */
+        if (dir->d_type == DT_REG && strstr (dir->d_name, "proto_proxy_def.so"))
+        {
+            if (asprintf (&library_path, "%s/%s", CMSG_PROXY_LIB_PATH, dir->d_name) < 0)
+            {
+                syslog (LOG_ERR, "Unable able to load library %s", dir->d_name);
+                continue;
+            }
+
+            lib_handle = dlopen (library_path, RTLD_NOW | RTLD_GLOBAL);
+            if (lib_handle)
+            {
+                get_func_addr = dlsym (lib_handle, "cmsg_proxy_array_get");
+                size_func_addr = dlsym (lib_handle, "cmsg_proxy_array_size");
+
+                if (get_func_addr && size_func_addr)
+                {
+                    _cmsg_proxy_service_info_init (get_func_addr (), size_func_addr ());
+
+                    /* We need to leave the library loaded in the process address space so
+                     * that the data can be accessed. Store a pointer to the library handle
+                     * so that it can be closed at deinit. */
+                    library_handles_list = g_list_prepend (library_handles_list,
+                                                           lib_handle);
+                }
+                else
+                {
+                    dlclose (lib_handle);
+                }
+            }
+            free (library_path);
+        }
+    }
+
+    closedir (d);
+}
+
+
+/**
+ * Create a new json object from the given json string
+ *
+ * @param json_object - Place holder for the created json object
+ * @param input_json - input json string to create the json object
+ */
+static void
+_cmsg_proxy_json_object_create (json_t **json_object, const char *input_json)
+{
+    json_error_t error;
+
+    *json_object = json_loads (input_json, 0, &error);
+}
+
+/**
+ *
+ * Destroy the given json object
+ *
+ * @param json_object - json object to be destroyed
+ */
+static void
+_cmsg_proxy_json_object_destroy (json_t *json_object)
+{
+    if (json_object)
+    {
+        json_decref (json_object);
+    }
+}
+
+/**
+ * Allocate memory and store values for an embedded url parameter
+ *
+ * @param key - The name of the url parameter ie 'id' for /vlan/vlans/{id}
+ * @param value - The parameter ie '5' for /vlan/vlans/5/...
+ * @return - allocated cmsg_url_parameter or NULL if allocation fails
+ */
+static cmsg_url_parameter *
+_cmsg_proxy_create_url_parameter (const char *key, const char *value)
+{
+    cmsg_url_parameter *new = calloc (1, sizeof (cmsg_url_parameter));
+
+    if (new)
+    {
+        /* strip the braces from the parameter name */
+        new->key = strndup (key + 1, strlen (key) - 2);
+        new->value = value ? strdup (value) : NULL;
+    }
+    return new;
+}
+
+/**
+ * Free a cmsg_url_parameter structure
+ * @param ptr - the cms_url_parameter to be freed
+ */
+static void
+_cmsg_proxy_free_url_parameter (gpointer ptr)
+{
+    cmsg_url_parameter *p = (cmsg_url_parameter *) ptr;
+
+    if (p)
+    {
+        free (p->key);
+        free (p->value);
+        free (p);
+    }
 }
 
 /**
@@ -527,16 +756,19 @@ _cmsg_proxy_json_object_create (json_t **json_object, const char *key, const cha
  */
 static const cmsg_service_info *
 _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb,
-                                            json_t **json_object)
+                                            GList **url_parameters)
 {
     GNode *node;
     char *tmp_url;
     char *next_entry = NULL;
     char *rest = NULL;
+    const char *key = NULL;
     GNode *parent_node;
     GNode *info_node;
+    int key_length;
+    cmsg_url_parameter *param = NULL;
 
-    tmp_url = strdup (url);
+    tmp_url = CMSG_PROXY_STRDUP (url);
     parent_node = g_node_get_root (proxy_entries_tree);
 
     for (next_entry = strtok_r (tmp_url, "/", &rest); next_entry;
@@ -550,11 +782,21 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
                 parent_node = node;
                 break;
             }
-            else if (((char *) node->data)[0] == '<')
+            else
             {
-                _cmsg_proxy_json_object_create (json_object, node->data, next_entry);
-                parent_node = node;
-                break;
+                key = (const char *) node->data;
+                key_length = key ? strlen (key) : 0;
+
+                /* if this URL segment is a parameter, store it to be parsed later */
+                if (key && key_length && key[0] == '{' && key[key_length - 1] == '}')
+                {
+
+                    param = _cmsg_proxy_create_url_parameter (key, next_entry);
+                    *url_parameters = g_list_prepend (*url_parameters, param);
+                    parent_node = node;
+                    break;
+                }
+
             }
             node = g_node_next_sibling (node);
         }
@@ -562,12 +804,12 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
         /* No match found. */
         if (node == NULL)
         {
-            free (tmp_url);
+            CMSG_PROXY_FREE (tmp_url);
             return NULL;
         }
     }
 
-    free (tmp_url);
+    CMSG_PROXY_FREE (tmp_url);
 
     info_node = g_node_first_child (parent_node);
     if ((info_node) != NULL && G_NODE_IS_LEAF (info_node))
@@ -580,6 +822,104 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
 }
 
 /**
+ * Convert parameters embedded in the URL into the correct format for the protobuf messages
+ *
+ * If the target protobuf is an integer type: attempt to convert the parameter. If the parameter
+ * cannot be converted, leave as is. The protobuf2json library will raise an error. No sign or overflow
+ * checking is yet performed.
+ *
+ * If the target field is repeated, the parameter will be stored as the first and only
+ * element.
+ *
+ * @param parameters - list of parameter-name & parameter pairs
+ * @param json_object - the message body
+ * @param msg_descriptor - used to determine the target field type when converting to JSON
+ */
+void
+_cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
+                                  const ProtobufCMessageDescriptor *msg_descriptor)
+{
+    GList *iter = NULL;
+    const ProtobufCFieldDescriptor *field_descriptor = NULL;
+    cmsg_url_parameter *p = NULL;
+    json_t *new_object = NULL;
+    char *fmt = NULL;
+    char *endptr = NULL;
+    long int lvalue;
+
+    for (iter = parameters; iter; iter = g_list_next (iter))
+    {
+        p = (cmsg_url_parameter *) iter->data;
+
+        if (!p || !p->key)
+        {
+            continue;
+        }
+
+        /* Find the target type */
+        field_descriptor = protobuf_c_message_descriptor_get_field_by_name (msg_descriptor,
+                                                                            p->key);
+
+        if (!field_descriptor)
+        {
+            continue;   /* TODO: add to json as strings (for unexpected argument error) */
+        }
+
+        switch (field_descriptor->type)
+        {
+        case PROTOBUF_C_TYPE_INT32:
+        case PROTOBUF_C_TYPE_SINT32:
+        case PROTOBUF_C_TYPE_SFIXED32:
+        case PROTOBUF_C_TYPE_UINT32:
+        case PROTOBUF_C_TYPE_FIXED32:
+            lvalue = strtol (p->value, &endptr, 0);
+            if (endptr && *endptr == '\0')
+            {
+                fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ?
+                    "{s[i]}" : "{si}";
+                new_object = json_pack (fmt, p->key, lvalue);
+                break;
+            }
+            /* fall through (storing as string) */
+        case PROTOBUF_C_TYPE_ENUM:
+        case PROTOBUF_C_TYPE_STRING:
+            fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ?
+                "{s[s?]}" : "{ss?}";
+
+            new_object = json_pack (fmt, p->key, p->value);
+            break;
+            /* Not (currently) supported as URL parameters */
+        case PROTOBUF_C_TYPE_UINT64:
+        case PROTOBUF_C_TYPE_INT64:
+        case PROTOBUF_C_TYPE_SINT64:
+        case PROTOBUF_C_TYPE_SFIXED64:
+        case PROTOBUF_C_TYPE_FIXED64:
+        case PROTOBUF_C_TYPE_FLOAT:
+        case PROTOBUF_C_TYPE_DOUBLE:
+        case PROTOBUF_C_TYPE_BOOL:
+        case PROTOBUF_C_TYPE_BYTES:
+        case PROTOBUF_C_TYPE_MESSAGE:
+        default:
+            break;
+        }
+
+        if (!new_object)
+        {
+            continue;
+        }
+
+        if (*json_object)
+        {
+            json_object_update (*json_object, new_object);
+        }
+        else
+        {
+            *json_object = new_object;
+        }
+    }
+}
+
+/**
  * Convert the input json string into a protobuf message structure.
  *
  * @param input_json - The json string to convert.
@@ -589,19 +929,47 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
  *                          If the conversion succeeds then this pointer must
  *                          be freed by the caller.
  *
- * @return - true on success, false on failure.
+ * @return - ANT_OK on success, relevant ANT code on failure.
  */
-static bool
+static ant_code
 _cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
                                       const ProtobufCMessageDescriptor *msg_descriptor,
-                                      ProtobufCMessage **output_protobuf)
+                                      ProtobufCMessage **output_protobuf, char **message)
 {
-    if (json2protobuf_object (json_object, msg_descriptor, output_protobuf, NULL, 0) < 0)
+    char conversion_message[MSG_BUF_LEN] = { 0 };
+    ant_code ret = ANT_OK;
+    int res = json2protobuf_object (json_object, msg_descriptor, output_protobuf,
+                                    conversion_message, MSG_BUF_LEN);
+
+    /* Only report messages deemed user-friendly */
+    switch (res)
     {
-        return false;
+    case PROTOBUF2JSON_ERR_REQUIRED_IS_MISSING:
+    case PROTOBUF2JSON_ERR_UNKNOWN_FIELD:
+    case PROTOBUF2JSON_ERR_IS_NOT_OBJECT:
+    case PROTOBUF2JSON_ERR_IS_NOT_ARRAY:
+    case PROTOBUF2JSON_ERR_IS_NOT_INTEGER:
+    case PROTOBUF2JSON_ERR_IS_NOT_INTEGER_OR_REAL:
+    case PROTOBUF2JSON_ERR_IS_NOT_BOOLEAN:
+    case PROTOBUF2JSON_ERR_IS_NOT_STRING:
+    case PROTOBUF2JSON_ERR_UNKNOWN_ENUM_VALUE:
+    case PROTOBUF2JSON_ERR_CANNOT_PARSE_STRING:
+    case PROTOBUF2JSON_ERR_CANNOT_PARSE_FILE:
+    case PROTOBUF2JSON_ERR_UNSUPPORTED_FIELD_TYPE:
+        if (message)
+        {
+            *message = strdup (conversion_message);
+        }
+        ret = ANT_INVALID_ARGUMENT;
+        break;
+    case PROTOBUF2JSON_ERR_CANNOT_DUMP_STRING:
+    case PROTOBUF2JSON_ERR_CANNOT_DUMP_FILE:
+    case PROTOBUF2JSON_ERR_JANSSON_INTERNAL:
+    case PROTOBUF2JSON_ERR_CANNOT_ALLOCATE_MEMORY:
+        ret = ANT_INTERNAL;
     }
 
-    return true;
+    return ret;
 }
 
 /**
@@ -638,23 +1006,15 @@ _cmsg_proxy_convert_protobuf_to_json (ProtobufCMessage *input_protobuf, char **o
  * @param service_info - Service info entry that contains the API
  *                       function to call.
  *
- * @returns - HTTP_CODE_OK on success,
- *            HTTP_CODE_BAD_REQUEST if the input message is NULL when the
- *            api expects an input message,
- *            HTTP_CODE_INTERNAL_SERVER_ERROR if CMSG fails internally.
+ * @returns - ANT_OK on success,
+ *            ANT_INTERNAL if CMSG fails internally.
  */
-static int
+static ant_code
 _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_msg,
                            ProtobufCMessage **output_msg,
                            const cmsg_service_info *service_info)
 {
     int ret;
-
-    if (input_msg == NULL &&
-        strcmp (service_info->input_msg_descriptor->name, "dummy") != 0)
-    {
-        return HTTP_CODE_BAD_REQUEST;
-    }
 
     if (strcmp (service_info->input_msg_descriptor->name, "dummy") == 0)
     {
@@ -671,11 +1031,93 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
 
     if (ret == CMSG_RET_OK)
     {
-        return HTTP_CODE_OK;
+        return ANT_OK;
     }
     else
     {
-        return HTTP_CODE_INTERNAL_SERVER_ERROR;
+        return ANT_INTERNAL;
+    }
+}
+
+/**
+ * Helper function which takes the ProtobufCMessage received from calling
+ * the CMSG API function, finds the 'error_info' field set in the response
+ * and sets the HTTP response status based on the code returned from the
+ * CMSG API.
+ *
+ * @param http_status - Pointer to the http_status integer that should be set
+ * @param msg - Pointer to the ProtobufCMessage received from the CMSG API call
+ *
+ * @returns 'true' if error_info is updated with error message otherwise 'false'
+ */
+static bool
+_cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
+{
+    const ProtobufCFieldDescriptor *field = NULL;
+    const ProtobufCMessage **field_message = NULL;
+    ant_api_result *error_message = NULL;
+    bool ret = false;
+
+    field = protobuf_c_message_descriptor_get_field_by_name (msg->descriptor, "error_info");
+    if (field == NULL)
+    {
+        /* Developer has failed to put an error_info message in the API response
+         * message .proto definition.
+         */
+        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        return false;
+    }
+
+    field_message = (const ProtobufCMessage **) (((const char *) msg) + field->offset);
+    error_message = (ant_api_result *) (*field_message);
+
+    if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
+    {
+        *http_status = ant_code_to_http_code_array[error_message->code];
+        ret = true;
+    }
+    else
+    {
+        /* Developer has added an error_info message to the API response
+         * message .proto definition but failed to set this message correctly
+         * in their IMPL function.
+         */
+        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        ret = false;
+    }
+
+    return ret;
+}
+
+/**
+ * Generate a ANT_API_RESULT error output for an internal cmsg_proxy error
+ *
+ * @param code - ANT_CODE appropriate to the reason for failure
+ * @param message - Descriptive error message
+ * @param output_json - A pointer to a string that will store the output JSON data to
+ *                      be sent with the HTTP response.
+ * @param http_status - A pointer to an integer that will store the HTTP status code to
+ *                      be sent with the HTTP response.
+ */
+void
+_cmsg_proxy_generate_ant_api_result_error (ant_code code, char *message,
+                                           int *http_status, char **output_json)
+{
+    ant_api_result_message error = ANT_API_RESULT_MESSAGE_INIT;
+    ant_api_result error_info = ANT_API_RESULT_INIT;
+    bool ret;
+
+    CMSG_SET_FIELD_VALUE (&error_info, code, code);
+    CMSG_SET_FIELD_PTR (&error_info, message, message);
+    CMSG_SET_FIELD_PTR (&error, error_info, &error_info);
+
+    *http_status = ant_code_to_http_code_array[code];
+
+    ret = _cmsg_proxy_convert_protobuf_to_json ((ProtobufCMessage *) &error, output_json);
+
+    if (!ret)
+    {
+        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
     }
 }
 
@@ -685,19 +1127,27 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
 void
 cmsg_proxy_init (void)
 {
-    /* This is to pass some build targets with interface statistics monitoring
-     * disabled. Once we find a way to initialize the proxy list at compile
-     * time or similar, we can remove the code. */
-    _cmsg_proxy_list_init (NULL, 0);
+#ifdef CMSG_PROXY_MEM_DEBUG
+    /* For developer debugging, turn on memory tracing */
+    cmsg_proxy_mem_init (1);
+#endif
 
     /* Create GNode proxy entries tree. */
-    proxy_entries_tree = g_node_new (CMSG_API_VERSION_STR);
+    proxy_entries_tree = g_node_new (CMSG_PROXY_STRDUP (CMSG_API_VERSION_STR));
 
-#ifdef HAVE_STATMOND
-    _cmsg_proxy_list_init (statmond_proxy_array_get (), statmond_proxy_array_size ());
-#endif /* HAVE_STATMOND */
-
+    _cmsg_proxy_library_handles_load ();
     _cmsg_proxy_clients_init ();
+}
+
+/**
+ * Deinitialize the cmsg proxy library
+ */
+void
+cmsg_proxy_deinit (void)
+{
+    _cmsg_proxy_service_info_deinit ();
+    _cmsg_proxy_clients_deinit ();
+    _cmsg_proxy_library_handles_close ();
 }
 
 /**
@@ -728,80 +1178,83 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     ProtobufCMessage *input_proto_message = NULL;
     ProtobufCMessage *output_proto_message = NULL;
     bool ret = false;
-    int result;
-    json_error_t error;
+    ant_code result = ANT_OK;
     json_t *json_object = NULL;
-    bool rc = false;
+    GList *url_parameters = NULL;
+    char *message = NULL;
 
-    if (input_json)
-    {
-        json_object = json_loads (input_json, 0, &error);
-    }
 
-    service_info =
-        _cmsg_proxy_find_service_from_url_and_verb (url, http_verb, &json_object);
+    service_info = _cmsg_proxy_find_service_from_url_and_verb (url, http_verb,
+                                                               &url_parameters);
     if (service_info == NULL)
     {
         /* The cmsg proxy does not know about this url and verb combination */
-        rc = false;
-        goto json_object_free_return;
+        g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
+        return false;
     }
+
+    _cmsg_proxy_json_object_create (&json_object, input_json);
+
+    _cmsg_proxy_parse_url_parameters (url_parameters, &json_object,
+                                      service_info->input_msg_descriptor);
+
+    g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
 
     client = _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
     if (client == NULL)
     {
         /* This should not occur but check for it */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-        rc = true;
-        goto json_object_free_return;
+        _cmsg_proxy_json_object_destroy (json_object);
+        _cmsg_proxy_generate_ant_api_result_error (ANT_INTERNAL, NULL, http_status,
+                                                   output_json);
+        return true;
     }
 
     if (json_object)
     {
-        ret = _cmsg_proxy_convert_json_to_protobuf (json_object,
-                                                    service_info->input_msg_descriptor,
-                                                    &input_proto_message);
-        if (!ret)
+        result = _cmsg_proxy_convert_json_to_protobuf (json_object,
+                                                       service_info->input_msg_descriptor,
+                                                       &input_proto_message, &message);
+        if (result != ANT_OK)
         {
             /* The JSON sent with the request is malformed */
-            *http_status = HTTP_CODE_BAD_REQUEST;
-            rc = true;
-            goto json_object_free_return;
+            _cmsg_proxy_json_object_destroy (json_object);
+            _cmsg_proxy_generate_ant_api_result_error (result, message, http_status,
+                                                       output_json);
+            free (message);
+            return true;
         }
+        free (message);
     }
 
     result = _cmsg_proxy_call_cmsg_api (client, input_proto_message,
                                         &output_proto_message, service_info);
-    if (result != HTTP_CODE_OK)
+    if (result != ANT_OK)
     {
         /* Something went wrong calling the CMSG api */
-        free (input_proto_message);
-        *http_status = result;
-        rc = true;
-        goto json_object_free_return;
+        CMSG_FREE_RECV_MSG (input_proto_message);
+        _cmsg_proxy_generate_ant_api_result_error (result, NULL, http_status, output_json);
+        _cmsg_proxy_json_object_destroy (json_object);
+        return true;
     }
 
-    free (input_proto_message);
+    CMSG_FREE_RECV_MSG (input_proto_message);
+
+    if (!_cmsg_proxy_set_http_status (http_status, output_proto_message))
+    {
+        syslog (LOG_ERR, "error_info is not set for %s", service_info->url_string);
+    }
 
     ret = _cmsg_proxy_convert_protobuf_to_json (output_proto_message, output_json);
     if (!ret)
     {
         /* This should not occur (the ProtobufCMessage structure returned
          * by the CMSG api should always be well formed) but check for it */
-        CMSG_FREE_RECV_MSG (output_proto_message);
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-        rc = true;
-        goto json_object_free_return;
     }
 
+    _cmsg_proxy_json_object_destroy (json_object);
     CMSG_FREE_RECV_MSG (output_proto_message);
-    *http_status = HTTP_CODE_OK;
-    rc = true;
-
-  json_object_free_return:
-    if (json_object)
-    {
-        json_decref (json_object);
-    }
-    return rc;
+    return true;
 }

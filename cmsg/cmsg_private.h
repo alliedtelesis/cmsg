@@ -24,7 +24,7 @@
 #define tracelog(tracelog_string, fmt, ...)   printf(fmt, ## __VA_ARGS__);
 #endif
 
-#include "protobuf-c.h"
+#include <protobuf-c/protobuf-c.h>
 
 // TODO: Perhaps we can refactor the logic around the debug below
 // The logic around when the debug is on/off is a little convoluted.
