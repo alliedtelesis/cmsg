@@ -1041,9 +1041,13 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
 
 /**
  * Helper function which takes the ProtobufCMessage received from calling
- * the CMSG API function, finds the 'error_info' field set in the response
+ * the CMSG API function, finds the error information set in the response,
  * and sets the HTTP response status based on the code returned from the
  * CMSG API.
+ *
+ * If the CMSG API has returned ANT_OK then the error information field is
+ * unset from the protobuf message and hence will not be returned in the
+ * JSON sent back to the user.
  *
  * @param http_status - Pointer to the http_status integer that should be set
  * @param msg - Pointer to the ProtobufCMessage received from the CMSG API call
@@ -1051,39 +1055,39 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
  * @returns 'true' if error_info is updated with error message otherwise 'false'
  */
 static bool
-_cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage *msg)
+_cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage **msg)
 {
-    const ProtobufCFieldDescriptor *field = NULL;
-    const ProtobufCMessage **field_message = NULL;
+    const ProtobufCFieldDescriptor *field_desc = NULL;
+    ProtobufCMessage **error_message_ptr = NULL;
     ant_api_result *error_message = NULL;
     bool ret = false;
 
-    field = protobuf_c_message_descriptor_get_field_by_name (msg->descriptor, "error_info");
-    if (field == NULL)
+    field_desc = protobuf_c_message_descriptor_get_field_by_name ((*msg)->descriptor,
+                                                                  "error_info");
+    if (field_desc)
     {
-        /* Developer has failed to put an error_info message in the API response
-         * message .proto definition.
-         */
-        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-        return false;
+        error_message_ptr = (ProtobufCMessage **) (((char *) *msg) + field_desc->offset);
+    }
+    else if (strcmp ((*msg)->descriptor->name, "ant_api_result") == 0)
+    {
+        error_message_ptr = msg;
     }
 
-    field_message = (const ProtobufCMessage **) (((const char *) msg) + field->offset);
-    error_message = (ant_api_result *) (*field_message);
-
+    error_message = (ant_api_result *) (*error_message_ptr);
     if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
     {
         *http_status = ant_code_to_http_code_array[error_message->code];
+        if (error_message->code == ANT_OK)
+        {
+            /* Unset the error info message from the protobuf message */
+            CMSG_FREE_RECV_MSG (error_message);
+            *error_message_ptr = NULL;
+        }
         ret = true;
     }
     else
     {
-        /* Developer has added an error_info message to the API response
-         * message .proto definition but failed to set this message correctly
-         * in their IMPL function.
-         */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-        ret = false;
     }
 
     return ret;
@@ -1241,20 +1245,23 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
 
     CMSG_FREE_RECV_MSG (input_proto_message);
 
-    if (!_cmsg_proxy_set_http_status (http_status, output_proto_message))
+    if (!_cmsg_proxy_set_http_status (http_status, &output_proto_message))
     {
         syslog (LOG_ERR, "error_info is not set for %s", service_info->url_string);
     }
 
-    ret = _cmsg_proxy_convert_protobuf_to_json (output_proto_message, output_json);
-    if (!ret)
+    if (output_proto_message)
     {
-        /* This should not occur (the ProtobufCMessage structure returned
-         * by the CMSG api should always be well formed) but check for it */
-        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        ret = _cmsg_proxy_convert_protobuf_to_json (output_proto_message, output_json);
+        if (!ret)
+        {
+            /* This should not occur (the ProtobufCMessage structure returned
+             * by the CMSG api should always be well formed) but check for it */
+            *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        }
+        CMSG_FREE_RECV_MSG (output_proto_message);
     }
 
     _cmsg_proxy_json_object_destroy (json_object);
-    CMSG_FREE_RECV_MSG (output_proto_message);
     return true;
 }
