@@ -148,12 +148,6 @@ cmsg_proxy_libcmsgproxy_la_LIBADD = \
 	-lprotobuf2json-c \
 	-lcommon_proto_api
 
-if BUILD_AMFAPPSD
-cmsg_proxy_libcmsgproxy_la_LIBADD += \
-	-lamfblacklist_proto_proxy_def \
-	-lamfblacklist_proto_api
-endif # BUILD_AMFAPPSD
-
 if BUILD_STATMOND
 cmsg_proxy_libcmsgproxy_la_LIBADD += \
 	-lstatmond_proto_proxy_def \
