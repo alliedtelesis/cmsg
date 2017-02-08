@@ -1205,8 +1205,9 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         if (!json_object)
         {
             /* No json object created, report the error */
-            _cmsg_proxy_generate_ant_api_result_error (ANT_INVALID_ARGUMENT, error.text,
-                                                       http_status, output_json);
+            _cmsg_proxy_generate_ant_api_result_error (ANT_CODE_INVALID_ARGUMENT,
+                                                       error.text, http_status,
+                                                       output_json);
             g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
             return true;
         }
