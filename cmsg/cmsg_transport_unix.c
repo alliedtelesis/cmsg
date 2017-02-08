@@ -554,21 +554,56 @@ cmsg_transport_oneway_unix_init (cmsg_transport *transport)
 }
 
 cmsg_transport *
-cmsg_create_transport_unix (const char *sun_path, cmsg_transport_type transport_type)
+cmsg_create_transport_unix (const ProtobufCServiceDescriptor *descriptor,
+                            cmsg_transport_type transport_type)
 {
     cmsg_transport *transport = NULL;
+    char *sun_path;
 
     transport = cmsg_transport_new (transport_type);
     if (transport == NULL)
     {
-        CMSG_LOG_GEN_ERROR ("Unable to create UNIX IPC transport. Path name:%s", sun_path);
         return NULL;
     }
+
+    sun_path = cmsg_transport_unix_sun_path (descriptor);
 
     transport->config.socket.family = AF_UNIX;
     transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
     strncpy (transport->config.socket.sockaddr.un.sun_path, sun_path,
              sizeof (transport->config.socket.sockaddr.un.sun_path) - 1);
 
+    free (sun_path);
+
     return transport;
+}
+
+/**
+ * Get the CMSG unix transport socket name from the CMSG service descriptor.
+ *
+ * @param descriptor - CMSG service descriptor to get the unix transport socket name from
+ *
+ * @return - String representing the unix transport socket name. The memory for this
+ *           string must be freed by the caller.
+ */
+char *
+cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor)
+{
+    char *copy_str = NULL;
+    char *iter;
+
+    asprintf (&copy_str, "/tmp/%s", descriptor->name);
+
+    /* Replace the '.' in the name with '_' */
+    iter = copy_str;
+    while (*iter)
+    {
+        if (*iter == '.')
+        {
+            *iter = '_';
+        }
+        iter++;
+    }
+
+    return copy_str;
 }

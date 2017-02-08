@@ -18,7 +18,8 @@ AM_SILENT_RULES([yes])
 LT_INIT
 
 AC_CONFIG_HEADERS(config.h)
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile
+  cmsg.pc])
 
 PKG_CHECK_MODULES([GLIB],[glib-2.0])
 PKG_CHECK_MODULES([NOVAPROVA],[novaprova],[],[unittest_prereq=no])
@@ -53,14 +54,6 @@ if test "x$enableval" = xyes ; then
   AC_DEFINE(HAVE_UNITTEST, 1, [enable unittest code])
 fi)
 AM_CONDITIONAL(BUILD_UNITTEST, test $BUILD_UNITTEST = 1)
-
-BUILD_STATMOND=0
-AC_ARG_ENABLE(interface-statistics-monitoring, [  --enable-interface-statistics-monitoring      Enable interface statistics monitoring],
-if test "x$enableval" = xyes ; then
-  BUILD_STATMOND=1
-  AC_DEFINE(HAVE_STATMOND, 1, [enable interface statistics monitoring code])
-fi)
-AM_CONDITIONAL(BUILD_STATMOND, test $BUILD_STATMOND = 1)
 
 BUILD_CMSG_TEST=0
 AC_ARG_ENABLE(cmsg-test, [  --enable-cmsg-test      Enable build of cmsg-test],

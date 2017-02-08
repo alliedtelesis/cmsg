@@ -147,11 +147,7 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
     "#define PROTOBUF_C_$filename_identifier$__INCLUDED\n"
 #endif /* ATL_CHANGE */
     "\n"
-#ifdef ATL_CHANGE
-    "#include <cmsg/protobuf-c.h>\n"
-#else
     "#include <protobuf-c/protobuf-c.h>\n"
-#endif /* ATL_CHANGE */
     "\n"
     "PROTOBUF_C__BEGIN_DECLS\n"
     "\n",
@@ -312,7 +308,7 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
     "\n"
     "#ifndef $header_define$\n"
     "#define $header_define$\n"
-    "#include <cmsg/protobuf-c.h>\n"
+    "#include <protobuf-c/protobuf-c.h>\n"
     "#include <cmsg/cmsg.h>\n"
     "\n"
     "PROTOBUF_C__BEGIN_DECLS\n"
@@ -535,7 +531,7 @@ void FileGenerator::GenerateAtlHttpProxySource(io::Printer* printer) {
   printer->Print("                                             sizeof (service_info_entries[0]));\n\n");
 
   // generate the cmsg proxy array functions
-  atl_code_generators_[0]->GenerateHttpProxyArrayFunctions (printer, file_->package());
+  atl_code_generators_[0]->GenerateHttpProxyArrayFunctions (printer);
 }
 
 void FileGenerator::GenerateAtlHttpProxyHeader(io::Printer* printer) {
@@ -556,7 +552,7 @@ void FileGenerator::GenerateAtlHttpProxyHeader(io::Printer* printer) {
     // Only generate function definitions if the file has services
     if (file_->service_count() != 0)
     {
-        atl_code_generators_[0]->GenerateHttpProxyArrayFunctionDefs (printer, file_->package());
+        atl_code_generators_[0]->GenerateHttpProxyArrayFunctionDefs (printer);
     }
 
     printer->Print(

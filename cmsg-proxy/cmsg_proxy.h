@@ -7,6 +7,9 @@
 #include <stdbool.h>
 #include <cmsg/cmsg.h>
 
+/* Counter session prefix for CMSG Proxy */
+#define CMSG_PROXY_COUNTER_APP_NAME_PREFIX  "CMSG PROXY"
+
 typedef int (*cmsg_api_func_ptr) ();
 
 typedef enum _cmsg_http_verb
@@ -16,6 +19,7 @@ typedef enum _cmsg_http_verb
     CMSG_HTTP_POST = 3,
     CMSG_HTTP_DELETE = 4,
     CMSG_HTTP_PATCH = 5,
+    CMSG_HTTP_INVALID = 6,
 } cmsg_http_verb;
 
 typedef struct _cmsg_service_info
@@ -38,6 +42,7 @@ typedef struct _cmsg_proxy_api_info
 } cmsg_proxy_api_info;
 
 void cmsg_proxy_init (void);
+void cmsg_proxy_deinit (void);
 bool cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
                  char **output_json, int *http_status);
 

@@ -4,7 +4,7 @@
 #ifndef __CMSG_H_
 #define __CMSG_H_
 
-#include "protobuf-c.h"
+#include <protobuf-c/protobuf-c.h>
 #include <glib.h>
 #include <stdbool.h>
 
@@ -53,6 +53,17 @@ extern ProtobufCAllocator cmsg_memory_allocator;
         (_name)->has_##_field = TRUE;               \
     } while (0)
 
+#define CMSG_SET_REQUIRED_FIELD_VALUE(_name, _field, _value) \
+    do {                                                     \
+        (_name)->_field = (_value);                          \
+    } while (0)
+
+#define CMSG_UNSET_AND_ZERO_FIELD_VALUE(_name, _field) \
+    do {                                               \
+        (_name)->_field = 0;                           \
+        (_name)->has_##_field = FALSE;                 \
+    } while (0)
+
 #define CMSG_SET_FIELD_PTR(_name, _field, _ptr) \
     do {                                        \
         (_name)->_field = (_ptr);               \
@@ -99,5 +110,7 @@ extern ProtobufCAllocator cmsg_memory_allocator;
     cmsg_msg_array_free (__msg_array, __FILE__, __LINE__)
 
 int cmsg_service_port_get (const char *name, const char *proto);
+
+const char *cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor);
 
 #endif
