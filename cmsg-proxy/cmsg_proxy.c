@@ -681,14 +681,15 @@ _cmsg_proxy_library_handles_load (void)
  * Create a new json object from the given json string
  *
  * @param json_object - Place holder for the created json object
- * @param input_json - input json string to create the json object
+ * @param input_json  - input json string to create the json object
+ * @param error       - Place holder for error occurred in the creation
+ *
  */
 static void
-_cmsg_proxy_json_object_create (json_t **json_object, const char *input_json)
+_cmsg_proxy_json_object_create (json_t **json_object, const char *input_json,
+                                json_error_t *error)
 {
-    json_error_t error;
-
-    *json_object = json_loads (input_json, 0, &error);
+    *json_object = json_loads (input_json, 0, error);
 }
 
 /**
@@ -1186,7 +1187,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     json_t *json_object = NULL;
     GList *url_parameters = NULL;
     char *message = NULL;
-
+    json_error_t error;
 
     service_info = _cmsg_proxy_find_service_from_url_and_verb (url, http_verb,
                                                                &url_parameters);
@@ -1197,7 +1198,19 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         return false;
     }
 
-    _cmsg_proxy_json_object_create (&json_object, input_json);
+    if (input_json)
+    {
+        _cmsg_proxy_json_object_create (&json_object, input_json, &error);
+
+        if (!json_object)
+        {
+            /* No json object created, report the error */
+            _cmsg_proxy_generate_ant_api_result_error (ANT_INVALID_ARGUMENT, error.text,
+                                                       http_status, output_json);
+            g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
+            return true;
+        }
+    }
 
     _cmsg_proxy_parse_url_parameters (url_parameters, &json_object,
                                       service_info->input_msg_descriptor);
