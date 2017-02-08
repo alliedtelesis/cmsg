@@ -77,23 +77,23 @@
  * HTTP response code sent in the HTTP header.
  */
 int ant_code_to_http_code_array[] = {
-    HTTP_CODE_OK,                       /* ANT_OK */
-    HTTP_CODE_REQUEST_TIMEOUT,          /* ANT_CANCELLED */
-    HTTP_CODE_INTERNAL_SERVER_ERROR,    /* ANT_UNKNOWN */
-    HTTP_CODE_BAD_REQUEST,              /* ANT_INVALID_ARGUMENT */
-    HTTP_CODE_REQUEST_TIMEOUT,          /* ANT_DEADLINE_EXCEEDED */
-    HTTP_CODE_NOT_FOUND,                /* ANT_NOT_FOUND */
-    HTTP_CODE_CONFLICT,                 /* ANT_ALREADY_EXISTS */
-    HTTP_CODE_FORBIDDEN,                /* ANT_PERMISSION_DENIED */
-    HTTP_CODE_FORBIDDEN,                /* ANT_RESOURCE_EHAUSTED */
-    HTTP_CODE_BAD_REQUEST,              /* ANT_FAILED_PRECONDITION */
-    HTTP_CODE_CONFLICT,                 /* ANT_ABORTED */
-    HTTP_CODE_BAD_REQUEST,              /* ANT_OUT_OF_RANGE */
-    HTTP_CODE_NOT_IMPLEMENTED,          /* ANT_UNIMPLEMENTED */
-    HTTP_CODE_INTERNAL_SERVER_ERROR,    /* ANT_INTERNAL */
-    HTTP_CODE_SERVICE_UNAVAILABLE,      /* ANT_UNAVAILABLE */
-    HTTP_CODE_INTERNAL_SERVER_ERROR,    /* ANT_DATALOSS */
-    HTTP_CODE_UNAUTHORIZED,             /* ANT_UNAUTHENTICATED */
+    HTTP_CODE_OK,                       /* ANT_CODE_OK */
+    HTTP_CODE_REQUEST_TIMEOUT,          /* ANT_CODE_CANCELLED */
+    HTTP_CODE_INTERNAL_SERVER_ERROR,    /* ANT_CODE_UNKNOWN */
+    HTTP_CODE_BAD_REQUEST,              /* ANT_CODE_INVALID_ARGUMENT */
+    HTTP_CODE_REQUEST_TIMEOUT,          /* ANT_CODE_DEADLINE_EXCEEDED */
+    HTTP_CODE_NOT_FOUND,                /* ANT_CODE_NOT_FOUND */
+    HTTP_CODE_CONFLICT,                 /* ANT_CODE_ALREADY_EXISTS */
+    HTTP_CODE_FORBIDDEN,                /* ANT_CODE_PERMISSION_DENIED */
+    HTTP_CODE_FORBIDDEN,                /* ANT_CODE_RESOURCE_EHAUSTED */
+    HTTP_CODE_BAD_REQUEST,              /* ANT_CODE_FAILED_PRECONDITION */
+    HTTP_CODE_CONFLICT,                 /* ANT_CODE_ABORTED */
+    HTTP_CODE_BAD_REQUEST,              /* ANT_CODE_OUT_OF_RANGE */
+    HTTP_CODE_NOT_IMPLEMENTED,          /* ANT_CODE_UNIMPLEMENTED */
+    HTTP_CODE_INTERNAL_SERVER_ERROR,    /* ANT_CODE_INTERNAL */
+    HTTP_CODE_SERVICE_UNAVAILABLE,      /* ANT_CODE_UNAVAILABLE */
+    HTTP_CODE_INTERNAL_SERVER_ERROR,    /* ANT_CODE_DATALOSS */
+    HTTP_CODE_UNAUTHORIZED,             /* ANT_CODE_UNAUTHENTICATED */
 };
 
 ARRAY_SIZE_COMPILE_CHECK (ant_code_to_http_code_array, ANT_CODE_MAX);
@@ -929,7 +929,7 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
  *                          If the conversion succeeds then this pointer must
  *                          be freed by the caller.
  *
- * @return - ANT_OK on success, relevant ANT code on failure.
+ * @return - ANT_CODE_OK on success, relevant ANT code on failure.
  */
 static ant_code
 _cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
@@ -937,7 +937,7 @@ _cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
                                       ProtobufCMessage **output_protobuf, char **message)
 {
     char conversion_message[MSG_BUF_LEN] = { 0 };
-    ant_code ret = ANT_OK;
+    ant_code ret = ANT_CODE_OK;
     int res = json2protobuf_object (json_object, msg_descriptor, output_protobuf,
                                     conversion_message, MSG_BUF_LEN);
 
@@ -960,13 +960,13 @@ _cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
         {
             *message = strdup (conversion_message);
         }
-        ret = ANT_INVALID_ARGUMENT;
+        ret = ANT_CODE_INVALID_ARGUMENT;
         break;
     case PROTOBUF2JSON_ERR_CANNOT_DUMP_STRING:
     case PROTOBUF2JSON_ERR_CANNOT_DUMP_FILE:
     case PROTOBUF2JSON_ERR_JANSSON_INTERNAL:
     case PROTOBUF2JSON_ERR_CANNOT_ALLOCATE_MEMORY:
-        ret = ANT_INTERNAL;
+        ret = ANT_CODE_INTERNAL;
     }
 
     return ret;
@@ -1006,8 +1006,8 @@ _cmsg_proxy_convert_protobuf_to_json (ProtobufCMessage *input_protobuf, char **o
  * @param service_info - Service info entry that contains the API
  *                       function to call.
  *
- * @returns - ANT_OK on success,
- *            ANT_INTERNAL if CMSG fails internally.
+ * @returns - ANT_CODE_OK on success,
+ *            ANT_CODE_INTERNAL if CMSG fails internally.
  */
 static ant_code
 _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_msg,
@@ -1031,11 +1031,11 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
 
     if (ret == CMSG_RET_OK)
     {
-        return ANT_OK;
+        return ANT_CODE_OK;
     }
     else
     {
-        return ANT_INTERNAL;
+        return ANT_CODE_INTERNAL;
     }
 }
 
@@ -1045,7 +1045,7 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
  * and sets the HTTP response status based on the code returned from the
  * CMSG API.
  *
- * If the CMSG API has returned ANT_OK then the error information field is
+ * If the CMSG API has returned ANT_CODE_OK then the error information field is
  * unset from the protobuf message and hence will not be returned in the
  * JSON sent back to the user.
  *
@@ -1077,7 +1077,7 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage **msg)
     if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
     {
         *http_status = ant_code_to_http_code_array[error_message->code];
-        if (error_message->code == ANT_OK)
+        if (error_message->code == ANT_CODE_OK)
         {
             /* Unset the error info message from the protobuf message */
             CMSG_FREE_RECV_MSG (error_message);
@@ -1182,7 +1182,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     ProtobufCMessage *input_proto_message = NULL;
     ProtobufCMessage *output_proto_message = NULL;
     bool ret = false;
-    ant_code result = ANT_OK;
+    ant_code result = ANT_CODE_OK;
     json_t *json_object = NULL;
     GList *url_parameters = NULL;
     char *message = NULL;
@@ -1210,7 +1210,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         /* This should not occur but check for it */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
         _cmsg_proxy_json_object_destroy (json_object);
-        _cmsg_proxy_generate_ant_api_result_error (ANT_INTERNAL, NULL, http_status,
+        _cmsg_proxy_generate_ant_api_result_error (ANT_CODE_INTERNAL, NULL, http_status,
                                                    output_json);
         return true;
     }
@@ -1220,7 +1220,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         result = _cmsg_proxy_convert_json_to_protobuf (json_object,
                                                        service_info->input_msg_descriptor,
                                                        &input_proto_message, &message);
-        if (result != ANT_OK)
+        if (result != ANT_CODE_OK)
         {
             /* The JSON sent with the request is malformed */
             _cmsg_proxy_json_object_destroy (json_object);
@@ -1234,7 +1234,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
 
     result = _cmsg_proxy_call_cmsg_api (client, input_proto_message,
                                         &output_proto_message, service_info);
-    if (result != ANT_OK)
+    if (result != ANT_CODE_OK)
     {
         /* Something went wrong calling the CMSG api */
         CMSG_FREE_RECV_MSG (input_proto_message);
