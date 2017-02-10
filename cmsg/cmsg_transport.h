@@ -313,4 +313,5 @@ cmsg_transport *cmsg_create_transport_tcp (cmsg_socket *config,
 void cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *config);
 
 char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor);
+void cmsg_transport_unix_sun_path_free (char *sun_path);
 #endif

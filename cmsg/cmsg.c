@@ -339,6 +339,27 @@ cmsg_calloc (size_t nmemb, size_t size, const char *filename, int line)
     return NULL;
 }
 
+int
+cmsg_asprintf (const char *filename, int line, char **strp, const char *fmt, ...)
+{
+    int ret;
+    va_list ap;
+
+    va_start (ap, fmt);
+
+    ret = vasprintf (strp, fmt, ap);
+
+#ifndef LOCAL_INSTALL
+    if (cmsg_mtype > 0)
+    {
+        g_mem_record_alloc (*strp, cmsg_mtype, filename, line);
+    }
+#endif
+
+    va_end (ap);
+    return ret;
+}
+
 void
 cmsg_free (void *ptr, const char *filename, int line)
 {

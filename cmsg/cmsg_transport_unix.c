@@ -573,7 +573,7 @@ cmsg_create_transport_unix (const ProtobufCServiceDescriptor *descriptor,
     strncpy (transport->config.socket.sockaddr.un.sun_path, sun_path,
              sizeof (transport->config.socket.sockaddr.un.sun_path) - 1);
 
-    free (sun_path);
+    cmsg_transport_unix_sun_path_free (sun_path);
 
     return transport;
 }
@@ -592,7 +592,7 @@ cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor)
     char *copy_str = NULL;
     char *iter;
 
-    asprintf (&copy_str, "/tmp/%s", descriptor->name);
+    CMSG_ASPRINTF (&copy_str, "/tmp/%s", descriptor->name);
 
     /* Replace the '.' in the name with '_' */
     iter = copy_str;
@@ -606,4 +606,10 @@ cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor)
     }
 
     return copy_str;
+}
+
+void
+cmsg_transport_unix_sun_path_free (char *sun_path)
+{
+    CMSG_FREE (sun_path);
 }
