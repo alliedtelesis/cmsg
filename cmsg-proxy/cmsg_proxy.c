@@ -1146,7 +1146,7 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage **msg)
 {
     const ProtobufCFieldDescriptor *field_desc = NULL;
     ProtobufCMessage **error_message_ptr = NULL;
-    ant_api_result *error_message = NULL;
+    ant_result *error_message = NULL;
     bool ret = false;
 
     field_desc = protobuf_c_message_descriptor_get_field_by_name ((*msg)->descriptor,
@@ -1155,12 +1155,12 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage **msg)
     {
         error_message_ptr = (ProtobufCMessage **) (((char *) *msg) + field_desc->offset);
     }
-    else if (strcmp ((*msg)->descriptor->name, "ant_api_result") == 0)
+    else if (strcmp ((*msg)->descriptor->name, "ant_result") == 0)
     {
         error_message_ptr = msg;
     }
 
-    error_message = (ant_api_result *) (*error_message_ptr);
+    error_message = (ant_result *) (*error_message_ptr);
     if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
     {
         *http_status = ant_code_to_http_code_array[error_message->code];
@@ -1181,7 +1181,7 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage **msg)
 }
 
 /**
- * Generate a ANT_API_RESULT error output for an internal cmsg_proxy error
+ * Generate a ANT_RESULT error output for an internal cmsg_proxy error
  *
  * @param code - ANT_CODE appropriate to the reason for failure
  * @param message - Descriptive error message
@@ -1191,11 +1191,11 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage **msg)
  *                      be sent with the HTTP response.
  */
 void
-_cmsg_proxy_generate_ant_api_result_error (ant_code code, char *message,
-                                           int *http_status, char **output_json)
+_cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
+                                       int *http_status, char **output_json)
 {
-    ant_api_result_message error = ANT_API_RESULT_MESSAGE_INIT;
-    ant_api_result error_info = ANT_API_RESULT_INIT;
+    ant_result_message error = ANT_RESULT_MESSAGE_INIT;
+    ant_result error_info = ANT_RESULT_INIT;
     bool ret;
 
     CMSG_SET_FIELD_VALUE (&error_info, code, code);
@@ -1473,9 +1473,8 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         if (!json_object)
         {
             /* No json object created, report the error */
-            _cmsg_proxy_generate_ant_api_result_error (ANT_CODE_INVALID_ARGUMENT,
-                                                       error.text, http_status,
-                                                       output_json);
+            _cmsg_proxy_generate_ant_result_error (ANT_CODE_INVALID_ARGUMENT,
+                                                   error.text, http_status, output_json);
             g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
             return true;
         }
@@ -1492,8 +1491,8 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         /* This should not occur but check for it */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
         _cmsg_proxy_json_object_destroy (json_object);
-        _cmsg_proxy_generate_ant_api_result_error (ANT_CODE_INTERNAL, NULL, http_status,
-                                                   output_json);
+        _cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL, NULL, http_status,
+                                               output_json);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_client);
         return true;
     }
@@ -1507,8 +1506,8 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         {
             /* The JSON sent with the request is malformed */
             _cmsg_proxy_json_object_destroy (json_object);
-            _cmsg_proxy_generate_ant_api_result_error (result, message, http_status,
-                                                       output_json);
+            _cmsg_proxy_generate_ant_result_error (result, message, http_status,
+                                                   output_json);
             free (message);
             CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_malformed_input);
             return true;
@@ -1524,7 +1523,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     {
         /* Something went wrong calling the CMSG api */
         CMSG_FREE_RECV_MSG (input_proto_message);
-        _cmsg_proxy_generate_ant_api_result_error (result, NULL, http_status, output_json);
+        _cmsg_proxy_generate_ant_result_error (result, NULL, http_status, output_json);
         _cmsg_proxy_json_object_destroy (json_object);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
         return true;
