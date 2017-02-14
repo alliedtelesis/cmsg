@@ -998,6 +998,7 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
         if (*json_object)
         {
             json_object_update (*json_object, new_object);
+            json_decref (new_object);
         }
         else
         {
