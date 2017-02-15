@@ -117,6 +117,12 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
             return NULL;
         }
 
+        if (pthread_mutex_init (&client->invoke_mutex, NULL) != 0)
+        {
+            CMSG_LOG_CLIENT_ERROR (client, "Init failed for invoke_mutex.");
+            return NULL;
+        }
+
         client->self_thread_id = pthread_self ();
 
         if (transport)
@@ -200,6 +206,7 @@ cmsg_client_destroy (cmsg_client *client)
     }
 
     pthread_mutex_destroy (&client->connection_mutex);
+    pthread_mutex_destroy (&client->invoke_mutex);
 
     CMSG_FREE (client);
 }
@@ -525,7 +532,14 @@ cmsg_client_invoke_recv (cmsg_client *client, unsigned method_index,
     return CMSG_RET_OK;
 }
 
-
+/**
+ * To allow the client to be invoked safely from multiple threads
+ * (i.e. from parallel CMSG API functions) we need to ensure that
+ * the send/recv on the underlying socket is only executed in one
+ * thread at a time. Note that the locking required to queue from
+ * multiple threads (as part of the invoke call) is handled directly
+ * by the queueing functionality.
+ */
 static int32_t
 cmsg_client_invoke (ProtobufCService *service, unsigned method_index,
                     const ProtobufCMessage *input, ProtobufCClosure closure,
@@ -546,19 +560,18 @@ cmsg_client_invoke (ProtobufCService *service, unsigned method_index,
 
     if (!did_queue)
     {
+        pthread_mutex_lock (&client->invoke_mutex);
+
         ret = client->invoke_send (client, method_index, input);
-        if (ret != CMSG_RET_OK)
+        if (ret == CMSG_RET_OK && client->invoke_recv)
         {
-            return ret;
+            ret = client->invoke_recv (client, method_index, closure, closure_data);
         }
 
-        if (client->invoke_recv)
-        {
-            return client->invoke_recv (client, method_index, closure, closure_data);
-        }
+        pthread_mutex_unlock (&client->invoke_mutex);
     }
 
-    return CMSG_RET_OK;
+    return ret;
 }
 
 static int

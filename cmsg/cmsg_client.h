@@ -54,6 +54,7 @@ typedef struct _cmsg_client_s
 
     int32_t (*invoke_recv) (cmsg_client *client, unsigned method_index,
                             ProtobufCClosure closure, void *closure_data);
+    pthread_mutex_t invoke_mutex;
 
     ProtobufCAllocator *allocator;
     ProtobufCService base_service;
