@@ -7,6 +7,9 @@
  * It's based on the composite design pattern, in that this client is used in essentially
  * the same way as a regular client.
  *
+ * Note: Queueing/Filtering of messages is not supported on either the composite client
+ *       or any of it's child clients.
+ *
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 

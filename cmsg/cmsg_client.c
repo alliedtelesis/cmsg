@@ -533,19 +533,29 @@ cmsg_client_invoke (ProtobufCService *service, unsigned method_index,
 {
     int32_t ret;
     cmsg_client *client = (cmsg_client *) service;
+    bool did_queue = false;
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
 
-    ret = client->invoke_send (client, method_index, input);
+    ret = cmsg_client_queue_input (client, method_index, input, &did_queue);
     if (ret != CMSG_RET_OK)
     {
         return ret;
     }
 
-    if (client->invoke_recv)
+    if (!did_queue)
     {
-        return client->invoke_recv (client, method_index, closure, closure_data);
+        ret = client->invoke_send (client, method_index, input);
+        if (ret != CMSG_RET_OK)
+        {
+            return ret;
+        }
+
+        if (client->invoke_recv)
+        {
+            return client->invoke_recv (client, method_index, closure, closure_data);
+        }
     }
 
     return CMSG_RET_OK;
@@ -801,17 +811,19 @@ cmsg_client_create_packet (cmsg_client *client, const char *method_name,
  * the message on the client if required.
  *
  * @param client - CMSG client the packet is to be queued with
- * @param method_name - Method name that was invoked
+ * @param method_index - Method index that was invoked
  * @param input - The input data that was supplied to be invoked with
  * @param did_queue - Pointer to store whether the message was queued or not
  */
-static int32_t
-cmsg_client_queue_input (cmsg_client *client, const char *method_name,
+int32_t
+cmsg_client_queue_input (cmsg_client *client, unsigned method_index,
                          const ProtobufCMessage *input, bool *did_queue)
 {
     uint32_t ret = 0;
     uint8_t *buffer = NULL;
     uint32_t total_message_size = 0;
+    ProtobufCService *service = (ProtobufCService *) client;
+    const char *method_name = service->descriptor->methods[method_index].name;
 
     ret = _cmsg_client_should_queue (client, method_name, did_queue);
     if (ret != CMSG_RET_OK)
@@ -839,7 +851,6 @@ cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
                          const ProtobufCMessage *input)
 {
     uint32_t ret = 0;
-    bool did_queue = false;
     ProtobufCService *service = (ProtobufCService *) client;
     const char *method_name = service->descriptor->methods[method_index].name;
     uint8_t *buffer = NULL;
@@ -851,25 +862,16 @@ cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
 
     CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
 
-    ret = cmsg_client_queue_input (client, method_name, input, &did_queue);
+    ret = cmsg_client_create_packet (client, method_name, input, &buffer,
+                                     &total_message_size);
     if (ret != CMSG_RET_OK)
     {
         return ret;
     }
 
-    if (!did_queue)
-    {
-        ret = cmsg_client_create_packet (client, method_name, input, &buffer,
-                                         &total_message_size);
-        if (ret != CMSG_RET_OK)
-        {
-            return ret;
-        }
-
-        ret = cmsg_client_buffer_send_retry_once (client, buffer, total_message_size,
-                                                  method_name);
-        CMSG_FREE (buffer);
-    }
+    ret = cmsg_client_buffer_send_retry_once (client, buffer, total_message_size,
+                                              method_name);
+    CMSG_FREE (buffer);
 
     CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "send", cmsg_prof_time_toc (&client->prof));
     return ret;
