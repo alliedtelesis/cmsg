@@ -714,32 +714,26 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
     return ret;
 }
 
-int32_t
-cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
-                         const ProtobufCMessage *input)
+/**
+ * Create the CMSG packet based on the input method name
+ * and data.
+ *
+ * @param client - CMSG client the packet is to be sent/queued with
+ * @param method_name - Method name that was invoked
+ * @param input - The input data that was supplied to be invoked with
+ * @param buffer_ptr - Pointer to store the created packet
+ * @param total_message_size_ptr - Pointer to store the created packet size
+ */
+static int32_t
+cmsg_client_create_packet (cmsg_client *client, const char *method_name,
+                           const ProtobufCMessage *input, uint8_t **buffer_ptr,
+                           uint32_t *total_message_size_ptr)
 {
     uint32_t ret = 0;
-    bool do_queue = false;
-    uint32_t method_length;
-    int type = CMSG_TLV_METHOD_TYPE;
     cmsg_header header;
-    int ret_val;
-    ProtobufCService *service = (ProtobufCService *) client;
-    const char *method_name = service->descriptor->methods[method_index].name;
+    int type = CMSG_TLV_METHOD_TYPE;
+    uint32_t method_length = strlen (method_name) + 1;
 
-    CMSG_PROF_TIME_TIC (&client->prof);
-    // count every rpc call
-    CMSG_COUNTER_INC (client, cntr_rpc);
-
-    CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
-
-    ret = _cmsg_client_should_queue (client, method_name, &do_queue);
-    if (ret != CMSG_RET_OK)
-    {
-        return ret;
-    }
-
-    method_length = strlen (method_name) + 1;
     CMSG_PROF_TIME_TIC (&client->prof);
 
     uint32_t packed_size = protobuf_c_message_get_packed_size (input);
@@ -796,6 +790,42 @@ cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
 
     CMSG_PROF_TIME_TIC (&client->prof);
 
+    *buffer_ptr = buffer;
+    *total_message_size_ptr = total_message_size;
+
+    return CMSG_RET_OK;
+}
+
+int32_t
+cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
+                         const ProtobufCMessage *input)
+{
+    uint32_t ret = 0;
+    bool do_queue = false;
+    int ret_val;
+    ProtobufCService *service = (ProtobufCService *) client;
+    const char *method_name = service->descriptor->methods[method_index].name;
+    uint8_t *buffer = NULL;
+    uint32_t total_message_size = 0;
+
+    CMSG_PROF_TIME_TIC (&client->prof);
+    // count every rpc call
+    CMSG_COUNTER_INC (client, cntr_rpc);
+
+    CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
+
+    ret = _cmsg_client_should_queue (client, method_name, &do_queue);
+    if (ret != CMSG_RET_OK)
+    {
+        return ret;
+    }
+
+    ret = cmsg_client_create_packet (client, method_name, input, &buffer,
+                                     &total_message_size);
+    if (ret != CMSG_RET_OK)
+    {
+        return ret;
+    }
 
     if (!do_queue)
     {
