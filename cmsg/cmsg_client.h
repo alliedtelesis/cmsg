@@ -220,7 +220,4 @@ cmsg_client *cmsg_create_and_connect_client_tipc_rpc (const char *server_name,
 void cmsg_client_close_wrapper (cmsg_client *client);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
-
-int32_t cmsg_client_queue_input (cmsg_client *client, unsigned method_index,
-                                 const ProtobufCMessage *input, bool *did_queue);
 #endif

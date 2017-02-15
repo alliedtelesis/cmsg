@@ -747,15 +747,10 @@ cmsg_pub_invoke (ProtobufCService *service,
         pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 
         int i = 0;
-        bool did_queue = false;
         for (i = 0; i <= CMSG_TRANSPORT_CLIENT_SEND_TRIES; i++)
         {
-            ret = cmsg_client_queue_input (list_entry->client, method_index, input,
-                                           &did_queue);
-            if (ret == CMSG_RET_OK && !did_queue)
-            {
-                ret = cmsg_client_invoke_send (list_entry->client, method_index, input);
-            }
+            ret = list_entry->client->invoke ((ProtobufCService *) list_entry->client,
+                                              method_index, input, NULL, NULL);
             if (ret == CMSG_RET_ERR)
             {
                 //try again

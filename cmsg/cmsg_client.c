@@ -39,6 +39,9 @@ static int32_t cmsg_client_invoke (ProtobufCService *service,
                                    const ProtobufCMessage *input,
                                    ProtobufCClosure closure, void *closure_data);
 
+static int32_t cmsg_client_queue_input (cmsg_client *client, unsigned method_index,
+                                        const ProtobufCMessage *input, bool *did_queue);
+
 /*
  * This is an internal function which can be called from CMSG library.
  * Applications should use cmsg_client_new() instead.
@@ -828,7 +831,7 @@ cmsg_client_create_packet (cmsg_client *client, const char *method_name,
  * @param input - The input data that was supplied to be invoked with
  * @param did_queue - Pointer to store whether the message was queued or not
  */
-int32_t
+static int32_t
 cmsg_client_queue_input (cmsg_client *client, unsigned method_index,
                          const ProtobufCMessage *input, bool *did_queue)
 {
