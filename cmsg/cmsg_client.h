@@ -165,9 +165,6 @@ int32_t
 cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
                                uint32_t queue_buffer_size, int max_tries);
 
-int32_t
-cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_size);
-
 int32_t cmsg_client_queue_process_all (cmsg_client *client);
 
 //queue filter : check "CMSG Library" wikipage for detailed API descriptions
