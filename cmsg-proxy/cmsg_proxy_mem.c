@@ -40,6 +40,36 @@ cmsg_proxy_mem_calloc (size_t nmemb, size_t size, const char *filename, int line
 }
 
 /**
+ * Wrapper function for asprintf()
+ *
+ * @param  filename - filename to record in malloc statistics
+ * @param  line     - line number to record in malloc statistics
+ * @param  strp     - where to put a pointer to the allocated memory
+ * @param  fmt      - format string
+ * @return the number of bytes written (excluding null terminator) if successful; -1 if unsuccessful
+ */
+int
+cmsg_proxy_mem_asprintf (const char *filename, int line, char **strp, const char *fmt, ...)
+{
+    int ret;
+    va_list ap;
+
+    va_start (ap, fmt);
+
+    ret = vasprintf (strp, fmt, ap);
+
+    if (cmsg_proxy_mtype > 0)
+    {
+        g_mem_record_alloc (*strp, cmsg_proxy_mtype, filename, line);
+    }
+
+    va_end (ap);
+
+    return ret;
+}
+
+
+/**
  * Wrapper function for strdup()
  *
  * @param  str      - pointer to the original string

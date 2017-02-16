@@ -1474,8 +1474,20 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         if (!json_object)
         {
             /* No json object created, report the error */
+
+            char *error_msg;
+
+            if (CMSG_PROXY_ASPRINTF (&error_msg, "Invalid JSON: %s", error.text) < 0)
+            {
+                error_msg = NULL;
+            }
+
             _cmsg_proxy_generate_ant_result_error (ANT_CODE_INVALID_ARGUMENT,
-                                                   error.text, http_status, output_json);
+                                                   (error_msg) ? error_msg : "Invalid JSON",
+                                                   http_status, output_json);
+
+            CMSG_PROXY_FREE (error_msg);
+
             g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
             return true;
         }
