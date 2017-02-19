@@ -60,7 +60,7 @@ typedef struct _cmsg_client_s
     ProtobufCService base_service;
     cmsg_transport *_transport;
     cmsg_client_state state;
-    cmsg_client_connection connection;
+    cmsg_connection connection;
     pthread_mutex_t connection_mutex;
 
     cmsg_object self;

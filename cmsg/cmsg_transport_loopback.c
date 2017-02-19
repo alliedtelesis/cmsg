@@ -44,15 +44,15 @@ cmsg_transport_loopback_client_send (cmsg_client *client, void *buff, int length
 static void
 cmsg_transport_loopback_client_close (cmsg_client *client)
 {
-    if (client->connection.socket != -1)
+    if (client->connection.sockets.client_socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->connection.socket, SHUT_RDWR);
+        shutdown (client->connection.sockets.client_socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (client->connection.socket);
+        close (client->connection.sockets.client_socket);
 
-        client->connection.socket = -1;
+        client->connection.sockets.client_socket = -1;
     }
 
     return;
@@ -64,7 +64,7 @@ cmsg_transport_loopback_client_close (cmsg_client *client)
 static int
 cmsg_transport_loopback_client_get_socket (cmsg_client *client)
 {
-    return client->connection.socket;
+    return client->connection.sockets.client_socket;
 }
 
 /**
@@ -213,7 +213,9 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         return CMSG_STATUS_CODE_SUCCESS;
     }
 
-    nbytes = read (client->connection.socket, &header_received, sizeof (cmsg_header));
+    nbytes =
+        read (client->connection.sockets.client_socket, &header_received,
+              sizeof (cmsg_header));
     if (nbytes == (int) sizeof (cmsg_header))
     {
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
@@ -254,7 +256,7 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         }
 
         //just recv the rest of the data to clear the socket
-        nbytes = read (client->connection.socket, recv_buffer, dyn_len);
+        nbytes = read (client->connection.sockets.client_socket, recv_buffer, dyn_len);
 
         if (nbytes == (int) dyn_len)
         {
@@ -286,7 +288,7 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         else
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d no data\n",
-                        client->connection.socket);
+                        client->connection.sockets.client_socket);
         }
         if (recv_buffer != (void *) buf_static)
         {
@@ -307,13 +309,14 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         if (errno == ECONNRESET)
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                        client->connection.socket, strerror (errno));
+                        client->connection.sockets.client_socket, strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
         {
             CMSG_LOG_CLIENT_ERROR (client, "Receive error for socket %d. Error: %s",
-                                   client->connection.socket, strerror (errno));
+                                   client->connection.sockets.client_socket,
+                                   strerror (errno));
         }
     }
 

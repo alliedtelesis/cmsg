@@ -34,16 +34,6 @@
 typedef struct _cmsg_client_s cmsg_client;
 typedef struct _cmsg_server_s cmsg_server;
 
-
-#ifdef HAVE_VCSTACK
-typedef struct _cpg_server_connection_s
-{
-    cpg_handle_t handle;
-    cpg_callbacks_t callbacks;
-    int fd; //file descriptor for listening
-} cmsg_cpg_server_connection;
-#endif
-
 typedef int (*encrypt_f) (int sock, void *inbuf, int length, void *outbuf, int outbuf_size);
 typedef int (*decrypt_f) (int sock, void *inbuf, int length, void *outbuf, int outbuf_size);
 typedef void (*close_f) (int sock);
@@ -59,27 +49,28 @@ typedef struct _connection_crypto_callbacks_s
     connect_f connect;
 } cmsg_connection_crypto_callbacks;
 
-typedef struct _generic_server_connection_s
+#ifdef HAVE_VCSTACK
+typedef struct _cpg_connection_s
+{
+    cpg_handle_t handle;
+    cpg_callbacks_t callbacks;
+    int fd; //file descriptor for listening
+} cmsg_cpg_connection;
+#endif
+
+typedef struct _generic_connection_s
 {
     int listening_socket;
     int client_socket;
-} cmsg_generic_sever_connection;
+} cmsg_generic_connection;
 
-typedef union _client_connection_u
+typedef union _cmsg_connection_u
 {
 #ifdef HAVE_VCSTACK
-    cpg_handle_t handle;
+    cmsg_cpg_connection cpg;
 #endif
-    int socket;
-} cmsg_client_connection;
-
-typedef union _cmsg_server_connection_u
-{
-#ifdef HAVE_VCSTACK
-    cmsg_cpg_server_connection cpg;
-#endif
-    cmsg_generic_sever_connection sockets;
-} cmsg_server_connection;
+    cmsg_generic_connection sockets;
+} cmsg_connection;
 
 typedef union _cmsg_socket_address_u
 {

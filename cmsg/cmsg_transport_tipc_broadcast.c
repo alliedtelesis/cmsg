@@ -24,10 +24,10 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
         return 0;
     }
 
-    client->connection.socket = socket (client->_transport->config.socket.family,
-                                        SOCK_RDM, 0);
+    client->connection.sockets.client_socket =
+        socket (client->_transport->config.socket.family, SOCK_RDM, 0);
 
-    if (client->connection.socket < 0)
+    if (client->connection.sockets.client_socket < 0)
     {
         ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
@@ -155,7 +155,7 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
     int retries = 0;
     int saved_errno = 0;
 
-    int result = sendto (client->connection.socket,
+    int result = sendto (client->connection.sockets.client_socket,
                          buff,
                          length,
                          MSG_DONTWAIT,
@@ -173,7 +173,7 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
             usleep (50000);
             retries++;
 
-            result = sendto (client->connection.socket,
+            result = sendto (client->connection.sockets.client_socket,
                              buff,
                              length,
                              MSG_DONTWAIT,
@@ -221,15 +221,15 @@ cmsg_transport_tipc_broadcast_server_send (cmsg_server *server, void *buff, int 
 static void
 cmsg_transport_tipc_broadcast_client_close (cmsg_client *client)
 {
-    if (client->connection.socket != -1)
+    if (client->connection.sockets.client_socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->connection.socket, SHUT_RDWR);
+        shutdown (client->connection.sockets.client_socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (client->connection.socket);
+        close (client->connection.sockets.client_socket);
 
-        client->connection.socket = -1;
+        client->connection.sockets.client_socket = -1;
     }
 }
 
@@ -263,7 +263,7 @@ cmsg_transport_tipc_broadcast_server_get_socket (cmsg_server *server)
 static int
 cmsg_transport_tipc_broadcast_client_get_socket (cmsg_client *client)
 {
-    return client->connection.socket;
+    return client->connection.sockets.client_socket;
 }
 
 /**

@@ -211,7 +211,7 @@ cmsg_transport_cpg_client_connect (cmsg_client *client)
 
     /* CPG handle has been created so use it.
      */
-    client->connection.handle = cmsg_cpg_handle;
+    client->connection.cpg.handle = cmsg_cpg_handle;
     client->state = CMSG_CLIENT_STATE_CONNECTED;
     return 0;
 }
@@ -413,14 +413,15 @@ cmsg_transport_cpg_is_congested (cmsg_client *client)
     cpg_error_t cpg_rc;
 
     /* get this CPG's flow control status from the AIS library */
-    cpg_rc = cpg_flow_control_state_get (client->connection.handle, &flow_control);
+    cpg_rc = cpg_flow_control_state_get (client->connection.cpg.handle, &flow_control);
     if (cpg_rc != CPG_OK)
     {
         if ((cpg_error_count % 16) == 0)
         {
             CMSG_LOG_CLIENT_ERROR (client,
                                    "Unable to get CPG flow control state - hndl %llx %d",
-                                   (long long int) client->connection.handle, (int) cpg_rc);
+                                   (long long int) client->connection.cpg.handle,
+                                   (int) cpg_rc);
         }
         cpg_error_count++;
         return TRUE;
@@ -478,14 +479,14 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
     }
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cpg send message to handle %llu\n",
-                client->connection.handle);
+                client->connection.cpg.handle);
 
     /* Keep trying to send the message until it succeeds (e.g. blocks)
      */
     while (client->_transport->send_can_block)
     {
         /* Attempt to send message. */
-        res = cpg_mcast_joined (client->connection.handle, CPG_TYPE_AGREED, &iov, 1);
+        res = cpg_mcast_joined (client->connection.cpg.handle, CPG_TYPE_AGREED, &iov, 1);
         if (res != CPG_ERR_TRY_AGAIN)
         {
             break;  /* message sent, or failure, quit loop now. */

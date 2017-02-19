@@ -26,10 +26,10 @@ cmsg_transport_tcp_connect (cmsg_client *client)
         return 0;
     }
 
-    client->connection.socket = socket (client->_transport->config.socket.family,
-                                        SOCK_STREAM, 0);
+    client->connection.sockets.client_socket =
+        socket (client->_transport->config.socket.family, SOCK_STREAM, 0);
 
-    if (client->connection.socket < 0)
+    if (client->connection.sockets.client_socket < 0)
     {
         ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
@@ -49,7 +49,7 @@ cmsg_transport_tcp_connect (cmsg_client *client)
         addr_len = sizeof (client->_transport->config.socket.sockaddr.in);
     }
 
-    if (connect (client->connection.socket, addr, addr_len) < 0)
+    if (connect (client->connection.sockets.client_socket, addr, addr_len) < 0)
     {
         if (errno == EINPROGRESS)
         {
@@ -61,8 +61,8 @@ cmsg_transport_tcp_connect (cmsg_client *client)
                                "Failed to connect to remote host. Error:%s",
                                strerror (errno));
 
-        close (client->connection.socket);
-        client->connection.socket = -1;
+        close (client->connection.sockets.client_socket);
+        client->connection.sockets.client_socket = -1;
         client->state = CMSG_CLIENT_STATE_FAILED;
 
         return ret;
@@ -298,8 +298,8 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     }
 
     ret = cmsg_transport_client_recv (cmsg_transport_tcp_recv,
-                                      (void *) &client->connection.socket, client,
-                                      messagePtPt);
+                                      (void *) &client->connection.sockets.client_socket,
+                                      client, messagePtPt);
 
     return ret;
 }
@@ -308,7 +308,7 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 static int32_t
 cmsg_transport_tcp_client_send (cmsg_client *client, void *buff, int length, int flag)
 {
-    return (send (client->connection.socket, buff, length, flag));
+    return (send (client->connection.sockets.client_socket, buff, length, flag));
 }
 
 static int32_t
@@ -331,15 +331,15 @@ cmsg_transport_tcp_oneway_server_send (cmsg_server *server, void *buff, int leng
 static void
 cmsg_transport_tcp_client_close (cmsg_client *client)
 {
-    if (client->connection.socket != -1)
+    if (client->connection.sockets.client_socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->connection.socket, SHUT_RDWR);
+        shutdown (client->connection.sockets.client_socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (client->connection.socket);
+        close (client->connection.sockets.client_socket);
 
-        client->connection.socket = -1;
+        client->connection.sockets.client_socket = -1;
     }
 }
 
@@ -363,7 +363,7 @@ cmsg_transport_tcp_server_get_socket (cmsg_server *server)
 static int
 cmsg_transport_tcp_client_get_socket (cmsg_client *client)
 {
-    return client->connection.socket;
+    return client->connection.sockets.client_socket;
 }
 
 static void

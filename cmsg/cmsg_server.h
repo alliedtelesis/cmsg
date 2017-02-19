@@ -35,7 +35,7 @@ typedef struct _cmsg_server_s
     cmsg_object self;
     cmsg_object parent;
 
-    cmsg_server_connection connection;
+    cmsg_connection connection;
 
     int queue_enabled_from_parent;
 
