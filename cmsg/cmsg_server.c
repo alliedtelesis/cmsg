@@ -252,7 +252,7 @@ cmsg_server_get_socket (cmsg_server *server)
     CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, -1);
 
-    socket = server->_transport->s_socket (server);
+    socket = server->_transport->s_socket (server->_transport);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] done. socket: %d\n", socket);
 

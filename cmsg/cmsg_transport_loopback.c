@@ -174,7 +174,7 @@ cmsg_transport_loopback_server_close (cmsg_transport *transport)
  * so return -1 so it will error.
  */
 static int
-cmsg_transport_loopback_server_get_socket (cmsg_server *server)
+cmsg_transport_loopback_server_get_socket (cmsg_transport *transport)
 {
     return -1;
 }

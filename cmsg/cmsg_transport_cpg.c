@@ -580,10 +580,10 @@ cmsg_transport_cpg_server_destroy (cmsg_transport *transport)
 
 
 static int
-cmsg_transport_cpg_server_get_socket (cmsg_server *server)
+cmsg_transport_cpg_server_get_socket (cmsg_transport *transport)
 {
     int fd = 0;
-    if (cpg_fd_get (server->_transport->connection.cpg.handle, &fd) == CPG_OK)
+    if (cpg_fd_get (transport->connection.cpg.handle, &fd) == CPG_OK)
     {
         return fd;
     }

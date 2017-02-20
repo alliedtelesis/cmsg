@@ -357,9 +357,9 @@ cmsg_transport_tcp_server_close (cmsg_transport *transport)
 }
 
 static int
-cmsg_transport_tcp_server_get_socket (cmsg_server *server)
+cmsg_transport_tcp_server_get_socket (cmsg_transport *transport)
 {
-    return server->_transport->connection.sockets.listening_socket;
+    return transport->connection.sockets.listening_socket;
 }
 
 
