@@ -186,7 +186,7 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
  * creating a server to send messages to the CPG executable.
  */
 static int32_t
-cmsg_transport_cpg_client_connect (cmsg_client *client)
+cmsg_transport_cpg_client_connect (cmsg_client *client, int timeout)
 {
     if (!client || !client->_transport ||
         client->_transport->config.cpg.group_name.value[0] == '\0')

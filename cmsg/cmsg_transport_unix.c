@@ -19,7 +19,7 @@
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-cmsg_transport_unix_connect (cmsg_client *client)
+cmsg_transport_unix_connect (cmsg_client *client, int timeout)
 {
     int32_t ret;
     struct sockaddr_un *addr;

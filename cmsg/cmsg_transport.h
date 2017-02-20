@@ -30,6 +30,10 @@
  * to pad the end of the last data block */
 #define ENCRYPT_EXTRA   64
 
+/* When connecting the transport specify that the default timeout value should
+ * be used with the connect call */
+#define CONNECT_TIMEOUT_DEFAULT -1
+
 //forward delarations
 typedef struct _cmsg_client_s cmsg_client;
 typedef struct _cmsg_server_s cmsg_server;
@@ -147,7 +151,7 @@ typedef enum _cmsg_transport_type_e
 
 typedef struct _cmsg_transport_s cmsg_transport;    //forward declaration
 
-typedef int (*client_conect_f) (cmsg_client *client);
+typedef int (*client_connect_f) (cmsg_client *client, int timeout);
 typedef int (*server_listen_f) (cmsg_server *server);
 typedef int (*server_recv_f) (int32_t socket, cmsg_server *server);
 typedef int (*server_accept_f) (int32_t socket, cmsg_transport *transport);
@@ -204,7 +208,7 @@ struct _cmsg_transport_s
     pthread_mutex_t connection_mutex;
 
     //transport function pointers
-    client_conect_f connect;                                                // client connect function
+    client_connect_f connect;                                               // client connect function
     server_listen_f listen;                                                 // server listen function
     server_accept_f server_accept;                                          // server accept
     server_recv_f server_recv;                                              // server receive function

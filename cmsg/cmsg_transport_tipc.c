@@ -24,7 +24,7 @@ cmsg_transport_tipc_client_send (cmsg_transport *transport, void *buff, int leng
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-cmsg_transport_tipc_connect (cmsg_client *client)
+cmsg_transport_tipc_connect (cmsg_client *client, int timeout)
 {
     int ret;
 
@@ -47,9 +47,9 @@ cmsg_transport_tipc_connect (cmsg_client *client)
         return ret;
     }
 
-    if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
+    if (timeout != CONNECT_TIMEOUT_DEFAULT)
     {
-        int tipc_timeout = CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT;
+        int tipc_timeout = timeout;
         setsockopt (client->_transport->connection.sockets.client_socket, SOL_TIPC,
                     TIPC_CONN_TIMEOUT, &tipc_timeout, sizeof (int));
     }

@@ -147,7 +147,7 @@ cmsg_transport_oneway_udt_client_send (cmsg_transport *transport, void *buff, in
  * the client connection to connected.
  */
 static int32_t
-cmsg_transport_oneway_udt_connect (cmsg_client *client)
+cmsg_transport_oneway_udt_connect (cmsg_client *client, int timeout)
 {
     int32_t ret = 0;
 
