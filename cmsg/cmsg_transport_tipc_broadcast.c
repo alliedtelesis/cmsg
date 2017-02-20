@@ -24,10 +24,10 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
         return 0;
     }
 
-    client->connection.sockets.client_socket =
+    client->_transport->connection.sockets.client_socket =
         socket (client->_transport->config.socket.family, SOCK_RDM, 0);
 
-    if (client->connection.sockets.client_socket < 0)
+    if (client->_transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
@@ -59,7 +59,7 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
     }
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] Creating listen socket\n");
-    server->connection.sockets.listening_socket = 0;
+    server->_transport->connection.sockets.listening_socket = 0;
     transport = server->_transport;
 
     listening_socket = socket (transport->config.socket.family, SOCK_RDM, 0);
@@ -83,7 +83,7 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
     }
 
     //TODO: Do we need a listen?
-    server->connection.sockets.listening_socket = listening_socket;
+    server->_transport->connection.sockets.listening_socket = listening_socket;
     //TODO: Add debug
     return 0;
 }
@@ -102,9 +102,9 @@ cmsg_transport_tipc_broadcast_recv (void *handle, void *buff, int len, int flags
     addrlen = sizeof (struct sockaddr_tipc);
     transport = server->_transport;
 
-    nbytes = recvfrom (server->connection.sockets.listening_socket, buff, len, flags,
-                       (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
-                       &addrlen);
+    nbytes =
+        recvfrom (server->_transport->connection.sockets.listening_socket, buff, len, flags,
+                  (struct sockaddr *) &transport->config.socket.sockaddr.tipc, &addrlen);
     return nbytes;
 }
 
@@ -155,7 +155,7 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
     int retries = 0;
     int saved_errno = 0;
 
-    int result = sendto (client->connection.sockets.client_socket,
+    int result = sendto (client->_transport->connection.sockets.client_socket,
                          buff,
                          length,
                          MSG_DONTWAIT,
@@ -173,7 +173,7 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
             usleep (50000);
             retries++;
 
-            result = sendto (client->connection.sockets.client_socket,
+            result = sendto (client->_transport->connection.sockets.client_socket,
                              buff,
                              length,
                              MSG_DONTWAIT,
@@ -221,15 +221,15 @@ cmsg_transport_tipc_broadcast_server_send (cmsg_server *server, void *buff, int 
 static void
 cmsg_transport_tipc_broadcast_client_close (cmsg_client *client)
 {
-    if (client->connection.sockets.client_socket != -1)
+    if (client->_transport->connection.sockets.client_socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->connection.sockets.client_socket, SHUT_RDWR);
+        shutdown (client->_transport->connection.sockets.client_socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (client->connection.sockets.client_socket);
+        close (client->_transport->connection.sockets.client_socket);
 
-        client->connection.sockets.client_socket = -1;
+        client->_transport->connection.sockets.client_socket = -1;
     }
 }
 
@@ -253,7 +253,7 @@ cmsg_transport_tipc_broadcast_server_close (cmsg_server *server)
 static int
 cmsg_transport_tipc_broadcast_server_get_socket (cmsg_server *server)
 {
-    return server->connection.sockets.listening_socket;
+    return server->_transport->connection.sockets.listening_socket;
 }
 
 
@@ -263,7 +263,7 @@ cmsg_transport_tipc_broadcast_server_get_socket (cmsg_server *server)
 static int
 cmsg_transport_tipc_broadcast_client_get_socket (cmsg_client *client)
 {
-    return client->connection.sockets.client_socket;
+    return client->_transport->connection.sockets.client_socket;
 }
 
 /**
@@ -283,10 +283,10 @@ static void
 cmsg_transport_tipc_broadcast_server_destroy (cmsg_server *server)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-    shutdown (server->connection.sockets.listening_socket, SHUT_RDWR);
+    shutdown (server->_transport->connection.sockets.listening_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-    close (server->connection.sockets.listening_socket);
+    close (server->_transport->connection.sockets.listening_socket);
 }
 
 

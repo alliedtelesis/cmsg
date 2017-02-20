@@ -26,10 +26,10 @@ cmsg_transport_tcp_connect (cmsg_client *client)
         return 0;
     }
 
-    client->connection.sockets.client_socket =
+    client->_transport->connection.sockets.client_socket =
         socket (client->_transport->config.socket.family, SOCK_STREAM, 0);
 
-    if (client->connection.sockets.client_socket < 0)
+    if (client->_transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
@@ -49,7 +49,7 @@ cmsg_transport_tcp_connect (cmsg_client *client)
         addr_len = sizeof (client->_transport->config.socket.sockaddr.in);
     }
 
-    if (connect (client->connection.sockets.client_socket, addr, addr_len) < 0)
+    if (connect (client->_transport->connection.sockets.client_socket, addr, addr_len) < 0)
     {
         if (errno == EINPROGRESS)
         {
@@ -61,8 +61,8 @@ cmsg_transport_tcp_connect (cmsg_client *client)
                                "Failed to connect to remote host. Error:%s",
                                strerror (errno));
 
-        close (client->connection.sockets.client_socket);
-        client->connection.sockets.client_socket = -1;
+        close (client->_transport->connection.sockets.client_socket);
+        client->_transport->connection.sockets.client_socket = -1;
         client->state = CMSG_CLIENT_STATE_FAILED;
 
         return ret;
@@ -90,8 +90,8 @@ cmsg_transport_tcp_listen (cmsg_server *server)
         return 0;
     }
 
-    server->connection.sockets.listening_socket = 0;
-    server->connection.sockets.client_socket = 0;
+    server->_transport->connection.sockets.listening_socket = 0;
+    server->_transport->connection.sockets.client_socket = 0;
 
     transport = server->_transport;
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
@@ -154,7 +154,7 @@ cmsg_transport_tcp_listen (cmsg_server *server)
         return -1;
     }
 
-    server->connection.sockets.listening_socket = listening_socket;
+    server->_transport->connection.sockets.listening_socket = listening_socket;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tcp socket: %d\n", listening_socket);
 
@@ -238,7 +238,7 @@ cmsg_transport_tcp_server_recv (int32_t server_socket, cmsg_server *server)
     }
 
     /* Remember the client socket to use when send reply */
-    server->connection.sockets.client_socket = server_socket;
+    server->_transport->connection.sockets.client_socket = server_socket;
 
     ret = cmsg_transport_server_recv (cmsg_transport_tcp_recv,
                                       (void *) &server_socket, server);
@@ -298,8 +298,8 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
     }
 
     ret = cmsg_transport_client_recv (cmsg_transport_tcp_recv,
-                                      (void *) &client->connection.sockets.client_socket,
-                                      client, messagePtPt);
+                                      (void *) &client->_transport->connection.
+                                      sockets.client_socket, client, messagePtPt);
 
     return ret;
 }
@@ -308,13 +308,15 @@ cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 static int32_t
 cmsg_transport_tcp_client_send (cmsg_client *client, void *buff, int length, int flag)
 {
-    return (send (client->connection.sockets.client_socket, buff, length, flag));
+    return (send
+            (client->_transport->connection.sockets.client_socket, buff, length, flag));
 }
 
 static int32_t
 cmsg_transport_tcp_rpc_server_send (cmsg_server *server, void *buff, int length, int flag)
 {
-    return (send (server->connection.sockets.client_socket, buff, length, flag));
+    return (send
+            (server->_transport->connection.sockets.client_socket, buff, length, flag));
 }
 
 /**
@@ -331,15 +333,15 @@ cmsg_transport_tcp_oneway_server_send (cmsg_server *server, void *buff, int leng
 static void
 cmsg_transport_tcp_client_close (cmsg_client *client)
 {
-    if (client->connection.sockets.client_socket != -1)
+    if (client->_transport->connection.sockets.client_socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->connection.sockets.client_socket, SHUT_RDWR);
+        shutdown (client->_transport->connection.sockets.client_socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (client->connection.sockets.client_socket);
+        close (client->_transport->connection.sockets.client_socket);
 
-        client->connection.sockets.client_socket = -1;
+        client->_transport->connection.sockets.client_socket = -1;
     }
 }
 
@@ -347,23 +349,23 @@ static void
 cmsg_transport_tcp_server_close (cmsg_server *server)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
-    shutdown (server->connection.sockets.client_socket, SHUT_RDWR);
+    shutdown (server->_transport->connection.sockets.client_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
-    close (server->connection.sockets.client_socket);
+    close (server->_transport->connection.sockets.client_socket);
 }
 
 static int
 cmsg_transport_tcp_server_get_socket (cmsg_server *server)
 {
-    return server->connection.sockets.listening_socket;
+    return server->_transport->connection.sockets.listening_socket;
 }
 
 
 static int
 cmsg_transport_tcp_client_get_socket (cmsg_client *client)
 {
-    return client->connection.sockets.client_socket;
+    return client->_transport->connection.sockets.client_socket;
 }
 
 static void
@@ -376,10 +378,10 @@ static void
 cmsg_transport_tcp_server_destroy (cmsg_server *server)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-    shutdown (server->connection.sockets.listening_socket, SHUT_RDWR);
+    shutdown (server->_transport->connection.sockets.listening_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-    close (server->connection.sockets.listening_socket);
+    close (server->_transport->connection.sockets.listening_socket);
 }
 
 

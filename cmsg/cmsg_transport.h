@@ -205,6 +205,9 @@ struct _cmsg_transport_s
     void *crypto_context;
     cmsg_bool_t use_crypto;
 
+    cmsg_connection connection;
+    pthread_mutex_t connection_mutex;
+
     //transport function pointers
     client_conect_f connect;                                                // client connect function
     server_listen_f listen;                                                 // server listen function

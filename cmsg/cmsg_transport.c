@@ -178,6 +178,14 @@ cmsg_transport_new (cmsg_transport_type type)
     if (transport)
     {
         transport->client_send_tries = 0;
+        transport->connection.sockets.client_socket = -1;
+
+        if (pthread_mutex_init (&transport->connection_mutex, NULL) != 0)
+        {
+            CMSG_LOG_GEN_ERROR ("Init failed for transport connection_mutex.");
+            CMSG_FREE (transport);
+            return NULL;
+        }
     }
 
     return transport;
@@ -188,8 +196,8 @@ cmsg_transport_destroy (cmsg_transport *transport)
 {
     if (transport)
     {
+        pthread_mutex_destroy (&transport->connection_mutex);
         CMSG_FREE (transport);
-        transport = 0;
         return 0;
     }
     else
@@ -288,7 +296,7 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
         else
         {
             CMSG_LOG_SERVER_ERROR (server, "No data on recv socket %d.",
-                                   server->connection.sockets.client_socket);
+                                   server->_transport->connection.sockets.client_socket);
 
             ret = CMSG_RET_ERR;
         }
@@ -315,7 +323,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
     CMSG_DEBUG (CMSG_INFO,
                 "[TRANSPORT] server->accecpted_client_socket %d\n",
-                server->connection.sockets.client_socket);
+                server->_transport->connection.sockets.client_socket);
 
     if (peek)
     {
@@ -397,7 +405,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     else if (nbytes > 0)
     {
         CMSG_LOG_SERVER_ERROR (server, "Bad header on recv socket %d. Number: %d",
-                               server->connection.sockets.client_socket, nbytes);
+                               server->_transport->connection.sockets.client_socket,
+                               nbytes);
 
         // TEMP to keep things going
         buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
@@ -417,7 +426,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         if (errno != ECONNRESET)
         {
             CMSG_LOG_SERVER_ERROR (server, "Receive error for socket %d. Error: %s.",
-                                   server->connection.sockets.client_socket,
+                                   server->_transport->connection.sockets.client_socket,
                                    strerror (errno));
         }
 
@@ -440,7 +449,7 @@ cmsg_transport_server_recv_crypto_msg (cmsg_server *server, int32_t msg_length,
     uint8_t buf_static[512];
     uint32_t extra_header_size = 0;
     int32_t ret = CMSG_RET_OK;
-    int sock = server->connection.sockets.client_socket;
+    int sock = server->_transport->connection.sockets.client_socket;
 
     if (msg_length < sizeof (buf_static))
     {
@@ -525,7 +534,7 @@ _cmsg_transport_server_crypto_recv (cmsg_recv_func recv, void *handle, cmsg_serv
 
     CMSG_DEBUG (CMSG_INFO,
                 "[TRANSPORT] server->accecpted_client_socket %d\n",
-                server->connection.sockets.client_socket);
+                server->_transport->connection.sockets.client_socket);
 
     ret = cmsg_transport_crypto_header_peek (handle, &msg_length);
     if (ret != CMSG_RET_OK)
@@ -561,7 +570,7 @@ _cmsg_transport_server_crypto_recv (cmsg_recv_func recv, void *handle, cmsg_serv
     else if (nbytes > 0)
     {
         CMSG_LOG_SERVER_ERROR (server, "Bad msg on recv socket %d. Number: %d - %d",
-                               server->connection.sockets.client_socket, nbytes,
+                               server->_transport->connection.sockets.client_socket, nbytes,
                                msg_length);
         ret = CMSG_RET_ERR;
     }
@@ -576,7 +585,7 @@ _cmsg_transport_server_crypto_recv (cmsg_recv_func recv, void *handle, cmsg_serv
         if (errno != ECONNRESET)
         {
             CMSG_LOG_SERVER_ERROR (server, "Receive error for socket %d. Error: %s.",
-                                   server->connection.sockets.client_socket,
+                                   server->_transport->connection.sockets.client_socket,
                                    strerror (errno));
         }
 
@@ -754,8 +763,8 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_client *cli
         {
             CMSG_LOG_CLIENT_ERROR (client,
                                    "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
-                                   client->connection.sockets.client_socket, dyn_len,
-                                   nbytes, errno, strerror (errno));
+                                   client->_transport->connection.sockets.client_socket,
+                                   dyn_len, nbytes, errno, strerror (errno));
 
         }
         if (recv_buffer != (void *) buf_static)
@@ -772,7 +781,8 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_client *cli
         /* Didn't receive all of the CMSG header.
          */
         CMSG_LOG_CLIENT_ERROR (client, "Bad header length for recv. Socket:%d nbytes:%d",
-                               client->connection.sockets.client_socket, nbytes);
+                               client->_transport->connection.sockets.client_socket,
+                               nbytes);
 
         // TEMP to keep things going
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
@@ -790,13 +800,14 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_client *cli
         if (errno == ECONNRESET)
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                        client->connection.sockets.client_socket, strerror (errno));
+                        client->_transport->connection.sockets.client_socket,
+                        strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
         {
             CMSG_LOG_CLIENT_ERROR (client, "Recv error. Socket:%d Error:%s",
-                                   client->connection.sockets.client_socket,
+                                   client->_transport->connection.sockets.client_socket,
                                    strerror (errno));
         }
     }
@@ -822,7 +833,7 @@ _cmsg_transport_client_recv_crypto_msg (cmsg_client *client, int32_t msg_length,
     cmsg_server_request server_request;
     *messagePtPt = NULL;
     cmsg_status_code code = CMSG_STATUS_CODE_SUCCESS;
-    int sock = client->connection.sockets.client_socket;
+    int sock = client->_transport->connection.sockets.client_socket;
 
     if (msg_length < sizeof (buf_static))
     {
@@ -834,7 +845,7 @@ _cmsg_transport_client_recv_crypto_msg (cmsg_client *client, int32_t msg_length,
         if (decoded_data == NULL)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Client failed to allocate buffer on socket %d",
-                                   client->connection.sockets.client_socket);
+                                   client->_transport->connection.sockets.client_socket);
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
     }
@@ -953,8 +964,8 @@ _cmsg_transport_client_recv_crypto_msg (cmsg_client *client, int32_t msg_length,
         {
             CMSG_LOG_CLIENT_ERROR (client,
                                    "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
-                                   client->connection.sockets.client_socket, dyn_len,
-                                   msg_length, errno, strerror (errno));
+                                   client->_transport->connection.sockets.client_socket,
+                                   dyn_len, msg_length, errno, strerror (errno));
 
         }
     }
@@ -1004,7 +1015,7 @@ _cmsg_transport_client_crypto_recv (cmsg_recv_func recv, void *handle, cmsg_clie
         if (buffer == NULL)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Client failed to allocate buffer on socket %d",
-                                   client->connection.sockets.client_socket);
+                                   client->_transport->connection.sockets.client_socket);
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
     }
@@ -1023,7 +1034,8 @@ _cmsg_transport_client_crypto_recv (cmsg_recv_func recv, void *handle, cmsg_clie
     {
         /* Didn't receive all of the CMSG header. */
         CMSG_LOG_CLIENT_ERROR (client, "Bad header length for recv. Socket:%d nbytes:%d",
-                               client->connection.sockets.client_socket, nbytes);
+                               client->_transport->connection.sockets.client_socket,
+                               nbytes);
         ret = CMSG_STATUS_CODE_SERVICE_FAILED;
     }
     else if (nbytes == 0)
@@ -1037,13 +1049,14 @@ _cmsg_transport_client_crypto_recv (cmsg_recv_func recv, void *handle, cmsg_clie
         if (errno == ECONNRESET)
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                        client->connection.sockets.client_socket, strerror (errno));
+                        client->_transport->connection.sockets.client_socket,
+                        strerror (errno));
             code = CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
         {
             CMSG_LOG_CLIENT_ERROR (client, "Recv error. Socket:%d Error:%s",
-                                   client->connection.sockets.client_socket,
+                                   client->_transport->connection.sockets.client_socket,
                                    strerror (errno));
             code = CMSG_STATUS_CODE_SERVICE_FAILED;
         }

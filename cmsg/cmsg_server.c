@@ -872,12 +872,12 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
 
     if (server->_transport->config.socket.crypto.encrypt)
     {
-        sock = server->connection.sockets.client_socket;
+        sock = server->_transport->connection.sockets.client_socket;
         encrypt_buffer = (uint8_t *) CMSG_CALLOC (1, length + ENCRYPT_EXTRA);
         if (encrypt_buffer == NULL)
         {
             CMSG_LOG_SERVER_ERROR (server, "Server failed to allocate buffer on socket %d",
-                                   server->connection.sockets.client_socket);
+                                   sock);
             return -1;
         }
 
@@ -887,8 +887,7 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
                                                               length + ENCRYPT_EXTRA);
         if (encrypt_length < 0)
         {
-            CMSG_LOG_SERVER_ERROR (server, "Server encrypt on socket %d failed",
-                                   server->connection.sockets.client_socket);
+            CMSG_LOG_SERVER_ERROR (server, "Server encrypt on socket %d failed", sock);
             CMSG_FREE (encrypt_buffer);
             return -1;
         }
@@ -1718,7 +1717,7 @@ cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner
 void
 cmsg_server_close_wrapper (cmsg_server *server)
 {
-    int sock = server->connection.sockets.client_socket;
+    int sock = server->_transport->connection.sockets.client_socket;
 
     if (server->_transport->config.socket.crypto.close)
     {

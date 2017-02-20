@@ -58,7 +58,6 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
     if (client)
     {
         client->state = CMSG_CLIENT_STATE_INIT;
-        client->connection.sockets.client_socket = -1;
 
         if (transport)
         {
@@ -111,12 +110,6 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         if (pthread_mutex_init (&client->queue_process_mutex, NULL) != 0)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_mutex.");
-            return NULL;
-        }
-
-        if (pthread_mutex_init (&client->connection_mutex, NULL) != 0)
-        {
-            CMSG_LOG_CLIENT_ERROR (client, "Init failed for connection_mutex.");
             return NULL;
         }
 
@@ -208,7 +201,6 @@ cmsg_client_destroy (cmsg_client *client)
         client->_transport->client_destroy (client);
     }
 
-    pthread_mutex_destroy (&client->connection_mutex);
     pthread_mutex_destroy (&client->invoke_mutex);
 
     CMSG_FREE (client);
@@ -303,7 +295,7 @@ cmsg_client_connect (cmsg_client *client)
         }
         else
         {
-            sock = client->connection.sockets.client_socket;
+            sock = client->_transport->connection.sockets.client_socket;
             if (sock >= 0 && client->_transport->use_crypto &&
                 client->_transport->config.socket.crypto.connect)
             {
@@ -313,8 +305,7 @@ cmsg_client_connect (cmsg_client *client)
             if (client->send_timeout > 0)
             {
                 // Set send timeout on the socket if needed
-                if (_cmsg_client_apply_send_timeout
-                    (client->connection.sockets.client_socket, client->send_timeout) < 0)
+                if (_cmsg_client_apply_send_timeout (sock, client->send_timeout) < 0)
                 {
                     CMSG_DEBUG (CMSG_INFO,
                                 "[CLIENT] failed to set send timeout (errno=%d)\n", errno);
@@ -324,8 +315,7 @@ cmsg_client_connect (cmsg_client *client)
             if (client->receive_timeout > 0)
             {
                 // Set receive timeout on the socket if needed
-                if (_cmsg_client_apply_receive_timeout
-                    (client->connection.sockets.client_socket, client->receive_timeout) < 0)
+                if (_cmsg_client_apply_receive_timeout (sock, client->receive_timeout) < 0)
                 {
                     CMSG_DEBUG (CMSG_INFO,
                                 "[CLIENT] failed to set receive timeout (errno=%d)\n",
@@ -355,8 +345,8 @@ cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout)
     /* If the client is already connected, then apply the new timeout immediately */
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        _cmsg_client_apply_send_timeout (client->connection.sockets.client_socket,
-                                         client->send_timeout);
+        _cmsg_client_apply_send_timeout (client->_transport->connection.
+                                         sockets.client_socket, client->send_timeout);
     }
 
     return 0;
@@ -423,8 +413,8 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
     /* If the client is already connected, then apply the new timeout immediately */
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        _cmsg_client_apply_receive_timeout (client->connection.sockets.client_socket,
-                                            client->receive_timeout);
+        _cmsg_client_apply_receive_timeout (client->_transport->connection.
+                                            sockets.client_socket, client->receive_timeout);
     }
 
     return 0;
@@ -708,16 +698,16 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
         if (encrypt_buffer == NULL)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Client failed to allocate buffer on socket %d",
-                                   client->connection.sockets.client_socket);
+                                   client->_transport->connection.sockets.client_socket);
             return -1;
         }
-        sock = client->connection.sockets.client_socket;
+        sock = client->_transport->connection.sockets.client_socket;
         encrypt_length = encrypt_func (sock, buffer, length, encrypt_buffer,
                                        length + ENCRYPT_EXTRA);
         if (encrypt_length < 0)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Client encrypt on socket %d failed - %s",
-                                   client->connection.sockets.client_socket,
+                                   client->_transport->connection.sockets.client_socket,
                                    strerror (errno));
             CMSG_FREE (encrypt_buffer);
             return -1;
@@ -1211,12 +1201,12 @@ cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
-    pthread_mutex_lock (&client->connection_mutex);
+    pthread_mutex_lock (&client->_transport->connection_mutex);
 
     ret = _cmsg_client_buffer_send_retry_once (client, queue_buffer,
                                                queue_buffer_size, method_name);
 
-    pthread_mutex_unlock (&client->connection_mutex);
+    pthread_mutex_unlock (&client->_transport->connection_mutex);
 
     return ret;
 }
@@ -1304,9 +1294,9 @@ cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
 
     for (c = 0; c <= max_tries; c++)
     {
-        pthread_mutex_lock (&client->connection_mutex);
+        pthread_mutex_lock (&client->_transport->connection_mutex);
         int ret = _cmsg_client_buffer_send (client, queue_buffer, queue_buffer_size);
-        pthread_mutex_unlock (&client->connection_mutex);
+        pthread_mutex_unlock (&client->_transport->connection_mutex);
 
         if (ret == CMSG_RET_OK)
         {
@@ -1660,8 +1650,8 @@ cmsg_create_client_loopback (ProtobufCService *service)
     fcntl (pipe_fds[1], F_SETFL, O_NONBLOCK);
 
     /* client uses the pipe's read socket, server uses the write socket */
-    client->connection.sockets.client_socket = pipe_fds[0];
-    server->connection.sockets.client_socket = pipe_fds[1];
+    client->_transport->connection.sockets.client_socket = pipe_fds[0];
+    server->_transport->connection.sockets.client_socket = pipe_fds[1];
 
     return client;
 }
@@ -1677,7 +1667,7 @@ cmsg_create_client_loopback (ProtobufCService *service)
 void
 cmsg_client_close_wrapper (cmsg_client *client)
 {
-    int sock = client->connection.sockets.client_socket;
+    int sock = client->_transport->connection.sockets.client_socket;
 
     if (client->_transport->config.socket.crypto.close)
     {

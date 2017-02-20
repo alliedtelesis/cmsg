@@ -44,15 +44,15 @@ cmsg_transport_loopback_client_send (cmsg_client *client, void *buff, int length
 static void
 cmsg_transport_loopback_client_close (cmsg_client *client)
 {
-    if (client->connection.sockets.client_socket != -1)
+    if (client->_transport->connection.sockets.client_socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->connection.sockets.client_socket, SHUT_RDWR);
+        shutdown (client->_transport->connection.sockets.client_socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (client->connection.sockets.client_socket);
+        close (client->_transport->connection.sockets.client_socket);
 
-        client->connection.sockets.client_socket = -1;
+        client->_transport->connection.sockets.client_socket = -1;
     }
 
     return;
@@ -64,7 +64,7 @@ cmsg_transport_loopback_client_close (cmsg_client *client)
 static int
 cmsg_transport_loopback_client_get_socket (cmsg_client *client)
 {
-    return client->connection.sockets.client_socket;
+    return client->_transport->connection.sockets.client_socket;
 }
 
 /**
@@ -151,7 +151,7 @@ cmsg_transport_loopback_server_recv (int32_t server_socket, cmsg_server *server)
 static int32_t
 cmsg_transport_loopback_server_send (cmsg_server *server, void *buff, int length, int flag)
 {
-    return write (server->connection.sockets.client_socket, buff, length);
+    return write (server->_transport->connection.sockets.client_socket, buff, length);
 }
 
 /**
@@ -161,10 +161,10 @@ static void
 cmsg_transport_loopback_server_close (cmsg_server *server)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
-    shutdown (server->connection.sockets.client_socket, SHUT_RDWR);
+    shutdown (server->_transport->connection.sockets.client_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
-    close (server->connection.sockets.client_socket);
+    close (server->_transport->connection.sockets.client_socket);
 
     return;
 }
@@ -214,7 +214,7 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
     }
 
     nbytes =
-        read (client->connection.sockets.client_socket, &header_received,
+        read (client->_transport->connection.sockets.client_socket, &header_received,
               sizeof (cmsg_header));
     if (nbytes == (int) sizeof (cmsg_header))
     {
@@ -256,7 +256,9 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         }
 
         //just recv the rest of the data to clear the socket
-        nbytes = read (client->connection.sockets.client_socket, recv_buffer, dyn_len);
+        nbytes =
+            read (client->_transport->connection.sockets.client_socket, recv_buffer,
+                  dyn_len);
 
         if (nbytes == (int) dyn_len)
         {
@@ -288,7 +290,7 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         else
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d no data\n",
-                        client->connection.sockets.client_socket);
+                        client->_transport->connection.sockets.client_socket);
         }
         if (recv_buffer != (void *) buf_static)
         {
@@ -309,13 +311,14 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         if (errno == ECONNRESET)
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                        client->connection.sockets.client_socket, strerror (errno));
+                        client->_transport->connection.sockets.client_socket,
+                        strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
         {
             CMSG_LOG_CLIENT_ERROR (client, "Receive error for socket %d. Error: %s",
-                                   client->connection.sockets.client_socket,
+                                   client->_transport->connection.sockets.client_socket,
                                    strerror (errno));
         }
     }

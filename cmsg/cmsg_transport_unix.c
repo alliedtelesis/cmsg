@@ -31,10 +31,10 @@ cmsg_transport_unix_connect (cmsg_client *client)
     }
 
 
-    client->connection.sockets.client_socket =
+    client->_transport->connection.sockets.client_socket =
         socket (client->_transport->config.socket.family, SOCK_STREAM, 0);
 
-    if (client->connection.sockets.client_socket < 0)
+    if (client->_transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
         client->state = CMSG_CLIENT_STATE_FAILED;
@@ -46,14 +46,14 @@ cmsg_transport_unix_connect (cmsg_client *client)
     addr = (struct sockaddr_un *) &client->_transport->config.socket.sockaddr.un;
     addrlen = sizeof (client->_transport->config.socket.sockaddr.un);
 
-    if (connect (client->connection.sockets.client_socket, addr, addrlen) < 0)
+    if (connect (client->_transport->connection.sockets.client_socket, addr, addrlen) < 0)
     {
         ret = -errno;
         CMSG_LOG_CLIENT_ERROR (client,
                                "Failed to connect to remote host. Error:%s",
                                strerror (errno));
-        close (client->connection.sockets.client_socket);
-        client->connection.sockets.client_socket = -1;
+        close (client->_transport->connection.sockets.client_socket);
+        client->_transport->connection.sockets.client_socket = -1;
         client->state = CMSG_CLIENT_STATE_FAILED;
 
         return ret;
@@ -81,8 +81,8 @@ cmsg_transport_unix_listen (cmsg_server *server)
         return 0;
     }
 
-    server->connection.sockets.listening_socket = 0;
-    server->connection.sockets.client_socket = 0;
+    server->_transport->connection.sockets.listening_socket = 0;
+    server->_transport->connection.sockets.client_socket = 0;
 
     transport = server->_transport;
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
@@ -119,7 +119,7 @@ cmsg_transport_unix_listen (cmsg_server *server)
         return -1;
     }
 
-    server->connection.sockets.listening_socket = listening_socket;
+    server->_transport->connection.sockets.listening_socket = listening_socket;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on unix socket: %d\n", listening_socket);
 
@@ -152,7 +152,7 @@ cmsg_transport_unix_server_recv (int32_t server_socket, cmsg_server *server)
     }
 
     /* Remember the client socket to use when send reply */
-    server->connection.sockets.client_socket = server_socket;
+    server->_transport->connection.sockets.client_socket = server_socket;
 
     ret = cmsg_transport_server_recv (cmsg_transport_unix_recv,
                                       (void *) &server_socket, server);
@@ -213,7 +213,7 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
         return CMSG_STATUS_CODE_SERVICE_FAILED;
     }
 
-    nbytes = recv (client->connection.sockets.client_socket,
+    nbytes = recv (client->_transport->connection.sockets.client_socket,
                    &header_received, sizeof (cmsg_header), MSG_WAITALL);
     CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "receive",
                                  cmsg_prof_time_toc (&client->prof));
@@ -275,8 +275,8 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
 
         //just recv the rest of the data to clear the socket
         nbytes =
-            recv (client->connection.sockets.client_socket, recv_buffer, dyn_len,
-                  MSG_WAITALL);
+            recv (client->_transport->connection.sockets.client_socket, recv_buffer,
+                  dyn_len, MSG_WAITALL);
 
         if (nbytes == (int) dyn_len)
         {
@@ -337,8 +337,8 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
         {
             CMSG_LOG_CLIENT_ERROR (client,
                                    "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
-                                   client->connection.sockets.client_socket, dyn_len,
-                                   nbytes, errno, strerror (errno));
+                                   client->_transport->connection.sockets.client_socket,
+                                   dyn_len, nbytes, errno, strerror (errno));
 
         }
         if (recv_buffer != (void *) buf_static)
@@ -355,12 +355,13 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
         /* Didn't receive all of the CMSG header.
          */
         CMSG_LOG_CLIENT_ERROR (client, "Bad header length for recv. Socket:%d nbytes:%d",
-                               client->connection.sockets.client_socket, nbytes);
+                               client->_transport->connection.sockets.client_socket,
+                               nbytes);
 
         // TEMP to keep things going
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
         nbytes =
-            recv (client->connection.sockets.client_socket, recv_buffer, nbytes,
+            recv (client->_transport->connection.sockets.client_socket, recv_buffer, nbytes,
                   MSG_WAITALL);
         CMSG_FREE (recv_buffer);
         recv_buffer = NULL;
@@ -375,13 +376,14 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
         if (errno == ECONNRESET)
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                        client->connection.sockets.client_socket, strerror (errno));
+                        client->_transport->connection.sockets.client_socket,
+                        strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
         {
             CMSG_LOG_CLIENT_ERROR (client, "Recv error. Socket:%d Error:%s",
-                                   client->connection.sockets.client_socket,
+                                   client->_transport->connection.sockets.client_socket,
                                    strerror (errno));
         }
     }
@@ -395,13 +397,15 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
 static int32_t
 cmsg_transport_unix_client_send (cmsg_client *client, void *buff, int length, int flag)
 {
-    return (send (client->connection.sockets.client_socket, buff, length, flag));
+    return (send
+            (client->_transport->connection.sockets.client_socket, buff, length, flag));
 }
 
 static int32_t
 cmsg_transport_unix_server_send (cmsg_server *server, void *buff, int length, int flag)
 {
-    return (send (server->connection.sockets.client_socket, buff, length, flag));
+    return (send
+            (server->_transport->connection.sockets.client_socket, buff, length, flag));
 }
 
 /**
@@ -418,15 +422,15 @@ cmsg_transport_unix_oneway_server_send (cmsg_server *server, void *buff, int len
 static void
 cmsg_transport_unix_client_close (cmsg_client *client)
 {
-    if (client->connection.sockets.client_socket != -1)
+    if (client->_transport->connection.sockets.client_socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->connection.sockets.client_socket, SHUT_RDWR);
+        shutdown (client->_transport->connection.sockets.client_socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (client->connection.sockets.client_socket);
+        close (client->_transport->connection.sockets.client_socket);
 
-        client->connection.sockets.client_socket = -1;
+        client->_transport->connection.sockets.client_socket = -1;
     }
 }
 
@@ -434,23 +438,23 @@ static void
 cmsg_transport_unix_server_close (cmsg_server *server)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
-    shutdown (server->connection.sockets.client_socket, SHUT_RDWR);
+    shutdown (server->_transport->connection.sockets.client_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
-    close (server->connection.sockets.client_socket);
+    close (server->_transport->connection.sockets.client_socket);
 }
 
 static int
 cmsg_transport_unix_server_get_socket (cmsg_server *server)
 {
-    return server->connection.sockets.listening_socket;
+    return server->_transport->connection.sockets.listening_socket;
 }
 
 
 static int
 cmsg_transport_unix_client_get_socket (cmsg_client *client)
 {
-    return client->connection.sockets.client_socket;
+    return client->_transport->connection.sockets.client_socket;
 }
 
 static void
@@ -463,10 +467,10 @@ static void
 cmsg_transport_unix_server_destroy (cmsg_server *server)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-    shutdown (server->connection.sockets.listening_socket, SHUT_RDWR);
+    shutdown (server->_transport->connection.sockets.listening_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-    close (server->connection.sockets.listening_socket);
+    close (server->_transport->connection.sockets.listening_socket);
 }
 
 
