@@ -158,13 +158,13 @@ cmsg_transport_loopback_server_send (cmsg_server *server, void *buff, int length
  * Close the socket on the server side.
  */
 static void
-cmsg_transport_loopback_server_close (cmsg_server *server)
+cmsg_transport_loopback_server_close (cmsg_transport *transport)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
-    shutdown (server->_transport->connection.sockets.client_socket, SHUT_RDWR);
+    shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
-    close (server->_transport->connection.sockets.client_socket);
+    close (transport->connection.sockets.client_socket);
 
     return;
 }
@@ -183,11 +183,11 @@ cmsg_transport_loopback_server_get_socket (cmsg_server *server)
  * Destroy server
  */
 static void
-cmsg_transport_loopback_server_destroy (cmsg_server *server)
+cmsg_transport_loopback_server_destroy (cmsg_transport *transport)
 {
     /* the loopback server is just used internally by the client. When we destroy the
      * server (when the client gets destroyed), make sure we close the pipe file descriptor */
-    cmsg_transport_loopback_server_close (server);
+    cmsg_transport_loopback_server_close (transport);
 }
 
 

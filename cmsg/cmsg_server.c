@@ -188,7 +188,7 @@ cmsg_server_destroy (cmsg_server *server)
 
     if (server->_transport)
     {
-        server->_transport->server_destroy (server);
+        server->_transport->server_destroy (server->_transport);
     }
 
     CMSG_FREE (server);
@@ -1724,5 +1724,5 @@ cmsg_server_close_wrapper (cmsg_server *server)
         server->_transport->config.socket.crypto.close (sock);
     }
 
-    server->_transport->server_close (server);
+    server->_transport->server_close (server->_transport);
 }

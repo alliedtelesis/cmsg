@@ -534,7 +534,7 @@ cmsg_transport_cpg_client_close (cmsg_client *client)
  * Server doesn't close when the message/response has been sent.
  */
 static void
-cmsg_transport_cpg_server_close (cmsg_server *server)
+cmsg_transport_cpg_server_close (cmsg_transport *transport)
 {
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] server cpg close done nothing\n");
 }
@@ -546,18 +546,18 @@ cmsg_transport_cpg_client_destroy (cmsg_client *cmsg_client)
 }
 
 static void
-cmsg_transport_cpg_server_destroy (cmsg_server *server)
+cmsg_transport_cpg_server_destroy (cmsg_transport *transport)
 {
     int res;
 
     /* Cleanup our entries in the hash table.
      */
     g_hash_table_remove (cpg_group_name_to_server_hash_table_h,
-                         server->_transport->config.cpg.group_name.value);
+                         transport->config.cpg.group_name.value);
 
     /* Leave the CPG group.
      */
-    cpg_leave (cmsg_cpg_handle, &(server->_transport->config.cpg.group_name));
+    cpg_leave (cmsg_cpg_handle, &(transport->config.cpg.group_name));
 
     /* If there are no more servers then finalize the cpg connection.
      * Finalize sends the right things to other CPG members, and frees memory.
@@ -565,12 +565,11 @@ cmsg_transport_cpg_server_destroy (cmsg_server *server)
     if (g_hash_table_size (cpg_group_name_to_server_hash_table_h) == 0)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] finalize the CPG connection\n");
-        res = cpg_finalize (server->_transport->connection.cpg.handle);
+        res = cpg_finalize (transport->connection.cpg.handle);
 
         if (res != CPG_OK)
         {
-            CMSG_LOG_TRANSPORT_ERROR (server->_transport,
-                                      "Failed to finalise CPG. Error:%d", res);
+            CMSG_LOG_TRANSPORT_ERROR (transport, "Failed to finalise CPG. Error:%d", res);
         }
 
         cmsg_cpg_handle = 0;

@@ -439,13 +439,13 @@ cmsg_transport_unix_client_close (cmsg_client *client)
 }
 
 static void
-cmsg_transport_unix_server_close (cmsg_server *server)
+cmsg_transport_unix_server_close (cmsg_transport *transport)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
-    shutdown (server->_transport->connection.sockets.client_socket, SHUT_RDWR);
+    shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
-    close (server->_transport->connection.sockets.client_socket);
+    close (transport->connection.sockets.client_socket);
 }
 
 static int
@@ -468,13 +468,13 @@ cmsg_transport_unix_client_destroy (cmsg_client *cmsg_client)
 }
 
 static void
-cmsg_transport_unix_server_destroy (cmsg_server *server)
+cmsg_transport_unix_server_destroy (cmsg_transport *transport)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-    shutdown (server->_transport->connection.sockets.listening_socket, SHUT_RDWR);
+    shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-    close (server->_transport->connection.sockets.listening_socket);
+    close (transport->connection.sockets.listening_socket);
 }
 
 

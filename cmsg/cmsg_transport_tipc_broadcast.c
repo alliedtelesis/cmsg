@@ -239,7 +239,7 @@ cmsg_transport_tipc_broadcast_client_close (cmsg_client *client)
  * socket. Therefore this function does nothing when called.
  */
 static void
-cmsg_transport_tipc_broadcast_server_close (cmsg_server *server)
+cmsg_transport_tipc_broadcast_server_close (cmsg_transport *transport)
 {
     return;
 }
@@ -278,13 +278,13 @@ cmsg_transport_tipc_broadcast_client_destroy (cmsg_client *cmsg_client)
  * Close the servers listening socket
  */
 static void
-cmsg_transport_tipc_broadcast_server_destroy (cmsg_server *server)
+cmsg_transport_tipc_broadcast_server_destroy (cmsg_transport *transport)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-    shutdown (server->_transport->connection.sockets.listening_socket, SHUT_RDWR);
+    shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-    close (server->_transport->connection.sockets.listening_socket);
+    close (transport->connection.sockets.listening_socket);
 }
 
 

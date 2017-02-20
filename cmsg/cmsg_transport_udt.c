@@ -91,7 +91,7 @@ cmsg_transport_oneway_udt_client_close (cmsg_client *client)
 
 
 static void
-cmsg_transport_oneway_udt_server_close (cmsg_server *server)
+cmsg_transport_oneway_udt_server_close (cmsg_transport *transport)
 {
     // Function isn't needed for User Defined so nothing happens.
     return;
@@ -120,7 +120,7 @@ cmsg_transport_oneway_udt_client_destroy (cmsg_client *cmsg_client)
 }
 
 static void
-cmsg_transport_oneway_udt_server_destroy (cmsg_server *server)
+cmsg_transport_oneway_udt_server_destroy (cmsg_transport *transport)
 {
     // Function isn't needed for User Defined so nothing happens.
     return;
