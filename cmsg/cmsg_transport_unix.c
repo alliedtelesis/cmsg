@@ -297,7 +297,7 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
             if (header_converted.status_code == CMSG_STATUS_CODE_SUCCESS)
             {
                 ProtobufCMessage *message = NULL;
-                ProtobufCAllocator *allocator = client->allocator;
+                ProtobufCAllocator *allocator = &cmsg_memory_allocator;
 
                 CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 

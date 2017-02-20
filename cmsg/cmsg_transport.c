@@ -729,7 +729,7 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_client *cli
             if (header_converted.status_code == CMSG_STATUS_CODE_SUCCESS)
             {
                 ProtobufCMessage *message = NULL;
-                ProtobufCAllocator *allocator = client->allocator;
+                ProtobufCAllocator *allocator = &cmsg_memory_allocator;
 
                 CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
@@ -938,7 +938,7 @@ _cmsg_transport_client_recv_crypto_msg (cmsg_client *client, int32_t msg_length,
             if (header_converted.status_code == CMSG_STATUS_CODE_SUCCESS)
             {
                 ProtobufCMessage *message = NULL;
-                ProtobufCAllocator *allocator = client->allocator;
+                ProtobufCAllocator *allocator = &cmsg_memory_allocator;
 
                 CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 

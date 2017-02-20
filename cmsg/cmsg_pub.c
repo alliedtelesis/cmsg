@@ -610,7 +610,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
     cmsg_server_request *server_request = server->server_request;
     ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = server->allocator;
+    ProtobufCAllocator *allocator = &cmsg_memory_allocator;
     cmsg_server_closure_data closure_data;
     const ProtobufCMessageDescriptor *desc;
 

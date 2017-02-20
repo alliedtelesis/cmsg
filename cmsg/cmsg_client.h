@@ -56,7 +56,6 @@ typedef struct _cmsg_client_s
                             ProtobufCClosure closure, void *closure_data);
     pthread_mutex_t invoke_mutex;
 
-    ProtobufCAllocator *allocator;
     ProtobufCService base_service;
     cmsg_transport *_transport;
     cmsg_client_state state;

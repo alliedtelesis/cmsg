@@ -48,7 +48,6 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
 
         server->_transport = transport;
         server->service = service;
-        server->allocator = &cmsg_memory_allocator;
         server->message_processor = cmsg_server_message_processor;
 
         server->self.object_type = CMSG_OBJ_TYPE_SERVER;
@@ -678,7 +677,7 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
 
         if (!(server->app_owns_current_msg || server->app_owns_all_msgs))
         {
-            protobuf_c_message_free_unpacked (message, server->allocator);
+            protobuf_c_message_free_unpacked (message, &cmsg_memory_allocator);
         }
         server->app_owns_current_msg = FALSE;
 
@@ -712,7 +711,7 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
         CMSG_COUNTER_INC (server, cntr_messages_dropped);
 
         // Free the unpacked message
-        protobuf_c_message_free_unpacked (message, server->allocator);
+        protobuf_c_message_free_unpacked (message, &cmsg_memory_allocator);
         break;
 
     default:
@@ -764,7 +763,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     cmsg_queue_filter_type action;
     cmsg_method_processing_reason processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = server->allocator;
+    ProtobufCAllocator *allocator = &cmsg_memory_allocator;
     cmsg_server_request *server_request = server->server_request;
     const char *method_name;
     const ProtobufCMessageDescriptor *desc;

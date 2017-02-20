@@ -62,7 +62,6 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         if (transport)
         {
             client->base_service.destroy = NULL;
-            client->allocator = &cmsg_memory_allocator;
             client->_transport = transport;
             cmsg_transport_write_id (transport, descriptor->name);
         }
@@ -510,16 +509,16 @@ cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
     if (closure_data)
     {
         // free unknown fields from received message as the developer doesn't know about them
-        protobuf_c_message_free_unknown_fields (message_pt, client->allocator);
+        protobuf_c_message_free_unknown_fields (message_pt, &cmsg_memory_allocator);
 
         ((cmsg_client_closure_data *) (closure_data))->message = (void *) message_pt;
-        ((cmsg_client_closure_data *) (closure_data))->allocator = client->allocator;
+        ((cmsg_client_closure_data *) (closure_data))->allocator = &cmsg_memory_allocator;
     }
     else
     {
         /* only cleanup if the message is not passed back to the
          * api through the closure_data (above) */
-        protobuf_c_message_free_unpacked (message_pt, client->allocator);
+        protobuf_c_message_free_unpacked (message_pt, &cmsg_memory_allocator);
     }
 
     CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "cleanup",
@@ -955,13 +954,13 @@ cmsg_client_invoke_recv_direct (cmsg_client *client, uint32_t method_index,
     if (closure_data)
     {
         ((cmsg_client_closure_data *) (closure_data))->message = (void *) message_pt;
-        ((cmsg_client_closure_data *) (closure_data))->allocator = client->allocator;
+        ((cmsg_client_closure_data *) (closure_data))->allocator = &cmsg_memory_allocator;
     }
     else
     {
         /* only cleanup if the message is not passed back to the
          * api through the closure_data (above) */
-        protobuf_c_message_free_unpacked (message_pt, client->allocator);
+        protobuf_c_message_free_unpacked (message_pt, &cmsg_memory_allocator);
     }
 
     return CMSG_RET_OK;
@@ -1050,7 +1049,7 @@ cmsg_client_recv_echo_reply (cmsg_client *client)
         // We don't expect a message to have been sent back so free it and
         // move on.  Not treating it as an error as this behaviour might
         // change in the future and it doesn't really matter.
-        protobuf_c_message_free_unpacked (message_pt, client->allocator);
+        protobuf_c_message_free_unpacked (message_pt, &cmsg_memory_allocator);
     }
 
     return status_code;
