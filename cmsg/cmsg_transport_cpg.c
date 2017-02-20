@@ -598,7 +598,7 @@ cmsg_transport_cpg_server_get_socket (cmsg_server *server)
  * The client has no socket to get so return 0.
  */
 static int
-cmsg_transport_cpg_client_get_socket (cmsg_client *client)
+cmsg_transport_cpg_client_get_socket (cmsg_transport *transport)
 {
     return 0;
 }

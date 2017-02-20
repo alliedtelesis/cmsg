@@ -107,7 +107,7 @@ cmsg_transport_oneway_udt_server_get_socket (cmsg_server *server)
 
 
 static int
-cmsg_transport_oneway_udt_client_get_socket (cmsg_client *client)
+cmsg_transport_oneway_udt_client_get_socket (cmsg_transport *transport)
 {
     // Function isn't needed for User Defined so nothing happens.
     return 0;

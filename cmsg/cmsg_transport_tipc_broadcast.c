@@ -259,9 +259,9 @@ cmsg_transport_tipc_broadcast_server_get_socket (cmsg_server *server)
  * Return the socket the client will use to send messages
  */
 static int
-cmsg_transport_tipc_broadcast_client_get_socket (cmsg_client *client)
+cmsg_transport_tipc_broadcast_client_get_socket (cmsg_transport *transport)
 {
-    return client->_transport->connection.sockets.client_socket;
+    return transport->connection.sockets.client_socket;
 }
 
 /**

@@ -62,9 +62,9 @@ cmsg_transport_loopback_client_close (cmsg_transport *transport)
  * Return the client's socket.
  */
 static int
-cmsg_transport_loopback_client_get_socket (cmsg_client *client)
+cmsg_transport_loopback_client_get_socket (cmsg_transport *transport)
 {
-    return client->_transport->connection.sockets.client_socket;
+    return transport->connection.sockets.client_socket;
 }
 
 /**

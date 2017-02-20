@@ -629,9 +629,9 @@ cmsg_transport_tipc_server_get_socket (cmsg_server *server)
 
 
 static int
-cmsg_transport_tipc_client_get_socket (cmsg_client *client)
+cmsg_transport_tipc_client_get_socket (cmsg_transport *transport)
 {
-    return client->_transport->connection.sockets.client_socket;
+    return transport->connection.sockets.client_socket;
 }
 
 static void

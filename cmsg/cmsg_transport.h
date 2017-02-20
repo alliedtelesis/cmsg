@@ -166,7 +166,7 @@ typedef int32_t (*invoke_recv_f) (cmsg_client *client, uint32_t method_index,
 typedef void (*client_close_f) (cmsg_transport *transport);
 typedef void (*server_close_f) (cmsg_transport *transport);
 typedef int (*s_get_socket_f) (cmsg_server *server);
-typedef int (*c_get_socket_f) (cmsg_client *client);
+typedef int (*c_get_socket_f) (cmsg_transport *transport);
 typedef void (*client_destroy_f) (cmsg_transport *transport);
 typedef void (*server_destroy_f) (cmsg_transport *transport);
 typedef uint32_t (*is_congested_f) (cmsg_transport *transport);
