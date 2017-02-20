@@ -232,6 +232,9 @@ struct _cmsg_transport_s
     //transport statistics
     uint32_t client_send_tries;
 
+    //For debug purposes, store the object id of the parent (client/server) using this transport
+    char parent_obj_id[CMSG_MAX_OBJ_ID_LEN + 1];
+
 #ifdef HAVE_CMSG_PROFILING
     cmsg_prof prof;
 #endif
@@ -300,7 +303,7 @@ void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
                                              const char *event_str,
                                              struct tipc_event *event);
 
-void cmsg_transport_write_id (cmsg_transport *tport);
+void cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id);
 void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
 void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
 cmsg_transport *cmsg_create_transport_unix (const ProtobufCServiceDescriptor *descriptor,

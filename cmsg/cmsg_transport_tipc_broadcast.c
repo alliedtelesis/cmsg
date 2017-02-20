@@ -30,8 +30,8 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
     if (client->_transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
-        CMSG_LOG_CLIENT_ERROR (client, "Unable to create socket. Error:%s",
-                               strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (client->_transport, "Unable to create socket. Error:%s",
+                                  strerror (errno));
         return ret;
     }
 
@@ -63,8 +63,8 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
     listening_socket = socket (transport->config.socket.family, SOCK_RDM, 0);
     if (listening_socket == -1)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Failed to create socket. Error:%s",
-                               strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Failed to create socket. Error:%s",
+                                  strerror (errno));
 
         return -1;
     }
@@ -76,7 +76,7 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
     if (bind (listening_socket,
               (struct sockaddr *) &transport->config.socket.sockaddr.tipc, addrlen) != 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "TIPC port could not be created");
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "TIPC port could not be created");
         return -1;
     }
 
@@ -184,9 +184,9 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
 
     if (retries >= 25)
     {
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "Failed to send tipc broadcast message. Exceeded %d retries. Last error: %s.",
-                               retries, strerror (saved_errno));
+        CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                  "Failed to send tipc broadcast message. Exceeded %d retries. Last error: %s.",
+                                  retries, strerror (saved_errno));
         errno = saved_errno;
     }
     else if (retries > 0)

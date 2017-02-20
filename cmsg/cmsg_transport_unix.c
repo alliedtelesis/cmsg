@@ -37,8 +37,8 @@ cmsg_transport_unix_connect (cmsg_client *client)
     if (client->_transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
-        CMSG_LOG_CLIENT_ERROR (client, "Unable to create socket. Error:%s",
-                               strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (client->_transport, "Unable to create socket. Error:%s",
+                                  strerror (errno));
         return ret;
     }
 
@@ -48,9 +48,9 @@ cmsg_transport_unix_connect (cmsg_client *client)
     if (connect (client->_transport->connection.sockets.client_socket, addr, addrlen) < 0)
     {
         ret = -errno;
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "Failed to connect to remote host. Error:%s",
-                               strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                  "Failed to connect to remote host. Error:%s",
+                                  strerror (errno));
         close (client->_transport->connection.sockets.client_socket);
         client->_transport->connection.sockets.client_socket = -1;
 
@@ -85,15 +85,16 @@ cmsg_transport_unix_listen (cmsg_server *server)
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Unable to create socket. Error:%s",
-                               strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Unable to create socket. Error:%s",
+                                  strerror (errno));
         return -1;
     }
 
     ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int32_t));
     if (ret == -1)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Unable to setsockopt. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Unable to setsockopt. Error:%s",
+                                  strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -103,7 +104,8 @@ cmsg_transport_unix_listen (cmsg_server *server)
     ret = bind (listening_socket, &transport->config.socket.sockaddr.un, addrlen);
     if (ret < 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Unable to bind socket. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Unable to bind socket. Error:%s",
+                                  strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -111,7 +113,8 @@ cmsg_transport_unix_listen (cmsg_server *server)
     ret = listen (listening_socket, 10);
     if (ret < 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Listen failed. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Listen failed. Error:%s",
+                                  strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -179,7 +182,8 @@ cmsg_transport_unix_server_accept (int32_t listen_socket, cmsg_server *server)
 
     if (sock < 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Accept failed. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Accept failed. Error:%s",
+                                  strerror (errno));
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
 
         return -1;
@@ -220,9 +224,9 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
-            CMSG_LOG_CLIENT_ERROR (client,
-                                   "Unable to process message header for client receive. Bytes:%d",
-                                   nbytes);
+            CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                      "Unable to process message header for client receive. Bytes:%d",
+                                      nbytes);
             CMSG_PROF_TIME_LOG_ADD_TIME (&client->_transport->prof, "unpack",
                                          cmsg_prof_time_toc (&client->_transport->prof));
             return CMSG_STATUS_CODE_SERVICE_FAILED;
@@ -259,8 +263,8 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
                  * Shut the socket down, it will reopen on the next api call.
                  * Record and return an error. */
                 client->_transport->client_close (client);
-                CMSG_LOG_CLIENT_ERROR (client,
-                                       "Couldn't allocate memory for server reply (TLV + message), closed the socket");
+                CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                          "Couldn't allocate memory for server reply (TLV + message), closed the socket");
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
             }
         }
@@ -315,9 +319,9 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
                 // Msg not unpacked correctly
                 if (message == NULL)
                 {
-                    CMSG_LOG_CLIENT_ERROR (client,
-                                           "Error unpacking response message. Msg length:%d",
-                                           header_converted.message_length);
+                    CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                              "Error unpacking response message. Msg length:%d",
+                                              header_converted.message_length);
                     CMSG_PROF_TIME_LOG_ADD_TIME (&client->_transport->prof, "unpack",
                                                  cmsg_prof_time_toc (&client->
                                                                      _transport->prof));
@@ -334,10 +338,10 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
         }
         else
         {
-            CMSG_LOG_CLIENT_ERROR (client,
-                                   "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
-                                   client->_transport->connection.sockets.client_socket,
-                                   dyn_len, nbytes, errno, strerror (errno));
+            CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                      "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
+                                      client->_transport->connection.sockets.client_socket,
+                                      dyn_len, nbytes, errno, strerror (errno));
 
         }
         if (recv_buffer != (void *) buf_static)
@@ -353,9 +357,10 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
     {
         /* Didn't receive all of the CMSG header.
          */
-        CMSG_LOG_CLIENT_ERROR (client, "Bad header length for recv. Socket:%d nbytes:%d",
-                               client->_transport->connection.sockets.client_socket,
-                               nbytes);
+        CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                  "Bad header length for recv. Socket:%d nbytes:%d",
+                                  client->_transport->connection.sockets.client_socket,
+                                  nbytes);
 
         // TEMP to keep things going
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
@@ -381,9 +386,9 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
         }
         else
         {
-            CMSG_LOG_CLIENT_ERROR (client, "Recv error. Socket:%d Error:%s",
-                                   client->_transport->connection.sockets.client_socket,
-                                   strerror (errno));
+            CMSG_LOG_TRANSPORT_ERROR (client->_transport, "Recv error. Socket:%d Error:%s",
+                                      client->_transport->connection.sockets.client_socket,
+                                      strerror (errno));
         }
     }
 

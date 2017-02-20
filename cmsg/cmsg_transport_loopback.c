@@ -221,9 +221,9 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
-            CMSG_LOG_CLIENT_ERROR (client,
-                                   "Unable to process message header for client receive. Bytes:%d",
-                                   nbytes);
+            CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                      "Unable to process message header for client receive. Bytes:%d",
+                                      nbytes);
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
@@ -280,8 +280,9 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
 
             if (message == NULL)
             {
-                CMSG_LOG_CLIENT_ERROR (client, "Error unpacking response message. Bytes:%d",
-                                       header_converted.message_length);
+                CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                          "Error unpacking response message. Bytes:%d",
+                                          header_converted.message_length);
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
             }
             *messagePtPt = message;
@@ -317,9 +318,10 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         }
         else
         {
-            CMSG_LOG_CLIENT_ERROR (client, "Receive error for socket %d. Error: %s",
-                                   client->_transport->connection.sockets.client_socket,
-                                   strerror (errno));
+            CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                      "Receive error for socket %d. Error: %s",
+                                      client->_transport->connection.sockets.client_socket,
+                                      strerror (errno));
         }
     }
 

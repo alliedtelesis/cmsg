@@ -32,8 +32,8 @@ cmsg_transport_tcp_connect (cmsg_client *client)
     if (client->_transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
-        CMSG_LOG_CLIENT_ERROR (client, "Unable to create socket. Error:%s",
-                               strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (client->_transport, "Unable to create socket. Error:%s",
+                                  strerror (errno));
         return ret;
     }
 
@@ -56,9 +56,9 @@ cmsg_transport_tcp_connect (cmsg_client *client)
         }
 
         ret = -errno;
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "Failed to connect to remote host. Error:%s",
-                               strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                  "Failed to connect to remote host. Error:%s",
+                                  strerror (errno));
 
         close (client->_transport->connection.sockets.client_socket);
         client->_transport->connection.sockets.client_socket = -1;
@@ -94,15 +94,16 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Unable to create socket. Error:%s",
-                               strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Unable to create socket. Error:%s",
+                                  strerror (errno));
         return -1;
     }
 
     ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int32_t));
     if (ret == -1)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Unable to setsockopt. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Unable to setsockopt. Error:%s",
+                                  strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -119,8 +120,8 @@ cmsg_transport_tcp_listen (cmsg_server *server)
             setsockopt (listening_socket, IPPROTO_IP, IP_FREEBIND, &yes, sizeof (int32_t));
         if (ret == -1)
         {
-            CMSG_LOG_SERVER_ERROR (server, "Unable to setsockopt. Error:%s",
-                                   strerror (errno));
+            CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Unable to setsockopt. Error:%s",
+                                      strerror (errno));
             close (listening_socket);
             return -1;
         }
@@ -138,7 +139,8 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     ret = bind (listening_socket, &transport->config.socket.sockaddr.generic, addrlen);
     if (ret < 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Unable to bind socket. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Unable to bind socket. Error:%s",
+                                  strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -146,7 +148,8 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     ret = listen (listening_socket, 10);
     if (ret < 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Listen failed. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Listen failed. Error:%s",
+                                  strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -273,7 +276,8 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
 
     if (sock < 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Accept failed. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Accept failed. Error:%s",
+                                  strerror (errno));
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
 
         return -1;

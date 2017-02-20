@@ -44,7 +44,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
     if (server)
     {
         /* Generate transport unique id */
-        cmsg_transport_write_id (transport);
+        cmsg_transport_write_id (transport, service->descriptor->name);
 
         server->_transport = transport;
         server->service = service;

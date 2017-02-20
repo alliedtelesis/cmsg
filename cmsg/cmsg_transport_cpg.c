@@ -171,7 +171,8 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
 
         if (server->message_processor (server, buffer))
         {
-            CMSG_LOG_SERVER_ERROR (server, "Unable to process message header");
+            CMSG_LOG_TRANSPORT_ERROR (server->_transport,
+                                      "Unable to process message header");
         }
     }
 }
@@ -202,8 +203,9 @@ cmsg_transport_cpg_client_connect (cmsg_client *client)
     if (cmsg_cpg_handle == 0)
     {
         /* CPG handle hasn't been created yet. */
-        CMSG_LOG_CLIENT_ERROR (client, "Unable to find matching handle for group %s",
-                               client->_transport->config.cpg.group_name.value);
+        CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                  "Unable to find matching handle for group %s",
+                                  client->_transport->config.cpg.group_name.value);
         return -1;
     }
 
@@ -283,9 +285,10 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
     }
     while (slept_us <= (TV_USEC_PER_SEC * CPG_JOIN_TIMEOUT));
 
-    CMSG_LOG_SERVER_ERROR (server, "Unable to join CPG group %s. Result:%d, Waited:%ums",
-                           server->_transport->config.cpg.group_name.value, result,
-                           slept_us / 1000);
+    CMSG_LOG_TRANSPORT_ERROR (server->_transport,
+                              "Unable to join CPG group %s. Result:%d, Waited:%ums",
+                              server->_transport->config.cpg.group_name.value, result,
+                              slept_us / 1000);
 
     return -1;
 }
@@ -323,7 +326,8 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
         res = _cmsg_transport_cpg_init_exe_connection ();
         if (res < 0)
         {
-            CMSG_LOG_SERVER_ERROR (server, "CPG listen init failed. Result %d", res);
+            CMSG_LOG_TRANSPORT_ERROR (server->_transport,
+                                      "CPG listen init failed. Result %d", res);
             return -1;
         }
     }
@@ -343,7 +347,8 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
 
     if (res < 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "CPG listen join failed. Result %d", res);
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "CPG listen join failed. Result %d",
+                                  res);
         return -2;
     }
 
@@ -355,7 +360,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     else
     {
         server->_transport->connection.cpg.fd = 0;
-        CMSG_LOG_SERVER_ERROR (server, "CPG listen unable to get FD");
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "CPG listen unable to get FD");
         return -3;
     }
 
@@ -378,7 +383,7 @@ cmsg_transport_cpg_server_recv (int32_t socket, cmsg_server *server)
 
     if (ret != CPG_OK)
     {
-        CMSG_LOG_SERVER_ERROR (server, "CPG dispatch failed. Error:%d", ret);
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "CPG dispatch failed. Error:%d", ret);
         return -1;
     }
 
@@ -416,10 +421,10 @@ cmsg_transport_cpg_is_congested (cmsg_client *client)
     {
         if ((cpg_error_count % 16) == 0)
         {
-            CMSG_LOG_CLIENT_ERROR (client,
-                                   "Unable to get CPG flow control state - hndl %llx %d",
-                                   (long long int) client->_transport->connection.
-                                   cpg.handle, (int) cpg_rc);
+            CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                      "Unable to get CPG flow control state - hndl %llx %d",
+                                      (long long int) client->_transport->connection.
+                                      cpg.handle, (int) cpg_rc);
         }
         cpg_error_count++;
         return TRUE;
@@ -495,7 +500,8 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
 
     if (res != CPG_OK)
     {
-        CMSG_LOG_CLIENT_ERROR (client, "CPG multicast joined failed. Error:%d", res);
+        CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                                  "CPG multicast joined failed. Error:%d", res);
         return -1;
     }
 
@@ -565,7 +571,8 @@ cmsg_transport_cpg_server_destroy (cmsg_server *server)
 
         if (res != CPG_OK)
         {
-            CMSG_LOG_SERVER_ERROR (server, "Failed to finalise CPG. Error:%d", res);
+            CMSG_LOG_TRANSPORT_ERROR (server->_transport,
+                                      "Failed to finalise CPG. Error:%d", res);
         }
 
         cmsg_cpg_handle = 0;
