@@ -155,7 +155,6 @@ cmsg_transport_oneway_udt_connect (cmsg_client *client)
     {
         ret = client->_transport->config.udt.connect (client);
     }
-    client->state = CMSG_CLIENT_STATE_CONNECTED;
 
     return ret;
 }

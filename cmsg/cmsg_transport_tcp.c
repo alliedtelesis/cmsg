@@ -32,7 +32,6 @@ cmsg_transport_tcp_connect (cmsg_client *client)
     if (client->_transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
-        client->state = CMSG_CLIENT_STATE_FAILED;
         CMSG_LOG_CLIENT_ERROR (client, "Unable to create socket. Error:%s",
                                strerror (errno));
         return ret;
@@ -63,13 +62,11 @@ cmsg_transport_tcp_connect (cmsg_client *client)
 
         close (client->_transport->connection.sockets.client_socket);
         client->_transport->connection.sockets.client_socket = -1;
-        client->state = CMSG_CLIENT_STATE_FAILED;
 
         return ret;
     }
     else
     {
-        client->state = CMSG_CLIENT_STATE_CONNECTED;
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] succesfully connected\n");
         return 0;
     }

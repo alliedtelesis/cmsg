@@ -201,18 +201,14 @@ cmsg_transport_cpg_client_connect (cmsg_client *client)
 
     if (cmsg_cpg_handle == 0)
     {
-        /* CPG handle hasn't been created yet.
-         */
-        client->state = CMSG_CLIENT_STATE_FAILED;
+        /* CPG handle hasn't been created yet. */
         CMSG_LOG_CLIENT_ERROR (client, "Unable to find matching handle for group %s",
                                client->_transport->config.cpg.group_name.value);
         return -1;
     }
 
-    /* CPG handle has been created so use it.
-     */
+    /* CPG handle has been created so use it. */
     client->_transport->connection.cpg.handle = cmsg_cpg_handle;
-    client->state = CMSG_CLIENT_STATE_CONNECTED;
     return 0;
 }
 
@@ -451,14 +447,6 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
 
     iov.iov_len = length;
     iov.iov_base = buff;
-
-    if (client->state != CMSG_CLIENT_STATE_CONNECTED)
-    {
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "CPG Client is not connected prior to attempting to send to group %s",
-                               client->_transport->config.cpg.group_name.value);
-        return -1;
-    }
 
     if (client->_transport->send_called_multi_enabled)
     {

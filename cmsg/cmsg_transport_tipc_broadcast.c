@@ -30,13 +30,11 @@ cmsg_transport_tipc_broadcast_connect (cmsg_client *client)
     if (client->_transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
-        client->state = CMSG_CLIENT_STATE_FAILED;
         CMSG_LOG_CLIENT_ERROR (client, "Unable to create socket. Error:%s",
                                strerror (errno));
         return ret;
     }
 
-    client->state = CMSG_CLIENT_STATE_CONNECTED;
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] successfully connected\n");
 
     return 0;

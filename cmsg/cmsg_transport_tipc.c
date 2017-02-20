@@ -40,7 +40,6 @@ cmsg_transport_tipc_connect (cmsg_client *client)
     if (client->_transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
-        client->state = CMSG_CLIENT_STATE_FAILED;
         CMSG_LOG_CLIENT_ERROR (client, "Unable to create socket. Error:%s",
                                strerror (errno));
 
@@ -68,7 +67,6 @@ cmsg_transport_tipc_connect (cmsg_client *client)
         shutdown (client->_transport->connection.sockets.client_socket, SHUT_RDWR);
         close (client->_transport->connection.sockets.client_socket);
         client->_transport->connection.sockets.client_socket = -1;
-        client->state = CMSG_CLIENT_STATE_FAILED;
 
         return ret;
     }
@@ -101,11 +99,9 @@ cmsg_transport_tipc_connect (cmsg_client *client)
         shutdown (client->_transport->connection.sockets.client_socket, SHUT_RDWR);
         close (client->_transport->connection.sockets.client_socket);
         client->_transport->connection.sockets.client_socket = -1;
-        client->state = CMSG_CLIENT_STATE_FAILED;
         return -1;
     }
 
-    client->state = CMSG_CLIENT_STATE_CONNECTED;
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] successfully connected\n");
     return 0;
 }

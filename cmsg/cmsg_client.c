@@ -292,9 +292,11 @@ cmsg_client_connect (cmsg_client *client)
         {
             // count the connection failure
             CMSG_COUNTER_INC (client, cntr_connect_failures);
+            client->state = CMSG_CLIENT_STATE_FAILED;
         }
         else
         {
+            client->state = CMSG_CLIENT_STATE_CONNECTED;
             sock = client->_transport->connection.sockets.client_socket;
             if (sock >= 0 && client->_transport->use_crypto &&
                 client->_transport->config.socket.crypto.connect)
@@ -688,6 +690,17 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
     encrypt_f encrypt_func;
     int sock;
     int ret;
+
+#ifdef HAVE_VCSTACK
+    if (client->state != CMSG_CLIENT_STATE_CONNECTED &&
+        client->_transport->type == CMSG_TRANSPORT_CPG)
+    {
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "CPG Client is not connected prior to attempting to send to group %s",
+                               client->_transport->config.cpg.group_name.value);
+        return -1;
+    }
+#endif /* HAVE_VCSTACK */
 
     /* if the message should be encrypted, then pass it back to the user
      * application to encrypt */
