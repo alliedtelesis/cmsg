@@ -164,7 +164,7 @@ cmsg_transport_oneway_udt_connect (cmsg_client *client)
  * Can't work out whether the UDT is congested
  */
 uint32_t
-cmsg_transport_oneway_udt_is_congested (cmsg_client *client)
+cmsg_transport_oneway_udt_is_congested (cmsg_transport *transport)
 {
     return FALSE;
 }

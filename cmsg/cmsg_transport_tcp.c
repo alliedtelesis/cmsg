@@ -390,7 +390,7 @@ cmsg_transport_tcp_server_destroy (cmsg_server *server)
  * TCP is never congested
  */
 uint32_t
-cmsg_transport_tcp_is_congested (cmsg_client *client)
+cmsg_transport_tcp_is_congested (cmsg_transport *transport)
 {
     return FALSE;
 }

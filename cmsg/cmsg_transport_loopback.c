@@ -85,7 +85,7 @@ cmsg_transport_loopback_client_destroy (cmsg_client *cmsg_client)
  * Loopback can't be congested so return FALSE
  */
 uint32_t
-cmsg_transport_loopback_is_congested (cmsg_client *client)
+cmsg_transport_loopback_is_congested (cmsg_transport *transport)
 {
     return FALSE;
 }

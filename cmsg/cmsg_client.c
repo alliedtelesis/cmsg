@@ -1060,7 +1060,7 @@ cmsg_client_recv_echo_reply (cmsg_client *client)
 int32_t
 cmsg_client_transport_is_congested (cmsg_client *client)
 {
-    return client->_transport->is_congested (client);
+    return client->_transport->is_congested (client->_transport);
 }
 
 

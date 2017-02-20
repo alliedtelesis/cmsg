@@ -407,24 +407,22 @@ cmsg_transport_cpg_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
 
 static uint32_t
-cmsg_transport_cpg_is_congested (cmsg_client *client)
+cmsg_transport_cpg_is_congested (cmsg_transport *transport)
 {
     static int32_t cpg_error_count = 0;
     cpg_flow_control_state_t flow_control;
     cpg_error_t cpg_rc;
 
     /* get this CPG's flow control status from the AIS library */
-    cpg_rc =
-        cpg_flow_control_state_get (client->_transport->connection.cpg.handle,
-                                    &flow_control);
+    cpg_rc = cpg_flow_control_state_get (transport->connection.cpg.handle, &flow_control);
     if (cpg_rc != CPG_OK)
     {
         if ((cpg_error_count % 16) == 0)
         {
-            CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+            CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "Unable to get CPG flow control state - hndl %llx %d",
-                                      (long long int) client->_transport->connection.
-                                      cpg.handle, (int) cpg_rc);
+                                      (long long int) transport->connection.cpg.handle,
+                                      (int) cpg_rc);
         }
         cpg_error_count++;
         return TRUE;
@@ -464,7 +462,7 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
     {
 
         /* Check this CPG's flow control status from the AIS library */
-        if (!cmsg_transport_cpg_is_congested (client))
+        if (!cmsg_transport_cpg_is_congested (client->_transport))
         {
             break;
         }
