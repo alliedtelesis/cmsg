@@ -231,6 +231,10 @@ struct _cmsg_transport_s
     ipfree_bind_enable_f ipfree_bind_enable;                                // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
     //transport statistics
     uint32_t client_send_tries;
+
+#ifdef HAVE_CMSG_PROFILING
+    cmsg_prof prof;
+#endif
 };
 
 cmsg_transport *cmsg_transport_new (cmsg_transport_type type);

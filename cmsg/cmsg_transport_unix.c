@@ -212,8 +212,8 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
 
     nbytes = recv (client->_transport->connection.sockets.client_socket,
                    &header_received, sizeof (cmsg_header), MSG_WAITALL);
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "receive",
-                                 cmsg_prof_time_toc (&client->prof));
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->_transport->prof, "receive",
+                                 cmsg_prof_time_toc (&client->_transport->prof));
 
     if (nbytes == (int) sizeof (cmsg_header))
     {
@@ -223,8 +223,8 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
             CMSG_LOG_CLIENT_ERROR (client,
                                    "Unable to process message header for client receive. Bytes:%d",
                                    nbytes);
-            CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
-                                         cmsg_prof_time_toc (&client->prof));
+            CMSG_PROF_TIME_LOG_ADD_TIME (&client->_transport->prof, "unpack",
+                                         cmsg_prof_time_toc (&client->_transport->prof));
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
@@ -245,8 +245,8 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
             CMSG_DEBUG (CMSG_INFO,
                         "[TRANSPORT] received response without data. server status %d\n",
                         header_converted.status_code);
-            CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
-                                         cmsg_prof_time_toc (&client->prof));
+            CMSG_PROF_TIME_LOG_ADD_TIME (&client->_transport->prof, "unpack",
+                                         cmsg_prof_time_toc (&client->_transport->prof));
             return header_converted.status_code;
         }
 
@@ -318,13 +318,15 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
                     CMSG_LOG_CLIENT_ERROR (client,
                                            "Error unpacking response message. Msg length:%d",
                                            header_converted.message_length);
-                    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
-                                                 cmsg_prof_time_toc (&client->prof));
+                    CMSG_PROF_TIME_LOG_ADD_TIME (&client->_transport->prof, "unpack",
+                                                 cmsg_prof_time_toc (&client->
+                                                                     _transport->prof));
                     return CMSG_STATUS_CODE_SERVICE_FAILED;
                 }
                 *messagePtPt = message;
-                CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
-                                             cmsg_prof_time_toc (&client->prof));
+                CMSG_PROF_TIME_LOG_ADD_TIME (&client->_transport->prof, "unpack",
+                                             cmsg_prof_time_toc (&client->
+                                                                 _transport->prof));
             }
 
             // Make sure we return the status from the server
@@ -385,8 +387,8 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
         }
     }
 
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "unpack",
-                                 cmsg_prof_time_toc (&client->prof));
+    CMSG_PROF_TIME_LOG_ADD_TIME (&client->_transport->prof, "unpack",
+                                 cmsg_prof_time_toc (&client->_transport->prof));
     return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 
