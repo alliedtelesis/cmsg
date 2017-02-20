@@ -614,7 +614,7 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 
     if (server->_transport->server_accept != NULL)
     {
-        sock = server->_transport->server_accept (listen_socket, server);
+        sock = server->_transport->server_accept (listen_socket, server->_transport);
         if (sock >= 0 && server->_transport->use_crypto &&
             server->_transport->config.socket.crypto.accept)
         {

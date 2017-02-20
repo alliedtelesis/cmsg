@@ -150,7 +150,7 @@ typedef struct _cmsg_transport_s cmsg_transport;    //forward declaration
 typedef int (*client_conect_f) (cmsg_client *client);
 typedef int (*server_listen_f) (cmsg_server *server);
 typedef int (*server_recv_f) (int32_t socket, cmsg_server *server);
-typedef int (*server_accept_f) (int32_t socket, cmsg_server *server);
+typedef int (*server_accept_f) (int32_t socket, cmsg_transport *transport);
 
 typedef cmsg_status_code (*client_recv_f) (cmsg_client *client,
                                            ProtobufCMessage **messagePtPt);

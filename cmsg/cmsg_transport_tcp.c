@@ -248,20 +248,20 @@ cmsg_transport_tcp_server_recv (int32_t server_socket, cmsg_server *server)
 
 
 static int32_t
-cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
+cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_transport *transport)
 {
     uint32_t client_len;
     cmsg_transport client_transport;
     int sock;
     struct sockaddr *addr;
 
-    if (!server || listen_socket < 0)
+    if (listen_socket < 0)
     {
         CMSG_LOG_GEN_ERROR ("TCP server accept error. Invalid arguments.");
         return -1;
     }
 
-    if (server->_transport->config.socket.family == PF_INET6)
+    if (transport->config.socket.family == PF_INET6)
     {
         addr = (struct sockaddr *) &client_transport.config.socket.sockaddr.in6;
         client_len = sizeof (client_transport.config.socket.sockaddr.in6);
@@ -276,8 +276,7 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
 
     if (sock < 0)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Accept failed. Error:%s",
-                                  strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Accept failed. Error:%s", strerror (errno));
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
 
         return -1;

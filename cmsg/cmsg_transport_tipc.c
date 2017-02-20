@@ -322,13 +322,13 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
 }
 
 static int32_t
-cmsg_transport_tipc_server_accept (int32_t listen_socket, cmsg_server *server)
+cmsg_transport_tipc_server_accept (int32_t listen_socket, cmsg_transport *transport)
 {
     uint32_t client_len;
     cmsg_transport client_transport;
     int sock;
 
-    if (!server || listen_socket < 0)
+    if (listen_socket < 0)
     {
         return -1;
     }
@@ -340,8 +340,7 @@ cmsg_transport_tipc_server_accept (int32_t listen_socket, cmsg_server *server)
 
     if (sock < 0)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Accept failed. Error:%s",
-                                  strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Accept failed. Error:%s", strerror (errno));
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
 
         return -1;
