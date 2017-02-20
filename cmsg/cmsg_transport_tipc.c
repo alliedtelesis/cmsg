@@ -201,8 +201,7 @@ cmsg_transport_tipc_recv (void *handle, void *buff, int len, int flags)
  * on the receive if the data is never sent or is partially sent.
  */
 static cmsg_status_code
-csmg_transport_peek_for_header (cmsg_object *obj, cmsg_transport *transport, int32_t socket,
-                                int32_t maxLoop)
+csmg_transport_peek_for_header (cmsg_transport *transport, int32_t socket, int32_t maxLoop)
 {
     cmsg_status_code ret = CMSG_STATUS_CODE_SUCCESS;
     int count = 0;
@@ -260,8 +259,8 @@ csmg_transport_peek_for_header (cmsg_object *obj, cmsg_transport *transport, int
                 else
                 {
                     // This was unexpected, try again after a delay.
-                    CMSG_LOG_OBJ_ONLY_ERROR (obj, transport, "Receive failed %d %s",
-                                             nbytes, strerror (errno));
+                    CMSG_LOG_TRANSPORT_ERROR (transport, "Receive failed %d %s",
+                                              nbytes, strerror (errno));
                 }
             }
         }
@@ -272,16 +271,16 @@ csmg_transport_peek_for_header (cmsg_object *obj, cmsg_transport *transport, int
     if (count >= maxLoop)
     {
         // Report the failure and try to recover
-        CMSG_LOG_OBJ_ONLY_ERROR (obj, transport,
-                                 "Receive timed out socket %d nbytes was %d last error %s",
-                                 socket, nbytes, strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport,
+                                  "Receive timed out socket %d nbytes was %d last error %s",
+                                  socket, nbytes, strerror (errno));
 
         ret = CMSG_STATUS_CODE_SERVICE_FAILED;
     }
     else if (count >= maxLoop / 2)
     {
         // This should not really happen, log it
-        CMSG_LOG_OBJ_ONLY_ERROR (obj, transport, "Receive looped %d times", count);
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Receive looped %d times", count);
     }
 
     return ret;
@@ -306,7 +305,7 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
         /* Remember the client socket to use when send reply */
         server->_transport->connection.sockets.client_socket = server_socket;
 
-        peek_status = csmg_transport_peek_for_header (&server->self, server->_transport,
+        peek_status = csmg_transport_peek_for_header (server->_transport,
                                                       server_socket, MAX_SERVER_PEEK_LOOP);
         if (peek_status == CMSG_STATUS_CODE_SUCCESS)
         {
@@ -376,7 +375,7 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
     CMSG_PROF_TIME_TIC (&client->_transport->prof);
 
-    ret = csmg_transport_peek_for_header (&client->self, client->_transport,
+    ret = csmg_transport_peek_for_header (client->_transport,
                                           client->_transport->connection.
                                           sockets.client_socket, MAX_CLIENT_PEEK_LOOP);
     if (ret != CMSG_STATUS_CODE_SUCCESS)
