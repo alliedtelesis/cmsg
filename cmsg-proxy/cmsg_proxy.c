@@ -1071,7 +1071,7 @@ _cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
  * @return - true on success, false on failure.
  */
 static bool
-_cmsg_proxy_convert_protobuf_to_json (ProtobufCMessage *input_protobuf, char **output_json)
+_cmsg_proxy_protobuf2json_string (ProtobufCMessage *input_protobuf, char **output_json)
 {
     if (protobuf2json_string (input_protobuf, JSON_INDENT (4), output_json, NULL, 0) < 0)
     {
@@ -1205,7 +1205,7 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
 
     *http_status = ant_code_to_http_code_array[code];
 
-    ret = _cmsg_proxy_convert_protobuf_to_json ((ProtobufCMessage *) &error, output_json);
+    ret = _cmsg_proxy_protobuf2json_string ((ProtobufCMessage *) &error, output_json);
 
     if (!ret)
     {
@@ -1552,7 +1552,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
 
     if (output_proto_message)
     {
-        ret = _cmsg_proxy_convert_protobuf_to_json (output_proto_message, output_json);
+        ret = _cmsg_proxy_protobuf2json_string (output_proto_message, output_json);
         if (!ret)
         {
             /* This should not occur (the ProtobufCMessage structure returned
