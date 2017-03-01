@@ -39,6 +39,9 @@ static int32_t cmsg_client_invoke (ProtobufCService *service,
                                    const ProtobufCMessage *input,
                                    ProtobufCClosure closure, void *closure_data);
 
+static int32_t cmsg_client_queue_input (cmsg_client *client, unsigned method_index,
+                                        const ProtobufCMessage *input, bool *did_queue);
+
 /*
  * This is an internal function which can be called from CMSG library.
  * Applications should use cmsg_client_new() instead.
@@ -114,6 +117,12 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         if (pthread_mutex_init (&client->connection_mutex, NULL) != 0)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Init failed for connection_mutex.");
+            return NULL;
+        }
+
+        if (pthread_mutex_init (&client->invoke_mutex, NULL) != 0)
+        {
+            CMSG_LOG_CLIENT_ERROR (client, "Init failed for invoke_mutex.");
             return NULL;
         }
 
@@ -200,6 +209,7 @@ cmsg_client_destroy (cmsg_client *client)
     }
 
     pthread_mutex_destroy (&client->connection_mutex);
+    pthread_mutex_destroy (&client->invoke_mutex);
 
     CMSG_FREE (client);
 }
@@ -525,7 +535,14 @@ cmsg_client_invoke_recv (cmsg_client *client, unsigned method_index,
     return CMSG_RET_OK;
 }
 
-
+/**
+ * To allow the client to be invoked safely from multiple threads
+ * (i.e. from parallel CMSG API functions) we need to ensure that
+ * the send/recv on the underlying socket is only executed in one
+ * thread at a time. Note that the locking required to queue from
+ * multiple threads (as part of the invoke call) is handled directly
+ * by the queueing functionality.
+ */
 static int32_t
 cmsg_client_invoke (ProtobufCService *service, unsigned method_index,
                     const ProtobufCMessage *input, ProtobufCClosure closure,
@@ -533,22 +550,31 @@ cmsg_client_invoke (ProtobufCService *service, unsigned method_index,
 {
     int32_t ret;
     cmsg_client *client = (cmsg_client *) service;
+    bool did_queue = false;
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
 
-    ret = client->invoke_send (client, method_index, input);
+    ret = cmsg_client_queue_input (client, method_index, input, &did_queue);
     if (ret != CMSG_RET_OK)
     {
         return ret;
     }
 
-    if (client->invoke_recv)
+    if (!did_queue)
     {
-        return client->invoke_recv (client, method_index, closure, closure_data);
+        pthread_mutex_lock (&client->invoke_mutex);
+
+        ret = client->invoke_send (client, method_index, input);
+        if (ret == CMSG_RET_OK && client->invoke_recv)
+        {
+            ret = client->invoke_recv (client, method_index, closure, closure_data);
+        }
+
+        pthread_mutex_unlock (&client->invoke_mutex);
     }
 
-    return CMSG_RET_OK;
+    return ret;
 }
 
 static int
@@ -714,32 +740,26 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
     return ret;
 }
 
-int32_t
-cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
-                         const ProtobufCMessage *input)
+/**
+ * Create the CMSG packet based on the input method name
+ * and data.
+ *
+ * @param client - CMSG client the packet is to be sent/queued with
+ * @param method_name - Method name that was invoked
+ * @param input - The input data that was supplied to be invoked with
+ * @param buffer_ptr - Pointer to store the created packet
+ * @param total_message_size_ptr - Pointer to store the created packet size
+ */
+static int32_t
+cmsg_client_create_packet (cmsg_client *client, const char *method_name,
+                           const ProtobufCMessage *input, uint8_t **buffer_ptr,
+                           uint32_t *total_message_size_ptr)
 {
     uint32_t ret = 0;
-    bool do_queue = false;
-    uint32_t method_length;
-    int type = CMSG_TLV_METHOD_TYPE;
     cmsg_header header;
-    int ret_val;
-    ProtobufCService *service = (ProtobufCService *) client;
-    const char *method_name = service->descriptor->methods[method_index].name;
+    int type = CMSG_TLV_METHOD_TYPE;
+    uint32_t method_length = strlen (method_name) + 1;
 
-    CMSG_PROF_TIME_TIC (&client->prof);
-    // count every rpc call
-    CMSG_COUNTER_INC (client, cntr_rpc);
-
-    CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
-
-    ret = _cmsg_client_should_queue (client, method_name, &do_queue);
-    if (ret != CMSG_RET_OK)
-    {
-        return ret;
-    }
-
-    method_length = strlen (method_name) + 1;
     CMSG_PROF_TIME_TIC (&client->prof);
 
     uint32_t packed_size = protobuf_c_message_get_packed_size (input);
@@ -796,22 +816,81 @@ cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
 
     CMSG_PROF_TIME_TIC (&client->prof);
 
+    *buffer_ptr = buffer;
+    *total_message_size_ptr = total_message_size;
 
-    if (!do_queue)
+    return CMSG_RET_OK;
+}
+
+/**
+ * Checks whether the input message should be queued and then queues
+ * the message on the client if required.
+ *
+ * @param client - CMSG client the packet is to be queued with
+ * @param method_index - Method index that was invoked
+ * @param input - The input data that was supplied to be invoked with
+ * @param did_queue - Pointer to store whether the message was queued or not
+ */
+static int32_t
+cmsg_client_queue_input (cmsg_client *client, unsigned method_index,
+                         const ProtobufCMessage *input, bool *did_queue)
+{
+    uint32_t ret = 0;
+    uint8_t *buffer = NULL;
+    uint32_t total_message_size = 0;
+    ProtobufCService *service = (ProtobufCService *) client;
+    const char *method_name = service->descriptor->methods[method_index].name;
+
+    ret = _cmsg_client_should_queue (client, method_name, did_queue);
+    if (ret != CMSG_RET_OK)
     {
-        ret_val = cmsg_client_buffer_send_retry_once (client, buffer, total_message_size,
-                                                      method_name);
+        return ret;
     }
-    else
+
+    if (*did_queue)
     {
-        ret_val = _cmsg_client_add_to_queue (client, buffer, total_message_size,
+        ret = cmsg_client_create_packet (client, method_name, input, &buffer,
+                                         &total_message_size);
+        if (ret == CMSG_RET_OK)
+        {
+            ret = _cmsg_client_add_to_queue (client, buffer, total_message_size,
                                              method_name);
+            CMSG_FREE (buffer);
+        }
     }
 
+    return ret;
+}
+
+int32_t
+cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
+                         const ProtobufCMessage *input)
+{
+    uint32_t ret = 0;
+    ProtobufCService *service = (ProtobufCService *) client;
+    const char *method_name = service->descriptor->methods[method_index].name;
+    uint8_t *buffer = NULL;
+    uint32_t total_message_size = 0;
+
+    CMSG_PROF_TIME_TIC (&client->prof);
+    // count every rpc call
+    CMSG_COUNTER_INC (client, cntr_rpc);
+
+    CMSG_DEBUG (CMSG_INFO, "[CLIENT] method: %s\n", method_name);
+
+    ret = cmsg_client_create_packet (client, method_name, input, &buffer,
+                                     &total_message_size);
+    if (ret != CMSG_RET_OK)
+    {
+        return ret;
+    }
+
+    ret = cmsg_client_buffer_send_retry_once (client, buffer, total_message_size,
+                                              method_name);
     CMSG_FREE (buffer);
 
     CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "send", cmsg_prof_time_toc (&client->prof));
-    return ret_val;
+    return ret;
 }
 
 
@@ -1239,20 +1318,6 @@ cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
     CMSG_DEBUG (CMSG_WARN, "[CLIENT] send tries %d\n", max_tries);
 
     return CMSG_RET_ERR;
-}
-
-int32_t
-cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_size)
-{
-    int ret = CMSG_RET_ERR;
-
-    CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
-
-    pthread_mutex_lock (&client->connection_mutex);
-    ret = _cmsg_client_buffer_send (client, buffer, buffer_size);
-    pthread_mutex_unlock (&client->connection_mutex);
-
-    return ret;
 }
 
 static int32_t

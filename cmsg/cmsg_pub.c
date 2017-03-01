@@ -749,13 +749,8 @@ cmsg_pub_invoke (ProtobufCService *service,
         int i = 0;
         for (i = 0; i <= CMSG_TRANSPORT_CLIENT_SEND_TRIES; i++)
         {
-            //create a create packet function inside cmsg_client_invoke_send
-            //if we want to queue from the publisher just create the buffer
-            //and add it directly to the publisher queue
-            //this would remove the publisher dependency in the client and
-            //would make the code easier to understand and cleaner
-            ret = cmsg_client_invoke_send (list_entry->client, method_index, input);
-
+            ret = list_entry->client->invoke ((ProtobufCService *) list_entry->client,
+                                              method_index, input, NULL, NULL);
             if (ret == CMSG_RET_ERR)
             {
                 //try again

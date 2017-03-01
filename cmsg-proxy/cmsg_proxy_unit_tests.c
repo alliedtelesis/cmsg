@@ -287,3 +287,37 @@ test_cmsg_proxy_deinit (void)
     NP_ASSERT_PTR_EQUAL (proxy_entries_tree, NULL);
     NP_ASSERT_PTR_EQUAL (library_handles_list, NULL);
 }
+
+/**
+ * Function Tested: cmsg_proxy()
+ *
+ * Tests that invalid JSON input is appropriately handled.
+ */
+void
+test_cmsg_proxy__invalid_json_input (void)
+{
+    bool request_handled;
+    char *output_json;
+    int http_status;
+
+    /* *INDENT-OFF* */
+    char *expected_output_json =
+        "{\n"
+        "    \"error_info\": {\n"
+        "        \"code\": \"ANT_CODE_INVALID_ARGUMENT\",\n"
+        "        \"message\": \"Invalid JSON: string or '}' expected near end of file\"\n"
+        "    }\n"
+        "}";
+    /* *INDENT-ON* */
+
+    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
+
+    request_handled =
+        cmsg_proxy ("/v1/test", CMSG_HTTP_PUT, "{", &output_json, &http_status);
+
+    NP_ASSERT_TRUE (request_handled);
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, 400);
+
+    free (output_json);
+}

@@ -54,6 +54,7 @@ typedef struct _cmsg_client_s
 
     int32_t (*invoke_recv) (cmsg_client *client, unsigned method_index,
                             ProtobufCClosure closure, void *closure_data);
+    pthread_mutex_t invoke_mutex;
 
     ProtobufCAllocator *allocator;
     ProtobufCService base_service;
@@ -164,9 +165,6 @@ cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
 int32_t
 cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
                                uint32_t queue_buffer_size, int max_tries);
-
-int32_t
-cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_size);
 
 int32_t cmsg_client_queue_process_all (cmsg_client *client);
 
