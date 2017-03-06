@@ -1161,7 +1161,7 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
  * @param http_status - Pointer to the http_status integer that should be set
  * @param msg - Pointer to the ProtobufCMessage received from the CMSG API call
  *
- * @returns 'true' if error_info is updated with error message otherwise 'false'
+ * @returns 'true' if _error_info is updated with error message otherwise 'false'
  */
 static bool
 _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage **msg)
@@ -1172,7 +1172,7 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage **msg)
     bool ret = false;
 
     field_desc = protobuf_c_message_descriptor_get_field_by_name ((*msg)->descriptor,
-                                                                  "error_info");
+                                                                  "_error_info");
     if (field_desc)
     {
         error_message_ptr = (ProtobufCMessage **) (((char *) *msg) + field_desc->offset);
@@ -1216,13 +1216,11 @@ void
 _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
                                        int *http_status, char **output_json)
 {
-    ant_result_message error = ANT_RESULT_MESSAGE_INIT;
-    ant_result error_info = ANT_RESULT_INIT;
+    ant_result error = ANT_RESULT_INIT;
     bool ret;
 
-    CMSG_SET_FIELD_VALUE (&error_info, code, code);
-    CMSG_SET_FIELD_PTR (&error_info, message, message);
-    CMSG_SET_FIELD_PTR (&error, error_info, &error_info);
+    CMSG_SET_FIELD_VALUE (&error, code, code);
+    CMSG_SET_FIELD_PTR (&error, message, message);
 
     *http_status = ant_code_to_http_code_array[code];
 
@@ -1612,7 +1610,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
 
     if (!_cmsg_proxy_set_http_status (http_status, &output_proto_message))
     {
-        syslog (LOG_ERR, "error_info is not set for %s", service_info->url_string);
+        syslog (LOG_ERR, "_error_info is not set for %s", service_info->url_string);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_error_info);
     }
 

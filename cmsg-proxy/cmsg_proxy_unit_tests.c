@@ -303,10 +303,8 @@ test_cmsg_proxy__invalid_json_input (void)
     /* *INDENT-OFF* */
     char *expected_output_json =
         "{\n"
-        "    \"error_info\": {\n"
-        "        \"code\": \"ANT_CODE_INVALID_ARGUMENT\",\n"
-        "        \"message\": \"Invalid JSON: string or '}' expected near end of file\"\n"
-        "    }\n"
+        "    \"code\": \"ANT_CODE_INVALID_ARGUMENT\",\n"
+        "    \"message\": \"Invalid JSON: string or '}' expected near end of file\"\n"
         "}";
     /* *INDENT-ON* */
 
