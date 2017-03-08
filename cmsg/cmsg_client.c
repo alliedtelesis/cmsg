@@ -35,11 +35,11 @@ static int _cmsg_client_apply_receive_timeout (int sockfd, uint32_t timeout);
 int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
 
 static int32_t cmsg_client_invoke (ProtobufCService *service,
-                                   unsigned method_index,
+                                   uint32_t method_index,
                                    const ProtobufCMessage *input,
                                    ProtobufCClosure closure, void *closure_data);
 
-static int32_t cmsg_client_queue_input (cmsg_client *client, unsigned method_index,
+static int32_t cmsg_client_queue_input (cmsg_client *client, uint32_t method_index,
                                         const ProtobufCMessage *input, bool *did_queue);
 
 /*
@@ -430,7 +430,7 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
 }
 
 int32_t
-cmsg_client_invoke_recv (cmsg_client *client, unsigned method_index,
+cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
                          ProtobufCClosure closure, void *closure_data)
 {
     cmsg_status_code status_code;
@@ -544,7 +544,7 @@ cmsg_client_invoke_recv (cmsg_client *client, unsigned method_index,
  * by the queueing functionality.
  */
 static int32_t
-cmsg_client_invoke (ProtobufCService *service, unsigned method_index,
+cmsg_client_invoke (ProtobufCService *service, uint32_t method_index,
                     const ProtobufCMessage *input, ProtobufCClosure closure,
                     void *closure_data)
 {
@@ -832,7 +832,7 @@ cmsg_client_create_packet (cmsg_client *client, const char *method_name,
  * @param did_queue - Pointer to store whether the message was queued or not
  */
 static int32_t
-cmsg_client_queue_input (cmsg_client *client, unsigned method_index,
+cmsg_client_queue_input (cmsg_client *client, uint32_t method_index,
                          const ProtobufCMessage *input, bool *did_queue)
 {
     uint32_t ret = 0;
@@ -863,7 +863,7 @@ cmsg_client_queue_input (cmsg_client *client, unsigned method_index,
 }
 
 int32_t
-cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
+cmsg_client_invoke_send (cmsg_client *client, uint32_t method_index,
                          const ProtobufCMessage *input)
 {
     uint32_t ret = 0;
@@ -901,7 +901,7 @@ cmsg_client_invoke_send (cmsg_client *client, unsigned method_index,
  * The reply from the server will be written onto a pipe internally.
  */
 int32_t
-cmsg_client_invoke_send_direct (cmsg_client *client, unsigned method_index,
+cmsg_client_invoke_send_direct (cmsg_client *client, uint32_t method_index,
                                 const ProtobufCMessage *input)
 {
     cmsg_server_invoke_direct (client->_transport->config.loopback_server, input,
@@ -917,7 +917,7 @@ cmsg_client_invoke_send_direct (cmsg_client *client, unsigned method_index,
  * read off the pipe used to simulate a socket for a loopback client.
  */
 int32_t
-cmsg_client_invoke_recv_direct (cmsg_client *client, unsigned method_index,
+cmsg_client_invoke_recv_direct (cmsg_client *client, uint32_t method_index,
                                 ProtobufCClosure closure, void *closure_data)
 {
     ProtobufCService *service = (ProtobufCService *) client;
