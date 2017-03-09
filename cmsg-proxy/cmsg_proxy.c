@@ -1253,21 +1253,18 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
 /**
  * Generate the JSON string that should be returned to the web API caller.
  * If we are returning data to the user (i.e. not an error) then attempt to
- * strip the outer key of this data if the key is either the last substring
- * of the template URL, '_data' or '_error_info'.
+ * strip the outer key of this data if the key is either '_data' or '_error_info'.
  *
  * @param output_proto_message - The message returned from calling the CMSG API
  * @param output_json - Pointer to hold the JSON string that is returned
- * @param url - URL template that the CMSG proxy was called with
  */
 static bool
 _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
-                                  char **output_json, const char *url)
+                                  char **output_json)
 {
     json_t *converted_json_object = NULL;
     const char *key;
     json_t *value;
-    char *url_ending;
     bool ret = false;
 
     ret = _cmsg_proxy_protobuf2json_object (output_proto_message, &converted_json_object);
@@ -1276,14 +1273,11 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
         return false;
     }
 
-    url_ending = strrchr (url, '/') + 1;
-
     json_object_foreach (converted_json_object, key, value)
     {
         /* Note that the "_error_info" field has been removed earlier on in the proxy
          * process for a successful API call */
-        if ((strcmp (key, url_ending) == 0) || (strcmp (key, "_data") == 0) ||
-            (strcmp (key, "_error_info") == 0))
+        if ((strcmp (key, "_data") == 0) || (strcmp (key, "_error_info") == 0))
         {
             *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_INDENT (4));
             json_decref (converted_json_object);
@@ -1634,8 +1628,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
 
     if (output_proto_message)
     {
-        if (!_cmsg_proxy_generate_json_return (output_proto_message, output_json,
-                                               service_info->url_string))
+        if (!_cmsg_proxy_generate_json_return (output_proto_message, output_json))
         {
             /* This should not occur (the ProtobufCMessage structure returned
              * by the CMSG api should always be well formed) but check for it */
