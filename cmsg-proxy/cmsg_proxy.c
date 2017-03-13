@@ -930,13 +930,6 @@ _cmsg_proxy_json_object_create (const char *input_json,
                       "JSON value or array expected but JSON object given");
             return NULL;
         }
-        else if (json_is_array (converted_json))
-        {
-            json_decref (converted_json);
-            snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
-                      "JSON array value not supported as input");
-            return NULL;
-        }
 
         field_desc = _cmsg_proxy_find_unparsed_field (msg_descriptor, url_parameters);
         if (!field_desc)
@@ -947,7 +940,14 @@ _cmsg_proxy_json_object_create (const char *input_json,
             return NULL;
         }
 
-        if (json_is_string (converted_json))
+        if (json_is_array (converted_json))
+        {
+            json_object = json_pack ("{so}", field_desc->name, converted_json);
+            /* json_pack with 'o' steals the reference to converted_json.
+             * Therefore we don't call decref for converted_json. */
+            return json_object;
+        }
+        else if (json_is_string (converted_json))
         {
             /* Ensure the enclosing "" characters are stripped from the input */
             stripped_string = json_string_value (converted_json);
