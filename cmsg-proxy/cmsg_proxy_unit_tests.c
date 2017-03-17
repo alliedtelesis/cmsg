@@ -223,12 +223,12 @@ test_cmsg_proxy_clients_init (void)
 }
 
 /**
- * Function Tested: _cmsg_proxy_convert_protobuf_to_json()
+ * Function Tested: _cmsg_proxy_protobuf2json_string()
  *
  * Tests that valid input is correctly converted into a json string
  */
 void
-test_cmsg_proxy_convert_protobuf_to_json (void)
+test_cmsg_proxy_protobuf2json_string (void)
 {
     cmsg_proxy_unit_tests_cmsg_bool proto_msg = CMSG_PROXY_UNIT_TESTS_CMSG_BOOL_INIT;
     char *json_str = NULL;
@@ -236,7 +236,7 @@ test_cmsg_proxy_convert_protobuf_to_json (void)
 
     CMSG_SET_FIELD_VALUE (&proto_msg, value, true);
 
-    ret = _cmsg_proxy_convert_protobuf_to_json ((ProtobufCMessage *) &proto_msg, &json_str);
+    ret = _cmsg_proxy_protobuf2json_string ((ProtobufCMessage *) &proto_msg, &json_str);
 
     NP_ASSERT_TRUE (ret);
     NP_ASSERT_STR_EQUAL (json_str, "{\n    \"value\": true\n}");
@@ -303,10 +303,8 @@ test_cmsg_proxy__invalid_json_input (void)
     /* *INDENT-OFF* */
     char *expected_output_json =
         "{\n"
-        "    \"error_info\": {\n"
-        "        \"code\": \"ANT_CODE_INVALID_ARGUMENT\",\n"
-        "        \"message\": \"Invalid JSON: string or '}' expected near end of file\"\n"
-        "    }\n"
+        "    \"code\": \"ANT_CODE_INVALID_ARGUMENT\",\n"
+        "    \"message\": \"Invalid JSON: string or '}' expected near end of file\"\n"
         "}";
     /* *INDENT-ON* */
 
