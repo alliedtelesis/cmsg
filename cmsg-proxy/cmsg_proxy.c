@@ -23,7 +23,6 @@
 #include <dirent.h>
 #include "cmsg_proxy_mem.h"
 #include <ipc/common_types_auto.h>
-#include <utility/sys.h>
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"
@@ -31,6 +30,12 @@
 
 #define MSG_BUF_LEN 200
 #define CMSG_PROXY_LIB_PATH "/var/packages/network/lib"
+
+/* work out the number of elements in an array */
+#define ARRAY_ELEMENTS(arr) (sizeof((arr)) / sizeof((arr)[0]))
+
+/* compile time check that an array has the expected number of elements */
+#define ARRAY_SIZE_COMPILE_CHECK(array,exp_num) G_STATIC_ASSERT(ARRAY_ELEMENTS((array)) == (exp_num))
 
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
