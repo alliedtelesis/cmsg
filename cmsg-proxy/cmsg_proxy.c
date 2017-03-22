@@ -802,7 +802,17 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
 
         new_object = json_pack (fmt, field_descriptor->name, value);
         break;
-        /* Not (currently) supported as URL parameters */
+    case PROTOBUF_C_TYPE_BOOL:
+        if (strcmp (value, "true") == 0)
+        {
+            new_object = json_pack ("{sb}", field_descriptor->name, true);
+        }
+        else if (strcmp (value, "false") == 0)
+        {
+            new_object = json_pack ("{sb}", field_descriptor->name, false);
+        }
+        break;
+        /* Not (currently) supported */
     case PROTOBUF_C_TYPE_UINT64:
     case PROTOBUF_C_TYPE_INT64:
     case PROTOBUF_C_TYPE_SINT64:
@@ -810,7 +820,6 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
     case PROTOBUF_C_TYPE_FIXED64:
     case PROTOBUF_C_TYPE_FLOAT:
     case PROTOBUF_C_TYPE_DOUBLE:
-    case PROTOBUF_C_TYPE_BOOL:
     case PROTOBUF_C_TYPE_BYTES:
     case PROTOBUF_C_TYPE_MESSAGE:
     default:
