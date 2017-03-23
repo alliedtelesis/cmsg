@@ -22,7 +22,7 @@
 #include <dlfcn.h>
 #include <dirent.h>
 #include "cmsg_proxy_mem.h"
-#include <ipc/common_types_auto.h>
+#include "common.pb-c.h"
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"

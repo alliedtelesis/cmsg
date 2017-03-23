@@ -1,0 +1,260 @@
+//
+// common.proto : definitions for common protobuf messages
+//
+
+message dummy
+{
+/* Empty message that can be used when you don't want to return and/or send a message */
+}
+
+message return_value
+{
+    optional sint32 retval = 1;
+}
+
+message cmsg_bool
+{
+    optional bool value = 1;
+}
+
+message cmsg_sint32
+{
+    optional sint32 value = 1;
+}
+
+message cmsg_uint32
+{
+    optional uint32 value = 1;
+}
+
+message cmsg_string
+{
+    optional string value = 1;
+}
+
+message mac_address
+{
+    repeated uint8 addr = 1;
+}
+
+enum prefix_family
+{
+    PREFIX_FAMILY_FIELD_NOT_SET = 0;
+    PREFIX_FAMILY_IPV4 = 1;
+    PREFIX_FAMILY_IPV6 = 2;
+}
+
+message prefix
+{
+    optional prefix_family family = 1;
+    optional uint8 prefix_len = 2;
+    repeated uint8 addr = 3;
+};
+
+message return_val_u32
+{
+    optional sint32 status = 1;
+    optional uint32 value = 2;
+};
+
+message vlan_bitmap
+{
+    repeated uint32 bitmap = 1;
+}
+
+message port_vid
+{
+    optional uint32 ifindex = 1;
+    optional uint16 vid = 2;
+}
+
+message cmsg_ifindex
+{
+    optional uint32 value = 1;
+}
+
+message ifindex_list
+{
+    repeated uint32 ifindex = 1;
+}
+
+//
+// Common type definitions used in different places throughout AW+. Putting
+// them here for now until a better place/structure is found.
+//
+
+enum fdb_action
+{
+    FDB_ACTION_NOT_SET           = 0;
+    FDB_ACTION_FLOOD_VLAN        = 1;  // FDB action is to flood the vlan
+    FDB_ACTION_FLOOD_PORT_GROUP  = 2;  // FDB action is to flood a port group
+    FDB_ACTION_SINGLE_PORT       = 3;  // FDB action is to send to a single port
+}
+
+enum nh_flag
+{
+    NH_FLAG_FIELD_NOT_SET = 0;
+    NH_FLAG_ENTRY_VALID = 1;
+    NH_FLAG_ENTRY_STATIC = 2;
+    NH_FLAG_ENTRY_DEL_IN_PROGRESS = 3;
+    NH_FLAG_ENTRY_DEPENDENT = 4;
+    NH_FLAG_ENTRY_PROXY = 5;
+    NH_FLAG_NUM_NH = 6;
+}
+
+enum nh_type
+{
+    NH_TYPE_NOT_SET = 0;
+    NH_TYPE_FLOOD_VLAN = 1;
+    NH_TYPE_FLOOD_PORT_GROUP = 2;
+    NH_TYPE_SINGLE_PORT = 3;
+}
+
+message fib_next_hop
+{
+    optional uint32 fib_id = 1;
+    optional uint32 ifx = 2;
+    optional prefix fib_prefix = 3;
+    optional mac_address mac = 4;
+    optional uint32 port_ifx = 5;
+    repeated nh_flag flags = 6;
+    optional nh_type type = 7;
+    optional bool existing_group = 8;
+    optional prefix dependant_prefix = 9;
+}
+
+enum fib_prefix_type
+{
+    FIB_PREFIX_TO_CPU = 0;
+    FIB_PREFIX_BLACKHOLE = 1;
+    FIB_PREFIX_NH = 3;
+}
+
+message fib_prefix_route
+{
+    optional uint32 fib_id = 1;
+    optional prefix fib_prefix = 2;
+    optional fib_prefix_type type = 3;
+}
+
+message fib_rebuild_all_fn
+{
+    optional uint32 sender_id = 1;
+    optional uint32 last = 2;
+    repeated fib_next_hop nh_list = 3;
+    repeated fib_prefix_route prefix_list = 4;
+}
+
+enum ant_code
+{
+    // OK is returned on success.
+    ANT_CODE_OK = 0;
+
+    // Canceled indicates the operation was cancelled (typically by the caller).
+    ANT_CODE_CANCELLED = 1;
+
+    // Unknown error.  An example of where this error may be returned is
+    // if a Status value received from another address space belongs to
+    // an error-space that is not known in this address space.  Also
+    // errors raised by APIs that do not return enough error information
+    // may be converted to this error.
+    ANT_CODE_UNKNOWN = 2;
+
+    // InvalidArgument indicates client specified an invalid argument.
+    // Note that this differs from FailedPrecondition. It indicates arguments
+    // that are problematic regardless of the state of the system
+    // (e.g., a malformed file name).
+    ANT_CODE_INVALID_ARGUMENT = 3;
+
+    // DeadlineExceeded means operation expired before completion.
+    // For operations that change the state of the system, this error may be
+    // returned even if the operation has completed successfully. For
+    // example, a successful response from a server could have been delayed
+    // long enough for the deadline to expire.
+    ANT_CODE_DEADLINE_EXCEEDED = 4;
+
+    // NotFound means some requested entity (e.g., file or directory) was
+    // not found.
+    ANT_CODE_NOT_FOUND = 5;
+
+    // AlreadyExists means an attempt to create an entity failed because one
+    // already exists.
+    ANT_CODE_ALREADY_EXISTS = 6;
+
+    // PermissionDenied indicates the caller does not have permission to
+    // execute the specified operation. It must not be used for rejections
+    // caused by exhausting some resource (use ResourceExhausted
+    // instead for those errors).  It must not be
+    // used if the caller cannot be identified (use Unauthenticated
+    // instead for those errors).
+    ANT_CODE_PERMISSION_DENIED = 7;
+
+    // ResourceExhausted indicates some resource has been exhausted, perhaps
+    // a per-user quota, or perhaps the entire file system is out of space.
+    ANT_CODE_RESOURCE_EXHAUSTED = 8;
+
+    // FailedPrecondition indicates operation was rejected because the
+    // system is not in a state required for the operation's execution.
+    ANT_CODE_FAILED_PRECONDITION = 9;
+
+    // Aborted indicates the operation was aborted, typically due to a
+    // concurrency issue like sequencer check failures, transaction aborts,
+    // etc.
+    ANT_CODE_ABORTED = 10;
+
+    // OutOfRange means operation was attempted past the valid range.
+    // E.g., seeking or reading past end of file.
+    ANT_CODE_OUT_OF_RANGE = 11;
+
+    // Unimplemented indicates operation is not implemented or not
+    // supported/enabled in this service.
+    ANT_CODE_UNIMPLEMENTED = 12;
+
+    // Internal errors.  Means some invariants expected by underlying
+    // system has been broken.  If you see one of these errors,
+    // something is very broken.
+    ANT_CODE_INTERNAL = 13;
+
+    // Unavailable indicates the service is currently unavailable.
+    // This is a most likely a transient condition and may be corrected
+    // by retrying with a backoff.
+    ANT_CODE_UNAVAILABLE = 14;
+
+    // DataLoss indicates unrecoverable data loss or corruption.
+    ANT_CODE_DATALOSS = 15;
+
+    // Unauthenticated indicates the request does not have valid
+    // authentication credentials for the operation.
+    ANT_CODE_UNAUTHENTICATED = 16;
+    ANT_CODE_MAX = 17;
+}
+
+message ant_result
+{
+    optional ant_code code = 1;
+    optional string message = 2;
+}
+
+message ant_result_plus_bool
+{
+    optional ant_result _error_info = 1;
+    optional bool _data = 2;
+}
+
+message ant_result_plus_uint32
+{
+    optional ant_result _error_info = 1;
+    optional uint32 _data = 2;
+}
+
+message ant_result_plus_uint32_array
+{
+    optional ant_result _error_info = 1;
+    repeated uint32 _data = 2;
+}
+
+message ant_result_plus_repeated_string
+{
+    optional ant_result _error_info = 1;
+    repeated string _data = 2;
+}
