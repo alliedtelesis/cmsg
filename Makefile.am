@@ -171,6 +171,8 @@ cmsg-proxy/cmsg_proxy_unit_tests_proxy_def.c cmsg-proxy/cmsg_proxy_unit_tests_pr
 
 bin_PROGRAMS += cmsg-proxy/cmsg_proxy_unit_tests
 cmsg_proxy_cmsg_proxy_unit_tests_SOURCES = \
+	cmsg-proxy/common.pb-c.c \
+	cmsg-proxy/common.pb-c.h \
 	cmsg-proxy/cmsg_proxy_unit_tests_proxy_def.c \
 	cmsg-proxy/cmsg_proxy_unit_tests_proxy_def.h \
 	cmsg-proxy/cmsg_proxy_unit_tests_api_auto.c \
@@ -182,7 +184,7 @@ cmsg_proxy_cmsg_proxy_unit_tests_CFLAGS  = $(AM_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_proxy_cmsg_proxy_unit_tests_LDFLAGS = -static
 cmsg_proxy_cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
                                            -lcmsg -lprotobuf-c -lprotobuf2json-c \
-                                           -ljansson -lcommon_proto_api
+                                           -ljansson
 endif
 
 #
