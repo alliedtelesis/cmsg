@@ -49,7 +49,7 @@ test_cmsg_proxy_service_info_init__list_entries (void)
 {
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
     cmsg_service_info *entry =
-        _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT,
+        _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", NULL, CMSG_HTTP_PUT,
                                                     NULL);
 
     NP_ASSERT_PTR_EQUAL (entry, cmsg_proxy_array_get ());
@@ -72,21 +72,21 @@ test_cmsg_proxy_find_service_from_url_and_verb (void)
 
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test",
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", NULL,
                                                         CMSG_HTTP_PUT, &json_object);
     NP_ASSERT_PTR_NOT_EQUAL (entry, NULL);
     NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_PUT);
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("BAD URL", CMSG_HTTP_PUT,
-                                                        &json_object);
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("BAD URL", NULL,
+                                                        CMSG_HTTP_PUT, &json_object);
     NP_ASSERT_PTR_EQUAL (entry, NULL);
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test",
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", NULL,
                                                         CMSG_HTTP_GET, &json_object);
     NP_ASSERT_PTR_NOT_EQUAL (entry, NULL);
     NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_GET);
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test",
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", NULL,
                                                         CMSG_HTTP_PATCH, &json_object);
     NP_ASSERT_PTR_EQUAL (entry, NULL);
 }
@@ -311,7 +311,7 @@ test_cmsg_proxy__invalid_json_input (void)
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
     request_handled =
-        cmsg_proxy ("/v1/test", CMSG_HTTP_PUT, "{", &output_json, &http_status);
+        cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_PUT, "{", &output_json, &http_status);
 
     NP_ASSERT_TRUE (request_handled);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
