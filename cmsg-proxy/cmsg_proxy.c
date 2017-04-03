@@ -103,6 +103,8 @@ ARRAY_SIZE_COMPILE_CHECK (ant_code_to_http_code_array, ANT_CODE_MAX);
 typedef cmsg_service_info *(*proxy_defs_array_get_func_ptr) ();
 typedef int (*proxy_defs_array_size_func_ptr) ();
 
+static pre_api_http_check_callback pre_api_check_callback = NULL;
+
 typedef struct
 {
     char *key;
@@ -1064,6 +1066,25 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
 }
 
 /**
+ * This calls the pre-API check callback provided by the application.
+ *
+ * @param http_verb - The HTTP request method
+ * @param message - This is assigned an error message if ANT_CODE_UNAVAILABLE
+ *                  is returned. The message should be freed by the caller.
+ * @return - ANT_CODE_UNAVAILABLE if the pre-check fails, otherwise ANT_CODE_OK.
+ */
+static ant_code
+_cmsg_proxy_pre_api_check (cmsg_http_verb http_verb, char **message)
+{
+    if (pre_api_check_callback && !pre_api_check_callback (http_verb, message))
+    {
+        return ANT_CODE_UNAVAILABLE;
+    }
+
+    return ANT_CODE_OK;
+}
+
+/**
  * Convert the input json string into a protobuf message structure.
  *
  * @param input_json - The json string to convert.
@@ -1529,6 +1550,18 @@ cmsg_proxy_init (void)
 }
 
 /**
+ * Set a callback that is called before making a request to the API.
+ * This can be used to prevent a call to the API based on some condition.
+ *
+ * @param cb - This is called before making a request to the API.
+ */
+void
+cmsg_proxy_set_pre_api_http_check_callback (pre_api_http_check_callback cb)
+{
+    pre_api_check_callback = cb;
+}
+
+/**
  * Deinitialize the cmsg proxy library
  */
 void
@@ -1644,8 +1677,19 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
         return true;
     }
     free (message);
+    message = NULL;
 
     CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_api_calls);
+
+    /* Do the pre-API check */
+    result = _cmsg_proxy_pre_api_check (http_verb, &message);
+    if (result != ANT_CODE_OK)
+    {
+        _cmsg_proxy_generate_ant_result_error (result, message, http_status, output_json);
+        free (message);
+        CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
+        return true;
+    }
 
     result = _cmsg_proxy_call_cmsg_api (client, input_proto_message,
                                         &output_proto_message, service_info);
