@@ -262,7 +262,7 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
                 /* Didn't allocate memory for recv buffer.  This is an error.
                  * Shut the socket down, it will reopen on the next api call.
                  * Record and return an error. */
-                client->_transport->client_close (client);
+                client->_transport->client_close (client->_transport);
                 CMSG_LOG_TRANSPORT_ERROR (client->_transport,
                                           "Couldn't allocate memory for server reply (TLV + message), closed the socket");
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
@@ -424,17 +424,17 @@ cmsg_transport_unix_oneway_server_send (cmsg_server *server, void *buff, int len
 }
 
 static void
-cmsg_transport_unix_client_close (cmsg_client *client)
+cmsg_transport_unix_client_close (cmsg_transport *transport)
 {
-    if (client->_transport->connection.sockets.client_socket != -1)
+    if (transport->connection.sockets.client_socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->_transport->connection.sockets.client_socket, SHUT_RDWR);
+        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (client->_transport->connection.sockets.client_socket);
+        close (transport->connection.sockets.client_socket);
 
-        client->_transport->connection.sockets.client_socket = -1;
+        transport->connection.sockets.client_socket = -1;
     }
 }
 

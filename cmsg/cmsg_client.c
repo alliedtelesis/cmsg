@@ -1686,7 +1686,7 @@ cmsg_client_close_wrapper (cmsg_client *client)
     {
         client->_transport->config.socket.crypto.close (sock);
     }
-    client->_transport->client_close (client);
+    client->_transport->client_close (client->_transport);
 }
 
 /* Destroy a cmsg client and its transport with TIPC */

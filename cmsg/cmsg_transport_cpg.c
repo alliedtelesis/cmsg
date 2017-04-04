@@ -524,7 +524,7 @@ cmsg_transport_cpg_server_send (cmsg_server *server, void *buff, int length, int
  * Client doesn't close when the message/response has been sent.
  */
 static void
-cmsg_transport_cpg_client_close (cmsg_client *client)
+cmsg_transport_cpg_client_close (cmsg_transport *transport)
 {
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] client cpg close done nothing\n");
 }

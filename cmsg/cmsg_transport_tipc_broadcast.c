@@ -217,17 +217,17 @@ cmsg_transport_tipc_broadcast_server_send (cmsg_server *server, void *buff, int 
  * Close the clients socket after a message has been sent.
  */
 static void
-cmsg_transport_tipc_broadcast_client_close (cmsg_client *client)
+cmsg_transport_tipc_broadcast_client_close (cmsg_transport *transport)
 {
-    if (client->_transport->connection.sockets.client_socket != -1)
+    if (transport->connection.sockets.client_socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->_transport->connection.sockets.client_socket, SHUT_RDWR);
+        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (client->_transport->connection.sockets.client_socket);
+        close (transport->connection.sockets.client_socket);
 
-        client->_transport->connection.sockets.client_socket = -1;
+        transport->connection.sockets.client_socket = -1;
     }
 }
 

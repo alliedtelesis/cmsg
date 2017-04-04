@@ -83,7 +83,7 @@ cmsg_transport_oneway_udt_server_send (cmsg_server *server, void *buff, int leng
 
 
 static void
-cmsg_transport_oneway_udt_client_close (cmsg_client *client)
+cmsg_transport_oneway_udt_client_close (cmsg_transport *transport)
 {
     // Function isn't needed for User Defined so nothing happens.
     return;
