@@ -406,10 +406,10 @@ cmsg_transport_unix_client_send (cmsg_transport *transport, void *buff, int leng
 }
 
 static int32_t
-cmsg_transport_unix_server_send (cmsg_server *server, void *buff, int length, int flag)
+cmsg_transport_unix_server_send (cmsg_transport *transport, void *buff, int length,
+                                 int flag)
 {
-    return (send
-            (server->_transport->connection.sockets.client_socket, buff, length, flag));
+    return (send (transport->connection.sockets.client_socket, buff, length, flag));
 }
 
 /**
@@ -417,7 +417,7 @@ cmsg_transport_unix_server_send (cmsg_server *server, void *buff, int length, in
  * returns 0.
  */
 static int32_t
-cmsg_transport_unix_oneway_server_send (cmsg_server *server, void *buff, int length,
+cmsg_transport_unix_oneway_server_send (cmsg_transport *transport, void *buff, int length,
                                         int flag)
 {
     return 0;

@@ -150,9 +150,10 @@ cmsg_transport_loopback_server_recv (int32_t server_socket, cmsg_server *server)
  * Server writes the response onto the pipe that client can read it off.
  */
 static int32_t
-cmsg_transport_loopback_server_send (cmsg_server *server, void *buff, int length, int flag)
+cmsg_transport_loopback_server_send (cmsg_transport *transport, void *buff, int length,
+                                     int flag)
 {
-    return write (server->_transport->connection.sockets.client_socket, buff, length);
+    return write (transport->connection.sockets.client_socket, buff, length);
 }
 
 /**

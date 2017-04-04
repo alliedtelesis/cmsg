@@ -511,7 +511,7 @@ cmsg_transport_cpg_client_send (cmsg_transport *transport, void *buff, int lengt
  * Servers don't send and so this function isn't implemented.
  */
 static int32_t
-cmsg_transport_cpg_server_send (cmsg_server *server, void *buff, int length, int flag)
+cmsg_transport_cpg_server_send (cmsg_transport *transport, void *buff, int length, int flag)
 {
     return 0;
 }

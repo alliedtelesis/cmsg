@@ -74,7 +74,7 @@ cmsg_transport_oneway_udt_client_recv (cmsg_client *client, ProtobufCMessage **m
 
 
 static int32_t
-cmsg_transport_oneway_udt_server_send (cmsg_server *server, void *buff, int length,
+cmsg_transport_oneway_udt_server_send (cmsg_transport *transport, void *buff, int length,
                                        int flag)
 {
     // Function isn't needed for User Defined so nothing happens.

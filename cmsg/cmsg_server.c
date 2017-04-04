@@ -891,7 +891,8 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
             return -1;
         }
 
-        ret = server->_transport->server_send (server, encrypt_buffer, encrypt_length, 0);
+        ret = server->_transport->server_send (server->_transport, encrypt_buffer,
+                                               encrypt_length, 0);
         /* if the send was successful, fixup the return length to match the original
          * plaintext length so callers are unaware of the encryption */
         if (encrypt_length == ret)
@@ -903,7 +904,7 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
     }
     else
     {
-        ret = server->_transport->server_send (server, buff, length, 0);
+        ret = server->_transport->server_send (server->_transport, buff, length, 0);
     }
 
     return ret;
