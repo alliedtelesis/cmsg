@@ -13,24 +13,19 @@
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-cmsg_transport_tipc_broadcast_connect (cmsg_client *client, int timeout)
+cmsg_transport_tipc_broadcast_connect (cmsg_transport *transport, int timeout)
 {
     int ret;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_broadcast_connect\n");
 
-    if (client == NULL)
-    {
-        return 0;
-    }
+    transport->connection.sockets.client_socket = socket (transport->config.socket.family,
+                                                          SOCK_RDM, 0);
 
-    client->_transport->connection.sockets.client_socket =
-        socket (client->_transport->config.socket.family, SOCK_RDM, 0);
-
-    if (client->_transport->connection.sockets.client_socket < 0)
+    if (transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
-        CMSG_LOG_TRANSPORT_ERROR (client->_transport, "Unable to create socket. Error:%s",
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
                                   strerror (errno));
         return ret;
     }

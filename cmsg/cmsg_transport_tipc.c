@@ -24,24 +24,19 @@ cmsg_transport_tipc_client_send (cmsg_transport *transport, void *buff, int leng
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-cmsg_transport_tipc_connect (cmsg_client *client, int timeout)
+cmsg_transport_tipc_connect (cmsg_transport *transport, int timeout)
 {
     int ret;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_connect\n");
 
-    if (client == NULL)
-    {
-        return 0;
-    }
+    transport->connection.sockets.client_socket = socket (transport->config.socket.family,
+                                                          SOCK_STREAM, 0);
 
-    client->_transport->connection.sockets.client_socket =
-        socket (client->_transport->config.socket.family, SOCK_STREAM, 0);
-
-    if (client->_transport->connection.sockets.client_socket < 0)
+    if (transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
-        CMSG_LOG_TRANSPORT_ERROR (client->_transport, "Unable to create socket. Error:%s",
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
                                   strerror (errno));
 
         return ret;
@@ -50,24 +45,24 @@ cmsg_transport_tipc_connect (cmsg_client *client, int timeout)
     if (timeout != CONNECT_TIMEOUT_DEFAULT)
     {
         int tipc_timeout = timeout;
-        setsockopt (client->_transport->connection.sockets.client_socket, SOL_TIPC,
+        setsockopt (transport->connection.sockets.client_socket, SOL_TIPC,
                     TIPC_CONN_TIMEOUT, &tipc_timeout, sizeof (int));
     }
 
-    ret = connect (client->_transport->connection.sockets.client_socket,
-                   (struct sockaddr *) &client->_transport->config.socket.sockaddr.tipc,
-                   sizeof (client->_transport->config.socket.sockaddr.tipc));
+    ret = connect (transport->connection.sockets.client_socket,
+                   (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
+                   sizeof (transport->config.socket.sockaddr.tipc));
     if (ret < 0)
     {
         ret = -errno;
         CMSG_LOG_DEBUG ("[TRANSPORT] error connecting to remote host (port %d inst %d): %s",
-                        client->_transport->config.socket.sockaddr.tipc.addr.name.name.type,
-                        client->_transport->config.socket.sockaddr.tipc.addr.name.name.
-                        instance, strerror (errno));
+                        transport->config.socket.sockaddr.tipc.addr.name.name.type,
+                        transport->config.socket.sockaddr.tipc.addr.name.name.instance,
+                        strerror (errno));
 
-        shutdown (client->_transport->connection.sockets.client_socket, SHUT_RDWR);
-        close (client->_transport->connection.sockets.client_socket);
-        client->_transport->connection.sockets.client_socket = -1;
+        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
+        close (transport->connection.sockets.client_socket);
+        transport->connection.sockets.client_socket = -1;
 
         return ret;
     }
@@ -83,7 +78,7 @@ cmsg_transport_tipc_connect (cmsg_client *client, int timeout)
                                              0, 0,
                                              CMSG_STATUS_CODE_UNSET);
 
-    ret = cmsg_transport_tipc_client_send (client->_transport, (void *) &header,
+    ret = cmsg_transport_tipc_client_send (transport, (void *) &header,
                                            sizeof (header), MSG_NOSIGNAL);
 
     /* Sending in this case should only fail if the server is not present - so
@@ -93,12 +88,12 @@ cmsg_transport_tipc_connect (cmsg_client *client, int timeout)
     {
         CMSG_LOG_DEBUG
             ("[TRANSPORT] error connecting (send) to remote host (port %d inst %d): ret %d %s",
-             client->_transport->config.socket.sockaddr.tipc.addr.name.name.type,
-             client->_transport->config.socket.sockaddr.tipc.addr.name.name.instance, ret,
+             transport->config.socket.sockaddr.tipc.addr.name.name.type,
+             transport->config.socket.sockaddr.tipc.addr.name.name.instance, ret,
              strerror (errno));
-        shutdown (client->_transport->connection.sockets.client_socket, SHUT_RDWR);
-        close (client->_transport->connection.sockets.client_socket);
-        client->_transport->connection.sockets.client_socket = -1;
+        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
+        close (transport->connection.sockets.client_socket);
+        transport->connection.sockets.client_socket = -1;
         return -1;
     }
 

@@ -324,7 +324,7 @@ cmsg_client_connect (cmsg_client *client)
             timeout = CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT;
         }
 
-        ret = client->_transport->connect (client, timeout);
+        ret = client->_transport->connect (client->_transport, timeout);
 
         if (ret < 0)
         {

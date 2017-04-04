@@ -19,40 +19,34 @@
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-cmsg_transport_unix_connect (cmsg_client *client, int timeout)
+cmsg_transport_unix_connect (cmsg_transport *transport, int timeout)
 {
     int32_t ret;
     struct sockaddr_un *addr;
     uint32_t addrlen;
 
-    if (client == NULL)
-    {
-        return 0;
-    }
+    transport->connection.sockets.client_socket = socket (transport->config.socket.family,
+                                                          SOCK_STREAM, 0);
 
-
-    client->_transport->connection.sockets.client_socket =
-        socket (client->_transport->config.socket.family, SOCK_STREAM, 0);
-
-    if (client->_transport->connection.sockets.client_socket < 0)
+    if (transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
-        CMSG_LOG_TRANSPORT_ERROR (client->_transport, "Unable to create socket. Error:%s",
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
                                   strerror (errno));
         return ret;
     }
 
-    addr = (struct sockaddr_un *) &client->_transport->config.socket.sockaddr.un;
-    addrlen = sizeof (client->_transport->config.socket.sockaddr.un);
+    addr = (struct sockaddr_un *) &transport->config.socket.sockaddr.un;
+    addrlen = sizeof (transport->config.socket.sockaddr.un);
 
-    if (connect (client->_transport->connection.sockets.client_socket, addr, addrlen) < 0)
+    if (connect (transport->connection.sockets.client_socket, addr, addrlen) < 0)
     {
         ret = -errno;
-        CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+        CMSG_LOG_TRANSPORT_ERROR (transport,
                                   "Failed to connect to remote host. Error:%s",
                                   strerror (errno));
-        close (client->_transport->connection.sockets.client_socket);
-        client->_transport->connection.sockets.client_socket = -1;
+        close (transport->connection.sockets.client_socket);
+        transport->connection.sockets.client_socket = -1;
 
         return ret;
     }

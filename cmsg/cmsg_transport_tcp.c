@@ -15,40 +15,35 @@
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-cmsg_transport_tcp_connect (cmsg_client *client, int timeout)
+cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
 {
     int ret;
     struct sockaddr *addr;
     uint32_t addr_len;
 
-    if (client == NULL)
-    {
-        return 0;
-    }
+    transport->connection.sockets.client_socket = socket (transport->config.socket.family,
+                                                          SOCK_STREAM, 0);
 
-    client->_transport->connection.sockets.client_socket =
-        socket (client->_transport->config.socket.family, SOCK_STREAM, 0);
-
-    if (client->_transport->connection.sockets.client_socket < 0)
+    if (transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
-        CMSG_LOG_TRANSPORT_ERROR (client->_transport, "Unable to create socket. Error:%s",
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
                                   strerror (errno));
         return ret;
     }
 
-    if (client->_transport->config.socket.family == PF_INET6)
+    if (transport->config.socket.family == PF_INET6)
     {
-        addr = (struct sockaddr *) &client->_transport->config.socket.sockaddr.in6;
-        addr_len = sizeof (client->_transport->config.socket.sockaddr.in6);
+        addr = (struct sockaddr *) &transport->config.socket.sockaddr.in6;
+        addr_len = sizeof (transport->config.socket.sockaddr.in6);
     }
     else
     {
-        addr = (struct sockaddr *) &client->_transport->config.socket.sockaddr.in;
-        addr_len = sizeof (client->_transport->config.socket.sockaddr.in);
+        addr = (struct sockaddr *) &transport->config.socket.sockaddr.in;
+        addr_len = sizeof (transport->config.socket.sockaddr.in);
     }
 
-    if (connect (client->_transport->connection.sockets.client_socket, addr, addr_len) < 0)
+    if (connect (transport->connection.sockets.client_socket, addr, addr_len) < 0)
     {
         if (errno == EINPROGRESS)
         {
@@ -56,12 +51,11 @@ cmsg_transport_tcp_connect (cmsg_client *client, int timeout)
         }
 
         ret = -errno;
-        CMSG_LOG_TRANSPORT_ERROR (client->_transport,
-                                  "Failed to connect to remote host. Error:%s",
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Failed to connect to remote host. Error:%s",
                                   strerror (errno));
 
-        close (client->_transport->connection.sockets.client_socket);
-        client->_transport->connection.sockets.client_socket = -1;
+        close (transport->connection.sockets.client_socket);
+        transport->connection.sockets.client_socket = -1;
 
         return ret;
     }

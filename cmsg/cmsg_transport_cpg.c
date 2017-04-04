@@ -186,10 +186,9 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
  * creating a server to send messages to the CPG executable.
  */
 static int32_t
-cmsg_transport_cpg_client_connect (cmsg_client *client, int timeout)
+cmsg_transport_cpg_client_connect (cmsg_transport *transport, int timeout)
 {
-    if (!client || !client->_transport ||
-        client->_transport->config.cpg.group_name.value[0] == '\0')
+    if (!transport || transport->config.cpg.group_name.value[0] == '\0')
     {
         CMSG_LOG_GEN_ERROR ("CPG connect failed. Invalid arguments.");
     }
@@ -197,20 +196,19 @@ cmsg_transport_cpg_client_connect (cmsg_client *client, int timeout)
     {
         CMSG_DEBUG (CMSG_INFO,
                     "[TRANSPORT] cpg connect group name: %s\n",
-                    client->_transport->config.cpg.group_name.value);
+                    transport->config.cpg.group_name.value);
     }
 
     if (cmsg_cpg_handle == 0)
     {
         /* CPG handle hasn't been created yet. */
-        CMSG_LOG_TRANSPORT_ERROR (client->_transport,
-                                  "Unable to find matching handle for group %s",
-                                  client->_transport->config.cpg.group_name.value);
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to find matching handle for group %s",
+                                  transport->config.cpg.group_name.value);
         return -1;
     }
 
     /* CPG handle has been created so use it. */
-    client->_transport->connection.cpg.handle = cmsg_cpg_handle;
+    transport->connection.cpg.handle = cmsg_cpg_handle;
     return 0;
 }
 

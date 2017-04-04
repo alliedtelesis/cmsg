@@ -147,13 +147,13 @@ cmsg_transport_oneway_udt_client_send (cmsg_transport *transport, void *buff, in
  * the client connection to connected.
  */
 static int32_t
-cmsg_transport_oneway_udt_connect (cmsg_client *client, int timeout)
+cmsg_transport_oneway_udt_connect (cmsg_transport *transport, int timeout)
 {
     int32_t ret = 0;
 
-    if (client->_transport->config.udt.connect)
+    if (transport->config.udt.connect)
     {
-        ret = client->_transport->config.udt.connect (client);
+        ret = transport->config.udt.connect (transport);
     }
 
     return ret;
