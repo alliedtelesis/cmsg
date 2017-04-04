@@ -214,7 +214,7 @@ cmsg_client *cmsg_create_and_connect_client_tipc_rpc (const char *server_name,
                                                       ProtobufCServiceDescriptor
                                                       *descriptor);
 
-void cmsg_client_close_wrapper (cmsg_client *client);
+void cmsg_client_close_wrapper (cmsg_transport *transport);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
 #endif

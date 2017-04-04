@@ -156,7 +156,8 @@ typedef int (*server_listen_f) (cmsg_server *server);
 typedef int (*server_recv_f) (int32_t socket, cmsg_server *server);
 typedef int (*server_accept_f) (int32_t socket, cmsg_transport *transport);
 
-typedef cmsg_status_code (*client_recv_f) (cmsg_client *client,
+typedef cmsg_status_code (*client_recv_f) (cmsg_transport *transport,
+                                           const ProtobufCServiceDescriptor *descriptor,
                                            ProtobufCMessage **messagePtPt);
 
 typedef int (*client_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
@@ -272,7 +273,9 @@ int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_serv
 int32_t cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
                                               cmsg_server *server);
 
-int32_t cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_client *client,
+int32_t cmsg_transport_client_recv (cmsg_recv_func recv, void *handle,
+                                    cmsg_transport *transport,
+                                    const ProtobufCServiceDescriptor *descriptor,
                                     ProtobufCMessage **messagePtPt);
 
 cmsg_transport *cmsg_create_transport_tipc (const char *server_name, int member_id,

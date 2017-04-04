@@ -280,20 +280,17 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_transport *transpo
 }
 
 static cmsg_status_code
-cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
+cmsg_transport_tcp_client_recv (cmsg_transport *transport,
+                                const ProtobufCServiceDescriptor *descriptor,
+                                ProtobufCMessage **messagePtPt)
 {
     cmsg_status_code ret;
 
     *messagePtPt = NULL;
 
-    if (!client)
-    {
-        return CMSG_STATUS_CODE_SERVICE_FAILED;
-    }
-
     ret = cmsg_transport_client_recv (cmsg_transport_tcp_recv,
-                                      (void *) &client->_transport->connection.
-                                      sockets.client_socket, client, messagePtPt);
+                                      (void *) &transport->connection.sockets.client_socket,
+                                      transport, descriptor, messagePtPt);
 
     return ret;
 }

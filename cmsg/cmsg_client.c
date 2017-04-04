@@ -225,7 +225,7 @@ cmsg_client_destroy (cmsg_client *client)
     client->state = CMSG_CLIENT_STATE_CLOSED;
     if (client->_transport)
     {
-        cmsg_client_close_wrapper (client);
+        cmsg_client_close_wrapper (client->_transport);
         client->_transport->client_destroy (client->_transport);
     }
 
@@ -287,7 +287,8 @@ cmsg_client_counter_create (cmsg_client *client, char *app_name)
 cmsg_status_code
 cmsg_client_response_receive (cmsg_client *client, ProtobufCMessage **message)
 {
-    return (client->_transport->client_recv (client, message));
+    return (client->_transport->client_recv (client->_transport, client->descriptor,
+                                             message));
 }
 
 
@@ -495,7 +496,7 @@ cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
 
         // close the connection and return early
         client->state = CMSG_CLIENT_STATE_CLOSED;
-        cmsg_client_close_wrapper (client);
+        cmsg_client_close_wrapper (client->_transport);
 
         CMSG_COUNTER_INC (client, cntr_recv_errors);
         return CMSG_RET_CLOSED;
@@ -1284,7 +1285,7 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
     {
         // close the connection as something must be wrong
         client->state = CMSG_CLIENT_STATE_CLOSED;
-        cmsg_client_close_wrapper (client);
+        cmsg_client_close_wrapper (client->_transport);
         // the connection may be down due to a problem since the last send
         // attempt once to reconnect and send
         connect_error = cmsg_client_connect (client);
@@ -1716,15 +1717,15 @@ cmsg_create_client_loopback (ProtobufCService *service)
  *
  */
 void
-cmsg_client_close_wrapper (cmsg_client *client)
+cmsg_client_close_wrapper (cmsg_transport *transport)
 {
-    int sock = client->_transport->connection.sockets.client_socket;
+    int sock = transport->connection.sockets.client_socket;
 
-    if (client->_transport->config.socket.crypto.close)
+    if (transport->config.socket.crypto.close)
     {
-        client->_transport->config.socket.crypto.close (sock);
+        transport->config.socket.crypto.close (sock);
     }
-    client->_transport->client_close (client->_transport);
+    transport->client_close (transport);
 }
 
 /* Destroy a cmsg client and its transport with TIPC */

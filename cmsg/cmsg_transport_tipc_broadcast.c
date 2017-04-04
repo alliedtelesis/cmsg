@@ -129,7 +129,8 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server *server)
  * defined
  */
 static cmsg_status_code
-cmsg_transport_tipc_broadcast_client_recv (cmsg_client *client,
+cmsg_transport_tipc_broadcast_client_recv (cmsg_transport *transport,
+                                           const ProtobufCServiceDescriptor *descriptor,
                                            ProtobufCMessage **messagePtPt)
 {
     *messagePtPt = NULL;

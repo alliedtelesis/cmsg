@@ -396,7 +396,9 @@ cmsg_transport_cpg_server_recv (int32_t socket, cmsg_server *server)
  * defined
  */
 static cmsg_status_code
-cmsg_transport_cpg_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
+cmsg_transport_cpg_client_recv (cmsg_transport *transport,
+                                const ProtobufCServiceDescriptor *descriptor,
+                                ProtobufCMessage **messagePtPt)
 {
 
     *messagePtPt = NULL;

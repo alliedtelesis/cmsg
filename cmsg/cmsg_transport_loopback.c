@@ -194,7 +194,9 @@ cmsg_transport_loopback_server_destroy (cmsg_transport *transport)
 
 
 cmsg_status_code
-cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
+cmsg_transport_loopback_client_recv (cmsg_transport *transport,
+                                     const ProtobufCServiceDescriptor *descriptor,
+                                     ProtobufCMessage **messagePtPt)
 {
     int nbytes = 0;
     uint32_t dyn_len = 0;
@@ -210,20 +212,14 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
 
     *messagePtPt = NULL;
 
-    if (!client)
-    {
-        return CMSG_STATUS_CODE_SUCCESS;
-    }
-
-    nbytes =
-        read (client->_transport->connection.sockets.client_socket, &header_received,
-              sizeof (cmsg_header));
+    nbytes = read (transport->connection.sockets.client_socket, &header_received,
+                   sizeof (cmsg_header));
     if (nbytes == (int) sizeof (cmsg_header))
     {
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
-            CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+            CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "Unable to process message header for client receive. Bytes:%d",
                                       nbytes);
             return CMSG_STATUS_CODE_SERVICE_FAILED;
@@ -258,15 +254,13 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         }
 
         //just recv the rest of the data to clear the socket
-        nbytes =
-            read (client->_transport->connection.sockets.client_socket, recv_buffer,
-                  dyn_len);
+        nbytes = read (transport->connection.sockets.client_socket, recv_buffer, dyn_len);
 
         if (nbytes == (int) dyn_len)
         {
 
             cmsg_tlv_header_process (recv_buffer, &server_request, extra_header_size,
-                                     client->descriptor);
+                                     descriptor);
 
             recv_buffer = recv_buffer + extra_header_size;
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
@@ -275,14 +269,14 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
 
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
-            desc = client->descriptor->methods[server_request.method_index].output;
-            message =
-                protobuf_c_message_unpack (desc, allocator,
-                                           header_converted.message_length, recv_buffer);
+            desc = descriptor->methods[server_request.method_index].output;
+            message = protobuf_c_message_unpack (desc, allocator,
+                                                 header_converted.message_length,
+                                                 recv_buffer);
 
             if (message == NULL)
             {
-                CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+                CMSG_LOG_TRANSPORT_ERROR (transport,
                                           "Error unpacking response message. Bytes:%d",
                                           header_converted.message_length);
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
@@ -293,7 +287,7 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         else
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d no data\n",
-                        client->_transport->connection.sockets.client_socket);
+                        transport->connection.sockets.client_socket);
         }
         if (recv_buffer != (void *) buf_static)
         {
@@ -314,15 +308,14 @@ cmsg_transport_loopback_client_recv (cmsg_client *client, ProtobufCMessage **mes
         if (errno == ECONNRESET)
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                        client->_transport->connection.sockets.client_socket,
-                        strerror (errno));
+                        transport->connection.sockets.client_socket, strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
         {
-            CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+            CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "Receive error for socket %d. Error: %s",
-                                      client->_transport->connection.sockets.client_socket,
+                                      transport->connection.sockets.client_socket,
                                       strerror (errno));
         }
     }
