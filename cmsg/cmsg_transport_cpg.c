@@ -540,7 +540,7 @@ cmsg_transport_cpg_server_close (cmsg_transport *transport)
 }
 
 static void
-cmsg_transport_cpg_client_destroy (cmsg_client *cmsg_client)
+cmsg_transport_cpg_client_destroy (cmsg_transport *transport)
 {
     //placeholder to make sure destroy functions are called in the right order
 }

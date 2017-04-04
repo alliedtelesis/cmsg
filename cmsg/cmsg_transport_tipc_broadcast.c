@@ -268,7 +268,7 @@ cmsg_transport_tipc_broadcast_client_get_socket (cmsg_client *client)
  * Close the client
  */
 static void
-cmsg_transport_tipc_broadcast_client_destroy (cmsg_client *cmsg_client)
+cmsg_transport_tipc_broadcast_client_destroy (cmsg_transport *transport)
 {
     //placeholder to make sure destroy functions are called in the right order
 }

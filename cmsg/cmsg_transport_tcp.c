@@ -370,7 +370,7 @@ cmsg_transport_tcp_client_get_socket (cmsg_client *client)
 }
 
 static void
-cmsg_transport_tcp_client_destroy (cmsg_client *cmsg_client)
+cmsg_transport_tcp_client_destroy (cmsg_transport *transport)
 {
     //placeholder to make sure destroy functions are called in the right order
 }

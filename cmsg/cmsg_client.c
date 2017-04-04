@@ -198,7 +198,7 @@ cmsg_client_destroy (cmsg_client *client)
     if (client->_transport)
     {
         cmsg_client_close_wrapper (client);
-        client->_transport->client_destroy (client);
+        client->_transport->client_destroy (client->_transport);
     }
 
     pthread_mutex_destroy (&client->invoke_mutex);
