@@ -35,7 +35,6 @@
 #define CONNECT_TIMEOUT_DEFAULT -1
 
 //forward delarations
-typedef struct _cmsg_client_s cmsg_client;
 typedef struct _cmsg_server_s cmsg_server;
 
 typedef int (*encrypt_f) (int sock, void *inbuf, int length, void *outbuf, int outbuf_size);

@@ -4,6 +4,8 @@
 #ifndef __CMSG_CLIENT_H_
 #define __CMSG_CLIENT_H_
 
+typedef struct _cmsg_client_s cmsg_client;
+
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 #include "cmsg_queue.h"
