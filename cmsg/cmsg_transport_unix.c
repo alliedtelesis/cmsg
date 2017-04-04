@@ -515,7 +515,6 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
     transport->server_recv = cmsg_transport_unix_server_recv;
     transport->client_recv = cmsg_transport_unix_client_recv;
     transport->client_send = cmsg_transport_unix_client_send;
-    transport->invoke_send = cmsg_client_invoke_send;
     transport->client_close = cmsg_transport_unix_client_close;
     transport->server_close = cmsg_transport_unix_server_close;
     transport->client_destroy = cmsg_transport_unix_client_destroy;
@@ -542,7 +541,6 @@ cmsg_transport_rpc_unix_init (cmsg_transport *transport)
 
     transport->server_send = cmsg_transport_unix_server_send;
     transport->closure = cmsg_server_closure_rpc;
-    transport->invoke_recv = cmsg_client_invoke_recv;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
@@ -560,7 +558,6 @@ cmsg_transport_oneway_unix_init (cmsg_transport *transport)
 
     transport->server_send = cmsg_transport_unix_oneway_server_send;
     transport->closure = cmsg_server_closure_rpc;
-    transport->invoke_recv = NULL;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }

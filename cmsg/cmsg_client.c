@@ -42,6 +42,43 @@ static int32_t cmsg_client_invoke (ProtobufCService *service,
 static int32_t cmsg_client_queue_input (cmsg_client *client, uint32_t method_index,
                                         const ProtobufCMessage *input, bool *did_queue);
 
+static void
+cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
+{
+    // Note these may be subsequently overridden (e.g. composite client)
+    client->invoke = cmsg_client_invoke;
+    client->base_service.invoke = cmsg_client_invoke;
+
+    if (transport)
+    {
+        switch (transport->type)
+        {
+        case CMSG_TRANSPORT_RPC_LOCAL:
+        case CMSG_TRANSPORT_RPC_TCP:
+        case CMSG_TRANSPORT_RPC_TIPC:
+        case CMSG_TRANSPORT_RPC_UNIX:
+            client->invoke_send = cmsg_client_invoke_send;
+            client->invoke_recv = cmsg_client_invoke_recv;
+            break;
+        case CMSG_TRANSPORT_ONEWAY_TCP:
+        case CMSG_TRANSPORT_ONEWAY_TIPC:
+        case CMSG_TRANSPORT_CPG:
+        case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
+        case CMSG_TRANSPORT_BROADCAST:
+        case CMSG_TRANSPORT_ONEWAY_UNIX:
+            client->invoke_send = cmsg_client_invoke_send;
+            client->invoke_recv = NULL;
+            break;
+        case CMSG_TRANSPORT_LOOPBACK:
+            client->invoke_send = cmsg_client_invoke_send_direct;
+            client->invoke_recv = cmsg_client_invoke_recv_direct;
+            break;
+        default:
+            assert (false && "Unknown transport type");
+        }
+    }
+}
+
 /*
  * This is an internal function which can be called from CMSG library.
  * Applications should use cmsg_client_new() instead.
@@ -71,15 +108,7 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         client->descriptor = descriptor;
         client->base_service.descriptor = descriptor;
 
-        // Note these may be subsequently overridden (e.g. composite client)
-        client->invoke = cmsg_client_invoke;
-        client->base_service.invoke = cmsg_client_invoke;
-
-        if (transport)
-        {
-            client->invoke_send = transport->invoke_send;
-            client->invoke_recv = transport->invoke_recv;
-        }
+        cmsg_client_invoke_init (client, transport);
 
         client->self.object_type = CMSG_OBJ_TYPE_CLIENT;
         client->self.object = client;

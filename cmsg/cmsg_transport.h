@@ -158,11 +158,6 @@ typedef cmsg_status_code (*client_recv_f) (cmsg_client *client,
 typedef int (*client_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
 typedef int (*server_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
 
-typedef int32_t (*invoke_send_f) (cmsg_client *client, uint32_t method_index,
-                                  const ProtobufCMessage *input);
-typedef int32_t (*invoke_recv_f) (cmsg_client *client, uint32_t method_index,
-                                  ProtobufCClosure closure, void *closure_data);
-
 typedef void (*client_close_f) (cmsg_transport *transport);
 typedef void (*server_close_f) (cmsg_transport *transport);
 typedef int (*s_get_socket_f) (cmsg_transport *transport);
@@ -217,8 +212,6 @@ struct _cmsg_transport_s
     client_send_f client_send;                                              // client send function
     server_send_f server_send;                                              // server send function
     ProtobufCClosure closure;                                               // rpc closure function
-    invoke_send_f invoke_send;                                              // invoke send function
-    invoke_recv_f invoke_recv;                                              // invoke recv function
     client_close_f client_close;                                            // client close socket function
     server_close_f server_close;                                            // server close socket function
     s_get_socket_f s_socket;                                                //
