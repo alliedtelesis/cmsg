@@ -155,7 +155,7 @@ typedef int (*server_accept_f) (int32_t socket, cmsg_server *server);
 typedef cmsg_status_code (*client_recv_f) (cmsg_client *client,
                                            ProtobufCMessage **messagePtPt);
 
-typedef int (*client_send_f) (cmsg_client *client, void *buff, int length, int flag);
+typedef int (*client_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
 typedef int (*server_send_f) (cmsg_server *server, void *buff, int length, int flag);
 
 typedef int32_t (*invoke_send_f) (cmsg_client *client, uint32_t method_index,

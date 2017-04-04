@@ -726,8 +726,8 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
             return -1;
         }
 
-        ret = client->_transport->client_send (client, encrypt_buffer, encrypt_length,
-                                               flag);
+        ret = client->_transport->client_send (client->_transport, encrypt_buffer,
+                                               encrypt_length, flag);
         /* if the send was successful, fixup the return length to match the original
          * plaintext length so callers are unaware of the encryption */
         if (encrypt_length == ret)
@@ -739,7 +739,7 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
     }
     else
     {
-        ret = client->_transport->client_send (client, buffer, length, flag);
+        ret = client->_transport->client_send (client->_transport, buffer, length, flag);
     }
 
     return ret;

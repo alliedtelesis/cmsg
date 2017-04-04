@@ -147,18 +147,15 @@ cmsg_transport_tipc_broadcast_client_recv (cmsg_client *client,
  * addressing structure. Does not block.
  */
 static int32_t
-cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int length,
-                                           int flag)
+cmsg_transport_tipc_broadcast_client_send (cmsg_transport *transport, void *buff,
+                                           int length, int flag)
 {
     int retries = 0;
     int saved_errno = 0;
 
-    int result = sendto (client->_transport->connection.sockets.client_socket,
-                         buff,
-                         length,
+    int result = sendto (transport->connection.sockets.client_socket, buff, length,
                          MSG_DONTWAIT,
-                         (struct sockaddr *) &client->_transport->config.socket.
-                         sockaddr.tipc,
+                         (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                          sizeof (struct sockaddr_tipc));
 
     if (result != length)
@@ -171,12 +168,10 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
             usleep (50000);
             retries++;
 
-            result = sendto (client->_transport->connection.sockets.client_socket,
-                             buff,
-                             length,
+            result = sendto (transport->connection.sockets.client_socket, buff, length,
                              MSG_DONTWAIT,
-                             (struct sockaddr *) &client->_transport->config.
-                             socket.sockaddr.tipc, sizeof (struct sockaddr_tipc));
+                             (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
+                             sizeof (struct sockaddr_tipc));
 
             saved_errno = errno;
         }
@@ -184,7 +179,7 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_client *client, void *buff, int 
 
     if (retries >= 25)
     {
-        CMSG_LOG_TRANSPORT_ERROR (client->_transport,
+        CMSG_LOG_TRANSPORT_ERROR (transport,
                                   "Failed to send tipc broadcast message. Exceeded %d retries. Last error: %s.",
                                   retries, strerror (saved_errno));
         errno = saved_errno;

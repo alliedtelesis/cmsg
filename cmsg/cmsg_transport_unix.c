@@ -399,10 +399,10 @@ cmsg_transport_unix_client_recv (cmsg_client *client, ProtobufCMessage **message
 
 
 static int32_t
-cmsg_transport_unix_client_send (cmsg_client *client, void *buff, int length, int flag)
+cmsg_transport_unix_client_send (cmsg_transport *transport, void *buff, int length,
+                                 int flag)
 {
-    return (send
-            (client->_transport->connection.sockets.client_socket, buff, length, flag));
+    return (send (transport->connection.sockets.client_socket, buff, length, flag));
 }
 
 static int32_t

@@ -443,7 +443,7 @@ cmsg_transport_cpg_is_congested (cmsg_transport *transport)
  * Returns
  */
 static int32_t
-cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int flag)
+cmsg_transport_cpg_client_send (cmsg_transport *transport, void *buff, int length, int flag)
 {
     struct iovec iov;
     uint32_t res = CPG_OK;
@@ -451,18 +451,18 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
     iov.iov_len = length;
     iov.iov_base = buff;
 
-    if (client->_transport->send_called_multi_enabled)
+    if (transport->send_called_multi_enabled)
     {
         // Get send lock to make sure we are the only one sending
-        pthread_mutex_lock (&(client->_transport->send_lock));
+        pthread_mutex_lock (&(transport->send_lock));
     }
 
     /* Block the current thread until CPG is not congested */
-    while (client->_transport->send_can_block)
+    while (transport->send_can_block)
     {
 
         /* Check this CPG's flow control status from the AIS library */
-        if (!cmsg_transport_cpg_is_congested (client->_transport))
+        if (!cmsg_transport_cpg_is_congested (transport))
         {
             break;
         }
@@ -472,16 +472,14 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
     }
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cpg send message to handle %llu\n",
-                client->_transport->connection.cpg.handle);
+                transport->connection.cpg.handle);
 
     /* Keep trying to send the message until it succeeds (e.g. blocks)
      */
-    while (client->_transport->send_can_block)
+    while (transport->send_can_block)
     {
         /* Attempt to send message. */
-        res =
-            cpg_mcast_joined (client->_transport->connection.cpg.handle, CPG_TYPE_AGREED,
-                              &iov, 1);
+        res = cpg_mcast_joined (transport->connection.cpg.handle, CPG_TYPE_AGREED, &iov, 1);
         if (res != CPG_ERR_TRY_AGAIN)
         {
             break;  /* message sent, or failure, quit loop now. */
@@ -491,15 +489,14 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
         usleep (100000);
     }
 
-    if (client->_transport->send_called_multi_enabled)
+    if (transport->send_called_multi_enabled)
     {
-        pthread_mutex_unlock (&client->_transport->send_lock);
+        pthread_mutex_unlock (&transport->send_lock);
     }
 
     if (res != CPG_OK)
     {
-        CMSG_LOG_TRANSPORT_ERROR (client->_transport,
-                                  "CPG multicast joined failed. Error:%d", res);
+        CMSG_LOG_TRANSPORT_ERROR (transport, "CPG multicast joined failed. Error:%d", res);
         return -1;
     }
 

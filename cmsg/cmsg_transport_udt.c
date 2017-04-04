@@ -127,14 +127,14 @@ cmsg_transport_oneway_udt_server_destroy (cmsg_transport *transport)
 }
 
 static int32_t
-cmsg_transport_oneway_udt_client_send (cmsg_client *client, void *buff, int length,
+cmsg_transport_oneway_udt_client_send (cmsg_transport *transport, void *buff, int length,
                                        int flag)
 {
 
-    if (client->_transport->config.udt.send)
+    if (transport->config.udt.send)
     {
-        return (client->_transport->config.udt.send
-                (client->_transport->config.udt.udt_data, buff, length, flag));
+        return (transport->config.udt.send (transport->config.udt.udt_data, buff,
+                                            length, flag));
     }
 
     // Function isn't defined so just pretend the message was sent.

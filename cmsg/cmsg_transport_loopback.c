@@ -33,7 +33,8 @@ cmsg_transport_loopback_connect (cmsg_client *client)
  * Nothing to send so return -1, shouldn't get here so it needs to be an error.
  */
 static int32_t
-cmsg_transport_loopback_client_send (cmsg_client *client, void *buff, int length, int flag)
+cmsg_transport_loopback_client_send (cmsg_transport *transport, void *buff, int length,
+                                     int flag)
 {
     return -1;
 }

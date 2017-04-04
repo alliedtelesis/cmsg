@@ -16,7 +16,8 @@
 
 /* Forward function declaration required for tipc connect function */
 static int32_t
-cmsg_transport_tipc_client_send (cmsg_client *client, void *buff, int length, int flag);
+cmsg_transport_tipc_client_send (cmsg_transport *transport, void *buff, int length,
+                                 int flag);
 
 /**
  * Create a TIPC socket connection.
@@ -82,9 +83,8 @@ cmsg_transport_tipc_connect (cmsg_client *client)
                                              0, 0,
                                              CMSG_STATUS_CODE_UNSET);
 
-    ret =
-        cmsg_transport_tipc_client_send (client, (void *) &header, sizeof (header),
-                                         MSG_NOSIGNAL);
+    ret = cmsg_transport_tipc_client_send (client->_transport, (void *) &header,
+                                           sizeof (header), MSG_NOSIGNAL);
 
     /* Sending in this case should only fail if the server is not present - so
      * return without printing an error.
@@ -570,10 +570,10 @@ cmsg_transport_tipc_client_recv (cmsg_client *client, ProtobufCMessage **message
 
 
 static int32_t
-cmsg_transport_tipc_client_send (cmsg_client *client, void *buff, int length, int flag)
+cmsg_transport_tipc_client_send (cmsg_transport *transport, void *buff, int length,
+                                 int flag)
 {
-    return (send
-            (client->_transport->connection.sockets.client_socket, buff, length, flag));
+    return (send (transport->connection.sockets.client_socket, buff, length, flag));
 }
 
 static int32_t
