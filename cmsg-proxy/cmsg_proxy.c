@@ -22,8 +22,7 @@
 #include <dlfcn.h>
 #include <dirent.h>
 #include "cmsg_proxy_mem.h"
-#include <ipc/common_types_auto.h>
-#include <utility/sys.h>
+#include "common.pb-c.h"
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"
@@ -31,6 +30,12 @@
 
 #define MSG_BUF_LEN 200
 #define CMSG_PROXY_LIB_PATH "/var/packages/network/lib"
+
+/* work out the number of elements in an array */
+#define ARRAY_ELEMENTS(arr) (sizeof((arr)) / sizeof((arr)[0]))
+
+/* compile time check that an array has the expected number of elements */
+#define ARRAY_SIZE_COMPILE_CHECK(array,exp_num) G_STATIC_ASSERT(ARRAY_ELEMENTS((array)) == (exp_num))
 
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
@@ -802,7 +807,17 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
 
         new_object = json_pack (fmt, field_descriptor->name, value);
         break;
-        /* Not (currently) supported as URL parameters */
+    case PROTOBUF_C_TYPE_BOOL:
+        if (strcmp (value, "true") == 0)
+        {
+            new_object = json_pack ("{sb}", field_descriptor->name, true);
+        }
+        else if (strcmp (value, "false") == 0)
+        {
+            new_object = json_pack ("{sb}", field_descriptor->name, false);
+        }
+        break;
+        /* Not (currently) supported */
     case PROTOBUF_C_TYPE_UINT64:
     case PROTOBUF_C_TYPE_INT64:
     case PROTOBUF_C_TYPE_SINT64:
@@ -810,7 +825,6 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
     case PROTOBUF_C_TYPE_FIXED64:
     case PROTOBUF_C_TYPE_FLOAT:
     case PROTOBUF_C_TYPE_DOUBLE:
-    case PROTOBUF_C_TYPE_BOOL:
     case PROTOBUF_C_TYPE_BYTES:
     case PROTOBUF_C_TYPE_MESSAGE:
     default:
@@ -876,6 +890,41 @@ _cmsg_proxy_find_unparsed_field (const ProtobufCMessageDescriptor *msg_descripto
 }
 
 /**
+ * Sanity checks for a JSON object input to the web API
+ * by the user.
+ *
+ * @param json_object - Converted JSON object input by the user
+ * @param error - Error structure to hold error information
+ *
+ * @returns - true if sanity checks pass, false otherwise
+ */
+static bool
+_cmsg_proxy_json_object_sanity_check (json_t *json_object, json_error_t *error)
+{
+    const char *key;
+    json_t *value;
+
+    if (!json_is_object (json_object))
+    {
+        snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
+                  "JSON object expected but JSON value or array given");
+        return false;
+    }
+
+    /* Sanity check the user hasn't given the '_error_info' field */
+    json_object_foreach (json_object, key, value)
+    {
+        if (strcmp (key, "_error_info") == 0)
+        {
+            snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "Invalid JSON");
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Create a new json object from the json string that was given as
  * input with the cmsg proxy.
  *
@@ -897,8 +946,6 @@ _cmsg_proxy_json_object_create (const char *input_json,
     json_t *json_object = NULL;
     const char *stripped_string;
     int expected_input_fields = msg_descriptor->n_fields - g_list_length (url_parameters);
-    const char *key;
-    json_t *value;
 
     /* The '_error_info' field should never be set in the input path */
     if (protobuf_c_message_descriptor_get_field_by_name (msg_descriptor, "_error_info"))
@@ -923,20 +970,33 @@ _cmsg_proxy_json_object_create (const char *input_json,
 
     if (expected_input_fields == 1)
     {
-        if (json_is_object (converted_json))
-        {
-            json_decref (converted_json);
-            snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
-                      "JSON value or array expected but JSON object given");
-            return NULL;
-        }
-
         field_desc = _cmsg_proxy_find_unparsed_field (msg_descriptor, url_parameters);
         if (!field_desc)
         {
             /* Should never occur... */
             json_decref (converted_json);
             snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "Internal proxy error");
+            return NULL;
+        }
+
+        if (field_desc->type == PROTOBUF_C_TYPE_MESSAGE)
+        {
+            if (!_cmsg_proxy_json_object_sanity_check (converted_json, error))
+            {
+                json_decref (converted_json);
+                return NULL;
+            }
+
+            json_object = json_pack ("{so}", field_desc->name, converted_json);
+            /* json_pack with 'o' steals the reference to converted_json.
+             * Therefore we don't call decref for converted_json. */
+            return json_object;
+        }
+        else if (json_is_object (converted_json))
+        {
+            json_decref (converted_json);
+            snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
+                      "JSON value or array expected but JSON object given");
             return NULL;
         }
 
@@ -971,23 +1031,10 @@ _cmsg_proxy_json_object_create (const char *input_json,
     }
     else
     {
-        if (!json_is_object (converted_json))
+        if (!_cmsg_proxy_json_object_sanity_check (converted_json, error))
         {
             json_decref (converted_json);
-            snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
-                      "JSON object expected but JSON value given");
             return NULL;
-        }
-
-        /* Sanity check the user hasn't given the '_error_info' field */
-        json_object_foreach (converted_json, key, value)
-        {
-            if (strcmp (key, "_error_info") == 0)
-            {
-                json_decref (converted_json);
-                snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "Invalid JSON");
-                return NULL;
-            }
         }
 
         return converted_json;

@@ -26,7 +26,7 @@ extern cmsg_client *cmsg_client_create (cmsg_transport *transport,
  * is returned, as the call may have work on one or more of the other clients.
  */
 static int32_t
-cmsg_composite_client_invoke (ProtobufCService *service, unsigned method_index,
+cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
                               const ProtobufCMessage *input, ProtobufCClosure closure,
                               void *closure_data)
 {

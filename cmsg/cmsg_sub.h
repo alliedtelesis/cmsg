@@ -17,7 +17,7 @@ typedef struct _cmsg_sub_s
     //to not change the order of the first two
     const ProtobufCServiceDescriptor *descriptor;
     int32_t (*invoke) (ProtobufCService *service,
-                       unsigned method_index,
+                       uint32_t method_index,
                        const ProtobufCMessage *input,
                        ProtobufCClosure closure, void *closure_data);
 

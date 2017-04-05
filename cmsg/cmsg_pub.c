@@ -664,7 +664,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
 int32_t
 cmsg_pub_invoke (ProtobufCService *service,
-                 unsigned method_index,
+                 uint32_t method_index,
                  const ProtobufCMessage *input,
                  ProtobufCClosure closure, void *closure_data)
 {
