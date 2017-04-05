@@ -360,6 +360,28 @@ cmsg_asprintf (const char *filename, int line, char **strp, const char *fmt, ...
     return ret;
 }
 
+void *
+cmsg_realloc (void *ptr, size_t size, const char *filename, int line)
+{
+    void *p = NULL;
+
+    if (cmsg_mtype > 0)
+    {
+        /* if realloc fails it returns NULL and ptr is left unchanged.  However, we have
+         * already marked it as freed.  If realloc fails, we have bigger problems, so
+         * just ignore that case.
+         */
+        g_mem_record_free (ptr, cmsg_mtype, filename, line);
+    }
+    p = realloc (ptr, size);
+    if (cmsg_mtype > 0)
+    {
+        g_mem_record_alloc (p, cmsg_mtype, filename, line);
+    }
+
+    return p;
+}
+
 void
 cmsg_free (void *ptr, const char *filename, int line)
 {
@@ -439,6 +461,45 @@ void
 cmsg_msg_array_free (void *msg_array, const char *file, int line)
 {
     cmsg_free (msg_array, file, line);
+}
+
+/**
+ * If ptr is non-null, this function uses realloc to increase the length of the passed in
+ * pointer array by 1 and sets the last element to point to the passed in ptr. The
+ * num_elems field is also incremented if this is done.  If reallocation fails or ptr is
+ * NULL, the original array is returned untouched.  Can be called when no elements are in
+ * the array yet.
+ * This function is designed to be called by CMSG_REPEATED_APPEND
+ * @param msg_ptr_array pointer to array of pointers to elements for a repeated field
+ * @param num_elems Pointer to field containing number of pointers stored in msg_ptr_array.
+ *        This is updated if the number is changed.
+ * @param ptr pointer to add at the end of the array.  If this is NULL, this function
+ *        does nothing.
+ * @param file file this is being called from
+ * @param line this is being called from.
+ * @returns the new pointer to the repeated array and updates *num_elems with the new number
+ * of elements. The returned pointer can be freed with CMSG_ARRAY_FREE but freeing the
+ * contents of the elements it points to is left up to the caller.
+ */
+void
+cmsg_repeated_append (void ***msg_ptr_array, size_t *num_elems, const void *ptr,
+                      const char *file, int line)
+{
+    void **new_array_ptr = NULL;
+
+    if (!ptr)
+    {
+        return;
+    }
+
+    new_array_ptr = cmsg_realloc (*msg_ptr_array, (*num_elems + 1) * sizeof (void *),
+                                  file, line);
+    if (new_array_ptr)
+    {
+        /* Add new element to array and increment number of elements */
+        new_array_ptr[(*num_elems)++] = (void *) ptr;
+        *msg_ptr_array = new_array_ptr;
+    }
 }
 
 static void *

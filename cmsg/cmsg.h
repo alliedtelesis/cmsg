@@ -26,6 +26,9 @@ void cmsg_malloc_init (int mtype);
 void **cmsg_msg_array_alloc (size_t struct_size, uint32_t num_structs,
                              const char *file, int line);
 void cmsg_msg_array_free (void *msg_array, const char *file, int line);
+/* note - use CMSG_REPEATED_APPEND() instead of calling this directly */
+void cmsg_repeated_append (void ***msg_ptr_array, size_t *num_elems, const void *ptr,
+                           const char *file, int line);
 
 extern ProtobufCAllocator cmsg_memory_allocator;
 
@@ -103,6 +106,29 @@ extern ProtobufCAllocator cmsg_memory_allocator;
  */
 #define CMSG_MSG_ARRAY_FREE(__msg_array) \
     cmsg_msg_array_free (__msg_array, __FILE__, __LINE__)
+
+/**
+ * Frees an array of pointers created by CMSG_REPEATED_APPEND. The contents of the pointers
+ * needs to be freed by the user.
+ */
+#define CMSG_REPEATED_FREE(_ptr_array) CMSG_MSG_ARRAY_FREE (_ptr_array)
+
+/**
+ * Helper macro to append an element to a repeated field in a message. This should only be
+ * used to append to arrays created with CMSG_REPEATED_APPEND.  It MUST NOT be used
+ * with CMSG_MSG_ARRAY_ALLOC. If _ptr is NULL, the field is not updated and the original
+ * values are kept.  Otherwise, uses realloc to extend the pointer array by 1 and sets _ptr
+ * in the last element. updates the number of elements parameter in the message too.  If
+ * the repeated field is empty, the first element is created.  Freeing the elements of the
+ * array after the message has been sent is left up to the user.  The array itself should
+ * be freed with CMSG_REPEATED_FREE.
+ * @param _name name of the message being modified
+ * @param _field name of the repeated field
+ * @param ptr pointer to append to repeated field
+ */
+#define CMSG_REPEATED_APPEND(_name, _field, _ptr)                                \
+    cmsg_repeated_append ((void ***) &((_name)->_field), &((_name)->n_##_field), \
+                          (const void *) _ptr, __FILE__, __LINE__)
 
 int cmsg_service_port_get (const char *name, const char *proto);
 
