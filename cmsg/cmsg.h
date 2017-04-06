@@ -130,6 +130,18 @@ extern ProtobufCAllocator cmsg_memory_allocator;
     cmsg_repeated_append ((void ***) &((_name)->_field), &((_name)->n_##_field), \
                           (const void *) _ptr, __FILE__, __LINE__)
 
+/**
+ * Helper macro to iterate over the pointers in a repeated field of a CMSG message
+ * @param _name name of message ptr variable.
+ * @param _field name of the repeated field
+ * @param _node pointer of the type of the repeated field.
+ * @param _idx integer variable to use as loop counter.
+ */
+#define CMSG_REPEATED_FOREACH(_name, _field, _node, _idx)  \
+    if ((_name) && (_name)->_field)                         \
+        for (_idx = 0; _idx < (_name)->n_##_field; _idx++) \
+            if ((_node = (_name)->_field[_idx]) != NULL)
+
 int cmsg_service_port_get (const char *name, const char *proto);
 
 const char *cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor);
