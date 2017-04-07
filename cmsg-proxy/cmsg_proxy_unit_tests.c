@@ -49,8 +49,7 @@ test_cmsg_proxy_service_info_init__list_entries (void)
 {
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
     cmsg_service_info *entry =
-        _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", NULL, CMSG_HTTP_PUT,
-                                                    NULL);
+        _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT, NULL);
 
     NP_ASSERT_PTR_EQUAL (entry, cmsg_proxy_array_get ());
     NP_ASSERT_PTR_EQUAL (entry->service_descriptor,
@@ -72,22 +71,22 @@ test_cmsg_proxy_find_service_from_url_and_verb (void)
 
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", NULL,
-                                                        CMSG_HTTP_PUT, &json_object);
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT,
+                                                        &json_object);
     NP_ASSERT_PTR_NOT_EQUAL (entry, NULL);
     NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_PUT);
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("BAD URL", NULL,
-                                                        CMSG_HTTP_PUT, &json_object);
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("BAD URL", CMSG_HTTP_PUT,
+                                                        &json_object);
     NP_ASSERT_PTR_EQUAL (entry, NULL);
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", NULL,
-                                                        CMSG_HTTP_GET, &json_object);
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_GET,
+                                                        &json_object);
     NP_ASSERT_PTR_NOT_EQUAL (entry, NULL);
     NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_GET);
 
-    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", NULL,
-                                                        CMSG_HTTP_PATCH, &json_object);
+    entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PATCH,
+                                                        &json_object);
     NP_ASSERT_PTR_EQUAL (entry, NULL);
 }
 
