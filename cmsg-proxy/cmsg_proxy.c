@@ -101,6 +101,7 @@ int ant_code_to_http_code_array[] = {
     HTTP_CODE_SERVICE_UNAVAILABLE,      /* ANT_CODE_UNAVAILABLE */
     HTTP_CODE_INTERNAL_SERVER_ERROR,    /* ANT_CODE_DATALOSS */
     HTTP_CODE_UNAUTHORIZED,             /* ANT_CODE_UNAUTHENTICATED */
+    HTTP_CODE_OK,                       /* ANT_CODE_BATCH_PARTIAL_FAIL */
 };
 
 ARRAY_SIZE_COMPILE_CHECK (ant_code_to_http_code_array, ANT_CODE_MAX);

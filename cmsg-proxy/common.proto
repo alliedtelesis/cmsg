@@ -226,7 +226,11 @@ enum ant_code
     // Unauthenticated indicates the request does not have valid
     // authentication credentials for the operation.
     ANT_CODE_UNAUTHENTICATED = 16;
-    ANT_CODE_MAX = 17;
+
+    // One or more items in a batch operation failed. The "details" field
+    // should be examined for more information.
+    ANT_CODE_BATCH_PARTIAL_FAIL = 17;
+    ANT_CODE_MAX = 18;
 }
 
 message ant_result
