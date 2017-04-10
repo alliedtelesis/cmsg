@@ -53,7 +53,7 @@ static int32_t _cmsg_transport_cpg_init_exe_connection (void);
 /*
  * Global variables
  */
-static GHashTable *cpg_group_name_to_server_hash_table_h = NULL;
+GHashTable *cpg_group_name_to_server_hash_table_h = NULL;
 static cpg_handle_t cmsg_cpg_handle = 0;
 
 cpg_callbacks_t cmsg_cpg_callbacks = {
@@ -328,12 +328,6 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     }
 
     server->_transport->connection.cpg.handle = cmsg_cpg_handle;
-
-    /* Add entry into the hash table for the server to be found by cpg group name.
-     */
-    g_hash_table_insert (cpg_group_name_to_server_hash_table_h,
-                         (gpointer) server->_transport->config.cpg.group_name.value,
-                         (gpointer) server);
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] server added %llu to hash table\n",
                 server->_transport->connection.cpg.handle);

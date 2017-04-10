@@ -11,6 +11,7 @@
 #include "cntrd_app_api.h"
 #endif
 
+extern GHashTable *cpg_group_name_to_server_hash_table_h;
 
 static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
                                                           uint8_t *buffer_data);
@@ -58,6 +59,16 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
 
         CMSG_DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n",
                     transport->type);
+
+#ifdef HAVE_VCSTACK
+        if (server->_transport->type == CMSG_TRANSPORT_CPG)
+        {
+            /* Add entry into the hash table for the server to be found by cpg group name. */
+            g_hash_table_insert (cpg_group_name_to_server_hash_table_h,
+                                 (gpointer) server->_transport->config.cpg.group_name.value,
+                                 (gpointer) server);
+        }
+#endif /* HAVE_VCSTACK */
 
         ret = transport->listen (server);
 
