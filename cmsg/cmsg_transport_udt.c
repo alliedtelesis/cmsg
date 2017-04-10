@@ -26,7 +26,7 @@
  *
  */
 static int32_t
-cmsg_transport_oneway_udt_listen (cmsg_server *server)
+cmsg_transport_oneway_udt_listen (cmsg_transport *transport)
 {
     // Function isn't needed for User Defined so nothing happens.
     return 0;

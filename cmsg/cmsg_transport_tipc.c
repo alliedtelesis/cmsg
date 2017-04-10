@@ -103,35 +103,27 @@ cmsg_transport_tipc_connect (cmsg_transport *transport, int timeout)
 
 
 static int32_t
-cmsg_transport_tipc_listen (cmsg_server *server)
+cmsg_transport_tipc_listen (cmsg_transport *transport)
 {
     int32_t yes = 1;    // for setsockopt() SO_REUSEADDR, below
     int32_t listening_socket = -1;
     int32_t ret = 0;
     socklen_t addrlen = 0;
-    cmsg_transport *transport = NULL;
 
-    if (server == NULL)
-    {
-        return 0;
-    }
+    transport->connection.sockets.listening_socket = 0;
+    transport->connection.sockets.client_socket = 0;
 
-    server->_transport->connection.sockets.listening_socket = 0;
-    server->_transport->connection.sockets.client_socket = 0;
-
-    transport = server->_transport;
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Socket failed. Error:%s",
-                                  strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Socket failed. Error:%s", strerror (errno));
         return -1;
     }
 
     ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int32_t));
     if (ret == -1)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Setsockopt failed. Error:%s",
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Setsockopt failed. Error:%s",
                                   strerror (errno));
         close (listening_socket);
         return -1;
@@ -143,8 +135,7 @@ cmsg_transport_tipc_listen (cmsg_server *server)
                 (struct sockaddr *) &transport->config.socket.sockaddr.tipc, addrlen);
     if (ret < 0)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Bind failed. Error:%s",
-                                  strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Bind failed. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -152,31 +143,30 @@ cmsg_transport_tipc_listen (cmsg_server *server)
     ret = listen (listening_socket, 10);
     if (ret < 0)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Listen failed. Error:%s",
-                                  strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Listen failed. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
 
-    server->_transport->connection.sockets.listening_socket = listening_socket;
+    transport->connection.sockets.listening_socket = listening_socket;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tipc socket: %d\n", listening_socket);
 
     CMSG_DEBUG (CMSG_INFO,
                 "[TRANSPORT] listening on tipc type: %d\n",
-                server->_transport->config.socket.sockaddr.tipc.addr.name.name.type);
+                transport->config.socket.sockaddr.tipc.addr.name.name.type);
 
     CMSG_DEBUG (CMSG_INFO,
                 "[TRANSPORT] listening on tipc instance: %d\n",
-                server->_transport->config.socket.sockaddr.tipc.addr.name.name.instance);
+                transport->config.socket.sockaddr.tipc.addr.name.name.instance);
 
     CMSG_DEBUG (CMSG_INFO,
                 "[TRANSPORT] listening on tipc domain: %d\n",
-                server->_transport->config.socket.sockaddr.tipc.addr.name.domain);
+                transport->config.socket.sockaddr.tipc.addr.name.domain);
 
     CMSG_DEBUG (CMSG_INFO,
                 "[TRANSPORT] listening on tipc scope: %d\n",
-                server->_transport->config.socket.sockaddr.tipc.scope);
+                transport->config.socket.sockaddr.tipc.scope);
 
     return 0;
 }

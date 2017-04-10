@@ -70,7 +70,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
         }
 #endif /* HAVE_VCSTACK */
 
-        ret = transport->listen (server);
+        ret = transport->listen (server->_transport);
 
         if (ret < 0)
         {

@@ -296,13 +296,12 @@ _cmsg_transport_cpg_join_group (cmsg_transport *transport)
  * the application to receive messages.
  */
 static int32_t
-cmsg_transport_cpg_server_listen (cmsg_server *server)
+cmsg_transport_cpg_server_listen (cmsg_transport *transport)
 {
     int res = 0;
     int fd = 0;
 
-    if (!server || !server->_transport ||
-        server->_transport->config.cpg.group_name.value[0] == '\0')
+    if (!transport || transport->config.cpg.group_name.value[0] == '\0')
     {
         CMSG_LOG_GEN_ERROR ("Invalid parameter for cpg server listen.");
         return -1;
@@ -311,7 +310,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     {
         CMSG_DEBUG (CMSG_INFO,
                     "[TRANSPORT] cpg listen group name: %s\n",
-                    server->_transport->config.cpg.group_name.value);
+                    transport->config.cpg.group_name.value);
     }
 
     /* If CPG connection has not been created do it now.
@@ -321,35 +320,33 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
         res = _cmsg_transport_cpg_init_exe_connection ();
         if (res < 0)
         {
-            CMSG_LOG_TRANSPORT_ERROR (server->_transport,
-                                      "CPG listen init failed. Result %d", res);
+            CMSG_LOG_TRANSPORT_ERROR (transport, "CPG listen init failed. Result %d", res);
             return -1;
         }
     }
 
-    server->_transport->connection.cpg.handle = cmsg_cpg_handle;
+    transport->connection.cpg.handle = cmsg_cpg_handle;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] server added %llu to hash table\n",
-                server->_transport->connection.cpg.handle);
+                transport->connection.cpg.handle);
 
-    res = _cmsg_transport_cpg_join_group (server->_transport);
+    res = _cmsg_transport_cpg_join_group (transport);
 
     if (res < 0)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "CPG listen join failed. Result %d",
-                                  res);
+        CMSG_LOG_TRANSPORT_ERROR (transport, "CPG listen join failed. Result %d", res);
         return -2;
     }
 
-    if (cpg_fd_get (server->_transport->connection.cpg.handle, &fd) == CPG_OK)
+    if (cpg_fd_get (transport->connection.cpg.handle, &fd) == CPG_OK)
     {
-        server->_transport->connection.cpg.fd = fd;
+        transport->connection.cpg.fd = fd;
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cpg listen got fd: %d\n", fd);
     }
     else
     {
-        server->_transport->connection.cpg.fd = 0;
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "CPG listen unable to get FD");
+        transport->connection.cpg.fd = 0;
+        CMSG_LOG_TRANSPORT_ERROR (transport, "CPG listen unable to get FD");
         return -3;
     }
 

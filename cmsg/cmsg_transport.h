@@ -151,7 +151,7 @@ typedef enum _cmsg_transport_type_e
 } cmsg_transport_type;
 
 typedef int (*client_connect_f) (cmsg_transport *transport, int timeout);
-typedef int (*server_listen_f) (cmsg_server *server);
+typedef int (*server_listen_f) (cmsg_transport *transport);
 typedef int (*server_recv_f) (int32_t socket, cmsg_server *server);
 typedef int (*server_accept_f) (int32_t socket, cmsg_transport *transport);
 

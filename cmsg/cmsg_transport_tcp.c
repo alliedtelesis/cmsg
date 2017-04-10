@@ -67,27 +67,20 @@ cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
 
 
 static int32_t
-cmsg_transport_tcp_listen (cmsg_server *server)
+cmsg_transport_tcp_listen (cmsg_transport *transport)
 {
     int32_t yes = 1;    // for setsockopt() SO_REUSEADDR, below
     int32_t listening_socket = -1;
     int32_t ret = 0;
     socklen_t addrlen = 0;
-    cmsg_transport *transport = NULL;
 
-    if (server == NULL)
-    {
-        return 0;
-    }
+    transport->connection.sockets.listening_socket = 0;
+    transport->connection.sockets.client_socket = 0;
 
-    server->_transport->connection.sockets.listening_socket = 0;
-    server->_transport->connection.sockets.client_socket = 0;
-
-    transport = server->_transport;
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Unable to create socket. Error:%s",
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
                                   strerror (errno));
         return -1;
     }
@@ -95,7 +88,7 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int32_t));
     if (ret == -1)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Unable to setsockopt. Error:%s",
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to setsockopt. Error:%s",
                                   strerror (errno));
         close (listening_socket);
         return -1;
@@ -113,7 +106,7 @@ cmsg_transport_tcp_listen (cmsg_server *server)
             setsockopt (listening_socket, IPPROTO_IP, IP_FREEBIND, &yes, sizeof (int32_t));
         if (ret == -1)
         {
-            CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Unable to setsockopt. Error:%s",
+            CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to setsockopt. Error:%s",
                                       strerror (errno));
             close (listening_socket);
             return -1;
@@ -132,7 +125,7 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     ret = bind (listening_socket, &transport->config.socket.sockaddr.generic, addrlen);
     if (ret < 0)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Unable to bind socket. Error:%s",
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to bind socket. Error:%s",
                                   strerror (errno));
         close (listening_socket);
         return -1;
@@ -141,24 +134,23 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     ret = listen (listening_socket, 10);
     if (ret < 0)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Listen failed. Error:%s",
-                                  strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Listen failed. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
 
-    server->_transport->connection.sockets.listening_socket = listening_socket;
+    transport->connection.sockets.listening_socket = listening_socket;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tcp socket: %d\n", listening_socket);
 
 #ifndef DEBUG_DISABLED
-    if (server->_transport->config.socket.family == PF_INET6)
+    if (transport->config.socket.family == PF_INET6)
     {
-        port = (int) (ntohs (server->_transport->config.socket.sockaddr.in6.sin6_port));
+        port = (int) (ntohs (transport->config.socket.sockaddr.in6.sin6_port));
     }
     else
     {
-        port = (int) (ntohs (server->_transport->config.socket.sockaddr.in.sin_port));
+        port = (int) (ntohs (transport->config.socket.sockaddr.in.sin_port));
     }
 #endif
 

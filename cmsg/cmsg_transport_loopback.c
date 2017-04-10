@@ -130,7 +130,7 @@ cmsg_transport_loopback_ipfree_bind_enable (cmsg_transport *transport,
  * Nothing to listen to, so return 0 as the server always attempts to listen.
  */
 static int32_t
-cmsg_transport_loopback_listen (cmsg_server *server)
+cmsg_transport_loopback_listen (cmsg_transport *transport)
 {
     return 0;
 }

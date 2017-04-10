@@ -39,25 +39,18 @@ cmsg_transport_tipc_broadcast_connect (cmsg_transport *transport, int timeout)
  * Creates the connectionless socket used to receive tipc messages
  */
 static int32_t
-cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
+cmsg_transport_tipc_broadcast_listen (cmsg_transport *transport)
 {
     int32_t listening_socket = -1;
     int32_t addrlen = 0;
-    cmsg_transport *transport = NULL;
-
-    if (server == NULL)
-    {
-        return 0;
-    }
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] Creating listen socket\n");
-    server->_transport->connection.sockets.listening_socket = 0;
-    transport = server->_transport;
+    transport->connection.sockets.listening_socket = 0;
 
     listening_socket = socket (transport->config.socket.family, SOCK_RDM, 0);
     if (listening_socket == -1)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "Failed to create socket. Error:%s",
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Failed to create socket. Error:%s",
                                   strerror (errno));
 
         return -1;
@@ -70,12 +63,12 @@ cmsg_transport_tipc_broadcast_listen (cmsg_server *server)
     if (bind (listening_socket,
               (struct sockaddr *) &transport->config.socket.sockaddr.tipc, addrlen) != 0)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "TIPC port could not be created");
+        CMSG_LOG_TRANSPORT_ERROR (transport, "TIPC port could not be created");
         return -1;
     }
 
     //TODO: Do we need a listen?
-    server->_transport->connection.sockets.listening_socket = listening_socket;
+    transport->connection.sockets.listening_socket = listening_socket;
     //TODO: Add debug
     return 0;
 }
