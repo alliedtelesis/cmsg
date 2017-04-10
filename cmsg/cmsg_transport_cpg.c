@@ -49,8 +49,6 @@ static void _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *gr
 
 static int32_t _cmsg_transport_cpg_init_exe_connection (void);
 
-static uint32_t _cmsg_transport_cpg_join_group (cmsg_server *server);
-
 
 /*
  * Global variables
@@ -257,15 +255,15 @@ _cmsg_transport_cpg_init_exe_connection (void)
  * Timesout after 10 seconds of attempting to join the group.
  */
 static uint32_t
-_cmsg_transport_cpg_join_group (cmsg_server *server)
+_cmsg_transport_cpg_join_group (cmsg_transport *transport)
 {
     uint32_t slept_us = 0;
     cpg_error_t result;
 
     do
     {
-        result = cpg_join (server->_transport->connection.cpg.handle,
-                           &server->_transport->config.cpg.group_name);
+        result = cpg_join (transport->connection.cpg.handle,
+                           &transport->config.cpg.group_name);
 
         if (result == CPG_OK)
         {
@@ -282,9 +280,9 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
     }
     while (slept_us <= (TV_USEC_PER_SEC * CPG_JOIN_TIMEOUT));
 
-    CMSG_LOG_TRANSPORT_ERROR (server->_transport,
+    CMSG_LOG_TRANSPORT_ERROR (transport,
                               "Unable to join CPG group %s. Result:%d, Waited:%ums",
-                              server->_transport->config.cpg.group_name.value, result,
+                              transport->config.cpg.group_name.value, result,
                               slept_us / 1000);
 
     return -1;
@@ -340,7 +338,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] server added %llu to hash table\n",
                 server->_transport->connection.cpg.handle);
 
-    res = _cmsg_transport_cpg_join_group (server);
+    res = _cmsg_transport_cpg_join_group (server->_transport);
 
     if (res < 0)
     {
