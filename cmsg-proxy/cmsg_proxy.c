@@ -1575,6 +1575,8 @@ cmsg_proxy_deinit (void)
     /* Cleanup counters */
     _cmsg_proxy_counter_deinit ();
 #endif /* HAVE_COUNTERD */
+
+    pre_api_check_callback = NULL;
 }
 
 /**
