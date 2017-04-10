@@ -233,6 +233,15 @@ message ant_result
 {
     optional ant_code code = 1;
     optional string message = 2;
+    optional string resource_id = 3;
+    repeated ant_result_details details = 4;
+}
+
+message ant_result_details
+{
+    optional ant_code code = 1;
+    optional string message = 2;
+    optional string resource_id = 3;
 }
 
 message ant_result_plus_bool
