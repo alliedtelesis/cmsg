@@ -34,6 +34,12 @@
  * be used with the connect call */
 #define CONNECT_TIMEOUT_DEFAULT -1
 
+/* This value is used to limit the timeout for client message peek to 100s */
+#define MAX_CLIENT_PEEK_LOOP (100000)
+
+/* This value is used to limit the timeout for server message peek to 10s */
+#define MAX_SERVER_PEEK_LOOP (10000)
+
 //forward delarations
 typedef struct _cmsg_server_s cmsg_server;
 
@@ -314,4 +320,6 @@ void cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *confi
 
 char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor);
 void cmsg_transport_unix_sun_path_free (char *sun_path);
+cmsg_status_code csmg_transport_peek_for_header (cmsg_transport *transport, int32_t socket,
+                                                 int32_t maxLoop);
 #endif
