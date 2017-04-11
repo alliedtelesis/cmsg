@@ -205,11 +205,11 @@ cmsg_test_cmsg_test_CXXFLAGS = \
 	$(protobuf_CFLAGS)
 
 cmsg_test_cmsg_test_LDADD = \
-	$(protobuf_LIBS) \
-	-lcmsg
+	-lcmsg \
+	-lprotobuf-c
 
-cmsg-test/cmsg-test.pb-c.c cmsg-test/cmsg-test.pb-c.h: $(top_builddir)/protoc-cmsg/protoc-cmsg$(EXEEXT) $(top_srcdir)/cmsg-test/cmsg-test.proto
-	$(AM_V_GEN)$(top_builddir)/protoc-cmsg/protoc-cmsg$(EXEEXT) -I$(top_srcdir) --c_out=$(top_builddir) $(top_srcdir)/cmsg-test/cmsg-test.proto
+cmsg-test/cmsg-test.pb-c.c cmsg-test/cmsg-test.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) $(top_srcdir)/cmsg-test/cmsg-test.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir) --c_out=. cmsg-test/cmsg-test.proto
 
 BUILT_SOURCES += \
 	cmsg-test/cmsg-test.pb-c.c cmsg-test/cmsg-test.pb-c.h \
