@@ -319,14 +319,11 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     uint32_t dyn_len = 0;
     cmsg_header header_received;
     cmsg_header header_converted;
-    uint8_t *buffer = 0;
+    uint8_t *recv_buffer = NULL;
     uint8_t buf_static[512];
     uint8_t *buffer_data;
     uint32_t extra_header_size = 0;
-
-    CMSG_DEBUG (CMSG_INFO,
-                "[TRANSPORT] server->accecpted_client_socket %d\n",
-                server->_transport->connection.sockets.client_socket);
+    cmsg_transport *transport = server->_transport;
 
     if (peek)
     {
@@ -336,16 +333,19 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     {
         nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
     }
-    if (nbytes == (int) sizeof (cmsg_header))
-    {
-        CMSG_PROF_TIME_TIC (&server->prof);
+    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "receive",
+                                 cmsg_prof_time_toc (&transport->prof));
 
+    if (nbytes == sizeof (cmsg_header))
+    {
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
             // Couldn't process the header for some reason
-            CMSG_LOG_TRANSPORT_ERROR (server->_transport,
-                                      "Unable to process message header for server recv. Bytes: %d",
+            CMSG_LOG_TRANSPORT_ERROR (transport,
+                                      "Unable to process message header for during receive. Bytes: %d",
                                       nbytes);
+            CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
+                                         cmsg_prof_time_toc (&transport->prof));
             return CMSG_RET_ERR;
         }
 
@@ -365,58 +365,57 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
         if (dyn_len > sizeof (buf_static))
         {
-            buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
+            recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
         }
         else
         {
-            buffer = (uint8_t *) buf_static;
-            memset (buffer, 0, sizeof (buf_static));
+            recv_buffer = (uint8_t *) buf_static;
+            memset (recv_buffer, 0, sizeof (buf_static));
         }
 
         // read the message
         if (peek)
         {
-            nbytes = recv (handle, buffer, dyn_len, MSG_WAITALL);
-            buffer_data = buffer + sizeof (cmsg_header);
+            nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
+            buffer_data = recv_buffer + sizeof (cmsg_header);
         }
         else
         {
             //Even if no packed data, TLV header should be read.
             if (header_converted.message_length + extra_header_size)
             {
-                nbytes = recv (handle, buffer, dyn_len, MSG_WAITALL);
+                nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
             }
             else
             {
                 nbytes = 0;
             }
-            buffer_data = buffer;
+            buffer_data = recv_buffer;
         }
 
         ret = cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
                                                   dyn_len, nbytes, &header_converted);
-        if (buffer != buf_static)
+        if (recv_buffer != buf_static)
         {
-            if (buffer)
+            if (recv_buffer)
             {
-                CMSG_FREE (buffer);
-                buffer = 0;
+                CMSG_FREE (recv_buffer);
+                recv_buffer = NULL;
             }
         }
 
     }
     else if (nbytes > 0)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport,
+        CMSG_LOG_TRANSPORT_ERROR (transport,
                                   "Bad header on recv socket %d. Number: %d",
-                                  server->_transport->connection.sockets.client_socket,
-                                  nbytes);
+                                  transport->connection.sockets.client_socket, nbytes);
 
         // TEMP to keep things going
-        buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
-        nbytes = recv (handle, buffer, nbytes, MSG_WAITALL);
-        CMSG_FREE (buffer);
-        buffer = 0;
+        recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
+        nbytes = recv (handle, recv_buffer, nbytes, MSG_WAITALL);
+        CMSG_FREE (recv_buffer);
+        recv_buffer = NULL;
         ret = CMSG_RET_OK;
     }
     else if (nbytes == 0)
@@ -429,9 +428,9 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     {
         if (errno != ECONNRESET)
         {
-            CMSG_LOG_TRANSPORT_ERROR (server->_transport,
+            CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "Receive error for socket %d. Error: %s.",
-                                      server->_transport->connection.sockets.client_socket,
+                                      transport->connection.sockets.client_socket,
                                       strerror (errno));
         }
 
@@ -655,7 +654,7 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
         {
             // Couldn't process the header for some reason
             CMSG_LOG_TRANSPORT_ERROR (transport,
-                                      "Unable to process message header for client receive. Bytes:%d",
+                                      "Unable to process message header for during receive. Bytes: %d",
                                       nbytes);
             CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
                                          cmsg_prof_time_toc (&transport->prof));
@@ -735,7 +734,7 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
                                                      buffer);
 
                 // Free the allocated buffer
-                if (recv_buffer != (void *) buf_static)
+                if (recv_buffer != buf_static)
                 {
                     if (recv_buffer)
                     {
@@ -770,7 +769,7 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
                                       dyn_len, nbytes, errno, strerror (errno));
 
         }
-        if (recv_buffer != (void *) buf_static)
+        if (recv_buffer != buf_static)
         {
             if (recv_buffer)
             {
