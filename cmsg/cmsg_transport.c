@@ -316,7 +316,6 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     cmsg_header header_converted;
     uint8_t *recv_buffer = NULL;
     uint8_t buf_static[512];
-    uint8_t *buffer_data;
     uint32_t extra_header_size = 0;
     cmsg_transport *transport = server->_transport;
 
@@ -337,9 +336,9 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
             return CMSG_RET_ERR;
         }
 
-        extra_header_size = header_converted.header_length - sizeof (cmsg_header);
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
 
-        // Make sure any extra header is received.
+        extra_header_size = header_converted.header_length - sizeof (cmsg_header);
         dyn_len = header_converted.message_length + extra_header_size;
 
         if (dyn_len > sizeof (buf_static))
@@ -361,9 +360,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         {
             nbytes = 0;
         }
-        buffer_data = recv_buffer;
 
-        ret = cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
+        ret = cmsg_transport_server_recv_process (recv_buffer, server, extra_header_size,
                                                   dyn_len, nbytes, &header_converted);
         if (recv_buffer != buf_static)
         {
@@ -373,10 +371,10 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                 recv_buffer = NULL;
             }
         }
-
     }
     else if (nbytes > 0)
     {
+        /* Didn't receive all of the CMSG header. */
         CMSG_LOG_TRANSPORT_ERROR (transport,
                                   "Bad header on recv socket %d. Number: %d",
                                   transport->connection.sockets.client_socket, nbytes);
@@ -396,7 +394,12 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     }
     else
     {
-        if (errno != ECONNRESET)
+        if (errno == ECONNRESET)
+        {
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] Receive error for socket %d. Error: %s.",
+                        transport->connection.sockets.client_socket, strerror (errno));
+        }
+        else
         {
             CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "Receive error for socket %d. Error: %s.",
@@ -407,6 +410,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         ret = CMSG_RET_ERR;
     }
 
+    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
+                                 cmsg_prof_time_toc (&transport->prof));
     return ret;
 }
 
@@ -601,7 +606,7 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
     uint8_t *buffer = NULL;
     uint8_t buf_static[512];
     const ProtobufCMessageDescriptor *desc;
-    uint32_t extra_header_size;
+    uint32_t extra_header_size = 0;
     cmsg_server_request server_request;
 
     *messagePtPt = NULL;
@@ -623,15 +628,10 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
 
-        // read the message
-
-        // Take into account that someone may have changed the size of the header
-        // and we don't know about it, make sure we receive all the information.
-        // Any TLV is taken into account in the header length.
-        dyn_len = header_converted.message_length +
-            header_converted.header_length - sizeof (cmsg_header);
+        extra_header_size = header_converted.header_length - sizeof (cmsg_header);
+        dyn_len = header_converted.message_length + extra_header_size;
 
         // There is no more data to read so exit.
         if (dyn_len == 0)
@@ -670,7 +670,6 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
 
         if (nbytes == (int) dyn_len)
         {
-            extra_header_size = header_converted.header_length - sizeof (cmsg_header);
             // Set buffer to take into account a larger header than we expected
             buffer = recv_buffer;
 
@@ -742,10 +741,9 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
     }
     else if (nbytes > 0)
     {
-        /* Didn't receive all of the CMSG header.
-         */
+        /* Didn't receive all of the CMSG header. */
         CMSG_LOG_TRANSPORT_ERROR (transport,
-                                  "Bad header length for recv. Socket:%d nbytes:%d",
+                                  "Bad header on recv socket %d. Number: %d",
                                   transport->connection.sockets.client_socket, nbytes);
 
         // TEMP to keep things going
@@ -763,13 +761,14 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
     {
         if (errno == ECONNRESET)
         {
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] Receive error for socket %d. Error: %s.",
                         transport->connection.sockets.client_socket, strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
         {
-            CMSG_LOG_TRANSPORT_ERROR (transport, "Recv error. Socket:%d Error:%s",
+            CMSG_LOG_TRANSPORT_ERROR (transport,
+                                      "Receive error for socket %d. Error: %s.",
                                       transport->connection.sockets.client_socket,
                                       strerror (errno));
         }
