@@ -275,9 +275,6 @@ int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
 
 int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server);
 
-int32_t cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
-                                              cmsg_server *server);
-
 int32_t cmsg_transport_client_recv (cmsg_recv_func recv, void *handle,
                                     cmsg_transport *transport,
                                     const ProtobufCServiceDescriptor *descriptor,

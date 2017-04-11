@@ -9,9 +9,6 @@
 
 extern void cmsg_transport_oneway_udt_init (cmsg_transport *transport);
 
-static int32_t _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle,
-                                            cmsg_server *server, int peek);
-
 
 /**
  * This function reads a uint32_t from an input array pointed to by *in
@@ -308,11 +305,9 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
     return ret;
 }
 
-/* Receive message from server and process it. If 'peek' is set, then a header
- * is read first with MSG_PEEK and then read all together (header + data). */
+/* Receive message from server and process it */
 static int32_t
-_cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
-                             int peek)
+_cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server)
 {
     int32_t ret = CMSG_RET_OK;
     int nbytes = 0;
@@ -325,14 +320,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     uint32_t extra_header_size = 0;
     cmsg_transport *transport = server->_transport;
 
-    if (peek)
-    {
-        nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_PEEK);
-    }
-    else
-    {
-        nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
-    }
+    nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
     CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "receive",
                                  cmsg_prof_time_toc (&transport->prof));
 
@@ -351,17 +339,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
         extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
-        if (peek)
-        {
-            // packet size is determined by header_length + message_length.
-            // header_length may be greater than sizeof (cmsg_header)
-            dyn_len = header_converted.message_length + header_converted.header_length;
-        }
-        else
-        {
-            // Make sure any extra header is received.
-            dyn_len = header_converted.message_length + extra_header_size;
-        }
+        // Make sure any extra header is received.
+        dyn_len = header_converted.message_length + extra_header_size;
 
         if (dyn_len > sizeof (buf_static))
         {
@@ -373,25 +352,16 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
             memset (recv_buffer, 0, sizeof (buf_static));
         }
 
-        // read the message
-        if (peek)
+        //Even if no packed data, TLV header should be read.
+        if (header_converted.message_length + extra_header_size)
         {
             nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
-            buffer_data = recv_buffer + sizeof (cmsg_header);
         }
         else
         {
-            //Even if no packed data, TLV header should be read.
-            if (header_converted.message_length + extra_header_size)
-            {
-                nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
-            }
-            else
-            {
-                nbytes = 0;
-            }
-            buffer_data = recv_buffer;
+            nbytes = 0;
         }
+        buffer_data = recv_buffer;
 
         ret = cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
                                                   dyn_len, nbytes, &header_converted);
@@ -614,17 +584,9 @@ cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *serv
     {
         return _cmsg_transport_server_crypto_recv (recv, handle, server);
     }
-    return _cmsg_transport_server_recv (recv, handle, server, FALSE);
+    return _cmsg_transport_server_recv (recv, handle, server);
 }
 
-
-/* Receive message from server (by peeking the header first) and process it */
-int32_t
-cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
-                                      cmsg_server *server)
-{
-    return _cmsg_transport_server_recv (recv, handle, server, TRUE);
-}
 
 static cmsg_status_code
 _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *transport,
