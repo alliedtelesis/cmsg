@@ -22,8 +22,7 @@
 #include <dlfcn.h>
 #include <dirent.h>
 #include "cmsg_proxy_mem.h"
-#include <ipc/common_types_auto.h>
-#include <utility/sys.h>
+#include "common.pb-c.h"
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"
@@ -31,6 +30,12 @@
 
 #define MSG_BUF_LEN 200
 #define CMSG_PROXY_LIB_PATH "/var/packages/network/lib"
+
+/* work out the number of elements in an array */
+#define ARRAY_ELEMENTS(arr) (sizeof((arr)) / sizeof((arr)[0]))
+
+/* compile time check that an array has the expected number of elements */
+#define ARRAY_SIZE_COMPILE_CHECK(array,exp_num) G_STATIC_ASSERT(ARRAY_ELEMENTS((array)) == (exp_num))
 
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
@@ -764,42 +769,294 @@ _cmsg_proxy_library_handles_load (void)
     closedir (d);
 }
 
+/**
+ * Convert a single JSON value (i.e. not a JSON object or array) into
+ * a JSON object using the input protobuf-c field name as the key.
+ *
+ * @param field_descriptor - Protobuf-c field descriptor to get the key name from
+ * @param value - The value to put into the JSON object
+ *
+ * @returns - Pointer to the converted JSON object or NULL if the
+ *            conversion fails or is not supported.
+ */
+static json_t *
+_cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descriptor,
+                                  const char *value)
+{
+    char *fmt = NULL;
+    char *endptr = NULL;
+    long int lvalue;
+    json_t *new_object = NULL;
+
+    switch (field_descriptor->type)
+    {
+    case PROTOBUF_C_TYPE_INT32:
+    case PROTOBUF_C_TYPE_SINT32:
+    case PROTOBUF_C_TYPE_SFIXED32:
+    case PROTOBUF_C_TYPE_UINT32:
+    case PROTOBUF_C_TYPE_FIXED32:
+        lvalue = strtol (value, &endptr, 0);
+        if (endptr && *endptr == '\0')
+        {
+            fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[i]}" : "{si}";
+            new_object = json_pack (fmt, field_descriptor->name, lvalue);
+            break;
+        }
+        /* fall through (storing as string) */
+    case PROTOBUF_C_TYPE_ENUM:
+    case PROTOBUF_C_TYPE_STRING:
+        fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[s?]}" : "{ss?}";
+
+        new_object = json_pack (fmt, field_descriptor->name, value);
+        break;
+    case PROTOBUF_C_TYPE_BOOL:
+        fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[b]}" : "{sb}";
+        new_object = json_pack (fmt, field_descriptor->name, strcmp (value, "false"));
+        break;
+        /* Not (currently) supported */
+    case PROTOBUF_C_TYPE_UINT64:
+    case PROTOBUF_C_TYPE_INT64:
+    case PROTOBUF_C_TYPE_SINT64:
+    case PROTOBUF_C_TYPE_SFIXED64:
+    case PROTOBUF_C_TYPE_FIXED64:
+    case PROTOBUF_C_TYPE_FLOAT:
+    case PROTOBUF_C_TYPE_DOUBLE:
+    case PROTOBUF_C_TYPE_BYTES:
+    case PROTOBUF_C_TYPE_MESSAGE:
+    default:
+        break;
+    }
+
+    return new_object;
+}
 
 /**
- * Create a new json object from the given json string
+ * Find the field that was not parsed from the URL
  *
- * @param json_obj    - Place holder for the created json object
- * @param input_json  - input json string to create the json object
+ * @param msg_descriptor - Protobuf-c message descriptor for the input message
+ *                         that should be called with the CMSG API
+ * @param url_parameters - List of parameters that were parsed out of the input URL
+ *
+ * @returns - The protobuf-c field descriptor for the field that was not parsed
+ *            from the URL parameters
+ */
+static const ProtobufCFieldDescriptor *
+_cmsg_proxy_find_unparsed_field (const ProtobufCMessageDescriptor *msg_descriptor,
+                                 const GList *url_parameters)
+{
+    const ProtobufCFieldDescriptor *field_desc = NULL;
+    int i = 0;
+    const GList *list = NULL;
+    const cmsg_url_parameter *list_data = NULL;
+    bool found = false;
+    const ProtobufCFieldDescriptor *ret = NULL;
+    const char *field_name = NULL;
+
+    for (i = 0; i < msg_descriptor->n_fields; i++)
+    {
+        field_desc = &(msg_descriptor->fields[i]);
+        field_name = field_desc->name;
+
+        /* The '_error_info' field should never be set in the input path */
+        if (strcmp (field_name, "_error_info") == 0)
+        {
+            continue;
+        }
+
+        for (list = url_parameters; list != NULL; list = list->next)
+        {
+            list_data = (cmsg_url_parameter *) list->data;
+            if (strcmp (list_data->key, field_name) == 0)
+            {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            ret = field_desc;
+            break;
+        }
+
+        found = false;
+    }
+
+    return ret;
+}
+
+/**
+ * Sanity checks for a JSON object input to the web API
+ * by the user.
+ *
+ * @param json_obj - Converted JSON object input by the user
+ * @param error - Error structure to hold error information
+ *
+ * @returns - true if sanity checks pass, false otherwise
+ */
+static bool
+_cmsg_proxy_json_object_sanity_check (json_t *json_obj, json_error_t *error)
+{
+    const char *key;
+    json_t *value;
+
+    if (!json_is_object (json_obj))
+    {
+        snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
+                  "JSON object expected but JSON value or array given");
+        return false;
+    }
+
+    /* Sanity check the user hasn't given the '_error_info' field */
+    json_object_foreach (json_obj, key, value)
+    {
+        if (strcmp (key, "_error_info") == 0)
+        {
+            snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "Invalid JSON");
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Create a new json object from the json string that was given as
+ * input with the cmsg proxy.
+ *
+ * @param input_json  - Input json string to create the json object
+ * @param msg_descriptor - Protobuf-c message descriptor for the input message
+ *                         that should be called with the CMSG API
+ * @param url_parameters - List of parameters that were parsed out of the input URL
  * @param error       - Place holder for error occurred in the creation
  *
+ * @returns - The created json object or NULL on failure
  */
-static void
-_cmsg_proxy_json_object_create (json_t **json_obj, const char *input_json,
-                                json_error_t *error)
+static json_t *
+_cmsg_proxy_json_object_create (const char *input_json,
+                                const ProtobufCMessageDescriptor *msg_descriptor,
+                                GList *url_parameters, json_error_t *error)
 {
-    if (input_json)
+    json_t *converted_json = NULL;
+    const ProtobufCFieldDescriptor *field_desc = NULL;
+    json_t *json_obj = NULL;
+    const char *stripped_string;
+    int expected_input_fields = msg_descriptor->n_fields - g_list_length (url_parameters);
+
+    if (!input_json)
     {
-        *json_obj = json_loads (input_json, 0, error);
+        /* Create an empty JSON object if no JSON input was provided. */
+        return json_object ();
+    }
+
+    /* The '_error_info' field should never be set in the input path */
+    if (protobuf_c_message_descriptor_get_field_by_name (msg_descriptor, "_error_info"))
+    {
+        expected_input_fields--;
+    }
+
+    /* If we don't expect any input JSON but the user has given some then this
+     * is an error */
+    if ((expected_input_fields == 0) && input_json)
+    {
+        snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
+                  "No JSON data expected for API, but JSON data input");
+        return NULL;
+    }
+
+    converted_json = json_loads (input_json, JSON_DECODE_ANY, error);
+    if (!converted_json)
+    {
+        return NULL;
+    }
+
+    if (expected_input_fields == 1)
+    {
+        field_desc = _cmsg_proxy_find_unparsed_field (msg_descriptor, url_parameters);
+        if (!field_desc)
+        {
+            /* Should never occur... */
+            json_decref (converted_json);
+            snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "Internal proxy error");
+            return NULL;
+        }
+
+        if (field_desc->type == PROTOBUF_C_TYPE_MESSAGE)
+        {
+            if (!_cmsg_proxy_json_object_sanity_check (converted_json, error))
+            {
+                json_decref (converted_json);
+                return NULL;
+            }
+
+            json_obj = json_pack ("{so}", field_desc->name, converted_json);
+            /* json_pack with 'o' steals the reference to converted_json.
+             * Therefore we don't call decref for converted_json. */
+            return json_obj;
+        }
+        else if (json_is_object (converted_json))
+        {
+            json_decref (converted_json);
+            snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
+                      "JSON value or array expected but JSON object given");
+            return NULL;
+        }
+
+        if (json_is_array (converted_json))
+        {
+            json_obj = json_pack ("{so}", field_desc->name, converted_json);
+            /* json_pack with 'o' steals the reference to converted_json.
+             * Therefore we don't call decref for converted_json. */
+            return json_obj;
+        }
+        else if (json_is_string (converted_json))
+        {
+            /* Ensure the enclosing "" characters are stripped from the input */
+            stripped_string = json_string_value (converted_json);
+            json_obj = _cmsg_proxy_json_value_to_object (field_desc, stripped_string);
+        }
+        else if (field_desc->type == PROTOBUF_C_TYPE_ENUM ||
+                 field_desc->type == PROTOBUF_C_TYPE_STRING)
+        {
+            /* Don't allow non-string JSON values to be accepted when the
+             * field expects an ENUM or STRING value. */
+            json_obj = NULL;
+            snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "JSON string value expected");
+        }
+        else
+        {
+            json_obj = _cmsg_proxy_json_value_to_object (field_desc, input_json);
+        }
+
+        json_decref (converted_json);
+        return json_obj;
     }
     else
     {
-        /* Create an empty JSON object if no JSON input was provided. */
-        *json_obj = json_object ();
+        if (!_cmsg_proxy_json_object_sanity_check (converted_json, error))
+        {
+            json_decref (converted_json);
+            return NULL;
+        }
+
+        return converted_json;
     }
+
+    return NULL;
 }
 
 /**
  *
  * Destroy the given json object
  *
- * @param json_object - json object to be destroyed
+ * @param json_obj - json object to be destroyed
  */
 static void
-_cmsg_proxy_json_object_destroy (json_t *json_object)
+_cmsg_proxy_json_object_destroy (json_t *json_obj)
 {
-    if (json_object)
+    if (json_obj)
     {
-        json_decref (json_object);
+        json_decref (json_obj);
     }
 }
 
@@ -892,7 +1149,7 @@ _cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_parame
  *
  * @param url - URL string to use for the lookup.
  * @param http_verb - HTTP verb to use for the lookup.
- * @param json_object - jason object to update
+ * @param json_obj - jason object to update
  *
  * @return - Pointer to the cmsg_service_info entry if found, NULL otherwise.
  */
@@ -957,6 +1214,7 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
     if ((info_node) != NULL && G_NODE_IS_LEAF (info_node))
     {
         return cmsg_proxy_service_info_get (info_node->data, verb);
+
     }
 
     return NULL;
@@ -973,20 +1231,17 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
  * element.
  *
  * @param parameters - list of parameter-name & parameter pairs
- * @param json_object - the message body
+ * @param json_obj - the message body
  * @param msg_descriptor - used to determine the target field type when converting to JSON
  */
 void
-_cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
+_cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
                                   const ProtobufCMessageDescriptor *msg_descriptor)
 {
     GList *iter = NULL;
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
     cmsg_url_parameter *p = NULL;
     json_t *new_object = NULL;
-    char *fmt = NULL;
-    char *endptr = NULL;
-    long int lvalue;
 
     for (iter = parameters; iter; iter = g_list_next (iter))
     {
@@ -1006,61 +1261,21 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
             continue;   /* TODO: add to json as strings (for unexpected argument error) */
         }
 
-        switch (field_descriptor->type)
-        {
-        case PROTOBUF_C_TYPE_INT32:
-        case PROTOBUF_C_TYPE_SINT32:
-        case PROTOBUF_C_TYPE_SFIXED32:
-        case PROTOBUF_C_TYPE_UINT32:
-        case PROTOBUF_C_TYPE_FIXED32:
-            lvalue = strtol (p->value, &endptr, 0);
-            if (endptr && *endptr == '\0')
-            {
-                fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ?
-                    "{s[i]}" : "{si}";
-                new_object = json_pack (fmt, p->key, lvalue);
-                break;
-            }
-            /* fall through (storing as string) */
-        case PROTOBUF_C_TYPE_ENUM:
-        case PROTOBUF_C_TYPE_STRING:
-            fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ?
-                "{s[s?]}" : "{ss?}";
-
-            new_object = json_pack (fmt, p->key, p->value);
-            break;
-        case PROTOBUF_C_TYPE_BOOL:
-            fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ?
-                "{s[b]}" : "{sb}";
-            new_object = json_pack (fmt, p->key, strcmp (p->value, "false"));
-            break;
-            /* Not (currently) supported as URL parameters */
-        case PROTOBUF_C_TYPE_UINT64:
-        case PROTOBUF_C_TYPE_INT64:
-        case PROTOBUF_C_TYPE_SINT64:
-        case PROTOBUF_C_TYPE_SFIXED64:
-        case PROTOBUF_C_TYPE_FIXED64:
-        case PROTOBUF_C_TYPE_FLOAT:
-        case PROTOBUF_C_TYPE_DOUBLE:
-        case PROTOBUF_C_TYPE_BYTES:
-        case PROTOBUF_C_TYPE_MESSAGE:
-        default:
-            break;
-        }
+        new_object = _cmsg_proxy_json_value_to_object (field_descriptor, p->value);
 
         if (!new_object)
         {
             continue;
         }
 
-        if (*json_object)
+        if (*json_obj)
         {
-            json_object_update (*json_object, new_object);
+            json_object_update (*json_obj, new_object);
             json_decref (new_object);
         }
         else
         {
-            *json_object = new_object;
+            *json_obj = new_object;
         }
     }
 }
@@ -1097,13 +1312,13 @@ _cmsg_proxy_pre_api_check (cmsg_http_verb http_verb, char **message)
  * @return - ANT_CODE_OK on success, relevant ANT code on failure.
  */
 static ant_code
-_cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
+_cmsg_proxy_convert_json_to_protobuf (json_t *json_obj,
                                       const ProtobufCMessageDescriptor *msg_descriptor,
                                       ProtobufCMessage **output_protobuf, char **message)
 {
     char conversion_message[MSG_BUF_LEN] = { 0 };
     ant_code ret = ANT_CODE_OK;
-    int res = json2protobuf_object (json_object, msg_descriptor, output_protobuf,
+    int res = json2protobuf_object (json_obj, msg_descriptor, output_protobuf,
                                     conversion_message, MSG_BUF_LEN);
 
     /* Only report messages deemed user-friendly */
@@ -1311,23 +1526,28 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
 
 /**
  * Generate the JSON string that should be returned to the web API caller.
- * If we are returning data to the user (i.e. not an error) then attempt to
- * strip the outer key of this data if the key is either the last substring
- * of the template URL, '_data' or '_error_info'.
  *
  * @param output_proto_message - The message returned from calling the CMSG API
  * @param output_json - Pointer to hold the JSON string that is returned
- * @param url - URL template that the CMSG proxy was called with
+ * @param http_status - The HTTP status code to be sent with the HTTP response.
  */
 static bool
 _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
-                                  char **output_json, const char *url)
+                                  char **output_json, int http_status)
 {
     json_t *converted_json_object = NULL;
     const char *key;
     json_t *value;
-    char *url_ending;
     bool ret = false;
+
+    /* If there are more than 2 fields in the message descriptor then
+     * simply return the entire message as a JSON string */
+    if (output_proto_message->descriptor->n_fields > 2 ||
+        strcmp (output_proto_message->descriptor->name, "ant_result") == 0)
+    {
+        ret = _cmsg_proxy_protobuf2json_string (output_proto_message, output_json);
+        return ret;
+    }
 
     ret = _cmsg_proxy_protobuf2json_object (output_proto_message, &converted_json_object);
     if (!ret)
@@ -1335,18 +1555,30 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
         return false;
     }
 
-    url_ending = strrchr (url, '/') + 1;
-
+    /* Once this point of the function is reached we know that there is only two
+     * fields in the received message. One of these fields must be '_error_info'.
+     * Therefore if the status is HTTP_CODE_OK simply return the field that isn't
+     * '_error_info', otherwise if the code is something other than HTTP_CODE_OK
+     * simply return the '_error_info' field. */
     json_object_foreach (converted_json_object, key, value)
     {
-        /* Note that the "_error_info" field has been removed earlier on in the proxy
-         * process for a successful API call */
-        if ((strcmp (key, url_ending) == 0) || (strcmp (key, "_data") == 0) ||
-            (strcmp (key, "_error_info") == 0))
+        if (http_status == HTTP_CODE_OK)
         {
-            *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_INDENT (4));
-            json_decref (converted_json_object);
-            return true;
+            if (strcmp (key, "_error_info") != 0)
+            {
+                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_INDENT (4));
+                json_decref (converted_json_object);
+                return true;
+            }
+        }
+        else
+        {
+            if ((strcmp (key, "_error_info") == 0))
+            {
+                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_INDENT (4));
+                json_decref (converted_json_object);
+                return true;
+            }
         }
     }
 
@@ -1624,7 +1856,9 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
         return false;
     }
 
-    _cmsg_proxy_json_object_create (&json_obj, input_json, &error);
+    json_obj = _cmsg_proxy_json_object_create (input_json,
+                                               service_info->input_msg_descriptor,
+                                               url_parameters, &error);
     if (input_json && !json_obj)
     {
         /* No json object created, report the error */
@@ -1672,8 +1906,7 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     if (result != ANT_CODE_OK)
     {
         /* The JSON sent with the request is malformed */
-        _cmsg_proxy_generate_ant_result_error (result, message, http_status,
-                                               output_json);
+        _cmsg_proxy_generate_ant_result_error (result, message, http_status, output_json);
         free (message);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_malformed_input);
         return true;
@@ -1715,7 +1948,7 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     if (output_proto_message)
     {
         if (!_cmsg_proxy_generate_json_return (output_proto_message, output_json,
-                                               service_info->url_string))
+                                               *http_status))
         {
             /* This should not occur (the ProtobufCMessage structure returned
              * by the CMSG api should always be well formed) but check for it */

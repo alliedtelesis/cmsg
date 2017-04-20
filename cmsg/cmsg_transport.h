@@ -165,9 +165,9 @@ typedef cmsg_status_code (*client_recv_f) (cmsg_client *client,
 typedef int (*client_send_f) (cmsg_client *client, void *buff, int length, int flag);
 typedef int (*server_send_f) (cmsg_server *server, void *buff, int length, int flag);
 
-typedef int32_t (*invoke_send_f) (cmsg_client *client, unsigned method_index,
+typedef int32_t (*invoke_send_f) (cmsg_client *client, uint32_t method_index,
                                   const ProtobufCMessage *input);
-typedef int32_t (*invoke_recv_f) (cmsg_client *client, unsigned method_index,
+typedef int32_t (*invoke_recv_f) (cmsg_client *client, uint32_t method_index,
                                   ProtobufCClosure closure, void *closure_data);
 
 typedef void (*client_close_f) (cmsg_client *client);

@@ -49,7 +49,7 @@ typedef struct _cmsg_pub_s
     //to not change the order of the first two
     const ProtobufCServiceDescriptor *descriptor;
     int32_t (*invoke) (ProtobufCService *service,
-                       unsigned method_index,
+                       uint32_t method_index,
                        const ProtobufCMessage *input,
                        ProtobufCClosure closure, void *closure_data);
 
@@ -109,7 +109,7 @@ void cmsg_pub_server_accept_callback (cmsg_pub *publisher, int32_t sd);
 int32_t cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data);
 
 int32_t cmsg_pub_invoke (ProtobufCService *service,
-                         unsigned method_index,
+                         uint32_t method_index,
                          const ProtobufCMessage *input,
                          ProtobufCClosure closure, void *closure_data);
 

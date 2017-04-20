@@ -10,6 +10,9 @@
 /* Counter session prefix for CMSG Proxy */
 #define CMSG_PROXY_COUNTER_APP_NAME_PREFIX  "CMSG PROXY"
 
+typedef int (*cmsg_api_func_ptr) ();
+typedef bool (*pre_api_http_check_callback) (cmsg_http_verb http_verb, char **message);
+
 typedef enum _cmsg_http_verb
 {
     CMSG_HTTP_GET = 1,
@@ -19,9 +22,6 @@ typedef enum _cmsg_http_verb
     CMSG_HTTP_PATCH = 5,
     CMSG_HTTP_INVALID = 6,
 } cmsg_http_verb;
-
-typedef int (*cmsg_api_func_ptr) ();
-typedef bool (*pre_api_http_check_callback) (cmsg_http_verb http_verb, char **message);
 
 typedef struct _cmsg_service_info
 {

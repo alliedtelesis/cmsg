@@ -138,7 +138,12 @@ LIBCMSGPROXY_AGE=0
 lib_LTLIBRARIES += \
 	cmsg-proxy/libcmsgproxy.la
 
+cmsg-proxy/common.pb-c.c cmsg-proxy/common.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) $(top_srcdir)/cmsg-proxy/common.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir) --c_out=. cmsg-proxy/common.proto
+
 cmsg_proxy_libcmsgproxy_la_SOURCES = \
+	cmsg-proxy/common.pb-c.c \
+	cmsg-proxy/common.pb-c.h \
 	cmsg-proxy/cmsg_proxy.c \
 	cmsg-proxy/cmsg_proxy.h \
 	cmsg-proxy/cmsg_proxy_mem.c \
@@ -148,15 +153,15 @@ cmsg_proxy_libcmsgproxy_la_LIBADD = \
 	$(GLIB_LIBS) \
 	-lcmsg \
 	-ljansson \
-	-lprotobuf2json-c \
-	-lcommon_proto_api \
-	-lsystem_awplus
+	-lprotobuf2json-c
 
 cmsg_proxy_libcmsgproxy_la_CFLAGS = -Werror $(AM_CFLAGS)
 
 cmsg_proxy_libcmsgproxy_la_LDFLAGS = $(AM_LDFLAGS) \
 	-version-info $(LIBCMSGPROXY_CURRENT):$(LIBCMSGPROXY_REVISION):$(LIBCMSGPROXY_AGE) \
 	-no-undefined
+
+BUILT_SOURCES = cmsg-proxy/common.pb-c.c cmsg-proxy/common.pb-c.h
 
 endif # BUILD_CMSG_PROXY
 
@@ -166,6 +171,8 @@ cmsg-proxy/cmsg_proxy_unit_tests_proxy_def.c cmsg-proxy/cmsg_proxy_unit_tests_pr
 
 bin_PROGRAMS += cmsg-proxy/cmsg_proxy_unit_tests
 cmsg_proxy_cmsg_proxy_unit_tests_SOURCES = \
+	cmsg-proxy/common.pb-c.c \
+	cmsg-proxy/common.pb-c.h \
 	cmsg-proxy/cmsg_proxy_unit_tests_proxy_def.c \
 	cmsg-proxy/cmsg_proxy_unit_tests_proxy_def.h \
 	cmsg-proxy/cmsg_proxy_unit_tests_api_auto.c \
@@ -177,7 +184,7 @@ cmsg_proxy_cmsg_proxy_unit_tests_CFLAGS  = $(AM_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_proxy_cmsg_proxy_unit_tests_LDFLAGS = -static
 cmsg_proxy_cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
                                            -lcmsg -lprotobuf-c -lprotobuf2json-c \
-                                           -ljansson -lcommon_proto_api
+                                           -ljansson
 endif
 
 #
