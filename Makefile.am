@@ -205,6 +205,7 @@ cmsg_test_cmsg_test_CXXFLAGS = \
 	$(protobuf_CFLAGS)
 
 cmsg_test_cmsg_test_LDADD = \
+	-lpthread \
 	-lcmsg \
 	-lprotobuf-c
 
