@@ -1381,17 +1381,19 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
  * and sets the HTTP response status based on the code returned from the
  * CMSG API.
  *
- * If the CMSG API has returned ANT_CODE_OK then the error information field is
- * unset from the protobuf message and hence will not be returned in the
- * JSON sent back to the user.
+ * If the CMSG API has returned ANT_CODE_OK and the request is with an HTTP_GET
+ * then the error information field is unset from the protobuf message and
+ * hence will not be returned in the JSON sent back to the user.
  *
  * @param http_status - Pointer to the http_status integer that should be set
+ * @param http_verb - The HTTP verb sent with the HTTP request.
  * @param msg - Pointer to the ProtobufCMessage received from the CMSG API call
  *
  * @returns 'true' if _error_info is updated with error message otherwise 'false'
  */
 static bool
-_cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage **msg)
+_cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
+                             ProtobufCMessage **msg)
 {
     const ProtobufCFieldDescriptor *field_desc = NULL;
     ProtobufCMessage **error_message_ptr = NULL;
@@ -1413,7 +1415,7 @@ _cmsg_proxy_set_http_status (int *http_status, ProtobufCMessage **msg)
     if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
     {
         *http_status = ant_code_to_http_code_array[error_message->code];
-        if (error_message->code == ANT_CODE_OK)
+        if (error_message->code == ANT_CODE_OK && http_verb == CMSG_HTTP_GET)
         {
             /* Unset the error info message from the protobuf message */
             CMSG_FREE_RECV_MSG (error_message);
@@ -1854,7 +1856,7 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
 
     CMSG_FREE_RECV_MSG (input_proto_message);
 
-    if (!_cmsg_proxy_set_http_status (http_status, &output_proto_message))
+    if (!_cmsg_proxy_set_http_status (http_status, http_verb, &output_proto_message))
     {
         syslog (LOG_ERR, "_error_info is not set for %s", service_info->url_string);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_error_info);
