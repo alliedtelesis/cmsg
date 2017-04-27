@@ -235,17 +235,23 @@ enum ant_code
 
 message ant_result
 {
+    // Operation error code
     optional ant_code code = 1;
-    optional string message = 2;
-    optional string resource_id = 3;
-    repeated ant_result_details details = 4;
-}
 
-message ant_result_details
-{
-    optional ant_code code = 1;
+    // Message describing error
     optional string message = 2;
+
+    // ID of resource that this error refers to
+    //
+    // This field will be set if result object is in the details field, otherwise
+    // it is optional.
     optional string resource_id = 3;
+
+    // Array of result objects with details of errors
+    //
+    // This array of result objects should be checked if code is ANT_CODE_BATCH_PARTIAL_FAIL
+    // as it will give details of which parts of a batch operation failed.
+    repeated ant_result details = 4;
 }
 
 message ant_result_plus_bool
