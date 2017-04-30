@@ -1079,7 +1079,7 @@ _cmsg_proxy_create_url_parameter (const char *key, const char *value)
         if (key[0] == '{')
         {
             /* strip the braces from the parameter name */
-            new->key = strndup (key + 1, strlen (key) - 2);
+            new->key = CMSG_PROXY_STRNDUP (key + 1, strlen (key) - 2);
         }
         else
         {
