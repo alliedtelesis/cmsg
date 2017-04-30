@@ -762,7 +762,7 @@ _cmsg_proxy_library_handles_load (void)
                     dlclose (lib_handle);
                 }
             }
-            free (library_path);
+            CMSG_PROXY_FREE (library_path);
         }
     }
 
@@ -1083,9 +1083,9 @@ _cmsg_proxy_create_url_parameter (const char *key, const char *value)
         }
         else
         {
-            new->key = strdup (key);
+            new->key = CMSG_PROXY_STRDUP (key);
         }
-        new->value = value ? strdup (value) : NULL;
+        new->value = value ? CMSG_PROXY_STRDUP (value) : NULL;
     }
     return new;
 }
@@ -1101,9 +1101,9 @@ _cmsg_proxy_free_url_parameter (gpointer ptr)
 
     if (p)
     {
-        free (p->key);
-        free (p->value);
-        free (p);
+        CMSG_PROXY_FREE (p->key);
+        CMSG_PROXY_FREE (p->value);
+        CMSG_PROXY_FREE (p);
     }
 }
 
@@ -1338,7 +1338,7 @@ _cmsg_proxy_convert_json_to_protobuf (json_t *json_obj,
     case PROTOBUF2JSON_ERR_UNSUPPORTED_FIELD_TYPE:
         if (message)
         {
-            *message = strdup (conversion_message);
+            *message = CMSG_PROXY_STRDUP (conversion_message);
         }
         ret = ANT_CODE_INVALID_ARGUMENT;
         break;
@@ -1907,11 +1907,11 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     {
         /* The JSON sent with the request is malformed */
         _cmsg_proxy_generate_ant_result_error (result, message, http_status, output_json);
-        free (message);
+        CMSG_PROXY_FREE (message);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_malformed_input);
         return true;
     }
-    free (message);
+    CMSG_PROXY_FREE (message);
     message = NULL;
 
     CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_api_calls);
@@ -1921,7 +1921,7 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     if (result != ANT_CODE_OK)
     {
         _cmsg_proxy_generate_ant_result_error (result, message, http_status, output_json);
-        free (message);
+        CMSG_PROXY_FREE (message);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
         return true;
     }
