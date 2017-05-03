@@ -1664,6 +1664,11 @@ cmsg_create_server_tcp_oneway (cmsg_socket *config, ProtobufCService *descriptor
     return _cmsg_create_server_tcp (config, descriptor, CMSG_TRANSPORT_ONEWAY_TCP);
 }
 
+/**
+ * Destroy a cmsg server and its transport
+ *
+ * @param server - the cmsg server to destroy
+ */
 void
 cmsg_destroy_server_and_transport (cmsg_server *server)
 {

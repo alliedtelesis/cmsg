@@ -76,7 +76,7 @@ cmsg_transport_loopback_client_destroy (cmsg_transport *transport)
     /* destroy the server associated with the loopback client */
     if (transport && transport->config.loopback_server)
     {
-        cmsg_server_destroy (transport->config.loopback_server);
+        cmsg_destroy_server_and_transport (transport->config.loopback_server);
         transport->config.loopback_server = NULL;
     }
 }

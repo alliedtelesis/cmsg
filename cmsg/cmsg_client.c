@@ -1644,25 +1644,27 @@ cmsg_create_client_tcp_oneway (cmsg_socket *config, ProtobufCServiceDescriptor *
 cmsg_client *
 cmsg_create_client_loopback (ProtobufCService *service)
 {
-    cmsg_transport *transport;
-    cmsg_server *server;
-    cmsg_client *client;
+    cmsg_transport *server_transport = NULL;
+    cmsg_transport *client_transport = NULL;
+    cmsg_server *server = NULL;
+    cmsg_client *client = NULL;
     int pipe_fds[2] = { -1, -1 };
 
-    transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
-    if (transport == NULL)
+    server_transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
+    if (server_transport == NULL)
     {
+        CMSG_LOG_GEN_ERROR ("Could not create transport for loopback server\n");
         return NULL;
     }
 
     /* The point of the loopback is to process the CMSG within the same process-
      * space, without using RPC. So the client actually does the server-side
      * processing as well */
-    server = cmsg_server_new (transport, service);
+    server = cmsg_server_new (server_transport, service);
     if (server == NULL)
     {
         CMSG_LOG_GEN_ERROR ("Could not create server for loopback transport\n");
-        cmsg_transport_destroy (transport);
+        cmsg_transport_destroy (server_transport);
         return NULL;
     }
 
@@ -1672,16 +1674,25 @@ cmsg_create_client_loopback (ProtobufCService *service)
      * it does not own the memory for the messages. */
     cmsg_server_app_owns_all_msgs_set (server, TRUE);
 
+    client_transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
+    if (client_transport == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Could not create transport for loopback client\n");
+        cmsg_destroy_server_and_transport (server);
+        return NULL;
+    }
+
     /* the transport stores a pointer to the server so we can access it later to
      * invoke the implementation function directly. */
-    transport->config.loopback_server = server;
+    client_transport->config.loopback_server = server;
 
-    client = cmsg_client_new (transport, service->descriptor);
+    client = cmsg_client_new (client_transport, service->descriptor);
 
     if (client == NULL)
     {
         syslog (LOG_ERR, "Could not create loopback client");
         cmsg_destroy_server_and_transport (server);
+        cmsg_transport_destroy (client_transport);
         return NULL;
     }
 
@@ -1693,7 +1704,7 @@ cmsg_create_client_loopback (ProtobufCService *service)
     {
         CMSG_LOG_GEN_ERROR ("Could not create pipe for loopback transport");
         cmsg_destroy_server_and_transport (server);
-
+        cmsg_destroy_client_and_transport (client);
         return NULL;
     }
 
@@ -1728,7 +1739,11 @@ cmsg_client_close_wrapper (cmsg_transport *transport)
     transport->client_close (transport);
 }
 
-/* Destroy a cmsg client and its transport with TIPC */
+/**
+ * Destroy a cmsg client and its transport
+ *
+ * @param client - the cmsg client to destroy
+ */
 void
 cmsg_destroy_client_and_transport (cmsg_client *client)
 {
