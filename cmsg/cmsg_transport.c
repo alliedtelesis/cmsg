@@ -9,6 +9,9 @@
 
 extern void cmsg_transport_oneway_udt_init (cmsg_transport *transport);
 
+static int32_t _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle,
+                                            cmsg_server *server, int peek);
+
 
 /**
  * This function reads a uint32_t from an input array pointed to by *in
@@ -305,9 +308,11 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
     return ret;
 }
 
-/* Receive message from server and process it */
+/* Receive message from server and process it. If 'peek' is set, then a header
+ * is read first with MSG_PEEK and then read all together (header + data). */
 static int32_t
-_cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server)
+_cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
+                             int peek)
 {
     int32_t ret = CMSG_RET_OK;
     int nbytes = 0;
@@ -316,10 +321,18 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     cmsg_header header_converted;
     uint8_t *recv_buffer = NULL;
     uint8_t buf_static[512];
+    uint8_t *buffer_data;
     uint32_t extra_header_size = 0;
     cmsg_transport *transport = server->_transport;
 
-    nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
+    if (peek)
+    {
+        nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_PEEK);
+    }
+    else
+    {
+        nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
+    }
     CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "receive",
                                  cmsg_prof_time_toc (&transport->prof));
 
@@ -336,10 +349,19 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
             return CMSG_RET_ERR;
         }
 
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
-
         extra_header_size = header_converted.header_length - sizeof (cmsg_header);
-        dyn_len = header_converted.message_length + extra_header_size;
+
+        if (peek)
+        {
+            // packet size is determined by header_length + message_length.
+            // header_length may be greater than sizeof (cmsg_header)
+            dyn_len = header_converted.message_length + header_converted.header_length;
+        }
+        else
+        {
+            // Make sure any extra header is received.
+            dyn_len = header_converted.message_length + extra_header_size;
+        }
 
         if (dyn_len > sizeof (buf_static))
         {
@@ -351,17 +373,27 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
             memset (recv_buffer, 0, sizeof (buf_static));
         }
 
-        //Even if no packed data, TLV header should be read.
-        if (header_converted.message_length + extra_header_size)
+        // read the message
+        if (peek)
         {
             nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
+            buffer_data = recv_buffer + sizeof (cmsg_header);
         }
         else
         {
-            nbytes = 0;
+            //Even if no packed data, TLV header should be read.
+            if (header_converted.message_length + extra_header_size)
+            {
+                nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
+            }
+            else
+            {
+                nbytes = 0;
+            }
+            buffer_data = recv_buffer;
         }
 
-        ret = cmsg_transport_server_recv_process (recv_buffer, server, extra_header_size,
+        ret = cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
                                                   dyn_len, nbytes, &header_converted);
         if (recv_buffer != buf_static)
         {
@@ -371,10 +403,10 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                 recv_buffer = NULL;
             }
         }
+
     }
     else if (nbytes > 0)
     {
-        /* Didn't receive all of the CMSG header. */
         CMSG_LOG_TRANSPORT_ERROR (transport,
                                   "Bad header on recv socket %d. Number: %d",
                                   transport->connection.sockets.client_socket, nbytes);
@@ -394,12 +426,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     }
     else
     {
-        if (errno == ECONNRESET)
-        {
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] Receive error for socket %d. Error: %s.",
-                        transport->connection.sockets.client_socket, strerror (errno));
-        }
-        else
+        if (errno != ECONNRESET)
         {
             CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "Receive error for socket %d. Error: %s.",
@@ -410,8 +437,6 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         ret = CMSG_RET_ERR;
     }
 
-    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                 cmsg_prof_time_toc (&transport->prof));
     return ret;
 }
 
@@ -589,9 +614,17 @@ cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *serv
     {
         return _cmsg_transport_server_crypto_recv (recv, handle, server);
     }
-    return _cmsg_transport_server_recv (recv, handle, server);
+    return _cmsg_transport_server_recv (recv, handle, server, FALSE);
 }
 
+
+/* Receive message from server (by peeking the header first) and process it */
+int32_t
+cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
+                                      cmsg_server *server)
+{
+    return _cmsg_transport_server_recv (recv, handle, server, TRUE);
+}
 
 static cmsg_status_code
 _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *transport,
@@ -606,7 +639,7 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
     uint8_t *buffer = NULL;
     uint8_t buf_static[512];
     const ProtobufCMessageDescriptor *desc;
-    uint32_t extra_header_size = 0;
+    uint32_t extra_header_size;
     cmsg_server_request server_request;
 
     *messagePtPt = NULL;
@@ -628,10 +661,15 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received header\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
 
-        extra_header_size = header_converted.header_length - sizeof (cmsg_header);
-        dyn_len = header_converted.message_length + extra_header_size;
+        // read the message
+
+        // Take into account that someone may have changed the size of the header
+        // and we don't know about it, make sure we receive all the information.
+        // Any TLV is taken into account in the header length.
+        dyn_len = header_converted.message_length +
+            header_converted.header_length - sizeof (cmsg_header);
 
         // There is no more data to read so exit.
         if (dyn_len == 0)
@@ -670,6 +708,7 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
 
         if (nbytes == (int) dyn_len)
         {
+            extra_header_size = header_converted.header_length - sizeof (cmsg_header);
             // Set buffer to take into account a larger header than we expected
             buffer = recv_buffer;
 
@@ -741,9 +780,10 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
     }
     else if (nbytes > 0)
     {
-        /* Didn't receive all of the CMSG header. */
+        /* Didn't receive all of the CMSG header.
+         */
         CMSG_LOG_TRANSPORT_ERROR (transport,
-                                  "Bad header on recv socket %d. Number: %d",
+                                  "Bad header length for recv. Socket:%d nbytes:%d",
                                   transport->connection.sockets.client_socket, nbytes);
 
         // TEMP to keep things going
@@ -761,14 +801,13 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
     {
         if (errno == ECONNRESET)
         {
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] Receive error for socket %d. Error: %s.",
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
                         transport->connection.sockets.client_socket, strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
         {
-            CMSG_LOG_TRANSPORT_ERROR (transport,
-                                      "Receive error for socket %d. Error: %s.",
+            CMSG_LOG_TRANSPORT_ERROR (transport, "Recv error. Socket:%d Error:%s",
                                       transport->connection.sockets.client_socket,
                                       strerror (errno));
         }
@@ -1093,92 +1132,4 @@ cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *config)
     transport->config.socket.crypto.accept = config->crypto.accept;
     transport->config.socket.crypto.connect = config->crypto.connect;
     transport->use_crypto = TRUE;
-}
-
-/* Poll for the header data, give up if we timeout. This is used to avoid blocking forever
- * on the receive if the data is never sent or is partially sent.
- */
-cmsg_status_code
-csmg_transport_peek_for_header (cmsg_transport *transport, int32_t socket, int32_t maxLoop)
-{
-    cmsg_status_code ret = CMSG_STATUS_CODE_SUCCESS;
-    int count = 0;
-    int nbytes = 0;
-    cmsg_header header_received;
-
-    struct timeval timeout = { 1, 0 };
-    fd_set read_fds;
-    int maxfd;
-
-    FD_ZERO (&read_fds);
-    FD_SET (socket, &read_fds);
-    maxfd = socket;
-
-    /* Do select() on the socket to prevent it to go to usleep instantaneously in the loop
-     * if the data is not yet available.*/
-    select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
-
-    /* Peek until data arrives, this allows us to timeout and recover if no data arrives. */
-    while ((count < maxLoop) && (nbytes != (int) sizeof (cmsg_header)))
-    {
-        nbytes =
-            recv (socket, &header_received, sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
-        if (nbytes == (int) sizeof (cmsg_header))
-        {
-            break;
-        }
-        else
-        {
-            if (nbytes == 0)
-            {
-                return CMSG_STATUS_CODE_CONNECTION_CLOSED;
-            }
-            else if (nbytes == -1)
-            {
-                if (errno == ECONNRESET)
-                {
-                    CMSG_DEBUG (CMSG_INFO,
-                                "[TRANSPORT] receive failed %d %s", nbytes,
-                                strerror (errno));
-                    return CMSG_STATUS_CODE_SERVER_CONNRESET;
-                }
-                else if (errno == EINTR)
-                {
-                    // We were interrupted, this is transient so just try again without a delay.
-                    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] receive interrupted %d %s",
-                                nbytes, strerror (errno));
-                    continue;
-                }
-                else if (errno == EAGAIN || errno == EWOULDBLOCK)
-                {
-                    // This is normal, sometimes the data is not ready, just wait and try again.
-                    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] receive data not ready");
-                }
-                else
-                {
-                    // This was unexpected, try again after a delay.
-                    CMSG_LOG_TRANSPORT_ERROR (transport, "Receive failed %d %s",
-                                              nbytes, strerror (errno));
-                }
-            }
-        }
-        usleep (1000);
-        count++;
-    }
-
-    if (count >= maxLoop)
-    {
-        CMSG_LOG_TRANSPORT_ERROR (transport,
-                                  "Receive timed out socket %d nbytes was %d last error %s",
-                                  socket, nbytes, strerror (errno));
-
-        ret = CMSG_STATUS_CODE_SERVICE_FAILED;
-    }
-    else if (count >= maxLoop / 2)
-    {
-        // This should not really happen, log it
-        CMSG_LOG_TRANSPORT_ERROR (transport, "Receive looped %d times", count);
-    }
-
-    return ret;
 }
