@@ -109,6 +109,8 @@ ARRAY_SIZE_COMPILE_CHECK (ant_code_to_http_code_array, ANT_CODE_MAX);
 typedef cmsg_service_info *(*proxy_defs_array_get_func_ptr) ();
 typedef int (*proxy_defs_array_size_func_ptr) ();
 
+static pre_api_http_check_callback pre_api_check_callback = NULL;
+
 typedef struct
 {
     char *key;
@@ -761,7 +763,7 @@ _cmsg_proxy_library_handles_load (void)
                     dlclose (lib_handle);
                 }
             }
-            free (library_path);
+            CMSG_PROXY_FREE (library_path);
         }
     }
 
@@ -809,14 +811,8 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
         new_object = json_pack (fmt, field_descriptor->name, value);
         break;
     case PROTOBUF_C_TYPE_BOOL:
-        if (strcmp (value, "true") == 0)
-        {
-            new_object = json_pack ("{sb}", field_descriptor->name, true);
-        }
-        else if (strcmp (value, "false") == 0)
-        {
-            new_object = json_pack ("{sb}", field_descriptor->name, false);
-        }
+        fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[b]}" : "{sb}";
+        new_object = json_pack (fmt, field_descriptor->name, strcmp (value, "false"));
         break;
         /* Not (currently) supported */
     case PROTOBUF_C_TYPE_UINT64:
@@ -894,18 +890,18 @@ _cmsg_proxy_find_unparsed_field (const ProtobufCMessageDescriptor *msg_descripto
  * Sanity checks for a JSON object input to the web API
  * by the user.
  *
- * @param json_object - Converted JSON object input by the user
+ * @param json_obj - Converted JSON object input by the user
  * @param error - Error structure to hold error information
  *
  * @returns - true if sanity checks pass, false otherwise
  */
 static bool
-_cmsg_proxy_json_object_sanity_check (json_t *json_object, json_error_t *error)
+_cmsg_proxy_json_object_sanity_check (json_t *json_obj, json_error_t *error)
 {
     const char *key;
     json_t *value;
 
-    if (!json_is_object (json_object))
+    if (!json_is_object (json_obj))
     {
         snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
                   "JSON object expected but JSON value or array given");
@@ -913,7 +909,7 @@ _cmsg_proxy_json_object_sanity_check (json_t *json_object, json_error_t *error)
     }
 
     /* Sanity check the user hasn't given the '_error_info' field */
-    json_object_foreach (json_object, key, value)
+    json_object_foreach (json_obj, key, value)
     {
         if (strcmp (key, "_error_info") == 0)
         {
@@ -944,9 +940,15 @@ _cmsg_proxy_json_object_create (const char *input_json,
 {
     json_t *converted_json = NULL;
     const ProtobufCFieldDescriptor *field_desc = NULL;
-    json_t *json_object = NULL;
+    json_t *json_obj = NULL;
     const char *stripped_string;
     int expected_input_fields = msg_descriptor->n_fields - g_list_length (url_parameters);
+
+    if (!input_json)
+    {
+        /* Create an empty JSON object if no JSON input was provided. */
+        return json_object ();
+    }
 
     /* The '_error_info' field should never be set in the input path */
     if (protobuf_c_message_descriptor_get_field_by_name (msg_descriptor, "_error_info"))
@@ -988,10 +990,10 @@ _cmsg_proxy_json_object_create (const char *input_json,
                 return NULL;
             }
 
-            json_object = json_pack ("{so}", field_desc->name, converted_json);
+            json_obj = json_pack ("{so}", field_desc->name, converted_json);
             /* json_pack with 'o' steals the reference to converted_json.
              * Therefore we don't call decref for converted_json. */
-            return json_object;
+            return json_obj;
         }
         else if (json_is_object (converted_json))
         {
@@ -1003,32 +1005,32 @@ _cmsg_proxy_json_object_create (const char *input_json,
 
         if (json_is_array (converted_json))
         {
-            json_object = json_pack ("{so}", field_desc->name, converted_json);
+            json_obj = json_pack ("{so}", field_desc->name, converted_json);
             /* json_pack with 'o' steals the reference to converted_json.
              * Therefore we don't call decref for converted_json. */
-            return json_object;
+            return json_obj;
         }
         else if (json_is_string (converted_json))
         {
             /* Ensure the enclosing "" characters are stripped from the input */
             stripped_string = json_string_value (converted_json);
-            json_object = _cmsg_proxy_json_value_to_object (field_desc, stripped_string);
+            json_obj = _cmsg_proxy_json_value_to_object (field_desc, stripped_string);
         }
         else if (field_desc->type == PROTOBUF_C_TYPE_ENUM ||
                  field_desc->type == PROTOBUF_C_TYPE_STRING)
         {
             /* Don't allow non-string JSON values to be accepted when the
              * field expects an ENUM or STRING value. */
-            json_object = NULL;
+            json_obj = NULL;
             snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "JSON string value expected");
         }
         else
         {
-            json_object = _cmsg_proxy_json_value_to_object (field_desc, input_json);
+            json_obj = _cmsg_proxy_json_value_to_object (field_desc, input_json);
         }
 
         json_decref (converted_json);
-        return json_object;
+        return json_obj;
     }
     else
     {
@@ -1048,22 +1050,24 @@ _cmsg_proxy_json_object_create (const char *input_json,
  *
  * Destroy the given json object
  *
- * @param json_object - json object to be destroyed
+ * @param json_obj - json object to be destroyed
  */
 static void
-_cmsg_proxy_json_object_destroy (json_t *json_object)
+_cmsg_proxy_json_object_destroy (json_t *json_obj)
 {
-    if (json_object)
+    if (json_obj)
     {
-        json_decref (json_object);
+        json_decref (json_obj);
     }
 }
 
 /**
  * Allocate memory and store values for an embedded url parameter
  *
- * @param key - The name of the url parameter ie 'id' for /vlan/vlans/{id}
- * @param value - The parameter ie '5' for /vlan/vlans/5/...
+ * @param key - The name of the url parameter ie 'id' for /vlan/vlans/{id} or
+ *              'vrf_name' in /dns/relay_cache?vrf_name=VRF1
+ * @param value - The parameter ie '5' for /vlan/vlans/5/... or
+ *                'VRF1' in /dns/relay_cache?vrf_name=VRF1
  * @return - allocated cmsg_url_parameter or NULL if allocation fails
  */
 static cmsg_url_parameter *
@@ -1073,9 +1077,16 @@ _cmsg_proxy_create_url_parameter (const char *key, const char *value)
 
     if (new)
     {
-        /* strip the braces from the parameter name */
-        new->key = strndup (key + 1, strlen (key) - 2);
-        new->value = value ? strdup (value) : NULL;
+        if (key[0] == '{')
+        {
+            /* strip the braces from the parameter name */
+            new->key = CMSG_PROXY_STRNDUP (key + 1, strlen (key) - 2);
+        }
+        else
+        {
+            new->key = CMSG_PROXY_STRDUP (key);
+        }
+        new->value = value ? CMSG_PROXY_STRDUP (value) : NULL;
     }
     return new;
 }
@@ -1091,9 +1102,45 @@ _cmsg_proxy_free_url_parameter (gpointer ptr)
 
     if (p)
     {
-        free (p->key);
-        free (p->value);
-        free (p);
+        CMSG_PROXY_FREE (p->key);
+        CMSG_PROXY_FREE (p->value);
+        CMSG_PROXY_FREE (p);
+    }
+}
+
+/**
+ * Parses an HTTP query string, and adds the key-value pairs to the provided list.
+ *
+ * @param query_string - Query string to parse
+ * @param url_parameters - List of key value pairs of parameters specified in the URL
+ */
+static void
+_cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_parameters)
+{
+    char *tmp_query_string;
+    char *next_entry = NULL;
+    char *rest = NULL;
+    char *value = NULL;
+    cmsg_url_parameter *param = NULL;
+
+    /* Parse query string */
+    if (query_string)
+    {
+        tmp_query_string = CMSG_PROXY_STRDUP (query_string);
+
+        for (next_entry = strtok_r (tmp_query_string, "&", &rest); next_entry;
+             next_entry = strtok_r (NULL, "&", &rest))
+        {
+            value = strrchr (next_entry, '=');
+            if (value)
+            {
+                value[0] = '\0';
+                param = _cmsg_proxy_create_url_parameter (next_entry, value + 1);
+                *url_parameters = g_list_prepend (*url_parameters, param);
+            }
+        }
+
+        CMSG_PROXY_FREE (tmp_query_string);
     }
 }
 
@@ -1103,7 +1150,7 @@ _cmsg_proxy_free_url_parameter (gpointer ptr)
  *
  * @param url - URL string to use for the lookup.
  * @param http_verb - HTTP verb to use for the lookup.
- * @param json_object - jason object to update
+ * @param json_obj - jason object to update
  *
  * @return - Pointer to the cmsg_service_info entry if found, NULL otherwise.
  */
@@ -1185,11 +1232,11 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
  * element.
  *
  * @param parameters - list of parameter-name & parameter pairs
- * @param json_object - the message body
+ * @param json_obj - the message body
  * @param msg_descriptor - used to determine the target field type when converting to JSON
  */
 void
-_cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
+_cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
                                   const ProtobufCMessageDescriptor *msg_descriptor)
 {
     GList *iter = NULL;
@@ -1222,16 +1269,35 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
             continue;
         }
 
-        if (*json_object)
+        if (*json_obj)
         {
-            json_object_update (*json_object, new_object);
+            json_object_update (*json_obj, new_object);
             json_decref (new_object);
         }
         else
         {
-            *json_object = new_object;
+            *json_obj = new_object;
         }
     }
+}
+
+/**
+ * This calls the pre-API check callback provided by the application.
+ *
+ * @param http_verb - The HTTP request method
+ * @param message - This is assigned an error message if ANT_CODE_UNAVAILABLE
+ *                  is returned. The message should be freed by the caller.
+ * @return - ANT_CODE_UNAVAILABLE if the pre-check fails, otherwise ANT_CODE_OK.
+ */
+static ant_code
+_cmsg_proxy_pre_api_check (cmsg_http_verb http_verb, char **message)
+{
+    if (pre_api_check_callback && !pre_api_check_callback (http_verb, message))
+    {
+        return ANT_CODE_UNAVAILABLE;
+    }
+
+    return ANT_CODE_OK;
 }
 
 /**
@@ -1247,13 +1313,13 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_object,
  * @return - ANT_CODE_OK on success, relevant ANT code on failure.
  */
 static ant_code
-_cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
+_cmsg_proxy_convert_json_to_protobuf (json_t *json_obj,
                                       const ProtobufCMessageDescriptor *msg_descriptor,
                                       ProtobufCMessage **output_protobuf, char **message)
 {
     char conversion_message[MSG_BUF_LEN] = { 0 };
     ant_code ret = ANT_CODE_OK;
-    int res = json2protobuf_object (json_object, msg_descriptor, output_protobuf,
+    int res = json2protobuf_object (json_obj, msg_descriptor, output_protobuf,
                                     conversion_message, MSG_BUF_LEN);
 
     /* Only report messages deemed user-friendly */
@@ -1273,7 +1339,7 @@ _cmsg_proxy_convert_json_to_protobuf (json_t *json_object,
     case PROTOBUF2JSON_ERR_UNSUPPORTED_FIELD_TYPE:
         if (message)
         {
-            *message = strdup (conversion_message);
+            *message = CMSG_PROXY_STRDUP (conversion_message);
         }
         ret = ANT_CODE_INVALID_ARGUMENT;
         break;
@@ -1719,6 +1785,18 @@ cmsg_proxy_init (void)
 }
 
 /**
+ * Set a callback that is called before making a request to the API.
+ * This can be used to prevent a call to the API based on some condition.
+ *
+ * @param cb - This is called before making a request to the API.
+ */
+void
+cmsg_proxy_set_pre_api_http_check_callback (pre_api_http_check_callback cb)
+{
+    pre_api_check_callback = cb;
+}
+
+/**
  * Deinitialize the cmsg proxy library
  */
 void
@@ -1732,6 +1810,8 @@ cmsg_proxy_deinit (void)
     /* Cleanup counters */
     _cmsg_proxy_counter_deinit ();
 #endif /* HAVE_COUNTERD */
+
+    pre_api_check_callback = NULL;
 }
 
 /**
@@ -1739,6 +1819,7 @@ cmsg_proxy_deinit (void)
  * for each rpc defined in the CMSG .proto files.
  *
  * @param url - URL the HTTP request is for.
+ * @param query_string - The query string send with the request
  * @param http_verb - The HTTP verb sent with the HTTP request.
  * @param input_json - A string representing the JSON data sent with the HTTP request.
  * @param output_json - A pointer to a string that will store the output JSON data to.
@@ -1754,19 +1835,20 @@ cmsg_proxy_deinit (void)
  *           to a CMSG API).
  */
 bool
-cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
-            char **output_json, int *http_status)
+cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
+            const char *input_json, char **output_json, int *http_status)
 {
     const cmsg_service_info *service_info = NULL;
     const cmsg_client *client = NULL;
     ProtobufCMessage *input_proto_message = NULL;
     ProtobufCMessage *output_proto_message = NULL;
     ant_code result = ANT_CODE_OK;
-    json_t *json_object = NULL;
+    json_t *json_obj = NULL;
     GList *url_parameters = NULL;
     char *message = NULL;
     json_error_t error;
 
+    _cmsg_proxy_parse_query_parameters (query_string, &url_parameters);
     service_info = _cmsg_proxy_find_service_from_url_and_verb (url, http_verb,
                                                                &url_parameters);
     if (service_info == NULL)
@@ -1777,35 +1859,31 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         return false;
     }
 
-    if (input_json)
+    json_obj = _cmsg_proxy_json_object_create (input_json,
+                                               service_info->input_msg_descriptor,
+                                               url_parameters, &error);
+    if (input_json && !json_obj)
     {
-        json_object = _cmsg_proxy_json_object_create (input_json,
-                                                      service_info->input_msg_descriptor,
-                                                      url_parameters, &error);
+        /* No json object created, report the error */
 
-        if (!json_object)
+        char *error_msg;
+
+        if (CMSG_PROXY_ASPRINTF (&error_msg, "Invalid JSON: %s", error.text) < 0)
         {
-            /* No json object created, report the error */
-
-            char *error_msg;
-
-            if (CMSG_PROXY_ASPRINTF (&error_msg, "Invalid JSON: %s", error.text) < 0)
-            {
-                error_msg = NULL;
-            }
-
-            _cmsg_proxy_generate_ant_result_error (ANT_CODE_INVALID_ARGUMENT,
-                                                   (error_msg) ? error_msg : "Invalid JSON",
-                                                   http_status, output_json);
-
-            CMSG_PROXY_FREE (error_msg);
-
-            g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
-            return true;
+            error_msg = NULL;
         }
+
+        _cmsg_proxy_generate_ant_result_error (ANT_CODE_INVALID_ARGUMENT,
+                                               (error_msg) ? error_msg : "Invalid JSON",
+                                               http_status, output_json);
+
+        CMSG_PROXY_FREE (error_msg);
+
+        g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
+        return true;
     }
 
-    _cmsg_proxy_parse_url_parameters (url_parameters, &json_object,
+    _cmsg_proxy_parse_url_parameters (url_parameters, &json_obj,
                                       service_info->input_msg_descriptor);
 
     g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
@@ -1815,32 +1893,41 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
     {
         /* This should not occur but check for it */
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-        _cmsg_proxy_json_object_destroy (json_object);
+        _cmsg_proxy_json_object_destroy (json_obj);
         _cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL, NULL, http_status,
                                                output_json);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_client);
         return true;
     }
 
-    if (json_object)
+    /* Always create an input_proto_message to ensure that if the API call
+     * requires an input it has one, even if it is empty. */
+    result = _cmsg_proxy_convert_json_to_protobuf (json_obj,
+                                                   service_info->input_msg_descriptor,
+                                                   &input_proto_message, &message);
+    _cmsg_proxy_json_object_destroy (json_obj);
+    if (result != ANT_CODE_OK)
     {
-        result = _cmsg_proxy_convert_json_to_protobuf (json_object,
-                                                       service_info->input_msg_descriptor,
-                                                       &input_proto_message, &message);
-        if (result != ANT_CODE_OK)
-        {
-            /* The JSON sent with the request is malformed */
-            _cmsg_proxy_json_object_destroy (json_object);
-            _cmsg_proxy_generate_ant_result_error (result, message, http_status,
-                                                   output_json);
-            free (message);
-            CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_malformed_input);
-            return true;
-        }
-        free (message);
+        /* The JSON sent with the request is malformed */
+        _cmsg_proxy_generate_ant_result_error (result, message, http_status, output_json);
+        CMSG_PROXY_FREE (message);
+        CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_malformed_input);
+        return true;
     }
+    CMSG_PROXY_FREE (message);
+    message = NULL;
 
     CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_api_calls);
+
+    /* Do the pre-API check */
+    result = _cmsg_proxy_pre_api_check (http_verb, &message);
+    if (result != ANT_CODE_OK)
+    {
+        _cmsg_proxy_generate_ant_result_error (result, message, http_status, output_json);
+        CMSG_PROXY_FREE (message);
+        CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
+        return true;
+    }
 
     result = _cmsg_proxy_call_cmsg_api (client, input_proto_message,
                                         &output_proto_message, service_info);
@@ -1849,7 +1936,6 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         /* Something went wrong calling the CMSG api */
         CMSG_FREE_RECV_MSG (input_proto_message);
         _cmsg_proxy_generate_ant_result_error (result, NULL, http_status, output_json);
-        _cmsg_proxy_json_object_destroy (json_object);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
         return true;
     }
@@ -1875,6 +1961,5 @@ cmsg_proxy (const char *url, cmsg_http_verb http_verb, const char *input_json,
         CMSG_FREE_RECV_MSG (output_proto_message);
     }
 
-    _cmsg_proxy_json_object_destroy (json_object);
     return true;
 }
