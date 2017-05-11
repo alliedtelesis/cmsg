@@ -30,19 +30,12 @@
  * to pad the end of the last data block */
 #define ENCRYPT_EXTRA   64
 
+/* When connecting the transport specify that the default timeout value should
+ * be used with the connect call */
+#define CONNECT_TIMEOUT_DEFAULT -1
+
 //forward delarations
-typedef struct _cmsg_client_s cmsg_client;
 typedef struct _cmsg_server_s cmsg_server;
-
-
-#ifdef HAVE_VCSTACK
-typedef struct _cpg_server_connection_s
-{
-    cpg_handle_t handle;
-    cpg_callbacks_t callbacks;
-    int fd; //file descriptor for listening
-} cmsg_cpg_server_connection;
-#endif
 
 typedef int (*encrypt_f) (int sock, void *inbuf, int length, void *outbuf, int outbuf_size);
 typedef int (*decrypt_f) (int sock, void *inbuf, int length, void *outbuf, int outbuf_size);
@@ -59,27 +52,28 @@ typedef struct _connection_crypto_callbacks_s
     connect_f connect;
 } cmsg_connection_crypto_callbacks;
 
-typedef struct _generic_server_connection_s
+#ifdef HAVE_VCSTACK
+typedef struct _cpg_connection_s
+{
+    cpg_handle_t handle;
+    cpg_callbacks_t callbacks;
+    int fd; //file descriptor for listening
+} cmsg_cpg_connection;
+#endif
+
+typedef struct _generic_connection_s
 {
     int listening_socket;
     int client_socket;
-} cmsg_generic_sever_connection;
+} cmsg_generic_connection;
 
-typedef union _client_connection_u
+typedef union _cmsg_connection_u
 {
 #ifdef HAVE_VCSTACK
-    cpg_handle_t handle;
+    cmsg_cpg_connection cpg;
 #endif
-    int socket;
-} cmsg_client_connection;
-
-typedef union _cmsg_server_connection_u
-{
-#ifdef HAVE_VCSTACK
-    cmsg_cpg_server_connection cpg;
-#endif
-    cmsg_generic_sever_connection sockets;
-} cmsg_server_connection;
+    cmsg_generic_connection sockets;
+} cmsg_connection;
 
 typedef union _cmsg_socket_address_u
 {
@@ -117,7 +111,9 @@ typedef struct _cmsg_cpg_s
 #endif
 } cmsg_cpg;
 
-typedef int (*udt_connect_f) (cmsg_client *client);
+typedef struct _cmsg_transport_s cmsg_transport;    //forward declaration
+
+typedef int (*udt_connect_f) (cmsg_transport *transport);
 typedef int (*udt_send_f) (void *udt_data, void *buff, int length, int flag);
 typedef int (*cmsg_recv_func) (void *handle, void *buff, int len, int flags);
 
@@ -154,31 +150,25 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_ONEWAY_UNIX,
 } cmsg_transport_type;
 
-typedef int (*client_conect_f) (cmsg_client *client);
-typedef int (*server_listen_f) (cmsg_server *server);
+typedef int (*client_connect_f) (cmsg_transport *transport, int timeout);
+typedef int (*server_listen_f) (cmsg_transport *transport);
 typedef int (*server_recv_f) (int32_t socket, cmsg_server *server);
-typedef int (*server_accept_f) (int32_t socket, cmsg_server *server);
+typedef int (*server_accept_f) (int32_t socket, cmsg_transport *transport);
 
-typedef cmsg_status_code (*client_recv_f) (cmsg_client *client,
+typedef cmsg_status_code (*client_recv_f) (cmsg_transport *transport,
+                                           const ProtobufCServiceDescriptor *descriptor,
                                            ProtobufCMessage **messagePtPt);
 
-typedef int (*client_send_f) (cmsg_client *client, void *buff, int length, int flag);
-typedef int (*server_send_f) (cmsg_server *server, void *buff, int length, int flag);
+typedef int (*client_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
+typedef int (*server_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
 
-typedef int32_t (*invoke_send_f) (cmsg_client *client, uint32_t method_index,
-                                  const ProtobufCMessage *input);
-typedef int32_t (*invoke_recv_f) (cmsg_client *client, uint32_t method_index,
-                                  ProtobufCClosure closure, void *closure_data);
-
-typedef void (*client_close_f) (cmsg_client *client);
-typedef void (*server_close_f) (cmsg_server *server);
-typedef int (*s_get_socket_f) (cmsg_server *server);
-typedef int (*c_get_socket_f) (cmsg_client *client);
-typedef void (*client_destroy_f) (cmsg_client *client);
-typedef void (*server_destroy_f) (cmsg_server *server);
-typedef uint32_t (*is_congested_f) (cmsg_client *client);
-
-typedef struct _cmsg_transport_s cmsg_transport;    //forward declaration
+typedef void (*client_close_f) (cmsg_transport *transport);
+typedef void (*server_close_f) (cmsg_transport *transport);
+typedef int (*s_get_socket_f) (cmsg_transport *transport);
+typedef int (*c_get_socket_f) (cmsg_transport *transport);
+typedef void (*client_destroy_f) (cmsg_transport *transport);
+typedef void (*server_destroy_f) (cmsg_transport *transport);
+typedef uint32_t (*is_congested_f) (cmsg_transport *transport);
 
 typedef int32_t (*send_called_multi_threads_enable_f) (cmsg_transport *transport,
                                                        uint32_t enable);
@@ -214,8 +204,11 @@ struct _cmsg_transport_s
     void *crypto_context;
     cmsg_bool_t use_crypto;
 
+    cmsg_connection connection;
+    pthread_mutex_t connection_mutex;
+
     //transport function pointers
-    client_conect_f connect;                                                // client connect function
+    client_connect_f connect;                                               // client connect function
     server_listen_f listen;                                                 // server listen function
     server_accept_f server_accept;                                          // server accept
     server_recv_f server_recv;                                              // server receive function
@@ -223,8 +216,6 @@ struct _cmsg_transport_s
     client_send_f client_send;                                              // client send function
     server_send_f server_send;                                              // server send function
     ProtobufCClosure closure;                                               // rpc closure function
-    invoke_send_f invoke_send;                                              // invoke send function
-    invoke_recv_f invoke_recv;                                              // invoke recv function
     client_close_f client_close;                                            // client close socket function
     server_close_f server_close;                                            // server close socket function
     s_get_socket_f s_socket;                                                //
@@ -237,6 +228,13 @@ struct _cmsg_transport_s
     ipfree_bind_enable_f ipfree_bind_enable;                                // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
     //transport statistics
     uint32_t client_send_tries;
+
+    //For debug purposes, store the object id of the parent (client/server) using this transport
+    char parent_obj_id[CMSG_MAX_OBJ_ID_LEN + 1];
+
+#ifdef HAVE_CMSG_PROFILING
+    cmsg_prof prof;
+#endif
 };
 
 cmsg_transport *cmsg_transport_new (cmsg_transport_type type);
@@ -274,7 +272,9 @@ int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_serv
 int32_t cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
                                               cmsg_server *server);
 
-int32_t cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_client *client,
+int32_t cmsg_transport_client_recv (cmsg_recv_func recv, void *handle,
+                                    cmsg_transport *transport,
+                                    const ProtobufCServiceDescriptor *descriptor,
                                     ProtobufCMessage **messagePtPt);
 
 cmsg_transport *cmsg_create_transport_tipc (const char *server_name, int member_id,
@@ -302,7 +302,7 @@ void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
                                              const char *event_str,
                                              struct tipc_event *event);
 
-void cmsg_transport_write_id (cmsg_transport *tport);
+void cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id);
 void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
 void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
 cmsg_transport *cmsg_create_transport_unix (const ProtobufCServiceDescriptor *descriptor,

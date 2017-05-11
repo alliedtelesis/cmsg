@@ -20,14 +20,13 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_client.h"
 #include "cmsg_server.h"
 
 /*
  *
  */
 static int32_t
-cmsg_transport_oneway_udt_listen (cmsg_server *server)
+cmsg_transport_oneway_udt_listen (cmsg_transport *transport)
 {
     // Function isn't needed for User Defined so nothing happens.
     return 0;
@@ -65,7 +64,9 @@ cmsg_transport_oneway_udt_server_recv (int32_t socket, cmsg_server *server)
  * defined
  */
 static cmsg_status_code
-cmsg_transport_oneway_udt_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
+cmsg_transport_oneway_udt_client_recv (cmsg_transport *transport,
+                                       const ProtobufCServiceDescriptor *descriptor,
+                                       ProtobufCMessage **messagePtPt)
 {
     // Function isn't needed for User Defined so nothing happens.
     *messagePtPt = NULL;
@@ -74,7 +75,7 @@ cmsg_transport_oneway_udt_client_recv (cmsg_client *client, ProtobufCMessage **m
 
 
 static int32_t
-cmsg_transport_oneway_udt_server_send (cmsg_server *server, void *buff, int length,
+cmsg_transport_oneway_udt_server_send (cmsg_transport *transport, void *buff, int length,
                                        int flag)
 {
     // Function isn't needed for User Defined so nothing happens.
@@ -83,7 +84,7 @@ cmsg_transport_oneway_udt_server_send (cmsg_server *server, void *buff, int leng
 
 
 static void
-cmsg_transport_oneway_udt_client_close (cmsg_client *client)
+cmsg_transport_oneway_udt_client_close (cmsg_transport *transport)
 {
     // Function isn't needed for User Defined so nothing happens.
     return;
@@ -91,7 +92,7 @@ cmsg_transport_oneway_udt_client_close (cmsg_client *client)
 
 
 static void
-cmsg_transport_oneway_udt_server_close (cmsg_server *server)
+cmsg_transport_oneway_udt_server_close (cmsg_transport *transport)
 {
     // Function isn't needed for User Defined so nothing happens.
     return;
@@ -99,7 +100,7 @@ cmsg_transport_oneway_udt_server_close (cmsg_server *server)
 
 
 static int
-cmsg_transport_oneway_udt_server_get_socket (cmsg_server *server)
+cmsg_transport_oneway_udt_server_get_socket (cmsg_transport *transport)
 {
     // Function isn't needed for User Defined so nothing happens.
     return 0;
@@ -107,34 +108,34 @@ cmsg_transport_oneway_udt_server_get_socket (cmsg_server *server)
 
 
 static int
-cmsg_transport_oneway_udt_client_get_socket (cmsg_client *client)
+cmsg_transport_oneway_udt_client_get_socket (cmsg_transport *transport)
 {
     // Function isn't needed for User Defined so nothing happens.
     return 0;
 }
 
 static void
-cmsg_transport_oneway_udt_client_destroy (cmsg_client *cmsg_client)
+cmsg_transport_oneway_udt_client_destroy (cmsg_transport *transport)
 {
     //placeholder to make sure destroy functions are called in the right order
 }
 
 static void
-cmsg_transport_oneway_udt_server_destroy (cmsg_server *server)
+cmsg_transport_oneway_udt_server_destroy (cmsg_transport *transport)
 {
     // Function isn't needed for User Defined so nothing happens.
     return;
 }
 
 static int32_t
-cmsg_transport_oneway_udt_client_send (cmsg_client *client, void *buff, int length,
+cmsg_transport_oneway_udt_client_send (cmsg_transport *transport, void *buff, int length,
                                        int flag)
 {
 
-    if (client->_transport->config.udt.send)
+    if (transport->config.udt.send)
     {
-        return (client->_transport->config.udt.send
-                (client->_transport->config.udt.udt_data, buff, length, flag));
+        return (transport->config.udt.send (transport->config.udt.udt_data, buff,
+                                            length, flag));
     }
 
     // Function isn't defined so just pretend the message was sent.
@@ -147,15 +148,14 @@ cmsg_transport_oneway_udt_client_send (cmsg_client *client, void *buff, int leng
  * the client connection to connected.
  */
 static int32_t
-cmsg_transport_oneway_udt_connect (cmsg_client *client)
+cmsg_transport_oneway_udt_connect (cmsg_transport *transport, int timeout)
 {
     int32_t ret = 0;
 
-    if (client->_transport->config.udt.connect)
+    if (transport->config.udt.connect)
     {
-        ret = client->_transport->config.udt.connect (client);
+        ret = transport->config.udt.connect (transport);
     }
-    client->state = CMSG_CLIENT_STATE_CONNECTED;
 
     return ret;
 }
@@ -165,7 +165,7 @@ cmsg_transport_oneway_udt_connect (cmsg_client *client)
  * Can't work out whether the UDT is congested
  */
 uint32_t
-cmsg_transport_oneway_udt_is_congested (cmsg_client *client)
+cmsg_transport_oneway_udt_is_congested (cmsg_transport *transport)
 {
     return FALSE;
 }
@@ -221,8 +221,6 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
     transport->client_send = cmsg_transport_oneway_udt_client_send;
     transport->server_send = cmsg_transport_oneway_udt_server_send;
     transport->closure = cmsg_server_closure_oneway;
-    transport->invoke_send = cmsg_client_invoke_send;
-    transport->invoke_recv = NULL;
     transport->client_close = cmsg_transport_oneway_udt_client_close;
     transport->server_close = cmsg_transport_oneway_udt_server_close;
 

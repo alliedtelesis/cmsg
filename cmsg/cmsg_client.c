@@ -42,6 +42,43 @@ static int32_t cmsg_client_invoke (ProtobufCService *service,
 static int32_t cmsg_client_queue_input (cmsg_client *client, uint32_t method_index,
                                         const ProtobufCMessage *input, bool *did_queue);
 
+static void
+cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
+{
+    // Note these may be subsequently overridden (e.g. composite client)
+    client->invoke = cmsg_client_invoke;
+    client->base_service.invoke = cmsg_client_invoke;
+
+    if (transport)
+    {
+        switch (transport->type)
+        {
+        case CMSG_TRANSPORT_RPC_LOCAL:
+        case CMSG_TRANSPORT_RPC_TCP:
+        case CMSG_TRANSPORT_RPC_TIPC:
+        case CMSG_TRANSPORT_RPC_UNIX:
+            client->invoke_send = cmsg_client_invoke_send;
+            client->invoke_recv = cmsg_client_invoke_recv;
+            break;
+        case CMSG_TRANSPORT_ONEWAY_TCP:
+        case CMSG_TRANSPORT_ONEWAY_TIPC:
+        case CMSG_TRANSPORT_CPG:
+        case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
+        case CMSG_TRANSPORT_BROADCAST:
+        case CMSG_TRANSPORT_ONEWAY_UNIX:
+            client->invoke_send = cmsg_client_invoke_send;
+            client->invoke_recv = NULL;
+            break;
+        case CMSG_TRANSPORT_LOOPBACK:
+            client->invoke_send = cmsg_client_invoke_send_direct;
+            client->invoke_recv = cmsg_client_invoke_recv_direct;
+            break;
+        default:
+            assert (false && "Unknown transport type");
+        }
+    }
+}
+
 /*
  * This is an internal function which can be called from CMSG library.
  * Applications should use cmsg_client_new() instead.
@@ -58,14 +95,12 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
     if (client)
     {
         client->state = CMSG_CLIENT_STATE_INIT;
-        client->connection.socket = -1;
 
         if (transport)
         {
             client->base_service.destroy = NULL;
-            client->allocator = &cmsg_memory_allocator;
             client->_transport = transport;
-            cmsg_transport_write_id (transport);
+            cmsg_transport_write_id (transport, descriptor->name);
         }
 
         //for compatibility with current generated code
@@ -73,15 +108,7 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         client->descriptor = descriptor;
         client->base_service.descriptor = descriptor;
 
-        // Note these may be subsequently overridden (e.g. composite client)
-        client->invoke = cmsg_client_invoke;
-        client->base_service.invoke = cmsg_client_invoke;
-
-        if (transport)
-        {
-            client->invoke_send = transport->invoke_send;
-            client->invoke_recv = transport->invoke_recv;
-        }
+        cmsg_client_invoke_init (client, transport);
 
         client->self.object_type = CMSG_OBJ_TYPE_CLIENT;
         client->self.object = client;
@@ -111,12 +138,6 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         if (pthread_mutex_init (&client->queue_process_mutex, NULL) != 0)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_mutex.");
-            return NULL;
-        }
-
-        if (pthread_mutex_init (&client->connection_mutex, NULL) != 0)
-        {
-            CMSG_LOG_CLIENT_ERROR (client, "Init failed for connection_mutex.");
             return NULL;
         }
 
@@ -204,11 +225,10 @@ cmsg_client_destroy (cmsg_client *client)
     client->state = CMSG_CLIENT_STATE_CLOSED;
     if (client->_transport)
     {
-        cmsg_client_close_wrapper (client);
-        client->_transport->client_destroy (client);
+        cmsg_client_close_wrapper (client->_transport);
+        client->_transport->client_destroy (client->_transport);
     }
 
-    pthread_mutex_destroy (&client->connection_mutex);
     pthread_mutex_destroy (&client->invoke_mutex);
 
     CMSG_FREE (client);
@@ -267,7 +287,8 @@ cmsg_client_counter_create (cmsg_client *client, char *app_name)
 cmsg_status_code
 cmsg_client_response_receive (cmsg_client *client, ProtobufCMessage **message)
 {
-    return (client->_transport->client_recv (client, message));
+    return (client->_transport->client_recv (client->_transport, client->descriptor,
+                                             message));
 }
 
 
@@ -280,6 +301,7 @@ cmsg_client_connect (cmsg_client *client)
 {
     int32_t ret = 0;
     int sock;
+    int timeout = CONNECT_TIMEOUT_DEFAULT;
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
@@ -294,16 +316,27 @@ cmsg_client_connect (cmsg_client *client)
         // count the connection attempt
         CMSG_COUNTER_INC (client, cntr_connect_attempts);
 
-        ret = client->_transport->connect (client);
+        /* During stack failover we need connect attempts for a publisher to
+         * remote nodes that have now left to fail quickly. Otherwise the system
+         * will hang using the default TIPC timeout (30 seconds) and the stack will
+         * fall apart. */
+        if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
+        {
+            timeout = CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT;
+        }
+
+        ret = client->_transport->connect (client->_transport, timeout);
 
         if (ret < 0)
         {
             // count the connection failure
             CMSG_COUNTER_INC (client, cntr_connect_failures);
+            client->state = CMSG_CLIENT_STATE_FAILED;
         }
         else
         {
-            sock = client->connection.socket;
+            client->state = CMSG_CLIENT_STATE_CONNECTED;
+            sock = client->_transport->connection.sockets.client_socket;
             if (sock >= 0 && client->_transport->use_crypto &&
                 client->_transport->config.socket.crypto.connect)
             {
@@ -313,8 +346,7 @@ cmsg_client_connect (cmsg_client *client)
             if (client->send_timeout > 0)
             {
                 // Set send timeout on the socket if needed
-                if (_cmsg_client_apply_send_timeout (client->connection.socket,
-                                                     client->send_timeout) < 0)
+                if (_cmsg_client_apply_send_timeout (sock, client->send_timeout) < 0)
                 {
                     CMSG_DEBUG (CMSG_INFO,
                                 "[CLIENT] failed to set send timeout (errno=%d)\n", errno);
@@ -324,8 +356,7 @@ cmsg_client_connect (cmsg_client *client)
             if (client->receive_timeout > 0)
             {
                 // Set receive timeout on the socket if needed
-                if (_cmsg_client_apply_receive_timeout (client->connection.socket,
-                                                        client->receive_timeout) < 0)
+                if (_cmsg_client_apply_receive_timeout (sock, client->receive_timeout) < 0)
                 {
                     CMSG_DEBUG (CMSG_INFO,
                                 "[CLIENT] failed to set receive timeout (errno=%d)\n",
@@ -355,7 +386,8 @@ cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout)
     /* If the client is already connected, then apply the new timeout immediately */
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        _cmsg_client_apply_send_timeout (client->connection.socket, client->send_timeout);
+        _cmsg_client_apply_send_timeout (client->_transport->connection.
+                                         sockets.client_socket, client->send_timeout);
     }
 
     return 0;
@@ -422,8 +454,8 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
     /* If the client is already connected, then apply the new timeout immediately */
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        _cmsg_client_apply_receive_timeout (client->connection.socket,
-                                            client->receive_timeout);
+        _cmsg_client_apply_receive_timeout (client->_transport->connection.
+                                            sockets.client_socket, client->receive_timeout);
     }
 
     return 0;
@@ -464,7 +496,7 @@ cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
 
         // close the connection and return early
         client->state = CMSG_CLIENT_STATE_CLOSED;
-        cmsg_client_close_wrapper (client);
+        cmsg_client_close_wrapper (client->_transport);
 
         CMSG_COUNTER_INC (client, cntr_recv_errors);
         return CMSG_RET_CLOSED;
@@ -517,16 +549,16 @@ cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
     if (closure_data)
     {
         // free unknown fields from received message as the developer doesn't know about them
-        protobuf_c_message_free_unknown_fields (message_pt, client->allocator);
+        protobuf_c_message_free_unknown_fields (message_pt, &cmsg_memory_allocator);
 
         ((cmsg_client_closure_data *) (closure_data))->message = (void *) message_pt;
-        ((cmsg_client_closure_data *) (closure_data))->allocator = client->allocator;
+        ((cmsg_client_closure_data *) (closure_data))->allocator = &cmsg_memory_allocator;
     }
     else
     {
         /* only cleanup if the message is not passed back to the
          * api through the closure_data (above) */
-        protobuf_c_message_free_unpacked (message_pt, client->allocator);
+        protobuf_c_message_free_unpacked (message_pt, &cmsg_memory_allocator);
     }
 
     CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "cleanup",
@@ -698,6 +730,17 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
     int sock;
     int ret;
 
+#ifdef HAVE_VCSTACK
+    if (client->state != CMSG_CLIENT_STATE_CONNECTED &&
+        client->_transport->type == CMSG_TRANSPORT_CPG)
+    {
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "CPG Client is not connected prior to attempting to send to group %s",
+                               client->_transport->config.cpg.group_name.value);
+        return -1;
+    }
+#endif /* HAVE_VCSTACK */
+
     /* if the message should be encrypted, then pass it back to the user
      * application to encrypt */
     if (client->_transport->config.socket.crypto.encrypt)
@@ -707,22 +750,23 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
         if (encrypt_buffer == NULL)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Client failed to allocate buffer on socket %d",
-                                   client->connection.socket);
+                                   client->_transport->connection.sockets.client_socket);
             return -1;
         }
-        sock = client->connection.socket;
+        sock = client->_transport->connection.sockets.client_socket;
         encrypt_length = encrypt_func (sock, buffer, length, encrypt_buffer,
                                        length + ENCRYPT_EXTRA);
         if (encrypt_length < 0)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Client encrypt on socket %d failed - %s",
-                                   client->connection.socket, strerror (errno));
+                                   client->_transport->connection.sockets.client_socket,
+                                   strerror (errno));
             CMSG_FREE (encrypt_buffer);
             return -1;
         }
 
-        ret = client->_transport->client_send (client, encrypt_buffer, encrypt_length,
-                                               flag);
+        ret = client->_transport->client_send (client->_transport, encrypt_buffer,
+                                               encrypt_length, flag);
         /* if the send was successful, fixup the return length to match the original
          * plaintext length so callers are unaware of the encryption */
         if (encrypt_length == ret)
@@ -734,7 +778,7 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
     }
     else
     {
-        ret = client->_transport->client_send (client, buffer, length, flag);
+        ret = client->_transport->client_send (client->_transport, buffer, length, flag);
     }
 
     return ret;
@@ -950,13 +994,13 @@ cmsg_client_invoke_recv_direct (cmsg_client *client, uint32_t method_index,
     if (closure_data)
     {
         ((cmsg_client_closure_data *) (closure_data))->message = (void *) message_pt;
-        ((cmsg_client_closure_data *) (closure_data))->allocator = client->allocator;
+        ((cmsg_client_closure_data *) (closure_data))->allocator = &cmsg_memory_allocator;
     }
     else
     {
         /* only cleanup if the message is not passed back to the
          * api through the closure_data (above) */
-        protobuf_c_message_free_unpacked (message_pt, client->allocator);
+        protobuf_c_message_free_unpacked (message_pt, &cmsg_memory_allocator);
     }
 
     return CMSG_RET_OK;
@@ -972,7 +1016,7 @@ cmsg_client_get_socket (cmsg_client *client)
 
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        sock = client->_transport->c_socket (client);
+        sock = client->_transport->c_socket (client->_transport);
     }
     else
     {
@@ -1019,7 +1063,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
     }
 
     // return socket to listen on
-    return client->_transport->c_socket (client);
+    return client->_transport->c_socket (client->_transport);
 }
 
 
@@ -1045,7 +1089,7 @@ cmsg_client_recv_echo_reply (cmsg_client *client)
         // We don't expect a message to have been sent back so free it and
         // move on.  Not treating it as an error as this behaviour might
         // change in the future and it doesn't really matter.
-        protobuf_c_message_free_unpacked (message_pt, client->allocator);
+        protobuf_c_message_free_unpacked (message_pt, &cmsg_memory_allocator);
     }
 
     return status_code;
@@ -1055,7 +1099,7 @@ cmsg_client_recv_echo_reply (cmsg_client *client)
 int32_t
 cmsg_client_transport_is_congested (cmsg_client *client)
 {
-    return client->_transport->is_congested (client);
+    return client->_transport->is_congested (client->_transport);
 }
 
 
@@ -1209,12 +1253,12 @@ cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
-    pthread_mutex_lock (&client->connection_mutex);
+    pthread_mutex_lock (&client->_transport->connection_mutex);
 
     ret = _cmsg_client_buffer_send_retry_once (client, queue_buffer,
                                                queue_buffer_size, method_name);
 
-    pthread_mutex_unlock (&client->connection_mutex);
+    pthread_mutex_unlock (&client->_transport->connection_mutex);
 
     return ret;
 }
@@ -1241,7 +1285,7 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
     {
         // close the connection as something must be wrong
         client->state = CMSG_CLIENT_STATE_CLOSED;
-        cmsg_client_close_wrapper (client);
+        cmsg_client_close_wrapper (client->_transport);
         // the connection may be down due to a problem since the last send
         // attempt once to reconnect and send
         connect_error = cmsg_client_connect (client);
@@ -1302,9 +1346,9 @@ cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
 
     for (c = 0; c <= max_tries; c++)
     {
-        pthread_mutex_lock (&client->connection_mutex);
+        pthread_mutex_lock (&client->_transport->connection_mutex);
         int ret = _cmsg_client_buffer_send (client, queue_buffer, queue_buffer_size);
-        pthread_mutex_unlock (&client->connection_mutex);
+        pthread_mutex_unlock (&client->_transport->connection_mutex);
 
         if (ret == CMSG_RET_OK)
         {
@@ -1600,25 +1644,27 @@ cmsg_create_client_tcp_oneway (cmsg_socket *config, ProtobufCServiceDescriptor *
 cmsg_client *
 cmsg_create_client_loopback (ProtobufCService *service)
 {
-    cmsg_transport *transport;
-    cmsg_server *server;
-    cmsg_client *client;
+    cmsg_transport *server_transport = NULL;
+    cmsg_transport *client_transport = NULL;
+    cmsg_server *server = NULL;
+    cmsg_client *client = NULL;
     int pipe_fds[2] = { -1, -1 };
 
-    transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
-    if (transport == NULL)
+    server_transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
+    if (server_transport == NULL)
     {
+        CMSG_LOG_GEN_ERROR ("Could not create transport for loopback server\n");
         return NULL;
     }
 
     /* The point of the loopback is to process the CMSG within the same process-
      * space, without using RPC. So the client actually does the server-side
      * processing as well */
-    server = cmsg_server_new (transport, service);
+    server = cmsg_server_new (server_transport, service);
     if (server == NULL)
     {
         CMSG_LOG_GEN_ERROR ("Could not create server for loopback transport\n");
-        cmsg_transport_destroy (transport);
+        cmsg_transport_destroy (server_transport);
         return NULL;
     }
 
@@ -1628,16 +1674,25 @@ cmsg_create_client_loopback (ProtobufCService *service)
      * it does not own the memory for the messages. */
     cmsg_server_app_owns_all_msgs_set (server, TRUE);
 
+    client_transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
+    if (client_transport == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Could not create transport for loopback client\n");
+        cmsg_destroy_server_and_transport (server);
+        return NULL;
+    }
+
     /* the transport stores a pointer to the server so we can access it later to
      * invoke the implementation function directly. */
-    transport->config.loopback_server = server;
+    client_transport->config.loopback_server = server;
 
-    client = cmsg_client_new (transport, service->descriptor);
+    client = cmsg_client_new (client_transport, service->descriptor);
 
     if (client == NULL)
     {
         syslog (LOG_ERR, "Could not create loopback client");
         cmsg_destroy_server_and_transport (server);
+        cmsg_transport_destroy (client_transport);
         return NULL;
     }
 
@@ -1649,7 +1704,7 @@ cmsg_create_client_loopback (ProtobufCService *service)
     {
         CMSG_LOG_GEN_ERROR ("Could not create pipe for loopback transport");
         cmsg_destroy_server_and_transport (server);
-
+        cmsg_destroy_client_and_transport (client);
         return NULL;
     }
 
@@ -1658,8 +1713,8 @@ cmsg_create_client_loopback (ProtobufCService *service)
     fcntl (pipe_fds[1], F_SETFL, O_NONBLOCK);
 
     /* client uses the pipe's read socket, server uses the write socket */
-    client->connection.socket = pipe_fds[0];
-    server->connection.sockets.client_socket = pipe_fds[1];
+    client->_transport->connection.sockets.client_socket = pipe_fds[0];
+    server->_transport->connection.sockets.client_socket = pipe_fds[1];
 
     return client;
 }
@@ -1673,18 +1728,22 @@ cmsg_create_client_loopback (ProtobufCService *service)
  *
  */
 void
-cmsg_client_close_wrapper (cmsg_client *client)
+cmsg_client_close_wrapper (cmsg_transport *transport)
 {
-    int sock = client->connection.socket;
+    int sock = transport->connection.sockets.client_socket;
 
-    if (client->_transport->config.socket.crypto.close)
+    if (transport->config.socket.crypto.close)
     {
-        client->_transport->config.socket.crypto.close (sock);
+        transport->config.socket.crypto.close (sock);
     }
-    client->_transport->client_close (client);
+    transport->client_close (transport);
 }
 
-/* Destroy a cmsg client and its transport with TIPC */
+/**
+ * Destroy a cmsg client and its transport
+ *
+ * @param client - the cmsg client to destroy
+ */
 void
 cmsg_destroy_client_and_transport (cmsg_client *client)
 {

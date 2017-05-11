@@ -11,6 +11,7 @@
 #include "cntrd_app_api.h"
 #endif
 
+extern GHashTable *cpg_group_name_to_server_hash_table_h;
 
 static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
                                                           uint8_t *buffer_data);
@@ -44,11 +45,10 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
     if (server)
     {
         /* Generate transport unique id */
-        cmsg_transport_write_id (transport);
+        cmsg_transport_write_id (transport, service->descriptor->name);
 
         server->_transport = transport;
         server->service = service;
-        server->allocator = &cmsg_memory_allocator;
         server->message_processor = cmsg_server_message_processor;
 
         server->self.object_type = CMSG_OBJ_TYPE_SERVER;
@@ -60,7 +60,17 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
         CMSG_DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n",
                     transport->type);
 
-        ret = transport->listen (server);
+#ifdef HAVE_VCSTACK
+        if (server->_transport->type == CMSG_TRANSPORT_CPG)
+        {
+            /* Add entry into the hash table for the server to be found by cpg group name. */
+            g_hash_table_insert (cpg_group_name_to_server_hash_table_h,
+                                 (gpointer) server->_transport->config.cpg.group_name.value,
+                                 (gpointer) server);
+        }
+#endif /* HAVE_VCSTACK */
+
+        ret = transport->listen (server->_transport);
 
         if (ret < 0)
         {
@@ -188,7 +198,7 @@ cmsg_server_destroy (cmsg_server *server)
 
     if (server->_transport)
     {
-        server->_transport->server_destroy (server);
+        server->_transport->server_destroy (server->_transport);
     }
 
     CMSG_FREE (server);
@@ -252,7 +262,7 @@ cmsg_server_get_socket (cmsg_server *server)
     CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, -1);
 
-    socket = server->_transport->s_socket (server);
+    socket = server->_transport->s_socket (server->_transport);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] done. socket: %d\n", socket);
 
@@ -615,7 +625,7 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 
     if (server->_transport->server_accept != NULL)
     {
-        sock = server->_transport->server_accept (listen_socket, server);
+        sock = server->_transport->server_accept (listen_socket, server->_transport);
         if (sock >= 0 && server->_transport->use_crypto &&
             server->_transport->config.socket.crypto.accept)
         {
@@ -678,7 +688,7 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
 
         if (!(server->app_owns_current_msg || server->app_owns_all_msgs))
         {
-            protobuf_c_message_free_unpacked (message, server->allocator);
+            protobuf_c_message_free_unpacked (message, &cmsg_memory_allocator);
         }
         server->app_owns_current_msg = FALSE;
 
@@ -712,7 +722,7 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
         CMSG_COUNTER_INC (server, cntr_messages_dropped);
 
         // Free the unpacked message
-        protobuf_c_message_free_unpacked (message, server->allocator);
+        protobuf_c_message_free_unpacked (message, &cmsg_memory_allocator);
         break;
 
     default:
@@ -764,7 +774,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     cmsg_queue_filter_type action;
     cmsg_method_processing_reason processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = server->allocator;
+    ProtobufCAllocator *allocator = &cmsg_memory_allocator;
     cmsg_server_request *server_request = server->server_request;
     const char *method_name;
     const ProtobufCMessageDescriptor *desc;
@@ -872,12 +882,12 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
 
     if (server->_transport->config.socket.crypto.encrypt)
     {
-        sock = server->connection.sockets.client_socket;
+        sock = server->_transport->connection.sockets.client_socket;
         encrypt_buffer = (uint8_t *) CMSG_CALLOC (1, length + ENCRYPT_EXTRA);
         if (encrypt_buffer == NULL)
         {
             CMSG_LOG_SERVER_ERROR (server, "Server failed to allocate buffer on socket %d",
-                                   server->connection.sockets.client_socket);
+                                   sock);
             return -1;
         }
 
@@ -887,13 +897,13 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
                                                               length + ENCRYPT_EXTRA);
         if (encrypt_length < 0)
         {
-            CMSG_LOG_SERVER_ERROR (server, "Server encrypt on socket %d failed",
-                                   server->connection.sockets.client_socket);
+            CMSG_LOG_SERVER_ERROR (server, "Server encrypt on socket %d failed", sock);
             CMSG_FREE (encrypt_buffer);
             return -1;
         }
 
-        ret = server->_transport->server_send (server, encrypt_buffer, encrypt_length, 0);
+        ret = server->_transport->server_send (server->_transport, encrypt_buffer,
+                                               encrypt_length, 0);
         /* if the send was successful, fixup the return length to match the original
          * plaintext length so callers are unaware of the encryption */
         if (encrypt_length == ret)
@@ -905,7 +915,7 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
     }
     else
     {
-        ret = server->_transport->server_send (server, buff, length, 0);
+        ret = server->_transport->server_send (server->_transport, buff, length, 0);
     }
 
     return ret;
@@ -1654,6 +1664,11 @@ cmsg_create_server_tcp_oneway (cmsg_socket *config, ProtobufCService *descriptor
     return _cmsg_create_server_tcp (config, descriptor, CMSG_TRANSPORT_ONEWAY_TCP);
 }
 
+/**
+ * Destroy a cmsg server and its transport
+ *
+ * @param server - the cmsg server to destroy
+ */
 void
 cmsg_destroy_server_and_transport (cmsg_server *server)
 {
@@ -1718,12 +1733,12 @@ cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner
 void
 cmsg_server_close_wrapper (cmsg_server *server)
 {
-    int sock = server->connection.sockets.client_socket;
+    int sock = server->_transport->connection.sockets.client_socket;
 
     if (server->_transport->config.socket.crypto.close)
     {
         server->_transport->config.socket.crypto.close (sock);
     }
 
-    server->_transport->server_close (server);
+    server->_transport->server_close (server->_transport);
 }

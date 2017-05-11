@@ -3,7 +3,6 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_client.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
@@ -15,41 +14,35 @@
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-cmsg_transport_tcp_connect (cmsg_client *client)
+cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
 {
     int ret;
     struct sockaddr *addr;
     uint32_t addr_len;
 
-    if (client == NULL)
-    {
-        return 0;
-    }
+    transport->connection.sockets.client_socket = socket (transport->config.socket.family,
+                                                          SOCK_STREAM, 0);
 
-    client->connection.socket = socket (client->_transport->config.socket.family,
-                                        SOCK_STREAM, 0);
-
-    if (client->connection.socket < 0)
+    if (transport->connection.sockets.client_socket < 0)
     {
         ret = -errno;
-        client->state = CMSG_CLIENT_STATE_FAILED;
-        CMSG_LOG_CLIENT_ERROR (client, "Unable to create socket. Error:%s",
-                               strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
+                                  strerror (errno));
         return ret;
     }
 
-    if (client->_transport->config.socket.family == PF_INET6)
+    if (transport->config.socket.family == PF_INET6)
     {
-        addr = (struct sockaddr *) &client->_transport->config.socket.sockaddr.in6;
-        addr_len = sizeof (client->_transport->config.socket.sockaddr.in6);
+        addr = (struct sockaddr *) &transport->config.socket.sockaddr.in6;
+        addr_len = sizeof (transport->config.socket.sockaddr.in6);
     }
     else
     {
-        addr = (struct sockaddr *) &client->_transport->config.socket.sockaddr.in;
-        addr_len = sizeof (client->_transport->config.socket.sockaddr.in);
+        addr = (struct sockaddr *) &transport->config.socket.sockaddr.in;
+        addr_len = sizeof (transport->config.socket.sockaddr.in);
     }
 
-    if (connect (client->connection.socket, addr, addr_len) < 0)
+    if (connect (transport->connection.sockets.client_socket, addr, addr_len) < 0)
     {
         if (errno == EINPROGRESS)
         {
@@ -57,19 +50,16 @@ cmsg_transport_tcp_connect (cmsg_client *client)
         }
 
         ret = -errno;
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "Failed to connect to remote host. Error:%s",
-                               strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Failed to connect to remote host. Error:%s",
+                                  strerror (errno));
 
-        close (client->connection.socket);
-        client->connection.socket = -1;
-        client->state = CMSG_CLIENT_STATE_FAILED;
+        close (transport->connection.sockets.client_socket);
+        transport->connection.sockets.client_socket = -1;
 
         return ret;
     }
     else
     {
-        client->state = CMSG_CLIENT_STATE_CONNECTED;
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] succesfully connected\n");
         return 0;
     }
@@ -77,35 +67,29 @@ cmsg_transport_tcp_connect (cmsg_client *client)
 
 
 static int32_t
-cmsg_transport_tcp_listen (cmsg_server *server)
+cmsg_transport_tcp_listen (cmsg_transport *transport)
 {
     int32_t yes = 1;    // for setsockopt() SO_REUSEADDR, below
     int32_t listening_socket = -1;
     int32_t ret = 0;
     socklen_t addrlen = 0;
-    cmsg_transport *transport = NULL;
 
-    if (server == NULL)
-    {
-        return 0;
-    }
+    transport->connection.sockets.listening_socket = 0;
+    transport->connection.sockets.client_socket = 0;
 
-    server->connection.sockets.listening_socket = 0;
-    server->connection.sockets.client_socket = 0;
-
-    transport = server->_transport;
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Unable to create socket. Error:%s",
-                               strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
+                                  strerror (errno));
         return -1;
     }
 
     ret = setsockopt (listening_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (int32_t));
     if (ret == -1)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Unable to setsockopt. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to setsockopt. Error:%s",
+                                  strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -122,8 +106,8 @@ cmsg_transport_tcp_listen (cmsg_server *server)
             setsockopt (listening_socket, IPPROTO_IP, IP_FREEBIND, &yes, sizeof (int32_t));
         if (ret == -1)
         {
-            CMSG_LOG_SERVER_ERROR (server, "Unable to setsockopt. Error:%s",
-                                   strerror (errno));
+            CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to setsockopt. Error:%s",
+                                      strerror (errno));
             close (listening_socket);
             return -1;
         }
@@ -141,7 +125,8 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     ret = bind (listening_socket, &transport->config.socket.sockaddr.generic, addrlen);
     if (ret < 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Unable to bind socket. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to bind socket. Error:%s",
+                                  strerror (errno));
         close (listening_socket);
         return -1;
     }
@@ -149,23 +134,23 @@ cmsg_transport_tcp_listen (cmsg_server *server)
     ret = listen (listening_socket, 10);
     if (ret < 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Listen failed. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Listen failed. Error:%s", strerror (errno));
         close (listening_socket);
         return -1;
     }
 
-    server->connection.sockets.listening_socket = listening_socket;
+    transport->connection.sockets.listening_socket = listening_socket;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tcp socket: %d\n", listening_socket);
 
 #ifndef DEBUG_DISABLED
-    if (server->_transport->config.socket.family == PF_INET6)
+    if (transport->config.socket.family == PF_INET6)
     {
-        port = (int) (ntohs (server->_transport->config.socket.sockaddr.in6.sin6_port));
+        port = (int) (ntohs (transport->config.socket.sockaddr.in6.sin6_port));
     }
     else
     {
-        port = (int) (ntohs (server->_transport->config.socket.sockaddr.in.sin_port));
+        port = (int) (ntohs (transport->config.socket.sockaddr.in.sin_port));
     }
 #endif
 
@@ -238,7 +223,7 @@ cmsg_transport_tcp_server_recv (int32_t server_socket, cmsg_server *server)
     }
 
     /* Remember the client socket to use when send reply */
-    server->connection.sockets.client_socket = server_socket;
+    server->_transport->connection.sockets.client_socket = server_socket;
 
     ret = cmsg_transport_server_recv (cmsg_transport_tcp_recv,
                                       (void *) &server_socket, server);
@@ -248,20 +233,20 @@ cmsg_transport_tcp_server_recv (int32_t server_socket, cmsg_server *server)
 
 
 static int32_t
-cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
+cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_transport *transport)
 {
     uint32_t client_len;
     cmsg_transport client_transport;
     int sock;
     struct sockaddr *addr;
 
-    if (!server || listen_socket < 0)
+    if (listen_socket < 0)
     {
         CMSG_LOG_GEN_ERROR ("TCP server accept error. Invalid arguments.");
         return -1;
     }
 
-    if (server->_transport->config.socket.family == PF_INET6)
+    if (transport->config.socket.family == PF_INET6)
     {
         addr = (struct sockaddr *) &client_transport.config.socket.sockaddr.in6;
         client_len = sizeof (client_transport.config.socket.sockaddr.in6);
@@ -276,7 +261,7 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
 
     if (sock < 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "Accept failed. Error:%s", strerror (errno));
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Accept failed. Error:%s", strerror (errno));
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
 
         return -1;
@@ -286,35 +271,33 @@ cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_server *server)
 }
 
 static cmsg_status_code
-cmsg_transport_tcp_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
+cmsg_transport_tcp_client_recv (cmsg_transport *transport,
+                                const ProtobufCServiceDescriptor *descriptor,
+                                ProtobufCMessage **messagePtPt)
 {
     cmsg_status_code ret;
 
     *messagePtPt = NULL;
 
-    if (!client)
-    {
-        return CMSG_STATUS_CODE_SERVICE_FAILED;
-    }
-
     ret = cmsg_transport_client_recv (cmsg_transport_tcp_recv,
-                                      (void *) &client->connection.socket, client,
-                                      messagePtPt);
+                                      (void *) &transport->connection.sockets.client_socket,
+                                      transport, descriptor, messagePtPt);
 
     return ret;
 }
 
 
 static int32_t
-cmsg_transport_tcp_client_send (cmsg_client *client, void *buff, int length, int flag)
+cmsg_transport_tcp_client_send (cmsg_transport *transport, void *buff, int length, int flag)
 {
-    return (send (client->connection.socket, buff, length, flag));
+    return (send (transport->connection.sockets.client_socket, buff, length, flag));
 }
 
 static int32_t
-cmsg_transport_tcp_rpc_server_send (cmsg_server *server, void *buff, int length, int flag)
+cmsg_transport_tcp_rpc_server_send (cmsg_transport *transport, void *buff, int length,
+                                    int flag)
 {
-    return (send (server->connection.sockets.client_socket, buff, length, flag));
+    return (send (transport->connection.sockets.client_socket, buff, length, flag));
 }
 
 /**
@@ -322,64 +305,64 @@ cmsg_transport_tcp_rpc_server_send (cmsg_server *server, void *buff, int length,
  * returns 0.
  */
 static int32_t
-cmsg_transport_tcp_oneway_server_send (cmsg_server *server, void *buff, int length,
+cmsg_transport_tcp_oneway_server_send (cmsg_transport *transport, void *buff, int length,
                                        int flag)
 {
     return 0;
 }
 
 static void
-cmsg_transport_tcp_client_close (cmsg_client *client)
+cmsg_transport_tcp_client_close (cmsg_transport *transport)
 {
-    if (client->connection.socket != -1)
+    if (transport->connection.sockets.client_socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (client->connection.socket, SHUT_RDWR);
+        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (client->connection.socket);
+        close (transport->connection.sockets.client_socket);
 
-        client->connection.socket = -1;
+        transport->connection.sockets.client_socket = -1;
     }
 }
 
 static void
-cmsg_transport_tcp_server_close (cmsg_server *server)
+cmsg_transport_tcp_server_close (cmsg_transport *transport)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
-    shutdown (server->connection.sockets.client_socket, SHUT_RDWR);
+    shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
-    close (server->connection.sockets.client_socket);
+    close (transport->connection.sockets.client_socket);
 }
 
 static int
-cmsg_transport_tcp_server_get_socket (cmsg_server *server)
+cmsg_transport_tcp_server_get_socket (cmsg_transport *transport)
 {
-    return server->connection.sockets.listening_socket;
+    return transport->connection.sockets.listening_socket;
 }
 
 
 static int
-cmsg_transport_tcp_client_get_socket (cmsg_client *client)
+cmsg_transport_tcp_client_get_socket (cmsg_transport *transport)
 {
-    return client->connection.socket;
+    return transport->connection.sockets.client_socket;
 }
 
 static void
-cmsg_transport_tcp_client_destroy (cmsg_client *cmsg_client)
+cmsg_transport_tcp_client_destroy (cmsg_transport *transport)
 {
     //placeholder to make sure destroy functions are called in the right order
 }
 
 static void
-cmsg_transport_tcp_server_destroy (cmsg_server *server)
+cmsg_transport_tcp_server_destroy (cmsg_transport *transport)
 {
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-    shutdown (server->connection.sockets.listening_socket, SHUT_RDWR);
+    shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-    close (server->connection.sockets.listening_socket);
+    close (transport->connection.sockets.listening_socket);
 }
 
 
@@ -387,7 +370,7 @@ cmsg_transport_tcp_server_destroy (cmsg_server *server)
  * TCP is never congested
  */
 uint32_t
-cmsg_transport_tcp_is_congested (cmsg_client *client)
+cmsg_transport_tcp_is_congested (cmsg_transport *transport)
 {
     return FALSE;
 }
@@ -429,7 +412,6 @@ _cmsg_transport_tcp_init_common (cmsg_transport *transport)
     transport->server_recv = cmsg_transport_tcp_server_recv;
     transport->client_recv = cmsg_transport_tcp_client_recv;
     transport->client_send = cmsg_transport_tcp_client_send;
-    transport->invoke_send = cmsg_client_invoke_send;
     transport->client_close = cmsg_transport_tcp_client_close;
     transport->server_close = cmsg_transport_tcp_server_close;
     transport->s_socket = cmsg_transport_tcp_server_get_socket;
@@ -456,7 +438,6 @@ cmsg_transport_tcp_init (cmsg_transport *transport)
 
     transport->server_send = cmsg_transport_tcp_rpc_server_send;
     transport->closure = cmsg_server_closure_rpc;
-    transport->invoke_recv = cmsg_client_invoke_recv;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
@@ -474,7 +455,6 @@ cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
 
     transport->server_send = cmsg_transport_tcp_oneway_server_send;
     transport->closure = cmsg_server_closure_oneway;
-    transport->invoke_recv = NULL;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
