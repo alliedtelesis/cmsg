@@ -51,7 +51,7 @@ cmsg_transport_unix_connect (cmsg_transport *transport, int timeout)
     }
     else
     {
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] succesfully connected\n");
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] successfully connected\n");
         return 0;
     }
 }

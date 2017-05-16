@@ -346,8 +346,9 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
       printer->Print("}\n"); //while (_closure_data[i].message != NULL)
 
       //
-      // check for at least one result and report an error, iff return status
-      // hasn't already been set to an error (may be CMSG_RET_CLOSED already)
+      // check for at least one result and report an error, if and
+      // only if return status hasn't already been set to an error
+      // (may be CMSG_RET_CLOSED already)
       //
       printer->Print("if (found_data == 0 && _return_status == CMSG_RET_OK)\n");
       printer->Print("{\n");

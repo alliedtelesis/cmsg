@@ -1378,7 +1378,7 @@ cmsg_server_queue_request_process_one (cmsg_server *server)
 
 
 /**
- * Processes the upto the given number of items to process out of the queue
+ * Processes the up to the given number of items to process out of the queue
  */
 int32_t
 cmsg_server_queue_request_process_some (cmsg_server *server, uint32_t num_to_process)

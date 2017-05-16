@@ -721,7 +721,7 @@ cmsg_pub_invoke (ProtobufCService *service,
 
         if (action == CMSG_QUEUE_FILTER_PROCESS)
         {
-            //dont queue, process directly
+            //don't queue, process directly
             list_entry->client->queue_enabled_from_parent = 0;
         }
         else if (action == CMSG_QUEUE_FILTER_QUEUE)

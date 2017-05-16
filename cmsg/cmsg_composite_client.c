@@ -109,7 +109,7 @@ cmsg_composite_client_add_child (cmsg_client *composite_client, cmsg_client *cli
     /* Since loopback clients execute the cmsg impl in the same thread as the api call
      * we place them at the end of the child client list so that they are invoked last.
      * This ensures the performance gains of using a composite client (i.e. executing in
-     * paralell) are retained. */
+     * parallel) are retained. */
     if (client->_transport->type == CMSG_TRANSPORT_LOOPBACK)
     {
         composite_client->child_clients = g_list_append (composite_client->child_clients,

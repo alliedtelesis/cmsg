@@ -24,7 +24,7 @@ typedef struct _cmsg_client_s cmsg_client;
 typedef enum _cmsg_client_state_e
 {
     CMSG_CLIENT_STATE_INIT,         //after creating a new client
-    CMSG_CLIENT_STATE_CONNECTED,    //after succesful connect
+    CMSG_CLIENT_STATE_CONNECTED,    //after successful connect
     CMSG_CLIENT_STATE_FAILED,       //after unsuccessful connect (todo: or unsuccessful send)
     CMSG_CLIENT_STATE_CLOSED,       //after successful send
     CMSG_CLIENT_STATE_QUEUED,       //after successful adding a packet to the queue
