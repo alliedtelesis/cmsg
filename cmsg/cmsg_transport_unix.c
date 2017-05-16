@@ -38,7 +38,8 @@ cmsg_transport_unix_connect (cmsg_transport *transport, int timeout)
     addr = (struct sockaddr_un *) &transport->config.socket.sockaddr.un;
     addrlen = sizeof (transport->config.socket.sockaddr.un);
 
-    if (connect (transport->connection.sockets.client_socket, addr, addrlen) < 0)
+    if (connect (transport->connection.sockets.client_socket, (struct sockaddr *) addr,
+                 addrlen) < 0)
     {
         ret = -errno;
         CMSG_LOG_TRANSPORT_ERROR (transport,
@@ -87,7 +88,8 @@ cmsg_transport_unix_listen (cmsg_transport *transport)
 
     unlink (transport->config.socket.sockaddr.un.sun_path);
     addrlen = sizeof (transport->config.socket.sockaddr.un);
-    ret = bind (listening_socket, &transport->config.socket.sockaddr.un, addrlen);
+    ret = bind (listening_socket,
+                (struct sockaddr *) &transport->config.socket.sockaddr.un, addrlen);
     if (ret < 0)
     {
         CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to bind socket. Error:%s",
