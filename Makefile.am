@@ -26,28 +26,6 @@ if BUILD_CMSG_PROXY
 SUBDIRS += cmsg-proxy
 endif # BUILD_CMSG_PROXY
 
-if BUILD_UNITTEST
-cmsg-proxy/cmsg_proxy_unit_tests_proxy_def.c cmsg-proxy/cmsg_proxy_unit_tests_proxy_def.h: $(PROTOC_CMSG_PATH)$(EXEEXT) $(top_srcdir)/cmsg-proxy/cmsg_proxy_unit_tests.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir) --c_out=. cmsg-proxy/cmsg_proxy_unit_tests.proto
-
-bin_PROGRAMS += cmsg-proxy/cmsg_proxy_unit_tests
-cmsg_proxy_cmsg_proxy_unit_tests_SOURCES = \
-	cmsg-proxy/common.pb-c.c \
-	cmsg-proxy/common.pb-c.h \
-	cmsg-proxy/cmsg_proxy_unit_tests_proxy_def.c \
-	cmsg-proxy/cmsg_proxy_unit_tests_proxy_def.h \
-	cmsg-proxy/cmsg_proxy_unit_tests_api_auto.c \
-	cmsg-proxy/cmsg_proxy_unit_tests_api_auto.h \
-	cmsg-proxy/cmsg_proxy_unit_tests.pb-c.c \
-	cmsg-proxy/cmsg_proxy_unit_tests.pb-c.h \
-	cmsg-proxy/cmsg_proxy_unit_tests.c
-cmsg_proxy_cmsg_proxy_unit_tests_CFLAGS  = $(AM_CFLAGS) -g $(NOVAPROVA_CFLAGS)
-cmsg_proxy_cmsg_proxy_unit_tests_LDFLAGS = -static
-cmsg_proxy_cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
-                                           -lcmsg -lprotobuf-c -lprotobuf2json-c \
-                                           -ljansson
-endif
-
 if BUILD_CMSG_TEST
 SUBDIRS += cmsg-test
 endif # BUILD_CMSG_TEST
