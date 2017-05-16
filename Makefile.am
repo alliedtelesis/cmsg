@@ -13,51 +13,9 @@ AM_CFLAGS = -Wall ${my_CFLAGS} $(GLIB_CFLAGS)
 AM_CXXFLAGS = -Werror
 AM_LDFLAGS =
 
-#
-# protoc-cmsg
-#
 
 if BUILD_PROTOC_CMSG
-
-bin_PROGRAMS += protoc-cmsg/protoc-cmsg
-protoc_cmsg_protoc_cmsg_SOURCES = \
-	protoc-c/c_atl_generator.cc \
-	protoc-c/c_atl_generator.h \
-	protoc-c/c_bytes_field.cc \
-	protoc-c/c_bytes_field.h \
-	protoc-c/c_enum.cc \
-	protoc-c/c_enum.h \
-	protoc-c/c_enum_field.cc \
-	protoc-c/c_enum_field.h \
-	protoc-c/c_extension.cc \
-	protoc-c/c_extension.h \
-	protoc-c/c_field.cc \
-	protoc-c/c_field.h \
-	protoc-c/c_file.cc \
-	protoc-c/c_file.h \
-	protoc-c/c_generator.cc \
-	protoc-c/c_generator.h \
-	protoc-c/c_helpers.cc \
-	protoc-c/c_helpers.h \
-	protoc-c/c_message.cc \
-	protoc-c/c_message.h \
-	protoc-c/c_message_field.cc \
-	protoc-c/c_message_field.h \
-	protoc-c/c_primitive_field.cc \
-	protoc-c/c_primitive_field.h \
-	protoc-c/c_service.cc \
-	protoc-c/c_service.h \
-	protoc-c/c_string_field.cc \
-	protoc-c/c_string_field.h \
-	protoc-c/main.cc
-protoc_cmsg_protoc_cmsg_CXXFLAGS = \
-	$(AM_CXXFLAGS) \
-	$(protobuf_CFLAGS)
-protoc_cmsg_protoc_cmsg_LDADD = \
-	$(protobuf_LIBS) \
-	-lprotoc \
-	-lprotobuf
-
+SUBDIRS += protoc-c
 endif # BUILD_PROTOC_CMSG
 
 if BUILD_CMSG
