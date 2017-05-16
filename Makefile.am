@@ -65,39 +65,7 @@ SUBDIRS += cmsg
 endif # BUILD_CMSG
 
 if BUILD_CMSG_PROXY
-
-LIBCMSGPROXY_CURRENT=1
-LIBCMSGPROXY_REVISION=0
-LIBCMSGPROXY_AGE=0
-
-lib_LTLIBRARIES += \
-	cmsg-proxy/libcmsgproxy.la
-
-cmsg-proxy/common.pb-c.c cmsg-proxy/common.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) $(top_srcdir)/cmsg-proxy/common.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir) --c_out=. cmsg-proxy/common.proto
-
-cmsg_proxy_libcmsgproxy_la_SOURCES = \
-	cmsg-proxy/common.pb-c.c \
-	cmsg-proxy/common.pb-c.h \
-	cmsg-proxy/cmsg_proxy.c \
-	cmsg-proxy/cmsg_proxy.h \
-	cmsg-proxy/cmsg_proxy_mem.c \
-	cmsg-proxy/cmsg_proxy_mem.h
-
-cmsg_proxy_libcmsgproxy_la_LIBADD = \
-	$(GLIB_LIBS) \
-	-lcmsg \
-	-ljansson \
-	-lprotobuf2json-c
-
-cmsg_proxy_libcmsgproxy_la_CFLAGS = -Werror $(AM_CFLAGS)
-
-cmsg_proxy_libcmsgproxy_la_LDFLAGS = $(AM_LDFLAGS) \
-	-version-info $(LIBCMSGPROXY_CURRENT):$(LIBCMSGPROXY_REVISION):$(LIBCMSGPROXY_AGE) \
-	-no-undefined
-
-BUILT_SOURCES = cmsg-proxy/common.pb-c.c cmsg-proxy/common.pb-c.h
-
+SUBDIRS += cmsg-proxy
 endif # BUILD_CMSG_PROXY
 
 if BUILD_UNITTEST
