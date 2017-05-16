@@ -21,6 +21,7 @@ AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([Makefile
   cmsg/Makefile
   cmsg-proxy/Makefile
+  cmsg-test/Makefile
   cmsg/cmsg.pc])
 
 PKG_CHECK_MODULES([GLIB],[glib-2.0])
