@@ -1109,6 +1109,28 @@ _cmsg_proxy_free_url_parameter (gpointer ptr)
 }
 
 /**
+ * Compares a url parameter's key with a specified string.
+ *
+ * @param param - The url parameter as a cmsg_url_parameter
+ * @param name_to_match - The string to compare to the parameter's key
+ * @return Returns 0 if the url parameter's key matches the provided string, otherwise
+ *         a non-zero value is returned.
+ */
+static int
+_cmsg_proxy_param_name_matches (gconstpointer param, gconstpointer name_to_match)
+{
+    cmsg_url_parameter *p = (cmsg_url_parameter *) param;
+    const char *key = (const char *) name_to_match;
+
+    if (p && p->key && key)
+    {
+        return strcmp (p->key, key);
+    }
+
+    return -1;
+}
+
+/**
  * Parses an HTTP query string, and adds the key-value pairs to the provided list.
  *
  * @param query_string - Query string to parse
@@ -1122,6 +1144,7 @@ _cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_parame
     char *rest = NULL;
     char *value = NULL;
     cmsg_url_parameter *param = NULL;
+    GList *matching_param = NULL;
 
     /* Parse query string */
     if (query_string)
@@ -1135,8 +1158,16 @@ _cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_parame
             if (value)
             {
                 value[0] = '\0';
-                param = _cmsg_proxy_create_url_parameter (next_entry, value + 1);
-                *url_parameters = g_list_prepend (*url_parameters, param);
+
+                /* Only add the parameter if it is not already assigned
+                 * (query parameters shouldn't overwrite path parameters) */
+                matching_param = g_list_find_custom (*url_parameters, next_entry,
+                                                     _cmsg_proxy_param_name_matches);
+                if (!matching_param)
+                {
+                    param = _cmsg_proxy_create_url_parameter (next_entry, value + 1);
+                    *url_parameters = g_list_prepend (*url_parameters, param);
+                }
             }
         }
 
@@ -1848,7 +1879,6 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     char *message = NULL;
     json_error_t error;
 
-    _cmsg_proxy_parse_query_parameters (query_string, &url_parameters);
     service_info = _cmsg_proxy_find_service_from_url_and_verb (url, http_verb,
                                                                &url_parameters);
     if (service_info == NULL)
@@ -1858,6 +1888,8 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
         CMSG_PROXY_COUNTER_INC (cntr_unknown_service);
         return false;
     }
+
+    _cmsg_proxy_parse_query_parameters (query_string, &url_parameters);
 
     json_obj = _cmsg_proxy_json_object_create (input_json,
                                                service_info->input_msg_descriptor,
