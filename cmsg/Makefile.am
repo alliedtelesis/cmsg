@@ -1,4 +1,5 @@
 lib_LTLIBRARIES = libcmsg.la
+bin_PROGRAMS =
 
 pkgconfiglibdir = $(libdir)/pkgconfig
 pkgconfiglib_DATA = cmsg.pc
@@ -50,3 +51,12 @@ libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS)
 
 BUILT_SOURCES = cmsg_sub_service.pb-c.c cmsg_sub_service.pb-c.h
 CLEANFILES = $(BUILT_SOURCES)
+
+if BUILD_UNITTEST
+bin_PROGRAMS += cmsg_unit_tests
+cmsg_unit_tests_SOURCES = \
+	cmsg_unit_tests.c
+cmsg_unit_tests_CFLAGS  = -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
+cmsg_unit_tests_LDFLAGS = -static
+cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS)
+endif # BUILD_UNITTEST
