@@ -114,17 +114,24 @@ extern ProtobufCAllocator cmsg_memory_allocator;
 #define CMSG_REPEATED_FREE(_ptr_array) CMSG_MSG_ARRAY_FREE (_ptr_array)
 
 /**
- * Helper macro to append an element to a repeated field in a message. This should only be
- * used to append to arrays created with CMSG_REPEATED_APPEND.  It MUST NOT be used
- * with CMSG_MSG_ARRAY_ALLOC. If _ptr is NULL, the field is not updated and the original
- * values are kept.  Otherwise, uses realloc to extend the pointer array by 1 and sets _ptr
- * in the last element. updates the number of elements parameter in the message too.  If
- * the repeated field is empty, the first element is created.  Freeing the elements of the
- * array after the message has been sent is left up to the user.  The array itself should
- * be freed with CMSG_REPEATED_FREE.
+ * Helper macro to append an element to a repeated field in a message.
+ * If this macro is used, it MUST be the ONLY method used to add elements to that field.
+ * This is because internal optimisations are used to avoid excessive re-allocations.
+ *
+ * This macro MUST NOT be used with CMSG_MSG_ARRAY_ALLOC or any other allocator for the
+ * same field.
+ *
+ * If _ptr is NULL, the field is not updated and the original values are kept.
+ *
+ * Otherwise, the pointer array is created/extended if necessary, the pointer to the new
+ * element is added and the number of elements in the repeated field is updated.
+ *
+ * Freeing memory used by the elements in the array after the message has been sent is left
+ * up to the user.
+ * The array itself should be freed with CMSG_REPEATED_FREE.
  * @param _name name of the message being modified
  * @param _field name of the repeated field
- * @param ptr pointer to append to repeated field
+ * @param _ptr pointer to append to repeated field
  */
 #define CMSG_REPEATED_APPEND(_name, _field, _ptr)                                \
     cmsg_repeated_append ((void ***) &((_name)->_field), &((_name)->n_##_field), \
