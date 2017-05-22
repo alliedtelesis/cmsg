@@ -1846,6 +1846,35 @@ cmsg_proxy_deinit (void)
 }
 
 /**
+ * Lookup a cmsg_service_info entry based on URL and HTTP verb and parse
+ * URL and query parameters. The URL parameters must always be parsed before
+ * the query parameters so that we can prevent query parameters from overwriting
+ * the URL parameters.
+ *
+ * @param url - URL string to use for the lookup.
+ * @param query_string - Query string provided with the URL
+ * @param http_verb - HTTP verb to use for the lookup.
+ * @param url_parameters - List to populate with parameters parsed from the URL
+ *                         and query string.
+ *
+ * @return - Pointer to the cmsg_service_info entry if found, NULL otherwise.
+ */
+static const cmsg_service_info *
+_cmsg_proxy_get_service_and_parameters (const char *url, const char *query_string,
+                                        cmsg_http_verb verb, GList **url_parameters)
+{
+    const cmsg_service_info *service_info = NULL;
+
+    service_info = _cmsg_proxy_find_service_from_url_and_verb (url, verb, url_parameters);
+    if (service_info && query_string)
+    {
+        _cmsg_proxy_parse_query_parameters (query_string, url_parameters);
+    }
+
+    return service_info;
+}
+
+/**
  * Proxy an HTTP request into the AW+ CMSG internal API. Uses the HttpRules defined
  * for each rpc defined in the CMSG .proto files.
  *
@@ -1879,8 +1908,8 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     char *message = NULL;
     json_error_t error;
 
-    service_info = _cmsg_proxy_find_service_from_url_and_verb (url, http_verb,
-                                                               &url_parameters);
+    service_info = _cmsg_proxy_get_service_and_parameters (url, query_string, http_verb,
+                                                           &url_parameters);
     if (service_info == NULL)
     {
         /* The cmsg proxy does not know about this url and verb combination */
@@ -1888,8 +1917,6 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
         CMSG_PROXY_COUNTER_INC (cntr_unknown_service);
         return false;
     }
-
-    _cmsg_proxy_parse_query_parameters (query_string, &url_parameters);
 
     json_obj = _cmsg_proxy_json_object_create (input_json,
                                                service_info->input_msg_descriptor,

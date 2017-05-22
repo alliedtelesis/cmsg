@@ -24,19 +24,32 @@ setup (void)
  * Function Tested: _cmsg_proxy_service_info_init()
  *
  * Tests that the proxy tree is the correct length after _cmsg_proxy_service_info_init()
- * is called.
+ * is called. Given the following set of RPCs:
+ * PUT: /v1/test
+ * GET: /v1/test
+ * GET: /v1/test/test1
+ * GET: /v1/test/query_param/{key_a}/{key_c}
+ *
+ * the resulting proxy tree will have a total of 10 nodes:
+ *                  ---PUT
+ *                 /
+ *                /----GET
+ *               /
+ * "v1"---"test"-------"test1"---GET
+ *               \
+ *                -----"query_param"---"{key_a}"---"{key_c}"---GET
  */
 void
 test_cmsg_proxy_service_info_init__list_length (void)
 {
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 6);
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 10);
 
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 6);
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 10);
 
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 6);
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 10);
 }
 
 /**
@@ -317,4 +330,47 @@ test_cmsg_proxy__invalid_json_input (void)
     NP_ASSERT_EQUAL (http_status, 400);
 
     free (output_json);
+}
+
+/**
+ * Function Tested: _cmsg_proxy_parse_query_parameters()
+ *
+ * Tests that a query string is correctly parsed and that any parsed query
+ * parameters do not overwrite parameters with identical keys already in the list.
+ */
+void
+test_cmsg_proxy_parse_query_parameters (void)
+{
+    GList *url_parameters = NULL;
+    GList *matching_param = NULL;
+
+    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
+
+    /* URL: /v1/test/query_param/{key_a}/{key_c} */
+    _cmsg_proxy_get_service_and_parameters ("/v1/test/query_param/AA/CC",
+                                            "key_a=WW&key_b=XX&key_c=YY&key_d=ZZ",
+                                            CMSG_HTTP_GET, &url_parameters);
+
+    /* There should be 4 parameters in the list (skip duplicate keys) */
+    NP_ASSERT_EQUAL (g_list_length (url_parameters), 4);
+
+    /* The parameter values for "key_a" and "key_c" should be "AA" and "CC" as
+     * set in the URL. */
+    matching_param = g_list_find_custom (url_parameters, "key_a",
+                                         _cmsg_proxy_param_name_matches);
+    NP_ASSERT_STR_EQUAL (((cmsg_url_parameter *) matching_param->data)->value, "AA");
+    matching_param = g_list_find_custom (url_parameters, "key_c",
+                                         _cmsg_proxy_param_name_matches);
+    NP_ASSERT_STR_EQUAL (((cmsg_url_parameter *) matching_param->data)->value, "CC");
+
+    /* The parameter values for "key_b" and "key_d" should match the values
+     * provided in the query string, "XX" and "ZZ" */
+    matching_param = g_list_find_custom (url_parameters, "key_b",
+                                         _cmsg_proxy_param_name_matches);
+    NP_ASSERT_STR_EQUAL (((cmsg_url_parameter *) matching_param->data)->value, "XX");
+    matching_param = g_list_find_custom (url_parameters, "key_d",
+                                         _cmsg_proxy_param_name_matches);
+    NP_ASSERT_STR_EQUAL (((cmsg_url_parameter *) matching_param->data)->value, "ZZ");
+
+    g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
 }
