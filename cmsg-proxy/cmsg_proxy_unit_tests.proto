@@ -27,6 +27,12 @@ message query_param_test_msg
     optional string key_d = 4;
 }
 
+message additional_bindings_test_msg
+{
+    optional string field_a = 1;
+    optional string field_b = 2;
+}
+
 service interface
 {
     rpc test_put (cmsg_bool) returns (dummy) {
@@ -53,6 +59,19 @@ service interface
         option http = {
             get: "/v1/test/query_param/{key_a}/{key_c}",
             body: "*"
+        };
+    }
+
+    rpc test_additional_bindings (additional_bindings_test_msg) returns (dummy) {
+        option http = {
+            get: "/v1/test/additional_bindings/test_get/{field_a}/{field_b}"
+            additional_bindings {
+                post: "/v1/test/additional_bindings/test_post",
+                body: "*"
+            }
+            additional_bindings {
+                get: "/v1/test/additional_bindings/test_get/{field_a}"
+            }
         };
     }
 }

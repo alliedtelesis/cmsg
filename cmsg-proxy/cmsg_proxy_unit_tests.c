@@ -43,13 +43,13 @@ void
 test_cmsg_proxy_service_info_init__list_length (void)
 {
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 10);
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 18);
 
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 10);
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 18);
 
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 10);
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 18);
 }
 
 /**
@@ -77,30 +77,32 @@ test_cmsg_proxy_service_info_init__list_entries (void)
  * a known URL and verb or returns NULL for an unknown URL and verb.
  */
 void
-test_cmsg_proxy_find_service_from_url_and_verb (void)
+test_cmsg_proxy_find_service_from_url_and_verb__finds_correct_service_entry (void)
 {
     const cmsg_service_info *entry;
-    json_t *json_object;
+    GList *url_parameters = NULL;
 
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
     entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT,
-                                                        &json_object);
+                                                        &url_parameters);
     NP_ASSERT_PTR_NOT_EQUAL (entry, NULL);
     NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_PUT);
 
     entry = _cmsg_proxy_find_service_from_url_and_verb ("BAD URL", CMSG_HTTP_PUT,
-                                                        &json_object);
+                                                        &url_parameters);
     NP_ASSERT_PTR_EQUAL (entry, NULL);
 
     entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_GET,
-                                                        &json_object);
+                                                        &url_parameters);
     NP_ASSERT_PTR_NOT_EQUAL (entry, NULL);
     NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_GET);
 
     entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PATCH,
-                                                        &json_object);
+                                                        &url_parameters);
     NP_ASSERT_PTR_EQUAL (entry, NULL);
+
+    g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
 }
 
 /**
@@ -371,6 +373,50 @@ test_cmsg_proxy_parse_query_parameters (void)
     matching_param = g_list_find_custom (url_parameters, "key_d",
                                          _cmsg_proxy_param_name_matches);
     NP_ASSERT_STR_EQUAL (((cmsg_url_parameter *) matching_param->data)->value, "ZZ");
+
+    g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
+}
+
+/**
+ * Function Tested: _cmsg_proxy_find_service_from_url_and_verb()
+ *
+ * Tests that the function returns a service info entry for an RPC's
+ * URL and each of its additional bindings, and that they all point to
+ * the same API function.
+ */
+void
+test_cmsg_proxy_find_service_from_url_and_verb__additional_bindings_use_same_api (void)
+{
+    GList *url_parameters = NULL;
+    const cmsg_service_info *entry1;
+    const cmsg_service_info *entry2;
+    const cmsg_service_info *entry3;
+    const char *url1 = "/v1/test/additional_bindings/test_get/value_a/value_b";
+    const char *url2 = "/v1/test/additional_bindings/test_post";
+    const char *url3 = "/v1/test/additional_bindings/test_get/value_a";
+
+    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
+
+    entry1 = _cmsg_proxy_find_service_from_url_and_verb (url1, CMSG_HTTP_GET,
+                                                         &url_parameters);
+    NP_ASSERT_PTR_NOT_EQUAL (entry1, NULL);
+    NP_ASSERT_PTR_EQUAL (entry1->api_ptr,
+                         &cmsg_proxy_unit_tests_interface_api_test_additional_bindings);
+    NP_ASSERT_EQUAL (entry1->http_verb, CMSG_HTTP_GET);
+
+    entry2 = _cmsg_proxy_find_service_from_url_and_verb (url2, CMSG_HTTP_POST,
+                                                         &url_parameters);
+    NP_ASSERT_PTR_NOT_EQUAL (entry2, NULL);
+    NP_ASSERT_PTR_EQUAL (entry2->api_ptr,
+                         &cmsg_proxy_unit_tests_interface_api_test_additional_bindings);
+    NP_ASSERT_EQUAL (entry2->http_verb, CMSG_HTTP_POST);
+
+    entry3 = _cmsg_proxy_find_service_from_url_and_verb (url3, CMSG_HTTP_GET,
+                                                         &url_parameters);
+    NP_ASSERT_PTR_NOT_EQUAL (entry3, NULL);
+    NP_ASSERT_PTR_EQUAL (entry3->api_ptr,
+                         &cmsg_proxy_unit_tests_interface_api_test_additional_bindings);
+    NP_ASSERT_EQUAL (entry3->http_verb, CMSG_HTTP_GET);
 
     g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
 }
