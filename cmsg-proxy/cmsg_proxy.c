@@ -319,22 +319,15 @@ _cmsg_proxy_api_info_node_new (GNode *last_node)
  * @param leaf_node - leaf node contains CMSG API info
  * @param data - Unused data to the callback
  *
- * @return - returns TRUE if the received leaf node is NULL otherwise FALSE
- * The callback should return FALSE to continue the traversal.
+ * @return - returns FALSE to ensure the traversal of the leaf nodes
+ *           in the tree continues.
  */
 static gboolean
 _cmsg_proxy_api_info_free (GNode *leaf_node, gpointer data)
 {
-    cmsg_proxy_api_info *api_info;
+    cmsg_proxy_api_info *api_info = leaf_node->data;
 
-    if (leaf_node == NULL)
-    {
-        return TRUE;
-    }
-
-    api_info = leaf_node->data;
     CMSG_PROXY_FREE (api_info);
-
     CMSG_PROXY_COUNTER_INC (cntr_service_info_unloaded);
 
     return FALSE;
