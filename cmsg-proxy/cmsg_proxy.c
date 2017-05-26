@@ -339,20 +339,14 @@ _cmsg_proxy_api_info_free (GNode *leaf_node, gpointer data)
  * @param node - node contains allocated string data
  * @param data - Unused data to the callback
  *
- * @return - returns TRUE if the received leaf node is NULL otherwise FALSE
- * The callback should return FALSE to continue the traversal.
+ * @return - returns FALSE to ensure the traversal of the non-leaf nodes
+ *           in the tree continues.
  */
 static gboolean
 _cmsg_proxy_entry_data_free (GNode *node, gpointer data)
 {
-    char *str;
+    char *str = node->data;
 
-    if (node == NULL)
-    {
-        return TRUE;
-    }
-
-    str = node->data;
     CMSG_PROXY_FREE (str);
 
     return FALSE;
