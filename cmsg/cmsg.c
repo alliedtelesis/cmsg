@@ -6,6 +6,7 @@
 #include "cmsg_private.h"
 #include "cmsg_error.h"
 
+#define CMSG_REPEATED_BLOCK_SIZE 64
 
 static int cmsg_mtype = 0;
 
@@ -487,14 +488,28 @@ cmsg_repeated_append (void ***msg_ptr_array, size_t *num_elems, const void *ptr,
                       const char *file, int line)
 {
     void **new_array_ptr = NULL;
+    size_t new_size;
 
     if (!ptr)
     {
         return;
     }
 
-    new_array_ptr = cmsg_realloc (*msg_ptr_array, (*num_elems + 1) * sizeof (void *),
-                                  file, line);
+    /* Optimization to reduce reallocations. Allocate a block of pointers
+     * and use until exhausted, rather than reallocating for every append.
+     * Allocate every time num_elems % allocation block size is 0.
+     */
+    if ((*num_elems % CMSG_REPEATED_BLOCK_SIZE) == 0)
+    {
+        new_size = (*num_elems + CMSG_REPEATED_BLOCK_SIZE) * sizeof (void *);
+        new_array_ptr = cmsg_realloc (*msg_ptr_array, new_size, file, line);
+    }
+    else
+    {
+        /* We have previously allocated space we can use */
+        new_array_ptr = *msg_ptr_array;
+    }
+
     if (new_array_ptr)
     {
         /* Add new element to array and increment number of elements */
