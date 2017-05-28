@@ -6,7 +6,7 @@ cmsg_test_SOURCES = \
 	cmsg-test_impl_auto.c \
 	cmsg-test.pb-c.c
 
-cmsg_test_CFLAGS = -Werror $(GLIB_CFLAGS)
+cmsg_test_CFLAGS = -Werror -Wall $(GLIB_CFLAGS)
 
 cmsg_test_LDADD = \
 	-lpthread \

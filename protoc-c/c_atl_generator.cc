@@ -267,8 +267,6 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print("{\n");
     printer->Indent();
     printer->Print("int32_t _return_status = CMSG_RET_ERR;\n");
-    printer->Print("int i = 0;\n");
-    printer->Print("int found_data = 0;\n");
 
     //
     // must create send message if it is not supplied by the developer
@@ -346,13 +344,16 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     if (method->output_type()->field_count() > 0)
     {
+      printer->Print("int i = 0;\n");
+      printer->Print("int found_data = 0;\n");
       printer->Print("/* sanity check our returned message pointer */\n");
       printer->Print("while (_closure_data[i].message != NULL)\n");
       printer->Print("{\n");
       printer->Indent();
 
       printer->Print("/* Update developer output msg to point to received message from invoke */\n");
-      printer->Print("_recv_msg[i] = _closure_data[i++].message;\n");
+      printer->Print("_recv_msg[i] = _closure_data[i].message;\n");
+      printer->Print("i++;\n");
       printer->Print("found_data = 1;\n");
       printer->Print("\n");
       printer->Outdent();
