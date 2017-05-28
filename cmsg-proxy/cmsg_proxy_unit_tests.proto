@@ -29,7 +29,7 @@ service interface
         };
     }
 
-    rpc test_get (dummy) returns (cmsg_bool) {
+    rpc test_get (dummy) returns (ant_result_plus_bool) {
         option http = {
             get: "/v1/test",
             body: "*"

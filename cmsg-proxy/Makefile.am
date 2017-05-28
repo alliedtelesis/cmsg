@@ -35,6 +35,8 @@ cmsg_proxy_unit_tests_SOURCES = \
 	cmsg_proxy_unit_tests_proxy_def.h \
 	cmsg_proxy_unit_tests_api_auto.c \
 	cmsg_proxy_unit_tests_api_auto.h \
+	cmsg_proxy_unit_tests_impl_auto.c \
+	cmsg_proxy_unit_tests_impl_auto.h \
 	cmsg_proxy_unit_tests.pb-c.c \
 	cmsg_proxy_unit_tests.pb-c.h \
 	cmsg_proxy_unit_tests.c
