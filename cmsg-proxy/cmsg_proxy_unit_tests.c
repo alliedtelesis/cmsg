@@ -123,7 +123,7 @@ test_cmsg_proxy_convert_json_to_protobuf__valid_input (void)
     json_t *json_obj = json_loads ("{\n    \"value\":true\n}", 0, &error);
 
     ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
-                                                &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
+                                                &cmsg_bool_descriptor,
                                                 &output, &error_message);
 
     json_decref (json_obj);
@@ -154,7 +154,7 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
     json_obj = json_loads ("{\n    value\":true\n}", 0, &error);
 
     ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
-                                                &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
+                                                &cmsg_bool_descriptor,
                                                 &output, &error_message);
 
     if (error_message)
@@ -170,7 +170,7 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
     json_obj = json_loads ("{\n    \"value\":true\n", 0, &error);
 
     ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
-                                                &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
+                                                &cmsg_bool_descriptor,
                                                 &output, &error_message);
 
     if (error_message)
@@ -249,7 +249,7 @@ test_cmsg_proxy_clients_init (void)
 void
 test_cmsg_proxy_protobuf2json_string (void)
 {
-    cmsg_proxy_unit_tests_cmsg_bool proto_msg = CMSG_PROXY_UNIT_TESTS_CMSG_BOOL_INIT;
+    cmsg_bool proto_msg = CMSG_BOOL_INIT;
     char *json_str = NULL;
     bool ret = false;
 
