@@ -5,6 +5,8 @@
  */
 
 #include <config.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <malloc.h>
 #include <glib.h>

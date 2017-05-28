@@ -40,7 +40,7 @@ cmsg_proxy_unit_tests_SOURCES = \
 	cmsg_proxy_unit_tests.pb-c.c \
 	cmsg_proxy_unit_tests.pb-c.h \
 	cmsg_proxy_unit_tests.c
-cmsg_proxy_unit_tests_CFLAGS  = -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
+cmsg_proxy_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_proxy_unit_tests_LDFLAGS = -static
 cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
                                 -lcmsg -lprotobuf-c -lprotobuf2json-c \

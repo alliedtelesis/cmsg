@@ -2,6 +2,7 @@
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 
+#define _GNU_SOURCE
 #include <np.h>
 #include "cmsg_proxy_mem.c"
 #include "cmsg_proxy.c"
@@ -63,7 +64,7 @@ test_cmsg_proxy_service_info_init__list_entries (void)
     proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
 
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
-    cmsg_service_info *entry =
+    const cmsg_service_info *entry =
         _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT, NULL);
 
     NP_ASSERT_PTR_EQUAL (entry, cmsg_proxy_array_get ());

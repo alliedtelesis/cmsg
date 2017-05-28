@@ -56,7 +56,7 @@ if BUILD_UNITTEST
 bin_PROGRAMS += cmsg_unit_tests
 cmsg_unit_tests_SOURCES = \
 	cmsg_unit_tests.c
-cmsg_unit_tests_CFLAGS  = -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
+cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_unit_tests_LDFLAGS = -static
 cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS)
 endif # BUILD_UNITTEST
