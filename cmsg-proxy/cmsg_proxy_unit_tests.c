@@ -11,12 +11,9 @@
 /**
  * Novaprova setup function
  */
-static int
+int
 setup (void)
 {
-    /* Create GNode cmsg proxy entry tree */
-    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
-
     return 0;
 }
 
@@ -42,6 +39,8 @@ setup (void)
 void
 test_cmsg_proxy_service_info_init__list_length (void)
 {
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
     NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 18);
 
@@ -60,6 +59,8 @@ test_cmsg_proxy_service_info_init__list_length (void)
 void
 test_cmsg_proxy_service_info_init__list_entries (void)
 {
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
     cmsg_service_info *entry =
         _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT, NULL);
@@ -81,6 +82,8 @@ test_cmsg_proxy_find_service_from_url_and_verb__finds_correct_service_entry (voi
 {
     const cmsg_service_info *entry;
     GList *url_parameters = NULL;
+
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
 
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
@@ -227,6 +230,8 @@ test_cmsg_proxy_create_client__memory_leaks (void)
 void
 test_cmsg_proxy_clients_init (void)
 {
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
     _cmsg_proxy_clients_init ();
@@ -268,6 +273,8 @@ test_cmsg_proxy_service_info_add (void)
 {
     cmsg_service_info *array = cmsg_proxy_array_get ();
 
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
     _cmsg_proxy_service_info_add (&array[2]);
     NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 5);
 
@@ -291,6 +298,8 @@ test_cmsg_proxy_service_info_add (void)
 void
 test_cmsg_proxy_deinit (void)
 {
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
     _cmsg_proxy_clients_init ();
@@ -322,6 +331,7 @@ test_cmsg_proxy__invalid_json_input (void)
         "}";
     /* *INDENT-ON* */
 
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
     request_handled =
@@ -346,6 +356,7 @@ test_cmsg_proxy_parse_query_parameters (void)
     GList *url_parameters = NULL;
     GList *matching_param = NULL;
 
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
     /* URL: /v1/test/query_param/{key_a}/{key_c} */
@@ -395,6 +406,7 @@ test_cmsg_proxy_find_service_from_url_and_verb__additional_bindings_use_same_api
     const char *url2 = "/v1/test/additional_bindings/test_post";
     const char *url3 = "/v1/test/additional_bindings/test_get/value_a";
 
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
 
     entry1 = _cmsg_proxy_find_service_from_url_and_verb (url1, CMSG_HTTP_GET,
