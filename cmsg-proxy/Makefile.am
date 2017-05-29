@@ -24,25 +24,57 @@ BUILT_SOURCES = common.pb-c.c common.pb-c.h
 CLEANFILES = $(BUILT_SOURCES)
 
 if BUILD_UNITTEST
-cmsg_proxy_unit_tests_proxy_def.c cmsg_proxy_unit_tests_proxy_def.h: $(PROTOC_CMSG_PATH)$(EXEEXT) cmsg_proxy_unit_tests.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I. --c_out=. cmsg_proxy_unit_tests.proto
+test/unit/cmsg_proxy_unit_tests_proxy_def.c \
+test/unit/cmsg_proxy_unit_tests_proxy_def.h \
+test/unit/cmsg_proxy_unit_tests_api_auto.c \
+test/unit/cmsg_proxy_unit_tests_api_auto.h \
+test/unit/cmsg_proxy_unit_tests.pb-c.c \
+test/unit/cmsg_proxy_unit_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/unit/cmsg_proxy_unit_tests.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I. --c_out=. test/unit/cmsg_proxy_unit_tests.proto
 
 bin_PROGRAMS += cmsg_proxy_unit_tests
 cmsg_proxy_unit_tests_SOURCES = \
 	common.pb-c.c \
 	common.pb-c.h \
-	cmsg_proxy_unit_tests_proxy_def.c \
-	cmsg_proxy_unit_tests_proxy_def.h \
-	cmsg_proxy_unit_tests_api_auto.c \
-	cmsg_proxy_unit_tests_api_auto.h \
-	cmsg_proxy_unit_tests_impl_auto.c \
-	cmsg_proxy_unit_tests_impl_auto.h \
-	cmsg_proxy_unit_tests.pb-c.c \
-	cmsg_proxy_unit_tests.pb-c.h \
-	cmsg_proxy_unit_tests.c
+	test/unit/cmsg_proxy_unit_tests_proxy_def.c \
+	test/unit/cmsg_proxy_unit_tests_proxy_def.h \
+	test/unit/cmsg_proxy_unit_tests_api_auto.c \
+	test/unit/cmsg_proxy_unit_tests_api_auto.h \
+	test/unit/cmsg_proxy_unit_tests.pb-c.c \
+	test/unit/cmsg_proxy_unit_tests.pb-c.h \
+	test/unit/cmsg_proxy_unit_tests.c
 cmsg_proxy_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_proxy_unit_tests_LDFLAGS = -static
 cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
+                                -lcmsg -lprotobuf-c -lprotobuf2json-c \
+                                -ljansson
+
+test/functional/cmsg_proxy_functional_tests_proxy_def.c \
+test/functional/cmsg_proxy_functional_tests_proxy_def.h \
+test/functional/cmsg_proxy_functional_tests_api_auto.c \
+test/functional/cmsg_proxy_functional_tests_api_auto.h \
+test/functional/cmsg_proxy_functional_tests_impl_auto.c \
+test/functional/cmsg_proxy_functional_tests_impl_auto.h \
+test/functional/cmsg_proxy_functional_tests.pb-c.c \
+test/functional/cmsg_proxy_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/functional/cmsg_proxy_functional_tests.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I. --c_out=. test/functional/cmsg_proxy_functional_tests.proto
+
+bin_PROGRAMS += cmsg_proxy_functional_tests
+cmsg_proxy_functional_tests_SOURCES = \
+	common.pb-c.c \
+	common.pb-c.h \
+	test/functional/cmsg_proxy_functional_tests_proxy_def.c \
+	test/functional/cmsg_proxy_functional_tests_proxy_def.h \
+	test/functional/cmsg_proxy_functional_tests_api_auto.c \
+	test/functional/cmsg_proxy_functional_tests_api_auto.h \
+	test/functional/cmsg_proxy_functional_tests_impl_auto.c \
+	test/functional/cmsg_proxy_functional_tests_impl_auto.h \
+	test/functional/cmsg_proxy_functional_tests.pb-c.c \
+	test/functional/cmsg_proxy_functional_tests.pb-c.h \
+	test/functional/cmsg_proxy_functional_tests.c
+cmsg_proxy_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
+cmsg_proxy_functional_tests_LDFLAGS = -static
+cmsg_proxy_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
                                 -lcmsg -lprotobuf-c -lprotobuf2json-c \
                                 -ljansson
 endif # BUILD_UNITTEST

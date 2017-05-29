@@ -1,0 +1,13 @@
+package cmsg_proxy_functional_tests;
+
+import "common.proto";
+
+service interface
+{
+    rpc test_get (dummy) returns (ant_result_plus_bool) {
+        option http = {
+            get: "/v1/test",
+            body: "*"
+        };
+    }
+}

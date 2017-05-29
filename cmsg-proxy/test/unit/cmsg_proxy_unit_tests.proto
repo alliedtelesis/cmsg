@@ -1,7 +1,3 @@
-/**
- * Interface statistics monitoring service and related messages.
- */
-
 package cmsg_proxy_unit_tests;
 
 import "common.proto";

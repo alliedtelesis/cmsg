@@ -8,7 +8,6 @@
 #include "cmsg_proxy.c"
 #include "cmsg_proxy_unit_tests_proxy_def.h"
 #include "cmsg_proxy_unit_tests_api_auto.h"
-#include "cmsg_proxy_unit_tests_impl_auto.h"
 
 /**
  * Novaprova setup function
@@ -562,5 +561,3 @@ test_cmsg_proxy_mem_free__handles_NULL (void)
 
     CMSG_PROXY_FREE (NULL);
 }
-
-#include "cmsg_proxy_unit_tests_functional.c"
