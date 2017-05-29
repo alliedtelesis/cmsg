@@ -35,12 +35,11 @@ sm_mock_cmsg_proxy_library_handles_load (void)
 cmsg_client *
 sm_mock_cmsg_create_client_unix (const ProtobufCServiceDescriptor *descriptor)
 {
-    return cmsg_create_client_loopback (CMSG_SERVICE (cmsg_proxy_functional_tests,
-                                                      interface));
+    return cmsg_create_client_loopback (CMSG_SERVICE (cmsg_proxy, functional_tests));
 }
 
 void
-cmsg_proxy_functional_tests_interface_impl_test_get (const void *service)
+cmsg_proxy_functional_tests_impl_test_single_bool_get (const void *service)
 {
     ant_result error_info = ANT_RESULT_INIT;
     ant_result_plus_bool send_msg = ANT_RESULT_PLUS_BOOL_INIT;
@@ -49,26 +48,37 @@ cmsg_proxy_functional_tests_interface_impl_test_get (const void *service)
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
     CMSG_SET_FIELD_VALUE (&send_msg, _data, true);
 
-    cmsg_proxy_functional_tests_interface_server_test_getSend (service, &send_msg);
+    cmsg_proxy_functional_tests_server_test_single_bool_getSend (service, &send_msg);
 }
 
-void
-test_cmsg_proxy__functional (void)
+int
+set_up (void)
 {
-    char *output_json = NULL;
-    int http_status = 0;
-
     np_mock (_cmsg_proxy_library_handles_load, sm_mock_cmsg_proxy_library_handles_load);
     np_mock (cmsg_create_client_unix, sm_mock_cmsg_create_client_unix);
 
     cmsg_proxy_init ();
+    return 0;
+}
 
-    cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_GET, NULL, &output_json, &http_status);
+int
+tear_down (void)
+{
+    cmsg_proxy_deinit ();
+    return 0;
+}
+
+void
+test_single_bool_get (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    cmsg_proxy ("/v1/test_single_bool_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+                &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, "true");
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
 
     free (output_json);
-
-    cmsg_proxy_deinit ();
 }

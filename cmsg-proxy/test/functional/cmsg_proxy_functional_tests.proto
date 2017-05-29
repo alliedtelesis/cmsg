@@ -1,13 +1,12 @@
-package cmsg_proxy_functional_tests;
+package cmsg_proxy;
 
 import "common.proto";
 
-service interface
+service functional_tests
 {
-    rpc test_get (dummy) returns (ant_result_plus_bool) {
+    rpc test_single_bool_get (dummy) returns (ant_result_plus_bool) {
         option http = {
-            get: "/v1/test",
-            body: "*"
+            get: "/v1/test_single_bool_get",
         };
     }
 }
