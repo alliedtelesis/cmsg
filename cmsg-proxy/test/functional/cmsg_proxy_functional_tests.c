@@ -35,11 +35,11 @@ sm_mock_cmsg_proxy_library_handles_load (void)
 cmsg_client *
 sm_mock_cmsg_create_client_unix (const ProtobufCServiceDescriptor *descriptor)
 {
-    return cmsg_create_client_loopback (CMSG_SERVICE (cmsg_proxy, functional_tests));
+    return cmsg_create_client_loopback (CMSG_SERVICE_NOPACKAGE (functional_tests));
 }
 
 void
-cmsg_proxy_functional_tests_impl_test_single_bool_get (const void *service)
+functional_tests_impl_test_single_bool_get (const void *service)
 {
     ant_result error_info = ANT_RESULT_INIT;
     ant_result_plus_bool send_msg = ANT_RESULT_PLUS_BOOL_INIT;
@@ -48,11 +48,11 @@ cmsg_proxy_functional_tests_impl_test_single_bool_get (const void *service)
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
     CMSG_SET_FIELD_VALUE (&send_msg, _data, true);
 
-    cmsg_proxy_functional_tests_server_test_single_bool_getSend (service, &send_msg);
+    functional_tests_server_test_single_bool_getSend (service, &send_msg);
 }
 
 void
-cmsg_proxy_functional_tests_impl_test_single_string_get (const void *service)
+functional_tests_impl_test_single_string_get (const void *service)
 {
     ant_result error_info = ANT_RESULT_INIT;
     ant_result_plus_string send_msg = ANT_RESULT_PLUS_STRING_INIT;
@@ -61,11 +61,11 @@ cmsg_proxy_functional_tests_impl_test_single_string_get (const void *service)
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
     CMSG_SET_FIELD_PTR (&send_msg, _data, "single string");
 
-    cmsg_proxy_functional_tests_server_test_single_string_getSend (service, &send_msg);
+    functional_tests_server_test_single_string_getSend (service, &send_msg);
 }
 
 void
-cmsg_proxy_functional_tests_impl_test_single_uint32_get (const void *service)
+functional_tests_impl_test_single_uint32_get (const void *service)
 {
     ant_result error_info = ANT_RESULT_INIT;
     ant_result_plus_uint32 send_msg = ANT_RESULT_PLUS_UINT32_INIT;
@@ -74,27 +74,26 @@ cmsg_proxy_functional_tests_impl_test_single_uint32_get (const void *service)
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
     CMSG_SET_FIELD_VALUE (&send_msg, _data, 123);
 
-    cmsg_proxy_functional_tests_server_test_single_uint32_getSend (service, &send_msg);
+    functional_tests_server_test_single_uint32_getSend (service, &send_msg);
 }
 
 void
-cmsg_proxy_functional_tests_impl_test_single_message_get (const void *service)
+functional_tests_impl_test_single_message_get (const void *service)
 {
     ant_result error_info = ANT_RESULT_INIT;
     cmsg_bool inner_msg = CMSG_BOOL_INIT;
-    cmsg_proxy_test_single_message_get_msg send_msg =
-        CMSG_PROXY_TEST_SINGLE_MESSAGE_GET_MSG_INIT;
+    test_single_message_get_msg send_msg = TEST_SINGLE_MESSAGE_GET_MSG_INIT;
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
     CMSG_SET_FIELD_VALUE (&inner_msg, value, false);
     CMSG_SET_FIELD_PTR (&send_msg, inner_message, &inner_msg);
 
-    cmsg_proxy_functional_tests_server_test_single_message_getSend (service, &send_msg);
+    functional_tests_server_test_single_message_getSend (service, &send_msg);
 }
 
 void
-cmsg_proxy_functional_tests_impl_test_repeated_string_get (const void *service)
+functional_tests_impl_test_repeated_string_get (const void *service)
 {
     char *repeated_strings[3] = { "string1", "string2", "string3", };
     ant_result error_info = ANT_RESULT_INIT;
@@ -104,11 +103,11 @@ cmsg_proxy_functional_tests_impl_test_repeated_string_get (const void *service)
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
     CMSG_SET_FIELD_REPEATED (&send_msg, _data, repeated_strings, 3);
 
-    cmsg_proxy_functional_tests_server_test_repeated_string_getSend (service, &send_msg);
+    functional_tests_server_test_repeated_string_getSend (service, &send_msg);
 }
 
 void
-cmsg_proxy_functional_tests_impl_test_repeated_uint32_get (const void *service)
+functional_tests_impl_test_repeated_uint32_get (const void *service)
 {
     uint32_t repeated_uint32[3] = { 1, 2, 3 };
     ant_result error_info = ANT_RESULT_INIT;
@@ -118,16 +117,15 @@ cmsg_proxy_functional_tests_impl_test_repeated_uint32_get (const void *service)
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
     CMSG_SET_FIELD_REPEATED (&send_msg, _data, repeated_uint32, 3);
 
-    cmsg_proxy_functional_tests_server_test_repeated_uint32_getSend (service, &send_msg);
+    functional_tests_server_test_repeated_uint32_getSend (service, &send_msg);
 }
 
 void
-cmsg_proxy_functional_tests_impl_test_repeated_message_get (const void *service)
+functional_tests_impl_test_repeated_message_get (const void *service)
 {
     ant_result error_info = ANT_RESULT_INIT;
     cmsg_bool **inner_msgs = CMSG_MSG_ARRAY_ALLOC (cmsg_bool, 3);
-    cmsg_proxy_test_repeated_message_get_msg send_msg =
-        CMSG_PROXY_TEST_REPEATED_MESSAGE_GET_MSG_INIT;
+    test_repeated_message_get_msg send_msg = TEST_REPEATED_MESSAGE_GET_MSG_INIT;
 
     for (int i = 0; i < 3; i++)
     {
@@ -139,18 +137,18 @@ cmsg_proxy_functional_tests_impl_test_repeated_message_get (const void *service)
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
     CMSG_SET_FIELD_REPEATED (&send_msg, inner_messages, inner_msgs, 3);
 
-    cmsg_proxy_functional_tests_server_test_repeated_message_getSend (service, &send_msg);
+    functional_tests_server_test_repeated_message_getSend (service, &send_msg);
 
     CMSG_MSG_ARRAY_FREE (inner_msgs);
 }
 
 void
-cmsg_proxy_functional_tests_impl_test_multiple_fields_message_get (const void *service)
+functional_tests_impl_test_multiple_fields_message_get (const void *service)
 {
     ant_result error_info = ANT_RESULT_INIT;
     cmsg_bool inner_msg = CMSG_BOOL_INIT;
-    cmsg_proxy_test_multiple_fields_message_get_msg send_msg =
-        CMSG_PROXY_TEST_MULTIPLE_FIELDS_MESSAGE_GET_MSG_INIT;
+    test_multiple_fields_message_get_msg send_msg =
+        TEST_MULTIPLE_FIELDS_MESSAGE_GET_MSG_INIT;
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
@@ -159,19 +157,18 @@ cmsg_proxy_functional_tests_impl_test_multiple_fields_message_get (const void *s
     CMSG_SET_FIELD_PTR (&send_msg, inner_string, "test_string");
     CMSG_SET_FIELD_VALUE (&send_msg, inner_uint32, 123);
 
-    cmsg_proxy_functional_tests_server_test_multiple_fields_message_getSend (service,
-                                                                             &send_msg);
+    functional_tests_server_test_multiple_fields_message_getSend (service, &send_msg);
 }
 
 void
-cmsg_proxy_functional_tests_impl_test_ant_result_get (const void *service)
+functional_tests_impl_test_ant_result_get (const void *service)
 {
     ant_result send_msg = ANT_RESULT_INIT;
 
     CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, message, "test message");
 
-    cmsg_proxy_functional_tests_server_test_ant_result_getSend (service, &send_msg);
+    functional_tests_server_test_ant_result_getSend (service, &send_msg);
 }
 
 int

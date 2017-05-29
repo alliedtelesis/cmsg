@@ -1,5 +1,3 @@
-package cmsg_proxy;
-
 import "common.proto";
 
 message test_single_message_get_msg
