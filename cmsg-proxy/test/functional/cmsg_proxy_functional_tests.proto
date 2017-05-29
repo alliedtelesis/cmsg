@@ -2,11 +2,79 @@ package cmsg_proxy;
 
 import "common.proto";
 
+message test_single_message_get_msg
+{
+    optional ant_result _error_info = 1;
+    optional cmsg_bool inner_message = 2;
+}
+
+message test_repeated_message_get_msg
+{
+    optional ant_result _error_info = 1;
+    repeated cmsg_bool inner_messages = 2;
+}
+
+message test_multiple_fields_message_get_msg
+{
+    optional ant_result _error_info = 1;
+    optional cmsg_bool inner_bool_msg = 2;
+    optional string inner_string = 3;
+    optional uint32 inner_uint32 = 4;
+}
+
 service functional_tests
 {
     rpc test_single_bool_get (dummy) returns (ant_result_plus_bool) {
         option http = {
-            get: "/v1/test_single_bool_get",
+            get: "/test_single_bool_get",
+        };
+    }
+
+    rpc test_single_string_get (dummy) returns (ant_result_plus_string) {
+        option http = {
+            get: "/test_single_string_get",
+        };
+    }
+
+    rpc test_single_uint32_get (dummy) returns (ant_result_plus_uint32) {
+        option http = {
+            get: "/test_single_uint32_get",
+        };
+    }
+
+    rpc test_single_message_get (dummy) returns (test_single_message_get_msg) {
+        option http = {
+            get: "/test_single_message_get",
+        };
+    }
+
+    rpc test_repeated_string_get (dummy) returns (ant_result_plus_repeated_string) {
+        option http = {
+            get: "/test_repeated_string_get",
+        };
+    }
+
+    rpc test_repeated_uint32_get (dummy) returns (ant_result_plus_uint32_array) {
+        option http = {
+            get: "/test_repeated_uint32_get",
+        };
+    }
+
+    rpc test_repeated_message_get (dummy) returns (test_repeated_message_get_msg) {
+        option http = {
+            get: "/test_repeated_message_get",
+        };
+    }
+
+    rpc test_multiple_fields_message_get (dummy) returns (test_multiple_fields_message_get_msg) {
+        option http = {
+            get: "/test_multiple_fields_message_get",
+        };
+    }
+
+    rpc test_ant_result_get (dummy) returns (ant_result) {
+        option http = {
+            get: "/test_ant_result_get",
         };
     }
 }

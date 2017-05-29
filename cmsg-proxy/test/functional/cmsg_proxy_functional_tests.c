@@ -51,6 +51,129 @@ cmsg_proxy_functional_tests_impl_test_single_bool_get (const void *service)
     cmsg_proxy_functional_tests_server_test_single_bool_getSend (service, &send_msg);
 }
 
+void
+cmsg_proxy_functional_tests_impl_test_single_string_get (const void *service)
+{
+    ant_result error_info = ANT_RESULT_INIT;
+    ant_result_plus_string send_msg = ANT_RESULT_PLUS_STRING_INIT;
+
+    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
+    CMSG_SET_FIELD_PTR (&send_msg, _data, "single string");
+
+    cmsg_proxy_functional_tests_server_test_single_string_getSend (service, &send_msg);
+}
+
+void
+cmsg_proxy_functional_tests_impl_test_single_uint32_get (const void *service)
+{
+    ant_result error_info = ANT_RESULT_INIT;
+    ant_result_plus_uint32 send_msg = ANT_RESULT_PLUS_UINT32_INIT;
+
+    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
+    CMSG_SET_FIELD_VALUE (&send_msg, _data, 123);
+
+    cmsg_proxy_functional_tests_server_test_single_uint32_getSend (service, &send_msg);
+}
+
+void
+cmsg_proxy_functional_tests_impl_test_single_message_get (const void *service)
+{
+    ant_result error_info = ANT_RESULT_INIT;
+    cmsg_bool inner_msg = CMSG_BOOL_INIT;
+    cmsg_proxy_test_single_message_get_msg send_msg =
+        CMSG_PROXY_TEST_SINGLE_MESSAGE_GET_MSG_INIT;
+
+    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
+    CMSG_SET_FIELD_VALUE (&inner_msg, value, false);
+    CMSG_SET_FIELD_PTR (&send_msg, inner_message, &inner_msg);
+
+    cmsg_proxy_functional_tests_server_test_single_message_getSend (service, &send_msg);
+}
+
+void
+cmsg_proxy_functional_tests_impl_test_repeated_string_get (const void *service)
+{
+    char *repeated_strings[3] = { "string1", "string2", "string3", };
+    ant_result error_info = ANT_RESULT_INIT;
+    ant_result_plus_repeated_string send_msg = ANT_RESULT_PLUS_REPEATED_STRING_INIT;
+
+    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
+    CMSG_SET_FIELD_REPEATED (&send_msg, _data, repeated_strings, 3);
+
+    cmsg_proxy_functional_tests_server_test_repeated_string_getSend (service, &send_msg);
+}
+
+void
+cmsg_proxy_functional_tests_impl_test_repeated_uint32_get (const void *service)
+{
+    uint32_t repeated_uint32[3] = { 1, 2, 3 };
+    ant_result error_info = ANT_RESULT_INIT;
+    ant_result_plus_uint32_array send_msg = ANT_RESULT_PLUS_UINT32_ARRAY_INIT;
+
+    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
+    CMSG_SET_FIELD_REPEATED (&send_msg, _data, repeated_uint32, 3);
+
+    cmsg_proxy_functional_tests_server_test_repeated_uint32_getSend (service, &send_msg);
+}
+
+void
+cmsg_proxy_functional_tests_impl_test_repeated_message_get (const void *service)
+{
+    ant_result error_info = ANT_RESULT_INIT;
+    cmsg_bool **inner_msgs = CMSG_MSG_ARRAY_ALLOC (cmsg_bool, 3);
+    cmsg_proxy_test_repeated_message_get_msg send_msg =
+        CMSG_PROXY_TEST_REPEATED_MESSAGE_GET_MSG_INIT;
+
+    for (int i = 0; i < 3; i++)
+    {
+        cmsg_bool_init (inner_msgs[i]);
+        CMSG_SET_FIELD_VALUE (inner_msgs[i], value, false);
+    }
+
+    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
+    CMSG_SET_FIELD_REPEATED (&send_msg, inner_messages, inner_msgs, 3);
+
+    cmsg_proxy_functional_tests_server_test_repeated_message_getSend (service, &send_msg);
+
+    CMSG_MSG_ARRAY_FREE (inner_msgs);
+}
+
+void
+cmsg_proxy_functional_tests_impl_test_multiple_fields_message_get (const void *service)
+{
+    ant_result error_info = ANT_RESULT_INIT;
+    cmsg_bool inner_msg = CMSG_BOOL_INIT;
+    cmsg_proxy_test_multiple_fields_message_get_msg send_msg =
+        CMSG_PROXY_TEST_MULTIPLE_FIELDS_MESSAGE_GET_MSG_INIT;
+
+    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
+    CMSG_SET_FIELD_VALUE (&inner_msg, value, true);
+    CMSG_SET_FIELD_PTR (&send_msg, inner_bool_msg, &inner_msg);
+    CMSG_SET_FIELD_PTR (&send_msg, inner_string, "test_string");
+    CMSG_SET_FIELD_VALUE (&send_msg, inner_uint32, 123);
+
+    cmsg_proxy_functional_tests_server_test_multiple_fields_message_getSend (service,
+                                                                             &send_msg);
+}
+
+void
+cmsg_proxy_functional_tests_impl_test_ant_result_get (const void *service)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, message, "test message");
+
+    cmsg_proxy_functional_tests_server_test_ant_result_getSend (service, &send_msg);
+}
+
 int
 set_up (void)
 {
@@ -74,10 +197,181 @@ test_single_bool_get (void)
     char *output_json = NULL;
     int http_status = 0;
 
-    cmsg_proxy ("/v1/test_single_bool_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+    cmsg_proxy ("/test_single_bool_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, "true");
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+
+    free (output_json);
+}
+
+void
+test_single_string_get (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    cmsg_proxy ("/test_single_string_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+                &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, "\"single string\"");
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+
+    free (output_json);
+}
+
+void
+test_single_uint32_get (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    cmsg_proxy ("/test_single_uint32_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+                &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, "123");
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+
+    free (output_json);
+}
+
+void
+test_single_message_get (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    char *expected_output_json =
+        "{\n"
+        "    \"value\": false\n"
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_single_message_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+                &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+
+    free (output_json);
+}
+
+void
+test_repeated_string_get (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    char *expected_output_json =
+        "[\n"
+        "    \"string1\",\n"
+        "    \"string2\",\n"
+        "    \"string3\"\n"
+        "]";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_repeated_string_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+                &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+
+    free (output_json);
+}
+
+void
+test_repeated_uint32_get (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    char *expected_output_json =
+        "[\n"
+        "    1,\n"
+        "    2,\n"
+        "    3\n"
+        "]";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_repeated_uint32_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+                &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+
+    free (output_json);
+}
+
+void
+test_repeated_message_get (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    char *expected_output_json =
+        "[\n"
+        "    {\n"
+        "        \"value\": false\n"
+        "    },\n"
+        "    {\n"
+        "        \"value\": false\n"
+        "    },\n"
+        "    {\n"
+        "        \"value\": false\n"
+        "    }\n"
+        "]";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_repeated_message_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+                &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+
+    free (output_json);
+}
+
+void
+test_multiple_fields_message_get (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    char *expected_output_json =
+        "{\n"
+        "    \"inner_bool_msg\": {\n"
+        "        \"value\": true\n"
+        "    },\n"
+        "    \"inner_string\": \"test_string\",\n"
+        "    \"inner_uint32\": 123\n"
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_multiple_fields_message_get", NULL, CMSG_HTTP_GET, NULL,
+                &output_json, &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+
+    free (output_json);
+}
+
+void
+test_ant_result_get (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    cmsg_proxy ("/test_ant_result_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+                &http_status);
+
+    NP_ASSERT_NULL (output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
 
     free (output_json);

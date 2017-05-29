@@ -260,6 +260,12 @@ message ant_result_plus_bool
     optional bool _data = 2;
 }
 
+message ant_result_plus_string
+{
+    optional ant_result _error_info = 1;
+    optional string _data = 2;
+}
+
 message ant_result_plus_uint32
 {
     optional ant_result _error_info = 1;
