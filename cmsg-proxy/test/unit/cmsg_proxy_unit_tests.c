@@ -10,6 +10,57 @@
 #include "cmsg_proxy_unit_tests_proxy_def.h"
 #include "cmsg_proxy_unit_tests_api_auto.h"
 
+static char *output_json = NULL;
+
+/* Number of nodes expected in the node tree */
+#define CMSG_PROXY_EXPECTED_NUM_NODES 30
+
+/* Number of URL/method pairs in the proto file */
+#define CMSG_PROXY_NUM_OPERATIONS 17
+/* Number of distinct URLs in the proto file */
+#define CMSG_PROXY_NUM_DISTINCT_URLS 12
+
+/* Number of URL/method pairs containing "_url" as substring  */
+#define CMSG_PROXY_NUM_OPERATIONS_WITH_url 10
+/* Number of distinct URLs with "_url" as substring  */
+#define CMSG_PROXY_NUM_DISTINCT_URLS_WITH_url 6
+
+/* Number of URL/method pairs containing "_url" as substring  */
+#define CMSG_PROXY_NUM_OPERATIONS_WITH_all_methods_url 5
+/* Number of distinct URLs with "_url" as substring  */
+#define CMSG_PROXY_NUM_DISTINCT_URLS_WITH_all_methods_url 1
+
+/* Number of URL/method pairs containing "{field_a}" as substring  */
+#define CMSG_PROXY_NUM_OPERATIONS_WITH_field_a 2
+/* Number of distinct URLs with "{field_a}" as substring  */
+#define CMSG_PROXY_NUM_DISTINCT_URLS_WITH_field_a 2
+
+#define CMSG_PROXY_INDEX_BASEPATH_KEY "basepath"
+#define CMSG_PROXY_INDEX_PATHS_KEY "paths"
+#define CMSG_PROXY_INDEX_PATH_KEY "path"
+#define CMSG_PROXY_INDEX_METHODS_KEY "methods"
+
+void
+setup_standard_test_tree (void)
+{
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
+}
+
+int
+tear_down (void)
+{
+    free (output_json);
+    output_json = NULL;
+
+    if (proxy_entries_tree)
+    {
+        _cmsg_proxy_service_info_deinit ();
+    }
+
+    return 0;
+}
+
 /**
  * Function Tested: _cmsg_proxy_service_info_init()
  *
@@ -28,20 +79,24 @@
  * "v1"---"test"-------"test1"---GET
  *               \
  *                -----"query_param"---"{key_a}"---"{key_c}"---GET
+ *
+ * N.B. The number of entries in the tree has increased since this test was written. The
+ * size of the tree is stored in the define CMSG_PROXY_EXPECTED_NUM_NODES
  */
 void
 test_cmsg_proxy_service_info_init__list_length (void)
 {
-    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+    setup_standard_test_tree ();
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL),
+                     CMSG_PROXY_EXPECTED_NUM_NODES);
 
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 18);
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL),
+                     CMSG_PROXY_EXPECTED_NUM_NODES);
 
     _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 18);
-
-    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
-    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL), 18);
+    NP_ASSERT_EQUAL (g_node_n_nodes (proxy_entries_tree, G_TRAVERSE_ALL),
+                     CMSG_PROXY_EXPECTED_NUM_NODES);
 }
 
 /**
@@ -52,9 +107,7 @@ test_cmsg_proxy_service_info_init__list_length (void)
 void
 test_cmsg_proxy_service_info_init__list_entries (void)
 {
-    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
-
-    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
+    setup_standard_test_tree ();
     const cmsg_service_info *entry =
         _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT, NULL);
 
@@ -76,9 +129,7 @@ test_cmsg_proxy_find_service_from_url_and_verb__finds_correct_service_entry (voi
     const cmsg_service_info *entry;
     GList *url_parameters = NULL;
 
-    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
-
-    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
+    setup_standard_test_tree ();
 
     entry = _cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT,
                                                         &url_parameters);
@@ -223,9 +274,7 @@ test_cmsg_proxy_create_client__memory_leaks (void)
 void
 test_cmsg_proxy_clients_init (void)
 {
-    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
-
-    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
+    setup_standard_test_tree ();
 
     _cmsg_proxy_clients_init ();
     NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
@@ -291,9 +340,7 @@ test_cmsg_proxy_service_info_add (void)
 void
 test_cmsg_proxy_deinit (void)
 {
-    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
-
-    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
+    setup_standard_test_tree ();
 
     _cmsg_proxy_clients_init ();
     NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
@@ -313,7 +360,6 @@ void
 test_cmsg_proxy__invalid_json_input (void)
 {
     bool request_handled;
-    char *output_json;
     int http_status;
 
     /* *INDENT-OFF* */
@@ -324,8 +370,7 @@ test_cmsg_proxy__invalid_json_input (void)
         "}";
     /* *INDENT-ON* */
 
-    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
-    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
+    setup_standard_test_tree ();
 
     request_handled =
         cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_PUT, "{", &output_json, &http_status);
@@ -333,8 +378,6 @@ test_cmsg_proxy__invalid_json_input (void)
     NP_ASSERT_TRUE (request_handled);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, 400);
-
-    free (output_json);
 }
 
 /**
@@ -349,8 +392,7 @@ test_cmsg_proxy_parse_query_parameters (void)
     GList *url_parameters = NULL;
     GList *matching_param = NULL;
 
-    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
-    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
+    setup_standard_test_tree ();
 
     /* URL: /v1/test/query_param/{key_a}/{key_c} */
     _cmsg_proxy_get_service_and_parameters ("/v1/test/query_param/AA/CC",
@@ -399,8 +441,7 @@ test_cmsg_proxy_find_service_from_url_and_verb__additional_bindings_use_same_api
     const char *url2 = "/v1/test/additional_bindings/test_post";
     const char *url3 = "/v1/test/additional_bindings/test_get/value_a";
 
-    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
-    _cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
+    setup_standard_test_tree ();
 
     entry1 = _cmsg_proxy_find_service_from_url_and_verb (url1, CMSG_HTTP_GET,
                                                          &url_parameters);
@@ -443,6 +484,720 @@ test_cmsg_proxy_set_pre_api_http_check_callback (void)
 {
     cmsg_proxy_set_pre_api_http_check_callback (_pre_api_check_dummy);
     NP_ASSERT_PTR_EQUAL (pre_api_check_callback, _pre_api_check_dummy);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that for a standard call with default correct arguments, the function returns
+ * HTTP_CODE_OK.
+ */
+void
+test_cmsg_proxy_index__returns_http_ok (void)
+{
+    int http_ret;
+
+    setup_standard_test_tree ();
+    http_ret = cmsg_proxy_index (NULL, &output_json);
+
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that for a standard call with default correct arguments, the returned object
+ * includes exactly two fields named "basepath" and "paths".
+ */
+void
+test_cmsg_proxy_index__json_object_contains_correct_fields (void)
+{
+    json_t *json_obj, *paths, *basepath;
+    int http_ret;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index (NULL, &output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+    NP_ASSERT_NOT_NULL (output_json);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+
+    basepath = json_object_get (json_obj, CMSG_PROXY_INDEX_BASEPATH_KEY);
+    NP_ASSERT_NOT_NULL (basepath);
+
+    NP_ASSERT_EQUAL (json_object_size (json_obj), 2);
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that for a standard call with default correct arguments, the function returns
+ * the expected number of URLs and the expected total number of operations (sum of array
+ * size of all method arrays).
+ */
+void
+test_cmsg_proxy_index__returns_all_entries (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index (NULL, &output_json);
+    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS);
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if a search query string is used that doesn't include braces ("_url"),
+ * the function returns all and only matching operations. Checks that the number of URLs
+ * and the total number of operations (sum of array size of the returned method arrays) are
+ * the expected values.
+ */
+void
+test_cmsg_proxy_index__returns_search_no_braces (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string=_url", &output_json);
+    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS_WITH_url);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_url);
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if a search query string is used that does include braces ("{field_a}"),
+ * the function returns all and only matching operations. Checks that the number of URLs
+ * and the total number of operations (sum of array size of the returned method arrays) are
+ * the expected values.
+ */
+void
+test_cmsg_proxy_index__returns_search_with_braces (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string={field_a}", &output_json);
+    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS_WITH_field_a);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_field_a);
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if an unknown query string is used (something other than search), it is
+ * ignored and  the function returns all operations. Checks that the number of URLs
+ * and the total number of operations (sum of array size of the returned method arrays) are
+ * the expected values.
+ */
+void
+test_cmsg_proxy_index__unknown_query_ignored (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("blah=_url", &output_json);
+    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS);
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if a search query string is supplied, but preceded by an unknown query string
+ * the function returns all and only operations that match the search query string.
+ * Checks that the number of URLs and the total number of operations (sum of array size of
+ * the returned method arrays) are the expected values.
+ */
+void
+test_cmsg_proxy_index__returns_search_unknown_query_before (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("blah=something&search_string=_url", &output_json);
+    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS_WITH_url);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_url);
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if a search query string is supplied, but followed by an unknown query string
+ * the function returns all and only operations that match the search query string.
+ * Checks that the number of URLs and the total number of operations (sum of array size of
+ * the returned method arrays) are the expected values.
+ */
+void
+test_cmsg_proxy_index__returns_search_unknown_query_after (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string=_url&blah=something", &output_json);
+    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS_WITH_url);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_url);
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if two search query strings are supplied, the second is ignored.
+ * Checks that the number of URLs and the total number of operations (sum of array size of
+ * the returned method arrays) are the expected values. As the second search is a superset
+ * of the first, if the second was used, the number of returned operations would be larger.
+ */
+void
+test_cmsg_proxy_index__returns_first_search (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string=all_methods_url&search_string=_url",
+                                 &output_json);
+    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths),
+                     CMSG_PROXY_NUM_DISTINCT_URLS_WITH_all_methods_url);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_all_methods_url);
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if an empty search query string is supplied, all operations are returned.
+ * Checks that the number of URLs and the total number of operations (sum of array size of
+ * the returned method arrays) are the expected values.
+ */
+void
+test_cmsg_proxy_index__returns_all_entries_with_empty_search (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string=", &output_json);
+    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS);
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Check that the function returns an empty array for paths and still sets the basepath
+ * if no search matches are found
+ */
+void
+test_cmsg_proxy_index__returns_empty_array_when_no_search_match (void)
+{
+    json_t *json_obj, *paths, *basepath;
+    int http_ret;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string=UnlikelyURLSubstring", &output_json);
+    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), 0);
+
+    basepath = json_object_get (json_obj, CMSG_PROXY_INDEX_BASEPATH_KEY);
+    NP_ASSERT_NOT_NULL (basepath);
+
+    NP_ASSERT_EQUAL (json_object_size (json_obj), 2);
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Test that a URL for which there is only a get operation sets the URL string in the index
+ * correctly and that the method string is exactly "GET"
+ */
+void
+test_cmsg_proxy_index__get_method_is_GET_and_sets_url (void)
+{
+    json_t *json_obj, *paths, *api, *methods, *method, *path;
+    int http_ret;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string=get_url", &output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+    NP_ASSERT_NOT_NULL (output_json);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), 1);
+
+    api = json_array_get (paths, 0);
+    methods = json_object_get (api, CMSG_PROXY_INDEX_METHODS_KEY);
+    NP_ASSERT_EQUAL (json_array_size (methods), 1);
+
+    method = json_array_get (methods, 0);
+    NP_ASSERT_STR_EQUAL (json_string_value (method), "GET");
+
+    path = json_object_get (api, CMSG_PROXY_INDEX_PATH_KEY);
+    NP_ASSERT_NOT_NULL (path);
+    NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/get_url");
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Test that a URL for which there is only a put operation sets the URL string in the index
+ * correctly and that the method string is exactly "PUT"
+ */
+void
+test_cmsg_proxy_index__put_method_is_PUT_and_sets_url (void)
+{
+    json_t *json_obj, *paths, *api, *methods, *method, *path;
+    int http_ret;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string=put_url", &output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+    NP_ASSERT_NOT_NULL (output_json);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), 1);
+
+    api = json_array_get (paths, 0);
+    methods = json_object_get (api, CMSG_PROXY_INDEX_METHODS_KEY);
+    NP_ASSERT_EQUAL (json_array_size (methods), 1);
+
+    method = json_array_get (methods, 0);
+    NP_ASSERT_STR_EQUAL (json_string_value (method), "PUT");
+
+    path = json_object_get (api, CMSG_PROXY_INDEX_PATH_KEY);
+    NP_ASSERT_NOT_NULL (path);
+    NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/put_url");
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Test that a URL for which there is only a post operation sets the URL string in the index
+ * correctly and that the method string is exactly "POST"
+ */
+void
+test_cmsg_proxy_index__post_method_is_POST_and_sets_url (void)
+{
+    json_t *json_obj, *paths, *api, *methods, *method, *path;
+    int http_ret;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string=post_url", &output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+    NP_ASSERT_NOT_NULL (output_json);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), 1);
+
+    api = json_array_get (paths, 0);
+    methods = json_object_get (api, CMSG_PROXY_INDEX_METHODS_KEY);
+    NP_ASSERT_EQUAL (json_array_size (methods), 1);
+
+    method = json_array_get (methods, 0);
+    NP_ASSERT_STR_EQUAL (json_string_value (method), "POST");
+
+    path = json_object_get (api, CMSG_PROXY_INDEX_PATH_KEY);
+    NP_ASSERT_NOT_NULL (path);
+    NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/post_url");
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Test that a URL for which there is only a patch operation sets the URL string in the
+ * index correctly and that the method string is exactly "PATCH"
+ */
+void
+test_cmsg_proxy_index__patch_method_is_PATCH_and_sets_url (void)
+{
+    json_t *json_obj, *paths, *api, *methods, *method, *path;
+    int http_ret;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string=patch_url", &output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+    NP_ASSERT_NOT_NULL (output_json);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), 1);
+
+    api = json_array_get (paths, 0);
+    methods = json_object_get (api, CMSG_PROXY_INDEX_METHODS_KEY);
+    NP_ASSERT_EQUAL (json_array_size (methods), 1);
+
+    method = json_array_get (methods, 0);
+    NP_ASSERT_STR_EQUAL (json_string_value (method), "PATCH");
+
+    path = json_object_get (api, CMSG_PROXY_INDEX_PATH_KEY);
+    NP_ASSERT_NOT_NULL (path);
+    NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/patch_url");
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Test that a URL for which there is only a delete operation sets the URL string in the
+ * index correctly and that the method string is exactly "DELETE"
+ */
+void
+test_cmsg_proxy_index__delete_method_is_DELETE_and_sets_url (void)
+{
+    json_t *json_obj, *paths, *api, *methods, *method, *path;
+    int http_ret;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string=delete_url", &output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+    NP_ASSERT_NOT_NULL (output_json);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), 1);
+
+    api = json_array_get (paths, 0);
+    methods = json_object_get (api, CMSG_PROXY_INDEX_METHODS_KEY);
+    NP_ASSERT_EQUAL (json_array_size (methods), 1);
+
+    method = json_array_get (methods, 0);
+    NP_ASSERT_STR_EQUAL (json_string_value (method), "DELETE");
+
+    path = json_object_get (api, CMSG_PROXY_INDEX_PATH_KEY);
+    NP_ASSERT_NOT_NULL (path);
+    NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/delete_url");
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Test that a URL that has operations for all methods, returns all the methods and returns
+ * them in the same (alphabetical) order.
+ */
+void
+test_cmsg_proxy_index__can_return_all_methods_alphabetical (void)
+{
+    json_t *json_obj, *paths, *api, *methods, *method, *path;
+    int http_ret;
+    const char *alphabetical_http_methods[] = { "DELETE", "GET", "PATCH", "POST", "PUT" };
+    int i;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("search_string=all_methods_url", &output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+    NP_ASSERT_NOT_NULL (output_json);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), 1);
+
+    api = json_array_get (paths, 0);
+    methods = json_object_get (api, CMSG_PROXY_INDEX_METHODS_KEY);
+    NP_ASSERT_EQUAL (json_array_size (methods), 5);
+
+    json_array_foreach (methods, i, method)
+    {
+        NP_ASSERT_STR_EQUAL (json_string_value (method), alphabetical_http_methods[i]);
+    }
+
+    path = json_object_get (api, CMSG_PROXY_INDEX_PATH_KEY);
+    NP_ASSERT_NOT_NULL (path);
+    NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/all_methods_url");
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Test that the basepath is set to the define API_PREFIX.
+ */
+void
+test_cmsg_proxy_index__api_prefix_in_basepath (void)
+{
+    json_t *json_obj, *basepath;
+    int http_ret;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index (NULL, &output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+    NP_ASSERT_NOT_NULL (output_json);
+
+    json_obj = json_loads (output_json, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    basepath = json_object_get (json_obj, CMSG_PROXY_INDEX_BASEPATH_KEY);
+    NP_ASSERT_NOT_NULL (basepath);
+    NP_ASSERT_STR_EQUAL (json_string_value (basepath), API_PREFIX);
+
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Test that calling the function before the node tree is initialised returns
+ * HTTP_CODE_INTERNAL_SERVER_ERROR.
+ */
+void
+test_cmsg_proxy_index__before_tree_init_returns_error (void)
+{
+    int http_ret;
+
+    http_ret = cmsg_proxy_index (NULL, &output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_INTERNAL_SERVER_ERROR);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Test that calling the function before the node tree is initialised returns
+ * HTTP_CODE_INTERNAL_SERVER_ERROR. This time with a query string to catch memory leaks.
+ */
+void
+test_cmsg_proxy_index__before_tree_init_returns_error_with_query_string (void)
+{
+    int http_ret;
+
+    http_ret = cmsg_proxy_index ("search_string=_url", &output_json);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_INTERNAL_SERVER_ERROR);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Test that calling the function with NULL in the output_json parameter returns
+ * HTTP_CODE_INTERNAL_SERVER_ERROR.
+ */
+void
+test_cmsg_proxy_index__output_json_NULL_returns_error (void)
+{
+    int http_ret;
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index (NULL, NULL);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_INTERNAL_SERVER_ERROR);
 }
 
 /**

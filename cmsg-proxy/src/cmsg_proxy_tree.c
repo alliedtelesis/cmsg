@@ -788,6 +788,29 @@ _cmsg_proxy_library_handles_load (void)
 }
 
 /**
+ * Call the passed GNodeTraverseFunc callback for each leaf in the tree
+ * @param callback - function to call for each leaf
+ * @param data - pointer to data to be passed to callback function
+ * @returns - false if the proxy tree is not initialized, else true.
+ */
+bool
+cmsg_proxy_tree_foreach_leaf (GNodeTraverseFunc callback, gpointer data)
+{
+    GNode *root;
+
+    if (!proxy_entries_tree)
+    {
+        return false;
+    }
+
+    root = g_node_get_root (proxy_entries_tree);
+
+    g_node_traverse (root, G_IN_ORDER, G_TRAVERSE_LEAVES, -1, callback, data);
+
+    return true;
+}
+
+/**
  * Initialise the cmsg proxy tree module. Specifically:
  *
  * - Create the tree used to hold the proxy mapping information

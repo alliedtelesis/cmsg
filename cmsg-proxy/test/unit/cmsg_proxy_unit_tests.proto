@@ -57,4 +57,52 @@ service interface
             }
         };
     }
+
+    rpc test_put_only_url (dummy) returns (dummy) {
+        option http = {
+            put: "/v1/test/put_url"
+        };
+    }
+
+    rpc test_get_only_url (dummy) returns (dummy) {
+        option http = {
+            get: "/v1/test/get_url"
+        };
+    }
+
+    rpc test_delete_only_url (dummy) returns (dummy) {
+        option http = {
+            delete: "/v1/test/delete_url"
+        };
+    }
+
+    rpc test_patch_only_url (dummy) returns (dummy) {
+        option http = {
+            patch: "/v1/test/patch_url"
+        };
+    }
+
+    rpc test_post_only_url (dummy) returns (dummy) {
+        option http = {
+            post: "/v1/test/post_url"
+        };
+    }
+
+    rpc test_all_methods_url (dummy) returns (dummy) {
+            option http = {
+            get: "/v1/test/all_methods_url"
+            additional_bindings {
+                put: "/v1/test/all_methods_url"
+            }
+            additional_bindings {
+                patch: "/v1/test/all_methods_url"
+            }
+            additional_bindings {
+                post: "/v1/test/all_methods_url"
+            }
+            additional_bindings {
+                delete: "/v1/test/all_methods_url"
+            }
+        };
+    }
 }

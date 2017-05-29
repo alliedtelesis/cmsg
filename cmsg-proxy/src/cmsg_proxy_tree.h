@@ -24,5 +24,6 @@ const cmsg_service_info *_cmsg_proxy_find_service_from_url_and_verb (const char 
                                                                      **url_parameters);
 cmsg_url_parameter *_cmsg_proxy_create_url_parameter (const char *key, const char *value);
 void _cmsg_proxy_free_url_parameter (gpointer ptr);
+bool cmsg_proxy_tree_foreach_leaf (GNodeTraverseFunc callback, gpointer data);
 
 #endif /* __CMSG_PROXY_TREE_H_ */
