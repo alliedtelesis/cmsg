@@ -70,9 +70,27 @@ service functional_tests
         };
     }
 
-    rpc test_ant_result_get (dummy) returns (ant_result) {
+    rpc test_ant_result_get_ok (dummy) returns (ant_result) {
         option http = {
-            get: "/test_ant_result_get",
+            get: "/test_ant_result_get_ok",
+        };
+    }
+
+    rpc test_ant_result_get_error (dummy) returns (ant_result) {
+        option http = {
+            get: "/test_ant_result_get_error",
+        };
+    }
+
+    rpc test_get_error_with_single_data (dummy) returns (ant_result_plus_bool) {
+        option http = {
+            get: "/test_get_error_with_single_data",
+        };
+    }
+
+    rpc test_get_error_with_multiple_data (dummy) returns (test_multiple_fields_message_get_msg) {
+        option http = {
+            get: "/test_get_error_with_multiple_data",
         };
     }
 }
