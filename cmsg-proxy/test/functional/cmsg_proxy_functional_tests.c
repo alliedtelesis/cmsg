@@ -273,6 +273,126 @@ functional_tests_impl_test_single_repeated_uint32_put (const void *service,
     functional_tests_server_test_single_repeated_uint32_putSend (service, &send_msg);
 }
 
+void
+functional_tests_impl_test_body_mapped_to_sub_message (const void *service,
+                                                       const test_body_msg *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, field_a));
+    NP_ASSERT_STR_EQUAL (recv_msg->field_a, "Bar");
+
+    NP_ASSERT_NULL (recv_msg->field_b);
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, field_c));
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_x));
+    NP_ASSERT_STR_EQUAL (recv_msg->field_c->field_x, "Hi");
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_y));
+    NP_ASSERT_EQUAL (recv_msg->field_c->field_y, 123);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, message, NULL);
+
+    functional_tests_server_test_body_mapped_to_sub_messageSend (service, &send_msg);
+}
+
+void
+functional_tests_impl_test_body_mapped_to_primitive (const void *service,
+                                                     const test_body_msg *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, field_a));
+    NP_ASSERT_STR_EQUAL (recv_msg->field_a, "Bar");
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, field_b));
+    NP_ASSERT_STR_EQUAL (recv_msg->field_b, "Foo");
+
+    NP_ASSERT_NULL (recv_msg->field_c);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, message, NULL);
+
+    functional_tests_server_test_body_mapped_to_primitiveSend (service, &send_msg);
+}
+
+void
+functional_tests_impl_test_body_mapped_to_remaining_multiple_fields (const void *service,
+                                                                     const test_body_msg
+                                                                     *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, field_a));
+    NP_ASSERT_STR_EQUAL (recv_msg->field_a, "Bar");
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, field_b));
+    NP_ASSERT_STR_EQUAL (recv_msg->field_b, "Foo");
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, field_c));
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_x));
+    NP_ASSERT_STR_EQUAL (recv_msg->field_c->field_x, "Hi");
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_y));
+    NP_ASSERT_EQUAL (recv_msg->field_c->field_y, 123);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, message, NULL);
+
+    functional_tests_server_test_body_mapped_to_remaining_multiple_fieldsSend (service,
+                                                                               &send_msg);
+}
+
+void
+functional_tests_impl_test_body_mapped_to_remaining_single_field (const void *service,
+                                                                  const test_body_msg
+                                                                  *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, field_a));
+    NP_ASSERT_STR_EQUAL (recv_msg->field_a, "Bar");
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, field_b));
+    NP_ASSERT_STR_EQUAL (recv_msg->field_b, "Foo");
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, field_c));
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_x));
+    NP_ASSERT_STR_EQUAL (recv_msg->field_c->field_x, "Hi");
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_y));
+    NP_ASSERT_EQUAL (recv_msg->field_c->field_y, 123);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, message, NULL);
+
+    functional_tests_server_test_body_mapped_to_remaining_single_fieldSend (service,
+                                                                            &send_msg);
+}
+
+void
+functional_tests_impl_test_body_mapped_to_nothing (const void *service,
+                                                   const test_body_msg *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, field_a));
+    NP_ASSERT_STR_EQUAL (recv_msg->field_a, "Bar");
+
+    NP_ASSERT_NULL (recv_msg->field_b);
+
+    NP_ASSERT_NULL (recv_msg->field_c);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, message, NULL);
+
+    functional_tests_server_test_body_mapped_to_nothingSend (service, &send_msg);
+}
+
 int
 set_up (void)
 {
@@ -633,4 +753,154 @@ test_single_repeated_uint32_put (void)
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
 
     free (output_json);
+}
+
+void
+test_body_mapped_to_sub_message (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    const char *input_json =
+        "{\n"
+        "    \"field_x\": \"Hi\",\n"
+        "    \"field_y\": 123\n"
+        "}";
+
+    const char *expected_output_json =
+        "{\n"
+        "    \"code\": \"ANT_CODE_OK\"\n"
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_body_mapped_to_sub_message/Bar", NULL, CMSG_HTTP_POST, input_json,
+                &output_json, &http_status);
+
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+
+    free (output_json);
+}
+
+void
+test_body_mapped_to_primitive (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    const char *input_json = "\"Bar\"";
+
+    /* *INDENT-OFF* */
+    const char *expected_output_json =
+        "{\n"
+        "    \"code\": \"ANT_CODE_OK\"\n"
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_body_mapped_to_primitive/Foo", NULL, CMSG_HTTP_POST, input_json,
+                &output_json, &http_status);
+
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+
+    free (output_json);
+}
+
+void
+test_body_mapped_to_remaining_multiple_fields (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    const char *input_json =
+        "{\n"
+        "    \"field_b\": \"Foo\",\n"
+        "    \"field_c\": { \"field_x\": \"Hi\", \"field_y\": 123 }\n"
+        "}";
+
+    const char *expected_output_json =
+        "{\n"
+        "    \"code\": \"ANT_CODE_OK\"\n"
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_body_mapped_to_remaining_multiple_fields/Bar", NULL, CMSG_HTTP_POST,
+                input_json, &output_json, &http_status);
+
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+
+    free (output_json);
+}
+
+void
+test_body_mapped_to_remaining_single_field (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    const char *input_json =
+        "{\n"
+        "    \"field_x\": \"Hi\",\n"
+        "    \"field_y\": 123\n"
+        "}";
+
+    const char *expected_output_json =
+        "{\n"
+        "    \"code\": \"ANT_CODE_OK\"\n"
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_body_mapped_to_remaining_single_field/Bar/Foo", NULL, CMSG_HTTP_POST,
+                input_json, &output_json, &http_status);
+
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+
+    free (output_json);
+}
+
+void
+test_body_mapped_to_nothing (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    const char *expected_error_output =
+        "{\n"
+        "    \"code\": \"ANT_CODE_INVALID_ARGUMENT\",\n"
+        "    \"message\": \"Invalid JSON: No JSON data expected for API, but JSON data input\"\n"
+        "}";
+
+    const char *expected_ok_output =
+        "{\n"
+        "    \"code\": \"ANT_CODE_OK\"\n"
+        "}";
+    /* *INDENT-ON* */
+
+    /* Test with no input JSON */
+
+    cmsg_proxy ("/test_body_mapped_to_nothing/Bar", NULL, CMSG_HTTP_POST, NULL,
+                &output_json, &http_status);
+
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+    NP_ASSERT_STR_EQUAL (output_json, expected_ok_output);
+
+    free (output_json);
+    output_json = NULL;
+
+    /* Test with input JSON */
+
+    cmsg_proxy ("/test_body_mapped_to_nothing/Bar", NULL, CMSG_HTTP_POST, "Test Input",
+                &output_json, &http_status);
+
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_BAD_REQUEST);
+    NP_ASSERT_STR_EQUAL (output_json, expected_error_output);
+
+    free (output_json);
+    output_json = NULL;
 }

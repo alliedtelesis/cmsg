@@ -20,6 +20,19 @@ message test_multiple_fields_message_get_msg
     optional uint32 inner_uint32 = 4;
 }
 
+message test_body_sub_msg
+{
+    optional string field_x = 1;
+    optional uint32 field_y = 2;
+}
+
+message test_body_msg
+{
+    optional string field_a = 1;
+    optional string field_b = 2;
+    optional test_body_sub_msg field_c = 3;
+}
+
 service functional_tests
 {
     rpc test_single_bool_get (dummy) returns (ant_result_plus_bool) {
@@ -94,27 +107,65 @@ service functional_tests
         };
     }
 
+    rpc test_body_mapped_to_sub_message (test_body_msg) returns (ant_result) {
+        option http = {
+            post: "/test_body_mapped_to_sub_message/{field_a}"
+            body: "field_c"
+        };
+    }
+
+    rpc test_body_mapped_to_primitive (test_body_msg) returns (ant_result) {
+        option http = {
+            post: "/test_body_mapped_to_primitive/{field_b}"
+            body: "field_a"
+        };
+    }
+
+    rpc test_body_mapped_to_remaining_multiple_fields (test_body_msg) returns (ant_result) {
+        option http = {
+            post: "/test_body_mapped_to_remaining_multiple_fields/{field_a}"
+            body: "*"
+        };
+    }
+
+    rpc test_body_mapped_to_remaining_single_field (test_body_msg) returns (ant_result) {
+        option http = {
+            post: "/test_body_mapped_to_remaining_single_field/{field_a}/{field_b}"
+            body: "*"
+        };
+    }
+
+    rpc test_body_mapped_to_nothing (test_body_msg) returns (ant_result) {
+        option http = {
+            post: "/test_body_mapped_to_nothing/{field_a}"
+        };
+    }
+
     rpc test_single_bool_put (cmsg_bool) returns (ant_result) {
         option http = {
             put: "/test_single_bool_put",
+            body: "value"
         };
     }
 
     rpc test_single_string_put (cmsg_string) returns (ant_result) {
         option http = {
             put: "/test_single_string_put",
+            body: "value"
         };
     }
 
     rpc test_single_uint32_put (cmsg_uint32) returns (ant_result) {
         option http = {
             put: "/test_single_uint32_put",
+            body: "value"
         };
     }
 
     rpc test_single_repeated_uint32_put (cmsg_uint32_array) returns (ant_result) {
         option http = {
             put: "/test_single_repeated_uint32_put",
+            body: "values"
         };
     }
 }

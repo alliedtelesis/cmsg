@@ -137,35 +137,42 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const HttpRule &http_rule, io
     printer->Print(vars_, ".output_msg_descriptor = &$outputname$_descriptor,\n");
     printer->Print(vars_, ".api_ptr = &$lcfullname$_api_$method$,\n");
 
+    vars_["body"] = http_rule.body();
+
     if (http_rule.has_get())
     {
         vars_["url"] = http_rule.get();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_GET,\n");
+        printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
     else if (http_rule.has_put())
     {
         vars_["url"] = http_rule.put();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_PUT,\n");
+        printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
     else if (http_rule.has_post ())
     {
         vars_["url"] = http_rule.post();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_POST,\n");
+        printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
     else if (http_rule.has_delete_())
     {
         vars_["url"] = http_rule.delete_();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_DELETE,\n");
+        printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
     else if (http_rule.has_patch())
     {
         vars_["url"] = http_rule.patch();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_PATCH,\n");
+        printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
     else
     {

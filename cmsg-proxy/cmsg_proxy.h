@@ -31,6 +31,7 @@ typedef struct _cmsg_service_info
     cmsg_api_func_ptr api_ptr;
     const char *url_string;
     cmsg_http_verb http_verb;
+    const char *body_string;
 } cmsg_service_info;
 
 typedef struct _cmsg_proxy_api_info

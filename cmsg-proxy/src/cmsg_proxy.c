@@ -912,6 +912,7 @@ _cmsg_proxy_json_object_sanity_check (json_t *json_obj, json_error_t *error)
  * @param input_json  - Input json string to create the json object
  * @param msg_descriptor - Protobuf-c message descriptor for the input message
  *                         that should be called with the CMSG API
+ * @param body_string - A string that describes the input body mapping
  * @param url_parameters - List of parameters that were parsed out of the input URL
  * @param error       - Place holder for error occurred in the creation
  *
@@ -920,7 +921,8 @@ _cmsg_proxy_json_object_sanity_check (json_t *json_obj, json_error_t *error)
 static json_t *
 _cmsg_proxy_json_object_create (const char *input_json,
                                 const ProtobufCMessageDescriptor *msg_descriptor,
-                                GList *url_parameters, json_error_t *error)
+                                const char *body_string, GList *url_parameters,
+                                json_error_t *error)
 {
     json_t *converted_json = NULL;
     const ProtobufCFieldDescriptor *field_desc = NULL;
@@ -940,9 +942,11 @@ _cmsg_proxy_json_object_create (const char *input_json,
         expected_input_fields--;
     }
 
-    /* If we don't expect any input JSON but the user has given some then this
-     * is an error */
-    if ((expected_input_fields == 0) && input_json)
+    /* If we don't expect any input JSON but the user has given some then
+     * this is an error (body isn't mapped to a field, or it is mapped to
+     * all remaining fields of which there are none) */
+    if (strcmp (body_string, "") == 0 ||
+        (strcmp (body_string, "*") == 0 && expected_input_fields == 0))
     {
         snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
                   "No JSON data expected for API, but JSON data input");
@@ -955,12 +959,24 @@ _cmsg_proxy_json_object_create (const char *input_json,
         return NULL;
     }
 
-    if (expected_input_fields == 1)
+    /* If the expected input is a single field, assume that input_json is the
+     * value of that specific field. */
+    if (strcmp (body_string, "*") != 0 || expected_input_fields == 1)
     {
-        field_desc = _cmsg_proxy_find_unparsed_field (msg_descriptor, url_parameters);
+        if (strcmp (body_string, "*") == 0)
+        {
+            field_desc = _cmsg_proxy_find_unparsed_field (msg_descriptor, url_parameters);
+        }
+        else
+        {
+            field_desc = protobuf_c_message_descriptor_get_field_by_name (msg_descriptor,
+                                                                          body_string);
+        }
+
         if (!field_desc)
         {
-            /* Should never occur... */
+            /* This could occur if the HttpRule 'body' field was not assigned correctly,
+             * but should never happen in a production build. */
             json_decref (converted_json);
             snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "Internal proxy error");
             return NULL;
@@ -1026,8 +1042,6 @@ _cmsg_proxy_json_object_create (const char *input_json,
 
         return converted_json;
     }
-
-    return NULL;
 }
 
 /**
@@ -1904,7 +1918,8 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
 
     json_obj = _cmsg_proxy_json_object_create (input_json,
                                                service_info->input_msg_descriptor,
-                                               url_parameters, &error);
+                                               service_info->body_string, url_parameters,
+                                               &error);
     if (input_json && !json_obj)
     {
         /* No json object created, report the error */
