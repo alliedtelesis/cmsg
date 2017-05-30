@@ -45,6 +45,7 @@ cmsg_proxy_unit_tests_SOURCES = \
 	test/unit/cmsg_proxy_unit_tests_api_auto.h \
 	test/unit/cmsg_proxy_unit_tests.pb-c.c \
 	test/unit/cmsg_proxy_unit_tests.pb-c.h \
+	test/unit/cmsg_proxy_mem_unit_tests.c \
 	test/unit/cmsg_proxy_unit_tests.c
 cmsg_proxy_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_proxy_unit_tests_CPPFLAGS  = -Isrc -Iinclude
