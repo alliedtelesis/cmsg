@@ -627,19 +627,18 @@ test_get_error_with_single_data (void)
     int http_status = 0;
 
     /* *INDENT-OFF* */
-//    char *expected_output_json =
-//        "{\n"
-//        "    \"code\": \"ANT_CODE_NOT_FOUND\",\n"
-//        "    \"message\": \"ERROR: Not found\"\n"
-//        "}";
+    char *expected_output_json =
+        "{\n"
+        "    \"code\": \"ANT_CODE_NOT_FOUND\",\n"
+        "    \"message\": \"ERROR: Not found\"\n"
+        "}";
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_get_error_with_single_data", NULL, CMSG_HTTP_GET, NULL, &output_json,
                 &http_status);
 
-// todo: Fix under CMSGPROX-118
-//    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
-//    NP_ASSERT_EQUAL (http_status, HTTP_CODE_NOT_FOUND);
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_NOT_FOUND);
 
     free (output_json);
 }
@@ -651,19 +650,18 @@ test_get_error_with_multiple_data (void)
     int http_status = 0;
 
     /* *INDENT-OFF* */
-//    char *expected_output_json =
-//        "{\n"
-//        "    \"code\": \"ANT_CODE_NOT_FOUND\",\n"
-//        "    \"message\": \"ERROR: Not found\"\n"
-//        "}";
+    char *expected_output_json =
+        "{\n"
+        "    \"code\": \"ANT_CODE_NOT_FOUND\",\n"
+        "    \"message\": \"ERROR: Not found\"\n"
+        "}";
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_get_error_with_multiple_data", NULL, CMSG_HTTP_GET, NULL,
                 &output_json, &http_status);
 
-// todo: Fix under CMSGPROX-118
-//    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
-//    NP_ASSERT_EQUAL (http_status, HTTP_CODE_NOT_FOUND);
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_NOT_FOUND);
 
     free (output_json);
 }

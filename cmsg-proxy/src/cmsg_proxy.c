@@ -795,40 +795,26 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
     json_t *converted_json_object = NULL;
     const char *key;
     json_t *value;
-    bool ret = false;
 
-    /* If there are more than 2 fields in the message descriptor then
-     * simply return the entire message as a JSON string */
-    if (output_proto_message->descriptor->n_fields > 2 ||
-        strcmp (output_proto_message->descriptor->name, "ant_result") == 0)
-    {
-        ret = _cmsg_proxy_protobuf2json_string (output_proto_message, output_json);
-        return ret;
-    }
-
-    ret = _cmsg_proxy_protobuf2json_object (output_proto_message, &converted_json_object);
-    if (!ret)
+    if (!_cmsg_proxy_protobuf2json_object (output_proto_message, &converted_json_object))
     {
         return false;
     }
 
-    /* Once this point of the function is reached we know that there is only two
-     * fields in the received message. One of these fields must be '_error_info'.
-     * Therefore if the status is HTTP_CODE_OK simply return the field that isn't
-     * '_error_info', otherwise if the code is something other than HTTP_CODE_OK
-     * simply return the '_error_info' field. */
-    json_object_foreach (converted_json_object, key, value)
+    /* If the API simply returns an 'ant_result' message then no further
+     * processing is required, simply return it. */
+    if (strcmp (output_proto_message->descriptor->name, "ant_result") == 0)
     {
-        if (http_status == HTTP_CODE_OK)
-        {
-            if (strcmp (key, "_error_info") != 0)
-            {
-                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_INDENT (4));
-                json_decref (converted_json_object);
-                return true;
-            }
-        }
-        else
+        *output_json = json_dumps (converted_json_object, JSON_INDENT (4));
+        json_decref (converted_json_object);
+        return true;
+    }
+
+    /* If the status is not HTTP_CODE_OK then we need to simply return the
+     * '_error_info' subfield of the message to the API caller */
+    if (http_status != HTTP_CODE_OK)
+    {
+        json_object_foreach (converted_json_object, key, value)
         {
             if ((strcmp (key, "_error_info") == 0))
             {
@@ -837,8 +823,36 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
                 return true;
             }
         }
+
+        /* Sanity check that '_error_info' is actually in the message */
+        json_decref (converted_json_object);
+        return false;
     }
 
+    /* If there are only two fields in the message (and the http status is HTTP_CODE_OK)
+     * we simply return the field that isn't '_error_info'. */
+    if (output_proto_message->descriptor->n_fields <= 2)
+    {
+
+        json_object_foreach (converted_json_object, key, value)
+        {
+            if (strcmp (key, "_error_info") != 0)
+            {
+                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_INDENT (4));
+                json_decref (converted_json_object);
+                return true;
+            }
+        }
+
+        /* Sanity check that there is actually a field other than
+         * '_error_info' in the message */
+        json_decref (converted_json_object);
+        return false;
+    }
+
+    /* If there are more than 2 fields in the message descriptor
+     * (and the http status is HTTP_CODE_OK) then simply return the
+     * entire message as a JSON string */
     *output_json = json_dumps (converted_json_object, JSON_INDENT (4));
     json_decref (converted_json_object);
     return true;
