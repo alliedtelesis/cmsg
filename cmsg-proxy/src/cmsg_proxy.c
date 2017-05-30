@@ -103,11 +103,6 @@ ARRAY_SIZE_COMPILE_CHECK (ant_code_to_http_code_array, ANT_CODE_MAX);
 
 static pre_api_http_check_callback pre_api_check_callback = NULL;
 
-/* Current CMSG API version string */
-#define CMSG_API_VERSION_STR                "CMSG-API"
-
-GNode *proxy_entries_tree;
-
 /**
  * Convert a single JSON value (i.e. not a JSON object or array) into
  * a JSON object using the input protobuf-c field name as the key.
@@ -865,11 +860,7 @@ cmsg_proxy_init (void)
     cmsg_proxy_counter_init ();
 #endif /* HAVE_COUNTERD */
 
-    /* Create GNode proxy entries tree. */
-    proxy_entries_tree = g_node_new (CMSG_PROXY_STRDUP (CMSG_API_VERSION_STR));
-
-    _cmsg_proxy_library_handles_load ();
-    _cmsg_proxy_clients_init ();
+    cmsg_proxy_tree_init ();
 }
 
 /**
@@ -890,9 +881,7 @@ cmsg_proxy_set_pre_api_http_check_callback (pre_api_http_check_callback cb)
 void
 cmsg_proxy_deinit (void)
 {
-    _cmsg_proxy_service_info_deinit ();
-    _cmsg_proxy_clients_deinit ();
-    _cmsg_proxy_library_handles_close ();
+    cmsg_proxy_tree_deinit ();
 
 #ifdef HAVE_COUNTERD
     /* Cleanup counters */
