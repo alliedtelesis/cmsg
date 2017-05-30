@@ -9,9 +9,11 @@ libcmsgproxy_la_SOURCES = \
 	src/common.pb-c.c \
 	src/common.pb-c.h \
 	src/cmsg_proxy.c \
-	include/cmsg_proxy.h \
+	cmsg_proxy.h \
 	src/cmsg_proxy_mem.c \
-	src/cmsg_proxy_mem.h
+	src/cmsg_proxy_mem.h \
+	src/cmsg_proxy_counters.c \
+	src/cmsg_proxy_counters.h
 
 libcmsgproxy_la_LIBADD = \
 	$(GLIB_LIBS) \
