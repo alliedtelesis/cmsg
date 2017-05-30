@@ -27,6 +27,11 @@ message cmsg_uint32
     optional uint32 value = 1;
 }
 
+message cmsg_uint32_array
+{
+    repeated uint32 values = 1;
+}
+
 message cmsg_string
 {
     optional string value = 1;

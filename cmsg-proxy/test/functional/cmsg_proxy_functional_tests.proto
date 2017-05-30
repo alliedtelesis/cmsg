@@ -93,4 +93,28 @@ service functional_tests
             get: "/test_get_error_with_multiple_data",
         };
     }
+
+    rpc test_single_bool_put (cmsg_bool) returns (ant_result) {
+        option http = {
+            put: "/test_single_bool_put",
+        };
+    }
+
+    rpc test_single_string_put (cmsg_string) returns (ant_result) {
+        option http = {
+            put: "/test_single_string_put",
+        };
+    }
+
+    rpc test_single_uint32_put (cmsg_uint32) returns (ant_result) {
+        option http = {
+            put: "/test_single_uint32_put",
+        };
+    }
+
+    rpc test_single_repeated_uint32_put (cmsg_uint32_array) returns (ant_result) {
+        option http = {
+            put: "/test_single_repeated_uint32_put",
+        };
+    }
 }

@@ -215,6 +215,64 @@ functional_tests_impl_test_get_error_with_multiple_data (const void *service)
     functional_tests_server_test_get_error_with_multiple_dataSend (service, &send_msg);
 }
 
+void
+functional_tests_impl_test_single_bool_put (const void *service, const cmsg_bool *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_TRUE (CMSG_IS_FIELD_PRESENT (recv_msg, value));
+    NP_ASSERT_FALSE (recv_msg->value);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+
+    functional_tests_server_test_single_bool_putSend (service, &send_msg);
+}
+
+void
+functional_tests_impl_test_single_string_put (const void *service,
+                                              const cmsg_string *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg, value));
+    NP_ASSERT_STR_EQUAL (recv_msg->value, "Test String");
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+
+    functional_tests_server_test_single_string_putSend (service, &send_msg);
+}
+
+void
+functional_tests_impl_test_single_uint32_put (const void *service,
+                                              const cmsg_uint32 *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_TRUE (CMSG_IS_FIELD_PRESENT (recv_msg, value));
+    NP_ASSERT_EQUAL (recv_msg->value, 987);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+
+    functional_tests_server_test_single_uint32_putSend (service, &send_msg);
+}
+
+void
+functional_tests_impl_test_single_repeated_uint32_put (const void *service,
+                                                       const cmsg_uint32_array *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_TRUE (CMSG_IS_REPEATED_PRESENT (recv_msg, values));
+    NP_ASSERT_EQUAL (recv_msg->n_values, 3);
+    NP_ASSERT_EQUAL (recv_msg->values[0], 9);
+    NP_ASSERT_EQUAL (recv_msg->values[1], 8);
+    NP_ASSERT_EQUAL (recv_msg->values[2], 7);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+
+    functional_tests_server_test_single_repeated_uint32_putSend (service, &send_msg);
+}
+
 int
 set_up (void)
 {
@@ -485,6 +543,94 @@ test_get_error_with_multiple_data (void)
 // todo: Fix under CMSGPROX-118
 //    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
 //    NP_ASSERT_EQUAL (http_status, HTTP_CODE_NOT_FOUND);
+
+    free (output_json);
+}
+
+void
+test_single_bool_put (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    char *expected_output_json =
+        "{\n"
+        "    \"code\": \"ANT_CODE_OK\"\n"
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_single_bool_put", NULL, CMSG_HTTP_PUT, "false", &output_json,
+                &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+
+    free (output_json);
+}
+
+void
+test_single_string_put (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    char *expected_output_json =
+        "{\n"
+        "    \"code\": \"ANT_CODE_OK\"\n"
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_single_string_put", NULL, CMSG_HTTP_PUT, "\"Test String\"",
+                &output_json, &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+
+    free (output_json);
+}
+
+void
+test_single_uint32_put (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    char *expected_output_json =
+        "{\n"
+        "    \"code\": \"ANT_CODE_OK\"\n"
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_single_uint32_put", NULL, CMSG_HTTP_PUT, "987", &output_json,
+                &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
+
+    free (output_json);
+}
+
+void
+test_single_repeated_uint32_put (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    char *expected_output_json =
+        "{\n"
+        "    \"code\": \"ANT_CODE_OK\"\n"
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_single_repeated_uint32_put", NULL, CMSG_HTTP_PUT, "[9, 8, 7]",
+                &output_json, &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
 
     free (output_json);
 }
