@@ -561,3 +561,22 @@ test_cmsg_proxy_mem_free__handles_NULL (void)
 
     CMSG_PROXY_FREE (NULL);
 }
+
+static bool
+_pre_api_check_dummy (cmsg_http_verb http_verb, char **message)
+{
+    return true;
+}
+
+/**
+ * Function Tested: cmsg_proxy_set_pre_api_http_check_callback()
+ *
+ * Tests that the function correctly sets the pre_api_check_callback
+ * function pointer to the function that is passed in.
+ */
+void
+test_cmsg_proxy_set_pre_api_http_check_callback (void)
+{
+    cmsg_proxy_set_pre_api_http_check_callback (_pre_api_check_dummy);
+    NP_ASSERT_PTR_EQUAL (pre_api_check_callback, _pre_api_check_dummy);
+}
