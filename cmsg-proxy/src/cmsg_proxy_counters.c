@@ -11,6 +11,8 @@
 #include "cmsg_proxy_counters.h"
 #include "cmsg_proxy_mem.h"
 
+GHashTable *proxy_session_counter_table = NULL;
+
 /**
  * Uninitialise all service-specific counter
  */

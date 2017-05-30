@@ -7,6 +7,7 @@
 #define _GNU_SOURCE
 #include <np.h>
 #include "cmsg_proxy_mem.c"
+#include "cmsg_proxy_tree.c"
 #include "cmsg_proxy.c"
 #include "cmsg_proxy_functional_tests_proxy_def.h"
 #include "cmsg_proxy_functional_tests_api_auto.h"

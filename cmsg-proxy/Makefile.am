@@ -13,7 +13,9 @@ libcmsgproxy_la_SOURCES = \
 	src/cmsg_proxy_mem.c \
 	src/cmsg_proxy_mem.h \
 	src/cmsg_proxy_counters.c \
-	src/cmsg_proxy_counters.h
+	src/cmsg_proxy_counters.h \
+	src/cmsg_proxy_tree.c \
+	src/cmsg_proxy_tree.h
 
 libcmsgproxy_la_LIBADD = \
 	$(GLIB_LIBS) \

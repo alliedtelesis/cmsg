@@ -45,7 +45,7 @@ typedef struct _session_counter_info
 /* Global counters */
 static counter_info proxy_counter;
 /* Table to store per-session counters */
-static GHashTable *proxy_session_counter_table = NULL;
+extern GHashTable *proxy_session_counter_table;
 
 void cmsg_proxy_session_counter_init (const cmsg_service_info *service_info);
 
