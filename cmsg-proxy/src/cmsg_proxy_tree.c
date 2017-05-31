@@ -284,8 +284,11 @@ _cmsg_proxy_entry_data_free (GNode *node, gpointer data)
  * API INFO at the leaf node points to the corresponding cmsg_service_info
  *
  * @param service_info CMSG service information
+ *
+ * @return - true if the service info was successfully added to the tree
+ *           false otherwise
  */
-static gboolean
+static bool
 _cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
 {
     char *tmp_url = NULL;
@@ -294,14 +297,14 @@ _cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
     GNode *parent_node = g_node_get_root (proxy_entries_tree);
     GNode *node = NULL;
     GNode *cmsg_api_info_node = NULL;
-    gboolean found;
+    bool found = false;
 
     tmp_url = CMSG_PROXY_STRDUP (service_info->url_string);
 
     for (next_entry = strtok_r (tmp_url, "/", &rest); next_entry;
          next_entry = strtok_r (NULL, "/", &rest))
     {
-        found = FALSE;
+        found = false;
 
         /* Check whether the node already exists in the tree. */
         node = g_node_first_child (parent_node);
@@ -311,14 +314,14 @@ _cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
             /* API info node should be skipped */
             if (!G_NODE_IS_LEAF (node) && strcmp (node->data, next_entry) == 0)
             {
-                found = TRUE;
+                found = true;
                 break;
             }
             node = g_node_next_sibling (node);
         }
 
         /* Add if it doesn't exist. Insert as the last child of parent_node. */
-        if (found == FALSE)
+        if (!found)
         {
             node = g_node_insert_data (parent_node, -1, CMSG_PROXY_STRDUP (next_entry));
         }
@@ -333,7 +336,7 @@ _cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
 
     CMSG_PROXY_FREE (tmp_url);
 
-    return TRUE;
+    return true;
 }
 
 /**
