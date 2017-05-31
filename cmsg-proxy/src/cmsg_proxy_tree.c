@@ -236,6 +236,28 @@ _cmsg_proxy_entry_data_free (GNode *node, gpointer data)
 }
 
 /**
+ * Check existing tokens on the parent node we are adding to. If either
+ * of the following are true then we cannot add this URL to the service info
+ * tree as it is ambiguous which URL to use:
+ *
+ * - We are adding a URL parameter (i.e. '{ xxx }') to a parent_node that already has
+ *   another child node that is not a leaf.
+ * - We are adding a non URL paremeter to a parent_node that already has another
+ *   child that is a URL parameter.
+ *
+ * @param parent_node - The parent node we are adding the new token string to
+ * @param token - The token string that will be used for the new node
+ *
+ * @return - true if the token string will conflict with an existing node on the parent
+ *           false otherwise
+ */
+static bool
+_cmsg_proxy_service_info_conflicts (GNode *parent_node, const char *token)
+{
+    return false;
+}
+
+/**
  * Parse the given URL string and add to proxy_entries_tree.
  * Add 'cmsg_service_info' to the leaf node.
  * The parser believes the received 'url' is in the correct format.
@@ -323,6 +345,13 @@ _cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
         /* Add if it doesn't exist. Insert as the last child of parent_node. */
         if (!found)
         {
+            if (_cmsg_proxy_service_info_conflicts (parent_node, next_entry))
+            {
+                syslog (LOG_ERR, "URL '%s' conflicts with a previously loaded URL",
+                        service_info->url_string);
+                CMSG_PROXY_FREE (tmp_url);
+                return false;
+            }
             node = g_node_insert_data (parent_node, -1, CMSG_PROXY_STRDUP (next_entry));
         }
 
