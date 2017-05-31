@@ -287,7 +287,9 @@ _cmsg_proxy_service_info_conflicts (GNode *parent_node, const char *token)
             if (_cmsg_proxy_token_is_url_param (token) ||
                 _cmsg_proxy_token_is_url_param (node->data))
             {
-                return true;
+                /* CMSGPROX-117 todo: This should return true however we can't enforce
+                 *                    this until some v0.1 URLs are removed.  */
+                return false;
             }
 
             /* Once we have found at least one leaf node there is no need
