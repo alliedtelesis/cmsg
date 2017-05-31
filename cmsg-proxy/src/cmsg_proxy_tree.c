@@ -236,6 +236,27 @@ _cmsg_proxy_entry_data_free (GNode *node, gpointer data)
 }
 
 /**
+ * Check whether a given string represents a URL parameter.
+ * i.e. "{ xxx }"
+ *
+ * @param token - The string to check
+ *
+ * @return - true if it is a URL parameter, false otherwise
+ */
+static bool
+_cmsg_proxy_token_is_url_param (const char *token)
+{
+    int token_len = (token ? strlen (token) : 0);
+
+    if (token && token_len > 0 && token[0] == '{' && token[token_len - 1] == '}')
+    {
+        return true;
+    }
+
+    return false;
+}
+
+/**
  * Check existing tokens on the parent node we are adding to. If either
  * of the following are true then we cannot add this URL to the service info
  * tree as it is ambiguous which URL to use:
@@ -550,7 +571,6 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
     const char *key = NULL;
     GNode *parent_node;
     GNode *info_node;
-    int key_length;
     cmsg_url_parameter *param = NULL;
 
     tmp_url = CMSG_PROXY_STRDUP (url);
@@ -570,10 +590,9 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
             else
             {
                 key = (const char *) node->data;
-                key_length = key ? strlen (key) : 0;
 
                 /* if this URL segment is a parameter, store it to be parsed later */
-                if (key && key_length && key[0] == '{' && key[key_length - 1] == '}')
+                if (_cmsg_proxy_token_is_url_param (key))
                 {
 
                     param = _cmsg_proxy_create_url_parameter (key, next_entry);
