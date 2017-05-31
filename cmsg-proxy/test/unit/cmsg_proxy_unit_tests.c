@@ -444,3 +444,200 @@ test_cmsg_proxy_set_pre_api_http_check_callback (void)
     cmsg_proxy_set_pre_api_http_check_callback (_pre_api_check_dummy);
     NP_ASSERT_PTR_EQUAL (pre_api_check_callback, _pre_api_check_dummy);
 }
+
+/**
+ * Functions Tested: _cmsg_proxy_service_info_add()
+ *                   _cmsg_proxy_service_info_conflicts()
+ *
+ * Tests that input service_info are are not rejected if no conflicts occur.
+ */
+void
+test_cmsg_proxy_service_info_add__no_conflicts (void)
+{
+    cmsg_service_info test_service_info_1 = {
+        .url_string = "/api/v1/TEST/a",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    cmsg_service_info test_service_info_2 = {
+        .url_string = "/api/v1/TEST/b",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
+    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
+    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_2));
+}
+
+/**
+ * Functions Tested: _cmsg_proxy_service_info_add()
+ *                   _cmsg_proxy_service_info_conflicts()
+ *
+ * Tests that input service_info that has a URL parameter is rejected
+ * when that parameter conflicts with an existing node in the tree.
+ */
+void
+test_cmsg_proxy_service_info_add__conflict_existing_non_param (void)
+{
+    cmsg_service_info test_service_info_1 = {
+        .url_string = "/api/v1/TEST/a",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    cmsg_service_info test_service_info_2 = {
+        .url_string = "/api/v1/TEST/{b}",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    np_syslog_ignore (".*");
+
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
+    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
+}
+
+/**
+ * Functions Tested: _cmsg_proxy_service_info_add()
+ *                   _cmsg_proxy_service_info_conflicts()
+ *
+ * Tests that input service_info that has a URL parameter is rejected
+ * when that parameter conflicts with an existing node in the tree.
+ */
+void
+test_cmsg_proxy_service_info_add__conflict_existing_non_param2 (void)
+{
+    cmsg_service_info test_service_info_1 = {
+        .url_string = "/api/v1/TEST/a/{aa}",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    cmsg_service_info test_service_info_2 = {
+        .url_string = "/api/v1/{b}/1/2/3",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    np_syslog_ignore (".*");
+
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
+    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
+}
+
+/**
+ * Functions Tested: _cmsg_proxy_service_info_add()
+ *                   _cmsg_proxy_service_info_conflicts()
+ *
+ * Tests that input service_info that has no URL parameter is rejected
+ * when that parameter conflicts with an existing node in the tree that
+ * has a URL parameter.
+ */
+void
+test_cmsg_proxy_service_info_add__conflict_existing_param (void)
+{
+    cmsg_service_info test_service_info_1 = {
+        .url_string = "/api/v1/TEST/{a}",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    cmsg_service_info test_service_info_2 = {
+        .url_string = "/api/v1/TEST/b",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    np_syslog_ignore (".*");
+
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
+    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
+}
+
+/**
+ * Functions Tested: _cmsg_proxy_service_info_add()
+ *                   _cmsg_proxy_service_info_conflicts()
+ *
+ * Tests that input service_info that has no URL parameter is rejected
+ * when that parameter conflicts with an existing node in the tree that
+ * has a URL parameter.
+ */
+void
+test_cmsg_proxy_service_info_add__conflict_existing_param2 (void)
+{
+    cmsg_service_info test_service_info_1 = {
+        .url_string = "/api/v1/{aa}/a/{bb}",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    cmsg_service_info test_service_info_2 = {
+        .url_string = "/api/v1/TEST/1/2/3",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    np_syslog_ignore (".*");
+
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
+    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
+}
+
+/**
+ * Functions Tested: _cmsg_proxy_service_info_add()
+ *                   _cmsg_proxy_service_info_conflicts()
+ *
+ * Tests that input service_info that has a URL parameter is rejected
+ * when that parameter conflicts with an existing node in the tree that also
+ * has a URL parameter.
+ */
+void
+test_cmsg_proxy_service_info_add__conflict_param_with_existing_param (void)
+{
+    cmsg_service_info test_service_info_1 = {
+        .url_string = "/api/v1/TEST/{a}",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    cmsg_service_info test_service_info_2 = {
+        .url_string = "/api/v1/TEST/{b}",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    np_syslog_ignore (".*");
+
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
+    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
+}
+
+/**
+ * Functions Tested: _cmsg_proxy_service_info_add()
+ *                   _cmsg_proxy_service_info_conflicts()
+ *
+ * Tests that input service_info that has a URL parameter is rejected
+ * when that parameter conflicts with an existing node in the tree that also
+ * has a URL parameter.
+ */
+void
+test_cmsg_proxy_service_info_add__conflict_param_with_existing_param2 (void)
+{
+    cmsg_service_info test_service_info_1 = {
+        .url_string = "/api/v1/{aa}/a/{bb}",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    cmsg_service_info test_service_info_2 = {
+        .url_string = "/api/v1/{TEST}/1/2/3",
+        .http_verb = CMSG_HTTP_GET
+    };
+
+    np_syslog_ignore (".*");
+
+    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
+
+    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
+}
