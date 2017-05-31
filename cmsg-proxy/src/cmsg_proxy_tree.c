@@ -275,6 +275,28 @@ _cmsg_proxy_token_is_url_param (const char *token)
 static bool
 _cmsg_proxy_service_info_conflicts (GNode *parent_node, const char *token)
 {
+    GNode *node = NULL;
+
+    /* Check whether the node already exists in the tree. */
+    node = g_node_first_child (parent_node);
+    while (node)
+    {
+        /* API info node should be skipped */
+        if (!G_NODE_IS_LEAF (node))
+        {
+            if (_cmsg_proxy_token_is_url_param (token) ||
+                _cmsg_proxy_token_is_url_param (node->data))
+            {
+                return true;
+            }
+
+            /* Once we have found at least one leaf node there is no need
+             * to keep checking - this function ensures the tree is correct. */
+            break;
+        }
+        node = g_node_next_sibling (node);
+    }
+
     return false;
 }
 
