@@ -620,7 +620,7 @@ test_cmsg_proxy_index__returns_search_no_braces (void)
  * Tests that if a search query string is used that does include braces ("{field_a}"),
  * the function returns all and only matching operations. Checks that the number of URLs
  * and the total number of operations (sum of array size of the returned method arrays) are
- * the expected values.
+ * the expected values.  The input is URL Encoded.
  */
 void
 test_cmsg_proxy_index__returns_search_with_braces (void)
@@ -632,7 +632,7 @@ test_cmsg_proxy_index__returns_search_with_braces (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string={field_a}", &output_json);
+    http_ret = cmsg_proxy_index ("search_string=%7Bfield_a%7D", &output_json);
     NP_ASSERT_NOT_NULL (output_json);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 

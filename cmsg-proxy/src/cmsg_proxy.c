@@ -447,6 +447,8 @@ _cmsg_proxy_param_name_matches (gconstpointer param, gconstpointer name_to_match
 /**
  * Parses an HTTP query string, and adds the key-value pairs to the provided list.
  *
+ * Values will be URL Decoded.
+ *
  * @param query_string - Query string to parse
  * @param url_parameters - List of key value pairs of parameters specified in the URL
  */
@@ -457,6 +459,7 @@ _cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_parame
     char *next_entry = NULL;
     char *rest = NULL;
     char *value = NULL;
+    char *decoded_value;
     cmsg_url_parameter *param = NULL;
     GList *matching_param = NULL;
 
@@ -479,7 +482,9 @@ _cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_parame
                                                      _cmsg_proxy_param_name_matches);
                 if (!matching_param)
                 {
-                    param = _cmsg_proxy_create_url_parameter (next_entry, value + 1);
+                    decoded_value = g_uri_unescape_string (value + 1, NULL);
+                    param = _cmsg_proxy_create_url_parameter (next_entry, decoded_value);
+                    g_free (decoded_value);
                     *url_parameters = g_list_prepend (*url_parameters, param);
                 }
             }
@@ -950,7 +955,7 @@ _cmsg_proxy_get_service_and_parameters (const char *url, const char *query_strin
 
 /**
  * Helper function to get search pattern from passed in query string.
- * @param query_string - Urldecoded query string to look for search pattern in.
+ * @param query_string - Url encoded query string to look for search pattern in.
  * @return - Allocated string containing search pattern. or NULL if search parameter is not
  * set or is empty.
  */
@@ -1075,7 +1080,7 @@ _cmsg_proxy_index_add_element (GNode *node, gpointer data)
  *   ]
  * }
  *
- * @param query_string - The query string send with the request. Must be urlDecoded.
+ * @param query_string - The query string sent with the request. Expected to be URL Encoded.
  * @param output_json - A pointer to a string that will store the output JSON data to.
  *                      be sent with the HTTP response. The pointer must be freed by the
  *                      caller. It will contain an object formatted as above. If no
@@ -1129,7 +1134,7 @@ cmsg_proxy_index (const char *query_string, char **output_json)
  * for each rpc defined in the CMSG .proto files.
  *
  * @param url - URL the HTTP request is for.
- * @param query_string - The query string send with the request
+ * @param query_string - The query string sent with the request. Expected to be URL Encoded.
  * @param http_verb - The HTTP verb sent with the HTTP request.
  * @param input_json - A string representing the JSON data sent with the HTTP request.
  * @param output_json - A pointer to a string that will store the output JSON data to.
