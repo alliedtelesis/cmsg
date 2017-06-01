@@ -101,8 +101,6 @@ _cmsg_proxy_api_info_node_set (GNode *leaf_node, const cmsg_service_info *servic
     case CMSG_HTTP_PATCH:
         api_info->cmsg_http_patch = service_info;
         break;
-    default:
-        break;
     }
 }
 
@@ -569,9 +567,9 @@ cmsg_proxy_service_info_get (const cmsg_proxy_api_info *api_info, cmsg_http_verb
         return api_info->cmsg_http_delete;
     case CMSG_HTTP_PATCH:
         return api_info->cmsg_http_patch;
-    default:
-        return NULL;
     }
+
+    return NULL;
 }
 
 /**
