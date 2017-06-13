@@ -32,7 +32,8 @@ libcmsg_la_SOURCES = \
 	cmsg_transport_tcp.c \
 	cmsg_transport_tipc.c \
 	cmsg_transport_udt.c \
-	cmsg_transport_unix.c
+	cmsg_transport_unix.c \
+	cmsg_transport_tipc_broadcast.c
 
 libcmsg_la_LIBADD = $(GLIB_LIBS) -lutility -lprotobuf-c
 
@@ -42,8 +43,7 @@ endif
 
 if HAVE_VCSTACK
 libcmsg_la_SOURCES += \
-	cmsg_transport_cpg.c \
-	cmsg_transport_tipc_broadcast.c
+	cmsg_transport_cpg.c
 libcmsg_la_LIBADD += -lcpg -lcoroipcc
 endif
 
