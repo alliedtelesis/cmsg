@@ -627,27 +627,6 @@ _cmsg_proxy_convert_json_to_protobuf (json_t *json_obj,
 }
 
 /**
- * Convert the input protobuf message into a json string.
- *
- * @param input_protobuf - The protobuf message to convert.
- * @param output_json - A pointer to store the output json string.
- *                      If the conversion succeeds then this pointer must
- *                      be freed by the caller.
- *
- * @return - true on success, false on failure.
- */
-static bool
-_cmsg_proxy_protobuf2json_string (ProtobufCMessage *input_protobuf, char **output_json)
-{
-    if (protobuf2json_string (input_protobuf, JSON_INDENT (4), output_json, NULL, 0) < 0)
-    {
-        return false;
-    }
-
-    return true;
-}
-
-/**
  * Convert the input protobuf message into a json object.
  *
  * @param input_protobuf - The protobuf message to convert.
@@ -771,6 +750,27 @@ _cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
 }
 
 /**
+ * Strip out the details array field from the JSON object representing
+ * an ant_result structure if the array is empty. This is a special case
+ * strictly for the ant_result message where we don't want to return empty
+ * arrays.
+ *
+ * @param ant_result_json_object - JSON object representing the ant_result message
+ */
+static void
+cmsg_proxy_strip_details_from_ant_result (json_t *ant_result_json_object)
+{
+    json_t *details_array = NULL;
+
+    details_array = json_object_get (ant_result_json_object, "details");
+    if (details_array && json_is_array (details_array) &&
+        json_array_size (details_array) == 0)
+    {
+        json_object_del (ant_result_json_object, "details");
+    }
+}
+
+/**
  * Generate a ANT_RESULT error output for an internal cmsg_proxy error
  *
  * @param code - ANT_CODE appropriate to the reason for failure
@@ -785,19 +785,24 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
                                        int *http_status, char **output_json)
 {
     ant_result error = ANT_RESULT_INIT;
-    bool ret;
+    json_t *converted_json_object = NULL;
 
     CMSG_SET_FIELD_VALUE (&error, code, code);
     CMSG_SET_FIELD_PTR (&error, message, message);
 
     *http_status = ant_code_to_http_code_array[code];
 
-    ret = _cmsg_proxy_protobuf2json_string ((ProtobufCMessage *) &error, output_json);
-
-    if (!ret)
+    if (!_cmsg_proxy_protobuf2json_object ((ProtobufCMessage *) &error,
+                                           &converted_json_object))
     {
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        return;
     }
+
+    cmsg_proxy_strip_details_from_ant_result (converted_json_object);
+
+    *output_json = json_dumps (converted_json_object, JSON_INDENT (4));
+    json_decref (converted_json_object);
 }
 
 /**
@@ -812,8 +817,9 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
                                   char **output_json, int http_status)
 {
     json_t *converted_json_object = NULL;
-    const char *key;
-    json_t *value;
+    const char *key = NULL;
+    json_t *value = NULL;
+    json_t *_error_info = NULL;
 
     if (!_cmsg_proxy_protobuf2json_object (output_proto_message, &converted_json_object))
     {
@@ -824,6 +830,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
      * processing is required, simply return it. */
     if (strcmp (output_proto_message->descriptor->name, "ant_result") == 0)
     {
+        cmsg_proxy_strip_details_from_ant_result (converted_json_object);
         *output_json = json_dumps (converted_json_object, JSON_INDENT (4));
         json_decref (converted_json_object);
         return true;
@@ -837,6 +844,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
         {
             if ((strcmp (key, "_error_info") == 0))
             {
+                cmsg_proxy_strip_details_from_ant_result (value);
                 *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_INDENT (4));
                 json_decref (converted_json_object);
                 return true;
@@ -852,7 +860,6 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
      * we simply return the field that isn't '_error_info'. */
     if (output_proto_message->descriptor->n_fields <= 2)
     {
-
         json_object_foreach (converted_json_object, key, value)
         {
             if (strcmp (key, "_error_info") != 0)
@@ -867,6 +874,12 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
          * '_error_info' in the message */
         json_decref (converted_json_object);
         return false;
+    }
+
+    _error_info = json_object_get (converted_json_object, "_error_info");
+    if (_error_info)
+    {
+        cmsg_proxy_strip_details_from_ant_result (converted_json_object);
     }
 
     /* If there are more than 2 fields in the message descriptor
