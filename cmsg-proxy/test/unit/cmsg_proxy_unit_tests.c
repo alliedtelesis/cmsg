@@ -284,7 +284,7 @@ test_cmsg_proxy_clients_init (void)
 }
 
 /**
- * Function Tested: _cmsg_proxy_protobuf2json_string()
+ * Function Tested: protobuf2json_string()
  *
  * Tests that valid input is correctly converted into a json string
  */
@@ -297,10 +297,32 @@ test_cmsg_proxy_protobuf2json_string (void)
 
     CMSG_SET_FIELD_VALUE (&proto_msg, value, true);
 
-    ret = _cmsg_proxy_protobuf2json_string ((ProtobufCMessage *) &proto_msg, &json_str);
+    ret = protobuf2json_string ((ProtobufCMessage *) &proto_msg, JSON_INDENT (4),
+                                &json_str, NULL, 0);
 
-    NP_ASSERT_TRUE (ret);
+    NP_ASSERT_EQUAL (ret, 0);
     NP_ASSERT_STR_EQUAL (json_str, "{\n    \"value\": true\n}");
+
+    free (json_str);
+}
+
+/**
+ * Function Tested: protobuf2json_string()
+ *
+ * Tests that a NULL repeated field is converted into an empty JSON array.
+ */
+void
+test_cmsg_proxy_protobuf2json_string_NULL_repeated (void)
+{
+    cmsg_uint32_array proto_msg = CMSG_UINT32_ARRAY_INIT;
+    char *json_str = NULL;
+    bool ret = false;
+
+    ret = protobuf2json_string ((ProtobufCMessage *) &proto_msg, JSON_INDENT (4),
+                                &json_str, NULL, 0);
+
+    NP_ASSERT_EQUAL (ret, 0);
+    NP_ASSERT_STR_EQUAL (json_str, "{\n    \"values\": []\n}");
 
     free (json_str);
 }
