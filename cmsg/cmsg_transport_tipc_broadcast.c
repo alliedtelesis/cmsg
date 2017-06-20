@@ -45,7 +45,6 @@ cmsg_transport_tipc_broadcast_listen (cmsg_transport *transport)
     int32_t addrlen = 0;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] Creating listen socket\n");
-    transport->connection.sockets.listening_socket = 0;
 
     listening_socket = socket (transport->config.socket.family, SOCK_RDM, 0);
     if (listening_socket == -1)
@@ -263,11 +262,14 @@ cmsg_transport_tipc_broadcast_client_destroy (cmsg_transport *transport)
 static void
 cmsg_transport_tipc_broadcast_server_destroy (cmsg_transport *transport)
 {
-    CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-    shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
+    if (transport->connection.sockets.listening_socket != -1)
+    {
+        CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
+        shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
 
-    CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-    close (transport->connection.sockets.listening_socket);
+        CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
+        close (transport->connection.sockets.listening_socket);
+    }
 }
 
 

@@ -619,7 +619,7 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
 int32_t
 cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 {
-    int sock = 0;
+    int sock = -1;
 
     CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
 
