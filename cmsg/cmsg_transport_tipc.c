@@ -585,11 +585,7 @@ cmsg_transport_tipc_client_close (cmsg_transport *transport)
 static void
 cmsg_transport_tipc_server_close (cmsg_transport *transport)
 {
-    CMSG_DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
-    shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
-
-    CMSG_DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
-    close (transport->connection.sockets.client_socket);
+    return;
 }
 
 

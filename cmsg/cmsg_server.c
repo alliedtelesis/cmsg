@@ -411,6 +411,8 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
                 {
                     // only close the socket if we have errored
                     cmsg_server_close_wrapper (server);
+                    shutdown (fd, SHUT_RDWR);
+                    close (fd);
                     FD_CLR (fd, master_fdset);
                     check_fdmax = TRUE;
                 }
@@ -550,6 +552,8 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
                     {
                         // only close the socket if we have errored
                         cmsg_server_close_wrapper (server);
+                        shutdown (fd, SHUT_RDWR);
+                        close (fd);
                         FD_CLR (fd, &server->accepted_fdset);
                         if (server->accepted_fdmax == fd)
                         {
