@@ -439,12 +439,6 @@ cmsg_transport_cpg_client_send (cmsg_transport *transport, void *buff, int lengt
     iov.iov_len = length;
     iov.iov_base = buff;
 
-    if (transport->send_called_multi_enabled)
-    {
-        // Get send lock to make sure we are the only one sending
-        pthread_mutex_lock (&(transport->send_lock));
-    }
-
     /* Block the current thread until CPG is not congested */
     while (transport->send_can_block)
     {
@@ -475,11 +469,6 @@ cmsg_transport_cpg_client_send (cmsg_transport *transport, void *buff, int lengt
 
         /* Give CPG a chance to relieve the congestion */
         usleep (100000);
-    }
-
-    if (transport->send_called_multi_enabled)
-    {
-        pthread_mutex_unlock (&transport->send_lock);
     }
 
     if (res != CPG_OK)
@@ -590,24 +579,6 @@ cmsg_transport_cpg_client_get_socket (cmsg_transport *transport)
 
 
 int32_t
-cmsg_transport_cpg_send_called_multi_threads_enable (cmsg_transport *transport,
-                                                     uint32_t enable)
-{
-    if (enable)
-    {
-        if (pthread_mutex_init (&transport->send_lock, NULL) != 0)
-        {
-            CMSG_LOG_GEN_ERROR ("Failed to init mutex. Transport[%s]", transport->tport_id);
-            memset (&transport->send_lock, 0, sizeof (transport->send_lock));
-            return -1;
-        }
-    }
-    transport->send_called_multi_enabled = enable;
-    return 0;
-}
-
-
-int32_t
 cmsg_transport_cpg_send_can_block_enable (cmsg_transport *transport,
                                           uint32_t send_can_block)
 {
@@ -654,9 +625,6 @@ cmsg_transport_cpg_init (cmsg_transport *transport)
     transport->server_destroy = cmsg_transport_cpg_server_destroy;
 
     transport->is_congested = cmsg_transport_cpg_is_congested;
-    transport->send_called_multi_threads_enable =
-        cmsg_transport_cpg_send_called_multi_threads_enable;
-    transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_cpg_send_can_block_enable;
     transport->ipfree_bind_enable = cmsg_transport_cpg_ipfree_bind_enable;
 

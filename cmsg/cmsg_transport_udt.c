@@ -172,15 +172,6 @@ cmsg_transport_oneway_udt_is_congested (cmsg_transport *transport)
 
 
 int32_t
-cmsg_transport_udt_send_called_multi_threads_enable (cmsg_transport *transport,
-                                                     uint32_t enable)
-{
-    // Don't support sending from multiple threads
-    return -1;
-}
-
-
-int32_t
 cmsg_transport_udt_send_can_block_enable (cmsg_transport *transport,
                                           uint32_t send_can_block)
 {
@@ -231,9 +222,6 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
     transport->server_destroy = cmsg_transport_oneway_udt_server_destroy;
 
     transport->is_congested = cmsg_transport_oneway_udt_is_congested;
-    transport->send_called_multi_threads_enable =
-        cmsg_transport_udt_send_called_multi_threads_enable;
-    transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_udt_send_can_block_enable;
     transport->ipfree_bind_enable = cmsg_transport_udt_ipfree_bind_enable;
 
