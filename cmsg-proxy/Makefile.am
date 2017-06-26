@@ -55,7 +55,7 @@ cmsg_proxy_unit_tests_SOURCES = \
 cmsg_proxy_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_proxy_unit_tests_CPPFLAGS  = -Isrc -Iinclude
 cmsg_proxy_unit_tests_LDFLAGS = -static
-cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
+cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(GMEM_DIAG_LIBS) \
                                 -lcmsg -lprotobuf-c -lprotobuf2json-c \
                                 -ljansson
 
@@ -85,7 +85,7 @@ cmsg_proxy_functional_tests_SOURCES = \
 cmsg_proxy_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_proxy_functional_tests_CPPFLAGS  = -Isrc -Iinclude
 cmsg_proxy_functional_tests_LDFLAGS = -static
-cmsg_proxy_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
+cmsg_proxy_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(GMEM_DIAG_LIBS) \
                                 -lcmsg -lprotobuf-c -lprotobuf2json-c \
                                 -ljansson
 endif # BUILD_UNITTEST
