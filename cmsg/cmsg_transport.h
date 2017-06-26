@@ -247,8 +247,9 @@ void cmsg_transport_loopback_init (cmsg_transport *transport);
 
 #ifdef HAVE_VCSTACK
 void cmsg_transport_cpg_init (cmsg_transport *transport);
+#endif /* HAVE_VCSTACK */
+
 void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
-#endif
 
 int32_t cmsg_transport_server_process_message (cmsg_recv_func recv, void *handle,
                                                cmsg_server *server);

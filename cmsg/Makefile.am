@@ -32,7 +32,8 @@ libcmsg_la_SOURCES = \
 	cmsg_transport_tcp.c \
 	cmsg_transport_tipc.c \
 	cmsg_transport_udt.c \
-	cmsg_transport_unix.c
+	cmsg_transport_unix.c \
+	cmsg_transport_tipc_broadcast.c
 
 libcmsg_la_LIBADD = $(GLIB_LIBS) -lutility -lprotobuf-c
 
@@ -42,8 +43,7 @@ endif
 
 if HAVE_VCSTACK
 libcmsg_la_SOURCES += \
-	cmsg_transport_cpg.c \
-	cmsg_transport_tipc_broadcast.c
+	cmsg_transport_cpg.c
 libcmsg_la_LIBADD += -lcpg -lcoroipcc
 endif
 
@@ -59,4 +59,28 @@ cmsg_unit_tests_SOURCES = \
 cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_unit_tests_LDFLAGS = -static
 cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS)
+
+test/functional/cmsg_functional_tests_api_auto.c \
+test/functional/cmsg_functional_tests_api_auto.h \
+test/functional/cmsg_functional_tests_impl_auto.c \
+test/functional/cmsg_functional_tests_impl_auto.h \
+test/functional/cmsg_functional_tests.pb-c.c \
+test/functional/cmsg_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/functional/cmsg_functional_tests.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) --proto_path=. --proto_path=src --c_out=. test/functional/cmsg_functional_tests.proto
+
+bin_PROGRAMS += cmsg_functional_tests
+cmsg_functional_tests_SOURCES = \
+	test/functional/cmsg_functional_tests_api_auto.c \
+	test/functional/cmsg_functional_tests_api_auto.h \
+	test/functional/cmsg_functional_tests_impl_auto.c \
+	test/functional/cmsg_functional_tests_impl_auto.h \
+	test/functional/cmsg_functional_tests.pb-c.c \
+	test/functional/cmsg_functional_tests.pb-c.h \
+	test/functional/client_server_rpc_tests.c \
+	test/functional/client_server_oneway_tests.c \
+	test/functional/publisher_subscriber_tests.c \
+	test/functional/client_queuing_tests.c
+cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
+cmsg_functional_tests_LDFLAGS = -static
+cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus -lcmsg -lprotobuf-c
 endif # BUILD_UNITTEST
