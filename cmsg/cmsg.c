@@ -5,6 +5,7 @@
 #include "cmsg.h"
 #include "cmsg_private.h"
 #include "cmsg_error.h"
+#include <gmem_diag.h>
 
 #define CMSG_REPEATED_BLOCK_SIZE 64
 

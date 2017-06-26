@@ -34,7 +34,7 @@ libcmsg_la_SOURCES = \
 	cmsg_transport_udt.c \
 	cmsg_transport_unix.c
 
-libcmsg_la_LIBADD = $(GLIB_LIBS) -lutility -lprotobuf-c
+libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) -lutility -lprotobuf-c
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
