@@ -5,6 +5,8 @@
  */
 
 #include <config.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <malloc.h>
 #include <glib.h>
@@ -83,6 +85,30 @@ cmsg_proxy_mem_strdup (const char *str, const char *filename, int line)
     void *ptr;
 
     ptr = strdup (str);
+
+    if (cmsg_proxy_mtype > 0)
+    {
+        g_mem_record_alloc (ptr, cmsg_proxy_mtype, filename, line);
+    }
+
+    return ptr;
+}
+
+/**
+ * Wrapper function for strndup()
+ *
+ * @param  str      - pointer to the original string
+ * @param  len      - number of bytes to be copied at most
+ * @param  filename - filename to record in malloc statistics
+ * @param  line     - line number to record in malloc statistics
+ * @return a pointer to the allocated memory or NULL on failure
+ */
+void *
+cmsg_proxy_mem_strndup (const char *str, size_t len, const char *filename, int line)
+{
+    void *ptr;
+
+    ptr = strndup (str, len);
 
     if (cmsg_proxy_mtype > 0)
     {

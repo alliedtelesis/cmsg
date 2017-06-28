@@ -263,7 +263,7 @@ cmsg_receive_queue_free_all (GQueue *queue)
 
     while (queue_entry)
     {
-        // ATL_1716_TODO queue_buffer should be freed by the server->allocator as this
+        // ATL_1716_TODO queue_buffer should be freed by the cmsg_memory_allocator as this
         // is how it was done originally
         CMSG_FREE (queue_entry->queue_buffer);  // free the buffer as it won't be processed
 

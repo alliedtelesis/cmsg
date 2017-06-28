@@ -26,6 +26,9 @@ void cmsg_malloc_init (int mtype);
 void **cmsg_msg_array_alloc (size_t struct_size, uint32_t num_structs,
                              const char *file, int line);
 void cmsg_msg_array_free (void *msg_array, const char *file, int line);
+/* note - use CMSG_REPEATED_APPEND() instead of calling this directly */
+void cmsg_repeated_append (void ***msg_ptr_array, size_t *num_elems, const void *ptr,
+                           const char *file, int line);
 
 extern ProtobufCAllocator cmsg_memory_allocator;
 
@@ -103,6 +106,48 @@ extern ProtobufCAllocator cmsg_memory_allocator;
  */
 #define CMSG_MSG_ARRAY_FREE(__msg_array) \
     cmsg_msg_array_free (__msg_array, __FILE__, __LINE__)
+
+/**
+ * Frees an array of pointers created by CMSG_REPEATED_APPEND. The contents of the pointers
+ * needs to be freed by the user.
+ */
+#define CMSG_REPEATED_FREE(_ptr_array) CMSG_MSG_ARRAY_FREE (_ptr_array)
+
+/**
+ * Helper macro to append an element to a repeated field in a message.
+ * If this macro is used, it MUST be the ONLY method used to add elements to that field.
+ * This is because internal optimisations are used to avoid excessive re-allocations.
+ *
+ * This macro MUST NOT be used with CMSG_MSG_ARRAY_ALLOC or any other allocator for the
+ * same field.
+ *
+ * If _ptr is NULL, the field is not updated and the original values are kept.
+ *
+ * Otherwise, the pointer array is created/extended if necessary, the pointer to the new
+ * element is added and the number of elements in the repeated field is updated.
+ *
+ * Freeing memory used by the elements in the array after the message has been sent is left
+ * up to the user.
+ * The array itself should be freed with CMSG_REPEATED_FREE.
+ * @param _name name of the message being modified
+ * @param _field name of the repeated field
+ * @param _ptr pointer to append to repeated field
+ */
+#define CMSG_REPEATED_APPEND(_name, _field, _ptr)                                \
+    cmsg_repeated_append ((void ***) &((_name)->_field), &((_name)->n_##_field), \
+                          (const void *) _ptr, __FILE__, __LINE__)
+
+/**
+ * Helper macro to iterate over the pointers in a repeated field of a CMSG message
+ * @param _name name of message ptr variable.
+ * @param _field name of the repeated field
+ * @param _node pointer of the type of the repeated field.
+ * @param _idx integer variable to use as loop counter.
+ */
+#define CMSG_REPEATED_FOREACH(_name, _field, _node, _idx)  \
+    if ((_name) && (_name)->_field)                         \
+        for (_idx = 0; _idx < (_name)->n_##_field; _idx++) \
+            if ((_node = (_name)->_field[_idx]) != NULL)
 
 int cmsg_service_port_get (const char *name, const char *proto);
 

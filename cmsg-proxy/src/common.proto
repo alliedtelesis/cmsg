@@ -27,6 +27,11 @@ message cmsg_uint32
     optional uint32 value = 1;
 }
 
+message cmsg_uint32_array
+{
+    repeated uint32 values = 1;
+}
+
 message cmsg_string
 {
     optional string value = 1;
@@ -226,19 +231,44 @@ enum ant_code
     // Unauthenticated indicates the request does not have valid
     // authentication credentials for the operation.
     ANT_CODE_UNAUTHENTICATED = 16;
-    ANT_CODE_MAX = 17;
+
+    // One or more items in a batch operation failed. The "details" field
+    // should be examined for more information.
+    ANT_CODE_BATCH_PARTIAL_FAIL = 17;
+    ANT_CODE_MAX = 18;
 }
 
 message ant_result
 {
+    // Operation error code
     optional ant_code code = 1;
+
+    // Message describing error
     optional string message = 2;
+
+    // ID of resource that this error refers to
+    //
+    // This field will be set if result object is in the details field, otherwise
+    // it is optional.
+    optional string resource_id = 3;
+
+    // Array of result objects with details of errors
+    //
+    // This array of result objects should be checked if code is ANT_CODE_BATCH_PARTIAL_FAIL
+    // as it will give details of which parts of a batch operation failed.
+    repeated ant_result details = 4;
 }
 
 message ant_result_plus_bool
 {
     optional ant_result _error_info = 1;
     optional bool _data = 2;
+}
+
+message ant_result_plus_string
+{
+    optional ant_result _error_info = 1;
+    optional string _data = 2;
 }
 
 message ant_result_plus_uint32

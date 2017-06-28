@@ -29,7 +29,6 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_client.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
 
@@ -50,13 +49,11 @@ static void _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *gr
 
 static int32_t _cmsg_transport_cpg_init_exe_connection (void);
 
-static uint32_t _cmsg_transport_cpg_join_group (cmsg_server *server);
-
 
 /*
  * Global variables
  */
-static GHashTable *cpg_group_name_to_server_hash_table_h = NULL;
+GHashTable *cpg_group_name_to_server_hash_table_h = NULL;
 static cpg_handle_t cmsg_cpg_handle = 0;
 
 cpg_callbacks_t cmsg_cpg_callbacks = {
@@ -171,7 +168,8 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
 
         if (server->message_processor (server, buffer))
         {
-            CMSG_LOG_SERVER_ERROR (server, "Unable to process message header");
+            CMSG_LOG_TRANSPORT_ERROR (server->_transport,
+                                      "Unable to process message header");
         }
     }
 }
@@ -185,10 +183,9 @@ _cmsg_cpg_deliver_fn (cpg_handle_t handle, const struct cpg_name *group_name,
  * creating a server to send messages to the CPG executable.
  */
 static int32_t
-cmsg_transport_cpg_client_connect (cmsg_client *client)
+cmsg_transport_cpg_client_connect (cmsg_transport *transport, int timeout)
 {
-    if (!client || !client->_transport ||
-        client->_transport->config.cpg.group_name.value[0] == '\0')
+    if (!transport || transport->config.cpg.group_name.value[0] == '\0')
     {
         CMSG_LOG_GEN_ERROR ("CPG connect failed. Invalid arguments.");
     }
@@ -196,23 +193,19 @@ cmsg_transport_cpg_client_connect (cmsg_client *client)
     {
         CMSG_DEBUG (CMSG_INFO,
                     "[TRANSPORT] cpg connect group name: %s\n",
-                    client->_transport->config.cpg.group_name.value);
+                    transport->config.cpg.group_name.value);
     }
 
     if (cmsg_cpg_handle == 0)
     {
-        /* CPG handle hasn't been created yet.
-         */
-        client->state = CMSG_CLIENT_STATE_FAILED;
-        CMSG_LOG_CLIENT_ERROR (client, "Unable to find matching handle for group %s",
-                               client->_transport->config.cpg.group_name.value);
+        /* CPG handle hasn't been created yet. */
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to find matching handle for group %s",
+                                  transport->config.cpg.group_name.value);
         return -1;
     }
 
-    /* CPG handle has been created so use it.
-     */
-    client->connection.handle = cmsg_cpg_handle;
-    client->state = CMSG_CLIENT_STATE_CONNECTED;
+    /* CPG handle has been created so use it. */
+    transport->connection.cpg.handle = cmsg_cpg_handle;
     return 0;
 }
 
@@ -262,15 +255,15 @@ _cmsg_transport_cpg_init_exe_connection (void)
  * Timesout after 10 seconds of attempting to join the group.
  */
 static uint32_t
-_cmsg_transport_cpg_join_group (cmsg_server *server)
+_cmsg_transport_cpg_join_group (cmsg_transport *transport)
 {
     uint32_t slept_us = 0;
     cpg_error_t result;
 
     do
     {
-        result = cpg_join (server->connection.cpg.handle,
-                           &server->_transport->config.cpg.group_name);
+        result = cpg_join (transport->connection.cpg.handle,
+                           &transport->config.cpg.group_name);
 
         if (result == CPG_OK)
         {
@@ -287,9 +280,10 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
     }
     while (slept_us <= (TV_USEC_PER_SEC * CPG_JOIN_TIMEOUT));
 
-    CMSG_LOG_SERVER_ERROR (server, "Unable to join CPG group %s. Result:%d, Waited:%ums",
-                           server->_transport->config.cpg.group_name.value, result,
-                           slept_us / 1000);
+    CMSG_LOG_TRANSPORT_ERROR (transport,
+                              "Unable to join CPG group %s. Result:%d, Waited:%ums",
+                              transport->config.cpg.group_name.value, result,
+                              slept_us / 1000);
 
     return -1;
 }
@@ -302,13 +296,12 @@ _cmsg_transport_cpg_join_group (cmsg_server *server)
  * the application to receive messages.
  */
 static int32_t
-cmsg_transport_cpg_server_listen (cmsg_server *server)
+cmsg_transport_cpg_server_listen (cmsg_transport *transport)
 {
     int res = 0;
     int fd = 0;
 
-    if (!server || !server->_transport ||
-        server->_transport->config.cpg.group_name.value[0] == '\0')
+    if (!transport || transport->config.cpg.group_name.value[0] == '\0')
     {
         CMSG_LOG_GEN_ERROR ("Invalid parameter for cpg server listen.");
         return -1;
@@ -317,7 +310,7 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
     {
         CMSG_DEBUG (CMSG_INFO,
                     "[TRANSPORT] cpg listen group name: %s\n",
-                    server->_transport->config.cpg.group_name.value);
+                    transport->config.cpg.group_name.value);
     }
 
     /* If CPG connection has not been created do it now.
@@ -327,39 +320,33 @@ cmsg_transport_cpg_server_listen (cmsg_server *server)
         res = _cmsg_transport_cpg_init_exe_connection ();
         if (res < 0)
         {
-            CMSG_LOG_SERVER_ERROR (server, "CPG listen init failed. Result %d", res);
+            CMSG_LOG_TRANSPORT_ERROR (transport, "CPG listen init failed. Result %d", res);
             return -1;
         }
     }
 
-    server->connection.cpg.handle = cmsg_cpg_handle;
-
-    /* Add entry into the hash table for the server to be found by cpg group name.
-     */
-    g_hash_table_insert (cpg_group_name_to_server_hash_table_h,
-                         (gpointer) server->_transport->config.cpg.group_name.value,
-                         (gpointer) server);
+    transport->connection.cpg.handle = cmsg_cpg_handle;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] server added %llu to hash table\n",
-                server->connection.cpg.handle);
+                transport->connection.cpg.handle);
 
-    res = _cmsg_transport_cpg_join_group (server);
+    res = _cmsg_transport_cpg_join_group (transport);
 
     if (res < 0)
     {
-        CMSG_LOG_SERVER_ERROR (server, "CPG listen join failed. Result %d", res);
+        CMSG_LOG_TRANSPORT_ERROR (transport, "CPG listen join failed. Result %d", res);
         return -2;
     }
 
-    if (cpg_fd_get (server->connection.cpg.handle, &fd) == CPG_OK)
+    if (cpg_fd_get (transport->connection.cpg.handle, &fd) == CPG_OK)
     {
-        server->connection.cpg.fd = fd;
+        transport->connection.cpg.fd = fd;
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cpg listen got fd: %d\n", fd);
     }
     else
     {
-        server->connection.cpg.fd = 0;
-        CMSG_LOG_SERVER_ERROR (server, "CPG listen unable to get FD");
+        transport->connection.cpg.fd = 0;
+        CMSG_LOG_TRANSPORT_ERROR (transport, "CPG listen unable to get FD");
         return -3;
     }
 
@@ -378,11 +365,11 @@ cmsg_transport_cpg_server_recv (int32_t socket, cmsg_server *server)
 {
     int ret;
 
-    ret = cpg_dispatch (server->connection.cpg.handle, CPG_DISPATCH_ALL);
+    ret = cpg_dispatch (server->_transport->connection.cpg.handle, CPG_DISPATCH_ALL);
 
     if (ret != CPG_OK)
     {
-        CMSG_LOG_SERVER_ERROR (server, "CPG dispatch failed. Error:%d", ret);
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "CPG dispatch failed. Error:%d", ret);
         return -1;
     }
 
@@ -397,7 +384,9 @@ cmsg_transport_cpg_server_recv (int32_t socket, cmsg_server *server)
  * defined
  */
 static cmsg_status_code
-cmsg_transport_cpg_client_recv (cmsg_client *client, ProtobufCMessage **messagePtPt)
+cmsg_transport_cpg_client_recv (cmsg_transport *transport,
+                                const ProtobufCServiceDescriptor *descriptor,
+                                ProtobufCMessage **messagePtPt)
 {
 
     *messagePtPt = NULL;
@@ -406,21 +395,22 @@ cmsg_transport_cpg_client_recv (cmsg_client *client, ProtobufCMessage **messageP
 
 
 static uint32_t
-cmsg_transport_cpg_is_congested (cmsg_client *client)
+cmsg_transport_cpg_is_congested (cmsg_transport *transport)
 {
     static int32_t cpg_error_count = 0;
     cpg_flow_control_state_t flow_control;
     cpg_error_t cpg_rc;
 
     /* get this CPG's flow control status from the AIS library */
-    cpg_rc = cpg_flow_control_state_get (client->connection.handle, &flow_control);
+    cpg_rc = cpg_flow_control_state_get (transport->connection.cpg.handle, &flow_control);
     if (cpg_rc != CPG_OK)
     {
         if ((cpg_error_count % 16) == 0)
         {
-            CMSG_LOG_CLIENT_ERROR (client,
-                                   "Unable to get CPG flow control state - hndl %llx %d",
-                                   (long long int) client->connection.handle, (int) cpg_rc);
+            CMSG_LOG_TRANSPORT_ERROR (transport,
+                                      "Unable to get CPG flow control state - hndl %llx %d",
+                                      (long long int) transport->connection.cpg.handle,
+                                      (int) cpg_rc);
         }
         cpg_error_count++;
         return TRUE;
@@ -441,7 +431,7 @@ cmsg_transport_cpg_is_congested (cmsg_client *client)
  * Returns
  */
 static int32_t
-cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int flag)
+cmsg_transport_cpg_client_send (cmsg_transport *transport, void *buff, int length, int flag)
 {
     struct iovec iov;
     uint32_t res = CPG_OK;
@@ -449,26 +439,18 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
     iov.iov_len = length;
     iov.iov_base = buff;
 
-    if (client->state != CMSG_CLIENT_STATE_CONNECTED)
-    {
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "CPG Client is not connected prior to attempting to send to group %s",
-                               client->_transport->config.cpg.group_name.value);
-        return -1;
-    }
-
-    if (client->_transport->send_called_multi_enabled)
+    if (transport->send_called_multi_enabled)
     {
         // Get send lock to make sure we are the only one sending
-        pthread_mutex_lock (&(client->_transport->send_lock));
+        pthread_mutex_lock (&(transport->send_lock));
     }
 
     /* Block the current thread until CPG is not congested */
-    while (client->_transport->send_can_block)
+    while (transport->send_can_block)
     {
 
         /* Check this CPG's flow control status from the AIS library */
-        if (!cmsg_transport_cpg_is_congested (client))
+        if (!cmsg_transport_cpg_is_congested (transport))
         {
             break;
         }
@@ -478,14 +460,14 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
     }
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cpg send message to handle %llu\n",
-                client->connection.handle);
+                transport->connection.cpg.handle);
 
     /* Keep trying to send the message until it succeeds (e.g. blocks)
      */
-    while (client->_transport->send_can_block)
+    while (transport->send_can_block)
     {
         /* Attempt to send message. */
-        res = cpg_mcast_joined (client->connection.handle, CPG_TYPE_AGREED, &iov, 1);
+        res = cpg_mcast_joined (transport->connection.cpg.handle, CPG_TYPE_AGREED, &iov, 1);
         if (res != CPG_ERR_TRY_AGAIN)
         {
             break;  /* message sent, or failure, quit loop now. */
@@ -495,14 +477,14 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
         usleep (100000);
     }
 
-    if (client->_transport->send_called_multi_enabled)
+    if (transport->send_called_multi_enabled)
     {
-        pthread_mutex_unlock (&client->_transport->send_lock);
+        pthread_mutex_unlock (&transport->send_lock);
     }
 
     if (res != CPG_OK)
     {
-        CMSG_LOG_CLIENT_ERROR (client, "CPG multicast joined failed. Error:%d", res);
+        CMSG_LOG_TRANSPORT_ERROR (transport, "CPG multicast joined failed. Error:%d", res);
         return -1;
     }
 
@@ -517,7 +499,7 @@ cmsg_transport_cpg_client_send (cmsg_client *client, void *buff, int length, int
  * Servers don't send and so this function isn't implemented.
  */
 static int32_t
-cmsg_transport_cpg_server_send (cmsg_server *server, void *buff, int length, int flag)
+cmsg_transport_cpg_server_send (cmsg_transport *transport, void *buff, int length, int flag)
 {
     return 0;
 }
@@ -527,7 +509,7 @@ cmsg_transport_cpg_server_send (cmsg_server *server, void *buff, int length, int
  * Client doesn't close when the message/response has been sent.
  */
 static void
-cmsg_transport_cpg_client_close (cmsg_client *client)
+cmsg_transport_cpg_client_close (cmsg_transport *transport)
 {
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] client cpg close done nothing\n");
 }
@@ -537,30 +519,30 @@ cmsg_transport_cpg_client_close (cmsg_client *client)
  * Server doesn't close when the message/response has been sent.
  */
 static void
-cmsg_transport_cpg_server_close (cmsg_server *server)
+cmsg_transport_cpg_server_close (cmsg_transport *transport)
 {
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] server cpg close done nothing\n");
 }
 
 static void
-cmsg_transport_cpg_client_destroy (cmsg_client *cmsg_client)
+cmsg_transport_cpg_client_destroy (cmsg_transport *transport)
 {
     //placeholder to make sure destroy functions are called in the right order
 }
 
 static void
-cmsg_transport_cpg_server_destroy (cmsg_server *server)
+cmsg_transport_cpg_server_destroy (cmsg_transport *transport)
 {
     int res;
 
     /* Cleanup our entries in the hash table.
      */
     g_hash_table_remove (cpg_group_name_to_server_hash_table_h,
-                         server->_transport->config.cpg.group_name.value);
+                         transport->config.cpg.group_name.value);
 
     /* Leave the CPG group.
      */
-    cpg_leave (cmsg_cpg_handle, &(server->_transport->config.cpg.group_name));
+    cpg_leave (cmsg_cpg_handle, &(transport->config.cpg.group_name));
 
     /* If there are no more servers then finalize the cpg connection.
      * Finalize sends the right things to other CPG members, and frees memory.
@@ -568,11 +550,11 @@ cmsg_transport_cpg_server_destroy (cmsg_server *server)
     if (g_hash_table_size (cpg_group_name_to_server_hash_table_h) == 0)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] finalize the CPG connection\n");
-        res = cpg_finalize (server->connection.cpg.handle);
+        res = cpg_finalize (transport->connection.cpg.handle);
 
         if (res != CPG_OK)
         {
-            CMSG_LOG_SERVER_ERROR (server, "Failed to finalise CPG. Error:%d", res);
+            CMSG_LOG_TRANSPORT_ERROR (transport, "Failed to finalise CPG. Error:%d", res);
         }
 
         cmsg_cpg_handle = 0;
@@ -583,10 +565,10 @@ cmsg_transport_cpg_server_destroy (cmsg_server *server)
 
 
 static int
-cmsg_transport_cpg_server_get_socket (cmsg_server *server)
+cmsg_transport_cpg_server_get_socket (cmsg_transport *transport)
 {
     int fd = 0;
-    if (cpg_fd_get (server->connection.cpg.handle, &fd) == CPG_OK)
+    if (cpg_fd_get (transport->connection.cpg.handle, &fd) == CPG_OK)
     {
         return fd;
     }
@@ -601,7 +583,7 @@ cmsg_transport_cpg_server_get_socket (cmsg_server *server)
  * The client has no socket to get so return 0.
  */
 static int
-cmsg_transport_cpg_client_get_socket (cmsg_client *client)
+cmsg_transport_cpg_client_get_socket (cmsg_transport *transport)
 {
     return 0;
 }
@@ -661,8 +643,6 @@ cmsg_transport_cpg_init (cmsg_transport *transport)
     transport->server_send = cmsg_transport_cpg_server_send;
 
     transport->closure = cmsg_server_closure_oneway;
-    transport->invoke_send = cmsg_client_invoke_send;
-    transport->invoke_recv = NULL;
 
     transport->client_close = cmsg_transport_cpg_client_close;
     transport->server_close = cmsg_transport_cpg_server_close;

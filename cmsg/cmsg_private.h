@@ -5,6 +5,7 @@
 #define __CMSG_PRIVATE_H_
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>

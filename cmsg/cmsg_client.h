@@ -4,6 +4,8 @@
 #ifndef __CMSG_CLIENT_H_
 #define __CMSG_CLIENT_H_
 
+typedef struct _cmsg_client_s cmsg_client;
+
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 #include "cmsg_queue.h"
@@ -22,7 +24,7 @@
 typedef enum _cmsg_client_state_e
 {
     CMSG_CLIENT_STATE_INIT,         //after creating a new client
-    CMSG_CLIENT_STATE_CONNECTED,    //after succesful connect
+    CMSG_CLIENT_STATE_CONNECTED,    //after successful connect
     CMSG_CLIENT_STATE_FAILED,       //after unsuccessful connect (todo: or unsuccessful send)
     CMSG_CLIENT_STATE_CLOSED,       //after successful send
     CMSG_CLIENT_STATE_QUEUED,       //after successful adding a packet to the queue
@@ -56,12 +58,9 @@ typedef struct _cmsg_client_s
                             ProtobufCClosure closure, void *closure_data);
     pthread_mutex_t invoke_mutex;
 
-    ProtobufCAllocator *allocator;
     ProtobufCService base_service;
     cmsg_transport *_transport;
     cmsg_client_state state;
-    cmsg_client_connection connection;
-    pthread_mutex_t connection_mutex;
 
     cmsg_object self;
     cmsg_object parent;
@@ -217,7 +216,7 @@ cmsg_client *cmsg_create_and_connect_client_tipc_rpc (const char *server_name,
                                                       ProtobufCServiceDescriptor
                                                       *descriptor);
 
-void cmsg_client_close_wrapper (cmsg_client *client);
+void cmsg_client_close_wrapper (cmsg_transport *transport);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
 #endif
