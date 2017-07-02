@@ -90,12 +90,13 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
                       tport->config.cpg.group_name.value);
             break;
         }
+#endif /* HAVE_VCSTACK */
     case CMSG_TRANSPORT_BROADCAST:
         {
             snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tipcb");
             break;
         }
-#endif
+
     case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
         {
             strncpy (tport->tport_id, ".udt", CMSG_MAX_TPORT_ID_LEN);
@@ -153,10 +154,10 @@ cmsg_transport_new (cmsg_transport_type type)
     case CMSG_TRANSPORT_CPG:
         cmsg_transport_cpg_init (transport);
         break;
+#endif /* HAVE_VCSTACK */
     case CMSG_TRANSPORT_BROADCAST:
         cmsg_transport_tipc_broadcast_init (transport);
         break;
-#endif
     case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
         cmsg_transport_oneway_udt_init (transport);
         break;
@@ -182,6 +183,7 @@ cmsg_transport_new (cmsg_transport_type type)
     {
         transport->client_send_tries = 0;
         transport->connection.sockets.client_socket = -1;
+        transport->connection.sockets.listening_socket = -1;
 
         if (pthread_mutex_init (&transport->connection_mutex, NULL) != 0)
         {

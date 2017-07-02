@@ -110,9 +110,6 @@ cmsg_transport_tipc_listen (cmsg_transport *transport)
     int32_t ret = 0;
     socklen_t addrlen = 0;
 
-    transport->connection.sockets.listening_socket = 0;
-    transport->connection.sockets.client_socket = 0;
-
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
     {
@@ -588,11 +585,7 @@ cmsg_transport_tipc_client_close (cmsg_transport *transport)
 static void
 cmsg_transport_tipc_server_close (cmsg_transport *transport)
 {
-    CMSG_DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
-    shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
-
-    CMSG_DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
-    close (transport->connection.sockets.client_socket);
+    return;
 }
 
 
@@ -618,11 +611,14 @@ cmsg_transport_tipc_client_destroy (cmsg_transport *transport)
 static void
 cmsg_transport_tipc_server_destroy (cmsg_transport *transport)
 {
-    CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-    shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
+    if (transport->connection.sockets.listening_socket != -1)
+    {
+        CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
+        shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
 
-    CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-    close (transport->connection.sockets.listening_socket);
+        CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
+        close (transport->connection.sockets.listening_socket);
+    }
 }
 
 
