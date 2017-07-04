@@ -1,0 +1,9 @@
+The functional tests are intended to test the end-to-end functionality of the CMSG library.
+
+Common gotchas / reasons for test failures that aren't related to the library code:
+
+- The localhost loopback address (127.0.0.1) is not routable. Ensure that a route
+  for this address exists on the system running the tests.
+
+- The TIPC module is not loaded in the system running the tests. Load the module using
+  "sudo modprobe tipc".

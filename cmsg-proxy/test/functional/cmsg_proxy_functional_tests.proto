@@ -1,0 +1,171 @@
+import "common.proto";
+
+message test_single_message_get_msg
+{
+    optional ant_result _error_info = 1;
+    optional cmsg_bool inner_message = 2;
+}
+
+message test_repeated_message_get_msg
+{
+    optional ant_result _error_info = 1;
+    repeated cmsg_bool inner_messages = 2;
+}
+
+message test_multiple_fields_message_get_msg
+{
+    optional ant_result _error_info = 1;
+    optional cmsg_bool inner_bool_msg = 2;
+    optional string inner_string = 3;
+    optional uint32 inner_uint32 = 4;
+}
+
+message test_body_sub_msg
+{
+    optional string field_x = 1;
+    optional uint32 field_y = 2;
+}
+
+message test_body_msg
+{
+    optional string field_a = 1;
+    optional string field_b = 2;
+    optional test_body_sub_msg field_c = 3;
+}
+
+service functional_tests
+{
+    rpc test_single_bool_get (dummy) returns (ant_result_plus_bool) {
+        option http = {
+            get: "/test_single_bool_get",
+        };
+    }
+
+    rpc test_single_string_get (dummy) returns (ant_result_plus_string) {
+        option http = {
+            get: "/test_single_string_get",
+        };
+    }
+
+    rpc test_single_uint32_get (dummy) returns (ant_result_plus_uint32) {
+        option http = {
+            get: "/test_single_uint32_get",
+        };
+    }
+
+    rpc test_single_message_get (dummy) returns (test_single_message_get_msg) {
+        option http = {
+            get: "/test_single_message_get",
+        };
+    }
+
+    rpc test_repeated_string_get (dummy) returns (ant_result_plus_repeated_string) {
+        option http = {
+            get: "/test_repeated_string_get",
+        };
+    }
+
+    rpc test_repeated_uint32_get (dummy) returns (ant_result_plus_uint32_array) {
+        option http = {
+            get: "/test_repeated_uint32_get",
+        };
+    }
+
+    rpc test_repeated_message_get (dummy) returns (test_repeated_message_get_msg) {
+        option http = {
+            get: "/test_repeated_message_get",
+        };
+    }
+
+    rpc test_multiple_fields_message_get (dummy) returns (test_multiple_fields_message_get_msg) {
+        option http = {
+            get: "/test_multiple_fields_message_get",
+        };
+    }
+
+    rpc test_ant_result_get_ok (dummy) returns (ant_result) {
+        option http = {
+            get: "/test_ant_result_get_ok",
+        };
+    }
+
+    rpc test_ant_result_get_error (dummy) returns (ant_result) {
+        option http = {
+            get: "/test_ant_result_get_error",
+        };
+    }
+
+    rpc test_get_error_with_single_data (dummy) returns (ant_result_plus_bool) {
+        option http = {
+            get: "/test_get_error_with_single_data",
+        };
+    }
+
+    rpc test_get_error_with_multiple_data (dummy) returns (test_multiple_fields_message_get_msg) {
+        option http = {
+            get: "/test_get_error_with_multiple_data",
+        };
+    }
+
+    rpc test_body_mapped_to_sub_message (test_body_msg) returns (ant_result) {
+        option http = {
+            post: "/test_body_mapped_to_sub_message/{field_a}"
+            body: "field_c"
+        };
+    }
+
+    rpc test_body_mapped_to_primitive (test_body_msg) returns (ant_result) {
+        option http = {
+            post: "/test_body_mapped_to_primitive/{field_b}"
+            body: "field_a"
+        };
+    }
+
+    rpc test_body_mapped_to_remaining_multiple_fields (test_body_msg) returns (ant_result) {
+        option http = {
+            post: "/test_body_mapped_to_remaining_multiple_fields/{field_a}"
+            body: "*"
+        };
+    }
+
+    rpc test_body_mapped_to_remaining_single_field (test_body_msg) returns (ant_result) {
+        option http = {
+            post: "/test_body_mapped_to_remaining_single_field/{field_a}/{field_b}"
+            body: "*"
+        };
+    }
+
+    rpc test_body_mapped_to_nothing (test_body_msg) returns (ant_result) {
+        option http = {
+            post: "/test_body_mapped_to_nothing/{field_a}"
+        };
+    }
+
+    rpc test_single_bool_put (cmsg_bool) returns (ant_result) {
+        option http = {
+            put: "/test_single_bool_put",
+            body: "value"
+        };
+    }
+
+    rpc test_single_string_put (cmsg_string) returns (ant_result) {
+        option http = {
+            put: "/test_single_string_put",
+            body: "value"
+        };
+    }
+
+    rpc test_single_uint32_put (cmsg_uint32) returns (ant_result) {
+        option http = {
+            put: "/test_single_uint32_put",
+            body: "value"
+        };
+    }
+
+    rpc test_single_repeated_uint32_put (cmsg_uint32_array) returns (ant_result) {
+        option http = {
+            put: "/test_single_repeated_uint32_put",
+            body: "values"
+        };
+    }
+}

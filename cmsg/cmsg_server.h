@@ -26,7 +26,6 @@ typedef int32_t (*server_message_processor_f) (cmsg_server *server, uint8_t *buf
 
 typedef struct _cmsg_server_s
 {
-    ProtobufCAllocator *allocator;
     ProtobufCService *service;
     cmsg_transport *_transport;
     cmsg_server_request *server_request;
@@ -34,8 +33,6 @@ typedef struct _cmsg_server_s
 
     cmsg_object self;
     cmsg_object parent;
-
-    cmsg_server_connection connection;
 
     int queue_enabled_from_parent;
 

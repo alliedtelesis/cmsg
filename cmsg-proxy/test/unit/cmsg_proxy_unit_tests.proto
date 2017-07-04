@@ -1,0 +1,108 @@
+package cmsg_proxy_unit_tests;
+
+import "common.proto";
+
+message query_param_test_msg
+{
+    optional string key_a = 1;
+    optional string key_b = 2;
+    optional string key_c = 3;
+    optional string key_d = 4;
+}
+
+message additional_bindings_test_msg
+{
+    optional string field_a = 1;
+    optional string field_b = 2;
+}
+
+service interface
+{
+    rpc test_put (cmsg_bool) returns (dummy) {
+        option http = {
+            put: "/v1/test",
+            body: "*"
+        };
+    }
+
+    rpc test_get (dummy) returns (ant_result_plus_bool) {
+        option http = {
+            get: "/v1/test",
+            body: "*"
+        };
+    }
+    rpc test1_get (dummy) returns (cmsg_bool) {
+        option http = {
+            get: "/v1/test/test1",
+            body: "*"
+        };
+    }
+
+    rpc test_query_param (query_param_test_msg) returns (dummy) {
+        option http = {
+            get: "/v1/test/query_param/{key_a}/{key_c}",
+            body: "*"
+        };
+    }
+
+    rpc test_additional_bindings (additional_bindings_test_msg) returns (dummy) {
+        option http = {
+            get: "/v1/test/additional_bindings/test_get/{field_a}/{field_b}"
+            additional_bindings {
+                post: "/v1/test/additional_bindings/test_post",
+                body: "*"
+            }
+            additional_bindings {
+                get: "/v1/test/additional_bindings/test_get/{field_a}"
+            }
+        };
+    }
+
+    rpc test_put_only_url (dummy) returns (dummy) {
+        option http = {
+            put: "/v1/test/put_url"
+        };
+    }
+
+    rpc test_get_only_url (dummy) returns (dummy) {
+        option http = {
+            get: "/v1/test/get_url"
+        };
+    }
+
+    rpc test_delete_only_url (dummy) returns (dummy) {
+        option http = {
+            delete: "/v1/test/delete_url"
+        };
+    }
+
+    rpc test_patch_only_url (dummy) returns (dummy) {
+        option http = {
+            patch: "/v1/test/patch_url"
+        };
+    }
+
+    rpc test_post_only_url (dummy) returns (dummy) {
+        option http = {
+            post: "/v1/test/post_url"
+        };
+    }
+
+    rpc test_all_methods_url (dummy) returns (dummy) {
+            option http = {
+            get: "/v1/test/all_methods_url"
+            additional_bindings {
+                put: "/v1/test/all_methods_url"
+            }
+            additional_bindings {
+                patch: "/v1/test/all_methods_url"
+            }
+            additional_bindings {
+                post: "/v1/test/all_methods_url"
+            }
+            additional_bindings {
+                delete: "/v1/test/all_methods_url"
+            }
+        };
+    }
+}

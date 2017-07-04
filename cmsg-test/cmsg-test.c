@@ -393,9 +393,6 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
 {
     cmsg_client *client = 0;
     cmsg_transport *transport = 0;
-#ifdef HAVE_VCSTACK
-    cmsg_server *cpg_server = 0;
-#endif
 
     if (transport_type == 1)
     {
@@ -444,7 +441,7 @@ run_client (int transport_type, int is_one_way, int queue, int repeated)
         server_transport = cmsg_transport_new (CMSG_TRANSPORT_CPG);
         strcpy (server_transport->config.cpg.group_name.value, "cpg_bm");
         server_transport->config.cpg.group_name.length = 6;
-        cpg_server = cmsg_server_new (server_transport, CMSG_SERVICE (cmsg, test));
+        cmsg_server_new (server_transport, CMSG_SERVICE (cmsg, test));
 #endif
     }
     else if (transport_type == 4)

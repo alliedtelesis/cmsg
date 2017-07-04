@@ -1,0 +1,32 @@
+/*
+ * RPC definitions used by the CMSG functional test suite.
+ *
+ * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
+ */
+
+package cmsg;
+
+message dummy
+{
+
+}
+
+message bool_msg
+{
+    optional bool value = 1;
+}
+
+message uint32_msg
+{
+    optional uint32 value = 1;
+}
+
+service test
+{
+    rpc simple_rpc_test (bool_msg) returns (bool_msg);
+    rpc simple_oneway_test (bool_msg) returns (dummy);
+    rpc simple_notification_test (uint32_msg) returns (dummy);
+    rpc simple_client_queue_test_1 (uint32_msg) returns (dummy);
+    rpc simple_client_queue_test_2 (uint32_msg) returns (dummy);
+    rpc simple_client_queue_test_3 (uint32_msg) returns (dummy);
+}

@@ -96,7 +96,7 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntries(io::Printer* printer)
 {
     for (int i = 0; i < descriptor_->method_count(); i++) {
         const MethodDescriptor *method = descriptor_->method(i);
-        GenerateHttpProxyArrayEntry(*method, printer);
+        GenerateHttpProxyArrayEntriesPerMethod(*method, printer);
     }
 }
 
@@ -126,15 +126,8 @@ void AtlCodeGenerator::GenerateHttpProxyArrayFunctionDefs(io::Printer* printer)
     printer->Print(vars_, "int cmsg_proxy_array_size (void);\n");
 }
 
-void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const MethodDescriptor &method, io::Printer* printer)
+void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const HttpRule &http_rule, io::Printer* printer)
 {
-  string lcname = CamelToLower(method.name());
-  vars_["method"] = lcname;
-  vars_["inputname"] = FullNameToLower(method.input_type()->full_name());
-  vars_["outputname"] = FullNameToLower(method.output_type()->full_name());
-
-  if (method.options().has_http())
-  {
     printer->Indent();
     printer->Print("{\n");
 
@@ -144,35 +137,42 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const MethodDescriptor &metho
     printer->Print(vars_, ".output_msg_descriptor = &$outputname$_descriptor,\n");
     printer->Print(vars_, ".api_ptr = &$lcfullname$_api_$method$,\n");
 
-    if (method.options().http().has_get())
+    vars_["body"] = http_rule.body();
+
+    if (http_rule.has_get())
     {
-        vars_["url"] = method.options().http().get();
+        vars_["url"] = http_rule.get();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_GET,\n");
+        printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
-    else if (method.options().http().has_put())
+    else if (http_rule.has_put())
     {
-        vars_["url"] = method.options().http().put();
+        vars_["url"] = http_rule.put();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_PUT,\n");
+        printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
-    else if (method.options().http().has_post ())
+    else if (http_rule.has_post ())
     {
-        vars_["url"] = method.options().http().post();
+        vars_["url"] = http_rule.post();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_POST,\n");
+        printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
-    else if (method.options().http().has_delete_())
+    else if (http_rule.has_delete_())
     {
-        vars_["url"] = method.options().http().delete_();
+        vars_["url"] = http_rule.delete_();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_DELETE,\n");
+        printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
-    else if (method.options().http().has_patch())
+    else if (http_rule.has_patch())
     {
-        vars_["url"] = method.options().http().patch();
+        vars_["url"] = http_rule.patch();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_PATCH,\n");
+        printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
     else
     {
@@ -182,7 +182,27 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const MethodDescriptor &metho
     printer->Outdent();
     printer->Print("},\n");
     printer->Outdent();
-  }
+}
+
+void AtlCodeGenerator::GenerateHttpProxyArrayEntriesPerMethod(const MethodDescriptor &method,
+                                                              io::Printer* printer)
+{
+    string lcname = CamelToLower(method.name());
+    vars_["method"] = lcname;
+    vars_["inputname"] = FullNameToLower(method.input_type()->full_name());
+    vars_["outputname"] = FullNameToLower(method.output_type()->full_name());
+
+    if (method.options().has_http())
+    {
+        HttpRule http_rule = method.options().http();
+        GenerateHttpProxyArrayEntry(http_rule, printer);
+
+        // Generate an entry for each additional binding
+        for (int i = 0; i < http_rule.additional_bindings_size(); i++)
+        {
+            GenerateHttpProxyArrayEntry(http_rule.additional_bindings(i), printer);
+        }
+    }
 }
 
 //
@@ -254,8 +274,6 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print("{\n");
     printer->Indent();
     printer->Print("int32_t _return_status = CMSG_RET_ERR;\n");
-    printer->Print("int i = 0;\n");
-    printer->Print("int found_data = 0;\n");
 
     //
     // must create send message if it is not supplied by the developer
@@ -333,21 +351,25 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     if (method->output_type()->field_count() > 0)
     {
+      printer->Print("int i = 0;\n");
+      printer->Print("int found_data = 0;\n");
       printer->Print("/* sanity check our returned message pointer */\n");
       printer->Print("while (_closure_data[i].message != NULL)\n");
       printer->Print("{\n");
       printer->Indent();
 
       printer->Print("/* Update developer output msg to point to received message from invoke */\n");
-      printer->Print("_recv_msg[i] = _closure_data[i++].message;\n");
+      printer->Print("_recv_msg[i] = _closure_data[i].message;\n");
+      printer->Print("i++;\n");
       printer->Print("found_data = 1;\n");
       printer->Print("\n");
       printer->Outdent();
       printer->Print("}\n"); //while (_closure_data[i].message != NULL)
 
       //
-      // check for at least one result and report an error, iff return status
-      // hasn't already been set to an error (may be CMSG_RET_CLOSED already)
+      // check for at least one result and report an error, if and
+      // only if return status hasn't already been set to an error
+      // (may be CMSG_RET_CLOSED already)
       //
       printer->Print("if (found_data == 0 && _return_status == CMSG_RET_OK)\n");
       printer->Print("{\n");
