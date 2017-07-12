@@ -273,43 +273,6 @@ int cmsg_asprintf (const char *filename, int line, char **strp, const char *fmt,
 void cmsg_free (void *ptr, const char *filename, int line);
 void cmsg_malloc_init (int mtype);
 
-#ifdef HAVE_CMSG_PROFILING
-typedef struct _cmsg_prof_s
-{
-    int enable;
-    FILE *file_ptr;
-    struct timeval start;
-    struct timeval start_tic;
-    struct timeval now;
-    char text[2048];
-    char *text_ptr;
-} cmsg_prof;
-
-uint32_t cmsg_prof_diff_time_in_us (struct timeval start, struct timeval end);
-void cmsg_prof_time_tic (cmsg_prof *perf);
-uint32_t cmsg_prof_time_toc (cmsg_prof *perf);
-void cmsg_prof_time_log_start (cmsg_prof *perf, char *filename);
-void cmsg_prof_time_log_add_time (cmsg_prof *perf, char *description, uint32_t time);
-void cmsg_prof_time_log_stop (cmsg_prof *perf, char *type, int msg_size);
-void cmsg_prof_enable (cmsg_prof *perf);
-void cmsg_prof_disable (cmsg_prof *perf);
-#define CMSG_PROF_TIME_TIC(ARGS...) cmsg_prof_time_tic(ARGS)
-#define CMSG_PROF_TIME_TOC(ARGS...) cmsg_prof_time_toc(ARGS)
-#define CMSG_PROF_TIME_LOG_START(ARGS...) cmsg_prof_time_log_start(ARGS)
-#define CMSG_PROF_TIME_LOG_ADD_TIME(ARGS...) cmsg_prof_time_log_add_time(ARGS)
-#define CMSG_PROF_TIME_LOG_STOP(ARGS...) cmsg_prof_time_log_stop(ARGS)
-#define CMSG_PROF_ENABLE(ARGS...) cmsg_prof_enable(ARGS)
-#define CMSG_PROF_DISABLE(ARGS...) cmsg_prof_disable(ARGS)
-#else //ifndef HAVE_CMSG_PROFILING
-#define CMSG_PROF_TIME_TIC(ARGS...)
-#define CMSG_PROF_TIME_TOC(ARGS...)
-#define CMSG_PROF_TIME_LOG_START(ARGS...)
-#define CMSG_PROF_TIME_LOG_ADD_TIME(ARGS...)
-#define CMSG_PROF_TIME_LOG_STOP(ARGS...)
-#define CMSG_PROF_ENABLE(ARGS...)
-#define CMSG_PROF_DISABLE(ARGS...)
-#endif //HAVE_CMSG_PROFILING
-
 #ifdef HAVE_COUNTERD
 #define CMSG_COUNTER_INC(x, t) cntrd_app_inc_ctr(x->cntr_session, x->t)
 #else
