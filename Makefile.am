@@ -11,7 +11,3 @@ endif # BUILD_CMSG
 if BUILD_CMSG_PROXY
 SUBDIRS += cmsg-proxy
 endif # BUILD_CMSG_PROXY
-
-if BUILD_CMSG_TEST
-SUBDIRS += cmsg-test
-endif # BUILD_CMSG_TEST
