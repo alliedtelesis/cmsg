@@ -5,9 +5,9 @@
 #include "cmsg_sub.h"
 #include "cmsg_error.h"
 
-#ifdef HAVE_COUNTERD
+#ifdef HAVE_COUNTERS
 #include "cntrd_app_defines.h"
-#endif
+#endif /* HAVE_COUNTERS */
 
 static cmsg_sub *_cmsg_create_subscriber_tipc (const char *server_name, int member_id,
                                                int scope, ProtobufCService *descriptor,
@@ -190,7 +190,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
         return CMSG_RET_ERR;
     }
 
-#ifdef HAVE_COUNTERD
+#ifdef HAVE_COUNTERS
     char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
     /* Append "_sub" suffix to the counter app_name for subscriber */
@@ -204,7 +204,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     {
         CMSG_LOG_GEN_ERROR ("[%s] Unable to create client counters.", app_name);
     }
-#endif
+#endif /* HAVE_COUNTERS */
 
     return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,
                                                &register_entry, NULL, &closure_data);
@@ -303,7 +303,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
         return CMSG_RET_ERR;
     }
 
-#ifdef HAVE_COUNTERD
+#ifdef HAVE_COUNTERS
     char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
     /* Append "_sub" suffix to the counter app_name for subscriber */
@@ -317,7 +317,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     {
         CMSG_LOG_GEN_ERROR ("[%s] Unable to create client counters.", app_name);
     }
-#endif
+#endif /* HAVE_COUNTERS */
 
     return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,
                                                &register_entry, NULL, &closure_data);

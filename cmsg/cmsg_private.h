@@ -274,10 +274,10 @@ int cmsg_asprintf (const char *filename, int line, char **strp, const char *fmt,
 void cmsg_free (void *ptr, const char *filename, int line);
 void cmsg_malloc_init (int mtype);
 
-#ifdef HAVE_COUNTERD
+#ifdef HAVE_COUNTERS
 #define CMSG_COUNTER_INC(x, t) cntrd_app_inc_ctr(x->cntr_session, x->t)
 #else
 #define CMSG_COUNTER_INC(x, t)
-#endif //HAVE_COUNTERD
+#endif /* HAVE_COUNTERS */
 
 #endif /* __CMSG_PRIVATE_H_ */

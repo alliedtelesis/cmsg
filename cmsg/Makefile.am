@@ -37,9 +37,9 @@ libcmsg_la_SOURCES = \
 
 libcmsg_la_LIBADD = $(GLIB_LIBS) -lutility -lprotobuf-c
 
-if HAVE_COUNTERD
+if BUILD_COUNTERS
 libcmsg_la_LIBADD += -lcntr
-endif
+endif # BUILD_COUNTERS
 
 if BUILD_CPG_TRANSPORT
 libcmsg_la_SOURCES += \

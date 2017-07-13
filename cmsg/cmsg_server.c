@@ -6,10 +6,10 @@
 #include "cmsg_error.h"
 #include "cmsg_transport.h"
 
-#ifdef HAVE_COUNTERD
+#ifdef HAVE_COUNTERS
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"
-#endif
+#endif /* HAVE_COUNTERS */
 
 extern GHashTable *cpg_group_name_to_server_hash_table_h;
 
@@ -143,7 +143,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
     cmsg_server *server;
     server = cmsg_server_create (transport, service);
 
-#ifdef HAVE_COUNTERD
+#ifdef HAVE_COUNTERS
     char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
     /* initialise our counters */
@@ -158,7 +158,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
             CMSG_LOG_GEN_ERROR ("[%s] Unable to create server counters.", app_name);
         }
     }
-#endif
+#endif /* HAVE_COUNTERS */
 
     return server;
 }
@@ -181,9 +181,9 @@ cmsg_server_destroy (cmsg_server *server)
     }
 
     /* Free counter session info but do not destroy counter data in the shared memory */
-#ifdef HAVE_COUNTERD
+#ifdef HAVE_COUNTERS
     cntrd_app_unInit_app (&server->cntr_session, CNTRD_APP_PERSISTENT);
-#endif
+#endif /* HAVE_COUNTERS */
     server->cntr_session = NULL;
 
     cmsg_queue_filter_free (server->queue_filter_hash_table, server->service->descriptor);
@@ -206,7 +206,7 @@ cmsg_server_counter_create (cmsg_server *server, char *app_name)
 {
     int32_t ret = CMSG_RET_ERR;
 
-#ifdef HAVE_COUNTERD
+#ifdef HAVE_COUNTERS
     if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT, (void **) &server->cntr_session)
         == CNTRD_APP_SUCCESS)
     {
@@ -245,7 +245,7 @@ cmsg_server_counter_create (cmsg_server *server, char *app_name)
         cntrd_app_set_shutdown_instruction (app_name, CNTRD_SHUTDOWN_RESTART);
         ret = CMSG_RET_OK;
     }
-#endif
+#endif /* HAVE_COUNTERS */
 
     return ret;
 }

@@ -901,10 +901,10 @@ cmsg_proxy_init (void)
     cmsg_proxy_mem_init (1);
 #endif
 
-#ifdef HAVE_COUNTERD
+#ifdef HAVE_COUNTERS
     /* Initialise counters */
     cmsg_proxy_counter_init ();
-#endif /* HAVE_COUNTERD */
+#endif /* HAVE_COUNTERS */
 
     cmsg_proxy_tree_init ();
 }
@@ -929,10 +929,10 @@ cmsg_proxy_deinit (void)
 {
     cmsg_proxy_tree_deinit ();
 
-#ifdef HAVE_COUNTERD
+#ifdef HAVE_COUNTERS
     /* Cleanup counters */
     cmsg_proxy_counter_deinit ();
-#endif /* HAVE_COUNTERD */
+#endif /* HAVE_COUNTERS */
 
     pre_api_check_callback = NULL;
 }
