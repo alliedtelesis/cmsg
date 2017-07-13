@@ -288,3 +288,18 @@ message ant_result_plus_repeated_string
     optional ant_result _error_info = 1;
     repeated string _data = 2;
 }
+
+message passthrough_request
+{
+    optional string path = 1;
+    optional string method = 2;
+    optional string request_body = 3;
+};
+
+message passthrough_response
+{
+    optional uint32 status_code = 1;
+    optional string response_body = 2;
+}
+
+

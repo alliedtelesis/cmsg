@@ -15,7 +15,8 @@ libcmsgproxy_la_SOURCES = \
 	src/cmsg_proxy_counters.c \
 	src/cmsg_proxy_counters.h \
 	src/cmsg_proxy_tree.c \
-	src/cmsg_proxy_tree.h
+	src/cmsg_proxy_tree.h \
+	src/cmsg_proxy_passthrough.c
 
 libcmsgproxy_la_LIBADD = \
 	$(GLIB_LIBS) \
@@ -87,5 +88,34 @@ cmsg_proxy_functional_tests_LDFLAGS = -static
 cmsg_proxy_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
                                 -lcmsg -lprotobuf-c -lprotobuf2json-c \
                                 -ljansson
+
+test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.c \
+test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.h \
+test/functional/cmsg_proxy_passthrough_functional_tests_api_auto.c \
+test/functional/cmsg_proxy_passthrough_functional_tests_api_auto.h \
+test/functional/cmsg_proxy_passthrough_functional_tests_impl_auto.c \
+test/functional/cmsg_proxy_passthrough_functional_tests_impl_auto.h \
+test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.c \
+test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/functional/cmsg_proxy_passthrough_functional_tests.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) --proto_path=. --proto_path=src --c_out=. test/functional/cmsg_proxy_passthrough_functional_tests.proto
+
+bin_PROGRAMS += cmsg_proxy_passthrough_functional_tests
+cmsg_proxy_passthrough_functional_tests_SOURCES = \
+	src/common.pb-c.c \
+	src/common.pb-c.h \
+	test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.c \
+	test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.h \
+	test/functional/cmsg_proxy_passthrough_functional_tests_api_auto.c \
+	test/functional/cmsg_proxy_passthrough_functional_tests_api_auto.h \
+	test/functional/cmsg_proxy_passthrough_functional_tests_impl_auto.c \
+	test/functional/cmsg_proxy_passthrough_functional_tests_impl_auto.h \
+	test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.c \
+	test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.h \
+	test/functional/cmsg_proxy_passthrough_functional_tests.c
+cmsg_proxy_passthrough_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
+cmsg_proxy_passthrough_functional_tests_CPPFLAGS  = -Isrc -Iinclude
+cmsg_proxy_passthrough_functional_tests_LDFLAGS = -static
+cmsg_proxy_passthrough_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
+                                                  -lcmsg -lprotobuf-c
 endif # BUILD_UNITTEST
 
