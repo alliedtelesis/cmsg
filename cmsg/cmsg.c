@@ -10,16 +10,6 @@
 
 static int cmsg_mtype = 0;
 
-uint32_t
-cmsg_common_uint32_to_le (uint32_t le)
-{
-#if IS_LITTLE_ENDIAN
-    return le;
-#else
-    return (le << 24) | (le >> 24) | ((le >> 8) & 0xff00) | ((le << 8) & 0xff0000);
-#endif
-}
-
 void
 cmsg_buffer_print (void *buffer, uint32_t size)
 {
@@ -304,12 +294,10 @@ cmsg_malloc (size_t size, const char *filename, int line)
 
     p = malloc (size);
 
-#ifndef LOCAL_INSTALL
     if (cmsg_mtype > 0)
     {
         g_mem_record_alloc (p, cmsg_mtype, filename, line);
     }
-#endif
 
     if (p || size == 0)
     {
@@ -326,12 +314,10 @@ cmsg_calloc (size_t nmemb, size_t size, const char *filename, int line)
 
     p = calloc (nmemb, size);
 
-#ifndef LOCAL_INSTALL
     if (cmsg_mtype > 0)
     {
         g_mem_record_alloc (p, cmsg_mtype, filename, line);
     }
-#endif
 
     if (p || size == 0)
     {
@@ -351,12 +337,10 @@ cmsg_asprintf (const char *filename, int line, char **strp, const char *fmt, ...
 
     ret = vasprintf (strp, fmt, ap);
 
-#ifndef LOCAL_INSTALL
     if (cmsg_mtype > 0)
     {
         g_mem_record_alloc (*strp, cmsg_mtype, filename, line);
     }
-#endif
 
     va_end (ap);
     return ret;
@@ -392,12 +376,10 @@ cmsg_free (void *ptr, const char *filename, int line)
         return;
     }
 
-#ifndef LOCAL_INSTALL
     if (cmsg_mtype > 0)
     {
         g_mem_record_free (ptr, cmsg_mtype, filename, line);
     }
-#endif
 
     free (ptr);
 }

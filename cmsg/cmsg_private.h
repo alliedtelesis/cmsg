@@ -19,13 +19,7 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <string.h>
-
-#ifndef LOCAL_INSTALL
 #include <utility/tracelog.h>
-#else
-#define tracelog(tracelog_string, fmt, ...)   printf(fmt, ## __VA_ARGS__);
-#endif
-
 #include <protobuf-c/protobuf-c.h>
 
 // TODO: Perhaps we can refactor the logic around the debug below
@@ -243,10 +237,6 @@ typedef struct _cmsg_server_request_s
     uint32_t method_index;
     char method_name_recvd[CMSG_SERVER_REQUEST_MAX_NAME_LENGTH];
 } cmsg_server_request;
-
-uint32_t cmsg_common_uint32_to_le (uint32_t le);
-
-#define cmsg_common_uint32_from_le cmsg_common_uint32_to_le
 
 void cmsg_buffer_print (void *buffer, uint32_t size);
 

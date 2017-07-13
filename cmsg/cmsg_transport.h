@@ -311,4 +311,4 @@ void cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *confi
 
 char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor);
 void cmsg_transport_unix_sun_path_free (char *sun_path);
-#endif
+#endif /* __CMSG_TRANSPORT_H_ */
