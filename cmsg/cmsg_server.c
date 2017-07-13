@@ -60,7 +60,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
         CMSG_DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n",
                     transport->type);
 
-#ifdef HAVE_VCSTACK
+#ifdef HAVE_CPG_TRANSPORT
         if (server->_transport->type == CMSG_TRANSPORT_CPG)
         {
             /* Add entry into the hash table for the server to be found by cpg group name. */
@@ -68,7 +68,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
                                  (gpointer) server->_transport->config.cpg.group_name.value,
                                  (gpointer) server);
         }
-#endif /* HAVE_VCSTACK */
+#endif /* HAVE_CPG_TRANSPORT */
 
         ret = transport->listen (server->_transport);
 

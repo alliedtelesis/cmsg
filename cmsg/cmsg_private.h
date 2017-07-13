@@ -4,6 +4,7 @@
 #ifndef __CMSG_PRIVATE_H_
 #define __CMSG_PRIVATE_H_
 
+#include <config.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
