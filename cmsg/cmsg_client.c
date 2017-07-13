@@ -5,10 +5,10 @@
 #include "cmsg_client.h"
 #include "cmsg_error.h"
 
-#ifdef HAVE_COUNTERS
+#ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"
-#endif /* HAVE_COUNTERS */
+#endif
 #include <fcntl.h>
 
 static int32_t _cmsg_client_buffer_send_retry_once (cmsg_client *client,
@@ -179,7 +179,7 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
     cmsg_client *client;
     client = cmsg_client_create (transport, descriptor);
 
-#ifdef HAVE_COUNTERS
+#ifdef HAVE_COUNTERD
     char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
     /* initialise our counters */
@@ -193,7 +193,7 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
             CMSG_LOG_GEN_ERROR ("[%s] Unable to create client counters.", app_name);
         }
     }
-#endif /* HAVE_COUNTERS */
+#endif
 
     return client;
 }
@@ -205,9 +205,9 @@ cmsg_client_destroy (cmsg_client *client)
     CMSG_ASSERT_RETURN_VOID (client != NULL);
 
     /* Free counter session info but do not destroy counter data in the shared memory */
-#ifdef HAVE_COUNTERS
+#ifdef HAVE_COUNTERD
     cntrd_app_unInit_app (&client->cntr_session, CNTRD_APP_PERSISTENT);
-#endif /* HAVE_COUNTERS */
+#endif
     client->cntr_session = NULL;
 
     cmsg_queue_filter_free (client->queue_filter_hash_table, client->descriptor);
@@ -236,7 +236,7 @@ cmsg_client_counter_create (cmsg_client *client, char *app_name)
 {
     int32_t ret = CMSG_RET_ERR;
 
-#ifdef HAVE_COUNTERS
+#ifdef HAVE_COUNTERD
     if (cntrd_app_init_app (app_name, CNTRD_APP_PERSISTENT,
                             (void **) &(client->cntr_session)) == CNTRD_APP_SUCCESS)
     {
@@ -275,7 +275,7 @@ cmsg_client_counter_create (cmsg_client *client, char *app_name)
         cntrd_app_set_shutdown_instruction (app_name, CNTRD_SHUTDOWN_RESTART);
         ret = CMSG_RET_OK;
     }
-#endif /* HAVE_COUNTERS */
+#endif
 
     return ret;
 }

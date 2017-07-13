@@ -5,9 +5,9 @@
 #include "cmsg_pub.h"
 #include "cmsg_error.h"
 
-#ifdef HAVE_COUNTERS
+#ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
-#endif /* HAVE_COUNTERS */
+#endif
 
 //macro for register handler implentation
 cmsg_sub_service_Service cmsg_pub_subscriber_service = CMSG_SUB_SERVICE_INIT (cmsg_pub_);
@@ -153,7 +153,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
         return NULL;
     }
 
-#ifdef HAVE_COUNTERS
+#ifdef HAVE_COUNTERD
     char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
     /* Append "_pub" suffix to the counter app_name for publisher */
@@ -166,7 +166,7 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     {
         CMSG_LOG_GEN_ERROR ("[%s] Unable to create server counters.", app_name);
     }
-#endif /* HAVE_COUNTERS */
+#endif
 
     publisher->sub_server->message_processor = cmsg_pub_message_processor;
 

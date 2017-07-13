@@ -66,13 +66,13 @@ if test "x$enableval" = xyes ; then
 fi)
 AM_CONDITIONAL(BUILD_CPG_TRANSPORT, test $BUILD_CPG_TRANSPORT = 1)
 
-BUILD_COUNTERS=0
-AC_ARG_ENABLE(counters, [  --enable-counters       Enable counters],
+# --- Check if counterd is enabled
+HAVE_COUNTERD=0
+AC_ARG_ENABLE(counterd, [  --enable-counterd       Enable counterd],
 if test "x$enableval" = xyes ; then
-  BUILD_COUNTERS=1
-  AC_DEFINE(HAVE_COUNTERS, 1, [enable counters])
+  HAVE_COUNTERD=1
 fi)
-AM_CONDITIONAL(BUILD_COUNTERS, test $BUILD_COUNTERS = 1)
+AM_CONDITIONAL(HAVE_COUNTERD, test $HAVE_COUNTERD = 1)
 
 gl_LD_VERSION_SCRIPT
 
@@ -107,5 +107,5 @@ AC_MSG_RESULT([
         protoc-cmsg-path:       ${PROTOC_CMSG_PATH}
         cmsg:                   ${BUILD_CMSG}
         cpg-transport:          ${BUILD_CPG_TRANSPORT}
-        counters:               ${BUILD_COUNTERS}
+        counterd:               ${HAVE_COUNTERD}
 ])

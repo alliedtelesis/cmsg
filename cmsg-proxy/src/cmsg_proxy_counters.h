@@ -7,7 +7,7 @@
 #ifndef __CMSG_PROXY_COUNTERS_H_
 #define __CMSG_PROXY_COUNTERS_H_
 
-#ifdef HAVE_COUNTERS
+#ifdef HAVE_COUNTERD
 #include "cmsg_proxy.h"
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"
@@ -75,6 +75,6 @@ void cmsg_proxy_counter_deinit (void);
 #else
 #define CMSG_PROXY_COUNTER_INC(counter)
 #define CMSG_PROXY_SESSION_COUNTER_INC(service,counter)
-#endif /* HAVE_COUNTERS */
+#endif /* HAVE_COUNTERD */
 
 #endif /* __CMSG_PROXY_COUNTERS_H_ */

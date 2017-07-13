@@ -6,7 +6,7 @@
 
 #include <config.h>
 
-#ifdef HAVE_COUNTERS
+#ifdef HAVE_COUNTERD
 #include <stdio.h>
 #include "cmsg_proxy_counters.h"
 #include "cmsg_proxy_mem.h"
@@ -181,4 +181,4 @@ cmsg_proxy_counter_deinit (void)
     /* Clean up session counters */
     _proxy_session_counter_deinit_all ();
 }
-#endif /* HAVE_COUNTERS */
+#endif /* HAVE_COUNTERD */
