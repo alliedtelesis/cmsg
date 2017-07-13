@@ -58,13 +58,13 @@ if test "x$enableval" = xyes ; then
 fi)
 AM_CONDITIONAL(BUILD_UNITTEST, test $BUILD_UNITTEST = 1)
 
-BUILD_CPG_TRANSPORT=0
-AC_ARG_ENABLE(cpg-transport, [  --enable-cpg-transport        Enable cpg transport],
+# --- Check VCStack is enabled
+HAVE_VCSTACK=0
+AC_ARG_ENABLE(vcstack, [  --enable-vcstack        Enable VCStack],
 if test "x$enableval" = xyes ; then
-  BUILD_CPG_TRANSPORT=1
-  AC_DEFINE(HAVE_CPG_TRANSPORT, 1, [enable cpg transport])
+  HAVE_VCSTACK=1
 fi)
-AM_CONDITIONAL(BUILD_CPG_TRANSPORT, test $BUILD_CPG_TRANSPORT = 1)
+AM_CONDITIONAL(HAVE_VCSTACK, test $HAVE_VCSTACK = 1)
 
 # --- Check if counterd is enabled
 HAVE_COUNTERD=0
@@ -106,6 +106,6 @@ AC_MSG_RESULT([
         protoc-cmsg:            ${BUILD_PROTOC_CMSG}
         protoc-cmsg-path:       ${PROTOC_CMSG_PATH}
         cmsg:                   ${BUILD_CMSG}
-        cpg-transport:          ${BUILD_CPG_TRANSPORT}
+        VCStack:                ${HAVE_VCSTACK}
         counterd:               ${HAVE_COUNTERD}
 ])

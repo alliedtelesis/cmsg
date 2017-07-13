@@ -41,11 +41,11 @@ if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
 endif
 
-if BUILD_CPG_TRANSPORT
+if HAVE_VCSTACK
 libcmsg_la_SOURCES += \
 	cmsg_transport_cpg.c
 libcmsg_la_LIBADD += -lcpg -lcoroipcc
-endif # BUILD_CPG_TRANSPORT
+endif
 
 libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS)
 

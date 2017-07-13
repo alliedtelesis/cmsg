@@ -721,7 +721,7 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
     int sock;
     int ret;
 
-#ifdef HAVE_CPG_TRANSPORT
+#ifdef HAVE_VCSTACK
     if (client->state != CMSG_CLIENT_STATE_CONNECTED &&
         client->_transport->type == CMSG_TRANSPORT_CPG)
     {
@@ -730,7 +730,7 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
                                client->_transport->config.cpg.group_name.value);
         return -1;
     }
-#endif /* HAVE_CPG_TRANSPORT */
+#endif /* HAVE_VCSTACK */
 
     /* if the message should be encrypted, then pass it back to the user
      * application to encrypt */
