@@ -231,10 +231,6 @@ struct _cmsg_transport_s
 
     //For debug purposes, store the object id of the parent (client/server) using this transport
     char parent_obj_id[CMSG_MAX_OBJ_ID_LEN + 1];
-
-#ifdef HAVE_CMSG_PROFILING
-    cmsg_prof prof;
-#endif
 };
 
 cmsg_transport *cmsg_transport_new (cmsg_transport_type type);
@@ -315,4 +311,4 @@ void cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *confi
 
 char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor);
 void cmsg_transport_unix_sun_path_free (char *sun_path);
-#endif
+#endif /* __CMSG_TRANSPORT_H_ */

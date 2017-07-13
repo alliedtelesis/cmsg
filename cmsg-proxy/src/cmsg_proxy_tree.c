@@ -14,7 +14,7 @@
 #include "cmsg_proxy_mem.h"
 #include "cmsg_proxy_counters.h"
 
-#define CMSG_PROXY_LIB_PATH "/var/packages/network/lib"
+#define CMSG_PROXY_LIB_PATH "/usr/lib"
 
 /* Current CMSG API version string */
 #define CMSG_API_VERSION_STR                "CMSG-API"

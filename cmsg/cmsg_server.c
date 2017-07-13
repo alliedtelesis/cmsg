@@ -123,10 +123,6 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
 
         server->app_owns_current_msg = FALSE;
         server->app_owns_all_msgs = FALSE;
-
-#ifdef HAVE_CMSG_PROFILING
-        memset (&server->prof, 0, sizeof (cmsg_prof));
-#endif
     }
     else
     {
@@ -774,7 +770,6 @@ cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
 static int32_t
 _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
-    CMSG_PROF_TIME_TIC (&server->prof);
     cmsg_queue_filter_type action;
     cmsg_method_processing_reason processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     ProtobufCMessage *message = NULL;
@@ -824,9 +819,6 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
 
         return CMSG_RET_ERR;
     }
-
-    CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "unpack",
-                                 cmsg_prof_time_toc (&server->prof));
 
     if (server->queue_enabled_from_parent)
     {

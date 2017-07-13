@@ -86,9 +86,6 @@ typedef struct _cmsg_server_s
     void *cntr_memory_errors;
     void *cntr_protocol_errors;
     void *cntr_queue_errors;
-#ifdef HAVE_CMSG_PROFILING
-    cmsg_prof prof;
-#endif
 } cmsg_server;
 
 
@@ -206,4 +203,4 @@ void cmsg_server_close_wrapper (cmsg_server *server);
 void cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
                                 uint32_t method_index);
 
-#endif
+#endif /* __CMSG_SERVER_H_ */

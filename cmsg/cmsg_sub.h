@@ -54,4 +54,4 @@ cmsg_sub *cmsg_create_subscriber_tipc_oneway (const char *server_name, int membe
 
 void cmsg_destroy_subscriber_and_transport (cmsg_sub *subscriber);
 
-#endif
+#endif /* __CMSG_SUB_H_ */

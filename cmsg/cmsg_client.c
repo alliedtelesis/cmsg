@@ -159,10 +159,6 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         client->suppress_errors = FALSE;
 
         client->child_clients = NULL;
-
-#ifdef HAVE_CMSG_PROFILING
-        memset (&client->prof, 0, sizeof (cmsg_prof));
-#endif
     }
     else
     {
@@ -502,8 +498,6 @@ cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
         return CMSG_RET_CLOSED;
     }
 
-    CMSG_PROF_TIME_TIC (&client->prof);
-
     /* If the call was queued then no point in calling closure as there is no message.
      * Need to exit.
      */
@@ -560,9 +554,6 @@ cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
          * api through the closure_data (above) */
         protobuf_c_message_free_unpacked (message_pt, &cmsg_memory_allocator);
     }
-
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "cleanup",
-                                 cmsg_prof_time_toc (&client->prof));
 
     return CMSG_RET_OK;
 }
@@ -804,8 +795,6 @@ cmsg_client_create_packet (cmsg_client *client, const char *method_name,
     int type = CMSG_TLV_METHOD_TYPE;
     uint32_t method_length = strlen (method_name) + 1;
 
-    CMSG_PROF_TIME_TIC (&client->prof);
-
     uint32_t packed_size = protobuf_c_message_get_packed_size (input);
     uint32_t extra_header_size = CMSG_TLV_SIZE (method_length);
     uint32_t total_header_size = sizeof (header) + extra_header_size;
@@ -853,12 +842,8 @@ cmsg_client_create_packet (cmsg_client *client, const char *method_name,
         return CMSG_RET_ERR;
     }
 
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "pack", cmsg_prof_time_toc (&client->prof));
-
     CMSG_DEBUG (CMSG_INFO, "[CLIENT] packet data\n");
     cmsg_buffer_print (buffer_data, packed_size);
-
-    CMSG_PROF_TIME_TIC (&client->prof);
 
     *buffer_ptr = buffer;
     *total_message_size_ptr = total_message_size;
@@ -916,7 +901,6 @@ cmsg_client_invoke_send (cmsg_client *client, uint32_t method_index,
     uint8_t *buffer = NULL;
     uint32_t total_message_size = 0;
 
-    CMSG_PROF_TIME_TIC (&client->prof);
     // count every rpc call
     CMSG_COUNTER_INC (client, cntr_rpc);
 
@@ -933,7 +917,6 @@ cmsg_client_invoke_send (cmsg_client *client, uint32_t method_index,
                                               method_name);
     CMSG_FREE (buffer);
 
-    CMSG_PROF_TIME_LOG_ADD_TIME (&client->prof, "send", cmsg_prof_time_toc (&client->prof));
     return ret;
 }
 
