@@ -42,6 +42,13 @@ message mac_address
     repeated uint8 addr = 1;
 }
 
+enum ip_version
+{
+    IP_VERSION_NOT_SET = 0;
+    IP_VERSION_4 = 1;
+    IP_VERSION_6 = 2;
+}
+
 enum prefix_family
 {
     PREFIX_FAMILY_FIELD_NOT_SET = 0;
