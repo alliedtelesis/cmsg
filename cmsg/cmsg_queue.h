@@ -1,8 +1,8 @@
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
-#ifndef PROTOBUFCCMSGQUEUE_H
-#define PROTOBUFCCMSGQUEUE_H
+#ifndef __CMSG_QUEUE_H_
+#define __CMSG_QUEUE_H_
 
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
@@ -87,16 +87,11 @@ cmsg_queue_filter_copy (GHashTable *src_queue_filter_hash_table,
                         GHashTable *dst_queue_filter_hash_table,
                         const ProtobufCServiceDescriptor *descriptor);
 
-int32_t cmsg_receive_queue_process_one (GQueue *queue, pthread_mutex_t *queue_mutex,
-                                        const ProtobufCServiceDescriptor *descriptor,
-                                        cmsg_server *server);
 int32_t cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
-                                         const ProtobufCServiceDescriptor *descriptor,
                                          cmsg_server *server, uint32_t num_to_process);
 int32_t cmsg_receive_queue_process_all (GQueue *queue, pthread_mutex_t *queue_mutex,
-                                        const ProtobufCServiceDescriptor *descriptor,
                                         cmsg_server *server);
 int32_t cmsg_receive_queue_push (GQueue *queue, uint8_t *buffer, uint32_t method_index);
 
 void cmsg_receive_queue_free_all (GQueue *queue);
-#endif // PROTOBUFCCMSGQUEUE_H
+#endif /* __CMSG_QUEUE_H_ */

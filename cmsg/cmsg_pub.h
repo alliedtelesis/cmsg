@@ -165,5 +165,4 @@ cmsg_pub *cmsg_create_publisher_tipc_oneway (const char *server_name, int member
 
 void cmsg_destroy_publisher_and_transport (cmsg_pub *publisher);
 
-
-#endif
+#endif /* __CMSG_PUB_H_ */
