@@ -131,19 +131,6 @@ cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transpo
 /*****************  Receive Queue Functions  *********************************/
 /*****************************************************************************/
 
-int32_t
-cmsg_receive_queue_process_one (GQueue *queue, pthread_mutex_t *queue_mutex,
-                                const ProtobufCServiceDescriptor *descriptor,
-                                cmsg_server *server)
-{
-
-    // NOT IMPLEMENTED YET
-    CMSG_LOG_SERVER_ERROR (server, "%s not implemented.", __FUNCTION__);
-
-    return 0;
-}
-
-
 /**
  * Process a given number of items on the queue.
  *
