@@ -138,7 +138,6 @@ cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transpo
  */
 int32_t
 cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
-                                 const ProtobufCServiceDescriptor *descriptor,
                                  cmsg_server *server, uint32_t num_to_process)
 {
     uint32_t processed = 0;
@@ -196,9 +195,7 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
 
 
 int32_t
-cmsg_receive_queue_process_all (GQueue *queue,
-                                pthread_mutex_t *queue_mutex,
-                                const ProtobufCServiceDescriptor *descriptor,
+cmsg_receive_queue_process_all (GQueue *queue, pthread_mutex_t *queue_mutex,
                                 cmsg_server *server)
 {
     int32_t processed = -1;
@@ -206,8 +203,7 @@ cmsg_receive_queue_process_all (GQueue *queue,
 
     while (processed != 0)
     {
-        processed = cmsg_receive_queue_process_some (queue,
-                                                     queue_mutex, descriptor, server, 50);
+        processed = cmsg_receive_queue_process_some (queue, queue_mutex, server, 50);
         total_processed += processed;
     }
     return total_processed;
