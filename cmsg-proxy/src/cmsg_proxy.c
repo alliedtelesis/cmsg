@@ -718,6 +718,12 @@ _cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
     ant_result *error_message = NULL;
     bool ret = false;
 
+    if (*msg == NULL)
+    {
+        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        return false;
+    }
+
     field_desc = protobuf_c_message_descriptor_get_field_by_name ((*msg)->descriptor,
                                                                   "_error_info");
     if (field_desc)
