@@ -75,8 +75,6 @@ cmsg_sub_entry_compare_transport (cmsg_sub_entry *one, cmsg_transport *transport
          transport->config.socket.sockaddr.in.sin_addr.s_addr) &&
         (one->transport->config.socket.sockaddr.in.sin_port ==
          transport->config.socket.sockaddr.in.sin_port) &&
-        (one->transport->config.socket.family == transport->config.socket.family) &&
-        (one->transport->type == transport->type) &&
         (one->transport->config.socket.sockaddr.tipc.family ==
          transport->config.socket.sockaddr.tipc.family) &&
         (one->transport->config.socket.sockaddr.tipc.addrtype ==
