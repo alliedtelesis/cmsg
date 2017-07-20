@@ -728,6 +728,11 @@ _cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
     {
         error_message_ptr = msg;
     }
+    else
+    {
+        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        return false;
+    }
 
     error_message = (ant_result *) (*error_message_ptr);
     if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
