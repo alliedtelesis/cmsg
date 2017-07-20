@@ -1049,8 +1049,8 @@ _cmsg_proxy_index_add_element (GNode *node, gpointer data)
         json_array_append_new (method_array, json_string ("PUT"));
     }
 
-    /* Doesn't match the filter, skip */
-    if (filter && !strstr (url_string, filter))
+    /* No url string found or doesn't match the filter, skip */
+    if (!url_string || (filter && !strstr (url_string, filter)))
     {
         json_array_clear (method_array);
         json_decref (method_array);
