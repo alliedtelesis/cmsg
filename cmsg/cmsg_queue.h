@@ -36,14 +36,9 @@ typedef struct _cmsg_receive_queue_entry_s
     uint8_t *queue_buffer;
 } cmsg_receive_queue_entry;
 
-
-uint32_t cmsg_queue_get_length (GQueue *queue);
-
-
 int32_t cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
                               cmsg_client *client, cmsg_transport *transport,
                               char *method_name);
-
 
 void cmsg_send_queue_free_all (GQueue *queue);
 

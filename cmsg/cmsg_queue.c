@@ -5,12 +5,6 @@
 #include "cmsg_queue.h"
 #include "cmsg_error.h"
 
-uint32_t
-cmsg_queue_get_length (GQueue *queue)
-{
-    return g_queue_get_length (queue);
-}
-
 int32_t
 cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
                       cmsg_client *client, cmsg_transport *transport, char *method_name)
