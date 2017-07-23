@@ -1196,13 +1196,11 @@ cmsg_server_queue_process (cmsg_server *server)
         {
             processed =
                 cmsg_receive_queue_process_some (server->queue, &server->queue_mutex,
-                                                 server->service->descriptor, server,
-                                                 server->queue_process_number);
+                                                 server, server->queue_process_number);
         }
         else if (server->queue_process_number == -1)
         {
             processed = cmsg_receive_queue_process_all (server->queue, &server->queue_mutex,
-                                                        server->service->descriptor,
                                                         server);
         }
 
@@ -1232,13 +1230,11 @@ cmsg_server_queue_process (cmsg_server *server)
         {
             processed =
                 cmsg_receive_queue_process_some (server->queue, &server->queue_mutex,
-                                                 server->service->descriptor, server,
-                                                 server->queue_process_number);
+                                                 server, server->queue_process_number);
         }
         else if (server->queue_process_number == -1)
         {
             processed = cmsg_receive_queue_process_all (server->queue, &server->queue_mutex,
-                                                        server->service->descriptor,
                                                         server);
         }
         if (processed > 0)

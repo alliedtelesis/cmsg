@@ -44,8 +44,6 @@ cmsg_sub_entry_compare (gconstpointer a, gconstpointer b)
          two->transport->config.socket.sockaddr.in.sin_addr.s_addr) &&
         (one->transport->config.socket.sockaddr.in.sin_port ==
          two->transport->config.socket.sockaddr.in.sin_port) &&
-        (one->transport->config.socket.family == two->transport->config.socket.family) &&
-        (one->transport->type == two->transport->type) &&
         (one->transport->config.socket.sockaddr.tipc.family ==
          two->transport->config.socket.sockaddr.tipc.family) &&
         (one->transport->config.socket.sockaddr.tipc.addrtype ==
@@ -77,8 +75,6 @@ cmsg_sub_entry_compare_transport (cmsg_sub_entry *one, cmsg_transport *transport
          transport->config.socket.sockaddr.in.sin_addr.s_addr) &&
         (one->transport->config.socket.sockaddr.in.sin_port ==
          transport->config.socket.sockaddr.in.sin_port) &&
-        (one->transport->config.socket.family == transport->config.socket.family) &&
-        (one->transport->type == transport->type) &&
         (one->transport->config.socket.sockaddr.tipc.family ==
          transport->config.socket.sockaddr.tipc.family) &&
         (one->transport->config.socket.sockaddr.tipc.addrtype ==
@@ -107,8 +103,6 @@ cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
          two->config.socket.sockaddr.in.sin_addr.s_addr) &&
         (one->config.socket.sockaddr.in.sin_port ==
          two->config.socket.sockaddr.in.sin_port) &&
-        (one->config.socket.family == two->config.socket.family) &&
-        (one->type == two->type) &&
         (one->config.socket.sockaddr.tipc.family ==
          two->config.socket.sockaddr.tipc.family) &&
         (one->config.socket.sockaddr.tipc.addrtype ==

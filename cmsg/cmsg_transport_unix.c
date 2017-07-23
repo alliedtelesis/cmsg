@@ -450,14 +450,6 @@ cmsg_transport_unix_is_congested (cmsg_transport *transport)
     return FALSE;
 }
 
-int32_t
-cmsg_transport_unix_send_called_multi_threads_enable (cmsg_transport *transport,
-                                                      uint32_t enable)
-{
-    // Don't support sending from multiple threads
-    return -1;
-}
-
 
 int32_t
 cmsg_transport_unix_send_can_block_enable (cmsg_transport *transport,
@@ -486,9 +478,6 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
     transport->s_socket = cmsg_transport_unix_server_get_socket;
     transport->c_socket = cmsg_transport_unix_client_get_socket;
     transport->is_congested = cmsg_transport_unix_is_congested;
-    transport->send_called_multi_threads_enable =
-        cmsg_transport_unix_send_called_multi_threads_enable;
-    transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_unix_send_can_block_enable;
     transport->ipfree_bind_enable = NULL;
 }

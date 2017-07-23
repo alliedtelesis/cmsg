@@ -5,12 +5,6 @@
 #include "cmsg_queue.h"
 #include "cmsg_error.h"
 
-uint32_t
-cmsg_queue_get_length (GQueue *queue)
-{
-    return g_queue_get_length (queue);
-}
-
 int32_t
 cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
                       cmsg_client *client, cmsg_transport *transport, char *method_name)
@@ -131,19 +125,6 @@ cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transpo
 /*****************  Receive Queue Functions  *********************************/
 /*****************************************************************************/
 
-int32_t
-cmsg_receive_queue_process_one (GQueue *queue, pthread_mutex_t *queue_mutex,
-                                const ProtobufCServiceDescriptor *descriptor,
-                                cmsg_server *server)
-{
-
-    // NOT IMPLEMENTED YET
-    CMSG_LOG_SERVER_ERROR (server, "%s not implemented.", __FUNCTION__);
-
-    return 0;
-}
-
-
 /**
  * Process a given number of items on the queue.
  *
@@ -151,7 +132,6 @@ cmsg_receive_queue_process_one (GQueue *queue, pthread_mutex_t *queue_mutex,
  */
 int32_t
 cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
-                                 const ProtobufCServiceDescriptor *descriptor,
                                  cmsg_server *server, uint32_t num_to_process)
 {
     uint32_t processed = 0;
@@ -209,9 +189,7 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
 
 
 int32_t
-cmsg_receive_queue_process_all (GQueue *queue,
-                                pthread_mutex_t *queue_mutex,
-                                const ProtobufCServiceDescriptor *descriptor,
+cmsg_receive_queue_process_all (GQueue *queue, pthread_mutex_t *queue_mutex,
                                 cmsg_server *server)
 {
     int32_t processed = -1;
@@ -219,8 +197,7 @@ cmsg_receive_queue_process_all (GQueue *queue,
 
     while (processed != 0)
     {
-        processed = cmsg_receive_queue_process_some (queue,
-                                                     queue_mutex, descriptor, server, 50);
+        processed = cmsg_receive_queue_process_some (queue, queue_mutex, server, 50);
         total_processed += processed;
     }
     return total_processed;
