@@ -54,25 +54,43 @@ cmsg_sub_entry_compare (gconstpointer a, gconstpointer b)
 bool
 cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
 {
-    if ((one->config.socket.family == two->config.socket.family) &&
-        (one->type == two->type) &&
-        (one->config.socket.sockaddr.in.sin_addr.s_addr ==
-         two->config.socket.sockaddr.in.sin_addr.s_addr) &&
-        (one->config.socket.sockaddr.in.sin_port ==
-         two->config.socket.sockaddr.in.sin_port) &&
-        (one->config.socket.sockaddr.tipc.family ==
-         two->config.socket.sockaddr.tipc.family) &&
-        (one->config.socket.sockaddr.tipc.addrtype ==
-         two->config.socket.sockaddr.tipc.addrtype) &&
-        (one->config.socket.sockaddr.tipc.addr.name.domain ==
-         two->config.socket.sockaddr.tipc.addr.name.domain) &&
-        (one->config.socket.sockaddr.tipc.addr.name.name.instance ==
-         two->config.socket.sockaddr.tipc.addr.name.name.instance) &&
-        (one->config.socket.sockaddr.tipc.addr.name.name.type ==
-         two->config.socket.sockaddr.tipc.addr.name.name.type) &&
-        (one->config.socket.sockaddr.tipc.scope == two->config.socket.sockaddr.tipc.scope))
+    if (one->type == two->type)
     {
-        return true;
+        switch (one->type)
+        {
+        case CMSG_TRANSPORT_RPC_TCP:
+        case CMSG_TRANSPORT_ONEWAY_TCP:
+            if ((one->config.socket.family == two->config.socket.family) &&
+                (one->config.socket.sockaddr.in.sin_addr.s_addr ==
+                 two->config.socket.sockaddr.in.sin_addr.s_addr) &&
+                (one->config.socket.sockaddr.in.sin_port ==
+                 two->config.socket.sockaddr.in.sin_port))
+            {
+                return true;
+            }
+            break;
+        case CMSG_TRANSPORT_RPC_TIPC:
+        case CMSG_TRANSPORT_ONEWAY_TIPC:
+            if ((one->config.socket.family == two->config.socket.family) &&
+                (one->config.socket.sockaddr.tipc.family ==
+                 two->config.socket.sockaddr.tipc.family) &&
+                (one->config.socket.sockaddr.tipc.addrtype ==
+                 two->config.socket.sockaddr.tipc.addrtype) &&
+                (one->config.socket.sockaddr.tipc.addr.name.domain ==
+                 two->config.socket.sockaddr.tipc.addr.name.domain) &&
+                (one->config.socket.sockaddr.tipc.addr.name.name.instance ==
+                 two->config.socket.sockaddr.tipc.addr.name.name.instance) &&
+                (one->config.socket.sockaddr.tipc.addr.name.name.type ==
+                 two->config.socket.sockaddr.tipc.addr.name.name.type) &&
+                (one->config.socket.sockaddr.tipc.scope ==
+                 two->config.socket.sockaddr.tipc.scope))
+            {
+                return true;
+            }
+            break;
+        default:
+            return false;
+        }
     }
 
     return false;
