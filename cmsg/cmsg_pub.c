@@ -24,6 +24,8 @@ static cmsg_pub *_cmsg_create_publisher_tipc (const char *server_name, int membe
                                               ProtobufCServiceDescriptor *descriptor,
                                               cmsg_transport_type transport_type);
 
+static int32_t cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data);
+
 extern cmsg_server *cmsg_server_create (cmsg_transport *transport,
                                         ProtobufCService *service);
 extern int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
@@ -304,40 +306,7 @@ cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
     return CMSG_RET_OK;
 }
 
-void
-cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher, cmsg_transport *transport)
-{
-    CMSG_ASSERT_RETURN_VOID (publisher != NULL);
-    CMSG_ASSERT_RETURN_VOID (transport != NULL);
-
-    /*
-     * walk the list and get a client connection for every subscription that
-     * matches the transport
-     */
-    pthread_mutex_lock (&publisher->subscriber_list_mutex);
-
-    GList *subscriber_list = g_list_first (publisher->subscriber_list);
-    while (subscriber_list)
-    {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
-        if (cmsg_sub_entry_compare_transport (list_entry, transport))
-        {
-            if (list_entry->client)
-            {
-                if (cmsg_client_connect (list_entry->client) != 0)
-                {
-                    CMSG_DEBUG (CMSG_INFO,
-                                "[PUB] [LIST] Couldn't connect to subscriber!\n");
-                }
-            }
-        }
-        subscriber_list = g_list_next (subscriber_list);
-    }
-
-    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
-}
-
-int32_t
+static int32_t
 cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
     GList *list = NULL;
@@ -592,7 +561,7 @@ cmsg_pub_server_accept_callback (cmsg_pub *publisher, int32_t sd)
     }
 }
 
-int32_t
+static int32_t
 cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
