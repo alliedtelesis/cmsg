@@ -41,26 +41,8 @@ cmsg_sub_entry_compare (gconstpointer a, gconstpointer b)
     const cmsg_sub_entry *one = (const cmsg_sub_entry *) a;
     const cmsg_sub_entry *two = (const cmsg_sub_entry *) b;
 
-    if ((one->transport->config.socket.family == two->transport->config.socket.family) &&
-        (one->transport->type == two->transport->type) &&
-        (one->transport->config.socket.sockaddr.in.sin_addr.s_addr ==
-         two->transport->config.socket.sockaddr.in.sin_addr.s_addr) &&
-        (one->transport->config.socket.sockaddr.in.sin_port ==
-         two->transport->config.socket.sockaddr.in.sin_port) &&
-        (one->transport->config.socket.sockaddr.tipc.family ==
-         two->transport->config.socket.sockaddr.tipc.family) &&
-        (one->transport->config.socket.sockaddr.tipc.addrtype ==
-         two->transport->config.socket.sockaddr.tipc.addrtype) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.domain ==
-         two->transport->config.socket.sockaddr.tipc.addr.name.domain) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.name.instance ==
-         two->transport->config.socket.sockaddr.tipc.addr.name.name.instance) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.name.type ==
-         two->transport->config.socket.sockaddr.tipc.addr.name.name.type) &&
-        (one->transport->config.socket.sockaddr.tipc.scope ==
-         two->transport->config.socket.sockaddr.tipc.scope) &&
+    if (cmsg_transport_compare (one->transport, two->transport) &&
         (strcmp (one->method_name, two->method_name) == 0) &&
-        // If either entry has been marked for deletion, don't match it
         (!one->to_be_removed && !two->to_be_removed))
     {
         return 0;
@@ -69,35 +51,13 @@ cmsg_sub_entry_compare (gconstpointer a, gconstpointer b)
     return -1;
 }
 
-int32_t
+bool
 cmsg_sub_entry_compare_transport (cmsg_sub_entry *one, cmsg_transport *transport)
 {
-    if ((one->transport->config.socket.family == transport->config.socket.family) &&
-        (one->transport->type == transport->type) &&
-        (one->transport->config.socket.sockaddr.in.sin_addr.s_addr ==
-         transport->config.socket.sockaddr.in.sin_addr.s_addr) &&
-        (one->transport->config.socket.sockaddr.in.sin_port ==
-         transport->config.socket.sockaddr.in.sin_port) &&
-        (one->transport->config.socket.sockaddr.tipc.family ==
-         transport->config.socket.sockaddr.tipc.family) &&
-        (one->transport->config.socket.sockaddr.tipc.addrtype ==
-         transport->config.socket.sockaddr.tipc.addrtype) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.domain ==
-         transport->config.socket.sockaddr.tipc.addr.name.domain) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.name.instance ==
-         transport->config.socket.sockaddr.tipc.addr.name.name.instance) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.name.type ==
-         transport->config.socket.sockaddr.tipc.addr.name.name.type) &&
-        (one->transport->config.socket.sockaddr.tipc.scope ==
-         transport->config.socket.sockaddr.tipc.scope))
-    {
-        return TRUE;
-    }
-
-    return FALSE;
+    return cmsg_transport_compare (one->transport, transport);
 }
 
-int32_t
+bool
 cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
 {
     if ((one->config.socket.family == two->config.socket.family) &&
@@ -118,10 +78,10 @@ cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
          two->config.socket.sockaddr.tipc.addr.name.name.type) &&
         (one->config.socket.sockaddr.tipc.scope == two->config.socket.sockaddr.tipc.scope))
     {
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 cmsg_pub *
