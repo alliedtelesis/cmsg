@@ -99,6 +99,42 @@ test_cmsg_transport_compare__tipc (void)
     cmsg_transport_destroy (two);
 }
 
+static void
+init_transport_unix (cmsg_transport *transport)
+{
+    transport->config.socket.family = AF_UNIX;
+    transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
+    strncpy (transport->config.socket.sockaddr.un.sun_path, "test",
+             sizeof (transport->config.socket.sockaddr.un.sun_path) - 1);
+}
+
+void
+test_cmsg_transport_compare__unix (void)
+{
+    cmsg_transport *one = cmsg_transport_new (CMSG_TRANSPORT_RPC_UNIX);
+    cmsg_transport *two = cmsg_transport_new (CMSG_TRANSPORT_RPC_UNIX);
+
+    init_transport_unix (one);
+    init_transport_unix (two);
+
+    NP_ASSERT_TRUE (cmsg_transport_compare (one, two));
+
+    one->config.socket.family = AF_TIPC;
+    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
+
+    init_transport_unix (one);
+    one->config.socket.sockaddr.un.sun_family = AF_TIPC;
+    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
+
+    init_transport_unix (one);
+    strncpy (one->config.socket.sockaddr.un.sun_path, "test2",
+             sizeof (one->config.socket.sockaddr.un.sun_path) - 1);
+    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
+
+    cmsg_transport_destroy (one);
+    cmsg_transport_destroy (two);
+}
+
 void
 test_cmsg_sub_entry_compare__tcp (void)
 {

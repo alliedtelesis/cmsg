@@ -88,6 +88,17 @@ cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
                 return true;
             }
             break;
+        case CMSG_TRANSPORT_RPC_UNIX:
+        case CMSG_TRANSPORT_ONEWAY_UNIX:
+            if ((one->config.socket.family == two->config.socket.family) &&
+                (one->config.socket.sockaddr.un.sun_family ==
+                 two->config.socket.sockaddr.un.sun_family) &&
+                (strcmp (one->config.socket.sockaddr.un.sun_path,
+                         two->config.socket.sockaddr.un.sun_path) == 0))
+            {
+                return true;
+            }
+            break;
         default:
             return false;
         }
