@@ -52,12 +52,6 @@ cmsg_sub_entry_compare (gconstpointer a, gconstpointer b)
 }
 
 bool
-cmsg_sub_entry_compare_transport (cmsg_sub_entry *one, cmsg_transport *transport)
-{
-    return cmsg_transport_compare (one->transport, transport);
-}
-
-bool
 cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
 {
     if ((one->config.socket.family == two->config.socket.family) &&
@@ -422,7 +416,7 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *) list->data;
         list_next = g_list_next (list);
 
-        if (cmsg_sub_entry_compare_transport (list_entry, transport))
+        if (cmsg_transport_compare (list_entry->transport, transport))
         {
             CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for %s for deletion\n",
                         list_entry->method_name);
