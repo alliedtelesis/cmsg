@@ -829,7 +829,7 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
 
         subscriber_entry->transport->type = (cmsg_transport_type) input->transport_type;
         un = &subscriber_entry->transport->config.socket.sockaddr.un;
-        strncpy (un->sun_path, (char *) input->un_sun_path, sizeof (un->sun_path) - 1);
+        strncpy (un->sun_path, input->un_sun_path, sizeof (un->sun_path) - 1);
     }
 
     //we can just create the client here
