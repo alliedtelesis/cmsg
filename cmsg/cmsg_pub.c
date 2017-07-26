@@ -32,7 +32,8 @@ extern int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
 
 
 /*
- * Return 0 if two entries are same otherwise return -1.
+ * Return 0 if two entries are same and neither are marked for deletion.
+ * Otherwise return -1.
  */
 gint
 cmsg_sub_entry_compare (gconstpointer a, gconstpointer b)

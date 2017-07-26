@@ -39,8 +39,8 @@ typedef struct _cmsg_sub_entry_s
 } cmsg_sub_entry;
 
 
+gint cmsg_sub_entry_compare (gconstpointer a, gconstpointer b);
 int32_t cmsg_sub_entry_compare_transport (cmsg_sub_entry *one, cmsg_transport *transport);
-
 int32_t cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two);
 
 typedef struct _cmsg_pub_s
