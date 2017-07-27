@@ -1,3 +1,9 @@
+/*
+ * Unit tests for the CMSG library.
+ *
+ * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
+ */
+
 #include <np.h>
 #include <cmsg_pub.h>
 
