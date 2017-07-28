@@ -335,7 +335,7 @@ cmsg_transport_crypto_header_peek (void *handle, uint32_t *msg_length)
     else
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                    sock, strerror (errno));
+                    *sock, strerror (errno));
         ret = CMSG_RET_ERR;
     }
 

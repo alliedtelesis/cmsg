@@ -152,10 +152,6 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
                 header_converted->message_length, header_received->message_length);
 
     CMSG_DEBUG (CMSG_INFO,
-                "[TRANSPORT] method_index   host: %d, wire: %d\n",
-                header_converted->method_index, header_received->method_index);
-
-    CMSG_DEBUG (CMSG_INFO,
                 "[TRANSPORT] status_code host: %d, wire: %d\n",
                 header_converted->status_code, header_received->status_code);
 
