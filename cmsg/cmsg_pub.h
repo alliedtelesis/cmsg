@@ -39,9 +39,8 @@ typedef struct _cmsg_sub_entry_s
 } cmsg_sub_entry;
 
 
-int32_t cmsg_sub_entry_compare_transport (cmsg_sub_entry *one, cmsg_transport *transport);
-
-int32_t cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two);
+gint cmsg_sub_entry_compare (gconstpointer a, gconstpointer b);
+bool cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two);
 
 typedef struct _cmsg_pub_s
 {
@@ -85,13 +84,6 @@ int cmsg_pub_get_server_socket (cmsg_pub *publisher);
 
 int32_t cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher);
 
-void cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher,
-                                               cmsg_transport *transport);
-
-int32_t cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry);
-
-int32_t cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entry);
-
 int32_t cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
                                                        cmsg_transport *transport);
 
@@ -105,8 +97,6 @@ int32_t cmsg_pub_server_receive (cmsg_pub *publisher, int32_t server_socket);
 int32_t cmsg_pub_server_accept (cmsg_pub *publisher, int32_t listen_socket);
 
 void cmsg_pub_server_accept_callback (cmsg_pub *publisher, int32_t sd);
-
-int32_t cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data);
 
 int32_t cmsg_pub_invoke (ProtobufCService *service,
                          uint32_t method_index,

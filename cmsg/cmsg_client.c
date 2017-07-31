@@ -53,7 +53,6 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
     {
         switch (transport->type)
         {
-        case CMSG_TRANSPORT_RPC_LOCAL:
         case CMSG_TRANSPORT_RPC_TCP:
         case CMSG_TRANSPORT_RPC_TIPC:
         case CMSG_TRANSPORT_RPC_UNIX:
