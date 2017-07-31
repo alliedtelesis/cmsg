@@ -9,10 +9,6 @@
 #include "cntrd_app_defines.h"
 #endif
 
-static cmsg_sub *_cmsg_create_subscriber_tipc (const char *server_name, int member_id,
-                                               int scope, ProtobufCService *descriptor,
-                                               cmsg_transport_type transport_type);
-
 extern cmsg_client *cmsg_client_create (cmsg_transport *transport,
                                         const ProtobufCServiceDescriptor *descriptor);
 extern int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
@@ -343,15 +339,18 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     return return_value;
 }
 
-static cmsg_sub *
-_cmsg_create_subscriber_tipc (const char *server_name, int member_id, int scope,
-                              ProtobufCService *descriptor,
-                              cmsg_transport_type transport_type)
+cmsg_sub *
+cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int scope,
+                                    ProtobufCService *descriptor)
 {
     cmsg_transport *transport = NULL;
     cmsg_sub *subscriber = NULL;
 
-    transport = cmsg_create_transport_tipc (server_name, member_id, scope, transport_type);
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    transport = cmsg_create_transport_tipc (server_name, member_id, scope,
+                                            CMSG_TRANSPORT_ONEWAY_TIPC);
     if (transport == NULL)
     {
         return NULL;
@@ -367,28 +366,6 @@ _cmsg_create_subscriber_tipc (const char *server_name, int member_id, int scope,
     }
 
     return subscriber;
-}
-
-cmsg_sub *
-cmsg_create_subscriber_tipc_rpc (const char *server_name, int member_id, int scope,
-                                 ProtobufCService *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
-                                         CMSG_TRANSPORT_RPC_TIPC);
-}
-
-cmsg_sub *
-cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int scope,
-                                    ProtobufCService *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
-                                         CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 void
