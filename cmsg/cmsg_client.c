@@ -224,6 +224,11 @@ cmsg_client_destroy (cmsg_client *client)
         client->_transport->client_destroy (client->_transport);
     }
 
+    if (client->child_clients)
+    {
+        g_list_free (client->child_clients);
+    }
+
     pthread_mutex_destroy (&client->invoke_mutex);
 
     CMSG_FREE (client);
