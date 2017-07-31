@@ -38,24 +38,6 @@ cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_servic
 }
 
 
-void
-cmsg_sub_destroy (cmsg_sub *subscriber)
-{
-    if (subscriber)
-    {
-        if (subscriber->pub_server)
-        {
-            cmsg_server_destroy (subscriber->pub_server);
-            subscriber->pub_server = NULL;
-        }
-
-        CMSG_FREE (subscriber);
-    }
-
-    return;
-}
-
-
 int
 cmsg_sub_get_server_socket (cmsg_sub *subscriber)
 {
@@ -371,13 +353,13 @@ cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int 
 void
 cmsg_destroy_subscriber_and_transport (cmsg_sub *subscriber)
 {
-    cmsg_transport *transport;
-
     if (subscriber)
     {
-        transport = subscriber->pub_server->_transport;
-        cmsg_sub_destroy (subscriber);
+        if (subscriber->pub_server)
+        {
+            cmsg_destroy_server_and_transport (subscriber->pub_server);
+        }
 
-        cmsg_transport_destroy (transport);
+        CMSG_FREE (subscriber);
     }
 }
