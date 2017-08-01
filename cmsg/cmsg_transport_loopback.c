@@ -202,7 +202,8 @@ cmsg_transport_loopback_client_recv (cmsg_transport *transport,
     uint32_t dyn_len = 0;
     cmsg_header header_received;
     cmsg_header header_converted;
-    uint8_t *recv_buffer = 0;
+    uint8_t *recv_buffer = NULL;
+    uint8_t *buffer = NULL;
     uint8_t buf_static[512];
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = &cmsg_memory_allocator;
@@ -262,17 +263,22 @@ cmsg_transport_loopback_client_recv (cmsg_transport *transport,
             cmsg_tlv_header_process (recv_buffer, &server_request, extra_header_size,
                                      descriptor);
 
-            recv_buffer = recv_buffer + extra_header_size;
+            buffer = recv_buffer + extra_header_size;
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
 
-            cmsg_buffer_print (recv_buffer, dyn_len);
+            cmsg_buffer_print (buffer, dyn_len);
 
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
             desc = descriptor->methods[server_request.method_index].output;
             message = protobuf_c_message_unpack (desc, allocator,
-                                                 header_converted.message_length,
-                                                 recv_buffer);
+                                                 header_converted.message_length, buffer);
+
+            if (recv_buffer != (void *) buf_static)
+            {
+                CMSG_FREE (recv_buffer);
+                recv_buffer = NULL;
+            }
 
             if (message == NULL)
             {
@@ -291,11 +297,8 @@ cmsg_transport_loopback_client_recv (cmsg_transport *transport,
         }
         if (recv_buffer != (void *) buf_static)
         {
-            if (recv_buffer)
-            {
-                CMSG_FREE (recv_buffer);
-                recv_buffer = 0;
-            }
+            CMSG_FREE (recv_buffer);
+            recv_buffer = NULL;
         }
     }
     else if (nbytes == 0)
