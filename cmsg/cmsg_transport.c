@@ -392,11 +392,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                                                   dyn_len, nbytes, &header_converted);
         if (recv_buffer != buf_static)
         {
-            if (recv_buffer)
-            {
-                CMSG_FREE (recv_buffer);
-                recv_buffer = NULL;
-            }
+            CMSG_FREE (recv_buffer);
+            recv_buffer = NULL;
         }
 
     }
@@ -724,11 +721,8 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
                 // Free the allocated buffer
                 if (recv_buffer != buf_static)
                 {
-                    if (recv_buffer)
-                    {
-                        CMSG_FREE (recv_buffer);
-                        recv_buffer = NULL;
-                    }
+                    CMSG_FREE (recv_buffer);
+                    recv_buffer = NULL;
                 }
 
                 // Msg not unpacked correctly
@@ -755,11 +749,8 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
         }
         if (recv_buffer != buf_static)
         {
-            if (recv_buffer)
-            {
-                CMSG_FREE (recv_buffer);
-                recv_buffer = NULL;
-            }
+            CMSG_FREE (recv_buffer);
+            recv_buffer = NULL;
         }
     }
     else if (nbytes > 0)

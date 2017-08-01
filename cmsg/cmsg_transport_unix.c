@@ -283,11 +283,8 @@ cmsg_transport_unix_client_recv (cmsg_transport *transport,
                 // Free the allocated buffer
                 if (recv_buffer != (void *) buf_static)
                 {
-                    if (recv_buffer)
-                    {
-                        CMSG_FREE (recv_buffer);
-                        recv_buffer = NULL;
-                    }
+                    CMSG_FREE (recv_buffer);
+                    recv_buffer = NULL;
                 }
 
                 // Msg not unpacked correctly
@@ -314,11 +311,8 @@ cmsg_transport_unix_client_recv (cmsg_transport *transport,
         }
         if (recv_buffer != (void *) buf_static)
         {
-            if (recv_buffer)
-            {
-                CMSG_FREE (recv_buffer);
-                recv_buffer = NULL;
-            }
+            CMSG_FREE (recv_buffer);
+            recv_buffer = NULL;
         }
     }
     else if (nbytes > 0)
