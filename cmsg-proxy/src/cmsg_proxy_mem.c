@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <cmsg/cmsg.h>
 #include "cmsg_proxy_mem.h"
+#include <gmem_diag.h>
 
 /* CMSG proxy mtype id for memory tracing (0 means disabled) */
 static int cmsg_proxy_mtype = 0;
