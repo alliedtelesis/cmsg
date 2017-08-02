@@ -136,14 +136,6 @@ cmsg_queue_filter_type cmsg_pub_queue_filter_lookup (cmsg_pub *publisher,
 
 void cmsg_pub_queue_filter_show (cmsg_pub *publisher);
 
-/**
- * Print the subscriber list of the publisher passed in.
- * This function is thread-safe.
- * If you want to print the subscriber list and you hold the lock on it,
- * use _cmsg_pub_print_subscriber_list instead.
- */
-void cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
-
 cmsg_pub *cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
                                           int scope,
                                           ProtobufCServiceDescriptor *descriptor);

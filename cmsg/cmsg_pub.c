@@ -17,8 +17,6 @@ static void _cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link);
 
 static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
 
-static void _cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
-
 static int32_t cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data);
 
 extern cmsg_server *cmsg_server_create (cmsg_transport *transport,
@@ -1031,45 +1029,6 @@ void
 cmsg_pub_queue_filter_show (cmsg_pub *publisher)
 {
     cmsg_queue_filter_show (publisher->queue_filter_hash_table, publisher->descriptor);
-}
-
-/**
- * Print the subscriber list of the publisher passed in.
- * This function is NOT thread-safe!!
- * If you want to print the subscriber list and you don't hold the lock on it,
- * use cmsg_pub_print_subscriber_list instead.
- */
-static void
-_cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
-{
-    syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] listing all list entries\n");
-    GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
-    while (print_subscriber_list != NULL)
-    {
-        cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
-        syslog (LOG_CRIT | LOG_LOCAL6,
-                "[PUB] [LIST] print_list_entry->method_name: %s, marked for deletion: %s\n",
-                print_list_entry->method_name,
-                print_list_entry->to_be_removed ? "TRUE" : "FALSE");
-
-        print_subscriber_list = g_list_next (print_subscriber_list);
-    }
-}
-
-/**
- * Print the subscriber list of the publisher passed in.
- * This function is thread-safe.
- * If you want to print the subscriber list and you hold the lock on it,
- * use _cmsg_pub_print_subscriber_list instead.
- */
-void
-cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
-{
-    pthread_mutex_lock (&publisher->subscriber_list_mutex);
-
-    _cmsg_pub_print_subscriber_list (publisher);
-
-    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 }
 
 cmsg_pub *
