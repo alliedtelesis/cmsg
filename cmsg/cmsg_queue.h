@@ -70,9 +70,6 @@ void cmsg_queue_filter_free (GHashTable *queue_filter_hash_table,
 cmsg_queue_filter_type cmsg_queue_filter_lookup (GHashTable *queue_filter_hash_table,
                                                  const char *method);
 
-void cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
-                             const ProtobufCServiceDescriptor *descriptor);
-
 cmsg_queue_state
 cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
                             const ProtobufCServiceDescriptor *descriptor);

@@ -1025,12 +1025,6 @@ cmsg_pub_queue_filter_lookup (cmsg_pub *publisher, const char *method)
     return cmsg_queue_filter_lookup (publisher->queue_filter_hash_table, method);
 }
 
-void
-cmsg_pub_queue_filter_show (cmsg_pub *publisher)
-{
-    cmsg_queue_filter_show (publisher->queue_filter_hash_table, publisher->descriptor);
-}
-
 cmsg_pub *
 cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
                                 int scope, ProtobufCServiceDescriptor *descriptor)

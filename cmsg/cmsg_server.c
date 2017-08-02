@@ -1513,14 +1513,6 @@ cmsg_server_queue_filter_lookup (cmsg_server *server, const char *method)
     return ret;
 }
 
-void
-cmsg_server_queue_filter_show (cmsg_server *server)
-{
-    pthread_mutex_lock (&server->queue_filter_mutex);
-    cmsg_queue_filter_show (server->queue_filter_hash_table, server->service->descriptor);
-    pthread_mutex_unlock (&server->queue_filter_mutex);
-}
-
 static cmsg_server *
 _cmsg_create_server_tipc (const char *server_name, int member_id, int scope,
                           ProtobufCService *descriptor, cmsg_transport_type transport_type)

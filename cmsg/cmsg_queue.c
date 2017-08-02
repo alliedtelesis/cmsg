@@ -386,39 +386,6 @@ cmsg_queue_filter_lookup (GHashTable *queue_filter_hash_table, const char *metho
     return CMSG_QUEUE_FILTER_ERROR;
 }
 
-void
-cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
-                        const ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_DEBUG (CMSG_INFO, "queue_filter_list:\n");
-
-    uint32_t i = 0;
-    for (i = 0; i < descriptor->n_methods; i++)
-    {
-        cmsg_queue_filter_entry *entry;
-        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
-                                                                 (gconstpointer)
-                                                                 descriptor->
-                                                                 methods[i].name);
-
-        switch (entry->type)
-        {
-        case 0:
-            CMSG_DEBUG (CMSG_INFO, " PROCESS : %s\n", entry->method_name);
-            break;
-        case 1:
-            CMSG_DEBUG (CMSG_INFO, " DROP    : %s\n", entry->method_name);
-            break;
-        case 2:
-            CMSG_DEBUG (CMSG_INFO, " QUEUE   : %s\n", entry->method_name);
-            break;
-        case 3:
-            CMSG_DEBUG (CMSG_INFO, " UNKNOWN : %s\n", entry->method_name);
-            break;
-        }
-    }
-}
-
 cmsg_queue_state
 cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
                             const ProtobufCServiceDescriptor *descriptor)

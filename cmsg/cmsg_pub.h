@@ -134,8 +134,6 @@ void cmsg_pub_queue_filter_init (cmsg_pub *publisher);
 cmsg_queue_filter_type cmsg_pub_queue_filter_lookup (cmsg_pub *publisher,
                                                      const char *method);
 
-void cmsg_pub_queue_filter_show (cmsg_pub *publisher);
-
 cmsg_pub *cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
                                           int scope,
                                           ProtobufCServiceDescriptor *descriptor);

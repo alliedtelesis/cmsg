@@ -1435,12 +1435,6 @@ cmsg_client_queue_filter_lookup (cmsg_client *client, const char *method)
 }
 
 void
-cmsg_client_queue_filter_show (cmsg_client *client)
-{
-    cmsg_queue_filter_show (client->queue_filter_hash_table, client->descriptor);
-}
-
-void
 cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable)
 {
     client->suppress_errors = enable;
