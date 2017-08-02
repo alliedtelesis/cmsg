@@ -23,6 +23,11 @@ static cmsg_server *_cmsg_create_server_tipc (const char *server_name, int membe
                                               int scope, ProtobufCService *descriptor,
                                               cmsg_transport_type transport_type);
 
+static void cmsg_server_queue_filter_init (cmsg_server *server);
+
+static cmsg_queue_filter_type cmsg_server_queue_filter_lookup (cmsg_server *server,
+                                                               const char *method);
+
 int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
 
 
@@ -1455,7 +1460,7 @@ cmsg_server_queue_filter_clear (cmsg_server *server, const char *method)
     return ret;
 }
 
-void
+static void
 cmsg_server_queue_filter_init (cmsg_server *server)
 {
     pthread_mutex_lock (&server->queue_filter_mutex);
@@ -1463,7 +1468,7 @@ cmsg_server_queue_filter_init (cmsg_server *server)
     pthread_mutex_unlock (&server->queue_filter_mutex);
 }
 
-cmsg_queue_filter_type
+static cmsg_queue_filter_type
 cmsg_server_queue_filter_lookup (cmsg_server *server, const char *method)
 {
     cmsg_queue_filter_type ret;
