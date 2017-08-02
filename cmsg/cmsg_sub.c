@@ -264,6 +264,11 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
         register_entry.tipc_scope =
             subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
     }
+    else if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_UNIX)
+    {
+        register_entry.un_sun_path =
+            subscriber->pub_server->_transport->config.socket.sockaddr.un.sun_path;
+    }
     else
     {
         CMSG_LOG_GEN_ERROR
