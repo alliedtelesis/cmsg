@@ -1282,25 +1282,6 @@ cmsg_server_queue_process_some (cmsg_server *server, int32_t number_to_process)
     return cmsg_server_queue_process (server);
 }
 
-/**
- * Called from server receive thread in application!
- */
-int32_t
-cmsg_server_queue_process_list (GList *server_list)
-{
-    cmsg_server *server;
-    GList *node;
-
-    for (node = g_list_first (server_list); node && node->data; node = g_list_next (node))
-    {
-        server = (cmsg_server *) node->data;
-
-        cmsg_server_queue_process (server);
-    }
-
-    return 0;
-}
-
 void
 cmsg_server_drop_all (cmsg_server *server)
 {

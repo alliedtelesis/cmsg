@@ -131,8 +131,6 @@ int32_t cmsg_server_queue_process (cmsg_server *server);
 
 int32_t cmsg_server_queue_process_some (cmsg_server *server, int32_t number_to_process);
 
-int32_t cmsg_server_queue_process_list (GList *server_list);
-
 void cmsg_server_drop_all (cmsg_server *server);
 
 void cmsg_server_queue_enable (cmsg_server *server);
