@@ -163,7 +163,6 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     publisher->invoke = &cmsg_pub_invoke;
     publisher->subscriber_list = NULL;
     publisher->subscriber_count = 0;
-    publisher->queue_enabled = FALSE;
 
     if (pthread_mutex_init (&publisher->queue_mutex, NULL) != 0)
     {
@@ -829,7 +828,7 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     else
     {
         //delete queued entries for the method being un-subscribed
-        if (publisher->queue_enabled)
+        if (g_queue_get_length (publisher->queue))
         {
             pthread_mutex_lock (&publisher->queue_mutex);
             cmsg_send_queue_free_by_transport_method (publisher->queue,
@@ -851,7 +850,6 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
 void
 cmsg_pub_queue_enable (cmsg_pub *publisher)
 {
-    publisher->queue_enabled = TRUE;
     cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_QUEUE);
 }
 
@@ -872,7 +870,6 @@ cmsg_pub_queue_free_all (cmsg_pub *publisher)
 int32_t
 cmsg_pub_queue_disable (cmsg_pub *publisher)
 {
-    publisher->queue_enabled = FALSE;
     cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_PROCESS);
 
     return cmsg_pub_queue_process_all (publisher);
