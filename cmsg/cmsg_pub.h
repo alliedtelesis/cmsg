@@ -148,10 +148,6 @@ cmsg_pub *cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id
                                           int scope,
                                           ProtobufCServiceDescriptor *descriptor);
 
-cmsg_pub *cmsg_create_publisher_tipc_oneway (const char *server_name, int member_id,
-                                             int scope,
-                                             ProtobufCServiceDescriptor *descriptor);
-
 void cmsg_destroy_publisher_and_transport (cmsg_pub *publisher);
 
 #endif /* __CMSG_PUB_H_ */

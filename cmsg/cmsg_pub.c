@@ -19,11 +19,6 @@ static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
 
 static void _cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
 
-static cmsg_pub *_cmsg_create_publisher_tipc (const char *server_name, int member_id,
-                                              int scope,
-                                              ProtobufCServiceDescriptor *descriptor,
-                                              cmsg_transport_type transport_type);
-
 static int32_t cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data);
 
 extern cmsg_server *cmsg_server_create (cmsg_transport *transport,
@@ -1077,16 +1072,18 @@ cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 }
 
-
-static cmsg_pub *
-_cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
-                             ProtobufCServiceDescriptor *descriptor,
-                             cmsg_transport_type transport_type)
+cmsg_pub *
+cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
+                                int scope, ProtobufCServiceDescriptor *descriptor)
 {
     cmsg_transport *transport = NULL;
     cmsg_pub *publisher = NULL;
 
-    transport = cmsg_create_transport_tipc (server_name, member_id, scope, transport_type);
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    transport = cmsg_create_transport_tipc (server_name, member_id, scope,
+                                            CMSG_TRANSPORT_RPC_TIPC);
     if (transport == NULL)
     {
         return NULL;
@@ -1102,28 +1099,6 @@ _cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
     }
 
     return publisher;
-}
-
-cmsg_pub *
-cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
-                                int scope, ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
-                                        CMSG_TRANSPORT_RPC_TIPC);
-}
-
-cmsg_pub *
-cmsg_create_publisher_tipc_oneway (const char *server_name, int member_id,
-                                   int scope, ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
-                                        CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 void
