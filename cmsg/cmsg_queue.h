@@ -74,11 +74,6 @@ cmsg_queue_state
 cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
                             const ProtobufCServiceDescriptor *descriptor);
 
-int32_t
-cmsg_queue_filter_copy (GHashTable *src_queue_filter_hash_table,
-                        GHashTable *dst_queue_filter_hash_table,
-                        const ProtobufCServiceDescriptor *descriptor);
-
 int32_t cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
                                          cmsg_server *server, uint32_t num_to_process);
 int32_t cmsg_receive_queue_process_all (GQueue *queue, pthread_mutex_t *queue_mutex,

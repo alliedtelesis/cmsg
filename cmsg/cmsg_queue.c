@@ -409,36 +409,3 @@ cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
     }
     return type;
 }
-
-
-int32_t
-cmsg_queue_filter_copy (GHashTable *src_queue_filter_hash_table,
-                        GHashTable *dst_queue_filter_hash_table,
-                        const ProtobufCServiceDescriptor *descriptor)
-{
-    uint32_t i = 0;
-    for (i = 0; i < descriptor->n_methods; i++)
-    {
-        cmsg_queue_filter_entry *src_entry;
-        cmsg_queue_filter_entry *dst_entry;
-
-        src_entry =
-            (cmsg_queue_filter_entry *) g_hash_table_lookup (src_queue_filter_hash_table,
-                                                             (gconstpointer)
-                                                             descriptor->methods[i].name);
-
-        dst_entry =
-            (cmsg_queue_filter_entry *) g_hash_table_lookup (dst_queue_filter_hash_table,
-                                                             (gconstpointer)
-                                                             descriptor->methods[i].name);
-
-        if (!src_entry || !dst_entry)
-        {
-            return CMSG_RET_ERR;
-        }
-
-        dst_entry = src_entry;
-    }
-
-    return CMSG_RET_OK;
-}
