@@ -143,8 +143,6 @@ uint32_t cmsg_server_queue_get_length (cmsg_server *server);
 
 uint32_t cmsg_server_queue_max_length_get (cmsg_server *server);
 
-int32_t cmsg_server_queue_request_process_one (cmsg_server *server);
-
 int32_t cmsg_server_queue_request_process_some (cmsg_server *server,
                                                 uint32_t num_to_process);
 

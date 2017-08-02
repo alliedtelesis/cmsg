@@ -1349,26 +1349,6 @@ cmsg_server_queue_max_length_get (cmsg_server *server)
 }
 
 
-int32_t
-cmsg_server_queue_request_process_one (cmsg_server *server)
-{
-    //thread save, will be executed on the next server receive in the server thread
-    cmsg_bool_t queue_in_process = TRUE;
-    pthread_mutex_lock (&server->queueing_state_mutex);
-    server->queue_process_number = 1;
-    pthread_mutex_unlock (&server->queueing_state_mutex);
-
-    while (queue_in_process == TRUE)
-    {
-        pthread_mutex_lock (&server->queueing_state_mutex);
-        queue_in_process = server->queue_in_process;
-        pthread_mutex_unlock (&server->queueing_state_mutex);
-    }
-
-    return CMSG_RET_OK;
-}
-
-
 /**
  * Processes the up to the given number of items to process out of the queue
  */
