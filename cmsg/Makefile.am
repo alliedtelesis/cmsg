@@ -80,7 +80,8 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/client_server_rpc_tests.c \
 	test/functional/client_server_oneway_tests.c \
 	test/functional/publisher_subscriber_tests.c \
-	test/functional/client_queuing_tests.c
+	test/functional/client_queuing_tests.c \
+	test/functional/publisher_queuing_tests.c
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_functional_tests_LDFLAGS = -static
 cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus -lcmsg -lprotobuf-c
