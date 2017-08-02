@@ -362,13 +362,305 @@ queuing_tests_deinit (void)
     cleanup_subscriber (pub_transport_3, subscriber_3);
 }
 
+static void
+run_no_queuing_test (void)
+{
+    int ret;
+    cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
+
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    sleep (1);
+    NP_ASSERT_EQUAL (publisher->subscriber_count, 9);
+
+    ret = cmsg_test_api_simple_pub_queue_test_1 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_test_api_simple_pub_queue_test_2 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_test_api_simple_pub_queue_test_3 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    sleep (1);
+
+    NP_ASSERT_EQUAL (counters[0].recv_test_1, 1);
+    NP_ASSERT_EQUAL (counters[0].recv_test_2, 1);
+    NP_ASSERT_EQUAL (counters[0].recv_test_3, 1);
+    NP_ASSERT_EQUAL (counters[1].recv_test_1, 1);
+    NP_ASSERT_EQUAL (counters[1].recv_test_2, 1);
+    NP_ASSERT_EQUAL (counters[1].recv_test_3, 1);
+    NP_ASSERT_EQUAL (counters[2].recv_test_1, 1);
+    NP_ASSERT_EQUAL (counters[2].recv_test_2, 1);
+    NP_ASSERT_EQUAL (counters[2].recv_test_3, 1);
+}
+
 /**
- * Run the publisher queuing test.
+ * Test that a publisher with no queuing functions as expected.
  */
 void
-test_publisher_subscriber_queuing (void)
+test_publisher_subscriber_queuing__no_queuing (void)
 {
     queuing_tests_init ();
+    run_no_queuing_test ();
+    queuing_tests_deinit ();
+}
 
+static void
+run_drop_all_test (void)
+{
+    int ret;
+    cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
+
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    sleep (1);
+    NP_ASSERT_EQUAL (publisher->subscriber_count, 9);
+
+    cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_DROP);
+
+    ret = cmsg_test_api_simple_pub_queue_test_1 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_test_api_simple_pub_queue_test_2 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_test_api_simple_pub_queue_test_3 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    sleep (1);
+
+    NP_ASSERT_EQUAL (counters[0].recv_test_1, 0);
+    NP_ASSERT_EQUAL (counters[0].recv_test_2, 0);
+    NP_ASSERT_EQUAL (counters[0].recv_test_3, 0);
+    NP_ASSERT_EQUAL (counters[1].recv_test_1, 0);
+    NP_ASSERT_EQUAL (counters[1].recv_test_2, 0);
+    NP_ASSERT_EQUAL (counters[1].recv_test_3, 0);
+    NP_ASSERT_EQUAL (counters[2].recv_test_1, 0);
+    NP_ASSERT_EQUAL (counters[2].recv_test_2, 0);
+    NP_ASSERT_EQUAL (counters[2].recv_test_3, 0);
+}
+
+
+/**
+ * Test that a publisher with a filter to drop all messages functions as expected.
+ */
+void
+test_publisher_subscriber_queuing__drop_all (void)
+{
+    queuing_tests_init ();
+    run_drop_all_test ();
+    queuing_tests_deinit ();
+}
+
+static void
+run_queue_all_test (void)
+{
+    int ret;
+    cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
+
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    sleep (1);
+    NP_ASSERT_EQUAL (publisher->subscriber_count, 9);
+
+    cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_QUEUE);
+
+    ret = cmsg_test_api_simple_pub_queue_test_1 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_test_api_simple_pub_queue_test_2 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_test_api_simple_pub_queue_test_3 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    sleep (1);
+
+    NP_ASSERT_EQUAL (counters[0].recv_test_1, 0);
+    NP_ASSERT_EQUAL (counters[0].recv_test_2, 0);
+    NP_ASSERT_EQUAL (counters[0].recv_test_3, 0);
+    NP_ASSERT_EQUAL (counters[1].recv_test_1, 0);
+    NP_ASSERT_EQUAL (counters[1].recv_test_2, 0);
+    NP_ASSERT_EQUAL (counters[1].recv_test_3, 0);
+    NP_ASSERT_EQUAL (counters[2].recv_test_1, 0);
+    NP_ASSERT_EQUAL (counters[2].recv_test_2, 0);
+    NP_ASSERT_EQUAL (counters[2].recv_test_3, 0);
+
+    NP_ASSERT_EQUAL (g_queue_get_length (publisher->queue), 9);
+
+    cmsg_pub_queue_process_all (publisher);
+
+    sleep (1);
+
+    NP_ASSERT_EQUAL (counters[0].recv_test_1, 1);
+    NP_ASSERT_EQUAL (counters[0].recv_test_2, 1);
+    NP_ASSERT_EQUAL (counters[0].recv_test_3, 1);
+    NP_ASSERT_EQUAL (counters[1].recv_test_1, 1);
+    NP_ASSERT_EQUAL (counters[1].recv_test_2, 1);
+    NP_ASSERT_EQUAL (counters[1].recv_test_3, 1);
+    NP_ASSERT_EQUAL (counters[2].recv_test_1, 1);
+    NP_ASSERT_EQUAL (counters[2].recv_test_2, 1);
+    NP_ASSERT_EQUAL (counters[2].recv_test_3, 1);
+
+    NP_ASSERT_EQUAL (g_queue_get_length (publisher->queue), 0);
+}
+
+
+/**
+ * Test that a publisher with a filter to queue all messages functions as expected.
+ */
+void
+test_publisher_subscriber_queuing__queue_all (void)
+{
+    queuing_tests_init ();
+    run_queue_all_test ();
+    queuing_tests_deinit ();
+}
+
+static void
+run_queue_all_and_unsubscribe_test (void)
+{
+    int ret;
+    cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
+
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_1, pub_transport_1, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_2, pub_transport_2, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_1");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    ret = cmsg_sub_subscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_3");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    sleep (1);
+    NP_ASSERT_EQUAL (publisher->subscriber_count, 9);
+
+    cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_QUEUE);
+
+    ret = cmsg_test_api_simple_pub_queue_test_1 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_test_api_simple_pub_queue_test_2 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    ret = cmsg_test_api_simple_pub_queue_test_3 ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    sleep (1);
+
+    NP_ASSERT_EQUAL (counters[0].recv_test_1, 0);
+    NP_ASSERT_EQUAL (counters[0].recv_test_2, 0);
+    NP_ASSERT_EQUAL (counters[0].recv_test_3, 0);
+    NP_ASSERT_EQUAL (counters[1].recv_test_1, 0);
+    NP_ASSERT_EQUAL (counters[1].recv_test_2, 0);
+    NP_ASSERT_EQUAL (counters[1].recv_test_3, 0);
+    NP_ASSERT_EQUAL (counters[2].recv_test_1, 0);
+    NP_ASSERT_EQUAL (counters[2].recv_test_2, 0);
+    NP_ASSERT_EQUAL (counters[2].recv_test_3, 0);
+
+    NP_ASSERT_EQUAL (g_queue_get_length (publisher->queue), 9);
+
+    ret = cmsg_sub_unsubscribe (subscriber_3, pub_transport_3, "simple_pub_queue_test_2");
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    sleep (1);
+
+    NP_ASSERT_EQUAL (g_queue_get_length (publisher->queue), 8);
+    cmsg_pub_queue_process_all (publisher);
+
+    sleep (1);
+
+    NP_ASSERT_EQUAL (counters[0].recv_test_1, 1);
+    NP_ASSERT_EQUAL (counters[0].recv_test_2, 1);
+    NP_ASSERT_EQUAL (counters[0].recv_test_3, 1);
+    NP_ASSERT_EQUAL (counters[1].recv_test_1, 1);
+    NP_ASSERT_EQUAL (counters[1].recv_test_2, 1);
+    NP_ASSERT_EQUAL (counters[1].recv_test_3, 1);
+    NP_ASSERT_EQUAL (counters[2].recv_test_1, 1);
+    NP_ASSERT_EQUAL (counters[2].recv_test_2, 0);
+    NP_ASSERT_EQUAL (counters[2].recv_test_3, 1);
+
+    NP_ASSERT_EQUAL (g_queue_get_length (publisher->queue), 0);
+}
+
+/**
+ * Test that a publisher with a filter to queue all messages functions as expected
+ * when a subscriber unsubscribes from a message while it is queued.
+ */
+void
+test_publisher_subscriber_queuing__queue_all_and_unsubscribe (void)
+{
+    queuing_tests_init ();
+    run_queue_all_and_unsubscribe_test ();
     queuing_tests_deinit ();
 }
