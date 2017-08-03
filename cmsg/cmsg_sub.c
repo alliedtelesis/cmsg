@@ -272,7 +272,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     else
     {
         CMSG_LOG_GEN_ERROR
-            ("[%s.%s] Transport type incorrect for cmsg_sub_subscribe: type(%d).",
+            ("[%s.%s] Transport type incorrect for cmsg_sub_unsubscribe: type(%d).",
              subscriber->pub_server->service->descriptor->name,
              subscriber->pub_server->_transport->tport_id,
              subscriber->pub_server->_transport->type);
