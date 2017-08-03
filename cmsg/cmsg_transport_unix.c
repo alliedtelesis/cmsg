@@ -196,8 +196,6 @@ cmsg_transport_unix_client_recv (cmsg_transport *transport,
 
     nbytes = recv (transport->connection.sockets.client_socket,
                    &header_received, sizeof (cmsg_header), MSG_WAITALL);
-    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "receive",
-                                 cmsg_prof_time_toc (&transport->prof));
 
     if (nbytes == (int) sizeof (cmsg_header))
     {
@@ -207,8 +205,6 @@ cmsg_transport_unix_client_recv (cmsg_transport *transport,
             CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "Unable to process message header for client receive. Bytes:%d",
                                       nbytes);
-            CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                         cmsg_prof_time_toc (&transport->prof));
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
@@ -229,8 +225,6 @@ cmsg_transport_unix_client_recv (cmsg_transport *transport,
             CMSG_DEBUG (CMSG_INFO,
                         "[TRANSPORT] received response without data. server status %d\n",
                         header_converted.status_code);
-            CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                         cmsg_prof_time_toc (&transport->prof));
             return header_converted.status_code;
         }
 
@@ -299,13 +293,9 @@ cmsg_transport_unix_client_recv (cmsg_transport *transport,
                     CMSG_LOG_TRANSPORT_ERROR (transport,
                                               "Error unpacking response message. Msg length:%d",
                                               header_converted.message_length);
-                    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                                 cmsg_prof_time_toc (&transport->prof));
                     return CMSG_STATUS_CODE_SERVICE_FAILED;
                 }
                 *messagePtPt = message;
-                CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                             cmsg_prof_time_toc (&transport->prof));
             }
 
             // Make sure we return the status from the server
@@ -362,8 +352,6 @@ cmsg_transport_unix_client_recv (cmsg_transport *transport,
         }
     }
 
-    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                 cmsg_prof_time_toc (&transport->prof));
     return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 
@@ -456,14 +444,6 @@ cmsg_transport_unix_is_congested (cmsg_transport *transport)
     return FALSE;
 }
 
-int32_t
-cmsg_transport_unix_send_called_multi_threads_enable (cmsg_transport *transport,
-                                                      uint32_t enable)
-{
-    // Don't support sending from multiple threads
-    return -1;
-}
-
 
 int32_t
 cmsg_transport_unix_send_can_block_enable (cmsg_transport *transport,
@@ -492,9 +472,6 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
     transport->s_socket = cmsg_transport_unix_server_get_socket;
     transport->c_socket = cmsg_transport_unix_client_get_socket;
     transport->is_congested = cmsg_transport_unix_is_congested;
-    transport->send_called_multi_threads_enable =
-        cmsg_transport_unix_send_called_multi_threads_enable;
-    transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_unix_send_can_block_enable;
     transport->ipfree_bind_enable = NULL;
 }

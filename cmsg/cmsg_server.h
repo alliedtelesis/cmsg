@@ -86,9 +86,6 @@ typedef struct _cmsg_server_s
     void *cntr_memory_errors;
     void *cntr_protocol_errors;
     void *cntr_queue_errors;
-#ifdef HAVE_CMSG_PROFILING
-    cmsg_prof prof;
-#endif
 } cmsg_server;
 
 
@@ -134,8 +131,6 @@ int32_t cmsg_server_queue_process (cmsg_server *server);
 
 int32_t cmsg_server_queue_process_some (cmsg_server *server, int32_t number_to_process);
 
-int32_t cmsg_server_queue_process_list (GList *server_list);
-
 void cmsg_server_drop_all (cmsg_server *server);
 
 void cmsg_server_queue_enable (cmsg_server *server);
@@ -145,8 +140,6 @@ int32_t cmsg_server_queue_disable (cmsg_server *server);
 uint32_t cmsg_server_queue_get_length (cmsg_server *server);
 
 uint32_t cmsg_server_queue_max_length_get (cmsg_server *server);
-
-int32_t cmsg_server_queue_request_process_one (cmsg_server *server);
 
 int32_t cmsg_server_queue_request_process_some (cmsg_server *server,
                                                 uint32_t num_to_process);
@@ -163,13 +156,6 @@ int32_t cmsg_server_queue_filter_set (cmsg_server *server,
                                       cmsg_queue_filter_type filter_type);
 
 int32_t cmsg_server_queue_filter_clear (cmsg_server *server, const char *method);
-
-void cmsg_server_queue_filter_init (cmsg_server *server);
-
-cmsg_queue_filter_type cmsg_server_queue_filter_lookup (cmsg_server *server,
-                                                        const char *method);
-
-void cmsg_server_queue_filter_show (cmsg_server *server);
 
 cmsg_server *cmsg_create_server_tipc_rpc (const char *server_name, int member_id,
                                           int scope, ProtobufCService *descriptor);
@@ -206,4 +192,4 @@ void cmsg_server_close_wrapper (cmsg_server *server);
 void cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
                                 uint32_t method_index);
 
-#endif
+#endif /* __CMSG_SERVER_H_ */

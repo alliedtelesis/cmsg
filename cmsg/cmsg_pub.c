@@ -17,12 +17,7 @@ static void _cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link);
 
 static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
 
-static void _cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
-
-static cmsg_pub *_cmsg_create_publisher_tipc (const char *server_name, int member_id,
-                                              int scope,
-                                              ProtobufCServiceDescriptor *descriptor,
-                                              cmsg_transport_type transport_type);
+static int32_t cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data);
 
 extern cmsg_server *cmsg_server_create (cmsg_transport *transport,
                                         ProtobufCService *service);
@@ -30,7 +25,8 @@ extern int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
 
 
 /*
- * Return 0 if two entries are same otherwise return -1.
+ * Return 0 if two entries are same and neither are marked for deletion.
+ * Otherwise return -1.
  */
 gint
 cmsg_sub_entry_compare (gconstpointer a, gconstpointer b)
@@ -38,28 +34,8 @@ cmsg_sub_entry_compare (gconstpointer a, gconstpointer b)
     const cmsg_sub_entry *one = (const cmsg_sub_entry *) a;
     const cmsg_sub_entry *two = (const cmsg_sub_entry *) b;
 
-    if ((one->transport->config.socket.family == two->transport->config.socket.family) &&
-        (one->transport->type == two->transport->type) &&
-        (one->transport->config.socket.sockaddr.in.sin_addr.s_addr ==
-         two->transport->config.socket.sockaddr.in.sin_addr.s_addr) &&
-        (one->transport->config.socket.sockaddr.in.sin_port ==
-         two->transport->config.socket.sockaddr.in.sin_port) &&
-        (one->transport->config.socket.family == two->transport->config.socket.family) &&
-        (one->transport->type == two->transport->type) &&
-        (one->transport->config.socket.sockaddr.tipc.family ==
-         two->transport->config.socket.sockaddr.tipc.family) &&
-        (one->transport->config.socket.sockaddr.tipc.addrtype ==
-         two->transport->config.socket.sockaddr.tipc.addrtype) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.domain ==
-         two->transport->config.socket.sockaddr.tipc.addr.name.domain) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.name.instance ==
-         two->transport->config.socket.sockaddr.tipc.addr.name.name.instance) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.name.type ==
-         two->transport->config.socket.sockaddr.tipc.addr.name.name.type) &&
-        (one->transport->config.socket.sockaddr.tipc.scope ==
-         two->transport->config.socket.sockaddr.tipc.scope) &&
+    if (cmsg_transport_compare (one->transport, two->transport) &&
         (strcmp (one->method_name, two->method_name) == 0) &&
-        // If either entry has been marked for deletion, don't match it
         (!one->to_be_removed && !two->to_be_removed))
     {
         return 0;
@@ -68,63 +44,60 @@ cmsg_sub_entry_compare (gconstpointer a, gconstpointer b)
     return -1;
 }
 
-int32_t
-cmsg_sub_entry_compare_transport (cmsg_sub_entry *one, cmsg_transport *transport)
-{
-    if ((one->transport->config.socket.family == transport->config.socket.family) &&
-        (one->transport->type == transport->type) &&
-        (one->transport->config.socket.sockaddr.in.sin_addr.s_addr ==
-         transport->config.socket.sockaddr.in.sin_addr.s_addr) &&
-        (one->transport->config.socket.sockaddr.in.sin_port ==
-         transport->config.socket.sockaddr.in.sin_port) &&
-        (one->transport->config.socket.family == transport->config.socket.family) &&
-        (one->transport->type == transport->type) &&
-        (one->transport->config.socket.sockaddr.tipc.family ==
-         transport->config.socket.sockaddr.tipc.family) &&
-        (one->transport->config.socket.sockaddr.tipc.addrtype ==
-         transport->config.socket.sockaddr.tipc.addrtype) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.domain ==
-         transport->config.socket.sockaddr.tipc.addr.name.domain) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.name.instance ==
-         transport->config.socket.sockaddr.tipc.addr.name.name.instance) &&
-        (one->transport->config.socket.sockaddr.tipc.addr.name.name.type ==
-         transport->config.socket.sockaddr.tipc.addr.name.name.type) &&
-        (one->transport->config.socket.sockaddr.tipc.scope ==
-         transport->config.socket.sockaddr.tipc.scope))
-    {
-        return TRUE;
-    }
-
-    return FALSE;
-}
-
-int32_t
+bool
 cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
 {
-    if ((one->config.socket.family == two->config.socket.family) &&
-        (one->type == two->type) &&
-        (one->config.socket.sockaddr.in.sin_addr.s_addr ==
-         two->config.socket.sockaddr.in.sin_addr.s_addr) &&
-        (one->config.socket.sockaddr.in.sin_port ==
-         two->config.socket.sockaddr.in.sin_port) &&
-        (one->config.socket.family == two->config.socket.family) &&
-        (one->type == two->type) &&
-        (one->config.socket.sockaddr.tipc.family ==
-         two->config.socket.sockaddr.tipc.family) &&
-        (one->config.socket.sockaddr.tipc.addrtype ==
-         two->config.socket.sockaddr.tipc.addrtype) &&
-        (one->config.socket.sockaddr.tipc.addr.name.domain ==
-         two->config.socket.sockaddr.tipc.addr.name.domain) &&
-        (one->config.socket.sockaddr.tipc.addr.name.name.instance ==
-         two->config.socket.sockaddr.tipc.addr.name.name.instance) &&
-        (one->config.socket.sockaddr.tipc.addr.name.name.type ==
-         two->config.socket.sockaddr.tipc.addr.name.name.type) &&
-        (one->config.socket.sockaddr.tipc.scope == two->config.socket.sockaddr.tipc.scope))
+    if (one->type == two->type)
     {
-        return 1;
+        switch (one->type)
+        {
+        case CMSG_TRANSPORT_RPC_TCP:
+        case CMSG_TRANSPORT_ONEWAY_TCP:
+            if ((one->config.socket.family == two->config.socket.family) &&
+                (one->config.socket.sockaddr.in.sin_addr.s_addr ==
+                 two->config.socket.sockaddr.in.sin_addr.s_addr) &&
+                (one->config.socket.sockaddr.in.sin_port ==
+                 two->config.socket.sockaddr.in.sin_port))
+            {
+                return true;
+            }
+            break;
+        case CMSG_TRANSPORT_RPC_TIPC:
+        case CMSG_TRANSPORT_ONEWAY_TIPC:
+            if ((one->config.socket.family == two->config.socket.family) &&
+                (one->config.socket.sockaddr.tipc.family ==
+                 two->config.socket.sockaddr.tipc.family) &&
+                (one->config.socket.sockaddr.tipc.addrtype ==
+                 two->config.socket.sockaddr.tipc.addrtype) &&
+                (one->config.socket.sockaddr.tipc.addr.name.domain ==
+                 two->config.socket.sockaddr.tipc.addr.name.domain) &&
+                (one->config.socket.sockaddr.tipc.addr.name.name.instance ==
+                 two->config.socket.sockaddr.tipc.addr.name.name.instance) &&
+                (one->config.socket.sockaddr.tipc.addr.name.name.type ==
+                 two->config.socket.sockaddr.tipc.addr.name.name.type) &&
+                (one->config.socket.sockaddr.tipc.scope ==
+                 two->config.socket.sockaddr.tipc.scope))
+            {
+                return true;
+            }
+            break;
+        case CMSG_TRANSPORT_RPC_UNIX:
+        case CMSG_TRANSPORT_ONEWAY_UNIX:
+            if ((one->config.socket.family == two->config.socket.family) &&
+                (one->config.socket.sockaddr.un.sun_family ==
+                 two->config.socket.sockaddr.un.sun_family) &&
+                (strcmp (one->config.socket.sockaddr.un.sun_path,
+                         two->config.socket.sockaddr.un.sun_path) == 0))
+            {
+                return true;
+            }
+            break;
+        default:
+            return false;
+        }
     }
 
-    return 0;
+    return false;
 }
 
 cmsg_pub *
@@ -183,7 +156,6 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     publisher->invoke = &cmsg_pub_invoke;
     publisher->subscriber_list = NULL;
     publisher->subscriber_count = 0;
-    publisher->queue_enabled = FALSE;
 
     if (pthread_mutex_init (&publisher->queue_mutex, NULL) != 0)
     {
@@ -310,40 +282,7 @@ cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
     return CMSG_RET_OK;
 }
 
-void
-cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher, cmsg_transport *transport)
-{
-    CMSG_ASSERT_RETURN_VOID (publisher != NULL);
-    CMSG_ASSERT_RETURN_VOID (transport != NULL);
-
-    /*
-     * walk the list and get a client connection for every subscription that
-     * matches the transport
-     */
-    pthread_mutex_lock (&publisher->subscriber_list_mutex);
-
-    GList *subscriber_list = g_list_first (publisher->subscriber_list);
-    while (subscriber_list)
-    {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
-        if (cmsg_sub_entry_compare_transport (list_entry, transport))
-        {
-            if (list_entry->client)
-            {
-                if (cmsg_client_connect (list_entry->client) != 0)
-                {
-                    CMSG_DEBUG (CMSG_INFO,
-                                "[PUB] [LIST] Couldn't connect to subscriber!\n");
-                }
-            }
-        }
-        subscriber_list = g_list_next (subscriber_list);
-    }
-
-    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
-}
-
-int32_t
+static int32_t
 cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry)
 {
     GList *list = NULL;
@@ -498,7 +437,7 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
         cmsg_sub_entry *list_entry = (cmsg_sub_entry *) list->data;
         list_next = g_list_next (list);
 
-        if (cmsg_sub_entry_compare_transport (list_entry, transport))
+        if (cmsg_transport_compare (list_entry->transport, transport))
         {
             CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for %s for deletion\n",
                         list_entry->method_name);
@@ -598,7 +537,7 @@ cmsg_pub_server_accept_callback (cmsg_pub *publisher, int32_t sd)
     }
 }
 
-int32_t
+static int32_t
 cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
@@ -866,7 +805,7 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
 
         subscriber_entry->transport->type = (cmsg_transport_type) input->transport_type;
         un = &subscriber_entry->transport->config.socket.sockaddr.un;
-        strncpy (un->sun_path, (char *) input->un_sun_path, sizeof (un->sun_path) - 1);
+        strncpy (un->sun_path, input->un_sun_path, sizeof (un->sun_path) - 1);
     }
 
     //we can just create the client here
@@ -882,7 +821,7 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     else
     {
         //delete queued entries for the method being un-subscribed
-        if (publisher->queue_enabled)
+        if (g_queue_get_length (publisher->queue))
         {
             pthread_mutex_lock (&publisher->queue_mutex);
             cmsg_send_queue_free_by_transport_method (publisher->queue,
@@ -904,7 +843,6 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
 void
 cmsg_pub_queue_enable (cmsg_pub *publisher)
 {
-    publisher->queue_enabled = TRUE;
     cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_QUEUE);
 }
 
@@ -925,7 +863,6 @@ cmsg_pub_queue_free_all (cmsg_pub *publisher)
 int32_t
 cmsg_pub_queue_disable (cmsg_pub *publisher)
 {
-    publisher->queue_enabled = FALSE;
     cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_PROCESS);
 
     return cmsg_pub_queue_process_all (publisher);
@@ -1088,61 +1025,18 @@ cmsg_pub_queue_filter_lookup (cmsg_pub *publisher, const char *method)
     return cmsg_queue_filter_lookup (publisher->queue_filter_hash_table, method);
 }
 
-void
-cmsg_pub_queue_filter_show (cmsg_pub *publisher)
-{
-    cmsg_queue_filter_show (publisher->queue_filter_hash_table, publisher->descriptor);
-}
-
-/**
- * Print the subscriber list of the publisher passed in.
- * This function is NOT thread-safe!!
- * If you want to print the subscriber list and you don't hold the lock on it,
- * use cmsg_pub_print_subscriber_list instead.
- */
-static void
-_cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
-{
-    syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] listing all list entries\n");
-    GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
-    while (print_subscriber_list != NULL)
-    {
-        cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
-        syslog (LOG_CRIT | LOG_LOCAL6,
-                "[PUB] [LIST] print_list_entry->method_name: %s, marked for deletion: %s\n",
-                print_list_entry->method_name,
-                print_list_entry->to_be_removed ? "TRUE" : "FALSE");
-
-        print_subscriber_list = g_list_next (print_subscriber_list);
-    }
-}
-
-/**
- * Print the subscriber list of the publisher passed in.
- * This function is thread-safe.
- * If you want to print the subscriber list and you hold the lock on it,
- * use _cmsg_pub_print_subscriber_list instead.
- */
-void
-cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
-{
-    pthread_mutex_lock (&publisher->subscriber_list_mutex);
-
-    _cmsg_pub_print_subscriber_list (publisher);
-
-    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
-}
-
-
-static cmsg_pub *
-_cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
-                             ProtobufCServiceDescriptor *descriptor,
-                             cmsg_transport_type transport_type)
+cmsg_pub *
+cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
+                                int scope, ProtobufCServiceDescriptor *descriptor)
 {
     cmsg_transport *transport = NULL;
     cmsg_pub *publisher = NULL;
 
-    transport = cmsg_create_transport_tipc (server_name, member_id, scope, transport_type);
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    transport = cmsg_create_transport_tipc (server_name, member_id, scope,
+                                            CMSG_TRANSPORT_RPC_TIPC);
     if (transport == NULL)
     {
         return NULL;
@@ -1158,28 +1052,6 @@ _cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
     }
 
     return publisher;
-}
-
-cmsg_pub *
-cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
-                                int scope, ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
-                                        CMSG_TRANSPORT_RPC_TIPC);
-}
-
-cmsg_pub *
-cmsg_create_publisher_tipc_oneway (const char *server_name, int member_id,
-                                   int scope, ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
-                                        CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 void

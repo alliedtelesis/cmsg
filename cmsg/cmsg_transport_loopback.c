@@ -91,18 +91,6 @@ cmsg_transport_loopback_is_congested (cmsg_transport *transport)
 }
 
 /**
- * This isn't supported on loopback at present, shouldn't be called so it
- * needs to be an error.
- */
-int32_t
-cmsg_transport_loopback_send_called_multi_threads_enable (cmsg_transport *transport,
-                                                          uint32_t enable)
-{
-    // Don't support sending from multiple threads
-    return -1;
-}
-
-/**
  * Sets the flag but it does nothing for this transport.
  */
 int32_t
@@ -352,9 +340,6 @@ cmsg_transport_loopback_init (cmsg_transport *transport)
     transport->server_destroy = cmsg_transport_loopback_server_destroy;
 
     transport->is_congested = cmsg_transport_loopback_is_congested;
-    transport->send_called_multi_threads_enable =
-        cmsg_transport_loopback_send_called_multi_threads_enable;
-    transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_loopback_send_can_block_enable;
     transport->ipfree_bind_enable = cmsg_transport_loopback_ipfree_bind_enable;
 

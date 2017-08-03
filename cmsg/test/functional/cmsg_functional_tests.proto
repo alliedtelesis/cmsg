@@ -36,4 +36,7 @@ service test
     rpc simple_client_queue_test_1 (uint32_msg) returns (dummy);
     rpc simple_client_queue_test_2 (uint32_msg) returns (dummy);
     rpc simple_client_queue_test_3 (uint32_msg) returns (dummy);
+    rpc simple_pub_queue_test_1 (uint32_msg) returns (dummy);
+    rpc simple_pub_queue_test_2 (uint32_msg) returns (dummy);
+    rpc simple_pub_queue_test_3 (uint32_msg) returns (dummy);
 }

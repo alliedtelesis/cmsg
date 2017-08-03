@@ -1,0 +1,11 @@
+import "common.proto";
+
+service functional_tests
+{
+    rpc passthrough (passthrough_request) returns (passthrough_response) {
+        option http = {
+            // Requried to generate RPC handler
+            get: "/placeholder"
+        };
+    }
+}
