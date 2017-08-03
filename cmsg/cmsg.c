@@ -274,6 +274,8 @@ cmsg_service_port_get (const char *name, const char *proto)
     ret = getservbyname_r (name, proto, &result_buf, buf, buf_size, &result);
     if (result == NULL || ret != 0)
     {
+        char *errstr = strerror (errno);
+        CMSG_LOG_GEN_ERROR ("getservbyname_r(%s/%s) failure: %s", name, proto, errstr);
         return 0;
     }
 
