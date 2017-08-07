@@ -204,8 +204,8 @@ csmg_transport_peek_for_header (cmsg_transport *transport, int32_t socket, int32
     /* Peek until data arrives, this allows us to timeout and recover if no data arrives. */
     while ((count < maxLoop) && (nbytes != (int) sizeof (cmsg_header)))
     {
-        nbytes =
-            recv (socket, &header_received, sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
+        nbytes = cmsg_transport_tipc_recv ((void *) &socket, &header_received,
+                                           sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
         if (nbytes == (int) sizeof (cmsg_header))
         {
             break;
