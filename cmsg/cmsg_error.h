@@ -1,8 +1,8 @@
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
-#ifndef __PROTOBUF_C_CMSG_ERROR__
-#define __PROTOBUF_C_CMSG_ERROR__
+#ifndef __CMSG_ERROR_H_
+#define __CMSG_ERROR_H_
 
 #include <syslog.h>
 #include "cmsg.h"
@@ -73,4 +73,4 @@
            return; \
        } \
     } while (0)
-#endif /* __PROTOBUF_C_CMSG_ERROR__ */
+#endif /* __CMSG_ERROR_H_ */

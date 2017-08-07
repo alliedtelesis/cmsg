@@ -137,7 +137,6 @@ typedef union _cmsg_transport_config_u
 
 typedef enum _cmsg_transport_type_e
 {
-    CMSG_TRANSPORT_RPC_LOCAL,
     CMSG_TRANSPORT_RPC_TCP,
     CMSG_TRANSPORT_RPC_TIPC,
     CMSG_TRANSPORT_ONEWAY_TCP,
@@ -170,9 +169,6 @@ typedef void (*client_destroy_f) (cmsg_transport *transport);
 typedef void (*server_destroy_f) (cmsg_transport *transport);
 typedef uint32_t (*is_congested_f) (cmsg_transport *transport);
 
-typedef int32_t (*send_called_multi_threads_enable_f) (cmsg_transport *transport,
-                                                       uint32_t enable);
-
 typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
 
 typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
@@ -187,11 +183,6 @@ struct _cmsg_transport_s
     cmsg_transport_type type;
     cmsg_transport_config config;
     char tport_id[CMSG_MAX_TPORT_ID_LEN + 1];
-
-    // send features
-    // lock - to allow send to be called from multiple threads
-    uint32_t send_called_multi_enabled;
-    pthread_mutex_t send_lock;
 
     // send to block if message cannot be sent
     uint32_t send_can_block;
@@ -208,33 +199,28 @@ struct _cmsg_transport_s
     pthread_mutex_t connection_mutex;
 
     //transport function pointers
-    client_connect_f connect;                                               // client connect function
-    server_listen_f listen;                                                 // server listen function
-    server_accept_f server_accept;                                          // server accept
-    server_recv_f server_recv;                                              // server receive function
-    client_recv_f client_recv;                                              // receive function
-    client_send_f client_send;                                              // client send function
-    server_send_f server_send;                                              // server send function
-    ProtobufCClosure closure;                                               // rpc closure function
-    client_close_f client_close;                                            // client close socket function
-    server_close_f server_close;                                            // server close socket function
-    s_get_socket_f s_socket;                                                //
-    c_get_socket_f c_socket;                                                //
-    server_destroy_f server_destroy;                                        // Server destroy function
-    client_destroy_f client_destroy;                                        // Client destroy function
-    is_congested_f is_congested;                                            // Check whether transport is congested
-    send_called_multi_threads_enable_f send_called_multi_threads_enable;    // Sets whether the send functionality handles being called from multiple threads
+    client_connect_f connect;                   // client connect function
+    server_listen_f listen;                     // server listen function
+    server_accept_f server_accept;              // server accept
+    server_recv_f server_recv;                  // server receive function
+    client_recv_f client_recv;                  // receive function
+    client_send_f client_send;                  // client send function
+    server_send_f server_send;                  // server send function
+    ProtobufCClosure closure;                   // rpc closure function
+    client_close_f client_close;                // client close socket function
+    server_close_f server_close;                // server close socket function
+    s_get_socket_f s_socket;                    //
+    c_get_socket_f c_socket;                    //
+    server_destroy_f server_destroy;            // Server destroy function
+    client_destroy_f client_destroy;            // Client destroy function
+    is_congested_f is_congested;                // Check whether transport is congested
     send_can_block_enable_f send_can_block_enable;
-    ipfree_bind_enable_f ipfree_bind_enable;                                // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
+    ipfree_bind_enable_f ipfree_bind_enable;    // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
     //transport statistics
     uint32_t client_send_tries;
 
     //For debug purposes, store the object id of the parent (client/server) using this transport
     char parent_obj_id[CMSG_MAX_OBJ_ID_LEN + 1];
-
-#ifdef HAVE_CMSG_PROFILING
-    cmsg_prof prof;
-#endif
 };
 
 cmsg_transport *cmsg_transport_new (cmsg_transport_type type);
@@ -258,9 +244,6 @@ int32_t cmsg_transport_server_process_message_with_peek (cmsg_recv_func recv, vo
                                                          cmsg_server *server);
 
 int32_t cmsg_transport_destroy (cmsg_transport *transport);
-
-int32_t cmsg_transport_send_called_multi_threads_enable (cmsg_transport *transport,
-                                                         uint32_t enable);
 
 int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
                                               uint32_t send_can_block);
@@ -315,4 +298,4 @@ void cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *confi
 
 char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor);
 void cmsg_transport_unix_sun_path_free (char *sun_path);
-#endif
+#endif /* __CMSG_TRANSPORT_H_ */

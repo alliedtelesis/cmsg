@@ -18,7 +18,8 @@ message sub_entry_transport_info
     optional uint32 tipc_addr_name_name_instance = 9;   //MEMBER ID
     optional uint32 tipc_addr_name_domain = 10;         //0
     optional uint32 tipc_scope = 11;                    //TIPC_ZONE_SCOPE
-    repeated uint8 un_sun_path = 12;
+
+    optional string un_sun_path = 12;
 }
 
 message sub_entry_response

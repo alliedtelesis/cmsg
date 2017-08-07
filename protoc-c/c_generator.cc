@@ -218,7 +218,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
   // Generate impl stubs file.
   {
     scoped_ptr<io::ZeroCopyOutputStream> output(
-          output_directory->Open(impl_basename + "-tmp_stubs.c"));
+          output_directory->Open(impl_basename + "_stubs.c"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlImplStubs(&printer);
   }

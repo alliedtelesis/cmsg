@@ -35,7 +35,7 @@ libcmsg_la_SOURCES = \
 	cmsg_transport_unix.c \
 	cmsg_transport_tipc_broadcast.c
 
-libcmsg_la_LIBADD = $(GLIB_LIBS) -lutility -lprotobuf-c
+libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) -lutility -lprotobuf-c
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
@@ -55,10 +55,11 @@ CLEANFILES = $(BUILT_SOURCES)
 if BUILD_UNITTEST
 bin_PROGRAMS += cmsg_unit_tests
 cmsg_unit_tests_SOURCES = \
-	cmsg_unit_tests.c
+	test/unit/cmsg_pub_unit_tests.c \
+	test/unit/cmsg_composite_client_unit_tests.c
 cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_unit_tests_LDFLAGS = -static
-cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS)
+cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus -lcmsg -lprotobuf-c
 
 test/functional/cmsg_functional_tests_api_auto.c \
 test/functional/cmsg_functional_tests_api_auto.h \
@@ -79,7 +80,8 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/client_server_rpc_tests.c \
 	test/functional/client_server_oneway_tests.c \
 	test/functional/publisher_subscriber_tests.c \
-	test/functional/client_queuing_tests.c
+	test/functional/client_queuing_tests.c \
+	test/functional/publisher_queuing_tests.c
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
 cmsg_functional_tests_LDFLAGS = -static
 cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus -lcmsg -lprotobuf-c

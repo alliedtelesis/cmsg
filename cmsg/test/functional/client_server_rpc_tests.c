@@ -17,6 +17,9 @@
  */
 #define USED __attribute__ ((used))
 
+#define STRING_ARRAY_LENGTH         100
+#define TEST_STRING                 "The quick brown fox jumps over the lazy dog"
+
 static const uint16_t tcp_port = 18888;
 
 static const uint16_t tipc_port = 18888;
@@ -84,6 +87,34 @@ cmsg_test_impl_simple_rpc_test (const void *service, const cmsg_bool_msg *recv_m
     CMSG_SET_FIELD_VALUE (&send_msg, value, true);
 
     cmsg_test_server_simple_rpc_testSend (service, &send_msg);
+}
+
+/**
+ * CMSG IMPL function for the BIG test.
+ *
+ * Assert that the received strings and value are correct and send
+ * back a similar message to the client.
+ */
+void
+cmsg_test_impl_big_rpc_test (const void *service,
+                             const cmsg_bool_plus_repeated_strings *recv_msg)
+{
+    cmsg_bool_plus_repeated_strings send_msg = CMSG_BOOL_PLUS_REPEATED_STRINGS_INIT;
+    char *pointers[STRING_ARRAY_LENGTH];
+    int i;
+
+    NP_ASSERT_TRUE (recv_msg->value);
+    NP_ASSERT_EQUAL (recv_msg->n_strings, STRING_ARRAY_LENGTH);
+    for (i = 0; i < STRING_ARRAY_LENGTH; i++)
+    {
+        NP_ASSERT_STR_EQUAL (recv_msg->strings[i], TEST_STRING);
+        pointers[i] = TEST_STRING;
+    }
+
+    CMSG_SET_FIELD_VALUE (&send_msg, value, true);
+    CMSG_SET_FIELD_REPEATED (&send_msg, strings, pointers, STRING_ARRAY_LENGTH);
+
+    cmsg_test_server_big_rpc_testSend (service, &send_msg);
 }
 
 /**
@@ -277,6 +308,64 @@ run_client_server_tests (cmsg_transport_type type)
 }
 
 /**
+ * Run the BIG test with a given CMSG client. Assumes the related
+ * server has already been created and is ready to process any API
+ * requests.
+ *
+ * @param client - CMSG client to run the simple test with
+ */
+static void
+_run_client_server_tests_big (cmsg_client *client)
+{
+    int ret = 0;
+    cmsg_bool_plus_repeated_strings send_msg = CMSG_BOOL_PLUS_REPEATED_STRINGS_INIT;
+    cmsg_bool_plus_repeated_strings *recv_msg = NULL;
+    char *pointers[STRING_ARRAY_LENGTH];
+    int i;
+
+    CMSG_SET_FIELD_VALUE (&send_msg, value, true);
+    for (i = 0; i < STRING_ARRAY_LENGTH; i++)
+    {
+        pointers[i] = TEST_STRING;
+    }
+    CMSG_SET_FIELD_REPEATED (&send_msg, strings, pointers, STRING_ARRAY_LENGTH);
+
+    ret = cmsg_test_api_big_rpc_test (client, &send_msg, &recv_msg);
+
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    NP_ASSERT_NOT_NULL (recv_msg);
+    NP_ASSERT_TRUE (recv_msg->value);
+    NP_ASSERT_EQUAL (recv_msg->n_strings, STRING_ARRAY_LENGTH);
+    for (i = 0; i < STRING_ARRAY_LENGTH; i++)
+    {
+        NP_ASSERT_STR_EQUAL (recv_msg->strings[i], TEST_STRING);
+    }
+
+    CMSG_FREE_RECV_MSG (recv_msg);
+}
+
+static void
+run_client_server_tests_big (cmsg_transport_type type)
+{
+    cmsg_client *client = NULL;
+
+    if (type != CMSG_TRANSPORT_LOOPBACK)
+    {
+        create_server_and_wait (type);
+    }
+
+    client = create_client (type);
+
+    _run_client_server_tests_big (client);
+
+    if (type != CMSG_TRANSPORT_LOOPBACK)
+    {
+        stop_server_and_wait ();
+    }
+    cmsg_destroy_client_and_transport (client);
+}
+
+/**
  * Run the simple client <-> server test case with a TCP transport.
  */
 void
@@ -303,7 +392,6 @@ test_client_server_rpc_unix (void)
     run_client_server_tests (CMSG_TRANSPORT_RPC_UNIX);
 }
 
-
 /**
  * Run the simple client <-> server test case with a LOOPBACK transport.
  */
@@ -311,4 +399,40 @@ void
 test_client_server_rpc_loopback (void)
 {
     run_client_server_tests (CMSG_TRANSPORT_LOOPBACK);
+}
+
+/**
+ * Run the BIG client <-> server test case with a TCP transport.
+ */
+void
+test_client_server_rpc_tcp_big (void)
+{
+    run_client_server_tests_big (CMSG_TRANSPORT_RPC_TCP);
+}
+
+/**
+ * Run the BIG client <-> server test case with a TIPC transport.
+ */
+void
+test_client_server_rpc_tipc_big (void)
+{
+    run_client_server_tests_big (CMSG_TRANSPORT_RPC_TIPC);
+}
+
+/**
+ * Run the BIG client <-> server test case with a UNIX transport.
+ */
+void
+test_client_server_rpc_unix_big (void)
+{
+    run_client_server_tests_big (CMSG_TRANSPORT_RPC_UNIX);
+}
+
+/**
+ * Run the BIG client <-> server test case with a LOOPBACK transport.
+ */
+void
+test_client_server_rpc_loopback_big (void)
+{
+    run_client_server_tests_big (CMSG_TRANSPORT_LOOPBACK);
 }

@@ -23,6 +23,11 @@ static cmsg_server *_cmsg_create_server_tipc (const char *server_name, int membe
                                               int scope, ProtobufCService *descriptor,
                                               cmsg_transport_type transport_type);
 
+static void cmsg_server_queue_filter_init (cmsg_server *server);
+
+static cmsg_queue_filter_type cmsg_server_queue_filter_lookup (cmsg_server *server,
+                                                               const char *method);
+
 int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
 
 
@@ -123,10 +128,6 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
 
         server->app_owns_current_msg = FALSE;
         server->app_owns_all_msgs = FALSE;
-
-#ifdef HAVE_CMSG_PROFILING
-        memset (&server->prof, 0, sizeof (cmsg_prof));
-#endif
     }
     else
     {
@@ -774,7 +775,6 @@ cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
 static int32_t
 _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
-    CMSG_PROF_TIME_TIC (&server->prof);
     cmsg_queue_filter_type action;
     cmsg_method_processing_reason processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     ProtobufCMessage *message = NULL;
@@ -824,9 +824,6 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
 
         return CMSG_RET_ERR;
     }
-
-    CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "unpack",
-                                 cmsg_prof_time_toc (&server->prof));
 
     if (server->queue_enabled_from_parent)
     {
@@ -1204,13 +1201,11 @@ cmsg_server_queue_process (cmsg_server *server)
         {
             processed =
                 cmsg_receive_queue_process_some (server->queue, &server->queue_mutex,
-                                                 server->service->descriptor, server,
-                                                 server->queue_process_number);
+                                                 server, server->queue_process_number);
         }
         else if (server->queue_process_number == -1)
         {
             processed = cmsg_receive_queue_process_all (server->queue, &server->queue_mutex,
-                                                        server->service->descriptor,
                                                         server);
         }
 
@@ -1240,13 +1235,11 @@ cmsg_server_queue_process (cmsg_server *server)
         {
             processed =
                 cmsg_receive_queue_process_some (server->queue, &server->queue_mutex,
-                                                 server->service->descriptor, server,
-                                                 server->queue_process_number);
+                                                 server, server->queue_process_number);
         }
         else if (server->queue_process_number == -1)
         {
             processed = cmsg_receive_queue_process_all (server->queue, &server->queue_mutex,
-                                                        server->service->descriptor,
                                                         server);
         }
         if (processed > 0)
@@ -1294,25 +1287,6 @@ cmsg_server_queue_process_some (cmsg_server *server, int32_t number_to_process)
     return cmsg_server_queue_process (server);
 }
 
-/**
- * Called from server receive thread in application!
- */
-int32_t
-cmsg_server_queue_process_list (GList *server_list)
-{
-    cmsg_server *server;
-    GList *node;
-
-    for (node = g_list_first (server_list); node && node->data; node = g_list_next (node))
-    {
-        server = (cmsg_server *) node->data;
-
-        cmsg_server_queue_process (server);
-    }
-
-    return 0;
-}
-
 void
 cmsg_server_drop_all (cmsg_server *server)
 {
@@ -1358,26 +1332,6 @@ cmsg_server_queue_max_length_get (cmsg_server *server)
     }
 
     return server->maxQueueLength;
-}
-
-
-int32_t
-cmsg_server_queue_request_process_one (cmsg_server *server)
-{
-    //thread save, will be executed on the next server receive in the server thread
-    cmsg_bool_t queue_in_process = TRUE;
-    pthread_mutex_lock (&server->queueing_state_mutex);
-    server->queue_process_number = 1;
-    pthread_mutex_unlock (&server->queueing_state_mutex);
-
-    while (queue_in_process == TRUE)
-    {
-        pthread_mutex_lock (&server->queueing_state_mutex);
-        queue_in_process = server->queue_in_process;
-        pthread_mutex_unlock (&server->queueing_state_mutex);
-    }
-
-    return CMSG_RET_OK;
 }
 
 
@@ -1506,7 +1460,7 @@ cmsg_server_queue_filter_clear (cmsg_server *server, const char *method)
     return ret;
 }
 
-void
+static void
 cmsg_server_queue_filter_init (cmsg_server *server)
 {
     pthread_mutex_lock (&server->queue_filter_mutex);
@@ -1514,7 +1468,7 @@ cmsg_server_queue_filter_init (cmsg_server *server)
     pthread_mutex_unlock (&server->queue_filter_mutex);
 }
 
-cmsg_queue_filter_type
+static cmsg_queue_filter_type
 cmsg_server_queue_filter_lookup (cmsg_server *server, const char *method)
 {
     cmsg_queue_filter_type ret;
@@ -1523,14 +1477,6 @@ cmsg_server_queue_filter_lookup (cmsg_server *server, const char *method)
     pthread_mutex_unlock (&server->queue_filter_mutex);
 
     return ret;
-}
-
-void
-cmsg_server_queue_filter_show (cmsg_server *server)
-{
-    pthread_mutex_lock (&server->queue_filter_mutex);
-    cmsg_queue_filter_show (server->queue_filter_hash_table, server->service->descriptor);
-    pthread_mutex_unlock (&server->queue_filter_mutex);
 }
 
 static cmsg_server *
