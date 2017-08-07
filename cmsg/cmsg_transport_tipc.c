@@ -182,7 +182,8 @@ cmsg_transport_tipc_recv (void *handle, void *buff, int len, int flags)
  * on the receive if the data is never sent or is partially sent.
  */
 static cmsg_status_code
-csmg_transport_peek_for_header (cmsg_transport *transport, int32_t socket, int32_t maxLoop)
+csmg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *transport,
+                                int32_t socket, int32_t maxLoop)
 {
     cmsg_status_code ret = CMSG_STATUS_CODE_SUCCESS;
     int count = 0;
@@ -204,8 +205,8 @@ csmg_transport_peek_for_header (cmsg_transport *transport, int32_t socket, int32
     /* Peek until data arrives, this allows us to timeout and recover if no data arrives. */
     while ((count < maxLoop) && (nbytes != (int) sizeof (cmsg_header)))
     {
-        nbytes = cmsg_transport_tipc_recv ((void *) &socket, &header_received,
-                                           sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
+        nbytes = recv_wrapper ((void *) &socket, &header_received,
+                               sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
         if (nbytes == (int) sizeof (cmsg_header))
         {
             break;
@@ -286,8 +287,9 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
         /* Remember the client socket to use when send reply */
         server->_transport->connection.sockets.client_socket = server_socket;
 
-        peek_status = csmg_transport_peek_for_header (server->_transport,
-                                                      server_socket, MAX_SERVER_PEEK_LOOP);
+        peek_status = csmg_transport_peek_for_header (cmsg_transport_tipc_recv,
+                                                      server->_transport, server_socket,
+                                                      MAX_SERVER_PEEK_LOOP);
         if (peek_status == CMSG_STATUS_CODE_SUCCESS)
         {
             ret = cmsg_transport_server_recv (cmsg_transport_tipc_recv,
@@ -350,7 +352,7 @@ cmsg_transport_tipc_client_recv (cmsg_transport *transport,
 
     *messagePtPt = NULL;
 
-    ret = csmg_transport_peek_for_header (transport,
+    ret = csmg_transport_peek_for_header (cmsg_transport_tipc_recv, transport,
                                           transport->connection.sockets.client_socket,
                                           MAX_CLIENT_PEEK_LOOP);
     if (ret != CMSG_STATUS_CODE_SUCCESS)
