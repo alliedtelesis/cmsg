@@ -10,7 +10,7 @@
 extern void cmsg_transport_oneway_udt_init (cmsg_transport *transport);
 
 static int32_t _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle,
-                                            cmsg_server *server, int peek,
+                                            cmsg_server *server,
                                             cmsg_header *peeked_header);
 
 
@@ -398,11 +398,20 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
     return ret;
 }
 
-/* Receive message from server and process it. If 'peek' is set, then a header
- * is read first with MSG_PEEK and then read all together (header + data). */
+/**
+ * Receive the message from the server and process it. If the header has already
+ * been peeked then we simply process the header and receive the entire message data
+ * before processing. If the header has not already been peeked then we must receive
+ * and process the header first.
+ *
+ * @param recv - The transport dependent receive function.
+ * @param handle - The data to pass to the transport dependent receive function.
+ * @param server - The CMSG server to receive the message on.
+ * @param peeked_header - The previously peeked header or NULL if it has not been peeked.
+ */
 static int32_t
 _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
-                             int peek, cmsg_header *peeked_header)
+                             cmsg_header *peeked_header)
 {
     int32_t ret = CMSG_RET_OK;
     int nbytes = 0;
@@ -418,10 +427,6 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     if (peeked_header)
     {
         memcpy (&header_received, peeked_header, sizeof (cmsg_header));
-    }
-    else if (peek)
-    {
-        nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_PEEK);
     }
     else
     {
@@ -441,7 +446,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
         extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
-        if (peek || peeked_header)
+        if (peeked_header)
         {
             // packet size is determined by header_length + message_length.
             // header_length may be greater than sizeof (cmsg_header)
@@ -464,7 +469,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         }
 
         // read the message
-        if (peek || peeked_header)
+        if (peeked_header)
         {
             nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
             buffer_data = recv_buffer + sizeof (cmsg_header);
@@ -701,16 +706,7 @@ cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *serv
     {
         return _cmsg_transport_server_crypto_recv (recv, handle, server);
     }
-    return _cmsg_transport_server_recv (recv, handle, server, FALSE, header_received);
-}
-
-
-/* Receive message from server (by peeking the header first) and process it */
-int32_t
-cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
-                                      cmsg_server *server)
-{
-    return _cmsg_transport_server_recv (recv, handle, server, TRUE, NULL);
+    return _cmsg_transport_server_recv (recv, handle, server, header_received);
 }
 
 static cmsg_status_code
