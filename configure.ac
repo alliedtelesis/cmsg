@@ -21,11 +21,11 @@ AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([Makefile
   cmsg/Makefile
   cmsg-proxy/Makefile
-  cmsg-test/Makefile
   protoc-c/Makefile
   cmsg/cmsg.pc])
 
 PKG_CHECK_MODULES([GLIB],[glib-2.0])
+PKG_CHECK_MODULES([GMEM_DIAG],[gmem_diag],[],[unittest_prereq=no])
 PKG_CHECK_MODULES([NOVAPROVA],[novaprova],[],[unittest_prereq=no])
 
 AC_ARG_VAR(PROTOC_CMSG_PATH, [  Path to the protoc-cmsg compiler])
@@ -58,21 +58,6 @@ if test "x$enableval" = xyes ; then
   AC_DEFINE(HAVE_UNITTEST, 1, [enable unittest code])
 fi)
 AM_CONDITIONAL(BUILD_UNITTEST, test $BUILD_UNITTEST = 1)
-
-BUILD_CMSG_TEST=0
-AC_ARG_ENABLE(cmsg-test, [  --enable-cmsg-test      Enable build of cmsg-test],
-if test "x$enableval" = xyes ; then
-  BUILD_CMSG_TEST=1
-fi)
-AM_CONDITIONAL(BUILD_CMSG_TEST, test $BUILD_CMSG_TEST = 1)
-
-# --- Check CMSG PERF is enabled
-HAVE_CMSG_PROFILING=0
-AC_ARG_ENABLE(cmsg_prof, [  --enable-cmsg-prof      Enable build of cmsg profiling],
-if test "x$enableval" = xyes ; then
-  HAVE_CMSG_PROFILING=1
-fi)
-AM_CONDITIONAL(HAVE_CMSG_PROFILING, test $HAVE_CMSG_PROFILING = 1)
 
 # --- Check VCStack is enabled
 HAVE_VCSTACK=0
@@ -122,8 +107,6 @@ AC_MSG_RESULT([
         protoc-cmsg:            ${BUILD_PROTOC_CMSG}
         protoc-cmsg-path:       ${PROTOC_CMSG_PATH}
         cmsg:                   ${BUILD_CMSG}
-        cmsg-test:              ${BUILD_CMSG_TEST}
-        cmsg-tools:             ${HAVE_CMSG_PROFILING}
         VCStack:                ${HAVE_VCSTACK}
         counterd:               ${HAVE_COUNTERD}
 ])

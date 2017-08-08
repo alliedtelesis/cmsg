@@ -718,6 +718,12 @@ _cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
     ant_result *error_message = NULL;
     bool ret = false;
 
+    if (*msg == NULL)
+    {
+        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        return false;
+    }
+
     field_desc = protobuf_c_message_descriptor_get_field_by_name ((*msg)->descriptor,
                                                                   "_error_info");
     if (field_desc)
@@ -727,6 +733,11 @@ _cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
     else if (strcmp ((*msg)->descriptor->name, "ant_result") == 0)
     {
         error_message_ptr = msg;
+    }
+    else
+    {
+        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        return false;
     }
 
     error_message = (ant_result *) (*error_message_ptr);
@@ -1049,8 +1060,8 @@ _cmsg_proxy_index_add_element (GNode *node, gpointer data)
         json_array_append_new (method_array, json_string ("PUT"));
     }
 
-    /* Doesn't match the filter, skip */
-    if (filter && !strstr (url_string, filter))
+    /* No url string found or doesn't match the filter, skip */
+    if (!url_string || (filter && !strstr (url_string, filter)))
     {
         json_array_clear (method_array);
         json_decref (method_array);

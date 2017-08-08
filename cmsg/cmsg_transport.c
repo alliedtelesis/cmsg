@@ -259,9 +259,6 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
     cmsg_server_request server_request;
     int32_t ret;
 
-    CMSG_PROF_TIME_LOG_ADD_TIME (&server->prof, "receive",
-                                 cmsg_prof_time_toc (&server->prof));
-
     // Header is good so make use of it.
     server_request.msg_type = header_converted->msg_type;
     server_request.message_length = header_converted->message_length;
@@ -335,8 +332,6 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     {
         nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
     }
-    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "receive",
-                                 cmsg_prof_time_toc (&transport->prof));
 
     if (nbytes == sizeof (cmsg_header))
     {
@@ -346,8 +341,6 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
             CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "Unable to process message header for during receive. Bytes: %d",
                                       nbytes);
-            CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                         cmsg_prof_time_toc (&transport->prof));
             return CMSG_RET_ERR;
         }
 
@@ -399,11 +392,8 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
                                                   dyn_len, nbytes, &header_converted);
         if (recv_buffer != buf_static)
         {
-            if (recv_buffer)
-            {
-                CMSG_FREE (recv_buffer);
-                recv_buffer = NULL;
-            }
+            CMSG_FREE (recv_buffer);
+            recv_buffer = NULL;
         }
 
     }
@@ -484,7 +474,6 @@ cmsg_transport_server_recv_crypto_msg (cmsg_server *server, int32_t msg_length,
 
     if (decoded_bytes >= (int) sizeof (cmsg_header))
     {
-        CMSG_PROF_TIME_TIC (&server->prof);
         header_received = (cmsg_header *) decoded_data;
 
         if (cmsg_header_process (header_received, &header_converted) != CMSG_RET_OK)
@@ -647,8 +636,6 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
     *messagePtPt = NULL;
 
     nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
-    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "receive",
-                                 cmsg_prof_time_toc (&transport->prof));
 
     if (nbytes == sizeof (cmsg_header))
     {
@@ -658,8 +645,6 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
             CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "Unable to process message header for during receive. Bytes: %d",
                                       nbytes);
-            CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                         cmsg_prof_time_toc (&transport->prof));
             return CMSG_STATUS_CODE_SERVICE_FAILED;
         }
 
@@ -680,8 +665,6 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
             CMSG_DEBUG (CMSG_INFO,
                         "[TRANSPORT] received response without data. server status %d\n",
                         header_converted.status_code);
-            CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                         cmsg_prof_time_toc (&transport->prof));
             return header_converted.status_code;
         }
 
@@ -738,11 +721,8 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
                 // Free the allocated buffer
                 if (recv_buffer != buf_static)
                 {
-                    if (recv_buffer)
-                    {
-                        CMSG_FREE (recv_buffer);
-                        recv_buffer = NULL;
-                    }
+                    CMSG_FREE (recv_buffer);
+                    recv_buffer = NULL;
                 }
 
                 // Msg not unpacked correctly
@@ -751,13 +731,9 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
                     CMSG_LOG_TRANSPORT_ERROR (transport,
                                               "Error unpacking response message. Msg length:%d",
                                               header_converted.message_length);
-                    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                                 cmsg_prof_time_toc (&transport->prof));
                     return CMSG_STATUS_CODE_SERVICE_FAILED;
                 }
                 *messagePtPt = message;
-                CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                             cmsg_prof_time_toc (&transport->prof));
             }
 
             // Make sure we return the status from the server
@@ -773,11 +749,8 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
         }
         if (recv_buffer != buf_static)
         {
-            if (recv_buffer)
-            {
-                CMSG_FREE (recv_buffer);
-                recv_buffer = NULL;
-            }
+            CMSG_FREE (recv_buffer);
+            recv_buffer = NULL;
         }
     }
     else if (nbytes > 0)
@@ -815,8 +788,6 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
         }
     }
 
-    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                 cmsg_prof_time_toc (&transport->prof));
     return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 
@@ -868,8 +839,6 @@ _cmsg_transport_client_recv_crypto_msg (cmsg_transport *transport,
             CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "Unable to process message header for client receive. Bytes:%d",
                                       decoded_bytes);
-            CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                         cmsg_prof_time_toc (&transport->prof));
             if (decoded_data != buf_static)
             {
                 CMSG_FREE (decoded_data);
@@ -894,8 +863,6 @@ _cmsg_transport_client_recv_crypto_msg (cmsg_transport *transport,
             CMSG_DEBUG (CMSG_INFO,
                         "[TRANSPORT] received response without data. server status %d\n",
                         header_converted.status_code);
-            CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                         cmsg_prof_time_toc (&client->_transport->prof));
             if (decoded_data != buf_static)
             {
                 CMSG_FREE (decoded_data);
@@ -954,13 +921,9 @@ _cmsg_transport_client_recv_crypto_msg (cmsg_transport *transport,
                     CMSG_LOG_TRANSPORT_ERROR (transport,
                                               "Error unpacking response message. Msg length:%d",
                                               header_converted.message_length);
-                    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                                 cmsg_prof_time_toc (&transport->prof));
                     return CMSG_STATUS_CODE_SERVICE_FAILED;
                 }
                 *messagePtPt = message;
-                CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                             cmsg_prof_time_toc (&transport->prof));
             }
 
             // Make sure we return the status from the server
@@ -1027,9 +990,6 @@ _cmsg_transport_client_crypto_recv (cmsg_recv_func recv, void *handle,
 
     nbytes = recv (handle, buffer, msg_length, MSG_WAITALL);
 
-    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "receive",
-                                 cmsg_prof_time_toc (&transport->prof));
-
     if (nbytes == msg_length)
     {
         code = _cmsg_transport_client_recv_crypto_msg (transport, descriptor, msg_length,
@@ -1071,8 +1031,6 @@ _cmsg_transport_client_crypto_recv (cmsg_recv_func recv, void *handle,
         CMSG_FREE (buffer);
     }
 
-    CMSG_PROF_TIME_LOG_ADD_TIME (&transport->prof, "unpack",
-                                 cmsg_prof_time_toc (&transport->prof));
     return code;
 }
 
@@ -1088,19 +1046,6 @@ cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *t
                                                    descriptor, messagePtPt);
     }
     return _cmsg_transport_client_recv (recv, handle, transport, descriptor, messagePtPt);
-}
-
-/**
- *  Configure the transport to be safe when using the send functionality from multiple threads.
- *
- */
-int32_t
-cmsg_transport_send_called_multi_threads_enable (cmsg_transport *transport,
-                                                 uint32_t enable_multi_threaded_send_safe)
-{
-
-    return transport->send_called_multi_threads_enable (transport,
-                                                        enable_multi_threaded_send_safe);
 }
 
 /**

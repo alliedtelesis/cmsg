@@ -5,12 +5,6 @@
 #include "cmsg_queue.h"
 #include "cmsg_error.h"
 
-uint32_t
-cmsg_queue_get_length (GQueue *queue)
-{
-    return g_queue_get_length (queue);
-}
-
 int32_t
 cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
                       cmsg_client *client, cmsg_transport *transport, char *method_name)
@@ -131,19 +125,6 @@ cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transpo
 /*****************  Receive Queue Functions  *********************************/
 /*****************************************************************************/
 
-int32_t
-cmsg_receive_queue_process_one (GQueue *queue, pthread_mutex_t *queue_mutex,
-                                const ProtobufCServiceDescriptor *descriptor,
-                                cmsg_server *server)
-{
-
-    // NOT IMPLEMENTED YET
-    CMSG_LOG_SERVER_ERROR (server, "%s not implemented.", __FUNCTION__);
-
-    return 0;
-}
-
-
 /**
  * Process a given number of items on the queue.
  *
@@ -151,7 +132,6 @@ cmsg_receive_queue_process_one (GQueue *queue, pthread_mutex_t *queue_mutex,
  */
 int32_t
 cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
-                                 const ProtobufCServiceDescriptor *descriptor,
                                  cmsg_server *server, uint32_t num_to_process)
 {
     uint32_t processed = 0;
@@ -209,9 +189,7 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
 
 
 int32_t
-cmsg_receive_queue_process_all (GQueue *queue,
-                                pthread_mutex_t *queue_mutex,
-                                const ProtobufCServiceDescriptor *descriptor,
+cmsg_receive_queue_process_all (GQueue *queue, pthread_mutex_t *queue_mutex,
                                 cmsg_server *server)
 {
     int32_t processed = -1;
@@ -219,8 +197,7 @@ cmsg_receive_queue_process_all (GQueue *queue,
 
     while (processed != 0)
     {
-        processed = cmsg_receive_queue_process_some (queue,
-                                                     queue_mutex, descriptor, server, 50);
+        processed = cmsg_receive_queue_process_some (queue, queue_mutex, server, 50);
         total_processed += processed;
     }
     return total_processed;
@@ -409,39 +386,6 @@ cmsg_queue_filter_lookup (GHashTable *queue_filter_hash_table, const char *metho
     return CMSG_QUEUE_FILTER_ERROR;
 }
 
-void
-cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
-                        const ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_DEBUG (CMSG_INFO, "queue_filter_list:\n");
-
-    uint32_t i = 0;
-    for (i = 0; i < descriptor->n_methods; i++)
-    {
-        cmsg_queue_filter_entry *entry;
-        entry = (cmsg_queue_filter_entry *) g_hash_table_lookup (queue_filter_hash_table,
-                                                                 (gconstpointer)
-                                                                 descriptor->
-                                                                 methods[i].name);
-
-        switch (entry->type)
-        {
-        case 0:
-            CMSG_DEBUG (CMSG_INFO, " PROCESS : %s\n", entry->method_name);
-            break;
-        case 1:
-            CMSG_DEBUG (CMSG_INFO, " DROP    : %s\n", entry->method_name);
-            break;
-        case 2:
-            CMSG_DEBUG (CMSG_INFO, " QUEUE   : %s\n", entry->method_name);
-            break;
-        case 3:
-            CMSG_DEBUG (CMSG_INFO, " UNKNOWN : %s\n", entry->method_name);
-            break;
-        }
-    }
-}
-
 cmsg_queue_state
 cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
                             const ProtobufCServiceDescriptor *descriptor)
@@ -464,37 +408,4 @@ cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
         }
     }
     return type;
-}
-
-
-int32_t
-cmsg_queue_filter_copy (GHashTable *src_queue_filter_hash_table,
-                        GHashTable *dst_queue_filter_hash_table,
-                        const ProtobufCServiceDescriptor *descriptor)
-{
-    uint32_t i = 0;
-    for (i = 0; i < descriptor->n_methods; i++)
-    {
-        cmsg_queue_filter_entry *src_entry;
-        cmsg_queue_filter_entry *dst_entry;
-
-        src_entry =
-            (cmsg_queue_filter_entry *) g_hash_table_lookup (src_queue_filter_hash_table,
-                                                             (gconstpointer)
-                                                             descriptor->methods[i].name);
-
-        dst_entry =
-            (cmsg_queue_filter_entry *) g_hash_table_lookup (dst_queue_filter_hash_table,
-                                                             (gconstpointer)
-                                                             descriptor->methods[i].name);
-
-        if (!src_entry || !dst_entry)
-        {
-            return CMSG_RET_ERR;
-        }
-
-        dst_entry = src_entry;
-    }
-
-    return CMSG_RET_OK;
 }

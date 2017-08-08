@@ -9,10 +9,6 @@
 #include "cntrd_app_defines.h"
 #endif
 
-static cmsg_sub *_cmsg_create_subscriber_tipc (const char *server_name, int member_id,
-                                               int scope, ProtobufCService *descriptor,
-                                               cmsg_transport_type transport_type);
-
 extern cmsg_client *cmsg_client_create (cmsg_transport *transport,
                                         const ProtobufCServiceDescriptor *descriptor);
 extern int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
@@ -39,24 +35,6 @@ cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_servic
     }
 
     return subscriber;
-}
-
-
-void
-cmsg_sub_destroy (cmsg_sub *subscriber)
-{
-    if (subscriber)
-    {
-        if (subscriber->pub_server)
-        {
-            cmsg_server_destroy (subscriber->pub_server);
-            subscriber->pub_server = NULL;
-        }
-
-        CMSG_FREE (subscriber);
-    }
-
-    return;
 }
 
 
@@ -166,6 +144,11 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
             name.type;
         register_entry.tipc_scope =
             subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
+    }
+    else if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_UNIX)
+    {
+        register_entry.un_sun_path =
+            subscriber->pub_server->_transport->config.socket.sockaddr.un.sun_path;
     }
     else
     {
@@ -281,10 +264,15 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
         register_entry.tipc_scope =
             subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
     }
+    else if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_UNIX)
+    {
+        register_entry.un_sun_path =
+            subscriber->pub_server->_transport->config.socket.sockaddr.un.sun_path;
+    }
     else
     {
         CMSG_LOG_GEN_ERROR
-            ("[%s.%s] Transport type incorrect for cmsg_sub_subscribe: type(%d).",
+            ("[%s.%s] Transport type incorrect for cmsg_sub_unsubscribe: type(%d).",
              subscriber->pub_server->service->descriptor->name,
              subscriber->pub_server->_transport->tport_id,
              subscriber->pub_server->_transport->type);
@@ -338,15 +326,18 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     return return_value;
 }
 
-static cmsg_sub *
-_cmsg_create_subscriber_tipc (const char *server_name, int member_id, int scope,
-                              ProtobufCService *descriptor,
-                              cmsg_transport_type transport_type)
+cmsg_sub *
+cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int scope,
+                                    ProtobufCService *descriptor)
 {
     cmsg_transport *transport = NULL;
     cmsg_sub *subscriber = NULL;
 
-    transport = cmsg_create_transport_tipc (server_name, member_id, scope, transport_type);
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    transport = cmsg_create_transport_tipc (server_name, member_id, scope,
+                                            CMSG_TRANSPORT_ONEWAY_TIPC);
     if (transport == NULL)
     {
         return NULL;
@@ -364,38 +355,16 @@ _cmsg_create_subscriber_tipc (const char *server_name, int member_id, int scope,
     return subscriber;
 }
 
-cmsg_sub *
-cmsg_create_subscriber_tipc_rpc (const char *server_name, int member_id, int scope,
-                                 ProtobufCService *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
-                                         CMSG_TRANSPORT_RPC_TIPC);
-}
-
-cmsg_sub *
-cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int scope,
-                                    ProtobufCService *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_subscriber_tipc (server_name, member_id, scope, descriptor,
-                                         CMSG_TRANSPORT_ONEWAY_TIPC);
-}
-
 void
 cmsg_destroy_subscriber_and_transport (cmsg_sub *subscriber)
 {
-    cmsg_transport *transport;
-
     if (subscriber)
     {
-        transport = subscriber->pub_server->_transport;
-        cmsg_sub_destroy (subscriber);
+        if (subscriber->pub_server)
+        {
+            cmsg_destroy_server_and_transport (subscriber->pub_server);
+        }
 
-        cmsg_transport_destroy (transport);
+        CMSG_FREE (subscriber);
     }
 }

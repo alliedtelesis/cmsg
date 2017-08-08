@@ -91,18 +91,6 @@ cmsg_transport_loopback_is_congested (cmsg_transport *transport)
 }
 
 /**
- * This isn't supported on loopback at present, shouldn't be called so it
- * needs to be an error.
- */
-int32_t
-cmsg_transport_loopback_send_called_multi_threads_enable (cmsg_transport *transport,
-                                                          uint32_t enable)
-{
-    // Don't support sending from multiple threads
-    return -1;
-}
-
-/**
  * Sets the flag but it does nothing for this transport.
  */
 int32_t
@@ -202,7 +190,8 @@ cmsg_transport_loopback_client_recv (cmsg_transport *transport,
     uint32_t dyn_len = 0;
     cmsg_header header_received;
     cmsg_header header_converted;
-    uint8_t *recv_buffer = 0;
+    uint8_t *recv_buffer = NULL;
+    uint8_t *buffer = NULL;
     uint8_t buf_static[512];
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = &cmsg_memory_allocator;
@@ -262,17 +251,22 @@ cmsg_transport_loopback_client_recv (cmsg_transport *transport,
             cmsg_tlv_header_process (recv_buffer, &server_request, extra_header_size,
                                      descriptor);
 
-            recv_buffer = recv_buffer + extra_header_size;
+            buffer = recv_buffer + extra_header_size;
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
 
-            cmsg_buffer_print (recv_buffer, dyn_len);
+            cmsg_buffer_print (buffer, dyn_len);
 
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
 
             desc = descriptor->methods[server_request.method_index].output;
             message = protobuf_c_message_unpack (desc, allocator,
-                                                 header_converted.message_length,
-                                                 recv_buffer);
+                                                 header_converted.message_length, buffer);
+
+            if (recv_buffer != (void *) buf_static)
+            {
+                CMSG_FREE (recv_buffer);
+                recv_buffer = NULL;
+            }
 
             if (message == NULL)
             {
@@ -291,11 +285,8 @@ cmsg_transport_loopback_client_recv (cmsg_transport *transport,
         }
         if (recv_buffer != (void *) buf_static)
         {
-            if (recv_buffer)
-            {
-                CMSG_FREE (recv_buffer);
-                recv_buffer = 0;
-            }
+            CMSG_FREE (recv_buffer);
+            recv_buffer = NULL;
         }
     }
     else if (nbytes == 0)
@@ -349,9 +340,6 @@ cmsg_transport_loopback_init (cmsg_transport *transport)
     transport->server_destroy = cmsg_transport_loopback_server_destroy;
 
     transport->is_congested = cmsg_transport_loopback_is_congested;
-    transport->send_called_multi_threads_enable =
-        cmsg_transport_loopback_send_called_multi_threads_enable;
-    transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_loopback_send_can_block_enable;
     transport->ipfree_bind_enable = cmsg_transport_loopback_ipfree_bind_enable;
 

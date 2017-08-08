@@ -156,4 +156,4 @@ int cmsg_service_port_get (const char *name, const char *proto);
 
 const char *cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor);
 
-#endif
+#endif /* __CMSG_H_ */
