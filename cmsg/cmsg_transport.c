@@ -10,7 +10,8 @@
 extern void cmsg_transport_oneway_udt_init (cmsg_transport *transport);
 
 static int32_t _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle,
-                                            cmsg_server *server, int peek);
+                                            cmsg_server *server, int peek,
+                                            cmsg_header *peeked_header);
 
 
 /**
@@ -216,12 +217,12 @@ cmsg_transport_destroy (cmsg_transport *transport)
  */
 cmsg_status_code
 cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, void *recv_wrapper_data,
-                                cmsg_transport *transport, int32_t socket, int32_t maxLoop)
+                                cmsg_transport *transport, int32_t socket, int32_t maxLoop,
+                                cmsg_header *header_received)
 {
     cmsg_status_code ret = CMSG_STATUS_CODE_SUCCESS;
     int count = 0;
     int nbytes = 0;
-    cmsg_header header_received;
 
     struct timeval timeout = { 1, 0 };
     fd_set read_fds;
@@ -238,7 +239,7 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, void *recv_wrapper_
     /* Peek until data arrives, this allows us to timeout and recover if no data arrives. */
     while ((count < maxLoop) && (nbytes != (int) sizeof (cmsg_header)))
     {
-        nbytes = recv_wrapper (recv_wrapper_data, &header_received,
+        nbytes = recv_wrapper (recv_wrapper_data, header_received,
                                sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
         if (nbytes == (int) sizeof (cmsg_header))
         {
@@ -401,7 +402,7 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
  * is read first with MSG_PEEK and then read all together (header + data). */
 static int32_t
 _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
-                             int peek)
+                             int peek, cmsg_header *peeked_header)
 {
     int32_t ret = CMSG_RET_OK;
     int nbytes = 0;
@@ -414,7 +415,11 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
     uint32_t extra_header_size = 0;
     cmsg_transport *transport = server->_transport;
 
-    if (peek)
+    if (peeked_header)
+    {
+        memcpy (&header_received, peeked_header, sizeof (cmsg_header));
+    }
+    else if (peek)
     {
         nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_PEEK);
     }
@@ -423,7 +428,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
     }
 
-    if (nbytes == sizeof (cmsg_header))
+    if (nbytes == sizeof (cmsg_header) || peeked_header)
     {
         if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
         {
@@ -436,7 +441,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 
         extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
-        if (peek)
+        if (peek || peeked_header)
         {
             // packet size is determined by header_length + message_length.
             // header_length may be greater than sizeof (cmsg_header)
@@ -459,7 +464,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         }
 
         // read the message
-        if (peek)
+        if (peek || peeked_header)
         {
             nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
             buffer_data = recv_buffer + sizeof (cmsg_header);
@@ -689,13 +694,14 @@ _cmsg_transport_server_crypto_recv (cmsg_recv_func recv, void *handle, cmsg_serv
 
 /* Receive message from server and process it */
 int32_t
-cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server)
+cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
+                            cmsg_header *header_received)
 {
     if (server->_transport->use_crypto)
     {
         return _cmsg_transport_server_crypto_recv (recv, handle, server);
     }
-    return _cmsg_transport_server_recv (recv, handle, server, FALSE);
+    return _cmsg_transport_server_recv (recv, handle, server, FALSE, header_received);
 }
 
 
@@ -704,7 +710,7 @@ int32_t
 cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
                                       cmsg_server *server)
 {
-    return _cmsg_transport_server_recv (recv, handle, server, TRUE);
+    return _cmsg_transport_server_recv (recv, handle, server, TRUE, NULL);
 }
 
 static cmsg_status_code

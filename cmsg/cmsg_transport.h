@@ -257,7 +257,8 @@ int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
 int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
                                            cmsg_bool_t ipfree_bind_enable);
 
-int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server);
+int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
+                                    cmsg_header *header_received);
 
 int32_t cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
                                               cmsg_server *server);
@@ -308,5 +309,6 @@ void cmsg_transport_unix_sun_path_free (char *sun_path);
 cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
                                                  void *recv_wrapper_data,
                                                  cmsg_transport *transport,
-                                                 int32_t socket, int32_t maxLoop);
+                                                 int32_t socket, int32_t maxLoop,
+                                                 cmsg_header *header_received);
 #endif /* __CMSG_TRANSPORT_H_ */

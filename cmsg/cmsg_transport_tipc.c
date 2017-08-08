@@ -178,6 +178,7 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
 {
     int32_t ret = CMSG_RET_ERR;
     cmsg_status_code peek_status;
+    cmsg_header header_received;
 
     if (!server || server_socket < 0)
     {
@@ -195,11 +196,13 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
         peek_status = cmsg_transport_peek_for_header (cmsg_transport_tipc_recv,
                                                       (void *) &server_socket,
                                                       server->_transport,
-                                                      server_socket, MAX_SERVER_PEEK_LOOP);
+                                                      server_socket, MAX_SERVER_PEEK_LOOP,
+                                                      &header_received);
         if (peek_status == CMSG_STATUS_CODE_SUCCESS)
         {
             ret = cmsg_transport_server_recv (cmsg_transport_tipc_recv,
-                                              (void *) &server_socket, server);
+                                              (void *) &server_socket, server,
+                                              &header_received);
         }
         else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
         {
@@ -262,7 +265,8 @@ cmsg_transport_tipc_client_recv (cmsg_transport *transport,
     client_socket = transport->connection.sockets.client_socket;
     ret = cmsg_transport_peek_for_header (cmsg_transport_tipc_recv,
                                           (void *) &client_socket, transport,
-                                          client_socket, MAX_CLIENT_PEEK_LOOP);
+                                          client_socket, MAX_CLIENT_PEEK_LOOP,
+                                          &header_received);
     if (ret != CMSG_STATUS_CODE_SUCCESS)
     {
         return ret;

@@ -139,7 +139,7 @@ cmsg_transport_unix_server_recv (int32_t server_socket, cmsg_server *server)
     server->_transport->connection.sockets.client_socket = server_socket;
 
     ret = cmsg_transport_server_recv (cmsg_transport_unix_recv,
-                                      (void *) &server_socket, server);
+                                      (void *) &server_socket, server, NULL);
 
     return ret;
 }
