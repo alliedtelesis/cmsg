@@ -461,6 +461,12 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
         if (dyn_len > sizeof (buf_static))
         {
             recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
+            if (recv_buffer == NULL)
+            {
+                CMSG_LOG_TRANSPORT_ERROR (transport,
+                                          "Failed to allocate memory for received message");
+                return CMSG_RET_ERR;
+            }
         }
         else
         {
@@ -765,12 +771,8 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
             recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
             if (recv_buffer == NULL)
             {
-                /* Didn't allocate memory for recv buffer.  This is an error.
-                 * Shut the socket down, it will reopen on the next api call.
-                 * Record and return an error. */
-                cmsg_client_close_wrapper (transport);
                 CMSG_LOG_TRANSPORT_ERROR (transport,
-                                          "Couldn't allocate memory for server reply (TLV + message), closed the socket");
+                                          "Failed to allocate memory for received message");
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
             }
         }
