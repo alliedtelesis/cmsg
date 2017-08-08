@@ -39,9 +39,8 @@ typedef struct _cmsg_sub_entry_s
 } cmsg_sub_entry;
 
 
-int32_t cmsg_sub_entry_compare_transport (cmsg_sub_entry *one, cmsg_transport *transport);
-
-int32_t cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two);
+gint cmsg_sub_entry_compare (gconstpointer a, gconstpointer b);
+bool cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two);
 
 typedef struct _cmsg_pub_s
 {
@@ -66,7 +65,6 @@ typedef struct _cmsg_pub_s
     pthread_mutex_t queue_mutex;
     GQueue *queue;
     GHashTable *queue_filter_hash_table;
-    cmsg_bool_t queue_enabled;
 
     //thread signaling for queuing
     pthread_cond_t queue_process_cond;
@@ -85,13 +83,6 @@ int cmsg_pub_get_server_socket (cmsg_pub *publisher);
 
 int32_t cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher);
 
-void cmsg_pub_initiate_subscriber_connections (cmsg_pub *publisher,
-                                               cmsg_transport *transport);
-
-int32_t cmsg_pub_subscriber_add (cmsg_pub *publisher, cmsg_sub_entry *entry);
-
-int32_t cmsg_pub_subscriber_mark_for_removal (cmsg_pub *publisher, cmsg_sub_entry *entry);
-
 int32_t cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
                                                        cmsg_transport *transport);
 
@@ -105,8 +96,6 @@ int32_t cmsg_pub_server_receive (cmsg_pub *publisher, int32_t server_socket);
 int32_t cmsg_pub_server_accept (cmsg_pub *publisher, int32_t listen_socket);
 
 void cmsg_pub_server_accept_callback (cmsg_pub *publisher, int32_t sd);
-
-int32_t cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data);
 
 int32_t cmsg_pub_invoke (ProtobufCService *service,
                          uint32_t method_index,
@@ -145,23 +134,9 @@ void cmsg_pub_queue_filter_init (cmsg_pub *publisher);
 cmsg_queue_filter_type cmsg_pub_queue_filter_lookup (cmsg_pub *publisher,
                                                      const char *method);
 
-void cmsg_pub_queue_filter_show (cmsg_pub *publisher);
-
-/**
- * Print the subscriber list of the publisher passed in.
- * This function is thread-safe.
- * If you want to print the subscriber list and you hold the lock on it,
- * use _cmsg_pub_print_subscriber_list instead.
- */
-void cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
-
 cmsg_pub *cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
                                           int scope,
                                           ProtobufCServiceDescriptor *descriptor);
-
-cmsg_pub *cmsg_create_publisher_tipc_oneway (const char *server_name, int member_id,
-                                             int scope,
-                                             ProtobufCServiceDescriptor *descriptor);
 
 void cmsg_destroy_publisher_and_transport (cmsg_pub *publisher);
 

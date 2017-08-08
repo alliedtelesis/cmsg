@@ -447,11 +447,8 @@ cmsg_transport_tipc_client_recv (cmsg_transport *transport,
                 // Free the allocated buffer
                 if (recv_buffer != (void *) buf_static)
                 {
-                    if (recv_buffer)
-                    {
-                        CMSG_FREE (recv_buffer);
-                        recv_buffer = NULL;
-                    }
+                    CMSG_FREE (recv_buffer);
+                    recv_buffer = NULL;
                 }
 
                 // Msg not unpacked correctly
@@ -478,11 +475,8 @@ cmsg_transport_tipc_client_recv (cmsg_transport *transport,
         }
         if (recv_buffer != (void *) buf_static)
         {
-            if (recv_buffer)
-            {
-                CMSG_FREE (recv_buffer);
-                recv_buffer = NULL;
-            }
+            CMSG_FREE (recv_buffer);
+            recv_buffer = NULL;
         }
     }
     else if (nbytes > 0)
@@ -618,15 +612,6 @@ cmsg_transport_tipc_is_congested (cmsg_transport *transport)
 
 
 int32_t
-cmsg_transport_tipc_send_called_multi_threads_enable (cmsg_transport *transport,
-                                                      uint32_t enable)
-{
-    // Don't support sending from multiple threads
-    return -1;
-}
-
-
-int32_t
 cmsg_transport_tipc_send_can_block_enable (cmsg_transport *transport,
                                            uint32_t send_can_block)
 {
@@ -662,9 +647,6 @@ _cmsg_transport_tipc_init_common (cmsg_transport *transport)
     transport->client_destroy = cmsg_transport_tipc_client_destroy;
     transport->server_destroy = cmsg_transport_tipc_server_destroy;
     transport->is_congested = cmsg_transport_tipc_is_congested;
-    transport->send_called_multi_threads_enable =
-        cmsg_transport_tipc_send_called_multi_threads_enable;
-    transport->send_called_multi_enabled = FALSE;
     transport->send_can_block_enable = cmsg_transport_tipc_send_can_block_enable;
     transport->ipfree_bind_enable = cmsg_transport_tipc_ipfree_bind_enable;
 }

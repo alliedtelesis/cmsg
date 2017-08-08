@@ -186,8 +186,6 @@ void cmsg_client_queue_filter_init (cmsg_client *client);
 cmsg_queue_filter_type cmsg_client_queue_filter_lookup (cmsg_client *client,
                                                         const char *method);
 
-void cmsg_client_queue_filter_show (cmsg_client *client);
-
 void cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable);
 
 cmsg_client *cmsg_create_client_tipc_rpc (const char *server_name, int member_id,

@@ -594,23 +594,41 @@ string AtlCodeGenerator::GetAtlClosureFunctionName(const MethodDescriptor &metho
   return closure_name;
 }
 
-// This is to help with the transition to cmsg. It can be deleted once
-// most of the work to convert AW+ to cmsg is done.
+// This generates a server impl stub function that initialises a response message of the correct type
+// and sends it back empty.
 void AtlCodeGenerator::GenerateAtlServerImplStub(const MethodDescriptor &method, io::Printer* printer)
 {
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
   vars_["method_input"] = FullNameToC(method.input_type()->full_name());
+  vars_["method_output"] = FullNameToC(method.output_type()->full_name());
+  vars_["method_output_upper"] = FullNameToUpper(method.output_type()->full_name());
 
   GenerateAtlServerImplDefinition(method, printer, false);
 
   printer->Print("{\n");
+  printer->Indent();
+
+  if (method.output_type()->field_count() > 0)
+  {
+    printer->Print(vars_, "$method_output$ send_msg = $method_output_upper$_INIT;\n");
+    printer->Print("\n");
+  }
+
+  printer->Print(vars_, "$lcfullname$_server_$method$Send (service");
+  if (method.output_type()->field_count() > 0)
+  {
+    printer->Print(", &send_msg");
+  }
+  printer->Print(");\n");
+
+  printer->Outdent();
   printer->Print("}\n");
   printer->Print("\n");
 }
 
-// This is to help with the transition to cmsg. It can be deleted once
-// most of the work to convert AW+ to cmsg is done.
+// This generates some stubs that initialise a response message and send it back empty.
+// These can be copied into the server implementation to get things building.
 void AtlCodeGenerator::GenerateAtlServerImplStubs(io::Printer* printer)
 {
   for (int i = 0; i < descriptor_->method_count(); i++) {

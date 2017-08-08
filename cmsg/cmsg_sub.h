@@ -29,8 +29,6 @@ typedef struct _cmsg_sub_s
 cmsg_sub *cmsg_sub_new (cmsg_transport *pub_server_transport,
                         ProtobufCService *pub_service);
 
-void cmsg_sub_destroy (cmsg_sub *subscriber);
-
 int cmsg_sub_get_server_socket (cmsg_sub *subscriber);
 
 int32_t cmsg_sub_server_receive_poll (cmsg_sub *sub, int32_t timeout_ms,
@@ -45,9 +43,6 @@ int32_t cmsg_sub_subscribe (cmsg_sub *subscriber,
 
 int32_t cmsg_sub_unsubscribe (cmsg_sub *subscriber,
                               cmsg_transport *sub_client_transport, char *method_name);
-
-cmsg_sub *cmsg_create_subscriber_tipc_rpc (const char *server_name, int member_id,
-                                           int scope, ProtobufCService *descriptor);
 
 cmsg_sub *cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id,
                                               int scope, ProtobufCService *descriptor);

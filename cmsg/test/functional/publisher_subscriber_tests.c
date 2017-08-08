@@ -26,6 +26,8 @@ static const uint16_t tipc_subscriber_port = 18889;
 static const uint16_t tipc_instance = 1;
 static const uint16_t tipc_scope = TIPC_NODE_SCOPE;
 
+static const char *unix_sub_path = "/tmp/unix_sub_path";
+
 static cmsg_pub *publisher = NULL;
 static bool publisher_thread_run = true;
 static bool publisher_ready = false;
@@ -128,11 +130,16 @@ publisher_thread_process (void *arg)
             cmsg_create_publisher_tipc_rpc ("cmsg-test-publisher", tipc_instance,
                                             tipc_scope, CMSG_DESCRIPTOR (cmsg, test));
         break;
-
+    case CMSG_TRANSPORT_RPC_UNIX:
+        publisher_transport = cmsg_create_transport_unix (CMSG_DESCRIPTOR (cmsg, test),
+                                                          CMSG_TRANSPORT_RPC_UNIX);
+        publisher = cmsg_pub_new (publisher_transport, CMSG_DESCRIPTOR (cmsg, test));
+        break;
     default:
         NP_FAIL;
     }
 
+    NP_ASSERT_NOT_NULL (publisher);
     int fd = cmsg_pub_get_server_socket (publisher);
     int fd_max = fd + 1;
     int ret;
@@ -235,16 +242,19 @@ create_subscriber_and_test (cmsg_transport_type type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
         pub_transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
+        NP_ASSERT_NOT_NULL (pub_transport);
         pub_transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
         pub_transport->config.socket.sockaddr.in.sin_port =
             htons ((unsigned short) tcp_publisher_port);
 
         sub_transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_TCP);
+        NP_ASSERT_NOT_NULL (sub_transport);
         sub_transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
         sub_transport->config.socket.sockaddr.in.sin_port =
             htons ((unsigned short) tcp_subscriber_port);
 
         subscriber = cmsg_sub_new (sub_transport, CMSG_SERVICE (cmsg, test));
+        NP_ASSERT_NOT_NULL (subscriber);
         break;
     case CMSG_TRANSPORT_RPC_TIPC:
         subscriber =
@@ -256,9 +266,22 @@ create_subscriber_and_test (cmsg_transport_type type)
             cmsg_create_transport_tipc_rpc ("cmsg-test-publisher", tipc_instance,
                                             tipc_scope);
         NP_ASSERT_NOT_NULL (pub_transport);
-
         break;
+    case CMSG_TRANSPORT_RPC_UNIX:
+        pub_transport = cmsg_create_transport_unix (CMSG_DESCRIPTOR (cmsg, test),
+                                                    CMSG_TRANSPORT_RPC_UNIX);
+        NP_ASSERT_NOT_NULL (pub_transport);
 
+        sub_transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
+        NP_ASSERT_NOT_NULL (sub_transport);
+        sub_transport->config.socket.family = AF_UNIX;
+        sub_transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
+        strncpy (sub_transport->config.socket.sockaddr.un.sun_path, unix_sub_path,
+                 sizeof (sub_transport->config.socket.sockaddr.un.sun_path) - 1);
+
+        subscriber = cmsg_sub_new (sub_transport, CMSG_SERVICE (cmsg, test));
+        NP_ASSERT_NOT_NULL (subscriber);
+        break;
     default:
         NP_FAIL;
     }
@@ -321,4 +344,13 @@ void
 test_publisher_subscriber_tcp (void)
 {
     run_publisher_subscriber_tests (CMSG_TRANSPORT_RPC_TCP);
+}
+
+/**
+ * Run the publisher <-> subscriber test case with a UNIX transport.
+ */
+void
+test_publisher_subscriber_unix (void)
+{
+    run_publisher_subscriber_tests (CMSG_TRANSPORT_RPC_UNIX);
 }

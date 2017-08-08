@@ -53,7 +53,6 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
     {
         switch (transport->type)
         {
-        case CMSG_TRANSPORT_RPC_LOCAL:
         case CMSG_TRANSPORT_RPC_TCP:
         case CMSG_TRANSPORT_RPC_TIPC:
         case CMSG_TRANSPORT_RPC_UNIX:
@@ -223,6 +222,11 @@ cmsg_client_destroy (cmsg_client *client)
     {
         cmsg_client_close_wrapper (client->_transport);
         client->_transport->client_destroy (client->_transport);
+    }
+
+    if (client->child_clients)
+    {
+        g_list_free (client->child_clients);
     }
 
     pthread_mutex_destroy (&client->invoke_mutex);
@@ -1428,12 +1432,6 @@ cmsg_queue_filter_type
 cmsg_client_queue_filter_lookup (cmsg_client *client, const char *method)
 {
     return cmsg_queue_filter_lookup (client->queue_filter_hash_table, method);
-}
-
-void
-cmsg_client_queue_filter_show (cmsg_client *client)
-{
-    cmsg_queue_filter_show (client->queue_filter_hash_table, client->descriptor);
 }
 
 void

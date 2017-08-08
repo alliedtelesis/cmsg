@@ -36,14 +36,9 @@ typedef struct _cmsg_receive_queue_entry_s
     uint8_t *queue_buffer;
 } cmsg_receive_queue_entry;
 
-
-uint32_t cmsg_queue_get_length (GQueue *queue);
-
-
 int32_t cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,
                               cmsg_client *client, cmsg_transport *transport,
                               char *method_name);
-
 
 void cmsg_send_queue_free_all (GQueue *queue);
 
@@ -75,17 +70,9 @@ void cmsg_queue_filter_free (GHashTable *queue_filter_hash_table,
 cmsg_queue_filter_type cmsg_queue_filter_lookup (GHashTable *queue_filter_hash_table,
                                                  const char *method);
 
-void cmsg_queue_filter_show (GHashTable *queue_filter_hash_table,
-                             const ProtobufCServiceDescriptor *descriptor);
-
 cmsg_queue_state
 cmsg_queue_filter_get_type (GHashTable *queue_filter_hash_table,
                             const ProtobufCServiceDescriptor *descriptor);
-
-int32_t
-cmsg_queue_filter_copy (GHashTable *src_queue_filter_hash_table,
-                        GHashTable *dst_queue_filter_hash_table,
-                        const ProtobufCServiceDescriptor *descriptor);
 
 int32_t cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
                                          cmsg_server *server, uint32_t num_to_process);
