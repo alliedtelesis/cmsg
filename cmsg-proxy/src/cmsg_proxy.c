@@ -812,7 +812,7 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
 
     cmsg_proxy_strip_details_from_ant_result (converted_json_object);
 
-    *output_json = json_dumps (converted_json_object, JSON_INDENT (4));
+    *output_json = json_dumps (converted_json_object, JSON_COMPACT);
     json_decref (converted_json_object);
 }
 
@@ -842,7 +842,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
     if (strcmp (output_proto_message->descriptor->name, "ant_result") == 0)
     {
         cmsg_proxy_strip_details_from_ant_result (converted_json_object);
-        *output_json = json_dumps (converted_json_object, JSON_INDENT (4));
+        *output_json = json_dumps (converted_json_object, JSON_COMPACT);
         json_decref (converted_json_object);
         return true;
     }
@@ -856,7 +856,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
             if ((strcmp (key, "_error_info") == 0))
             {
                 cmsg_proxy_strip_details_from_ant_result (value);
-                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_INDENT (4));
+                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_COMPACT);
                 json_decref (converted_json_object);
                 return true;
             }
@@ -875,7 +875,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
         {
             if (strcmp (key, "_error_info") != 0)
             {
-                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_INDENT (4));
+                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_COMPACT);
                 json_decref (converted_json_object);
                 return true;
             }
@@ -896,7 +896,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
     /* If there are more than 2 fields in the message descriptor
      * (and the http status is HTTP_CODE_OK) then simply return the
      * entire message as a JSON string */
-    *output_json = json_dumps (converted_json_object, JSON_INDENT (4));
+    *output_json = json_dumps (converted_json_object, JSON_COMPACT);
     json_decref (converted_json_object);
     return true;
 }
@@ -1144,7 +1144,7 @@ cmsg_proxy_index (const char *query_string, char **output_json)
     json_object_set_new (result, "basepath", json_string (API_PREFIX));
     json_object_set (result, "paths", api_array);
 
-    *output_json = json_dumps (result, JSON_ENCODE_ANY | JSON_INDENT (4));
+    *output_json = json_dumps (result, JSON_ENCODE_ANY | JSON_COMPACT);
 
     free (search_pattern);
     json_decref (api_array);
