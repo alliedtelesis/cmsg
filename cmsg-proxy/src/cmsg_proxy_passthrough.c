@@ -192,6 +192,8 @@ cmsg_proxy_passthrough_deinit (void)
  * @param query_string - Ignored.
  * @param http_verb - The HTTP verb sent with the HTTP request.
  * @param input_json - A string representing the JSON data sent with the HTTP request.
+ * @param web_api_info - A pointer to the structure holding information about the web
+ *                       API request.
  * @param output_json - A pointer to a string that will store the output JSON data to.
  *                      be sent with the HTTP response. This pointer may be NULL if the
  *                      rpc does not send any response data and the pointer must be
@@ -205,6 +207,7 @@ cmsg_proxy_passthrough_deinit (void)
 bool
 cmsg_proxy_passthrough (const char *url, const char *query_string,
                         cmsg_http_verb http_verb, const char *input_json,
+                        const cmsg_proxy_api_request_info *web_api_info,
                         char **output_json, int *http_status)
 {
     passthrough_request send_msg = PASSTHROUGH_REQUEST_INIT;
