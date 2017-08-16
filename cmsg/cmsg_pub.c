@@ -442,7 +442,9 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
             CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for %s for deletion\n",
                         list_entry->method_name);
 
+            pthread_mutex_lock (&publisher->queue_mutex);
             cmsg_send_queue_free_all_by_transport (publisher->queue, transport);
+            pthread_mutex_unlock (&publisher->queue_mutex);
             _cmsg_pub_subscriber_delete_link (publisher, list);
         }
     }
