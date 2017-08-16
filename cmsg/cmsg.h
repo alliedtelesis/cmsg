@@ -82,6 +82,9 @@ extern ProtobufCAllocator cmsg_memory_allocator;
 #define CMSG_IS_REPEATED_PRESENT(_msg, _field) \
     ((_msg)->n_##_field ? TRUE : FALSE)
 
+#define CMSG_MSG_HAS_FIELD(_msg, _field_name) \
+    (protobuf_c_message_descriptor_get_field_by_name ((_msg)->base.descriptor, _field_name) ? TRUE : FALSE)
+
 /**
  * Helper macro to allocate an array of message structs used to send a CMSG
  * message. This is designed to be used with CMSG_SET_FIELD_REPEATED(), where
