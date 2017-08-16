@@ -498,13 +498,7 @@ cmsg_pub_subscriber_remove_all (cmsg_pub *publisher)
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
-        publisher->subscriber_list = g_list_remove (publisher->subscriber_list, list_entry);
-
-        cmsg_client_destroy (list_entry->client);
-        cmsg_transport_destroy (list_entry->transport);
-        CMSG_FREE (list_entry);
-
+        _cmsg_pub_subscriber_delete_link (publisher, subscriber_list);
         subscriber_list = g_list_first (publisher->subscriber_list);
     }
 
