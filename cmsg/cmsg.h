@@ -82,6 +82,12 @@ extern ProtobufCAllocator cmsg_memory_allocator;
 #define CMSG_IS_REPEATED_PRESENT(_msg, _field) \
     ((_msg)->n_##_field ? TRUE : FALSE)
 
+/**
+ * Helper macro to check whether a given message has a field with the
+ * given name.
+ * @param _msg the message structure to check
+ * @param _field_name the field name to be checked
+ */
 #define CMSG_MSG_HAS_FIELD(_msg, _field_name) \
     (protobuf_c_message_descriptor_get_field_by_name ((_msg)->base.descriptor, _field_name) ? TRUE : FALSE)
 
