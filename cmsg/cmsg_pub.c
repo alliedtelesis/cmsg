@@ -816,6 +816,8 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     }
     else
     {
+        response.return_value = cmsg_pub_subscriber_remove (publisher, subscriber_entry);
+
         //delete queued entries for the method being un-subscribed
         if (g_queue_get_length (publisher->queue))
         {
@@ -825,7 +827,6 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
                                                       subscriber_entry->method_name);
             pthread_mutex_unlock (&publisher->queue_mutex);
         }
-        response.return_value = cmsg_pub_subscriber_remove (publisher, subscriber_entry);
 
         cmsg_client_destroy (subscriber_entry->client);
         cmsg_transport_destroy (subscriber_entry->transport);
