@@ -945,17 +945,6 @@ _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
         }
         else
         {
-            /* if all subscribers already un-subscribed during the retry period,
-             * clear the queue */
-            if (publisher->subscriber_count == 0)
-            {
-                pthread_mutex_lock (queue_mutex);
-                cmsg_send_queue_free_all (queue);
-                pthread_mutex_unlock (queue_mutex);
-                CMSG_FREE (queue_entry->queue_buffer);
-                CMSG_FREE (queue_entry);
-                return processed;
-            }
             //remove subscriber from subscribtion list
             cmsg_pub_subscriber_remove_all_with_transport (publisher,
                                                            queue_entry->transport);
