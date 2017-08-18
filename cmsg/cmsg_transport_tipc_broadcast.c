@@ -99,15 +99,31 @@ cmsg_transport_tipc_broadcast_recv (void *handle, void *buff, int len, int flags
 static int32_t
 cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server *server)
 {
-    int32_t ret = 0;
+    int32_t ret = CMSG_RET_ERR;
+    cmsg_status_code peek_status;
+    int server_sock;
+    cmsg_header header_received;
 
     if (!server || socket < 0)
     {
         return -1;
     }
 
-    ret = cmsg_transport_server_recv_with_peek (cmsg_transport_tipc_broadcast_recv, server,
-                                                server);
+    server_sock = server->_transport->connection.sockets.listening_socket;
+    peek_status = cmsg_transport_peek_for_header (cmsg_transport_tipc_broadcast_recv,
+                                                  (void *) server,
+                                                  server->_transport,
+                                                  server_sock, MAX_SERVER_PEEK_LOOP,
+                                                  &header_received);
+    if (peek_status == CMSG_STATUS_CODE_SUCCESS)
+    {
+        ret = cmsg_transport_server_recv (cmsg_transport_tipc_broadcast_recv, server,
+                                          server, &header_received);
+    }
+    else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
+    {
+        ret = CMSG_RET_CLOSED;
+    }
 
     return ret;
 }

@@ -13,10 +13,10 @@
 
 /* *INDENT-OFF* */
 char *test_input_json =
-    "[\n"
-    "    \"string1\",\n"
-    "    \"string2\",\n"
-    "    \"string3\"\n"
+    "["
+    "\"string1\","
+    "\"string2\","
+    "\"string3\""
     "]";
 /* *INDENT-ON* */
 
@@ -107,7 +107,7 @@ test_simple_passthrough_get (void)
     int http_status = 0;
 
     cmsg_proxy_passthrough ("/test_passthrough_get", NULL, CMSG_HTTP_GET, test_input_json,
-                            &output_json, &http_status);
+                            NULL, &output_json, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, test_output_string);
     NP_ASSERT_EQUAL (http_status, test_output_status);
@@ -122,7 +122,7 @@ test_simple_passthrough_put (void)
     int http_status = 0;
 
     cmsg_proxy_passthrough ("/test_passthrough_put", NULL, CMSG_HTTP_PUT, test_input_json,
-                            &output_json, &http_status);
+                            NULL, &output_json, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, test_output_string);
     NP_ASSERT_EQUAL (http_status, test_output_status);
@@ -137,7 +137,7 @@ test_simple_passthrough_post (void)
     int http_status = 0;
 
     cmsg_proxy_passthrough ("/test_passthrough_post", NULL, CMSG_HTTP_POST, test_input_json,
-                            &output_json, &http_status);
+                            NULL, &output_json, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, test_output_string);
     NP_ASSERT_EQUAL (http_status, test_output_status);
@@ -152,7 +152,7 @@ test_simple_passthrough_patch (void)
     int http_status = 0;
 
     cmsg_proxy_passthrough ("/test_passthrough_patch", NULL, CMSG_HTTP_PATCH,
-                            test_input_json, &output_json, &http_status);
+                            test_input_json, NULL, &output_json, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, test_output_string);
     NP_ASSERT_EQUAL (http_status, test_output_status);
@@ -167,7 +167,7 @@ test_simple_passthrough_delete (void)
     int http_status = 0;
 
     cmsg_proxy_passthrough ("/test_passthrough_delete", NULL, CMSG_HTTP_DELETE,
-                            test_input_json, &output_json, &http_status);
+                            test_input_json, NULL, &output_json, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, test_output_string);
     NP_ASSERT_EQUAL (http_status, test_output_status);

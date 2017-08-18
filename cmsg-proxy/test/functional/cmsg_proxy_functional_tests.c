@@ -417,7 +417,7 @@ test_single_bool_get (void)
     char *output_json = NULL;
     int http_status = 0;
 
-    cmsg_proxy ("/test_single_bool_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+    cmsg_proxy ("/test_single_bool_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, "true");
@@ -432,7 +432,7 @@ test_single_string_get (void)
     char *output_json = NULL;
     int http_status = 0;
 
-    cmsg_proxy ("/test_single_string_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+    cmsg_proxy ("/test_single_string_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, "\"single string\"");
@@ -447,7 +447,7 @@ test_single_uint32_get (void)
     char *output_json = NULL;
     int http_status = 0;
 
-    cmsg_proxy ("/test_single_uint32_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+    cmsg_proxy ("/test_single_uint32_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, "123");
@@ -464,12 +464,12 @@ test_single_message_get (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "{\n"
-        "    \"value\": false\n"
+        "{"
+        "\"value\":false"
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_single_message_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+    cmsg_proxy ("/test_single_message_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -486,14 +486,14 @@ test_repeated_string_get (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "[\n"
-        "    \"string1\",\n"
-        "    \"string2\",\n"
-        "    \"string3\"\n"
+        "["
+        "\"string1\","
+        "\"string2\","
+        "\"string3\""
         "]";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_repeated_string_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+    cmsg_proxy ("/test_repeated_string_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -510,14 +510,14 @@ test_repeated_uint32_get (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "[\n"
-        "    1,\n"
-        "    2,\n"
-        "    3\n"
+        "["
+        "1,"
+        "2,"
+        "3"
         "]";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_repeated_uint32_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+    cmsg_proxy ("/test_repeated_uint32_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -534,20 +534,20 @@ test_repeated_message_get (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "[\n"
-        "    {\n"
-        "        \"value\": false\n"
-        "    },\n"
-        "    {\n"
-        "        \"value\": false\n"
-        "    },\n"
-        "    {\n"
-        "        \"value\": false\n"
-        "    }\n"
+        "["
+        "{"
+        "\"value\":false"
+        "},"
+        "{"
+        "\"value\":false"
+        "},"
+        "{"
+        "\"value\":false"
+        "}"
         "]";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_repeated_message_get", NULL, CMSG_HTTP_GET, NULL, &output_json,
+    cmsg_proxy ("/test_repeated_message_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -564,17 +564,17 @@ test_multiple_fields_message_get (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "{\n"
-        "    \"inner_bool_msg\": {\n"
-        "        \"value\": true\n"
-        "    },\n"
-        "    \"inner_string\": \"test_string\",\n"
-        "    \"inner_uint32\": 123\n"
+        "{"
+        "\"inner_bool_msg\":{"
+        "\"value\":true"
+        "},"
+        "\"inner_string\":\"test_string\","
+        "\"inner_uint32\":123"
         "}";
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_multiple_fields_message_get", NULL, CMSG_HTTP_GET, NULL,
-                &output_json, &http_status);
+                NULL, &output_json, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -588,7 +588,7 @@ test_ant_result_get_ok (void)
     char *output_json = NULL;
     int http_status = 0;
 
-    cmsg_proxy ("/test_ant_result_get_ok", NULL, CMSG_HTTP_GET, NULL, &output_json,
+    cmsg_proxy ("/test_ant_result_get_ok", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_NULL (output_json);
@@ -605,13 +605,13 @@ test_ant_result_get_error (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_NOT_FOUND\",\n"
-        "    \"message\": \"ERROR: Not found\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_NOT_FOUND\","
+        "\"message\":\"ERROR: Not found\""
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_ant_result_get_error", NULL, CMSG_HTTP_GET, NULL, &output_json,
+    cmsg_proxy ("/test_ant_result_get_error", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -628,14 +628,14 @@ test_get_error_with_single_data (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_NOT_FOUND\",\n"
-        "    \"message\": \"ERROR: Not found\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_NOT_FOUND\","
+        "\"message\":\"ERROR: Not found\""
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_get_error_with_single_data", NULL, CMSG_HTTP_GET, NULL, &output_json,
-                &http_status);
+    cmsg_proxy ("/test_get_error_with_single_data", NULL, CMSG_HTTP_GET, NULL, NULL,
+                &output_json, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_NOT_FOUND);
@@ -651,14 +651,14 @@ test_get_error_with_multiple_data (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_NOT_FOUND\",\n"
-        "    \"message\": \"ERROR: Not found\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_NOT_FOUND\","
+        "\"message\":\"ERROR: Not found\""
         "}";
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_get_error_with_multiple_data", NULL, CMSG_HTTP_GET, NULL,
-                &output_json, &http_status);
+                NULL, &output_json, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_NOT_FOUND);
@@ -674,12 +674,12 @@ test_single_bool_put (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_OK\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_OK\""
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_single_bool_put", NULL, CMSG_HTTP_PUT, "false", &output_json,
+    cmsg_proxy ("/test_single_bool_put", NULL, CMSG_HTTP_PUT, "false", NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -696,13 +696,13 @@ test_single_string_put (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_OK\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_OK\""
         "}";
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_single_string_put", NULL, CMSG_HTTP_PUT, "\"Test String\"",
-                &output_json, &http_status);
+                NULL, &output_json, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -718,12 +718,12 @@ test_single_uint32_put (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_OK\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_OK\""
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_single_uint32_put", NULL, CMSG_HTTP_PUT, "987", &output_json,
+    cmsg_proxy ("/test_single_uint32_put", NULL, CMSG_HTTP_PUT, "987", NULL, &output_json,
                 &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -740,13 +740,13 @@ test_single_repeated_uint32_put (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_OK\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_OK\""
         "}";
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_single_repeated_uint32_put", NULL, CMSG_HTTP_PUT, "[9, 8, 7]",
-                &output_json, &http_status);
+                NULL, &output_json, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -762,19 +762,19 @@ test_body_mapped_to_sub_message (void)
 
     /* *INDENT-OFF* */
     const char *input_json =
-        "{\n"
-        "    \"field_x\": \"Hi\",\n"
-        "    \"field_y\": 123\n"
+        "{"
+        "\"field_x\":\"Hi\","
+        "\"field_y\":123"
         "}";
 
     const char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_OK\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_OK\""
         "}";
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_body_mapped_to_sub_message/Bar", NULL, CMSG_HTTP_POST, input_json,
-                &output_json, &http_status);
+                NULL, &output_json, &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -792,13 +792,13 @@ test_body_mapped_to_primitive (void)
 
     /* *INDENT-OFF* */
     const char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_OK\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_OK\""
         "}";
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_body_mapped_to_primitive/Foo", NULL, CMSG_HTTP_POST, input_json,
-                &output_json, &http_status);
+                NULL, &output_json, &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -814,19 +814,19 @@ test_body_mapped_to_remaining_multiple_fields (void)
 
     /* *INDENT-OFF* */
     const char *input_json =
-        "{\n"
-        "    \"field_b\": \"Foo\",\n"
-        "    \"field_c\": { \"field_x\": \"Hi\", \"field_y\": 123 }\n"
+        "{"
+        "\"field_b\":\"Foo\","
+        "\"field_c\":{ \"field_x\":\"Hi\",\"field_y\":123}"
         "}";
 
     const char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_OK\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_OK\""
         "}";
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_body_mapped_to_remaining_multiple_fields/Bar", NULL, CMSG_HTTP_POST,
-                input_json, &output_json, &http_status);
+                input_json, NULL, &output_json, &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -842,19 +842,19 @@ test_body_mapped_to_remaining_single_field (void)
 
     /* *INDENT-OFF* */
     const char *input_json =
-        "{\n"
-        "    \"field_x\": \"Hi\",\n"
-        "    \"field_y\": 123\n"
+        "{"
+        "\"field_x\":\"Hi\","
+        "\"field_y\": 123"
         "}";
 
     const char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_OK\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_OK\""
         "}";
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_body_mapped_to_remaining_single_field/Bar/Foo", NULL, CMSG_HTTP_POST,
-                input_json, &output_json, &http_status);
+                input_json, NULL, &output_json, &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -870,21 +870,21 @@ test_body_mapped_to_nothing (void)
 
     /* *INDENT-OFF* */
     const char *expected_error_output =
-        "{\n"
-        "    \"code\": \"ANT_CODE_INVALID_ARGUMENT\",\n"
-        "    \"message\": \"Invalid JSON: No JSON data expected for API, but JSON data input\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_INVALID_ARGUMENT\","
+        "\"message\":\"Invalid JSON: No JSON data expected for API, but JSON data input\""
         "}";
 
     const char *expected_ok_output =
-        "{\n"
-        "    \"code\": \"ANT_CODE_OK\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_OK\""
         "}";
     /* *INDENT-ON* */
 
     /* Test with no input JSON */
 
     cmsg_proxy ("/test_body_mapped_to_nothing/Bar", NULL, CMSG_HTTP_POST, NULL,
-                &output_json, &http_status);
+                NULL, &output_json, &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
     NP_ASSERT_STR_EQUAL (output_json, expected_ok_output);
@@ -895,7 +895,7 @@ test_body_mapped_to_nothing (void)
     /* Test with input JSON */
 
     cmsg_proxy ("/test_body_mapped_to_nothing/Bar", NULL, CMSG_HTTP_POST, "Test Input",
-                &output_json, &http_status);
+                NULL, &output_json, &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_BAD_REQUEST);
     NP_ASSERT_STR_EQUAL (output_json, expected_error_output);
