@@ -463,7 +463,6 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
 
     if (!server_list)
     {
-        CMSG_COUNTER_INC (server, cntr_errors);
         return 0;
     }
 
