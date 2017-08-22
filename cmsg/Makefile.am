@@ -79,6 +79,7 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/cmsg_functional_tests.pb-c.h \
 	test/functional/client_server_rpc_tests.c \
 	test/functional/client_server_oneway_tests.c \
+	test/functional/client_server_echo_tests.c \
 	test/functional/publisher_subscriber_tests.c \
 	test/functional/client_queuing_tests.c \
 	test/functional/publisher_queuing_tests.c

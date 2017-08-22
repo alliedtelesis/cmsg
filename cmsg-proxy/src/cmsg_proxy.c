@@ -561,7 +561,7 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
  * @param json_obj - the message body
  * @param msg_descriptor - used to determine the target field type when converting to JSON
  */
-void
+static void
 _cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *info,
                                    json_t **json_obj,
                                    const ProtobufCMessageDescriptor *msg_descriptor)

@@ -51,7 +51,7 @@ cmsg_transport_oneway_udt_server_recv (int32_t socket, cmsg_server *server)
         return -1;
     }
 
-    ret = cmsg_transport_server_recv (udt_recv, udt_data, server);
+    ret = cmsg_transport_server_recv (udt_recv, udt_data, server, NULL);
 
     return ret;
 }
