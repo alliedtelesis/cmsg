@@ -29,6 +29,9 @@ void cmsg_msg_array_free (void *msg_array, const char *file, int line);
 /* note - use CMSG_REPEATED_APPEND() instead of calling this directly */
 void cmsg_repeated_append (void ***msg_ptr_array, size_t *num_elems, const void *ptr,
                            const char *file, int line);
+/* note - use CMSG_UPDATE_RECV_MSG_STRING_FIELD() instead of calling this directly */
+void cmsg_update_recv_msg_string_field (char **field, const char *new_val,
+                                        const char *file, int line);
 
 extern ProtobufCAllocator cmsg_memory_allocator;
 
@@ -148,6 +151,19 @@ extern ProtobufCAllocator cmsg_memory_allocator;
     if ((_name) && (_name)->_field)                         \
         for (_idx = 0; _idx < (_name)->n_##_field; _idx++) \
             if ((_node = (_name)->_field[_idx]) != NULL)
+
+/**
+ * Replace a string field in a received message with a different value using the
+ * CMSG memory allocator.
+ * This is useful if the message needs a slight modification before sending on
+ * to another destination so that the memory allocation tracing is kept happy,
+ * and CMSG_FREE_RECV_MSG can still be used to free the whole message.
+ * @param _name name of message ptr variable.
+ * @param _field name of the repeated field
+ * @param _new_value string to be copied to field.
+ */
+#define CMSG_UPDATE_RECV_MSG_STRING_FIELD(_name, _field, _new_value) \
+    cmsg_update_recv_msg_string_field (&((_name)->_field), _new_value, __FILE__, __LINE__)
 
 int cmsg_service_port_get (const char *name, const char *proto);
 

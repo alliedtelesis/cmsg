@@ -346,6 +346,19 @@ cmsg_asprintf (const char *filename, int line, char **strp, const char *fmt, ...
     return ret;
 }
 
+char *
+cmsg_strdup (const char *strp, const char *filename, int line)
+{
+    char *p = strdup (strp);
+
+    if (cmsg_mtype > 0)
+    {
+        g_mem_record_alloc (p, cmsg_mtype, filename, line);
+    }
+
+    return p;
+}
+
 void *
 cmsg_realloc (void *ptr, size_t size, const char *filename, int line)
 {
@@ -498,6 +511,30 @@ cmsg_repeated_append (void ***msg_ptr_array, size_t *num_elems, const void *ptr,
         new_array_ptr[(*num_elems)++] = (void *) ptr;
         *msg_ptr_array = new_array_ptr;
     }
+}
+
+/**
+ * Free the contents of a string field in a received message, recording that it has been freed.
+ * Then duplicate and record the allocation of the passed in string and set it in the message.
+ * Should be called using CMSG_UPDATE_RECV_MSG_STRING_FIELD macro.
+ * @param field Field that needs to be updated
+ * @param new_val string to put into the field
+ * @param file Calling file
+ * @param line Calling line
+ */
+void
+cmsg_update_recv_msg_string_field (char **field, const char *new_val,
+                                   const char *file, int line)
+{
+    char *strp = NULL;
+    cmsg_free (*field, file, line);
+
+    if (new_val)
+    {
+        strp = cmsg_strdup (new_val, file, line);
+    }
+
+    *field = strp;
 }
 
 static void *
