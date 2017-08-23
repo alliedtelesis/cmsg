@@ -22,6 +22,9 @@ typedef protobuf_c_boolean cmsg_bool_t;
 
 void cmsg_malloc_init (int mtype);
 
+/* note - use CMSG_MSG_ALLOC()/_FREE() instead of calling these directly */
+void *cmsg_msg_alloc (size_t struct_size, const char *file, int line);
+void cmsg_msg_free (void *msg_struct, const char *file, int line);
 /* note - use CMSG_MSG_ARRAY_ALLOC()/_FREE() instead of calling these directly */
 void **cmsg_msg_array_alloc (size_t struct_size, uint32_t num_structs,
                              const char *file, int line);
@@ -84,6 +87,27 @@ extern ProtobufCAllocator cmsg_memory_allocator;
 
 #define CMSG_IS_REPEATED_PRESENT(_msg, _field) \
     ((_msg)->n_##_field ? TRUE : FALSE)
+
+/**
+ * Helper macro to allocate a message struct using the CMSG memory allocator.
+ * @param __msg_struct the name of the message struct being used
+ * @return a pointer to the allocated message struct.  The message must still be
+ * initialised using the appropriate init function for the message. No sub-fields
+ * in the message are allocated. You still need to malloc and free these yourself.
+ */
+#define CMSG_MSG_ALLOC(__msg_struct) \
+    (__msg_struct *) cmsg_msg_alloc (sizeof (__msg_struct), __FILE__, __LINE__)
+
+/**
+ * Frees a message struct allocated by CMSG_MSG_ALLOC()
+ * @param __msg_ptr Pointer to the message created by CMSG_MSG_ALLOC
+ * @note that this does not handle freeing memory for any sub-fields within the
+ * message struct (e.g. strings, MAC addresses, etc). You still need to free
+ * these yourself before calling this macro. If all fields in the message are allocated
+ * using the CMSG allocator, CMSG_FREE_RECV_MSG can be used to free the whole message.
+ */
+#define CMSG_MSG_FREE(__msg_ptr) \
+    cmsg_msg_free (__msg_ptr, __FILE__, __LINE__)
 
 /**
  * Helper macro to allocate an array of message structs used to send a CMSG

@@ -404,6 +404,28 @@ cmsg_malloc_init (int mtype)
 }
 
 /**
+ * Allocates a zeroed single message struct, but does not allocate memory for
+ * any sub-fields.  It is up to the user to call the appropriate init function for the struct.
+ * @note You should use CMSG_MSG_ALLOC() rather than calling this function directly
+ * @returns a pointer to the allocated message.
+ */
+void *
+cmsg_msg_alloc (size_t struct_size, const char *file, int line)
+{
+    return cmsg_calloc (struct_size, 1, file, line);
+}
+
+/**
+ * Frees a message struct allocated by cmsg_msg_alloc()
+ * @note You should use CMSG_MSG_FREE() rather than calling this function directly
+ */
+void
+cmsg_msg_free (void *msg_array, const char *file, int line)
+{
+    cmsg_free (msg_array, file, line);
+}
+
+/**
  * Allocates a single piece of memory to hold two arrays: an array of message
  * structs and an array of pointers to these structs. Sets up the pointer array
  * so it's ready for use and returns this.
