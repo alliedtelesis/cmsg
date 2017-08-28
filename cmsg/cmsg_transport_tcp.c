@@ -141,6 +141,8 @@ cmsg_transport_tcp_listen (cmsg_transport *transport)
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tcp socket: %d\n", listening_socket);
 
 #ifndef DEBUG_DISABLED
+    int port = 0;
+
     if (transport->config.socket.family == PF_INET6)
     {
         port = (int) (ntohs (transport->config.socket.sockaddr.in6.sin6_port));
@@ -149,9 +151,9 @@ cmsg_transport_tcp_listen (cmsg_transport *transport)
     {
         port = (int) (ntohs (transport->config.socket.sockaddr.in.sin_port));
     }
-#endif
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on port: %d\n", port);
+#endif /* !DEBUG_DISABLED */
 
     return 0;
 }
