@@ -21,7 +21,8 @@ typedef enum _cmsg_http_verb
 
 typedef struct _cmsg_proxy_api_request_info
 {
-    char *api_request_ip_address;
+    const char *api_request_ip_address;
+    const char *api_request_username;
 } cmsg_proxy_api_request_info;
 
 
