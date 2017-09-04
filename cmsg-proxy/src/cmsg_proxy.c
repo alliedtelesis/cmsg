@@ -557,30 +557,30 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
 /**
  * Set any required internal api info fields in the input message descriptor.
  *
- * @param info - the structure holding the web api request information
- * @param json_obj - the message body
- * @param msg_descriptor - used to determine the target field type when converting to JSON
+ * @param internal_info_value - The internal api info value to set in the message body
+ * @param json_obj - Pointer to the message body.
+ * @param msg_descriptor - Used to determine the target field type when converting to JSON.
+ * @param field_name - Target field name in the message to put the internal api info value.
  */
 static void
-_cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *info,
+_cmsg_proxy_set_internal_api_info (const char *internal_info_value,
                                    json_t **json_obj,
-                                   const ProtobufCMessageDescriptor *msg_descriptor)
+                                   const ProtobufCMessageDescriptor *msg_descriptor,
+                                   const char *field_name)
 {
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
     json_t *new_object = NULL;
 
     field_descriptor = protobuf_c_message_descriptor_get_field_by_name (msg_descriptor,
-                                                                        "_api_request_ip_address");
+                                                                        field_name);
 
     if (field_descriptor)
     {
-        new_object =
-            _cmsg_proxy_json_value_to_object (field_descriptor,
-                                              info->api_request_ip_address);
-
+        new_object = _cmsg_proxy_json_value_to_object (field_descriptor,
+                                                       internal_info_value);
         if (!new_object)
         {
-            syslog (LOG_ERR, "Could not create json object for _api_request_ip_address");
+            syslog (LOG_ERR, "Could not create json object for %s", field_name);
             return;
         }
 
@@ -1278,8 +1278,12 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
 
     g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
 
-    _cmsg_proxy_set_internal_api_info (web_api_info, &json_obj,
-                                       service_info->input_msg_descriptor);
+    if (web_api_info)
+    {
+        _cmsg_proxy_set_internal_api_info (web_api_info->api_request_ip_address, &json_obj,
+                                           service_info->input_msg_descriptor,
+                                           "_api_request_ip_address");
+    }
 
     client = _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
     if (client == NULL)
