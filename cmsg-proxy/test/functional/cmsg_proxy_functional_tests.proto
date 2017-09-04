@@ -36,6 +36,7 @@ message test_body_msg
 message internal_api_info_test
 {
     optional string _api_request_ip_address = 1;
+    optional string _api_request_username = 2;
 }
 
 service functional_tests

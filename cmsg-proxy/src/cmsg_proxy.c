@@ -555,7 +555,7 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
 }
 
 /**
- * Set any required internal api info fields in the input message descriptor.
+ * Set the internal api info field value in the input message descriptor.
  *
  * @param internal_info_value - The internal api info value to set in the message body
  * @param json_obj - Pointer to the message body.
@@ -563,10 +563,10 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
  * @param field_name - Target field name in the message to put the internal api info value.
  */
 static void
-_cmsg_proxy_set_internal_api_info (const char *internal_info_value,
-                                   json_t **json_obj,
-                                   const ProtobufCMessageDescriptor *msg_descriptor,
-                                   const char *field_name)
+_cmsg_proxy_set_internal_api_value (const char *internal_info_value,
+                                    json_t **json_obj,
+                                    const ProtobufCMessageDescriptor *msg_descriptor,
+                                    const char *field_name)
 {
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
     json_t *new_object = NULL;
@@ -593,6 +593,29 @@ _cmsg_proxy_set_internal_api_info (const char *internal_info_value,
         {
             *json_obj = new_object;
         }
+    }
+}
+
+/**
+ * Set any required internal api info fields in the input message descriptor.
+ *
+ * @param web_api_info - The structure holding the web api request information
+ * @param json_obj - Pointer to the message body.
+ * @param msg_descriptor - Used to determine the target field type when converting to JSON
+ */
+static void
+_cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *web_api_info,
+                                   json_t **json_obj,
+                                   const ProtobufCMessageDescriptor *msg_descriptor)
+{
+    if (web_api_info)
+    {
+        _cmsg_proxy_set_internal_api_value (web_api_info->api_request_ip_address,
+                                            json_obj, msg_descriptor,
+                                            "_api_request_ip_address");
+        _cmsg_proxy_set_internal_api_value (web_api_info->api_request_username,
+                                            json_obj, msg_descriptor,
+                                            "_api_request_username");
     }
 }
 
@@ -1278,12 +1301,8 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
 
     g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
 
-    if (web_api_info)
-    {
-        _cmsg_proxy_set_internal_api_info (web_api_info->api_request_ip_address, &json_obj,
-                                           service_info->input_msg_descriptor,
-                                           "_api_request_ip_address");
-    }
+    _cmsg_proxy_set_internal_api_info (web_api_info, &json_obj,
+                                       service_info->input_msg_descriptor);
 
     client = _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
     if (client == NULL)

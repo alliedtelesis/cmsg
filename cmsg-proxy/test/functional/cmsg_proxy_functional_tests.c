@@ -404,6 +404,9 @@ functional_tests_impl_test_internal_web_api_info_set (const void *service,
     NP_ASSERT_NOT_NULL (recv_msg->_api_request_ip_address);
     NP_ASSERT_STR_EQUAL (recv_msg->_api_request_ip_address, "1.2.3.4");
 
+    NP_ASSERT_NOT_NULL (recv_msg->_api_request_username);
+    NP_ASSERT_STR_EQUAL (recv_msg->_api_request_username, "user123");
+
     CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
 
     functional_tests_server_test_internal_web_api_info_setSend (service, &send_msg);
@@ -927,6 +930,7 @@ test_internal_web_api_info_set (void)
     cmsg_proxy_api_request_info web_api_info = { };
 
     web_api_info.api_request_ip_address = "1.2.3.4";
+    web_api_info.api_request_username = "user123";
     cmsg_proxy ("/test_internal_web_api_info_set", NULL, CMSG_HTTP_GET, NULL,
                 &web_api_info, &output_json, &http_status);
 
