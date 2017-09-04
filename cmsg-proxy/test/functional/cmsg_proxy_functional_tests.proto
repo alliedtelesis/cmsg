@@ -33,6 +33,11 @@ message test_body_msg
     optional test_body_sub_msg field_c = 3;
 }
 
+message internal_api_info_test
+{
+    optional string _api_request_ip_address = 1;
+}
+
 service functional_tests
 {
     rpc test_single_bool_get (dummy) returns (ant_result_plus_bool) {
@@ -166,6 +171,12 @@ service functional_tests
         option http = {
             put: "/test_single_repeated_uint32_put",
             body: "values"
+        };
+    }
+
+    rpc test_internal_web_api_info_set (internal_api_info_test) returns (ant_result) {
+        option http = {
+            get: "/test_internal_web_api_info_set",
         };
     }
 }

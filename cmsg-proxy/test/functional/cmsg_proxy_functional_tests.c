@@ -394,6 +394,21 @@ functional_tests_impl_test_body_mapped_to_nothing (const void *service,
     functional_tests_server_test_body_mapped_to_nothingSend (service, &send_msg);
 }
 
+void
+functional_tests_impl_test_internal_web_api_info_set (const void *service,
+                                                      const internal_api_info_test
+                                                      *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_NOT_NULL (recv_msg->_api_request_ip_address);
+    NP_ASSERT_STR_EQUAL (recv_msg->_api_request_ip_address, "1.2.3.4");
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+
+    functional_tests_server_test_internal_web_api_info_setSend (service, &send_msg);
+}
+
 int
 set_up (void)
 {
@@ -902,4 +917,19 @@ test_body_mapped_to_nothing (void)
 
     free (output_json);
     output_json = NULL;
+}
+
+void
+test_internal_web_api_info_set (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+    cmsg_proxy_api_request_info web_api_info = { };
+
+    web_api_info.api_request_ip_address = "1.2.3.4";
+    cmsg_proxy ("/test_internal_web_api_info_set", NULL, CMSG_HTTP_GET, NULL,
+                &web_api_info, &output_json, &http_status);
+
+    NP_ASSERT_NULL (output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
 }
