@@ -65,7 +65,6 @@ typedef struct _cmsg_pub_s
     pthread_mutex_t queue_mutex;
     GQueue *queue;
     GHashTable *queue_filter_hash_table;
-    cmsg_bool_t queue_enabled;
 
     //thread signaling for queuing
     pthread_cond_t queue_process_cond;
@@ -135,23 +134,9 @@ void cmsg_pub_queue_filter_init (cmsg_pub *publisher);
 cmsg_queue_filter_type cmsg_pub_queue_filter_lookup (cmsg_pub *publisher,
                                                      const char *method);
 
-void cmsg_pub_queue_filter_show (cmsg_pub *publisher);
-
-/**
- * Print the subscriber list of the publisher passed in.
- * This function is thread-safe.
- * If you want to print the subscriber list and you hold the lock on it,
- * use _cmsg_pub_print_subscriber_list instead.
- */
-void cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
-
 cmsg_pub *cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
                                           int scope,
                                           ProtobufCServiceDescriptor *descriptor);
-
-cmsg_pub *cmsg_create_publisher_tipc_oneway (const char *server_name, int member_id,
-                                             int scope,
-                                             ProtobufCServiceDescriptor *descriptor);
 
 void cmsg_destroy_publisher_and_transport (cmsg_pub *publisher);
 

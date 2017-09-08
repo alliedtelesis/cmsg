@@ -5,6 +5,7 @@
 #include "cmsg.h"
 #include "cmsg_private.h"
 #include "cmsg_error.h"
+#include <gmem_diag.h>
 
 #define CMSG_REPEATED_BLOCK_SIZE 64
 
@@ -151,10 +152,6 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
                 header_converted->message_length, header_received->message_length);
 
     CMSG_DEBUG (CMSG_INFO,
-                "[TRANSPORT] method_index   host: %d, wire: %d\n",
-                header_converted->method_index, header_received->method_index);
-
-    CMSG_DEBUG (CMSG_INFO,
                 "[TRANSPORT] status_code host: %d, wire: %d\n",
                 header_converted->status_code, header_received->status_code);
 
@@ -273,6 +270,8 @@ cmsg_service_port_get (const char *name, const char *proto)
     ret = getservbyname_r (name, proto, &result_buf, buf, buf_size, &result);
     if (result == NULL || ret != 0)
     {
+        char *errstr = strerror (errno);
+        CMSG_LOG_GEN_ERROR ("getservbyname_r(%s/%s) failure: %s", name, proto, errstr);
         return 0;
     }
 

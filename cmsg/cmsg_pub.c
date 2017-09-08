@@ -17,13 +17,6 @@ static void _cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link);
 
 static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
 
-static void _cmsg_pub_print_subscriber_list (cmsg_pub *publisher);
-
-static cmsg_pub *_cmsg_create_publisher_tipc (const char *server_name, int member_id,
-                                              int scope,
-                                              ProtobufCServiceDescriptor *descriptor,
-                                              cmsg_transport_type transport_type);
-
 static int32_t cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data);
 
 extern cmsg_server *cmsg_server_create (cmsg_transport *transport,
@@ -163,7 +156,6 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     publisher->invoke = &cmsg_pub_invoke;
     publisher->subscriber_list = NULL;
     publisher->subscriber_count = 0;
-    publisher->queue_enabled = FALSE;
 
     if (pthread_mutex_init (&publisher->queue_mutex, NULL) != 0)
     {
@@ -829,7 +821,7 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     else
     {
         //delete queued entries for the method being un-subscribed
-        if (publisher->queue_enabled)
+        if (g_queue_get_length (publisher->queue))
         {
             pthread_mutex_lock (&publisher->queue_mutex);
             cmsg_send_queue_free_by_transport_method (publisher->queue,
@@ -851,7 +843,6 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
 void
 cmsg_pub_queue_enable (cmsg_pub *publisher)
 {
-    publisher->queue_enabled = TRUE;
     cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_QUEUE);
 }
 
@@ -872,7 +863,6 @@ cmsg_pub_queue_free_all (cmsg_pub *publisher)
 int32_t
 cmsg_pub_queue_disable (cmsg_pub *publisher)
 {
-    publisher->queue_enabled = FALSE;
     cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_PROCESS);
 
     return cmsg_pub_queue_process_all (publisher);
@@ -1035,61 +1025,18 @@ cmsg_pub_queue_filter_lookup (cmsg_pub *publisher, const char *method)
     return cmsg_queue_filter_lookup (publisher->queue_filter_hash_table, method);
 }
 
-void
-cmsg_pub_queue_filter_show (cmsg_pub *publisher)
-{
-    cmsg_queue_filter_show (publisher->queue_filter_hash_table, publisher->descriptor);
-}
-
-/**
- * Print the subscriber list of the publisher passed in.
- * This function is NOT thread-safe!!
- * If you want to print the subscriber list and you don't hold the lock on it,
- * use cmsg_pub_print_subscriber_list instead.
- */
-static void
-_cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
-{
-    syslog (LOG_CRIT | LOG_LOCAL6, "[PUB] [LIST] listing all list entries\n");
-    GList *print_subscriber_list = g_list_first (publisher->subscriber_list);
-    while (print_subscriber_list != NULL)
-    {
-        cmsg_sub_entry *print_list_entry = (cmsg_sub_entry *) print_subscriber_list->data;
-        syslog (LOG_CRIT | LOG_LOCAL6,
-                "[PUB] [LIST] print_list_entry->method_name: %s, marked for deletion: %s\n",
-                print_list_entry->method_name,
-                print_list_entry->to_be_removed ? "TRUE" : "FALSE");
-
-        print_subscriber_list = g_list_next (print_subscriber_list);
-    }
-}
-
-/**
- * Print the subscriber list of the publisher passed in.
- * This function is thread-safe.
- * If you want to print the subscriber list and you hold the lock on it,
- * use _cmsg_pub_print_subscriber_list instead.
- */
-void
-cmsg_pub_print_subscriber_list (cmsg_pub *publisher)
-{
-    pthread_mutex_lock (&publisher->subscriber_list_mutex);
-
-    _cmsg_pub_print_subscriber_list (publisher);
-
-    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
-}
-
-
-static cmsg_pub *
-_cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
-                             ProtobufCServiceDescriptor *descriptor,
-                             cmsg_transport_type transport_type)
+cmsg_pub *
+cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
+                                int scope, ProtobufCServiceDescriptor *descriptor)
 {
     cmsg_transport *transport = NULL;
     cmsg_pub *publisher = NULL;
 
-    transport = cmsg_create_transport_tipc (server_name, member_id, scope, transport_type);
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    transport = cmsg_create_transport_tipc (server_name, member_id, scope,
+                                            CMSG_TRANSPORT_RPC_TIPC);
     if (transport == NULL)
     {
         return NULL;
@@ -1105,28 +1052,6 @@ _cmsg_create_publisher_tipc (const char *server_name, int member_id, int scope,
     }
 
     return publisher;
-}
-
-cmsg_pub *
-cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
-                                int scope, ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
-                                        CMSG_TRANSPORT_RPC_TIPC);
-}
-
-cmsg_pub *
-cmsg_create_publisher_tipc_oneway (const char *server_name, int member_id,
-                                   int scope, ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_publisher_tipc (server_name, member_id, scope, descriptor,
-                                        CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 void

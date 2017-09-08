@@ -1,5 +1,5 @@
 /*
- * Unit tests for the CMSG library.
+ * Unit tests for cmsg_pub.c
  *
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */
