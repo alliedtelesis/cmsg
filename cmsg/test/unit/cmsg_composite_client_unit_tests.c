@@ -244,8 +244,7 @@ test_cmsg_composite_client_child_add__unsupported_transport (void)
     cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);
     cmsg_client *child_1 =
         cmsg_create_client_tipc_rpc ("test", 1, 1, &dummy_service_descriptor);
-    cmsg_client *child_2 =
-        cmsg_create_client_tipc_oneway ("test", 2, 2, &dummy_service_descriptor);
+    cmsg_client *child_2 = cmsg_create_client_unix (&dummy_service_descriptor);
 
     np_syslog_ignore (".*");
 

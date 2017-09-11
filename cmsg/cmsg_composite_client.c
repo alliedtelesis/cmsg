@@ -69,6 +69,12 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
     // For each message successfully sent, receive the reply
     while ((child = g_queue_pop_head (invoke_recv_clients)) != NULL)
     {
+        if (!child->invoke_recv)
+        {
+            // invoke_recv is NULL so nothing to do here (e.g. ONEWAY_TIPC transport type)
+            continue;
+        }
+
         ret = child->invoke_recv (child, method_index, closure, &recv_data[i]);
         if (ret == CMSG_RET_OK)
         {
@@ -96,7 +102,8 @@ cmsg_composite_client_add_child (cmsg_client *composite_client, cmsg_client *cli
 
     if (client->_transport->type != CMSG_TRANSPORT_RPC_TCP &&
         client->_transport->type != CMSG_TRANSPORT_RPC_TIPC &&
-        client->_transport->type != CMSG_TRANSPORT_LOOPBACK)
+        client->_transport->type != CMSG_TRANSPORT_LOOPBACK &&
+        client->_transport->type != CMSG_TRANSPORT_ONEWAY_TIPC)
     {
         CMSG_LOG_CLIENT_ERROR (client,
                                "Transport type %d not supported for composite clients",
