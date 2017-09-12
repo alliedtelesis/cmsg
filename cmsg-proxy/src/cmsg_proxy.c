@@ -118,6 +118,19 @@ struct index_add_elem_data
 };
 
 /**
+ * Checks whether the given field name corresponds to a hidden field.
+ *
+ * @param field_name - The field name to check.
+ *
+ * @returns true if the field is hidden, false otherwise.
+ */
+static bool
+_cmsg_proxy_field_is_hidden (const char *field_name)
+{
+    return (strncmp (field_name, "_", 1) == 0);
+}
+
+/**
  * Convert a single JSON value (i.e. not a JSON object or array) into
  * a JSON object using the input protobuf-c field name as the key.
  *
@@ -205,8 +218,8 @@ _cmsg_proxy_find_unparsed_field (const ProtobufCMessageDescriptor *msg_descripto
         field_desc = &(msg_descriptor->fields[i]);
         field_name = field_desc->name;
 
-        /* The '_error_info' field should never be set in the input path */
-        if (strcmp (field_name, "_error_info") == 0)
+        /* The hidden fields should never be set in the input path */
+        if (_cmsg_proxy_field_is_hidden (field_name))
         {
             continue;
         }
@@ -255,10 +268,10 @@ _cmsg_proxy_json_object_sanity_check (json_t *json_obj, json_error_t *error)
         return false;
     }
 
-    /* Sanity check the user hasn't given the '_error_info' field */
+    /* Sanity check the user hasn't attempted to give any hidden fields */
     json_object_foreach (json_obj, key, value)
     {
-        if (strcmp (key, "_error_info") == 0)
+        if (_cmsg_proxy_field_is_hidden (key))
         {
             snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "Invalid JSON");
             return false;
@@ -292,6 +305,7 @@ _cmsg_proxy_json_object_create (const char *input_json,
     json_t *json_obj = NULL;
     const char *stripped_string;
     int expected_input_fields = msg_descriptor->n_fields - g_list_length (url_parameters);
+    int i;
 
     if (!input_json)
     {
@@ -299,10 +313,13 @@ _cmsg_proxy_json_object_create (const char *input_json,
         return json_object ();
     }
 
-    /* The '_error_info' field should never be set in the input path */
-    if (protobuf_c_message_descriptor_get_field_by_name (msg_descriptor, "_error_info"))
+    /* Hidden fields should never be set in the input path */
+    for (i = 0; i < msg_descriptor->n_fields; i++)
     {
-        expected_input_fields--;
+        if (_cmsg_proxy_field_is_hidden (msg_descriptor->fields[i].name))
+        {
+            expected_input_fields--;
+        }
     }
 
     /* If we don't expect any input JSON but the user has given some then
