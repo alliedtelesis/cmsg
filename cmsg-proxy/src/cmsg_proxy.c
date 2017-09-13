@@ -555,6 +555,48 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
 }
 
 /**
+ * Set any required internal api info fields in the input message descriptor.
+ *
+ * @param info - the structure holding the web api request information
+ * @param json_obj - the message body
+ * @param msg_descriptor - used to determine the target field type when converting to JSON
+ */
+static void
+_cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *info,
+                                   json_t **json_obj,
+                                   const ProtobufCMessageDescriptor *msg_descriptor)
+{
+    const ProtobufCFieldDescriptor *field_descriptor = NULL;
+    json_t *new_object = NULL;
+
+    field_descriptor = protobuf_c_message_descriptor_get_field_by_name (msg_descriptor,
+                                                                        "_api_request_ip_address");
+
+    if (field_descriptor)
+    {
+        new_object =
+            _cmsg_proxy_json_value_to_object (field_descriptor,
+                                              info->api_request_ip_address);
+
+        if (!new_object)
+        {
+            syslog (LOG_ERR, "Could not create json object for _api_request_ip_address");
+            return;
+        }
+
+        if (*json_obj)
+        {
+            json_object_update (*json_obj, new_object);
+            json_decref (new_object);
+        }
+        else
+        {
+            *json_obj = new_object;
+        }
+    }
+}
+
+/**
  * This calls the pre-API check callback provided by the application.
  *
  * @param http_verb - The HTTP request method
@@ -812,7 +854,7 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
 
     cmsg_proxy_strip_details_from_ant_result (converted_json_object);
 
-    *output_json = json_dumps (converted_json_object, JSON_INDENT (4));
+    *output_json = json_dumps (converted_json_object, JSON_COMPACT);
     json_decref (converted_json_object);
 }
 
@@ -842,7 +884,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
     if (strcmp (output_proto_message->descriptor->name, "ant_result") == 0)
     {
         cmsg_proxy_strip_details_from_ant_result (converted_json_object);
-        *output_json = json_dumps (converted_json_object, JSON_INDENT (4));
+        *output_json = json_dumps (converted_json_object, JSON_COMPACT);
         json_decref (converted_json_object);
         return true;
     }
@@ -856,7 +898,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
             if ((strcmp (key, "_error_info") == 0))
             {
                 cmsg_proxy_strip_details_from_ant_result (value);
-                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_INDENT (4));
+                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_COMPACT);
                 json_decref (converted_json_object);
                 return true;
             }
@@ -875,7 +917,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
         {
             if (strcmp (key, "_error_info") != 0)
             {
-                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_INDENT (4));
+                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_COMPACT);
                 json_decref (converted_json_object);
                 return true;
             }
@@ -896,7 +938,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
     /* If there are more than 2 fields in the message descriptor
      * (and the http status is HTTP_CODE_OK) then simply return the
      * entire message as a JSON string */
-    *output_json = json_dumps (converted_json_object, JSON_INDENT (4));
+    *output_json = json_dumps (converted_json_object, JSON_COMPACT);
     json_decref (converted_json_object);
     return true;
 }
@@ -1144,7 +1186,7 @@ cmsg_proxy_index (const char *query_string, char **output_json)
     json_object_set_new (result, "basepath", json_string (API_PREFIX));
     json_object_set (result, "paths", api_array);
 
-    *output_json = json_dumps (result, JSON_ENCODE_ANY | JSON_INDENT (4));
+    *output_json = json_dumps (result, JSON_ENCODE_ANY | JSON_COMPACT);
 
     free (search_pattern);
     json_decref (api_array);
@@ -1161,6 +1203,8 @@ cmsg_proxy_index (const char *query_string, char **output_json)
  * @param query_string - The query string sent with the request. Expected to be URL Encoded.
  * @param http_verb - The HTTP verb sent with the HTTP request.
  * @param input_json - A string representing the JSON data sent with the HTTP request.
+ * @param web_api_info - A pointer to the structure holding information about the web
+ *                       API request.
  * @param output_json - A pointer to a string that will store the output JSON data to.
  *                      be sent with the HTTP response. This pointer may be NULL if the
  *                      rpc does not send any response data and the pointer must be
@@ -1175,7 +1219,8 @@ cmsg_proxy_index (const char *query_string, char **output_json)
  */
 bool
 cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
-            const char *input_json, char **output_json, int *http_status)
+            const char *input_json, const cmsg_proxy_api_request_info *web_api_info,
+            char **output_json, int *http_status)
 {
     const cmsg_service_info *service_info = NULL;
     const cmsg_client *client = NULL;
@@ -1232,6 +1277,9 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
                                       service_info->input_msg_descriptor);
 
     g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
+
+    _cmsg_proxy_set_internal_api_info (web_api_info, &json_obj,
+                                       service_info->input_msg_descriptor);
 
     client = _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
     if (client == NULL)

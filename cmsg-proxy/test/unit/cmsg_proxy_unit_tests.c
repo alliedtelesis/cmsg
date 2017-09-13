@@ -386,16 +386,16 @@ test_cmsg_proxy__invalid_json_input (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_INVALID_ARGUMENT\",\n"
-        "    \"message\": \"Invalid JSON: string or '}' expected near end of file\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_INVALID_ARGUMENT\","
+        "\"message\":\"Invalid JSON: string or '}' expected near end of file\""
         "}";
     /* *INDENT-ON* */
 
     setup_standard_test_tree ();
 
     request_handled =
-        cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_PUT, "{", &output_json, &http_status);
+        cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_PUT, "{", NULL, &output_json, &http_status);
 
     NP_ASSERT_TRUE (request_handled);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
