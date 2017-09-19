@@ -1430,3 +1430,13 @@ test_cmsg_proxy_service_info_add__conflict_param_with_existing_param2 (void)
      *                    completed this story */
     NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_2));
 }
+
+/**
+ * Function Tested: _cmsg_proxy_field_is_hidden()
+ */
+void
+test_cmsg_proxy_field_is_hidden (void)
+{
+    NP_ASSERT_TRUE (_cmsg_proxy_field_is_hidden ("_hidden_field"));
+    NP_ASSERT_FALSE (_cmsg_proxy_field_is_hidden ("non_hidden_field"));
+}
