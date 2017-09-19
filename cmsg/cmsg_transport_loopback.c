@@ -201,6 +201,7 @@ cmsg_transport_loopback_client_recv (cmsg_transport *transport,
 
     *messagePtPt = NULL;
 
+    // Read the cmsg header first
     nbytes = read (transport->connection.sockets.client_socket, &header_received,
                    sizeof (cmsg_header));
     if (nbytes == (int) sizeof (cmsg_header))
@@ -216,10 +217,14 @@ cmsg_transport_loopback_client_recv (cmsg_transport *transport,
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
 
-        // read the message
+        // Take into account that someone may have changed the size of the header
+        // and we don't know about it, make sure we receive all the information.
+        // Any TLV is taken into account in the header length.
+        dyn_len = header_converted.message_length +
+            header_converted.header_length - sizeof (cmsg_header);
 
         // There is no more data to read so exit.
-        if (header_converted.message_length == 0)
+        if (dyn_len == 0)
         {
             // May have been queued, dropped or there was no message returned
             CMSG_DEBUG (CMSG_INFO,
@@ -227,11 +232,7 @@ cmsg_transport_loopback_client_recv (cmsg_transport *transport,
                         header_converted.status_code);
             return header_converted.status_code;
         }
-        extra_header_size = header_converted.header_length - sizeof (cmsg_header);
 
-        // Take into account that someone may have changed the size of the header
-        // and we don't know about it, make sure we receive all the information.
-        dyn_len = header_converted.message_length + extra_header_size;
         if (dyn_len > sizeof (buf_static))
         {
             recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
@@ -242,11 +243,13 @@ cmsg_transport_loopback_client_recv (cmsg_transport *transport,
             memset (recv_buffer, 0, sizeof (buf_static));
         }
 
-        //just recv the rest of the data to clear the socket
+        // Read the rest of the data
         nbytes = read (transport->connection.sockets.client_socket, recv_buffer, dyn_len);
 
         if (nbytes == (int) dyn_len)
         {
+            extra_header_size = header_converted.header_length - sizeof (cmsg_header);
+
 
             cmsg_tlv_header_process (recv_buffer, &server_request, extra_header_size,
                                      descriptor);
