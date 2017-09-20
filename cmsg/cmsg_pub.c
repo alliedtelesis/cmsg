@@ -442,7 +442,9 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
             CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for %s for deletion\n",
                         list_entry->method_name);
 
+            pthread_mutex_lock (&publisher->queue_mutex);
             cmsg_send_queue_free_all_by_transport (publisher->queue, transport);
+            pthread_mutex_unlock (&publisher->queue_mutex);
             _cmsg_pub_subscriber_delete_link (publisher, list);
         }
     }
@@ -496,13 +498,7 @@ cmsg_pub_subscriber_remove_all (cmsg_pub *publisher)
     GList *subscriber_list = g_list_first (publisher->subscriber_list);
     while (subscriber_list)
     {
-        cmsg_sub_entry *list_entry = (cmsg_sub_entry *) subscriber_list->data;
-        publisher->subscriber_list = g_list_remove (publisher->subscriber_list, list_entry);
-
-        cmsg_client_destroy (list_entry->client);
-        cmsg_transport_destroy (list_entry->transport);
-        CMSG_FREE (list_entry);
-
+        _cmsg_pub_subscriber_delete_link (publisher, subscriber_list);
         subscriber_list = g_list_first (publisher->subscriber_list);
     }
 
@@ -949,15 +945,6 @@ _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
         }
         else
         {
-            /* if all subscribers already un-subscribed during the retry period,
-             * clear the queue */
-            if (publisher->subscriber_count == 0)
-            {
-                pthread_mutex_lock (queue_mutex);
-                cmsg_send_queue_free_all (queue);
-                pthread_mutex_unlock (queue_mutex);
-                return processed;
-            }
             //remove subscriber from subscribtion list
             cmsg_pub_subscriber_remove_all_with_transport (publisher,
                                                            queue_entry->transport);

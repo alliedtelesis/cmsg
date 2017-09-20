@@ -34,6 +34,12 @@
  * be used with the connect call */
 #define CONNECT_TIMEOUT_DEFAULT -1
 
+/* This value is used to limit the timeout for client message peek to 100s */
+#define MAX_CLIENT_PEEK_LOOP (100000)
+
+/* This value is used to limit the timeout for server message peek to 10s */
+#define MAX_SERVER_PEEK_LOOP (10000)
+
 //forward delarations
 typedef struct _cmsg_server_s cmsg_server;
 
@@ -251,10 +257,8 @@ int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
 int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
                                            cmsg_bool_t ipfree_bind_enable);
 
-int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server);
-
-int32_t cmsg_transport_server_recv_with_peek (cmsg_recv_func recv, void *handle,
-                                              cmsg_server *server);
+int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
+                                    cmsg_header *header_received);
 
 int32_t cmsg_transport_client_recv (cmsg_recv_func recv, void *handle,
                                     cmsg_transport *transport,
@@ -298,4 +302,10 @@ void cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *confi
 
 char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor);
 void cmsg_transport_unix_sun_path_free (char *sun_path);
+
+cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
+                                                 void *recv_wrapper_data,
+                                                 cmsg_transport *transport,
+                                                 int32_t socket, int32_t maxLoop,
+                                                 cmsg_header *header_received);
 #endif /* __CMSG_TRANSPORT_H_ */

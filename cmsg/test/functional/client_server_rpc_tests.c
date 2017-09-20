@@ -118,6 +118,20 @@ cmsg_test_impl_big_rpc_test (const void *service,
 }
 
 /**
+ * CMSG IMPL function for the empty msg test. This IMPL returns
+ * empty message in the repeated field.
+ */
+void
+cmsg_test_impl_empty_msg_rpc_test (const void *service)
+{
+    cmsg_repeated_strings send_msg = CMSG_REPEATED_STRINGS_INIT;
+
+    CMSG_SET_FIELD_REPEATED (&send_msg, strings, NULL, 0);
+
+    cmsg_test_server_empty_msg_rpc_testSend (service, &send_msg);
+}
+
+/**
  * Server processing function that should be run in a new thread.
  * Creates a server of given type and then begins polling the server
  * for any received messages. Once the main thread signals the polling
@@ -435,4 +449,83 @@ void
 test_client_server_rpc_loopback_big (void)
 {
     run_client_server_tests_big (CMSG_TRANSPORT_LOOPBACK);
+}
+
+/**
+ * Run the empty msg test with a given CMSG client. Assumes the related
+ * server has already been created and is ready to process any API
+ * requests.
+ *
+ * @param client - CMSG client to run the test with
+ */
+static void
+_run_client_server_tests_empty_msg (cmsg_client *client)
+{
+    int ret = 0;
+    cmsg_repeated_strings *recv_msg = NULL;
+
+    ret = cmsg_test_api_empty_msg_rpc_test (client, &recv_msg);
+
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    NP_ASSERT_NOT_NULL (recv_msg);
+    NP_ASSERT_EQUAL (recv_msg->n_strings, 0);
+
+    CMSG_FREE_RECV_MSG (recv_msg);
+}
+
+static void
+run_client_server_tests_empty_msg (cmsg_transport_type type)
+{
+    cmsg_client *client = NULL;
+
+    if (type != CMSG_TRANSPORT_LOOPBACK)
+    {
+        create_server_and_wait (type);
+    }
+
+    client = create_client (type);
+
+    _run_client_server_tests_empty_msg (client);
+
+    if (type != CMSG_TRANSPORT_LOOPBACK)
+    {
+        stop_server_and_wait ();
+    }
+    cmsg_destroy_client_and_transport (client);
+}
+
+/**
+ * Run the empty msg client <-> server test case with a TCP transport.
+ */
+void
+test_client_server_rpc_tcp_empty_msg (void)
+{
+    run_client_server_tests_empty_msg (CMSG_TRANSPORT_RPC_TCP);
+}
+
+/**
+ * Run the empty msg client <-> server test case with a TIPC transport.
+ */
+void
+test_client_server_rpc_tipc_empty_msg (void)
+{
+    run_client_server_tests_empty_msg (CMSG_TRANSPORT_RPC_TIPC);
+}
+
+/**
+ * Run the empty msg client <-> server test case with a UNIX transport.
+ */
+void
+test_client_server_rpc_unix_empty_msg (void)
+{
+    run_client_server_tests_empty_msg (CMSG_TRANSPORT_RPC_UNIX);
+}
+
+/**
+ * Run the empty msg client <-> server test case with a LOOPBACK transport.
+ */
+void
+test_client_server_rpc_loopback_empty_msg (void)
+{
+    run_client_server_tests_empty_msg (CMSG_TRANSPORT_LOOPBACK);
 }

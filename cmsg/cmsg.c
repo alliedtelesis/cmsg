@@ -152,10 +152,6 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
                 header_converted->message_length, header_received->message_length);
 
     CMSG_DEBUG (CMSG_INFO,
-                "[TRANSPORT] method_index   host: %d, wire: %d\n",
-                header_converted->method_index, header_received->method_index);
-
-    CMSG_DEBUG (CMSG_INFO,
                 "[TRANSPORT] status_code host: %d, wire: %d\n",
                 header_converted->status_code, header_received->status_code);
 
@@ -274,6 +270,8 @@ cmsg_service_port_get (const char *name, const char *proto)
     ret = getservbyname_r (name, proto, &result_buf, buf, buf_size, &result);
     if (result == NULL || ret != 0)
     {
+        char *errstr = strerror (errno);
+        CMSG_LOG_GEN_ERROR ("getservbyname_r(%s/%s) failure: %s", name, proto, errstr);
         return 0;
     }
 
@@ -347,6 +345,19 @@ cmsg_asprintf (const char *filename, int line, char **strp, const char *fmt, ...
     return ret;
 }
 
+char *
+cmsg_strdup (const char *strp, const char *filename, int line)
+{
+    char *p = strdup (strp);
+
+    if (cmsg_mtype > 0)
+    {
+        g_mem_record_alloc (p, cmsg_mtype, filename, line);
+    }
+
+    return p;
+}
+
 void *
 cmsg_realloc (void *ptr, size_t size, const char *filename, int line)
 {
@@ -389,6 +400,28 @@ void
 cmsg_malloc_init (int mtype)
 {
     cmsg_mtype = mtype;
+}
+
+/**
+ * Allocates a zeroed single message struct, but does not allocate memory for
+ * any sub-fields.  It is up to the user to call the appropriate init function for the struct.
+ * @note You should use CMSG_MSG_ALLOC() rather than calling this function directly
+ * @returns a pointer to the allocated message.
+ */
+void *
+cmsg_msg_alloc (size_t struct_size, const char *file, int line)
+{
+    return cmsg_calloc (struct_size, 1, file, line);
+}
+
+/**
+ * Frees a message struct allocated by cmsg_msg_alloc()
+ * @note You should use CMSG_MSG_FREE() rather than calling this function directly
+ */
+void
+cmsg_msg_free (void *msg_array, const char *file, int line)
+{
+    cmsg_free (msg_array, file, line);
 }
 
 /**
@@ -499,6 +532,30 @@ cmsg_repeated_append (void ***msg_ptr_array, size_t *num_elems, const void *ptr,
         new_array_ptr[(*num_elems)++] = (void *) ptr;
         *msg_ptr_array = new_array_ptr;
     }
+}
+
+/**
+ * Free the contents of a string field in a received message, recording that it has been freed.
+ * Then duplicate and record the allocation of the passed in string and set it in the message.
+ * Should be called using CMSG_UPDATE_RECV_MSG_STRING_FIELD macro.
+ * @param field Field that needs to be updated
+ * @param new_val string to put into the field
+ * @param file Calling file
+ * @param line Calling line
+ */
+void
+cmsg_update_recv_msg_string_field (char **field, const char *new_val,
+                                   const char *file, int line)
+{
+    char *strp = NULL;
+    cmsg_free (*field, file, line);
+
+    if (new_val)
+    {
+        strp = cmsg_strdup (new_val, file, line);
+    }
+
+    *field = strp;
 }
 
 static void *

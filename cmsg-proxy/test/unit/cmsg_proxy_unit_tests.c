@@ -386,16 +386,16 @@ test_cmsg_proxy__invalid_json_input (void)
 
     /* *INDENT-OFF* */
     char *expected_output_json =
-        "{\n"
-        "    \"code\": \"ANT_CODE_INVALID_ARGUMENT\",\n"
-        "    \"message\": \"Invalid JSON: string or '}' expected near end of file\"\n"
+        "{"
+        "\"code\":\"ANT_CODE_INVALID_ARGUMENT\","
+        "\"message\":\"Invalid JSON: string or '}' expected near end of file\""
         "}";
     /* *INDENT-ON* */
 
     setup_standard_test_tree ();
 
     request_handled =
-        cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_PUT, "{", &output_json, &http_status);
+        cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_PUT, "{", NULL, &output_json, &http_status);
 
     NP_ASSERT_TRUE (request_handled);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -1429,4 +1429,14 @@ test_cmsg_proxy_service_info_add__conflict_param_with_existing_param2 (void)
     /* CMSGPROX-117 todo: the below check should assert FALSE once we have
      *                    completed this story */
     NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_2));
+}
+
+/**
+ * Function Tested: _cmsg_proxy_field_is_hidden()
+ */
+void
+test_cmsg_proxy_field_is_hidden (void)
+{
+    NP_ASSERT_TRUE (_cmsg_proxy_field_is_hidden ("_hidden_field"));
+    NP_ASSERT_FALSE (_cmsg_proxy_field_is_hidden ("non_hidden_field"));
 }
