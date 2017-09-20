@@ -22,6 +22,9 @@ typedef protobuf_c_boolean cmsg_bool_t;
 
 void cmsg_malloc_init (int mtype);
 
+/* note - use CMSG_MSG_ALLOC()/_FREE() instead of calling these directly */
+void *cmsg_msg_alloc (size_t struct_size, const char *file, int line);
+void cmsg_msg_free (void *msg_struct, const char *file, int line);
 /* note - use CMSG_MSG_ARRAY_ALLOC()/_FREE() instead of calling these directly */
 void **cmsg_msg_array_alloc (size_t struct_size, uint32_t num_structs,
                              const char *file, int line);
@@ -31,6 +34,9 @@ void cmsg_repeated_append (void ***msg_ptr_array, size_t *num_elems, const void 
                            const char *file, int line);
 void cmsg_repeated_append_uint32 (uint32_t **msg_ptr_array, size_t *num_elems,
                                   const uint32_t value, const char *file, int line);
+/* note - use CMSG_UPDATE_RECV_MSG_STRING_FIELD() instead of calling this directly */
+void cmsg_update_recv_msg_string_field (char **field, const char *new_val,
+                                        const char *file, int line);
 
 extern ProtobufCAllocator cmsg_memory_allocator;
 
@@ -84,6 +90,9 @@ extern ProtobufCAllocator cmsg_memory_allocator;
 #define CMSG_IS_REPEATED_PRESENT(_msg, _field) \
     ((_msg)->n_##_field ? TRUE : FALSE)
 
+#define CMSG_MSG_HAS_FIELD(_msg, _field_name) \
+    (protobuf_c_message_descriptor_get_field_by_name ((_msg)->base.descriptor, _field_name) ? TRUE : FALSE)
+
 /**
  * Helper macro to check whether a given message has a field with the
  * given name.
@@ -92,6 +101,27 @@ extern ProtobufCAllocator cmsg_memory_allocator;
  */
 #define CMSG_MSG_HAS_FIELD(_msg, _field_name) \
     (protobuf_c_message_descriptor_get_field_by_name ((_msg)->base.descriptor, _field_name) ? TRUE : FALSE)
+
+/**
+ * Helper macro to allocate a message struct using the CMSG memory allocator.
+ * @param __msg_struct the name of the message struct being used
+ * @return a pointer to the allocated message struct.  The message must still be
+ * initialised using the appropriate init function for the message. No sub-fields
+ * in the message are allocated. You still need to malloc and free these yourself.
+ */
+#define CMSG_MSG_ALLOC(__msg_struct) \
+    (__msg_struct *) cmsg_msg_alloc (sizeof (__msg_struct), __FILE__, __LINE__)
+
+/**
+ * Frees a message struct allocated by CMSG_MSG_ALLOC()
+ * @param __msg_ptr Pointer to the message created by CMSG_MSG_ALLOC
+ * @note that this does not handle freeing memory for any sub-fields within the
+ * message struct (e.g. strings, MAC addresses, etc). You still need to free
+ * these yourself before calling this macro. If all fields in the message are allocated
+ * using the CMSG allocator, CMSG_FREE_RECV_MSG can be used to free the whole message.
+ */
+#define CMSG_MSG_FREE(__msg_ptr) \
+    cmsg_msg_free (__msg_ptr, __FILE__, __LINE__)
 
 /**
  * Helper macro to allocate an array of message structs used to send a CMSG
@@ -163,6 +193,19 @@ extern ProtobufCAllocator cmsg_memory_allocator;
     if ((_name) && (_name)->_field)                         \
         for (_idx = 0; _idx < (_name)->n_##_field; _idx++) \
             if ((_node = (_name)->_field[_idx]) != NULL)
+
+/**
+ * Replace a string field in a received message with a different value using the
+ * CMSG memory allocator.
+ * This is useful if the message needs a slight modification before sending on
+ * to another destination so that the memory allocation tracing is kept happy,
+ * and CMSG_FREE_RECV_MSG can still be used to free the whole message.
+ * @param _name name of message ptr variable.
+ * @param _field name of the repeated field
+ * @param _new_value string to be copied to field.
+ */
+#define CMSG_UPDATE_RECV_MSG_STRING_FIELD(_name, _field, _new_value) \
+    cmsg_update_recv_msg_string_field (&((_name)->_field), _new_value, __FILE__, __LINE__)
 
 int cmsg_service_port_get (const char *name, const char *proto);
 
