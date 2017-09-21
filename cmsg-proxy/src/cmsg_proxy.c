@@ -171,8 +171,11 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
         new_object = json_pack (fmt, field_descriptor->name, value);
         break;
     case PROTOBUF_C_TYPE_BOOL:
-        fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[b]}" : "{sb}";
-        new_object = json_pack (fmt, field_descriptor->name, strcmp (value, "false"));
+        if (strcmp (value, "false") == 0 || strcmp (value, "true") == 0)
+        {
+            fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[b]}" : "{sb}";
+            new_object = json_pack (fmt, field_descriptor->name, strcmp (value, "false"));
+        }
         break;
         /* Not (currently) supported */
     case PROTOBUF_C_TYPE_UINT64:

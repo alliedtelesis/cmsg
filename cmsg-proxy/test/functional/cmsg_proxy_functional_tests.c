@@ -747,6 +747,29 @@ test_single_bool_put (void)
 }
 
 void
+test_single_bool_put__invalid (void)
+{
+    char *output_json = NULL;
+    int http_status = 0;
+
+    /* *INDENT-OFF* */
+    char *expected_output_json =
+        "{"
+        "\"code\":\"ANT_CODE_INVALID_ARGUMENT\","
+        "\"message\":\"Invalid JSON: invalid token near 'blah'\""
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy ("/test_single_bool_put", NULL, CMSG_HTTP_PUT, "blah", NULL, &output_json,
+                &http_status);
+
+    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
+    NP_ASSERT_EQUAL (http_status, HTTP_CODE_BAD_REQUEST);
+
+    free (output_json);
+}
+
+void
 test_single_string_put (void)
 {
     char *output_json = NULL;
