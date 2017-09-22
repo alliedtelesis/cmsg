@@ -552,7 +552,7 @@ cmsg_repeated_append (void ***msg_ptr_array, size_t *num_elems, const void *ptr,
  */
 void
 cmsg_repeated_append_uint32 (uint32_t **msg_ptr_array, size_t *num_elems,
-                             const uint32_t value, const char *file, int line)
+                             uint32_t value, const char *file, int line)
 {
     uint32_t *new_array_ptr = NULL;
     size_t new_size;
@@ -575,7 +575,7 @@ cmsg_repeated_append_uint32 (uint32_t **msg_ptr_array, size_t *num_elems,
     if (new_array_ptr)
     {
         /* Add new element to array and increment number of elements */
-        new_array_ptr[(*num_elems)++] = (uint32_t) value;
+        new_array_ptr[(*num_elems)++] = value;
         *msg_ptr_array = new_array_ptr;
     }
 }

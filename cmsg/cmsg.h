@@ -33,7 +33,7 @@ void cmsg_msg_array_free (void *msg_array, const char *file, int line);
 void cmsg_repeated_append (void ***msg_ptr_array, size_t *num_elems, const void *ptr,
                            const char *file, int line);
 void cmsg_repeated_append_uint32 (uint32_t **msg_ptr_array, size_t *num_elems,
-                                  const uint32_t value, const char *file, int line);
+                                  uint32_t value, const char *file, int line);
 /* note - use CMSG_UPDATE_RECV_MSG_STRING_FIELD() instead of calling this directly */
 void cmsg_update_recv_msg_string_field (char **field, const char *new_val,
                                         const char *file, int line);
@@ -180,7 +180,7 @@ extern ProtobufCAllocator cmsg_memory_allocator;
 
 #define CMSG_REPEATED_APPEND_UINT32(_name, _field, _value)                                 \
     cmsg_repeated_append_uint32 ((uint32_t **) &((_name)->_field), &((_name)->n_##_field), \
-                                 (const uint32_t) _value, __FILE__, __LINE__)
+                                 (uint32_t) _value, __FILE__, __LINE__)
 
 /**
  * Helper macro to iterate over the pointers in a repeated field of a CMSG message
