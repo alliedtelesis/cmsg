@@ -132,7 +132,8 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     /* Append "_pub" suffix to the counter app_name for publisher */
     snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s_pub",
               CMSG_COUNTER_APP_NAME_PREFIX,
-              pub_service->name, sub_server_transport->tport_id);
+              pub_service->name,
+              cmsg_transport_counter_app_tport_id (sub_server_transport));
 
     /* Initialise counters */
     if (cmsg_server_counter_create (publisher->sub_server, app_name) != CMSG_RET_OK)

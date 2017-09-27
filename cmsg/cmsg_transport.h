@@ -308,4 +308,6 @@ cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
                                                  cmsg_transport *transport,
                                                  int32_t socket, int32_t maxLoop,
                                                  cmsg_header *header_received);
+
+const char *cmsg_transport_counter_app_tport_id (cmsg_transport *transport);
 #endif /* __CMSG_TRANSPORT_H_ */

@@ -185,7 +185,8 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
     if (client != NULL)
     {
         snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
-                  CMSG_COUNTER_APP_NAME_PREFIX, descriptor->name, transport->tport_id);
+                  CMSG_COUNTER_APP_NAME_PREFIX, descriptor->name,
+                  cmsg_transport_counter_app_tport_id (transport));
 
         if (cmsg_client_counter_create (client, app_name) != CMSG_RET_OK)
         {
