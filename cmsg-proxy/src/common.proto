@@ -42,6 +42,50 @@ message mac_address
     repeated uint8 addr = 1;
 }
 
+enum ant_ip_version
+{
+    ANT_IP_VERSION_NOT_SET = 0;
+
+    // IPv4
+    ANT_IP_VERSION_4 = 1;
+
+    // IPv6
+    ANT_IP_VERSION_6 = 2;
+}
+
+enum ant_l3_destination_type
+{
+    ANT_L3_DESTINATION_TYPE_NOT_SET = 0;
+
+    // IPv4 or IPv6 address.
+    ANT_L3_DESTINATION_TYPE_ADDRESS = 1;
+
+    // When a L3 interface name rather than an IP address is considered a destination.
+    ANT_L3_DESTINATION_TYPE_INTERFACE = 2;
+}
+
+message ant_l3_destination
+{
+    // Destination type
+    //
+    // Indicates what kind of destination this is.
+    optional ant_l3_destination_type type = 1;
+
+    // Address
+    //
+    // This is to be set if the L3 destination type is an IP address.
+    //
+    // Swagger: format="ip-address"
+    optional string address = 2;
+
+    // Interface
+    //
+    // This is to be set if the L3 destination type is an interface.
+    //
+    // Swagger: format="interface-name"
+    optional string interface = 3;
+}
+
 enum prefix_family
 {
     PREFIX_FAMILY_FIELD_NOT_SET = 0;
