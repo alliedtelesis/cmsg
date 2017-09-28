@@ -194,6 +194,18 @@ message fib_rebuild_all_fn
     repeated fib_prefix_route prefix_list = 4;
 }
 
+message tagged_port_info
+{
+    optional string portname = 1;
+    optional uint16 vid = 2;
+    optional string owner = 3;
+}
+
+message vid_info
+{
+    optional uint16 vid = 1;
+}
+
 enum ant_code
 {
     // OK is returned on success.
