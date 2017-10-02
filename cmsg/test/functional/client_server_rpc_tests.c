@@ -31,6 +31,45 @@ static bool server_thread_run = true;
 static bool server_ready = false;
 static pthread_t server_thread;
 
+static void
+setup_udt_tcp_transport_functions (cmsg_transport *udt_transport)
+{
+    cmsg_transport_udt_tcp_base_init (udt_transport, false);
+
+    udt_transport->udt_info.functions.connect = udt_transport->udt_info.base.connect;
+    udt_transport->udt_info.functions.listen = udt_transport->udt_info.base.listen;
+    udt_transport->udt_info.functions.server_accept =
+        udt_transport->udt_info.base.server_accept;
+    udt_transport->udt_info.functions.server_recv =
+        udt_transport->udt_info.base.server_recv;
+    udt_transport->udt_info.functions.client_recv =
+        udt_transport->udt_info.base.client_recv;
+    udt_transport->udt_info.functions.client_send =
+        udt_transport->udt_info.base.client_send;
+    udt_transport->udt_info.functions.client_close =
+        udt_transport->udt_info.base.client_close;
+    udt_transport->udt_info.functions.server_close =
+        udt_transport->udt_info.base.server_close;
+
+    udt_transport->udt_info.functions.s_socket = udt_transport->udt_info.base.s_socket;
+    udt_transport->udt_info.functions.c_socket = udt_transport->udt_info.base.c_socket;
+
+    udt_transport->udt_info.functions.client_destroy =
+        udt_transport->udt_info.base.client_destroy;
+    udt_transport->udt_info.functions.server_destroy =
+        udt_transport->udt_info.base.server_destroy;
+
+    udt_transport->udt_info.functions.is_congested =
+        udt_transport->udt_info.base.is_congested;
+    udt_transport->udt_info.functions.send_can_block_enable =
+        udt_transport->udt_info.base.send_can_block_enable;
+    udt_transport->udt_info.functions.ipfree_bind_enable =
+        udt_transport->udt_info.base.ipfree_bind_enable;
+
+    udt_transport->udt_info.functions.server_send =
+        udt_transport->udt_info.base.server_send;
+}
+
 static int
 sm_mock_cmsg_service_port_get (const char *name, const char *proto)
 {
@@ -165,6 +204,18 @@ server_thread_process (void *arg)
         server = cmsg_create_server_unix_rpc (CMSG_SERVICE (cmsg, test));
         break;
 
+    case CMSG_TRANSPORT_RPC_USERDEFINED:
+        server_transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_USERDEFINED);
+        server_transport->config.socket.family = PF_INET;
+        server_transport->config.socket.sockaddr.generic.sa_family = PF_INET;
+        server_transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_ANY);
+        server_transport->config.socket.sockaddr.in.sin_port = htons (tcp_port);
+
+        setup_udt_tcp_transport_functions (server_transport);
+
+        server = cmsg_server_new (server_transport, CMSG_SERVICE (cmsg, test));
+        break;
+
     default:
         NP_FAIL;
     }
@@ -266,6 +317,18 @@ create_client (cmsg_transport_type type)
 
     case CMSG_TRANSPORT_LOOPBACK:
         client = cmsg_create_client_loopback (CMSG_SERVICE (cmsg, test));
+        break;
+
+    case CMSG_TRANSPORT_RPC_USERDEFINED:
+        transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_USERDEFINED);
+        transport->config.socket.family = PF_INET;
+        transport->config.socket.sockaddr.generic.sa_family = PF_INET;
+        transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+        transport->config.socket.sockaddr.in.sin_port = htons (tcp_port);
+
+        setup_udt_tcp_transport_functions (transport);
+
+        client = cmsg_client_new (transport, CMSG_DESCRIPTOR (cmsg, test));
         break;
 
     default:
@@ -416,6 +479,15 @@ test_client_server_rpc_loopback (void)
 }
 
 /**
+ * Run the simple client <-> server test case with a UDT (TCP) transport.
+ */
+void
+test_client_server_rpc_udt (void)
+{
+    run_client_server_tests (CMSG_TRANSPORT_RPC_USERDEFINED);
+}
+
+/**
  * Run the BIG client <-> server test case with a TCP transport.
  */
 void
@@ -449,6 +521,15 @@ void
 test_client_server_rpc_loopback_big (void)
 {
     run_client_server_tests_big (CMSG_TRANSPORT_LOOPBACK);
+}
+
+/**
+ * Run the BIG client <-> server test case with a UDT (TCP) transport.
+ */
+void
+test_client_server_rpc_udt_big (void)
+{
+    run_client_server_tests_big (CMSG_TRANSPORT_RPC_USERDEFINED);
 }
 
 /**
@@ -528,4 +609,13 @@ void
 test_client_server_rpc_loopback_empty_msg (void)
 {
     run_client_server_tests_empty_msg (CMSG_TRANSPORT_LOOPBACK);
+}
+
+/**
+ * Run the empty msg client <-> server test case with a UDT (TCP) transport.
+ */
+void
+test_client_server_rpc_udt_empty_msg (void)
+{
+    run_client_server_tests_empty_msg (CMSG_TRANSPORT_RPC_USERDEFINED);
 }
