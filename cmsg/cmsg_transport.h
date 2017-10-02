@@ -122,6 +122,24 @@ typedef struct _cmsg_transport_s cmsg_transport;    //forward declaration
 typedef int (*udt_connect_f) (cmsg_transport *transport);
 typedef int (*udt_send_f) (void *udt_data, void *buff, int length, int flag);
 typedef int (*cmsg_recv_func) (void *handle, void *buff, int len, int flags);
+typedef int (*client_connect_f) (cmsg_transport *transport, int timeout);
+typedef int (*server_listen_f) (cmsg_transport *transport);
+typedef int (*server_recv_f) (int32_t socket, cmsg_server *server);
+typedef int (*server_accept_f) (int32_t socket, cmsg_transport *transport);
+typedef cmsg_status_code (*client_recv_f) (cmsg_transport *transport,
+                                           const ProtobufCServiceDescriptor *descriptor,
+                                           ProtobufCMessage **messagePtPt);
+typedef int (*client_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
+typedef int (*server_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
+typedef void (*client_close_f) (cmsg_transport *transport);
+typedef void (*server_close_f) (cmsg_transport *transport);
+typedef int (*s_get_socket_f) (cmsg_transport *transport);
+typedef int (*c_get_socket_f) (cmsg_transport *transport);
+typedef void (*client_destroy_f) (cmsg_transport *transport);
+typedef void (*server_destroy_f) (cmsg_transport *transport);
+typedef uint32_t (*is_congested_f) (cmsg_transport *transport);
+typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
+typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
 
 typedef struct _cmsg_udt_s
 {
@@ -131,6 +149,33 @@ typedef struct _cmsg_udt_s
     udt_send_f send;
     cmsg_recv_func recv;
 } cmsg_udt;
+
+typedef struct _cmsg_udt_functions_s
+{
+    client_connect_f connect;
+    server_listen_f listen;
+    server_accept_f server_accept;
+    server_recv_f server_recv;
+    client_recv_f client_recv;
+    client_send_f client_send;
+    client_close_f client_close;
+    server_close_f server_close;
+    s_get_socket_f s_socket;
+    c_get_socket_f c_socket;
+    client_destroy_f client_destroy;
+    server_destroy_f server_destroy;
+    is_congested_f is_congested;
+    send_can_block_enable_f send_can_block_enable;
+    ipfree_bind_enable_f ipfree_bind_enable;
+    server_send_f server_send_oneway;
+    server_send_f server_send_rpc;
+} cmsg_udt_functions;
+
+typedef struct _cmsg_udt_info_s
+{
+    cmsg_udt_functions functions;
+    void *data;
+} cmsg_udt_info;
 
 typedef union _cmsg_transport_config_u
 {
@@ -149,35 +194,12 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_ONEWAY_TIPC,
     CMSG_TRANSPORT_CPG,
     CMSG_TRANSPORT_ONEWAY_USERDEFINED,
+    CMSG_TRANSPORT_RPC_USERDEFINED,
     CMSG_TRANSPORT_BROADCAST,
     CMSG_TRANSPORT_LOOPBACK,
     CMSG_TRANSPORT_RPC_UNIX,
     CMSG_TRANSPORT_ONEWAY_UNIX,
 } cmsg_transport_type;
-
-typedef int (*client_connect_f) (cmsg_transport *transport, int timeout);
-typedef int (*server_listen_f) (cmsg_transport *transport);
-typedef int (*server_recv_f) (int32_t socket, cmsg_server *server);
-typedef int (*server_accept_f) (int32_t socket, cmsg_transport *transport);
-
-typedef cmsg_status_code (*client_recv_f) (cmsg_transport *transport,
-                                           const ProtobufCServiceDescriptor *descriptor,
-                                           ProtobufCMessage **messagePtPt);
-
-typedef int (*client_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
-typedef int (*server_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
-
-typedef void (*client_close_f) (cmsg_transport *transport);
-typedef void (*server_close_f) (cmsg_transport *transport);
-typedef int (*s_get_socket_f) (cmsg_transport *transport);
-typedef int (*c_get_socket_f) (cmsg_transport *transport);
-typedef void (*client_destroy_f) (cmsg_transport *transport);
-typedef void (*server_destroy_f) (cmsg_transport *transport);
-typedef uint32_t (*is_congested_f) (cmsg_transport *transport);
-
-typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
-
-typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
 
 typedef void (*cmsg_tipc_topology_callback) (struct tipc_event *event);
 
@@ -188,6 +210,7 @@ struct _cmsg_transport_s
     //transport information
     cmsg_transport_type type;
     cmsg_transport_config config;
+    cmsg_udt_info udt_info;
     char tport_id[CMSG_MAX_TPORT_ID_LEN + 1];
 
     // send to block if message cannot be sent

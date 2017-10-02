@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 
 extern void cmsg_transport_oneway_udt_init (cmsg_transport *transport);
+extern void cmsg_transport_rpc_udt_init (cmsg_transport *transport);
 
 static int32_t _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle,
                                             cmsg_server *server,
@@ -188,6 +189,10 @@ cmsg_transport_new (cmsg_transport_type type)
         break;
     case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
         cmsg_transport_oneway_udt_init (transport);
+        break;
+
+    case CMSG_TRANSPORT_RPC_USERDEFINED:
+        cmsg_transport_rpc_udt_init (transport);
         break;
 
     case CMSG_TRANSPORT_LOOPBACK:

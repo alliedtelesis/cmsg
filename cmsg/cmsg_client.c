@@ -56,6 +56,7 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
         case CMSG_TRANSPORT_RPC_TCP:
         case CMSG_TRANSPORT_RPC_TIPC:
         case CMSG_TRANSPORT_RPC_UNIX:
+        case CMSG_TRANSPORT_RPC_USERDEFINED:
             client->invoke_send = cmsg_client_invoke_send;
             client->invoke_recv = cmsg_client_invoke_recv;
             break;
