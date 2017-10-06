@@ -181,7 +181,6 @@ typedef union _cmsg_transport_config_u
 {
     cmsg_socket socket;
     cmsg_cpg cpg;
-    cmsg_udt udt;
     cmsg_server *loopback_server;
 } cmsg_transport_config;
 

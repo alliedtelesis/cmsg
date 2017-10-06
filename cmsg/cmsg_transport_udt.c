@@ -39,18 +39,11 @@ static int32_t
 cmsg_transport_udt_server_recv (int32_t socket, cmsg_server *server)
 {
     cmsg_transport *transport;
-    void *udt_data;
     int32_t ret = -1;
 
     transport = server->_transport;
-    udt_data = transport->config.udt.udt_data;
 
-    if (transport->config.udt.recv)
-    {
-        ret = cmsg_transport_server_recv (transport->config.udt.recv, udt_data,
-                                          server, NULL);
-    }
-    else if (transport->udt_info.functions.server_recv)
+    if (transport->udt_info.functions.server_recv)
     {
         ret = transport->udt_info.functions.server_recv (socket, server);
     }
@@ -185,12 +178,7 @@ static int32_t
 cmsg_transport_udt_client_send (cmsg_transport *transport, void *buff, int length, int flag)
 {
 
-    if (transport->config.udt.send)
-    {
-        return (transport->config.udt.send (transport->config.udt.udt_data, buff,
-                                            length, flag));
-    }
-    else if (transport->udt_info.functions.client_send)
+    if (transport->udt_info.functions.client_send)
     {
         return transport->udt_info.functions.client_send (transport, buff, length, flag);
     }
@@ -209,11 +197,7 @@ cmsg_transport_udt_connect (cmsg_transport *transport, int timeout)
 {
     int32_t ret = 0;
 
-    if (transport->config.udt.connect)
-    {
-        ret = transport->config.udt.connect (transport);
-    }
-    else if (transport->udt_info.functions.connect)
+    if (transport->udt_info.functions.connect)
     {
         ret = transport->udt_info.functions.connect (transport, timeout);
     }
@@ -277,10 +261,6 @@ _cmsg_transport_udt_init_common (cmsg_transport *transport)
         return;
     }
 
-    transport->config.socket.family = PF_INET;
-    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
-
-    memset (&transport->config.udt, 0, sizeof (transport->config.udt));
     transport->connect = cmsg_transport_udt_connect;
     transport->listen = cmsg_transport_udt_listen;
     transport->server_accept = cmsg_transport_udt_server_accept;
