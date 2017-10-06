@@ -182,6 +182,12 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
             break;
         }
         /* fall through (storing as string) */
+    case PROTOBUF_C_TYPE_UINT64:
+    case PROTOBUF_C_TYPE_INT64:
+    case PROTOBUF_C_TYPE_SINT64:
+    case PROTOBUF_C_TYPE_SFIXED64:
+    case PROTOBUF_C_TYPE_FIXED64:
+        /* 64 bit values are stored as strings in json */
     case PROTOBUF_C_TYPE_ENUM:
     case PROTOBUF_C_TYPE_STRING:
         fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[s?]}" : "{ss?}";
@@ -195,12 +201,8 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
             new_object = json_pack (fmt, field_descriptor->name, strcmp (value, "false"));
         }
         break;
-        /* Not (currently) supported */
-    case PROTOBUF_C_TYPE_UINT64:
-    case PROTOBUF_C_TYPE_INT64:
-    case PROTOBUF_C_TYPE_SINT64:
-    case PROTOBUF_C_TYPE_SFIXED64:
-    case PROTOBUF_C_TYPE_FIXED64:
+
+    /* Not (currently) supported */
     case PROTOBUF_C_TYPE_FLOAT:
     case PROTOBUF_C_TYPE_DOUBLE:
     case PROTOBUF_C_TYPE_BYTES:
