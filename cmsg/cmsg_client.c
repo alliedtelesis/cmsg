@@ -223,7 +223,7 @@ cmsg_client_destroy (cmsg_client *client)
     if (client->_transport)
     {
         cmsg_client_close_wrapper (client->_transport);
-        client->_transport->client_destroy (client->_transport);
+        client->_transport->tport_funcs.client_destroy (client->_transport);
     }
 
     if (client->child_clients)
@@ -289,8 +289,8 @@ cmsg_client_counter_create (cmsg_client *client, char *app_name)
 cmsg_status_code
 cmsg_client_response_receive (cmsg_client *client, ProtobufCMessage **message)
 {
-    return (client->_transport->client_recv (client->_transport, client->descriptor,
-                                             message));
+    return (client->_transport->
+            tport_funcs.client_recv (client->_transport, client->descriptor, message));
 }
 
 
@@ -327,7 +327,7 @@ cmsg_client_connect (cmsg_client *client)
             timeout = CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT;
         }
 
-        ret = client->_transport->connect (client->_transport, timeout);
+        ret = client->_transport->tport_funcs.connect (client->_transport, timeout);
 
         if (ret < 0)
         {
@@ -762,8 +762,9 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
             return -1;
         }
 
-        ret = client->_transport->client_send (client->_transport, encrypt_buffer,
-                                               encrypt_length, flag);
+        ret =
+            client->_transport->tport_funcs.client_send (client->_transport, encrypt_buffer,
+                                                         encrypt_length, flag);
         /* if the send was successful, fixup the return length to match the original
          * plaintext length so callers are unaware of the encryption */
         if (encrypt_length == ret)
@@ -775,7 +776,9 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
     }
     else
     {
-        ret = client->_transport->client_send (client->_transport, buffer, length, flag);
+        ret =
+            client->_transport->tport_funcs.client_send (client->_transport, buffer, length,
+                                                         flag);
     }
 
     return ret;
@@ -1005,7 +1008,7 @@ cmsg_client_get_socket (cmsg_client *client)
 
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        sock = client->_transport->c_socket (client->_transport);
+        sock = client->_transport->tport_funcs.c_socket (client->_transport);
     }
     else
     {
@@ -1052,7 +1055,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
     }
 
     // return socket to listen on
-    return client->_transport->c_socket (client->_transport);
+    return client->_transport->tport_funcs.c_socket (client->_transport);
 }
 
 
@@ -1088,7 +1091,7 @@ cmsg_client_recv_echo_reply (cmsg_client *client)
 int32_t
 cmsg_client_transport_is_congested (cmsg_client *client)
 {
-    return client->_transport->is_congested (client->_transport);
+    return client->_transport->tport_funcs.is_congested (client->_transport);
 }
 
 
@@ -1719,7 +1722,7 @@ cmsg_client_close_wrapper (cmsg_transport *transport)
     {
         transport->config.socket.crypto.close (sock);
     }
-    transport->client_close (transport);
+    transport->tport_funcs.client_close (transport);
 }
 
 /**

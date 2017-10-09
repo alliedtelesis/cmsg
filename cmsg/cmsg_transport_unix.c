@@ -236,7 +236,7 @@ cmsg_transport_unix_client_recv (cmsg_transport *transport,
                 /* Didn't allocate memory for recv buffer.  This is an error.
                  * Shut the socket down, it will reopen on the next api call.
                  * Record and return an error. */
-                transport->client_close (transport);
+                transport->tport_funcs.client_close (transport);
                 CMSG_LOG_TRANSPORT_ERROR (transport,
                                           "Couldn't allocate memory for server reply (TLV + message), closed the socket");
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
@@ -459,21 +459,22 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
 {
     transport->config.socket.family = PF_UNIX;
     transport->config.socket.sockaddr.generic.sa_family = PF_UNIX;
-    transport->connect = cmsg_transport_unix_connect;
-    transport->listen = cmsg_transport_unix_listen;
-    transport->server_accept = cmsg_transport_unix_server_accept;
-    transport->server_recv = cmsg_transport_unix_server_recv;
-    transport->client_recv = cmsg_transport_unix_client_recv;
-    transport->client_send = cmsg_transport_unix_client_send;
-    transport->client_close = cmsg_transport_unix_client_close;
-    transport->server_close = cmsg_transport_unix_server_close;
-    transport->client_destroy = cmsg_transport_unix_client_destroy;
-    transport->server_destroy = cmsg_transport_unix_server_destroy;
-    transport->s_socket = cmsg_transport_unix_server_get_socket;
-    transport->c_socket = cmsg_transport_unix_client_get_socket;
-    transport->is_congested = cmsg_transport_unix_is_congested;
-    transport->send_can_block_enable = cmsg_transport_unix_send_can_block_enable;
-    transport->ipfree_bind_enable = NULL;
+    transport->tport_funcs.connect = cmsg_transport_unix_connect;
+    transport->tport_funcs.listen = cmsg_transport_unix_listen;
+    transport->tport_funcs.server_accept = cmsg_transport_unix_server_accept;
+    transport->tport_funcs.server_recv = cmsg_transport_unix_server_recv;
+    transport->tport_funcs.client_recv = cmsg_transport_unix_client_recv;
+    transport->tport_funcs.client_send = cmsg_transport_unix_client_send;
+    transport->tport_funcs.client_close = cmsg_transport_unix_client_close;
+    transport->tport_funcs.server_close = cmsg_transport_unix_server_close;
+    transport->tport_funcs.client_destroy = cmsg_transport_unix_client_destroy;
+    transport->tport_funcs.server_destroy = cmsg_transport_unix_server_destroy;
+    transport->tport_funcs.s_socket = cmsg_transport_unix_server_get_socket;
+    transport->tport_funcs.c_socket = cmsg_transport_unix_client_get_socket;
+    transport->tport_funcs.is_congested = cmsg_transport_unix_is_congested;
+    transport->tport_funcs.send_can_block_enable =
+        cmsg_transport_unix_send_can_block_enable;
+    transport->tport_funcs.ipfree_bind_enable = NULL;
 }
 
 void
@@ -486,8 +487,8 @@ cmsg_transport_rpc_unix_init (cmsg_transport *transport)
 
     _cmsg_transport_unix_init_common (transport);
 
-    transport->server_send = cmsg_transport_unix_server_send;
-    transport->closure = cmsg_server_closure_rpc;
+    transport->tport_funcs.server_send = cmsg_transport_unix_server_send;
+    transport->tport_funcs.closure = cmsg_server_closure_rpc;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
@@ -503,8 +504,8 @@ cmsg_transport_oneway_unix_init (cmsg_transport *transport)
 
     _cmsg_transport_unix_init_common (transport);
 
-    transport->server_send = cmsg_transport_unix_oneway_server_send;
-    transport->closure = cmsg_server_closure_rpc;
+    transport->tport_funcs.server_send = cmsg_transport_unix_oneway_server_send;
+    transport->tport_funcs.closure = cmsg_server_closure_rpc;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }

@@ -1181,7 +1181,7 @@ cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *t
 int32_t
 cmsg_transport_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
 {
-    return transport->send_can_block_enable (transport, send_can_block);
+    return transport->tport_funcs.send_can_block_enable (transport, send_can_block);
 }
 
 /**
@@ -1193,7 +1193,7 @@ int32_t
 cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
                                    cmsg_bool_t ipfree_bind_enable)
 {
-    return transport->ipfree_bind_enable (transport, ipfree_bind_enable);
+    return transport->tport_funcs.ipfree_bind_enable (transport, ipfree_bind_enable);
 }
 
 void

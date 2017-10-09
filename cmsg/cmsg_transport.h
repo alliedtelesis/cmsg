@@ -150,30 +150,31 @@ typedef struct _cmsg_udt_s
     cmsg_recv_func recv;
 } cmsg_udt;
 
-typedef struct _cmsg_udt_functions_s
+typedef struct _cmsg_tport_functions_s
 {
-    client_connect_f connect;
-    server_listen_f listen;
-    server_accept_f server_accept;
-    server_recv_f server_recv;
-    client_recv_f client_recv;
-    client_send_f client_send;
-    client_close_f client_close;
-    server_close_f server_close;
-    s_get_socket_f s_socket;
-    c_get_socket_f c_socket;
-    client_destroy_f client_destroy;
-    server_destroy_f server_destroy;
-    is_congested_f is_congested;
+    client_connect_f connect;                   // client connect function
+    server_listen_f listen;                     // server listen function
+    server_accept_f server_accept;              // server accept
+    server_recv_f server_recv;                  // server receive function
+    client_recv_f client_recv;                  // receive function
+    client_send_f client_send;                  // client send function
+    server_send_f server_send;                  // server send function
+    ProtobufCClosure closure;                   // rpc closure function
+    client_close_f client_close;                // client close socket function
+    server_close_f server_close;                // server close socket function
+    s_get_socket_f s_socket;                    //
+    c_get_socket_f c_socket;                    //
+    server_destroy_f server_destroy;            // Server destroy function
+    client_destroy_f client_destroy;            // Client destroy function
+    is_congested_f is_congested;                // Check whether transport is congested
     send_can_block_enable_f send_can_block_enable;
-    ipfree_bind_enable_f ipfree_bind_enable;
-    server_send_f server_send_oneway;
-    server_send_f server_send_rpc;
-} cmsg_udt_functions;
+    ipfree_bind_enable_f ipfree_bind_enable;    // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
+} cmsg_tport_functions;
 
 typedef struct _cmsg_udt_info_s
 {
-    cmsg_udt_functions functions;
+    cmsg_tport_functions functions;
+    cmsg_tport_functions base;
     void *data;
 } cmsg_udt_info;
 
@@ -227,23 +228,7 @@ struct _cmsg_transport_s
     pthread_mutex_t connection_mutex;
 
     //transport function pointers
-    client_connect_f connect;                   // client connect function
-    server_listen_f listen;                     // server listen function
-    server_accept_f server_accept;              // server accept
-    server_recv_f server_recv;                  // server receive function
-    client_recv_f client_recv;                  // receive function
-    client_send_f client_send;                  // client send function
-    server_send_f server_send;                  // server send function
-    ProtobufCClosure closure;                   // rpc closure function
-    client_close_f client_close;                // client close socket function
-    server_close_f server_close;                // server close socket function
-    s_get_socket_f s_socket;                    //
-    c_get_socket_f c_socket;                    //
-    server_destroy_f server_destroy;            // Server destroy function
-    client_destroy_f client_destroy;            // Client destroy function
-    is_congested_f is_congested;                // Check whether transport is congested
-    send_can_block_enable_f send_can_block_enable;
-    ipfree_bind_enable_f ipfree_bind_enable;    // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
+    cmsg_tport_functions tport_funcs;
     //transport statistics
     uint32_t client_send_tries;
 

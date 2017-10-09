@@ -332,22 +332,24 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->config.socket.family = AF_TIPC;
     transport->config.socket.sockaddr.tipc.family = AF_TIPC;
 
-    transport->connect = cmsg_transport_tipc_broadcast_connect;
-    transport->listen = cmsg_transport_tipc_broadcast_listen;
-    transport->server_recv = cmsg_transport_tipc_broadcast_server_recv;
-    transport->client_recv = cmsg_transport_tipc_broadcast_client_recv;
-    transport->client_send = cmsg_transport_tipc_broadcast_client_send;
-    transport->server_send = cmsg_transport_tipc_broadcast_server_send;
-    transport->client_close = cmsg_transport_tipc_broadcast_client_close;
-    transport->server_close = cmsg_transport_tipc_broadcast_server_close;
-    transport->s_socket = cmsg_transport_tipc_broadcast_server_get_socket;
-    transport->c_socket = cmsg_transport_tipc_broadcast_client_get_socket;
-    transport->client_destroy = cmsg_transport_tipc_broadcast_client_destroy;
-    transport->server_destroy = cmsg_transport_tipc_broadcast_server_destroy;
+    transport->tport_funcs.connect = cmsg_transport_tipc_broadcast_connect;
+    transport->tport_funcs.listen = cmsg_transport_tipc_broadcast_listen;
+    transport->tport_funcs.server_recv = cmsg_transport_tipc_broadcast_server_recv;
+    transport->tport_funcs.client_recv = cmsg_transport_tipc_broadcast_client_recv;
+    transport->tport_funcs.client_send = cmsg_transport_tipc_broadcast_client_send;
+    transport->tport_funcs.server_send = cmsg_transport_tipc_broadcast_server_send;
+    transport->tport_funcs.client_close = cmsg_transport_tipc_broadcast_client_close;
+    transport->tport_funcs.server_close = cmsg_transport_tipc_broadcast_server_close;
+    transport->tport_funcs.s_socket = cmsg_transport_tipc_broadcast_server_get_socket;
+    transport->tport_funcs.c_socket = cmsg_transport_tipc_broadcast_client_get_socket;
+    transport->tport_funcs.client_destroy = cmsg_transport_tipc_broadcast_client_destroy;
+    transport->tport_funcs.server_destroy = cmsg_transport_tipc_broadcast_server_destroy;
 
-    transport->is_congested = cmsg_transport_tipc_broadcast_is_congested;
-    transport->send_can_block_enable = cmsg_transport_tipc_broadcast_send_can_block_enable;
-    transport->ipfree_bind_enable = cmsg_transport_tipc_broadcast_ipfree_bind_enable;
+    transport->tport_funcs.is_congested = cmsg_transport_tipc_broadcast_is_congested;
+    transport->tport_funcs.send_can_block_enable =
+        cmsg_transport_tipc_broadcast_send_can_block_enable;
+    transport->tport_funcs.ipfree_bind_enable =
+        cmsg_transport_tipc_broadcast_ipfree_bind_enable;
 
-    transport->closure = cmsg_server_closure_oneway;
+    transport->tport_funcs.closure = cmsg_server_closure_oneway;
 }

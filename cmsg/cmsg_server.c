@@ -75,7 +75,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
         }
 #endif /* HAVE_VCSTACK */
 
-        ret = transport->listen (server->_transport);
+        ret = transport->tport_funcs.listen (server->_transport);
 
         if (ret < 0)
         {
@@ -199,7 +199,7 @@ cmsg_server_destroy (cmsg_server *server)
 
     if (server->_transport)
     {
-        server->_transport->server_destroy (server->_transport);
+        server->_transport->tport_funcs.server_destroy (server->_transport);
     }
 
     CMSG_FREE (server);
@@ -263,7 +263,7 @@ cmsg_server_get_socket (cmsg_server *server)
     CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, -1);
 
-    socket = server->_transport->s_socket (server->_transport);
+    socket = server->_transport->tport_funcs.s_socket (server->_transport);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] done. socket: %d\n", socket);
 
@@ -589,7 +589,7 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, CMSG_RET_ERR);
 
-    ret = server->_transport->server_recv (socket, server);
+    ret = server->_transport->tport_funcs.server_recv (socket, server);
 
     if (ret < 0)
     {
@@ -627,9 +627,11 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 
     CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
 
-    if (server->_transport->server_accept != NULL)
+    if (server->_transport->tport_funcs.server_accept != NULL)
     {
-        sock = server->_transport->server_accept (listen_socket, server->_transport);
+        sock =
+            server->_transport->tport_funcs.server_accept (listen_socket,
+                                                           server->_transport);
         if (sock >= 0 && server->_transport->use_crypto &&
             server->_transport->config.socket.crypto.accept)
         {
@@ -688,7 +690,8 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
         server->service->invoke (server->service,
                                  method_index,
                                  message,
-                                 server->_transport->closure, (void *) &closure_data);
+                                 server->_transport->tport_funcs.closure,
+                                 (void *) &closure_data);
 
         if (!(server->app_owns_current_msg || server->app_owns_all_msgs))
         {
@@ -713,14 +716,14 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
         }
 
         // Send response, if required by the closure function
-        server->_transport->closure (message, (void *) &closure_data);
+        server->_transport->tport_funcs.closure (message, (void *) &closure_data);
         // count this as queued
         CMSG_COUNTER_INC (server, cntr_messages_queued);
         break;
 
     case CMSG_METHOD_DROPPED:
         // Send response, if required by the closure function
-        server->_transport->closure (message, (void *) &closure_data);
+        server->_transport->tport_funcs.closure (message, (void *) &closure_data);
 
         // count this as dropped
         CMSG_COUNTER_INC (server, cntr_messages_dropped);
@@ -902,8 +905,9 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
             return -1;
         }
 
-        ret = server->_transport->server_send (server->_transport, encrypt_buffer,
-                                               encrypt_length, 0);
+        ret =
+            server->_transport->tport_funcs.server_send (server->_transport, encrypt_buffer,
+                                                         encrypt_length, 0);
         /* if the send was successful, fixup the return length to match the original
          * plaintext length so callers are unaware of the encryption */
         if (encrypt_length == ret)
@@ -915,7 +919,9 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
     }
     else
     {
-        ret = server->_transport->server_send (server->_transport, buff, length, 0);
+        ret =
+            server->_transport->tport_funcs.server_send (server->_transport, buff, length,
+                                                         0);
     }
 
     return ret;
@@ -1689,5 +1695,5 @@ cmsg_server_close_wrapper (cmsg_server *server)
         server->_transport->config.socket.crypto.close (sock);
     }
 
-    server->_transport->server_close (server->_transport);
+    server->_transport->tport_funcs.server_close (server->_transport);
 }

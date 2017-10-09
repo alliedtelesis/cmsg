@@ -90,10 +90,9 @@ static int32_t
 cmsg_transport_udt_oneway_server_send (cmsg_transport *transport, void *buff, int length,
                                        int flag)
 {
-    if (transport->udt_info.functions.server_send_oneway)
+    if (transport->udt_info.functions.server_send)
     {
-        return transport->udt_info.functions.server_send_oneway (transport, buff, length,
-                                                                 flag);
+        return transport->udt_info.functions.server_send (transport, buff, length, flag);
     }
 
     return 0;
@@ -103,10 +102,9 @@ static int32_t
 cmsg_transport_udt_rpc_server_send (cmsg_transport *transport, void *buff, int length,
                                     int flag)
 {
-    if (transport->udt_info.functions.server_send_rpc)
+    if (transport->udt_info.functions.server_send)
     {
-        return transport->udt_info.functions.server_send_rpc (transport, buff, length,
-                                                              flag);
+        return transport->udt_info.functions.server_send (transport, buff, length, flag);
     }
 
     return 0;
@@ -261,24 +259,24 @@ _cmsg_transport_udt_init_common (cmsg_transport *transport)
         return;
     }
 
-    transport->connect = cmsg_transport_udt_connect;
-    transport->listen = cmsg_transport_udt_listen;
-    transport->server_accept = cmsg_transport_udt_server_accept;
-    transport->server_recv = cmsg_transport_udt_server_recv;
-    transport->client_recv = cmsg_transport_udt_client_recv;
-    transport->client_send = cmsg_transport_udt_client_send;
-    transport->client_close = cmsg_transport_udt_client_close;
-    transport->server_close = cmsg_transport_udt_server_close;
+    transport->tport_funcs.connect = cmsg_transport_udt_connect;
+    transport->tport_funcs.listen = cmsg_transport_udt_listen;
+    transport->tport_funcs.server_accept = cmsg_transport_udt_server_accept;
+    transport->tport_funcs.server_recv = cmsg_transport_udt_server_recv;
+    transport->tport_funcs.client_recv = cmsg_transport_udt_client_recv;
+    transport->tport_funcs.client_send = cmsg_transport_udt_client_send;
+    transport->tport_funcs.client_close = cmsg_transport_udt_client_close;
+    transport->tport_funcs.server_close = cmsg_transport_udt_server_close;
 
-    transport->s_socket = cmsg_transport_udt_server_get_socket;
-    transport->c_socket = cmsg_transport_udt_client_get_socket;
+    transport->tport_funcs.s_socket = cmsg_transport_udt_server_get_socket;
+    transport->tport_funcs.c_socket = cmsg_transport_udt_client_get_socket;
 
-    transport->client_destroy = cmsg_transport_udt_client_destroy;
-    transport->server_destroy = cmsg_transport_udt_server_destroy;
+    transport->tport_funcs.client_destroy = cmsg_transport_udt_client_destroy;
+    transport->tport_funcs.server_destroy = cmsg_transport_udt_server_destroy;
 
-    transport->is_congested = cmsg_transport_udt_is_congested;
-    transport->send_can_block_enable = cmsg_transport_udt_send_can_block_enable;
-    transport->ipfree_bind_enable = cmsg_transport_udt_ipfree_bind_enable;
+    transport->tport_funcs.is_congested = cmsg_transport_udt_is_congested;
+    transport->tport_funcs.send_can_block_enable = cmsg_transport_udt_send_can_block_enable;
+    transport->tport_funcs.ipfree_bind_enable = cmsg_transport_udt_ipfree_bind_enable;
 }
 
 void
@@ -291,8 +289,8 @@ cmsg_transport_rpc_udt_init (cmsg_transport *transport)
 
     _cmsg_transport_udt_init_common (transport);
 
-    transport->server_send = cmsg_transport_udt_rpc_server_send;
-    transport->closure = cmsg_server_closure_rpc;
+    transport->tport_funcs.server_send = cmsg_transport_udt_rpc_server_send;
+    transport->tport_funcs.closure = cmsg_server_closure_rpc;
 }
 
 
@@ -306,6 +304,6 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
 
     _cmsg_transport_udt_init_common (transport);
 
-    transport->server_send = cmsg_transport_udt_oneway_server_send;
-    transport->closure = cmsg_server_closure_oneway;
+    transport->tport_funcs.server_send = cmsg_transport_udt_oneway_server_send;
+    transport->tport_funcs.closure = cmsg_server_closure_oneway;
 }
