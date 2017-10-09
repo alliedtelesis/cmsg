@@ -22,6 +22,9 @@
 #include "cmsg_transport.h"
 #include "cmsg_server.h"
 
+extern void cmsg_transport_rpc_tcp_funcs_init (cmsg_tport_functions *tport_funcs);
+extern void cmsg_transport_oneway_tcp_funcs_init (cmsg_tport_functions *tport_funcs);
+
 
 static int32_t
 cmsg_transport_udt_listen (cmsg_transport *transport)
@@ -306,4 +309,17 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
 
     transport->tport_funcs.server_send = cmsg_transport_udt_oneway_server_send;
     transport->tport_funcs.closure = cmsg_server_closure_oneway;
+}
+
+void
+cmsg_transport_udt_tcp_base_init (cmsg_transport *transport, bool oneway)
+{
+    if (oneway)
+    {
+        cmsg_transport_oneway_tcp_funcs_init (&transport->udt_info.base);
+    }
+    else
+    {
+        cmsg_transport_rpc_tcp_funcs_init (&transport->udt_info.base);
+    }
 }

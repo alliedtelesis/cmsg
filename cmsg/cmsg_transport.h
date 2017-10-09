@@ -317,4 +317,6 @@ cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
                                                  cmsg_header *header_received);
 
 const char *cmsg_transport_counter_app_tport_id (cmsg_transport *transport);
+
+void cmsg_transport_udt_tcp_base_init (cmsg_transport *transport, bool oneway);
 #endif /* __CMSG_TRANSPORT_H_ */

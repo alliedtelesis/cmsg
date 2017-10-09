@@ -395,26 +395,36 @@ cmsg_transport_tcp_ipfree_bind_enable (cmsg_transport *transport,
 }
 
 static void
-_cmsg_transport_tcp_init_common (cmsg_transport *transport)
+_cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
 {
-    transport->config.socket.family = PF_INET;
-    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
-    transport->tport_funcs.connect = cmsg_transport_tcp_connect;
-    transport->tport_funcs.listen = cmsg_transport_tcp_listen;
-    transport->tport_funcs.server_accept = cmsg_transport_tcp_server_accept;
-    transport->tport_funcs.server_recv = cmsg_transport_tcp_server_recv;
-    transport->tport_funcs.client_recv = cmsg_transport_tcp_client_recv;
-    transport->tport_funcs.client_send = cmsg_transport_tcp_client_send;
-    transport->tport_funcs.client_close = cmsg_transport_tcp_client_close;
-    transport->tport_funcs.server_close = cmsg_transport_tcp_server_close;
-    transport->tport_funcs.s_socket = cmsg_transport_tcp_server_get_socket;
-    transport->tport_funcs.c_socket = cmsg_transport_tcp_client_get_socket;
-    transport->tport_funcs.client_destroy = cmsg_transport_tcp_client_destroy;
-    transport->tport_funcs.server_destroy = cmsg_transport_tcp_server_destroy;
-    transport->tport_funcs.is_congested = cmsg_transport_tcp_is_congested;
-    transport->tport_funcs.send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
-    transport->tport_funcs.ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
+
+    tport_funcs->connect = cmsg_transport_tcp_connect;
+    tport_funcs->listen = cmsg_transport_tcp_listen;
+    tport_funcs->server_accept = cmsg_transport_tcp_server_accept;
+    tport_funcs->server_recv = cmsg_transport_tcp_server_recv;
+    tport_funcs->client_recv = cmsg_transport_tcp_client_recv;
+    tport_funcs->client_send = cmsg_transport_tcp_client_send;
+    tport_funcs->client_close = cmsg_transport_tcp_client_close;
+    tport_funcs->server_close = cmsg_transport_tcp_server_close;
+    tport_funcs->s_socket = cmsg_transport_tcp_server_get_socket;
+    tport_funcs->c_socket = cmsg_transport_tcp_client_get_socket;
+    tport_funcs->client_destroy = cmsg_transport_tcp_client_destroy;
+    tport_funcs->server_destroy = cmsg_transport_tcp_server_destroy;
+    tport_funcs->is_congested = cmsg_transport_tcp_is_congested;
+    tport_funcs->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
+    tport_funcs->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
 }
+
+
+void
+cmsg_transport_rpc_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
+{
+    _cmsg_transport_tcp_init_common (tport_funcs);
+
+    tport_funcs->server_send = cmsg_transport_tcp_rpc_server_send;
+    tport_funcs->closure = cmsg_server_closure_rpc;
+}
+
 
 void
 cmsg_transport_tcp_init (cmsg_transport *transport)
@@ -424,12 +434,22 @@ cmsg_transport_tcp_init (cmsg_transport *transport)
         return;
     }
 
-    _cmsg_transport_tcp_init_common (transport);
+    transport->config.socket.family = PF_INET;
+    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
 
-    transport->tport_funcs.server_send = cmsg_transport_tcp_rpc_server_send;
-    transport->tport_funcs.closure = cmsg_server_closure_rpc;
+    cmsg_transport_rpc_tcp_funcs_init (&transport->tport_funcs);
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
+}
+
+
+void
+cmsg_transport_oneway_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
+{
+    _cmsg_transport_tcp_init_common (tport_funcs);
+
+    tport_funcs->server_send = cmsg_transport_tcp_oneway_server_send;
+    tport_funcs->closure = cmsg_server_closure_oneway;
 }
 
 
@@ -441,10 +461,10 @@ cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
         return;
     }
 
-    _cmsg_transport_tcp_init_common (transport);
+    transport->config.socket.family = PF_INET;
+    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
 
-    transport->tport_funcs.server_send = cmsg_transport_tcp_oneway_server_send;
-    transport->tport_funcs.closure = cmsg_server_closure_oneway;
+    cmsg_transport_oneway_tcp_funcs_init (&transport->tport_funcs);
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
