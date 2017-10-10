@@ -52,6 +52,8 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
     for (l = composite_client->child_clients; l != NULL; l = l->next)
     {
         child = (cmsg_client *) l->data;
+        pthread_mutex_lock (&child->invoke_mutex);
+
         ret = child->invoke_send (child, method_index, input);
         if (ret == CMSG_RET_OK)
         {
@@ -60,11 +62,10 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
         else
         {
             overall_result = CMSG_RET_ERR;
+            pthread_mutex_unlock (&child->invoke_mutex);
         }
         child->last_ret = ret;
     }
-
-    pthread_mutex_unlock (&composite_client->child_mutex);
 
     // For each message successfully sent, receive the reply
     while ((child = g_queue_pop_head (invoke_recv_clients)) != NULL)
@@ -76,6 +77,8 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
         }
 
         ret = child->invoke_recv (child, method_index, closure, &recv_data[i]);
+        pthread_mutex_unlock (&child->invoke_mutex);
+
         if (ret == CMSG_RET_OK)
         {
             i++;
@@ -86,6 +89,8 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
         }
         child->last_ret = ret;
     }
+
+    pthread_mutex_unlock (&composite_client->child_mutex);
 
     g_queue_free (invoke_recv_clients);
 

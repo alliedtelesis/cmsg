@@ -156,7 +156,7 @@ cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
     {
         snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
                   CMSG_COUNTER_APP_NAME_PREFIX, service->descriptor->name,
-                  transport->tport_id);
+                  cmsg_transport_counter_app_tport_id (transport));
 
         if (cmsg_server_counter_create (server, app_name) != CMSG_RET_OK)
         {

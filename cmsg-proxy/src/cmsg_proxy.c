@@ -118,6 +118,32 @@ struct index_add_elem_data
 };
 
 /**
+ * Checks whether the given field name corresponds to a hidden field.
+ *
+ * @param field_name - The field name to check.
+ *
+ * @returns true if the field is hidden, false otherwise.
+ */
+static bool
+_cmsg_proxy_field_is_hidden (const char *field_name)
+{
+    return (strncmp (field_name, "_", 1) == 0);
+}
+
+/**
+ * The function below relies on LLONG_MAX to be greater than UINT32_MAX to allow json inputs
+ * with negative values to be translated without casting.  This will allow json2protobuf to
+ * correctly reject the value for being negative.
+ */
+G_STATIC_ASSERT (LLONG_MAX > UINT32_MAX);
+
+/**
+ * Make sure that jansson has been compiled with a json_int_t as a long long rather than
+ * a long.
+ */
+G_STATIC_ASSERT (sizeof (json_int_t) == sizeof (long long));
+
+/**
  * Convert a single JSON value (i.e. not a JSON object or array) into
  * a JSON object using the input protobuf-c field name as the key.
  *
@@ -133,7 +159,7 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
 {
     char *fmt = NULL;
     char *endptr = NULL;
-    long int lvalue;
+    json_int_t llvalue;
     json_t *new_object = NULL;
 
     switch (field_descriptor->type)
@@ -143,14 +169,25 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
     case PROTOBUF_C_TYPE_SFIXED32:
     case PROTOBUF_C_TYPE_UINT32:
     case PROTOBUF_C_TYPE_FIXED32:
-        lvalue = strtol (value, &endptr, 0);
+        /* Treat all values as signed, as strtoul will cast a negative input to a positive
+         * value, which is not what we want, as we want to catch if a negative value is set.
+         * This will work for all 32 bit values as sizeof (long long) > 32 bits. (confirmed
+         * by static asserts above)
+         */
+        llvalue = strtoll (value, &endptr, 0);
         if (endptr && *endptr == '\0')
         {
-            fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[i]}" : "{si}";
-            new_object = json_pack (fmt, field_descriptor->name, lvalue);
+            fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[I]}" : "{sI}";
+            new_object = json_pack (fmt, field_descriptor->name, llvalue);
             break;
         }
         /* fall through (storing as string) */
+    case PROTOBUF_C_TYPE_UINT64:
+    case PROTOBUF_C_TYPE_INT64:
+    case PROTOBUF_C_TYPE_SINT64:
+    case PROTOBUF_C_TYPE_SFIXED64:
+    case PROTOBUF_C_TYPE_FIXED64:
+        /* 64 bit values are stored as strings in json */
     case PROTOBUF_C_TYPE_ENUM:
     case PROTOBUF_C_TYPE_STRING:
         fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[s?]}" : "{ss?}";
@@ -158,15 +195,14 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
         new_object = json_pack (fmt, field_descriptor->name, value);
         break;
     case PROTOBUF_C_TYPE_BOOL:
-        fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[b]}" : "{sb}";
-        new_object = json_pack (fmt, field_descriptor->name, strcmp (value, "false"));
+        if (strcmp (value, "false") == 0 || strcmp (value, "true") == 0)
+        {
+            fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[b]}" : "{sb}";
+            new_object = json_pack (fmt, field_descriptor->name, strcmp (value, "false"));
+        }
         break;
-        /* Not (currently) supported */
-    case PROTOBUF_C_TYPE_UINT64:
-    case PROTOBUF_C_TYPE_INT64:
-    case PROTOBUF_C_TYPE_SINT64:
-    case PROTOBUF_C_TYPE_SFIXED64:
-    case PROTOBUF_C_TYPE_FIXED64:
+
+    /* Not (currently) supported */
     case PROTOBUF_C_TYPE_FLOAT:
     case PROTOBUF_C_TYPE_DOUBLE:
     case PROTOBUF_C_TYPE_BYTES:
@@ -205,8 +241,8 @@ _cmsg_proxy_find_unparsed_field (const ProtobufCMessageDescriptor *msg_descripto
         field_desc = &(msg_descriptor->fields[i]);
         field_name = field_desc->name;
 
-        /* The '_error_info' field should never be set in the input path */
-        if (strcmp (field_name, "_error_info") == 0)
+        /* The hidden fields should never be set in the input path */
+        if (_cmsg_proxy_field_is_hidden (field_name))
         {
             continue;
         }
@@ -255,10 +291,10 @@ _cmsg_proxy_json_object_sanity_check (json_t *json_obj, json_error_t *error)
         return false;
     }
 
-    /* Sanity check the user hasn't given the '_error_info' field */
+    /* Sanity check the user hasn't attempted to give any hidden fields */
     json_object_foreach (json_obj, key, value)
     {
-        if (strcmp (key, "_error_info") == 0)
+        if (_cmsg_proxy_field_is_hidden (key))
         {
             snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "Invalid JSON");
             return false;
@@ -292,6 +328,7 @@ _cmsg_proxy_json_object_create (const char *input_json,
     json_t *json_obj = NULL;
     const char *stripped_string;
     int expected_input_fields = msg_descriptor->n_fields - g_list_length (url_parameters);
+    int i;
 
     if (!input_json)
     {
@@ -299,10 +336,13 @@ _cmsg_proxy_json_object_create (const char *input_json,
         return json_object ();
     }
 
-    /* The '_error_info' field should never be set in the input path */
-    if (protobuf_c_message_descriptor_get_field_by_name (msg_descriptor, "_error_info"))
+    /* Hidden fields should never be set in the input path */
+    for (i = 0; i < msg_descriptor->n_fields; i++)
     {
-        expected_input_fields--;
+        if (_cmsg_proxy_field_is_hidden (msg_descriptor->fields[i].name))
+        {
+            expected_input_fields--;
+        }
     }
 
     /* If we don't expect any input JSON but the user has given some then
@@ -555,32 +595,32 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
 }
 
 /**
- * Set any required internal api info fields in the input message descriptor.
+ * Set the internal api info field value in the input message descriptor.
  *
- * @param info - the structure holding the web api request information
- * @param json_obj - the message body
- * @param msg_descriptor - used to determine the target field type when converting to JSON
+ * @param internal_info_value - The internal api info value to set in the message body
+ * @param json_obj - Pointer to the message body.
+ * @param msg_descriptor - Used to determine the target field type when converting to JSON.
+ * @param field_name - Target field name in the message to put the internal api info value.
  */
 static void
-_cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *info,
-                                   json_t **json_obj,
-                                   const ProtobufCMessageDescriptor *msg_descriptor)
+_cmsg_proxy_set_internal_api_value (const char *internal_info_value,
+                                    json_t **json_obj,
+                                    const ProtobufCMessageDescriptor *msg_descriptor,
+                                    const char *field_name)
 {
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
     json_t *new_object = NULL;
 
     field_descriptor = protobuf_c_message_descriptor_get_field_by_name (msg_descriptor,
-                                                                        "_api_request_ip_address");
+                                                                        field_name);
 
     if (field_descriptor)
     {
-        new_object =
-            _cmsg_proxy_json_value_to_object (field_descriptor,
-                                              info->api_request_ip_address);
-
+        new_object = _cmsg_proxy_json_value_to_object (field_descriptor,
+                                                       internal_info_value);
         if (!new_object)
         {
-            syslog (LOG_ERR, "Could not create json object for _api_request_ip_address");
+            syslog (LOG_ERR, "Could not create json object for %s", field_name);
             return;
         }
 
@@ -593,6 +633,29 @@ _cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *info,
         {
             *json_obj = new_object;
         }
+    }
+}
+
+/**
+ * Set any required internal api info fields in the input message descriptor.
+ *
+ * @param web_api_info - The structure holding the web api request information
+ * @param json_obj - Pointer to the message body.
+ * @param msg_descriptor - Used to determine the target field type when converting to JSON
+ */
+static void
+_cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *web_api_info,
+                                   json_t **json_obj,
+                                   const ProtobufCMessageDescriptor *msg_descriptor)
+{
+    if (web_api_info)
+    {
+        _cmsg_proxy_set_internal_api_value (web_api_info->api_request_ip_address,
+                                            json_obj, msg_descriptor,
+                                            "_api_request_ip_address");
+        _cmsg_proxy_set_internal_api_value (web_api_info->api_request_username,
+                                            json_obj, msg_descriptor,
+                                            "_api_request_username");
     }
 }
 

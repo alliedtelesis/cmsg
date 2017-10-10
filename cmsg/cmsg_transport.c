@@ -30,6 +30,33 @@ cmsg_transport_crypto_get32 (uint8_t *in, uint32_t *value)
 }
 
 
+/**
+ * Get the transport ID to use in the CMSG counters application
+ * name. This simply returns the transport ID of the transport except
+ * in the case of unix transports where we always return "unix". This
+ * is to ensure we don't run out of counterd applications as unix
+ * transports use the PID of the process in their transport ID. If
+ * there are a large amount of transient processes that use CMSG then
+ * we sooner or later run out of counterd applications.
+ *
+ * @param transport - Transport to get the transport ID from.
+ *
+ * @returns the string to use as the transport ID in a counterd
+ *          application name.
+ */
+const char *
+cmsg_transport_counter_app_tport_id (cmsg_transport *transport)
+{
+    if (transport->type == CMSG_TRANSPORT_RPC_UNIX ||
+        transport->type == CMSG_TRANSPORT_ONEWAY_UNIX)
+    {
+        return ".unix";
+    }
+
+    return transport->tport_id;
+}
+
+
 /*
  * Given a transport, the "unique" id string of that
  * transport is constructed and written to the transport

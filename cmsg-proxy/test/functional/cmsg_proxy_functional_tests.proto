@@ -33,6 +33,27 @@ message test_body_msg
     optional test_body_sub_msg field_c = 3;
 }
 
+message internal_api_info_test
+{
+    optional string _api_request_ip_address = 1;
+    optional string _api_request_username = 2;
+}
+
+message single_data_and_internal
+{
+    optional string _api_request_ip_address = 1;
+    optional string _api_request_username = 2;
+    optional uint32 field_abc = 3;
+}
+
+message multiple_data_and_internal
+{
+    optional string _api_request_ip_address = 1;
+    optional string _api_request_username = 2;
+    optional uint32 field_abc = 3;
+    optional uint32 field_xyz = 4;
+}
+
 service functional_tests
 {
     rpc test_single_bool_get (dummy) returns (ant_result_plus_bool) {
@@ -166,6 +187,26 @@ service functional_tests
         option http = {
             put: "/test_single_repeated_uint32_put",
             body: "values"
+        };
+    }
+
+    rpc test_internal_web_api_info_set (internal_api_info_test) returns (ant_result) {
+        option http = {
+            get: "/test_internal_web_api_info_set",
+        };
+    }
+
+    rpc test_single_data_plus_internal_set (single_data_and_internal) returns (ant_result) {
+        option http = {
+            put: "/test_single_data_plus_internal_set",
+            body: "*"
+        };
+    }
+
+    rpc test_multiple_data_plus_internal_set (multiple_data_and_internal) returns (ant_result) {
+        option http = {
+            put: "/test_multiple_data_plus_internal_set",
+            body: "*"
         };
     }
 }

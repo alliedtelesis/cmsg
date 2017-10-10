@@ -180,7 +180,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s_sub",
               CMSG_COUNTER_APP_NAME_PREFIX,
               subscriber->pub_server->service->descriptor->name,
-              sub_client_transport->tport_id);
+              cmsg_transport_counter_app_tport_id (sub_client_transport));
 
     /* Initialise counters */
     if (cmsg_client_counter_create (register_client, app_name) != CMSG_RET_OK)
@@ -298,7 +298,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s_sub",
               CMSG_COUNTER_APP_NAME_PREFIX,
               subscriber->pub_server->service->descriptor->name,
-              sub_client_transport->tport_id);
+              cmsg_transport_counter_app_tport_id (sub_client_transport));
 
     /* Initialise counters */
     if (cmsg_client_counter_create (register_client, app_name) != CMSG_RET_OK)

@@ -1430,3 +1430,34 @@ test_cmsg_proxy_service_info_add__conflict_param_with_existing_param2 (void)
      *                    completed this story */
     NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_2));
 }
+
+/**
+ * Function Tested: _cmsg_proxy_field_is_hidden()
+ */
+void
+test_cmsg_proxy_field_is_hidden (void)
+{
+    NP_ASSERT_TRUE (_cmsg_proxy_field_is_hidden ("_hidden_field"));
+    NP_ASSERT_FALSE (_cmsg_proxy_field_is_hidden ("non_hidden_field"));
+}
+
+/**
+ * Function Tested: _cmsg_proxy_json_value_to_object()
+ *
+ * Test that a non-valid boolean value does not get converted to
+ * a json object.
+ */
+void
+test_cmsg_proxy_json_value_to_object__invalid_boolean (void)
+{
+    json_t *output_json = NULL;
+    ProtobufCFieldDescriptor field_descriptor = { };
+
+    field_descriptor.type = PROTOBUF_C_TYPE_BOOL;
+    field_descriptor.label = PROTOBUF_C_LABEL_OPTIONAL;
+    field_descriptor.name = "test";
+
+    output_json = _cmsg_proxy_json_value_to_object (&field_descriptor, "blah");
+
+    NP_ASSERT_NULL (output_json);
+}
