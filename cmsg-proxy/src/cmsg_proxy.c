@@ -131,6 +131,19 @@ _cmsg_proxy_field_is_hidden (const char *field_name)
 }
 
 /**
+ * The function below relies on LLONG_MAX to be greater than UINT32_MAX to allow json inputs
+ * with negative values to be translated without casting.  This will allow json2protobuf to
+ * correctly reject the value for being negative.
+ */
+G_STATIC_ASSERT (LLONG_MAX > UINT32_MAX);
+
+/**
+ * Make sure that jansson has been compiled with a json_int_t as a long long rather than
+ * a long.
+ */
+G_STATIC_ASSERT (sizeof (json_int_t) == sizeof (long long));
+
+/**
  * Convert a single JSON value (i.e. not a JSON object or array) into
  * a JSON object using the input protobuf-c field name as the key.
  *
@@ -146,7 +159,7 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
 {
     char *fmt = NULL;
     char *endptr = NULL;
-    long int lvalue;
+    json_int_t llvalue;
     json_t *new_object = NULL;
 
     switch (field_descriptor->type)
@@ -156,14 +169,25 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
     case PROTOBUF_C_TYPE_SFIXED32:
     case PROTOBUF_C_TYPE_UINT32:
     case PROTOBUF_C_TYPE_FIXED32:
-        lvalue = strtol (value, &endptr, 0);
+        /* Treat all values as signed, as strtoul will cast a negative input to a positive
+         * value, which is not what we want, as we want to catch if a negative value is set.
+         * This will work for all 32 bit values as sizeof (long long) > 32 bits. (confirmed
+         * by static asserts above)
+         */
+        llvalue = strtoll (value, &endptr, 0);
         if (endptr && *endptr == '\0')
         {
-            fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[i]}" : "{si}";
-            new_object = json_pack (fmt, field_descriptor->name, lvalue);
+            fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[I]}" : "{sI}";
+            new_object = json_pack (fmt, field_descriptor->name, llvalue);
             break;
         }
         /* fall through (storing as string) */
+    case PROTOBUF_C_TYPE_UINT64:
+    case PROTOBUF_C_TYPE_INT64:
+    case PROTOBUF_C_TYPE_SINT64:
+    case PROTOBUF_C_TYPE_SFIXED64:
+    case PROTOBUF_C_TYPE_FIXED64:
+        /* 64 bit values are stored as strings in json */
     case PROTOBUF_C_TYPE_ENUM:
     case PROTOBUF_C_TYPE_STRING:
         fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[s?]}" : "{ss?}";
@@ -177,12 +201,8 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
             new_object = json_pack (fmt, field_descriptor->name, strcmp (value, "false"));
         }
         break;
-        /* Not (currently) supported */
-    case PROTOBUF_C_TYPE_UINT64:
-    case PROTOBUF_C_TYPE_INT64:
-    case PROTOBUF_C_TYPE_SINT64:
-    case PROTOBUF_C_TYPE_SFIXED64:
-    case PROTOBUF_C_TYPE_FIXED64:
+
+    /* Not (currently) supported */
     case PROTOBUF_C_TYPE_FLOAT:
     case PROTOBUF_C_TYPE_DOUBLE:
     case PROTOBUF_C_TYPE_BYTES:
