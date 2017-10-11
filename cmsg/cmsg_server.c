@@ -632,11 +632,6 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
         sock =
             server->_transport->tport_funcs.server_accept (listen_socket,
                                                            server->_transport);
-        if (sock >= 0 && server->_transport->use_crypto &&
-            server->_transport->config.socket.crypto.accept)
-        {
-            server->_transport->config.socket.crypto.accept (sock);
-        }
         // count the accepted connection
         CMSG_COUNTER_INC (server, cntr_connections_accepted);
     }
@@ -878,53 +873,8 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
 static int
 cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
 {
-    uint8_t *encrypt_buffer;
-    int encrypt_length;
-    int ret = 0;
-    int sock;
-
-    if (server->_transport->config.socket.crypto.encrypt)
-    {
-        sock = server->_transport->connection.sockets.client_socket;
-        encrypt_buffer = (uint8_t *) CMSG_CALLOC (1, length + ENCRYPT_EXTRA);
-        if (encrypt_buffer == NULL)
-        {
-            CMSG_LOG_SERVER_ERROR (server, "Server failed to allocate buffer on socket %d",
-                                   sock);
-            return -1;
-        }
-
-        encrypt_length =
-            server->_transport->config.socket.crypto.encrypt (sock, buff, length,
-                                                              encrypt_buffer,
-                                                              length + ENCRYPT_EXTRA);
-        if (encrypt_length < 0)
-        {
-            CMSG_LOG_SERVER_ERROR (server, "Server encrypt on socket %d failed", sock);
-            CMSG_FREE (encrypt_buffer);
-            return -1;
-        }
-
-        ret =
-            server->_transport->tport_funcs.server_send (server->_transport, encrypt_buffer,
-                                                         encrypt_length, 0);
-        /* if the send was successful, fixup the return length to match the original
-         * plaintext length so callers are unaware of the encryption */
-        if (encrypt_length == ret)
-        {
-            ret = length;
-        }
-
-        CMSG_FREE (encrypt_buffer);
-    }
-    else
-    {
-        ret =
-            server->_transport->tport_funcs.server_send (server->_transport, buff, length,
-                                                         0);
-    }
-
-    return ret;
+    return server->_transport->tport_funcs.server_send (server->_transport,
+                                                        buff, length, 0);
 }
 
 /**
@@ -1688,12 +1638,5 @@ cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner
 void
 cmsg_server_close_wrapper (cmsg_server *server)
 {
-    int sock = server->_transport->connection.sockets.client_socket;
-
-    if (server->_transport->config.socket.crypto.close)
-    {
-        server->_transport->config.socket.crypto.close (sock);
-    }
-
     server->_transport->tport_funcs.server_close (server->_transport);
 }

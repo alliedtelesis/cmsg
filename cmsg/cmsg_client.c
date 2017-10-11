@@ -339,11 +339,6 @@ cmsg_client_connect (cmsg_client *client)
         {
             client->state = CMSG_CLIENT_STATE_CONNECTED;
             sock = client->_transport->connection.sockets.client_socket;
-            if (sock >= 0 && client->_transport->use_crypto &&
-                client->_transport->config.socket.crypto.connect)
-            {
-                client->_transport->config.socket.crypto.connect (client, sock);
-            }
 
             if (client->send_timeout > 0)
             {
@@ -721,10 +716,6 @@ _cmsg_client_add_to_queue (cmsg_client *client, uint8_t *buffer,
 static int32_t
 cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int flag)
 {
-    uint8_t *encrypt_buffer;
-    int encrypt_length;
-    encrypt_f encrypt_func;
-    int sock;
     int ret;
 
 #ifdef HAVE_VCSTACK
@@ -738,48 +729,8 @@ cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int fla
     }
 #endif /* HAVE_VCSTACK */
 
-    /* if the message should be encrypted, then pass it back to the user
-     * application to encrypt */
-    if (client->_transport->config.socket.crypto.encrypt)
-    {
-        encrypt_func = client->_transport->config.socket.crypto.encrypt;
-        encrypt_buffer = (uint8_t *) CMSG_CALLOC (1, length + ENCRYPT_EXTRA);
-        if (encrypt_buffer == NULL)
-        {
-            CMSG_LOG_CLIENT_ERROR (client, "Client failed to allocate buffer on socket %d",
-                                   client->_transport->connection.sockets.client_socket);
-            return -1;
-        }
-        sock = client->_transport->connection.sockets.client_socket;
-        encrypt_length = encrypt_func (sock, buffer, length, encrypt_buffer,
-                                       length + ENCRYPT_EXTRA);
-        if (encrypt_length < 0)
-        {
-            CMSG_LOG_CLIENT_ERROR (client, "Client encrypt on socket %d failed - %s",
-                                   client->_transport->connection.sockets.client_socket,
-                                   strerror (errno));
-            CMSG_FREE (encrypt_buffer);
-            return -1;
-        }
-
-        ret =
-            client->_transport->tport_funcs.client_send (client->_transport, encrypt_buffer,
-                                                         encrypt_length, flag);
-        /* if the send was successful, fixup the return length to match the original
-         * plaintext length so callers are unaware of the encryption */
-        if (encrypt_length == ret)
-        {
-            ret = length;
-        }
-
-        CMSG_FREE (encrypt_buffer);
-    }
-    else
-    {
-        ret =
-            client->_transport->tport_funcs.client_send (client->_transport, buffer, length,
-                                                         flag);
-    }
+    ret = client->_transport->tport_funcs.client_send (client->_transport, buffer, length,
+                                                       flag);
 
     return ret;
 }
@@ -1716,12 +1667,6 @@ cmsg_create_client_loopback (ProtobufCService *service)
 void
 cmsg_client_close_wrapper (cmsg_transport *transport)
 {
-    int sock = transport->connection.sockets.client_socket;
-
-    if (transport->config.socket.crypto.close)
-    {
-        transport->config.socket.crypto.close (sock);
-    }
     transport->tport_funcs.client_close (transport);
 }
 
