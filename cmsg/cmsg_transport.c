@@ -14,23 +14,6 @@ static int32_t _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle,
                                             cmsg_server *server,
                                             cmsg_header *peeked_header);
 
-
-/**
- * This function reads a uint32_t from an input array pointed to by *in
- *
- * @param in - is a pointer to a pointer to the location to read the value
- * @param value - is a pointer to variable to written from the input array
- */
-void
-cmsg_transport_crypto_get32 (uint8_t *in, uint32_t *value)
-{
-    *value = in[0] << 24;
-    *value |= in[1] << 16;
-    *value |= in[2] << 8;
-    *value |= in[3];
-}
-
-
 /**
  * Get the transport ID to use in the CMSG counters application
  * name. This simply returns the transport ID of the transport except
@@ -739,17 +722,6 @@ cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
                                    cmsg_bool_t ipfree_bind_enable)
 {
     return transport->tport_funcs.ipfree_bind_enable (transport, ipfree_bind_enable);
-}
-
-void
-cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *config)
-{
-    transport->config.socket.crypto.encrypt = config->crypto.encrypt;
-    transport->config.socket.crypto.decrypt = config->crypto.decrypt;
-    transport->config.socket.crypto.close = config->crypto.close;
-    transport->config.socket.crypto.accept = config->crypto.accept;
-    transport->config.socket.crypto.connect = config->crypto.connect;
-    transport->use_crypto = TRUE;
 }
 
 /**

@@ -1657,9 +1657,7 @@ cmsg_create_client_loopback (ProtobufCService *service)
 }
 
 /**
- * Close the client transport layer. If the client is using crypto then
- * call out to the client application so it can cleanup any associated
- * crypto structures.
+ * Close the client transport layer.
  *
  * NOTE user applications should not call this routine directly
  *

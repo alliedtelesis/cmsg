@@ -21,11 +21,6 @@
  * old and there is no API define for the size of the sun_path array */
 #define SUN_PATH_SIZE   108
 
-/* Define a magic value for CMSG crypto traffic. This magic value plus
- * the length of the encrypted buffer are passed as a special security header
- * before the encrypted data */
-#define CMSG_CRYPTO_MAGIC        0xa5a50001
-
 /* Allow for encrypted data possibly requiring more buffer space than plain-text data
  * to pad the end of the last data block */
 #define ENCRYPT_EXTRA   64
@@ -42,21 +37,6 @@
 
 //forward delarations
 typedef struct _cmsg_server_s cmsg_server;
-
-typedef int (*encrypt_f) (int sock, void *inbuf, int length, void *outbuf, int outbuf_size);
-typedef int (*decrypt_f) (int sock, void *inbuf, int length, void *outbuf, int outbuf_size);
-typedef void (*close_f) (int sock);
-typedef void (*accept_f) (int sock);
-typedef void (*connect_f) (void *context, int sock);
-
-typedef struct _connection_crypto_callbacks_s
-{
-    encrypt_f encrypt;
-    decrypt_f decrypt;
-    close_f close;
-    accept_f accept;
-    connect_f connect;
-} cmsg_connection_crypto_callbacks;
 
 #ifdef HAVE_VCSTACK
 typedef struct _cpg_connection_s
@@ -94,9 +74,6 @@ typedef struct _cmsg_socket_s
 {
     int family;
     cmsg_socket_address sockaddr;
-
-    //transport crypto callbacks
-    cmsg_connection_crypto_callbacks crypto;
 } cmsg_socket;
 
 #ifdef HAVE_VCSTACK
@@ -219,11 +196,6 @@ struct _cmsg_transport_s
     // sets IP_FREEBIND in socket options
     cmsg_bool_t use_ipfree_bind;
 
-    // security - this is not directly used by CMSG. It is used by
-    // applications using tcp_secure.
-    void *crypto_context;
-    cmsg_bool_t use_crypto;
-
     cmsg_connection connection;
     pthread_mutex_t connection_mutex;
 
@@ -304,8 +276,6 @@ cmsg_transport *cmsg_create_transport_unix (const ProtobufCServiceDescriptor *de
                                             cmsg_transport_type transport_type);
 cmsg_transport *cmsg_create_transport_tcp (cmsg_socket *config,
                                            cmsg_transport_type transport_type);
-
-void cmsg_transport_enable_crypto (cmsg_transport *transport, cmsg_socket *config);
 
 char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor);
 void cmsg_transport_unix_sun_path_free (char *sun_path);

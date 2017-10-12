@@ -1627,9 +1627,7 @@ cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner
 }
 
 /**
- * Close a server socket to a remote client. If the server is using crypto then
- * call out to the server application so it can cleanup any associated
- * crypto structures.
+ * Close a server socket to a remote client.
  *
  * NOTE user applications should not call this routine directly
  *
