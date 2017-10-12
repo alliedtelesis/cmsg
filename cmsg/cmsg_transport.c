@@ -10,10 +10,6 @@
 extern void cmsg_transport_oneway_udt_init (cmsg_transport *transport);
 extern void cmsg_transport_rpc_udt_init (cmsg_transport *transport);
 
-static int32_t _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle,
-                                            cmsg_server *server,
-                                            cmsg_header *peeked_header);
-
 /**
  * Get the transport ID to use in the CMSG counters application
  * name. This simply returns the transport ID of the transport except
@@ -384,9 +380,9 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
  * @param server - The CMSG server to receive the message on.
  * @param peeked_header - The previously peeked header or NULL if it has not been peeked.
  */
-static int32_t
-_cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
-                             cmsg_header *peeked_header)
+int32_t
+cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
+                            cmsg_header *peeked_header)
 {
     int32_t ret = CMSG_RET_OK;
     int nbytes = 0;
@@ -514,19 +510,11 @@ _cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *ser
 }
 
 
-
-/* Receive message from server and process it */
-int32_t
-cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
-                            cmsg_header *header_received)
-{
-    return _cmsg_transport_server_recv (recv, handle, server, header_received);
-}
-
-static cmsg_status_code
-_cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *transport,
-                             const ProtobufCServiceDescriptor *descriptor,
-                             ProtobufCMessage **messagePtPt)
+/* Receive message from a client and process it */
+cmsg_status_code
+cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *transport,
+                            const ProtobufCServiceDescriptor *descriptor,
+                            ProtobufCMessage **messagePtPt)
 {
     int nbytes = 0;
     uint32_t dyn_len = 0;
@@ -693,14 +681,6 @@ _cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *
     return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 
-/* Receive message from a client and process it */
-int32_t
-cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *transport,
-                            const ProtobufCServiceDescriptor *descriptor,
-                            ProtobufCMessage **messagePtPt)
-{
-    return _cmsg_transport_client_recv (recv, handle, transport, descriptor, messagePtPt);
-}
 
 /**
  * Configure the transport to allow blocking if send cannot send it straight away

@@ -239,10 +239,10 @@ int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
 int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
                                     cmsg_header *header_received);
 
-int32_t cmsg_transport_client_recv (cmsg_recv_func recv, void *handle,
-                                    cmsg_transport *transport,
-                                    const ProtobufCServiceDescriptor *descriptor,
-                                    ProtobufCMessage **messagePtPt);
+cmsg_status_code cmsg_transport_client_recv (cmsg_recv_func recv, void *handle,
+                                             cmsg_transport *transport,
+                                             const ProtobufCServiceDescriptor *descriptor,
+                                             ProtobufCMessage **messagePtPt);
 
 cmsg_transport *cmsg_create_transport_tipc (const char *server_name, int member_id,
                                             int scope, cmsg_transport_type transport_type);
