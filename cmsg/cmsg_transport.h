@@ -150,8 +150,15 @@ typedef struct _cmsg_tport_functions_s
 
 typedef struct _cmsg_udt_info_s
 {
+    // User-defined transport functions
     cmsg_tport_functions functions;
+
+    // Base transport functions (i.e. allow access to
+    // TCP, TIPC, UNIX, ..., transport functionality if required)
     cmsg_tport_functions base;
+
+    // User-defined transport data. It is the responsibility of the
+    // application using the UDT to correctly manage/free this memory.
     void *data;
 } cmsg_udt_info;
 
