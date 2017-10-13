@@ -378,7 +378,7 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
  * @param recv - The transport dependent receive function.
  * @param handle - The data to pass to the transport dependent receive function.
  * @param server - The CMSG server to receive the message on.
- * @param peeked_header - The previously peeked header or NULL if it has not been peeked.
+ * @param peeked_header - The previously peeked header.
  */
 int32_t
 cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
@@ -387,7 +387,6 @@ cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *serv
     int32_t ret = CMSG_RET_OK;
     int nbytes = 0;
     uint32_t dyn_len = 0;
-    cmsg_header header_received;
     cmsg_header header_converted;
     uint8_t *recv_buffer = NULL;
     uint8_t buf_static[512];
@@ -395,115 +394,48 @@ cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *serv
     uint32_t extra_header_size = 0;
     cmsg_transport *transport = server->_transport;
 
-    if (peeked_header)
+    CMSG_ASSERT_RETURN_VAL (peeked_header != NULL, CMSG_RET_ERR);
+
+    if (cmsg_header_process (peeked_header, &header_converted) != CMSG_RET_OK)
     {
-        memcpy (&header_received, peeked_header, sizeof (cmsg_header));
-    }
-    else
-    {
-        nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
+        // Couldn't process the header for some reason
+        CMSG_LOG_TRANSPORT_ERROR (transport,
+                                  "Unable to process message header for during receive.");
+        return CMSG_RET_ERR;
     }
 
-    if (nbytes == sizeof (cmsg_header) || peeked_header)
+    extra_header_size = header_converted.header_length - sizeof (cmsg_header);
+
+    // packet size is determined by header_length + message_length.
+    // header_length may be greater than sizeof (cmsg_header)
+    dyn_len = header_converted.message_length + header_converted.header_length;
+
+    if (dyn_len > sizeof (buf_static))
     {
-        if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
+        recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
+        if (recv_buffer == NULL)
         {
-            // Couldn't process the header for some reason
             CMSG_LOG_TRANSPORT_ERROR (transport,
-                                      "Unable to process message header for during receive. Bytes: %d",
-                                      nbytes);
+                                      "Failed to allocate memory for received message");
             return CMSG_RET_ERR;
         }
-
-        extra_header_size = header_converted.header_length - sizeof (cmsg_header);
-
-        if (peeked_header)
-        {
-            // packet size is determined by header_length + message_length.
-            // header_length may be greater than sizeof (cmsg_header)
-            dyn_len = header_converted.message_length + header_converted.header_length;
-        }
-        else
-        {
-            // Make sure any extra header is received.
-            dyn_len = header_converted.message_length + extra_header_size;
-        }
-
-        if (dyn_len > sizeof (buf_static))
-        {
-            recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
-            if (recv_buffer == NULL)
-            {
-                CMSG_LOG_TRANSPORT_ERROR (transport,
-                                          "Failed to allocate memory for received message");
-                return CMSG_RET_ERR;
-            }
-        }
-        else
-        {
-            recv_buffer = (uint8_t *) buf_static;
-            memset (recv_buffer, 0, sizeof (buf_static));
-        }
-
-        // read the message
-        if (peeked_header)
-        {
-            nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
-            buffer_data = recv_buffer + sizeof (cmsg_header);
-        }
-        else
-        {
-            //Even if no packed data, TLV header should be read.
-            if (header_converted.message_length + extra_header_size)
-            {
-                nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
-            }
-            else
-            {
-                nbytes = 0;
-            }
-            buffer_data = recv_buffer;
-        }
-
-        ret = cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
-                                                  dyn_len, nbytes, &header_converted);
-        if (recv_buffer != buf_static)
-        {
-            CMSG_FREE (recv_buffer);
-            recv_buffer = NULL;
-        }
-
-    }
-    else if (nbytes > 0)
-    {
-        CMSG_LOG_TRANSPORT_ERROR (transport,
-                                  "Bad header on recv socket %d. Number: %d",
-                                  transport->connection.sockets.client_socket, nbytes);
-
-        // TEMP to keep things going
-        recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
-        nbytes = recv (handle, recv_buffer, nbytes, MSG_WAITALL);
-        CMSG_FREE (recv_buffer);
-        recv_buffer = NULL;
-        ret = CMSG_RET_OK;
-    }
-    else if (nbytes == 0)
-    {
-        //Normal socket shutdown case. Return other than TRANSPORT_OK to
-        //have socket removed from select set.
-        ret = CMSG_RET_CLOSED;
     }
     else
     {
-        if (errno != ECONNRESET)
-        {
-            CMSG_LOG_TRANSPORT_ERROR (transport,
-                                      "Receive error for socket %d. Error: %s.",
-                                      transport->connection.sockets.client_socket,
-                                      strerror (errno));
-        }
+        recv_buffer = (uint8_t *) buf_static;
+        memset (recv_buffer, 0, sizeof (buf_static));
+    }
 
-        ret = CMSG_RET_ERR;
+    // read the message
+    nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
+    buffer_data = recv_buffer + sizeof (cmsg_header);
+
+    ret = cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
+                                              dyn_len, nbytes, &header_converted);
+    if (recv_buffer != buf_static)
+    {
+        CMSG_FREE (recv_buffer);
+        recv_buffer = NULL;
     }
 
     return ret;
