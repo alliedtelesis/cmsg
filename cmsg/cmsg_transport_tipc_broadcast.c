@@ -78,17 +78,15 @@ int
 cmsg_transport_tipc_broadcast_recv (void *handle, void *buff, int len, int flags)
 {
     uint32_t addrlen = 0;
-    cmsg_server *server;
     cmsg_transport *transport;
     int nbytes;
 
-    server = (cmsg_server *) handle;
+    transport = (cmsg_transport *) handle;
     addrlen = sizeof (struct sockaddr_tipc);
-    transport = server->_transport;
 
-    nbytes =
-        recvfrom (server->_transport->connection.sockets.listening_socket, buff, len, flags,
-                  (struct sockaddr *) &transport->config.socket.sockaddr.tipc, &addrlen);
+    nbytes = recvfrom (transport->connection.sockets.listening_socket, buff, len, flags,
+                       (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
+                       &addrlen);
     return nbytes;
 }
 
@@ -111,14 +109,14 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server *server)
 
     server_sock = server->_transport->connection.sockets.listening_socket;
     peek_status = cmsg_transport_peek_for_header (cmsg_transport_tipc_broadcast_recv,
-                                                  (void *) server,
+                                                  (void *) server->_transport,
                                                   server->_transport,
                                                   server_sock, MAX_SERVER_PEEK_LOOP,
                                                   &header_received);
     if (peek_status == CMSG_STATUS_CODE_SUCCESS)
     {
-        ret = cmsg_transport_server_recv (cmsg_transport_tipc_broadcast_recv, server,
-                                          server, &header_received);
+        ret = cmsg_transport_server_recv (cmsg_transport_tipc_broadcast_recv,
+                                          server->_transport, server, &header_received);
     }
     else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
     {
