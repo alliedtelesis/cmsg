@@ -73,6 +73,7 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
         if (!child->invoke_recv)
         {
             // invoke_recv is NULL so nothing to do here (e.g. ONEWAY_TIPC transport type)
+            pthread_mutex_unlock (&child->invoke_mutex);
             continue;
         }
 
