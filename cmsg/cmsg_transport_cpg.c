@@ -87,10 +87,9 @@ _cmsg_cpg_confchg_fn (cpg_handle_t handle, struct cpg_name *group_name,
 
     if (server->_transport->config.cpg.configchg_cb != NULL)
     {
-        server->_transport->config.cpg.configchg_cb (server, member_list,
-                                                     member_list_entries, left_list,
-                                                     left_list_entries, joined_list,
-                                                     joined_list_entries);
+        server->_transport->config.cpg.configchg_cb (member_list, member_list_entries,
+                                                     left_list, left_list_entries,
+                                                     joined_list, joined_list_entries);
     }
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] %s\n", __FUNCTION__);
 }

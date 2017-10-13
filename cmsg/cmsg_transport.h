@@ -77,8 +77,7 @@ typedef struct _cmsg_socket_s
 } cmsg_socket;
 
 #ifdef HAVE_VCSTACK
-typedef void (*cpg_configchg_cb_f) (cmsg_server *server,
-                                    const struct cpg_address *member_list,
+typedef void (*cpg_configchg_cb_f) (const struct cpg_address *member_list,
                                     int member_list_entries,
                                     const struct cpg_address *left_list,
                                     int left_list_entries,
