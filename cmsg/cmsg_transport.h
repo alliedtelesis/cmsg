@@ -129,6 +129,7 @@ typedef struct _cmsg_udt_s
 
 typedef struct _cmsg_tport_functions_s
 {
+    cmsg_recv_func recv_wrapper;
     client_connect_f connect;                   // client connect function
     server_listen_f listen;                     // server listen function
     server_accept_f server_accept;              // server accept
@@ -237,8 +238,7 @@ int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
 int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
                                            cmsg_bool_t ipfree_bind_enable);
 
-int32_t cmsg_transport_server_recv (cmsg_recv_func recv, int socket, cmsg_server *server,
-                                    cmsg_header *header_received);
+int32_t cmsg_transport_server_recv (int32_t server_socket, cmsg_server *server);
 
 cmsg_status_code cmsg_transport_client_recv (cmsg_recv_func recv_wrapper, int socket,
                                              cmsg_transport *transport,

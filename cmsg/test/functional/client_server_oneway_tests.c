@@ -33,6 +33,8 @@ setup_udt_tcp_transport_functions (cmsg_transport *udt_transport)
 {
     cmsg_transport_udt_tcp_base_init (udt_transport, true);
 
+    udt_transport->udt_info.functions.recv_wrapper =
+        udt_transport->udt_info.base.recv_wrapper;
     udt_transport->udt_info.functions.connect = udt_transport->udt_info.base.connect;
     udt_transport->udt_info.functions.listen = udt_transport->udt_info.base.listen;
     udt_transport->udt_info.functions.server_accept =

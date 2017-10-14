@@ -89,41 +89,6 @@ cmsg_transport_tipc_broadcast_recv (cmsg_transport *transport, int sock, void *b
     return nbytes;
 }
 
-/**
- * Receive a message sent by the client. The data is then passed to the server
- * for processing.
- */
-static int32_t
-cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server *server)
-{
-    int32_t ret = CMSG_RET_ERR;
-    cmsg_status_code peek_status;
-    int server_sock;
-    cmsg_header header_received;
-
-    if (!server || socket < 0)
-    {
-        return -1;
-    }
-
-    server_sock = server->_transport->connection.sockets.listening_socket;
-    peek_status = cmsg_transport_peek_for_header (cmsg_transport_tipc_broadcast_recv,
-                                                  server->_transport,
-                                                  server_sock, MAX_SERVER_PEEK_LOOP,
-                                                  &header_received);
-    if (peek_status == CMSG_STATUS_CODE_SUCCESS)
-    {
-        ret = cmsg_transport_server_recv (cmsg_transport_tipc_broadcast_recv,
-                                          server_sock, server, &header_received);
-    }
-    else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
-    {
-        ret = CMSG_RET_CLOSED;
-    }
-
-    return ret;
-}
-
 
 /**
  * TIPC broadcast clients do not receive a reply to their messages. This
@@ -328,9 +293,10 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->config.socket.family = AF_TIPC;
     transport->config.socket.sockaddr.tipc.family = AF_TIPC;
 
+    transport->tport_funcs.recv_wrapper = cmsg_transport_tipc_broadcast_recv;
     transport->tport_funcs.connect = cmsg_transport_tipc_broadcast_connect;
     transport->tport_funcs.listen = cmsg_transport_tipc_broadcast_listen;
-    transport->tport_funcs.server_recv = cmsg_transport_tipc_broadcast_server_recv;
+    transport->tport_funcs.server_recv = cmsg_transport_server_recv;
     transport->tport_funcs.client_recv = cmsg_transport_tipc_broadcast_client_recv;
     transport->tport_funcs.client_send = cmsg_transport_tipc_broadcast_client_send;
     transport->tport_funcs.server_send = cmsg_transport_tipc_broadcast_server_send;

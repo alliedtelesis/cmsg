@@ -380,9 +380,9 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
  * @param server - The CMSG server to receive the message on.
  * @param peeked_header - The previously peeked header.
  */
-int32_t
-cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket, cmsg_server *server,
-                            cmsg_header *peeked_header)
+static int32_t
+_cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket, cmsg_server *server,
+                             cmsg_header *peeked_header)
 {
     int32_t ret = CMSG_RET_OK;
     int nbytes = 0;
@@ -651,4 +651,44 @@ cmsg_transport_server_recv_process_DEPRECATED (uint8_t *buffer_data, cmsg_server
 {
     return cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
                                                dyn_len, nbytes, header_converted);
+}
+
+int32_t
+cmsg_transport_server_recv (int32_t server_socket, cmsg_server *server)
+{
+    int32_t ret = CMSG_RET_ERR;
+    cmsg_status_code peek_status;
+    cmsg_header header_received;
+    cmsg_transport *transport = NULL;
+
+    if (!server || server_socket < 0)
+    {
+        CMSG_LOG_TRANSPORT_ERROR (server->_transport,
+                                  "Bad parameter for server recv. Server:%p Socket:%d",
+                                  server, server_socket);
+    }
+    else
+    {
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] socket %d\n", server_socket);
+
+        transport = server->_transport;
+        /* Remember the client socket to use when send reply */
+        transport->connection.sockets.client_socket = server_socket;
+
+        peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
+                                                      transport,
+                                                      server_socket, MAX_SERVER_PEEK_LOOP,
+                                                      &header_received);
+        if (peek_status == CMSG_STATUS_CODE_SUCCESS)
+        {
+            ret = _cmsg_transport_server_recv (transport->tport_funcs.recv_wrapper,
+                                               server_socket, server, &header_received);
+        }
+        else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
+        {
+            ret = CMSG_RET_CLOSED;
+        }
+    }
+
+    return ret;
 }

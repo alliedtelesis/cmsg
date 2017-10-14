@@ -188,6 +188,19 @@ cmsg_transport_udt_client_send (cmsg_transport *transport, void *buff, int lengt
     return 0;
 }
 
+int
+cmsg_transport_udt_recv_wrapper (cmsg_transport *transport, int sock, void *buff, int len,
+                                 int flags)
+{
+    if (transport->udt_info.functions.recv_wrapper)
+    {
+        return transport->udt_info.functions.recv_wrapper (transport, sock, buff, len,
+                                                           flags);
+    }
+
+    return 0;
+}
+
 
 /*
  * Call the user defined transport connect function and change the state of
@@ -262,6 +275,7 @@ _cmsg_transport_udt_init_common (cmsg_transport *transport)
         return;
     }
 
+    transport->tport_funcs.recv_wrapper = cmsg_transport_udt_recv_wrapper;
     transport->tport_funcs.connect = cmsg_transport_udt_connect;
     transport->tport_funcs.listen = cmsg_transport_udt_listen;
     transport->tport_funcs.server_accept = cmsg_transport_udt_server_accept;
