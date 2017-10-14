@@ -205,11 +205,10 @@ recv_all (int sockfd, void *buf, size_t len, int flag)
 
 /* Wrapper function to call "recv" on a TCP socket */
 int
-cmsg_transport_tcp_recv (void *handle, void *buff, int len, int flags)
+cmsg_transport_tcp_recv (cmsg_transport *transport, int sock, void *buff, int len,
+                         int flags)
 {
-    int *sock = (int *) handle;
-
-    return recv_all (*sock, buff, len, flags);
+    return recv_all (sock, buff, len, flags);
 }
 
 
@@ -234,15 +233,14 @@ cmsg_transport_tcp_server_recv (int32_t server_socket, cmsg_server *server)
         server->_transport->connection.sockets.client_socket = server_socket;
 
         peek_status = cmsg_transport_peek_for_header (cmsg_transport_tcp_recv,
-                                                      (void *) &server_socket,
+                                                      server_socket,
                                                       server->_transport,
                                                       server_socket, MAX_SERVER_PEEK_LOOP,
                                                       &header_received);
         if (peek_status == CMSG_STATUS_CODE_SUCCESS)
         {
             ret = cmsg_transport_server_recv (cmsg_transport_tcp_recv,
-                                              (void *) &server_socket, server,
-                                              &header_received);
+                                              server_socket, server, &header_received);
         }
         else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
         {
@@ -302,7 +300,7 @@ cmsg_transport_tcp_client_recv (cmsg_transport *transport,
     *messagePtPt = NULL;
 
     ret = cmsg_transport_client_recv (cmsg_transport_tcp_recv,
-                                      (void *) &transport->connection.sockets.client_socket,
+                                      transport->connection.sockets.client_socket,
                                       transport, descriptor, messagePtPt);
 
     return ret;

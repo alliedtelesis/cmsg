@@ -227,7 +227,7 @@ cmsg_transport_destroy (cmsg_transport *transport)
  * on the receive if the data is never sent or is partially sent.
  */
 cmsg_status_code
-cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, void *recv_wrapper_data,
+cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, int socket_dup,
                                 cmsg_transport *transport, int32_t socket, int32_t maxLoop,
                                 cmsg_header *header_received)
 {
@@ -250,7 +250,7 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, void *recv_wrapper_
     /* Peek until data arrives, this allows us to timeout and recover if no data arrives. */
     while ((count < maxLoop) && (nbytes != (int) sizeof (cmsg_header)))
     {
-        nbytes = recv_wrapper (recv_wrapper_data, header_received,
+        nbytes = recv_wrapper (transport, socket_dup, header_received,
                                sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
         if (nbytes == (int) sizeof (cmsg_header))
         {
@@ -381,7 +381,7 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
  * @param peeked_header - The previously peeked header.
  */
 int32_t
-cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
+cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket, cmsg_server *server,
                             cmsg_header *peeked_header)
 {
     int32_t ret = CMSG_RET_OK;
@@ -427,7 +427,7 @@ cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *serv
     }
 
     // read the message
-    nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
+    nbytes = recv_wrapper (transport, socket, recv_buffer, dyn_len, MSG_WAITALL);
     buffer_data = recv_buffer + sizeof (cmsg_header);
 
     ret = cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
@@ -444,7 +444,8 @@ cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *serv
 
 /* Receive message from a client and process it */
 cmsg_status_code
-cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *transport,
+cmsg_transport_client_recv (cmsg_recv_func recv_wrapper, int socket,
+                            cmsg_transport *transport,
                             const ProtobufCServiceDescriptor *descriptor,
                             ProtobufCMessage **messagePtPt)
 {
@@ -461,7 +462,8 @@ cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *t
 
     *messagePtPt = NULL;
 
-    nbytes = recv (handle, &header_received, sizeof (cmsg_header), MSG_WAITALL);
+    nbytes = recv_wrapper (transport, socket, &header_received, sizeof (cmsg_header),
+                           MSG_WAITALL);
 
     if (nbytes == sizeof (cmsg_header))
     {
@@ -511,7 +513,7 @@ cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *t
         }
 
         //just recv the rest of the data to clear the socket
-        nbytes = recv (handle, recv_buffer, dyn_len, MSG_WAITALL);
+        nbytes = recv_wrapper (transport, socket, recv_buffer, dyn_len, MSG_WAITALL);
 
         if (nbytes == (int) dyn_len)
         {
@@ -585,7 +587,7 @@ cmsg_transport_client_recv (cmsg_recv_func recv, void *handle, cmsg_transport *t
 
         // TEMP to keep things going
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
-        nbytes = recv (handle, recv_buffer, nbytes, MSG_WAITALL);
+        nbytes = recv_wrapper (transport, socket, recv_buffer, nbytes, MSG_WAITALL);
         CMSG_FREE (recv_buffer);
         recv_buffer = NULL;
     }

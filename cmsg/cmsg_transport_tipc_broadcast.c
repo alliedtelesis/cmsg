@@ -75,13 +75,12 @@ cmsg_transport_tipc_broadcast_listen (cmsg_transport *transport)
 
 /* Wrapper function to call "recv" on a TIPC broadcast socket */
 int
-cmsg_transport_tipc_broadcast_recv (void *handle, void *buff, int len, int flags)
+cmsg_transport_tipc_broadcast_recv (cmsg_transport *transport, int sock, void *buff,
+                                    int len, int flags)
 {
     uint32_t addrlen = 0;
-    cmsg_transport *transport;
     int nbytes;
 
-    transport = (cmsg_transport *) handle;
     addrlen = sizeof (struct sockaddr_tipc);
 
     nbytes = recvfrom (transport->connection.sockets.listening_socket, buff, len, flags,
@@ -109,14 +108,14 @@ cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server *server)
 
     server_sock = server->_transport->connection.sockets.listening_socket;
     peek_status = cmsg_transport_peek_for_header (cmsg_transport_tipc_broadcast_recv,
-                                                  (void *) server->_transport,
+                                                  server_sock,
                                                   server->_transport,
                                                   server_sock, MAX_SERVER_PEEK_LOOP,
                                                   &header_received);
     if (peek_status == CMSG_STATUS_CODE_SUCCESS)
     {
         ret = cmsg_transport_server_recv (cmsg_transport_tipc_broadcast_recv,
-                                          server->_transport, server, &header_received);
+                                          server_sock, server, &header_received);
     }
     else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
     {

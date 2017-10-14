@@ -97,7 +97,8 @@ typedef struct _cmsg_transport_s cmsg_transport;    //forward declaration
 
 typedef int (*udt_connect_f) (cmsg_transport *transport);
 typedef int (*udt_send_f) (void *udt_data, void *buff, int length, int flag);
-typedef int (*cmsg_recv_func) (void *handle, void *buff, int len, int flags);
+typedef int (*cmsg_recv_func) (cmsg_transport *transport, int sock, void *buff, int len,
+                               int flags);
 typedef int (*client_connect_f) (cmsg_transport *transport, int timeout);
 typedef int (*server_listen_f) (cmsg_transport *transport);
 typedef int (*server_recv_f) (int32_t socket, cmsg_server *server);
@@ -242,10 +243,10 @@ int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
 int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
                                            cmsg_bool_t ipfree_bind_enable);
 
-int32_t cmsg_transport_server_recv (cmsg_recv_func recv, void *handle, cmsg_server *server,
+int32_t cmsg_transport_server_recv (cmsg_recv_func recv, int socket, cmsg_server *server,
                                     cmsg_header *header_received);
 
-cmsg_status_code cmsg_transport_client_recv (cmsg_recv_func recv, void *handle,
+cmsg_status_code cmsg_transport_client_recv (cmsg_recv_func recv_wrapper, int socket,
                                              cmsg_transport *transport,
                                              const ProtobufCServiceDescriptor *descriptor,
                                              ProtobufCMessage **messagePtPt);
@@ -287,7 +288,7 @@ char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor
 void cmsg_transport_unix_sun_path_free (char *sun_path);
 
 cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
-                                                 void *recv_wrapper_data,
+                                                 int socket_dup,
                                                  cmsg_transport *transport,
                                                  int32_t socket, int32_t maxLoop,
                                                  cmsg_header *header_received);
