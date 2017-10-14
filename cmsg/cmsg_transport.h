@@ -288,7 +288,6 @@ char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor
 void cmsg_transport_unix_sun_path_free (char *sun_path);
 
 cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
-                                                 int socket_dup,
                                                  cmsg_transport *transport,
                                                  int32_t socket, int32_t maxLoop,
                                                  cmsg_header *header_received);

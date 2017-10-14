@@ -227,8 +227,8 @@ cmsg_transport_destroy (cmsg_transport *transport)
  * on the receive if the data is never sent or is partially sent.
  */
 cmsg_status_code
-cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, int socket_dup,
-                                cmsg_transport *transport, int32_t socket, int32_t maxLoop,
+cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *transport,
+                                int32_t socket, int32_t maxLoop,
                                 cmsg_header *header_received)
 {
     cmsg_status_code ret = CMSG_STATUS_CODE_SUCCESS;
@@ -250,7 +250,7 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, int socket_dup,
     /* Peek until data arrives, this allows us to timeout and recover if no data arrives. */
     while ((count < maxLoop) && (nbytes != (int) sizeof (cmsg_header)))
     {
-        nbytes = recv_wrapper (transport, socket_dup, header_received,
+        nbytes = recv_wrapper (transport, socket, header_received,
                                sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
         if (nbytes == (int) sizeof (cmsg_header))
         {

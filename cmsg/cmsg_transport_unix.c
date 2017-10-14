@@ -144,7 +144,6 @@ cmsg_transport_unix_server_recv (int32_t server_socket, cmsg_server *server)
         server->_transport->connection.sockets.client_socket = server_socket;
 
         peek_status = cmsg_transport_peek_for_header (cmsg_transport_unix_recv,
-                                                      server_socket,
                                                       server->_transport,
                                                       server_socket, MAX_SERVER_PEEK_LOOP,
                                                       &header_received);

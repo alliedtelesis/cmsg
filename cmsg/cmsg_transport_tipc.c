@@ -193,7 +193,6 @@ cmsg_transport_tipc_server_recv (int32_t server_socket, cmsg_server *server)
         server->_transport->connection.sockets.client_socket = server_socket;
 
         peek_status = cmsg_transport_peek_for_header (cmsg_transport_tipc_recv,
-                                                      server_socket,
                                                       server->_transport,
                                                       server_socket, MAX_SERVER_PEEK_LOOP,
                                                       &header_received);
@@ -261,8 +260,7 @@ cmsg_transport_tipc_client_recv (cmsg_transport *transport,
     *messagePtPt = NULL;
 
     client_socket = transport->connection.sockets.client_socket;
-    ret = cmsg_transport_peek_for_header (cmsg_transport_tipc_recv,
-                                          client_socket, transport,
+    ret = cmsg_transport_peek_for_header (cmsg_transport_tipc_recv, transport,
                                           client_socket, MAX_CLIENT_PEEK_LOOP,
                                           &header_received);
     if (ret != CMSG_STATUS_CODE_SUCCESS)
