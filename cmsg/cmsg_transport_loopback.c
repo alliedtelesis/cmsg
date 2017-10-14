@@ -128,7 +128,9 @@ cmsg_transport_loopback_listen (cmsg_transport *transport)
  *
  */
 static int32_t
-cmsg_transport_loopback_server_recv (int32_t server_socket, cmsg_server *server)
+cmsg_transport_loopback_server_recv (int32_t server_socket, cmsg_server *server,
+                                     uint8_t **recv_buffer, cmsg_header *processed_header,
+                                     int *nbytes)
 {
     return -1;
 }

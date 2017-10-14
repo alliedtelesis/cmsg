@@ -101,7 +101,9 @@ typedef int (*cmsg_recv_func) (cmsg_transport *transport, int sock, void *buff, 
                                int flags);
 typedef int (*client_connect_f) (cmsg_transport *transport, int timeout);
 typedef int (*server_listen_f) (cmsg_transport *transport);
-typedef int (*server_recv_f) (int32_t socket, cmsg_server *server);
+typedef int (*server_recv_f) (int socket, cmsg_server *server,
+                              uint8_t **recv_buffer,
+                              cmsg_header *processed_header, int *nbytes);
 typedef int (*server_accept_f) (int32_t socket, cmsg_transport *transport);
 typedef cmsg_status_code (*client_recv_f) (cmsg_transport *transport,
                                            const ProtobufCServiceDescriptor *descriptor,
@@ -238,7 +240,9 @@ int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
 int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
                                            cmsg_bool_t ipfree_bind_enable);
 
-int32_t cmsg_transport_server_recv (int32_t server_socket, cmsg_server *server);
+int32_t cmsg_transport_server_recv (int32_t server_socket, cmsg_server *server,
+                                    uint8_t **recv_buffer, cmsg_header *processed_header,
+                                    int *nbytes);
 
 cmsg_status_code cmsg_transport_client_recv (cmsg_recv_func recv_wrapper, int socket,
                                              cmsg_transport *transport,

@@ -370,21 +370,15 @@ cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
  */
 static int32_t
 _cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket, cmsg_server *server,
-                             cmsg_header *peeked_header)
+                             cmsg_header *peeked_header, uint8_t **recv_buffer,
+                             cmsg_header *processed_header, int *nbytes)
 {
-    int32_t ret = CMSG_RET_OK;
-    int nbytes = 0;
     uint32_t dyn_len = 0;
-    cmsg_header header_converted;
-    uint8_t *recv_buffer = NULL;
-    uint8_t buf_static[512];
-    uint8_t *buffer_data;
-    uint32_t extra_header_size = 0;
     cmsg_transport *transport = server->_transport;
 
     CMSG_ASSERT_RETURN_VAL (peeked_header != NULL, CMSG_RET_ERR);
 
-    if (cmsg_header_process (peeked_header, &header_converted) != CMSG_RET_OK)
+    if (cmsg_header_process (peeked_header, processed_header) != CMSG_RET_OK)
     {
         // Couldn't process the header for some reason
         CMSG_LOG_TRANSPORT_ERROR (transport,
@@ -392,41 +386,25 @@ _cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket, cmsg_serve
         return CMSG_RET_ERR;
     }
 
-    extra_header_size = header_converted.header_length - sizeof (cmsg_header);
-
     // packet size is determined by header_length + message_length.
     // header_length may be greater than sizeof (cmsg_header)
-    dyn_len = header_converted.message_length + header_converted.header_length;
+    dyn_len = processed_header->message_length + processed_header->header_length;
 
-    if (dyn_len > sizeof (buf_static))
+    if (dyn_len > CMSG_RECV_BUFFER_SZ)
     {
-        recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
-        if (recv_buffer == NULL)
+        *recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
+        if (*recv_buffer == NULL)
         {
             CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "Failed to allocate memory for received message");
             return CMSG_RET_ERR;
         }
     }
-    else
-    {
-        recv_buffer = (uint8_t *) buf_static;
-        memset (recv_buffer, 0, sizeof (buf_static));
-    }
 
     // read the message
-    nbytes = recv_wrapper (transport, socket, recv_buffer, dyn_len, MSG_WAITALL);
-    buffer_data = recv_buffer + sizeof (cmsg_header);
+    *nbytes = recv_wrapper (transport, socket, *recv_buffer, dyn_len, MSG_WAITALL);
 
-    ret = cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
-                                              dyn_len, nbytes, &header_converted);
-    if (recv_buffer != buf_static)
-    {
-        CMSG_FREE (recv_buffer);
-        recv_buffer = NULL;
-    }
-
-    return ret;
+    return CMSG_RET_OK;
 }
 
 
@@ -642,7 +620,9 @@ cmsg_transport_server_recv_process_DEPRECATED (uint8_t *buffer_data, cmsg_server
 }
 
 int32_t
-cmsg_transport_server_recv (int32_t server_socket, cmsg_server *server)
+cmsg_transport_server_recv (int32_t server_socket, cmsg_server *server,
+                            uint8_t **recv_buffer, cmsg_header *processed_header,
+                            int *nbytes)
 {
     int32_t ret = CMSG_RET_ERR;
     cmsg_status_code peek_status;
@@ -663,7 +643,8 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_server *server)
     if (peek_status == CMSG_STATUS_CODE_SUCCESS)
     {
         ret = _cmsg_transport_server_recv (transport->tport_funcs.recv_wrapper,
-                                           server_socket, server, &header_received);
+                                           server_socket, server, &header_received,
+                                           recv_buffer, processed_header, nbytes);
     }
     else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
     {

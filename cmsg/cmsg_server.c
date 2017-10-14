@@ -13,6 +13,11 @@
 
 extern GHashTable *cpg_group_name_to_server_hash_table_h;
 
+extern int32_t
+cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
+                                    uint32_t extra_header_size, uint32_t dyn_len,
+                                    int nbytes, cmsg_header *header_converted);
+
 static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
                                                           uint8_t *buffer_data);
 
@@ -585,11 +590,19 @@ int32_t
 cmsg_server_receive (cmsg_server *server, int32_t socket)
 {
     int32_t ret = 0;
+    uint8_t recv_buf_static[CMSG_RECV_BUFFER_SZ] = { 0 };
+    uint8_t *recv_buff = recv_buf_static;
+    cmsg_header processed_header;
+    int nbytes = 0;
+    uint32_t extra_header_size = 0;
+    uint8_t *buffer_data;
+    uint32_t dyn_len = 0;
 
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, CMSG_RET_ERR);
 
-    ret = server->_transport->tport_funcs.server_recv (socket, server);
+    ret = server->_transport->tport_funcs.server_recv (socket, server, &recv_buff,
+                                                       &processed_header, &nbytes);
 
     if (ret < 0)
     {
@@ -615,7 +628,27 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
         return CMSG_RET_ERR;
     }
 
-    return CMSG_RET_OK;
+    if (nbytes > 0)
+    {
+        extra_header_size = processed_header.header_length - sizeof (cmsg_header);
+
+        // packet size is determined by header_length + message_length.
+        // header_length may be greater than sizeof (cmsg_header)
+        dyn_len = processed_header.message_length + processed_header.header_length;
+
+        buffer_data = recv_buff + sizeof (cmsg_header);
+
+        ret = cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
+                                                  dyn_len, nbytes, &processed_header);
+    }
+
+    if (recv_buff != recv_buf_static)
+    {
+        CMSG_FREE (recv_buff);
+        recv_buff = NULL;
+    }
+
+    return ret;
 }
 
 
