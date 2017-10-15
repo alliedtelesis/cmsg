@@ -229,12 +229,6 @@ void cmsg_transport_cpg_init (cmsg_transport *transport);
 
 void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
 
-int32_t cmsg_transport_server_process_message (cmsg_recv_func recv, void *handle,
-                                               cmsg_server *server);
-
-int32_t cmsg_transport_server_process_message_with_peek (cmsg_recv_func recv, void *handle,
-                                                         cmsg_server *server);
-
 int32_t cmsg_transport_destroy (cmsg_transport *transport);
 
 int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
