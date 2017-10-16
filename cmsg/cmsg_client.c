@@ -71,7 +71,7 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
             break;
         case CMSG_TRANSPORT_LOOPBACK:
             client->invoke_send = cmsg_client_invoke_send_direct;
-            client->invoke_recv = cmsg_client_invoke_recv_direct;
+            client->invoke_recv = cmsg_client_invoke_recv;
             break;
         default:
             assert (false && "Unknown transport type");
@@ -866,58 +866,6 @@ cmsg_client_invoke_send_direct (cmsg_client *client, uint32_t method_index,
 {
     cmsg_server_invoke_direct (client->_transport->config.loopback_server, input,
                                method_index);
-
-    return CMSG_RET_OK;
-}
-
-
-/**
- * Receive the reply from the server that was invoked directly using
- * cmsg_client_invoke_send_direct(). The reply from the server is
- * read off the pipe used to simulate a socket for a loopback client.
- */
-int32_t
-cmsg_client_invoke_recv_direct (cmsg_client *client, uint32_t method_index,
-                                ProtobufCClosure closure, void *closure_data)
-{
-    ProtobufCService *service = (ProtobufCService *) client;
-    const char *method_name = service->descriptor->methods[method_index].name;
-    ProtobufCMessage *message_pt = NULL;
-    cmsg_status_code status_code;
-
-    /* message_pt is filled in by the response receive.  It may be NULL or a valid pointer.
-     * status_code will tell us whether it is a valid pointer.
-     */
-    status_code = cmsg_client_response_receive (client, &message_pt);
-
-    if (message_pt == NULL)
-    {
-        /* There may be no message if the server has sent an empty message which is ok. */
-        if (status_code == CMSG_STATUS_CODE_SUCCESS)
-        {
-            return CMSG_RET_OK;
-        }
-        else
-        {
-            CMSG_LOG_CLIENT_ERROR (client,
-                                   "Response message not valid or empty. (method: %s)",
-                                   method_name);
-            CMSG_COUNTER_INC (client, cntr_protocol_errors);
-            return CMSG_RET_ERR;
-        }
-    }
-
-    if (closure_data)
-    {
-        ((cmsg_client_closure_data *) (closure_data))->message = (void *) message_pt;
-        ((cmsg_client_closure_data *) (closure_data))->allocator = &cmsg_memory_allocator;
-    }
-    else
-    {
-        /* only cleanup if the message is not passed back to the
-         * api through the closure_data (above) */
-        protobuf_c_message_free_unpacked (message_pt, &cmsg_memory_allocator);
-    }
 
     return CMSG_RET_OK;
 }

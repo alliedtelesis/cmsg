@@ -136,9 +136,6 @@ int32_t cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
 int32_t cmsg_client_invoke_send_direct (cmsg_client *client, uint32_t method_index,
                                         const ProtobufCMessage *input);
 
-int32_t cmsg_client_invoke_recv_direct (cmsg_client *client, uint32_t method_index,
-                                        ProtobufCClosure closure, void *closure_data);
-
 int32_t cmsg_client_send_echo_request (cmsg_client *client);
 
 cmsg_status_code cmsg_client_recv_echo_reply (cmsg_client *client);
