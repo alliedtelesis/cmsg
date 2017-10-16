@@ -709,33 +709,6 @@ _cmsg_client_add_to_queue (cmsg_client *client, uint8_t *buffer,
 }
 
 /**
- * Wrap the sending of a buffer so that the input buffer can be encrypted if required.
- * If encryption is required then the client must be connected so that a key
- * nonce exchange can occur before user traffic is sent.
- */
-static int32_t
-cmsg_client_send_wrapper (cmsg_client *client, void *buffer, int length, int flag)
-{
-    int ret;
-
-#ifdef HAVE_VCSTACK
-    if (client->state != CMSG_CLIENT_STATE_CONNECTED &&
-        client->_transport->type == CMSG_TRANSPORT_CPG)
-    {
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "CPG Client is not connected prior to attempting to send to group %s",
-                               client->_transport->config.cpg.group_name.value);
-        return -1;
-    }
-#endif /* HAVE_VCSTACK */
-
-    ret = client->_transport->tport_funcs.client_send (client->_transport, buffer, length,
-                                                       flag);
-
-    return ret;
-}
-
-/**
  * Create the CMSG packet based on the input method name
  * and data.
  *
@@ -1222,7 +1195,9 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
         return CMSG_RET_ERR;
     }
 
-    send_ret = cmsg_client_send_wrapper (client, queue_buffer, queue_buffer_size, 0);
+    send_ret = client->_transport->tport_funcs.client_send (client->_transport,
+                                                            queue_buffer,
+                                                            queue_buffer_size, 0);
 
     if (send_ret < (int) (queue_buffer_size))
     {
@@ -1235,8 +1210,9 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
 
         if (client->state == CMSG_CLIENT_STATE_CONNECTED)
         {
-            send_ret = cmsg_client_send_wrapper (client, queue_buffer,
-                                                 queue_buffer_size, 0);
+            send_ret = client->_transport->tport_funcs.client_send (client->_transport,
+                                                                    queue_buffer,
+                                                                    queue_buffer_size, 0);
 
             if (send_ret < (int) (queue_buffer_size))
             {
@@ -1316,7 +1292,8 @@ _cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_
 
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        ret = cmsg_client_send_wrapper (client, buffer, buffer_size, 0);
+        ret = client->_transport->tport_funcs.client_send (client->_transport, buffer,
+                                                           buffer_size, 0);
 
         if (ret < (int) buffer_size)
         {
