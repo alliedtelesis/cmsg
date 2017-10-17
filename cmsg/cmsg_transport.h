@@ -294,14 +294,4 @@ const char *cmsg_transport_counter_app_tport_id (cmsg_transport *transport);
 
 void cmsg_transport_udt_tcp_base_init (cmsg_transport *transport, bool oneway);
 
-/**
-* Call the cmsg_transport_server_recv_process() function externally (i.e. for the purposes
-* of a user-defined transport).
-*
-* THIS FUNCTION IS DEPRECATED AND SHOULD NOT BE USED IN ANY NEW CODE.
-*/
-int32_t
-cmsg_transport_server_recv_process_DEPRECATED (uint8_t *buffer_data, cmsg_server *server,
-                                               uint32_t extra_header_size, uint32_t dyn_len,
-                                               int nbytes, cmsg_header *header_converted);
 #endif /* __CMSG_TRANSPORT_H_ */

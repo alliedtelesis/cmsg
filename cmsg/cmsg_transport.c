@@ -604,21 +604,6 @@ cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
     return transport->tport_funcs.ipfree_bind_enable (transport, ipfree_bind_enable);
 }
 
-/**
-* Call the cmsg_transport_server_recv_process() function externally (i.e. for the purposes
-* of a user-defined transport).
-*
-* THIS FUNCTION IS DEPRECATED AND SHOULD NOT BE USED IN ANY NEW CODE.
-*/
-int32_t
-cmsg_transport_server_recv_process_DEPRECATED (uint8_t *buffer_data, cmsg_server *server,
-                                               uint32_t extra_header_size, uint32_t dyn_len,
-                                               int nbytes, cmsg_header *header_converted)
-{
-    return cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
-                                               dyn_len, nbytes, header_converted);
-}
-
 int32_t
 cmsg_transport_server_recv (int32_t server_socket, cmsg_server *server,
                             uint8_t **recv_buffer, cmsg_header *processed_header,
