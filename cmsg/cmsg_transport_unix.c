@@ -119,6 +119,18 @@ int
 cmsg_transport_unix_recv (cmsg_transport *transport, int sock, void *buff, int len,
                           int flags)
 {
+    struct timeval timeout = { 1, 0 };
+    fd_set read_fds;
+    int maxfd;
+
+    FD_ZERO (&read_fds);
+    FD_SET (sock, &read_fds);
+    maxfd = sock;
+
+    /* Do select() on the socket to prevent it to go to usleep instantaneously in the loop
+     * if the data is not yet available.*/
+    select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
+
     return recv (sock, buff, len, flags);
 }
 

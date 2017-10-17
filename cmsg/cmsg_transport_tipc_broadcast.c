@@ -80,6 +80,17 @@ cmsg_transport_tipc_broadcast_recv (cmsg_transport *transport, int sock, void *b
 {
     uint32_t addrlen = 0;
     int nbytes;
+    struct timeval timeout = { 1, 0 };
+    fd_set read_fds;
+    int maxfd;
+
+    FD_ZERO (&read_fds);
+    FD_SET (sock, &read_fds);
+    maxfd = sock;
+
+    /* Do select() on the socket to prevent it to go to usleep instantaneously in the loop
+     * if the data is not yet available.*/
+    select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
 
     addrlen = sizeof (struct sockaddr_tipc);
 

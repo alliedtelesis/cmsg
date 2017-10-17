@@ -235,18 +235,6 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
     int count = 0;
     int nbytes = 0;
 
-    struct timeval timeout = { 1, 0 };
-    fd_set read_fds;
-    int maxfd;
-
-    FD_ZERO (&read_fds);
-    FD_SET (socket, &read_fds);
-    maxfd = socket;
-
-    /* Do select() on the socket to prevent it to go to usleep instantaneously in the loop
-     * if the data is not yet available.*/
-    select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
-
     /* Peek until data arrives, this allows us to timeout and recover if no data arrives. */
     while ((count < maxLoop) && (nbytes != (int) sizeof (cmsg_header)))
     {
@@ -661,33 +649,25 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_server *server)
     cmsg_header header_received;
     cmsg_transport *transport = NULL;
 
-    if (!server || server_socket < 0)
+    CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
+
+    transport = server->_transport;
+
+    /* Remember the client socket to use when send reply */
+    transport->connection.sockets.client_socket = server_socket;
+
+    peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
+                                                  transport,
+                                                  server_socket, MAX_SERVER_PEEK_LOOP,
+                                                  &header_received);
+    if (peek_status == CMSG_STATUS_CODE_SUCCESS)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport,
-                                  "Bad parameter for server recv. Server:%p Socket:%d",
-                                  server, server_socket);
+        ret = _cmsg_transport_server_recv (transport->tport_funcs.recv_wrapper,
+                                           server_socket, server, &header_received);
     }
-    else
+    else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
     {
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] socket %d\n", server_socket);
-
-        transport = server->_transport;
-        /* Remember the client socket to use when send reply */
-        transport->connection.sockets.client_socket = server_socket;
-
-        peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
-                                                      transport,
-                                                      server_socket, MAX_SERVER_PEEK_LOOP,
-                                                      &header_received);
-        if (peek_status == CMSG_STATUS_CODE_SUCCESS)
-        {
-            ret = _cmsg_transport_server_recv (transport->tport_funcs.recv_wrapper,
-                                               server_socket, server, &header_received);
-        }
-        else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
-        {
-            ret = CMSG_RET_CLOSED;
-        }
+        ret = CMSG_RET_CLOSED;
     }
 
     return ret;
