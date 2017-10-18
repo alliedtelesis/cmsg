@@ -73,12 +73,7 @@ cmsg_transport_loopback_client_get_socket (cmsg_transport *transport)
 static void
 cmsg_transport_loopback_client_destroy (cmsg_transport *transport)
 {
-    /* destroy the server associated with the loopback client */
-    if (transport && transport->config.loopback_server)
-    {
-        cmsg_destroy_server_and_transport (transport->config.loopback_server);
-        transport->config.loopback_server = NULL;
-    }
+    //placeholder to make sure destroy functions are called in the right order
 }
 
 /**

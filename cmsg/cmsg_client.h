@@ -93,6 +93,9 @@ typedef struct _cmsg_client_s
     pthread_mutex_t child_mutex;
     int last_ret;
 
+    // loopback server
+    void *loopback_server;
+
     //counter information
     void *cntr_session;
     // counterd counters

@@ -227,6 +227,12 @@ cmsg_client_destroy (cmsg_client *client)
         client->_transport->tport_funcs.client_destroy (client->_transport);
     }
 
+    if (client->loopback_server)
+    {
+        cmsg_destroy_server_and_transport (client->loopback_server);
+        client->loopback_server = NULL;
+    }
+
     if (client->child_clients)
     {
         g_list_free (client->child_clients);
@@ -865,8 +871,7 @@ int32_t
 cmsg_client_invoke_send_direct (cmsg_client *client, uint32_t method_index,
                                 const ProtobufCMessage *input)
 {
-    cmsg_server_invoke_direct (client->_transport->config.loopback_server, input,
-                               method_index);
+    cmsg_server_invoke_direct (client->loopback_server, input, method_index);
 
     return CMSG_RET_OK;
 }
@@ -1545,10 +1550,6 @@ cmsg_create_client_loopback (ProtobufCService *service)
         return NULL;
     }
 
-    /* the transport stores a pointer to the server so we can access it later to
-     * invoke the implementation function directly. */
-    client_transport->config.loopback_server = server;
-
     client = cmsg_client_new (client_transport, service->descriptor);
 
     if (client == NULL)
@@ -1559,6 +1560,10 @@ cmsg_create_client_loopback (ProtobufCService *service)
         return NULL;
     }
 
+    /* the client stores a pointer to the server so we can access it later to
+     * invoke the implementation function directly. */
+    client->loopback_server = server;
+
     /* Create a pipe to allow the server to send RPC replies back to the client.
      * The server writes to the pipe and the client reads the reply off the pipe.
      * This is slightly inefficient, but code-wise it's the easiest way to get
@@ -1566,7 +1571,6 @@ cmsg_create_client_loopback (ProtobufCService *service)
     if (pipe (pipe_fds) == -1)
     {
         CMSG_LOG_GEN_ERROR ("Could not create pipe for loopback transport");
-        cmsg_destroy_server_and_transport (server);
         cmsg_destroy_client_and_transport (client);
         return NULL;
     }
