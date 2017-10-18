@@ -13,11 +13,6 @@
 
 extern GHashTable *cpg_group_name_to_server_hash_table_h;
 
-extern int32_t
-cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
-                                    uint32_t extra_header_size, uint32_t dyn_len,
-                                    int nbytes, cmsg_header *header_converted);
-
 static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
                                                           uint8_t *buffer_data);
 
@@ -577,6 +572,63 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
 }
 
 
+static int32_t
+cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
+                          uint32_t extra_header_size, uint32_t dyn_len,
+                          int nbytes, cmsg_header *header_converted)
+{
+    cmsg_server_request server_request;
+    int32_t ret;
+
+    // Header is good so make use of it.
+    server_request.msg_type = header_converted->msg_type;
+    server_request.message_length = header_converted->message_length;
+    server_request.method_index = UNDEFINED_METHOD;
+    memset (&(server_request.method_name_recvd), 0, CMSG_SERVER_REQUEST_MAX_NAME_LENGTH);
+
+    ret = cmsg_tlv_header_process (buffer_data, &server_request, extra_header_size,
+                                   server->service->descriptor);
+
+    if (ret != CMSG_RET_OK)
+    {
+        if (ret == CMSG_RET_METHOD_NOT_FOUND)
+        {
+            cmsg_server_empty_method_reply_send (server,
+                                                 CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,
+                                                 UNDEFINED_METHOD);
+        }
+    }
+    else
+    {
+
+        buffer_data = buffer_data + extra_header_size;
+        // Process any message that has no more length or we have received what
+        // we expected to from the socket
+        if (header_converted->message_length == 0 || nbytes == (int) dyn_len)
+        {
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
+            cmsg_buffer_print (buffer_data, dyn_len);
+            server->server_request = &server_request;
+            if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
+            {
+                CMSG_LOG_TRANSPORT_ERROR (server->_transport,
+                                          "Server message processing returned an error.");
+            }
+
+        }
+        else
+        {
+            CMSG_LOG_TRANSPORT_ERROR (server->_transport, "No data on recv socket %d.",
+                                      server->_transport->connection.sockets.client_socket);
+
+            ret = CMSG_RET_ERR;
+        }
+    }
+
+    return ret;
+}
+
+
 /**
  * cmsg_server_receive
  *
@@ -601,8 +653,9 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, CMSG_RET_ERR);
 
-    ret = server->_transport->tport_funcs.server_recv (socket, server, &recv_buff,
-                                                       &processed_header, &nbytes);
+    ret = server->_transport->tport_funcs.server_recv (socket, server->_transport,
+                                                       &recv_buff, &processed_header,
+                                                       &nbytes);
 
     if (ret < 0)
     {
@@ -638,8 +691,8 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
 
         buffer_data = recv_buff + sizeof (cmsg_header);
 
-        ret = cmsg_transport_server_recv_process (buffer_data, server, extra_header_size,
-                                                  dyn_len, nbytes, &processed_header);
+        ret = cmsg_server_recv_process (buffer_data, server, extra_header_size,
+                                        dyn_len, nbytes, &processed_header);
     }
 
     if (recv_buff != recv_buf_static)

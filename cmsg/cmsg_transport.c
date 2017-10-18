@@ -3,7 +3,6 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_server.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
 
@@ -301,80 +300,24 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
     return ret;
 }
 
-int32_t
-cmsg_transport_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
-                                    uint32_t extra_header_size, uint32_t dyn_len,
-                                    int nbytes, cmsg_header *header_converted)
-{
-    cmsg_server_request server_request;
-    int32_t ret;
-
-    // Header is good so make use of it.
-    server_request.msg_type = header_converted->msg_type;
-    server_request.message_length = header_converted->message_length;
-    server_request.method_index = UNDEFINED_METHOD;
-    memset (&(server_request.method_name_recvd), 0, CMSG_SERVER_REQUEST_MAX_NAME_LENGTH);
-
-    ret = cmsg_tlv_header_process (buffer_data, &server_request, extra_header_size,
-                                   server->service->descriptor);
-
-    if (ret != CMSG_RET_OK)
-    {
-        if (ret == CMSG_RET_METHOD_NOT_FOUND)
-        {
-            cmsg_server_empty_method_reply_send (server,
-                                                 CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,
-                                                 UNDEFINED_METHOD);
-        }
-    }
-    else
-    {
-
-        buffer_data = buffer_data + extra_header_size;
-        // Process any message that has no more length or we have received what
-        // we expected to from the socket
-        if (header_converted->message_length == 0 || nbytes == (int) dyn_len)
-        {
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
-            cmsg_buffer_print (buffer_data, dyn_len);
-            server->server_request = &server_request;
-            if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
-            {
-                CMSG_LOG_TRANSPORT_ERROR (server->_transport,
-                                          "Server message processing returned an error.");
-            }
-
-        }
-        else
-        {
-            CMSG_LOG_TRANSPORT_ERROR (server->_transport, "No data on recv socket %d.",
-                                      server->_transport->connection.sockets.client_socket);
-
-            ret = CMSG_RET_ERR;
-        }
-    }
-
-    return ret;
-}
-
 /**
- * Receive the message from the server and process it. If the header has already
- * been peeked then we simply process the header and receive the entire message data
- * before processing. If the header has not already been peeked then we must receive
- * and process the header first.
+ * Receive the message from the server.
  *
- * @param recv - The transport dependent receive function.
- * @param handle - The data to pass to the transport dependent receive function.
- * @param server - The CMSG server to receive the message on.
+ * @param recv - The transport dependent receive function wrapper.
+ * @param socket - The socket to read from.
+ * @param transport - The CMSG transport to receive the message with.
  * @param peeked_header - The previously peeked header.
+ * @param recv_buffer - Pointer to a buffer to store the received message.
+ * @param processed_header - Pointer to store the processed CMSG header.
+ * @param nbytes - Pointer to store the number of bytes received.
  */
 static int32_t
-_cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket, cmsg_server *server,
-                             cmsg_header *peeked_header, uint8_t **recv_buffer,
-                             cmsg_header *processed_header, int *nbytes)
+_cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket,
+                             cmsg_transport *transport, cmsg_header *peeked_header,
+                             uint8_t **recv_buffer, cmsg_header *processed_header,
+                             int *nbytes)
 {
     uint32_t dyn_len = 0;
-    cmsg_transport *transport = server->_transport;
 
     CMSG_ASSERT_RETURN_VAL (peeked_header != NULL, CMSG_RET_ERR);
 
@@ -605,18 +548,15 @@ cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
 }
 
 int32_t
-cmsg_transport_server_recv (int32_t server_socket, cmsg_server *server,
+cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
                             uint8_t **recv_buffer, cmsg_header *processed_header,
                             int *nbytes)
 {
     int32_t ret = CMSG_RET_ERR;
     cmsg_status_code peek_status;
     cmsg_header header_received;
-    cmsg_transport *transport = NULL;
 
-    CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
-
-    transport = server->_transport;
+    CMSG_ASSERT_RETURN_VAL (transport != NULL, CMSG_RET_ERR);
 
     /* Remember the client socket to use when send reply */
     transport->connection.sockets.client_socket = server_socket;
@@ -628,7 +568,7 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_server *server,
     if (peek_status == CMSG_STATUS_CODE_SUCCESS)
     {
         ret = _cmsg_transport_server_recv (transport->tport_funcs.recv_wrapper,
-                                           server_socket, server, &header_received,
+                                           server_socket, transport, &header_received,
                                            recv_buffer, processed_header, nbytes);
     }
     else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)

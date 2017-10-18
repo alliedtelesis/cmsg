@@ -39,18 +39,16 @@ cmsg_transport_udt_listen (cmsg_transport *transport)
 
 
 static int32_t
-cmsg_transport_udt_server_recv (int32_t server_socket, cmsg_server *server,
+cmsg_transport_udt_server_recv (int32_t server_socket, cmsg_transport *transport,
                                 uint8_t **recv_buffer, cmsg_header *processed_header,
                                 int *nbytes)
 {
-    cmsg_transport *transport;
     int32_t ret = -1;
 
-    transport = server->_transport;
 
     if (transport->udt_info.functions.server_recv)
     {
-        ret = transport->udt_info.functions.server_recv (server_socket, server,
+        ret = transport->udt_info.functions.server_recv (server_socket, transport,
                                                          recv_buffer, processed_header,
                                                          nbytes);
     }

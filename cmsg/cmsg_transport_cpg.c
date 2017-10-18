@@ -360,17 +360,17 @@ cmsg_transport_cpg_server_listen (cmsg_transport *transport)
  * This should be run in a dedicated thread.
  */
 static int32_t
-cmsg_transport_cpg_server_recv (int32_t server_socket, cmsg_server *server,
+cmsg_transport_cpg_server_recv (int32_t server_socket, cmsg_transport *transport,
                                 uint8_t **recv_buffer, cmsg_header *processed_header,
                                 int *nbytes)
 {
     int ret;
 
-    ret = cpg_dispatch (server->_transport->connection.cpg.handle, CPG_DISPATCH_ALL);
+    ret = cpg_dispatch (transport->connection.cpg.handle, CPG_DISPATCH_ALL);
 
     if (ret != CPG_OK)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "CPG dispatch failed. Error:%d", ret);
+        CMSG_LOG_TRANSPORT_ERROR (transport, "CPG dispatch failed. Error:%d", ret);
         return -1;
     }
 
