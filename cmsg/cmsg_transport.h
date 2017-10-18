@@ -35,9 +35,6 @@
 /* This value is used to limit the timeout for server message peek to 10s */
 #define MAX_SERVER_PEEK_LOOP (10000)
 
-//forward delarations
-typedef struct _cmsg_server_s cmsg_server;
-
 #ifdef HAVE_VCSTACK
 typedef struct _cpg_connection_s
 {
@@ -169,7 +166,7 @@ typedef union _cmsg_transport_config_u
 {
     cmsg_socket socket;
     cmsg_cpg cpg;
-    cmsg_server *loopback_server;
+    void *loopback_server;
 } cmsg_transport_config;
 
 
@@ -293,5 +290,7 @@ cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
 const char *cmsg_transport_counter_app_tport_id (cmsg_transport *transport);
 
 void cmsg_transport_udt_tcp_base_init (cmsg_transport *transport, bool oneway);
+
+bool cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two);
 
 #endif /* __CMSG_TRANSPORT_H_ */

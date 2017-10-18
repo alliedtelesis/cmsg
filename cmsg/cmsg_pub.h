@@ -40,7 +40,6 @@ typedef struct _cmsg_sub_entry_s
 
 
 gint cmsg_sub_entry_compare (gconstpointer a, gconstpointer b);
-bool cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two);
 
 typedef struct _cmsg_pub_s
 {

@@ -13,6 +13,8 @@
 #define CMSG_SERVICE(package,service)     ((ProtobufCService *)&package ## _ ## service ## _service)
 #define CMSG_SERVICE_NOPACKAGE(service)   ((ProtobufCService *)&service ## _service)
 
+typedef struct _cmsg_server_s cmsg_server;
+
 typedef struct _cmsg_server_closure_data_s
 {
     cmsg_server *server;
@@ -87,7 +89,6 @@ typedef struct _cmsg_server_s
     void *cntr_protocol_errors;
     void *cntr_queue_errors;
 } cmsg_server;
-
 
 typedef struct _cmsg_server_list_s
 {
