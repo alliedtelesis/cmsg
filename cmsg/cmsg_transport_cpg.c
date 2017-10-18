@@ -614,8 +614,6 @@ cmsg_transport_cpg_init (cmsg_transport *transport)
     transport->tport_funcs.client_send = cmsg_transport_cpg_client_send;
     transport->tport_funcs.server_send = cmsg_transport_cpg_server_send;
 
-    transport->tport_funcs.closure = cmsg_server_closure_oneway;
-
     transport->tport_funcs.client_close = cmsg_transport_cpg_client_close;
     transport->tport_funcs.server_close = cmsg_transport_cpg_server_close;
 

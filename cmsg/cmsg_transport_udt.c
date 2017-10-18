@@ -20,7 +20,6 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_server.h"
 
 extern void cmsg_transport_rpc_tcp_funcs_init (cmsg_tport_functions *tport_funcs);
 extern void cmsg_transport_oneway_tcp_funcs_init (cmsg_tport_functions *tport_funcs);
@@ -309,7 +308,6 @@ cmsg_transport_rpc_udt_init (cmsg_transport *transport)
     _cmsg_transport_udt_init_common (transport);
 
     transport->tport_funcs.server_send = cmsg_transport_udt_rpc_server_send;
-    transport->tport_funcs.closure = cmsg_server_closure_rpc;
 }
 
 
@@ -324,7 +322,6 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
     _cmsg_transport_udt_init_common (transport);
 
     transport->tport_funcs.server_send = cmsg_transport_udt_oneway_server_send;
-    transport->tport_funcs.closure = cmsg_server_closure_oneway;
 }
 
 void

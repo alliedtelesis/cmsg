@@ -3,7 +3,6 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_server.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
 /* Limit the size of message read */
@@ -412,7 +411,6 @@ cmsg_transport_rpc_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
     _cmsg_transport_tcp_init_common (tport_funcs);
 
     tport_funcs->server_send = cmsg_transport_tcp_rpc_server_send;
-    tport_funcs->closure = cmsg_server_closure_rpc;
 }
 
 
@@ -439,7 +437,6 @@ cmsg_transport_oneway_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
     _cmsg_transport_tcp_init_common (tport_funcs);
 
     tport_funcs->server_send = cmsg_transport_tcp_oneway_server_send;
-    tport_funcs->closure = cmsg_server_closure_oneway;
 }
 
 

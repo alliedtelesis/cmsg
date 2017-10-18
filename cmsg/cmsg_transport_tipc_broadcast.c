@@ -3,7 +3,6 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_server.h"
 #include "cmsg_error.h"
 
 
@@ -323,6 +322,4 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
         cmsg_transport_tipc_broadcast_send_can_block_enable;
     transport->tport_funcs.ipfree_bind_enable =
         cmsg_transport_tipc_broadcast_ipfree_bind_enable;
-
-    transport->tport_funcs.closure = cmsg_server_closure_oneway;
 }

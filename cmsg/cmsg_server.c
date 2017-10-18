@@ -31,6 +31,32 @@ static cmsg_queue_filter_type cmsg_server_queue_filter_lookup (cmsg_server *serv
 int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
 
 
+static ProtobufCClosure
+cmsg_server_get_closure_func (cmsg_transport *transport)
+{
+    switch (transport->type)
+    {
+    case CMSG_TRANSPORT_RPC_TCP:
+    case CMSG_TRANSPORT_RPC_TIPC:
+    case CMSG_TRANSPORT_RPC_USERDEFINED:
+    case CMSG_TRANSPORT_LOOPBACK:
+    case CMSG_TRANSPORT_RPC_UNIX:
+        return cmsg_server_closure_rpc;
+
+    case CMSG_TRANSPORT_ONEWAY_TCP:
+    case CMSG_TRANSPORT_ONEWAY_TIPC:
+    case CMSG_TRANSPORT_BROADCAST:
+    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
+    case CMSG_TRANSPORT_ONEWAY_UNIX:
+    case CMSG_TRANSPORT_CPG:
+        return cmsg_server_closure_oneway;
+    }
+
+    CMSG_LOG_GEN_ERROR ("Unsupported closure function for transport type");
+    return NULL;
+}
+
+
 /*
  * This is an internal function which can be called from CMSG library.
  * Applications should use cmsg_server_new() instead.
@@ -61,6 +87,8 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
         strncpy (server->self.obj_id, service->descriptor->name, CMSG_MAX_OBJ_ID_LEN);
         server->parent.object_type = CMSG_OBJ_TYPE_NONE;
         server->parent.object = NULL;
+
+        server->closure = cmsg_server_get_closure_func (transport);
 
         CMSG_DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n",
                     transport->type);
@@ -768,11 +796,8 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
     {
     case CMSG_METHOD_OK_TO_INVOKE:
     case CMSG_METHOD_INVOKING_FROM_QUEUE:
-        server->service->invoke (server->service,
-                                 method_index,
-                                 message,
-                                 server->_transport->tport_funcs.closure,
-                                 (void *) &closure_data);
+        server->service->invoke (server->service, method_index, message,
+                                 server->closure, (void *) &closure_data);
 
         if (!(server->app_owns_current_msg || server->app_owns_all_msgs))
         {
@@ -797,14 +822,14 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
         }
 
         // Send response, if required by the closure function
-        server->_transport->tport_funcs.closure (message, (void *) &closure_data);
+        server->closure (message, (void *) &closure_data);
         // count this as queued
         CMSG_COUNTER_INC (server, cntr_messages_queued);
         break;
 
     case CMSG_METHOD_DROPPED:
         // Send response, if required by the closure function
-        server->_transport->tport_funcs.closure (message, (void *) &closure_data);
+        server->closure (message, (void *) &closure_data);
 
         // count this as dropped
         CMSG_COUNTER_INC (server, cntr_messages_dropped);

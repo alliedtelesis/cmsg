@@ -533,8 +533,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
 
     //this is calling: cmsg_pub_subscribe
     server->service->invoke (server->service, server_request->method_index, message,
-                             server->_transport->tport_funcs.closure,
-                             (void *) &closure_data);
+                             server->closure, (void *) &closure_data);
 
     protobuf_c_message_free_unpacked (message, allocator);
 

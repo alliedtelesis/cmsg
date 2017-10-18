@@ -136,7 +136,6 @@ typedef struct _cmsg_tport_functions_s
     client_recv_f client_recv;                  // receive function
     client_send_f client_send;                  // client send function
     server_send_f server_send;                  // server send function
-    ProtobufCClosure closure;                   // rpc closure function
     client_close_f client_close;                // client close socket function
     server_close_f server_close;                // server close socket function
     s_get_socket_f s_socket;                    //

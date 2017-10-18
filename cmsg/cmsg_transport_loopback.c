@@ -10,7 +10,6 @@
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #include "cmsg_transport.h"
-#include "cmsg_server.h"
 #include "cmsg_error.h"
 
 
@@ -329,7 +328,6 @@ cmsg_transport_loopback_init (cmsg_transport *transport)
     transport->tport_funcs.client_recv = cmsg_transport_loopback_client_recv;
     transport->tport_funcs.client_send = cmsg_transport_loopback_client_send;
     transport->tport_funcs.server_send = cmsg_transport_loopback_server_send;
-    transport->tport_funcs.closure = cmsg_server_closure_rpc;
     transport->tport_funcs.client_close = cmsg_transport_loopback_client_close;
     transport->tport_funcs.server_close = cmsg_transport_loopback_server_close;
 

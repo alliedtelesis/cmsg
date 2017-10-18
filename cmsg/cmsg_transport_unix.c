@@ -10,7 +10,6 @@
 
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_server.h"
 #include "cmsg_error.h"
 
 /*
@@ -479,7 +478,6 @@ cmsg_transport_rpc_unix_init (cmsg_transport *transport)
     _cmsg_transport_unix_init_common (transport);
 
     transport->tport_funcs.server_send = cmsg_transport_unix_server_send;
-    transport->tport_funcs.closure = cmsg_server_closure_rpc;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
@@ -496,7 +494,6 @@ cmsg_transport_oneway_unix_init (cmsg_transport *transport)
     _cmsg_transport_unix_init_common (transport);
 
     transport->tport_funcs.server_send = cmsg_transport_unix_oneway_server_send;
-    transport->tport_funcs.closure = cmsg_server_closure_rpc;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }

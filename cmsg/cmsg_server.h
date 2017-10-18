@@ -38,6 +38,9 @@ typedef struct _cmsg_server_s
 
     int queue_enabled_from_parent;
 
+    // rpc closure function
+    ProtobufCClosure closure;
+
     //queuing
     pthread_mutex_t queue_mutex;
     GQueue *queue;
