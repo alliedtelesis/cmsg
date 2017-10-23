@@ -61,7 +61,11 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
         }
         else
         {
-            overall_result = CMSG_RET_ERR;
+            /* Don't let any other error overwrite a previous CMSG_RET_ERR */
+            if (overall_result != CMSG_RET_ERR)
+            {
+                overall_result = ret;
+            }
             pthread_mutex_unlock (&child->invoke_mutex);
         }
         child->last_ret = ret;
