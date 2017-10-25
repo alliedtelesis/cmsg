@@ -4,7 +4,6 @@
 #include "cmsg_private.h"
 #include "cmsg_client.h"
 #include "cmsg_error.h"
-#include "cmsg_pub.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
@@ -118,7 +117,6 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         client->parent.object_type = CMSG_OBJ_TYPE_NONE;
         client->parent.object = NULL;
 
-        client->queue_enabled_from_parent = 0;
 
         if (pthread_mutex_init (&client->queue_mutex, NULL) != 0)
         {
@@ -635,48 +633,39 @@ cmsg_client_invoke (ProtobufCService *service, uint32_t method_index,
 static int
 _cmsg_client_should_queue (cmsg_client *client, const char *method_name, bool *do_queue)
 {
-    if (client->queue_enabled_from_parent)
+    cmsg_queue_filter_type action = CMSG_QUEUE_FILTER_ERROR;
+
+    /* First check queuing action with the filter function if configured.
+     * Otherwise lookup the filter table */
+    if (client->queue_filter_func == NULL ||
+        client->queue_filter_func (client, method_name, &action) != CMSG_RET_OK)
     {
-        // queuing has been enabled from parent publisher
-        // so don't do client queue filter lookup
-        *do_queue = true;
+        action = cmsg_client_queue_filter_lookup (client, method_name);
     }
-    else
+
+    if (action == CMSG_QUEUE_FILTER_ERROR)
     {
-        cmsg_queue_filter_type action = CMSG_QUEUE_FILTER_ERROR;
-
-        /* First check queuing action with the filter function if configured.
-         * Otherwise lookup the filter table */
-        if (client->queue_filter_func == NULL ||
-            client->queue_filter_func (client, method_name, &action) != CMSG_RET_OK)
-        {
-            action = cmsg_client_queue_filter_lookup (client, method_name);
-        }
-
-        if (action == CMSG_QUEUE_FILTER_ERROR)
-        {
-            CMSG_LOG_CLIENT_ERROR (client,
-                                   "Error occurred with queue_lookup_filter. (method: %s).",
-                                   method_name);
-            CMSG_COUNTER_INC (client, cntr_queue_errors);
-            return CMSG_RET_ERR;
-        }
-        else if (action == CMSG_QUEUE_FILTER_DROP)
-        {
-            CMSG_DEBUG (CMSG_INFO, "[CLIENT] dropping message: %s\n", method_name);
-            CMSG_COUNTER_INC (client, cntr_messages_dropped);
-            return CMSG_RET_DROPPED;
-        }
-        else if (action == CMSG_QUEUE_FILTER_QUEUE)
-        {
-            *do_queue = true;
-            // count this as queued
-            CMSG_COUNTER_INC (client, cntr_messages_queued);
-        }
-        else if (action == CMSG_QUEUE_FILTER_PROCESS)
-        {
-            *do_queue = false;
-        }
+        CMSG_LOG_CLIENT_ERROR (client,
+                               "Error occurred with queue_lookup_filter. (method: %s).",
+                               method_name);
+        CMSG_COUNTER_INC (client, cntr_queue_errors);
+        return CMSG_RET_ERR;
+    }
+    else if (action == CMSG_QUEUE_FILTER_DROP)
+    {
+        CMSG_DEBUG (CMSG_INFO, "[CLIENT] dropping message: %s\n", method_name);
+        CMSG_COUNTER_INC (client, cntr_messages_dropped);
+        return CMSG_RET_DROPPED;
+    }
+    else if (action == CMSG_QUEUE_FILTER_QUEUE)
+    {
+        *do_queue = true;
+        // count this as queued
+        CMSG_COUNTER_INC (client, cntr_messages_queued);
+    }
+    else if (action == CMSG_QUEUE_FILTER_PROCESS)
+    {
+        *do_queue = false;
     }
 
     return CMSG_RET_OK;
@@ -686,49 +675,23 @@ static int
 _cmsg_client_add_to_queue (cmsg_client *client, uint8_t *buffer,
                            uint32_t total_message_size, const char *method_name)
 {
-    //add to queue
-    if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
+    pthread_mutex_lock (&client->queue_mutex);
+
+    //todo: check return
+    cmsg_send_queue_push (client->queue, buffer,
+                          total_message_size,
+                          client, client->_transport, (char *) method_name);
+
+    pthread_mutex_unlock (&client->queue_mutex);
+
+    //send signal to cmsg_client_queue_process_all
+    pthread_mutex_lock (&client->queue_process_mutex);
+    if (client->queue_process_count == 0)
     {
-        cmsg_pub *publisher = (cmsg_pub *) client->parent.object;
-
-        pthread_mutex_lock (&publisher->queue_mutex);
-
-        //todo: check return
-        cmsg_send_queue_push (publisher->queue, buffer,
-                              total_message_size,
-                              client, client->_transport, (char *) method_name);
-
-        pthread_mutex_unlock (&publisher->queue_mutex);
-
-        //send signal to  cmsg_pub_queue_process_all
-        pthread_mutex_lock (&publisher->queue_process_mutex);
-        if (client->queue_process_count == 0)
-        {
-            pthread_cond_signal (&publisher->queue_process_cond);
-        }
-        publisher->queue_process_count = publisher->queue_process_count + 1;
-        pthread_mutex_unlock (&publisher->queue_process_mutex);
+        pthread_cond_signal (&client->queue_process_cond);
     }
-    else if (client->parent.object_type == CMSG_OBJ_TYPE_NONE)
-    {
-        pthread_mutex_lock (&client->queue_mutex);
-
-        //todo: check return
-        cmsg_send_queue_push (client->queue, buffer,
-                              total_message_size,
-                              client, client->_transport, (char *) method_name);
-
-        pthread_mutex_unlock (&client->queue_mutex);
-
-        //send signal to cmsg_client_queue_process_all
-        pthread_mutex_lock (&client->queue_process_mutex);
-        if (client->queue_process_count == 0)
-        {
-            pthread_cond_signal (&client->queue_process_cond);
-        }
-        client->queue_process_count = client->queue_process_count + 1;
-        pthread_mutex_unlock (&client->queue_process_mutex);
-    }
+    client->queue_process_count = client->queue_process_count + 1;
+    pthread_mutex_unlock (&client->queue_process_mutex);
 
     // Execute callback function if configured
     if (client->queue_callback_func != NULL)
@@ -749,7 +712,7 @@ _cmsg_client_add_to_queue (cmsg_client *client, uint8_t *buffer,
  * @param buffer_ptr - Pointer to store the created packet
  * @param total_message_size_ptr - Pointer to store the created packet size
  */
-static int32_t
+int32_t
 cmsg_client_create_packet (cmsg_client *client, const char *method_name,
                            const ProtobufCMessage *input, uint8_t **buffer_ptr,
                            uint32_t *total_message_size_ptr)
