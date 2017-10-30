@@ -34,8 +34,7 @@ void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
 void cmsg_transport_cpg_init (cmsg_transport *transport);
 #endif /* HAVE_VCSTACK */
 
-cmsg_status_code cmsg_transport_client_recv (cmsg_recv_func recv_wrapper, int socket,
-                                             cmsg_transport *transport,
+cmsg_status_code cmsg_transport_client_recv (cmsg_transport *transport,
                                              const ProtobufCServiceDescriptor *descriptor,
                                              ProtobufCMessage **messagePtPt);
 
