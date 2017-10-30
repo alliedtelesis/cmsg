@@ -1264,7 +1264,7 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
     {
         CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                         method_name, connect_error);
-        return CMSG_RET_ERR;
+        return CMSG_RET_CLOSED;
     }
 
     send_ret = cmsg_client_send_wrapper (client, queue_buffer, queue_buffer_size, 0);
