@@ -114,8 +114,7 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
 							  const string &type_macro,
 							  const string &descriptor_addr) const
 {
-  map<string, string> variables;
-  variables["LABEL"] = CamelToUpper(GetLabelName(descriptor_->label()));
+  std::map<string, string> variables;
   variables["TYPE"] = type_macro;
   variables["classname"] = FullNameToC(FieldScope(descriptor_)->full_name());
   variables["name"] = FieldName(descriptor_);
@@ -126,6 +125,14 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
   if (oneof != NULL)
     variables["oneofname"] = FullNameToLower(oneof->name());
 
+  if (FieldSyntax(descriptor_) == 3 &&
+    descriptor_->label() == FieldDescriptor::LABEL_OPTIONAL) {
+    variables["LABEL"] = "NONE";
+    optional_uses_has = false;
+  } else {
+    variables["LABEL"] = CamelToUpper(GetLabelName(descriptor_->label()));
+  }
+
   if (descriptor_->has_default_value()) {
     variables["default_value"] = string("&")
                                + FullNameToLower(descriptor_->full_name())
@@ -134,6 +141,9 @@ void FieldGenerator::GenerateDescriptorInitializerGeneric(io::Printer* printer,
 #else
 			       + "__default_value";
 #endif /* ATL_CHANGE */
+  } else if (FieldSyntax(descriptor_) == 3 &&
+    descriptor_->type() == FieldDescriptor::TYPE_STRING) {
+    variables["default_value"] = "&protobuf_c_empty_string";
   } else {
     variables["default_value"] = "NULL";
   }
