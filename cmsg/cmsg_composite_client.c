@@ -81,7 +81,8 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
             continue;
         }
 
-        ret = child->invoke_recv (child, method_index, closure, &recv_data[i]);
+        ret = child->invoke_recv (child, method_index, closure,
+                                  closure_data ? &recv_data[i] : NULL);
         pthread_mutex_unlock (&child->invoke_mutex);
 
         if (ret == CMSG_RET_OK)
