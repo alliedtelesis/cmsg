@@ -150,6 +150,8 @@ GenerateStructDefinition(io::Printer* printer) {
   // Generate the case enums for unions
   for (int i = 0; i < descriptor_->oneof_decl_count(); i++) {
     const OneofDescriptor *oneof = descriptor_->oneof_decl(i);
+    vars["opt_comma"] = ",";
+
     vars["oneofname"] = FullNameToUpper(oneof->name());
     vars["foneofname"] = FullNameToC(oneof->full_name());
 
@@ -164,12 +166,21 @@ GenerateStructDefinition(io::Printer* printer) {
       const FieldDescriptor *field = oneof->field(j);
       vars["fieldname"] = FullNameToUpper(field->name());
       vars["fieldnum"] = SimpleItoa(field->number());
+      bool isLast = j == oneof->field_count() - 1;
+      if (isLast) {
+        vars["opt_comma"] = "";
+      }
 #ifdef ATL_CHANGE
-      printer->Print(vars, "$ucclassname$_$oneofname$_$fieldname$ = $fieldnum$,\n");
+      printer->Print(vars, "$ucclassname$_$oneofname$_$fieldname$ = $fieldnum$$opt_comma$\n");
 #else
-      printer->Print(vars, "$ucclassname$__$oneofname$_$fieldname$ = $fieldnum$,\n");
+      printer->Print(vars, "$ucclassname$__$oneofname$_$fieldname$ = $fieldnum$$opt_comma$\n");
 #endif
     }
+#ifdef ATL_CHANGE
+    printer->Print(vars, "  PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE($ucclassname$_$oneofname$)\n");
+#else
+    printer->Print(vars, "  PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE($ucclassname$__$oneofname$)\n");
+#endif
     printer->Outdent();
     printer->Print(vars, "} $foneofname$Case;\n\n");
   }
@@ -381,9 +392,9 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
 		 "                     ($classname$         *message)\n"
 		 "{\n"
 #ifdef ATL_CHANGE
-		 "  static $classname$ init_value = $ucclassname$_INIT;\n"
+		 "  static const $classname$ init_value = $ucclassname$_INIT;\n"
 #else
-		 "  static $classname$ init_value = $ucclassname$__INIT;\n"
+		 "  static const $classname$ init_value = $ucclassname$__INIT;\n"
 #endif /* ATL_CHANGE */
 		 "  *message = init_value;\n"
 		 "}\n");
@@ -459,6 +470,8 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
 		 "                     ($classname$ *message,\n"
 		 "                      ProtobufCAllocator *allocator)\n"
 		 "{\n"
+		 "  if(!message)\n"
+		 "    return;\n"
 #ifdef ATL_CHANGE
 		 "  assert(message->base.descriptor == &$lcclassname$_descriptor);\n"
 #else
@@ -472,7 +485,7 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
 
 void MessageGenerator::
 GenerateMessageDescriptor(io::Printer* printer) {
-    map<string, string> vars;
+    std::map<string, string> vars;
     vars["fullname"] = descriptor_->full_name();
     vars["classname"] = FullNameToC(descriptor_->full_name());
     vars["lcclassname"] = FullNameToLower(descriptor_->full_name());

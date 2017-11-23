@@ -75,21 +75,24 @@ using internal::WireFormat;
 // TODO(kenton):  Factor out a "SetCommonFieldVariables()" to get rid of
 //   repeat code between this and the other field types.
 void SetEnumVariables(const FieldDescriptor* descriptor,
-                      map<string, string>* variables) {
+                      std::map<string, string>* variables) {
 
   (*variables)["name"] = FieldName(descriptor);
   (*variables)["type"] = FullNameToC(descriptor->enum_type()->full_name());
-  if (descriptor->has_default_value()) {
-    const EnumValueDescriptor* default_value = descriptor->default_value_enum();
 #ifdef ATL_CHANGE
-    (*variables)["default"] = FullNameToUpper(descriptor->file()->package()) + "_" +
-                                              ToUpper(default_value->name());
+  if (descriptor->has_default_value()) {
+      const EnumValueDescriptor* default_value = descriptor->default_value_enum();
+      (*variables)["default"] = FullNameToUpper(descriptor->file()->package()) + "_" +
+                                                ToUpper(default_value->name());
+  }
+  else {
+      (*variables)["default"] = "0";
+  }
 #else
-    (*variables)["default"] = FullNameToUpper(default_value->type()->full_name())
-			    + "__" + default_value->name();
+  const EnumValueDescriptor* default_value = descriptor->default_value_enum();
+  (*variables)["default"] = FullNameToUpper(default_value->type()->full_name())
+                          + "__" + default_value->name();
 #endif /* ATL_CHANGE */
-  } else
-    (*variables)["default"] = "0";
   (*variables)["deprecated"] = FieldDeprecated(descriptor);
 }
 
@@ -111,7 +114,7 @@ void EnumFieldGenerator::GenerateStructMembers(io::Printer* printer) const
       printer->Print(variables_, "$type$ $name$$deprecated$;\n");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      if (descriptor_->containing_oneof() == NULL)
+      if (descriptor_->containing_oneof() == NULL && FieldSyntax(descriptor_) == 2)
         printer->Print(variables_, "protobuf_c_boolean has_$name$$deprecated$;\n");
       printer->Print(variables_, "$type$ $name$$deprecated$;\n");
       break;
@@ -133,7 +136,9 @@ void EnumFieldGenerator::GenerateStaticInit(io::Printer* printer) const
       printer->Print(variables_, "$default$");
       break;
     case FieldDescriptor::LABEL_OPTIONAL:
-      printer->Print(variables_, "0,$default$");
+      if (FieldSyntax(descriptor_) == 2)
+        printer->Print(variables_, "0, ");
+      printer->Print(variables_, "$default$");
       break;
     case FieldDescriptor::LABEL_REPEATED:
       // no support for default?
