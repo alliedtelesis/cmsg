@@ -285,9 +285,7 @@ _cmsg_proxy_service_info_conflicts (GNode *parent_node, const char *token)
             if (_cmsg_proxy_token_is_url_param (token) ||
                 _cmsg_proxy_token_is_url_param (node->data))
             {
-                /* CMSGPROX-117 todo: This should return true however we can't enforce
-                 *                    this until some v0.1 URLs are removed.  */
-                return false;
+                return true;
             }
 
             /* Once we have found at least one leaf node there is no need
@@ -295,6 +293,28 @@ _cmsg_proxy_service_info_conflicts (GNode *parent_node, const char *token)
             break;
         }
         node = g_node_next_sibling (node);
+    }
+
+    return false;
+}
+
+/**
+ * Allow URLs that do not pass the conflicting URL check to still
+ * be added to the proxy tree. These URLs are marked to eventually
+ * be deprecated.
+ *
+ * *** DO NOT ADD ANY MORE URLS TO THIS FUNCTION, FIX THE CONFLICT INSTEAD ***
+ *
+ * @param url - The conflicting URL to check.
+ *
+ * @return - true if it should still be added to the proxy tree. false otherwise.
+ */
+static bool
+_cmsg_proxy_allowed_conflicts__DEPRECATED (const char *url)
+{
+    if (strstr (url, "/v0.1/statistics/interfaces"))
+    {
+        return true;
     }
 
     return false;
@@ -388,7 +408,8 @@ _cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
         /* Add if it doesn't exist. Insert as the last child of parent_node. */
         if (!found)
         {
-            if (_cmsg_proxy_service_info_conflicts (parent_node, next_entry))
+            if (_cmsg_proxy_service_info_conflicts (parent_node, next_entry) &&
+                !_cmsg_proxy_allowed_conflicts__DEPRECATED (service_info->url_string))
             {
                 syslog (LOG_ERR, "URL '%s' conflicts with a previously loaded URL",
                         service_info->url_string);

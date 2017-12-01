@@ -1272,9 +1272,7 @@ test_cmsg_proxy_service_info_add__conflict_existing_non_param (void)
     proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
 
     NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
-    /* CMSGPROX-117 todo: the below check should assert FALSE once we have
-     *                    completed this story */
-    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_2));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
 }
 
 /**
@@ -1302,9 +1300,7 @@ test_cmsg_proxy_service_info_add__conflict_existing_non_param2 (void)
     proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
 
     NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
-    /* CMSGPROX-117 todo: the below check should assert FALSE once we have
-     *                    completed this story */
-    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_2));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
 }
 
 /**
@@ -1333,9 +1329,7 @@ test_cmsg_proxy_service_info_add__conflict_existing_param (void)
     proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
 
     NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
-    /* CMSGPROX-117 todo: the below check should assert FALSE once we have
-     *                    completed this story */
-    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_2));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
 }
 
 /**
@@ -1364,9 +1358,7 @@ test_cmsg_proxy_service_info_add__conflict_existing_param2 (void)
     proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
 
     NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
-    /* CMSGPROX-117 todo: the below check should assert FALSE once we have
-     *                    completed this story */
-    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_2));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
 }
 
 /**
@@ -1395,9 +1387,7 @@ test_cmsg_proxy_service_info_add__conflict_param_with_existing_param (void)
     proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
 
     NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
-    /* CMSGPROX-117 todo: the below check should assert FALSE once we have
-     *                    completed this story */
-    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_2));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
 }
 
 /**
@@ -1426,9 +1416,7 @@ test_cmsg_proxy_service_info_add__conflict_param_with_existing_param2 (void)
     proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
 
     NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_1));
-    /* CMSGPROX-117 todo: the below check should assert FALSE once we have
-     *                    completed this story */
-    NP_ASSERT_TRUE (_cmsg_proxy_service_info_add (&test_service_info_2));
+    NP_ASSERT_FALSE (_cmsg_proxy_service_info_add (&test_service_info_2));
 }
 
 /**
