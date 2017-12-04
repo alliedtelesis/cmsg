@@ -355,7 +355,7 @@ _cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link)
 
         /* Before destroying client/transport, clean up messages for that subscriber */
         pthread_mutex_lock (&publisher->queue_mutex);
-        cmsg_send_queue_free_all_by_transport (publisher->queue, entry->transport);
+        cmsg_send_queue_free_all_by_single_transport (publisher->queue, entry->transport);
         pthread_mutex_unlock (&publisher->queue_mutex);
 
         cmsg_client_destroy (entry->client);
@@ -895,9 +895,9 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
         if (g_queue_get_length (publisher->queue))
         {
             pthread_mutex_lock (&publisher->queue_mutex);
-            cmsg_send_queue_free_by_transport_method (publisher->queue,
-                                                      subscriber_entry->transport,
-                                                      subscriber_entry->method_name);
+            cmsg_send_queue_free_by_single_transport_method (publisher->queue,
+                                                             subscriber_entry->transport,
+                                                             subscriber_entry->method_name);
             pthread_mutex_unlock (&publisher->queue_mutex);
         }
         _cmsg_pub_subscriber_delete (publisher, subscriber_entry);

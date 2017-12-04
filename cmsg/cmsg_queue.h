@@ -45,8 +45,13 @@ void cmsg_send_queue_free_all (GQueue *queue);
 void cmsg_send_queue_destroy (GQueue *queue);
 
 void cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport);
+void cmsg_send_queue_free_all_by_single_transport (GQueue *queue,
+                                                   cmsg_transport *transport);
 void cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transport,
                                                char *method_name);
+void cmsg_send_queue_free_by_single_transport_method (GQueue *queue,
+                                                      cmsg_transport *transport,
+                                                      char *method_name);
 
 void cmsg_queue_filter_set_all (GHashTable *queue_filter_hash_table,
                                 const ProtobufCServiceDescriptor *descriptor,
