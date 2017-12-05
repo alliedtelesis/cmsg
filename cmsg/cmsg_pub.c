@@ -887,7 +887,7 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     }
     else
     {
-        /* Lock before modifying publisher by calling _cmsg_pub_subscriber_delete()
+        /* Lock before calling _cmsg_pub_subscriber_delete(), which modifies the publisher.
          * But make sure the order: subscriber_list_mutex and then queue_mutex */
         pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
@@ -1001,7 +1001,8 @@ _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
         return 0;
     }
 
-    /* Lock before modifying publisher by _cmsg_pub_subscriber_set_transport_in_use().
+    /* Lock before calling _cmsg_pub_subscriber_set_transport_in_use(), which modifies
+     * the publisher.
      * But make sure the order: subscriber_list_mutex and then queue_mutex */
     pthread_mutex_lock (&publisher->subscriber_list_mutex);
     pthread_mutex_lock (queue_mutex);
