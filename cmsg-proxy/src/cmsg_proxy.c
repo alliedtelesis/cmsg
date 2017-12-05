@@ -117,6 +117,9 @@ struct index_add_elem_data
     const char *filter;
 };
 
+static const char *cmsg_mime_text_plain = "text/plain";
+static const char *cmsg_mime_application_json = "application/json";
+
 /**
  * Checks whether the given field name corresponds to a hidden field.
  *
@@ -929,13 +932,43 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
  * @param http_status - The HTTP status code to be sent with the HTTP response.
  */
 static bool
-_cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
-                                  char **output_json, int http_status)
+_cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
+                                    char **response_body, const char **mime_type,
+                                    int http_status)
 {
+    const ProtobufCFieldDescriptor *field_descriptor = NULL;
+    const char **field_value = NULL;
     json_t *converted_json_object = NULL;
     const char *key = NULL;
     json_t *value = NULL;
     json_t *_error_info = NULL;
+
+    /* If the message provides a '_body' override, simply return that.
+     */
+    field_descriptor =
+        protobuf_c_message_descriptor_get_field_by_name (output_proto_message->descriptor,
+                                                         "_body");
+
+    if ((http_status == HTTP_CODE_OK) &&
+        field_descriptor && (field_descriptor->type == PROTOBUF_C_TYPE_STRING))
+    {
+        field_value =
+            (const char **) ((char *) output_proto_message + field_descriptor->offset);
+
+        if (field_value && *field_value)
+        {
+            *response_body = strdup (*field_value);
+
+            /**
+             * Currently text/plain is the only non-JSON MIME type required. Further extension
+             * to this must consider if MIME type should be defined statically (i.e. in a proto file)
+             * or passed up from the impl and whether "Accept" header handling is likely to ever be
+             * required / how that would be done.
+             */
+            *mime_type = cmsg_mime_text_plain;
+        }
+        return true;
+    }
 
     if (!_cmsg_proxy_protobuf2json_object (output_proto_message, &converted_json_object))
     {
@@ -947,7 +980,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
     if (strcmp (output_proto_message->descriptor->name, "ant_result") == 0)
     {
         cmsg_proxy_strip_details_from_ant_result (converted_json_object);
-        *output_json = json_dumps (converted_json_object, JSON_COMPACT);
+        *response_body = json_dumps (converted_json_object, JSON_COMPACT);
         json_decref (converted_json_object);
         return true;
     }
@@ -961,7 +994,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
             if ((strcmp (key, "_error_info") == 0))
             {
                 cmsg_proxy_strip_details_from_ant_result (value);
-                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_COMPACT);
+                *response_body = json_dumps (value, JSON_ENCODE_ANY | JSON_COMPACT);
                 json_decref (converted_json_object);
                 return true;
             }
@@ -980,7 +1013,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
         {
             if (strcmp (key, "_error_info") != 0)
             {
-                *output_json = json_dumps (value, JSON_ENCODE_ANY | JSON_COMPACT);
+                *response_body = json_dumps (value, JSON_ENCODE_ANY | JSON_COMPACT);
                 json_decref (converted_json_object);
                 return true;
             }
@@ -1001,7 +1034,7 @@ _cmsg_proxy_generate_json_return (ProtobufCMessage *output_proto_message,
     /* If there are more than 2 fields in the message descriptor
      * (and the http status is HTTP_CODE_OK) then simply return the
      * entire message as a JSON string */
-    *output_json = json_dumps (converted_json_object, JSON_COMPACT);
+    *response_body = json_dumps (converted_json_object, JSON_COMPACT);
     json_decref (converted_json_object);
     return true;
 }
@@ -1283,7 +1316,7 @@ cmsg_proxy_index (const char *query_string, char **output_json)
 bool
 cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
             const char *input_json, const cmsg_proxy_api_request_info *web_api_info,
-            char **output_json, int *http_status)
+            char **response_body, const char **mime_type, int *http_status)
 {
     const cmsg_service_info *service_info = NULL;
     const cmsg_client *client = NULL;
@@ -1295,9 +1328,13 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     char *message = NULL;
     json_error_t error;
 
+    /* By default handle responses with MIME type "application/json"
+     */
+    *mime_type = cmsg_mime_application_json;
+
     if (strcmp (url, "/v1/index") == 0 && http_verb == CMSG_HTTP_GET)
     {
-        *http_status = cmsg_proxy_index (query_string, output_json);
+        *http_status = cmsg_proxy_index (query_string, response_body);
         return true;
     }
 
@@ -1328,7 +1365,7 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
 
         _cmsg_proxy_generate_ant_result_error (ANT_CODE_INVALID_ARGUMENT,
                                                (error_msg) ? error_msg : "Invalid JSON",
-                                               http_status, output_json);
+                                               http_status, response_body);
 
         CMSG_PROXY_FREE (error_msg);
 
@@ -1351,7 +1388,7 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
         *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
         _cmsg_proxy_json_object_destroy (json_obj);
         _cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL, NULL, http_status,
-                                               output_json);
+                                               response_body);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_client);
         return true;
     }
@@ -1365,7 +1402,7 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     if (result != ANT_CODE_OK)
     {
         /* The JSON sent with the request is malformed */
-        _cmsg_proxy_generate_ant_result_error (result, message, http_status, output_json);
+        _cmsg_proxy_generate_ant_result_error (result, message, http_status, response_body);
         CMSG_PROXY_FREE (message);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_malformed_input);
         return true;
@@ -1379,7 +1416,7 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     result = _cmsg_proxy_pre_api_check (http_verb, &message);
     if (result != ANT_CODE_OK)
     {
-        _cmsg_proxy_generate_ant_result_error (result, message, http_status, output_json);
+        _cmsg_proxy_generate_ant_result_error (result, message, http_status, response_body);
         CMSG_PROXY_FREE (message);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
         return true;
@@ -1391,7 +1428,7 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     {
         /* Something went wrong calling the CMSG api */
         CMSG_FREE_RECV_MSG (input_proto_message);
-        _cmsg_proxy_generate_ant_result_error (result, NULL, http_status, output_json);
+        _cmsg_proxy_generate_ant_result_error (result, NULL, http_status, response_body);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
         return true;
     }
@@ -1406,8 +1443,8 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
 
     if (output_proto_message)
     {
-        if (!_cmsg_proxy_generate_json_return (output_proto_message, output_json,
-                                               *http_status))
+        if (!_cmsg_proxy_generate_response_body (output_proto_message, response_body,
+                                                 mime_type, *http_status))
         {
             /* This should not occur (the ProtobufCMessage structure returned
              * by the CMSG api should always be well formed) but check for it */

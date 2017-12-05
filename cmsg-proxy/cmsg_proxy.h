@@ -53,7 +53,7 @@ void cmsg_proxy_init (void);
 void cmsg_proxy_deinit (void);
 bool cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
                  const char *input_json, const cmsg_proxy_api_request_info *web_api_info,
-                 char **output_json, int *http_status);
+                 char **output_json, const char **mime_type, int *http_status);
 
 void cmsg_proxy_set_pre_api_http_check_callback (pre_api_http_check_callback cb);
 
@@ -62,6 +62,7 @@ void cmsg_proxy_passthrough_deinit (void);
 bool cmsg_proxy_passthrough (const char *url, const char *query_string,
                              cmsg_http_verb http_verb, const char *input_json,
                              const cmsg_proxy_api_request_info *web_api_info,
-                             char **output_json, int *http_status);
+                             char **output_json, const char **response_mime,
+                             int *http_status);
 
 #endif /* __CMSG_PROXY_H_ */

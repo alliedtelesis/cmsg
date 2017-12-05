@@ -208,7 +208,7 @@ bool
 cmsg_proxy_passthrough (const char *url, const char *query_string,
                         cmsg_http_verb http_verb, const char *input_json,
                         const cmsg_proxy_api_request_info *web_api_info,
-                        char **output_json, int *http_status)
+                        char **response_body, const char **mime_type, int *http_status)
 {
     passthrough_request send_msg = PASSTHROUGH_REQUEST_INIT;
     passthrough_response *recv_msg = NULL;
@@ -231,7 +231,7 @@ cmsg_proxy_passthrough (const char *url, const char *query_string,
 
     if (recv_msg->response_body)
     {
-        *output_json = strdup (recv_msg->response_body);
+        *response_body = strdup (recv_msg->response_body);
     }
     *http_status = recv_msg->status_code;
 
