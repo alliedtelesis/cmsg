@@ -222,20 +222,34 @@ cmsg_transport_destroy (cmsg_transport *transport)
     }
 }
 
-/* Poll for the header data, give up if we timeout. This is used to avoid blocking forever
- * on the receive if the data is never sent or is partially sent.
+/**
+ * Poll for the header data and give up if we timeout. This is used to avoid
+ * blocking forever on the receive if the data is never sent or is partially sent.
+ *
+ * @param recv_wrapper - The transport specific receive function to use with a socket.
+ * @param transport - The transport that is doing the peeking.
+ * @param socket - The socket to peek the data off.
+ * @param seconds_to_wait - The number of seconds to wait before timing out and giving up.
+ * @param header_received - Pointer to a header structure to return the peeked header in.
+ *
+ * @returns CMSG_STATUS_CODE_SUCCESS on success, the related cmsg_status_code otherwise.
  */
 cmsg_status_code
 cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *transport,
-                                int32_t socket, int32_t maxLoop,
+                                int32_t socket, time_t seconds_to_wait,
                                 cmsg_header *header_received)
 {
     cmsg_status_code ret = CMSG_STATUS_CODE_SUCCESS;
-    int count = 0;
     int nbytes = 0;
+    bool timed_out = false;
+    time_t seconds_waited = 0;
+    struct timeval start;
+    struct timeval current;
 
-    /* Peek until data arrives, this allows us to timeout and recover if no data arrives. */
-    while ((count < maxLoop) && (nbytes != (int) sizeof (cmsg_header)))
+    gettimeofday (&start, NULL);
+
+    /* Peek until data arrives. This allows us to timeout and recover if no data arrives. */
+    while (!timed_out)
     {
         nbytes = recv_wrapper (transport, socket, header_received,
                                sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
@@ -278,11 +292,23 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
                 }
             }
         }
-        usleep (1000);
-        count++;
+
+        gettimeofday (&current, NULL);
+        seconds_waited = current.tv_sec - start.tv_sec;
+        if (seconds_waited > seconds_to_wait)
+        {
+            timed_out = true;
+        }
+        else
+        {
+            /* The recv_wrapper function may not implement any blocking
+             * (e.g. a select call). Therefore do a small sleep here to
+             * avoid continuously keeping the CPU busy. */
+            usleep (1000);
+        }
     }
 
-    if (count >= maxLoop)
+    if (timed_out)
     {
         // Report the failure and try to recover
         CMSG_LOG_TRANSPORT_ERROR (transport,
@@ -291,10 +317,11 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
 
         ret = CMSG_STATUS_CODE_SERVICE_FAILED;
     }
-    else if (count >= maxLoop / 2)
+    else if (seconds_waited >= seconds_to_wait / 2)
     {
         // This should not really happen, log it
-        CMSG_LOG_TRANSPORT_ERROR (transport, "Receive looped %d times", count);
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Receive took %u seconds",
+                                  (uint32_t) seconds_waited);
     }
 
     return ret;

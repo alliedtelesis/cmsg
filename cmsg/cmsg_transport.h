@@ -30,10 +30,10 @@
 #define CONNECT_TIMEOUT_DEFAULT -1
 
 /* This value is used to limit the timeout for client message peek to 100s */
-#define MAX_CLIENT_PEEK_LOOP (100000)
+#define MAX_CLIENT_PEEK_LOOP (100)
 
 /* This value is used to limit the timeout for server message peek to 10s */
-#define MAX_SERVER_PEEK_LOOP (10000)
+#define MAX_SERVER_PEEK_LOOP (10)
 
 #ifdef HAVE_VCSTACK
 typedef struct _cpg_connection_s
@@ -281,8 +281,8 @@ char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor
 void cmsg_transport_unix_sun_path_free (char *sun_path);
 
 cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
-                                                 cmsg_transport *transport,
-                                                 int32_t socket, int32_t maxLoop,
+                                                 cmsg_transport *transport, int32_t socket,
+                                                 time_t seconds_to_wait,
                                                  cmsg_header *header_received);
 
 const char *cmsg_transport_counter_app_tport_id (cmsg_transport *transport);
