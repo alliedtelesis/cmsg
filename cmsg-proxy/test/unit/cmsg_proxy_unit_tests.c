@@ -40,6 +40,8 @@ static char *output_json = NULL;
 #define CMSG_PROXY_INDEX_PATH_KEY "path"
 #define CMSG_PROXY_INDEX_METHODS_KEY "methods"
 
+static const char *mime_type = NULL;
+
 void
 setup_standard_test_tree (void)
 {
@@ -396,7 +398,8 @@ test_cmsg_proxy__invalid_json_input (void)
     setup_standard_test_tree ();
 
     request_handled =
-        cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_PUT, "{", NULL, &output_json, &http_status);
+        cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_PUT, "{", NULL, &output_json,
+                    &mime_type, &http_status);
 
     NP_ASSERT_TRUE (request_handled);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);

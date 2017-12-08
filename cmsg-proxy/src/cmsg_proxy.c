@@ -1305,6 +1305,8 @@ cmsg_proxy_index (const char *query_string, char **output_json)
  *                      be sent with the HTTP response. This pointer may be NULL if the
  *                      rpc does not send any response data and the pointer must be
  *                      freed by the caller (if it is non NULL).
+ * @param mime_type   - A pointer to a string to store the mime type that will be sent
+ *                      in the HTTP response.
  * @param http_status - A pointer to an integer that will store the HTTP status code to
  *                      be sent with the HTTP response.
  *
