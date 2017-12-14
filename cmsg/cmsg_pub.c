@@ -283,7 +283,7 @@ _cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link)
 
     entry = (cmsg_sub_entry *) link->data;
 
-    if (entry->in_use)
+    if (entry->in_use > 0)
     {
         CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for deletion\n");
         entry->to_be_removed = TRUE;
@@ -297,6 +297,11 @@ _cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link)
         publisher->subscriber_list = g_list_delete_link (publisher->subscriber_list, link);
         publisher->subscriber_count--;
 
+        /* Before destroying client/transport, clean up messages for that subscriber */
+        pthread_mutex_lock (&publisher->queue_mutex);
+        cmsg_send_queue_free_all_by_single_transport (publisher->queue, entry->transport);
+        pthread_mutex_unlock (&publisher->queue_mutex);
+
         cmsg_client_destroy (entry->client);
         cmsg_transport_destroy (entry->transport);
         CMSG_FREE (entry);
@@ -306,7 +311,7 @@ _cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link)
 
 /**
  * Delete and free a subscriber entry from the publisher.
- * If the entry is currently "in-use", the entry is marks as "to-be-removed",
+ * If the entry is currently "in-use", the entry is marks as "to_be_removed",
  * and will be removed later from cmsg_pub_invoke() after use.
  *
  * This function is not thread-safe. If you want to safely remove a subscriber,
@@ -358,6 +363,78 @@ cmsg_pub_subscriber_remove (cmsg_pub *publisher, cmsg_sub_entry *entry)
     return CMSG_RET_OK;
 }
 
+/**
+ * Clean up a subscriber if it's marked as 'to_be_removed'.
+ */
+static int32_t
+_cmsg_pub_subscriber_cleanup_link (cmsg_pub *publisher, GList *link)
+{
+    cmsg_sub_entry *entry = (cmsg_sub_entry *) link->data;
+
+    /* Delete a subscriber if it's marked as 'to_be_removed' unless it's still used
+     * by other thread */
+    if (entry->in_use == 0 && entry->to_be_removed)
+    {
+        _cmsg_pub_subscriber_delete_link (publisher, link);
+    }
+
+    return CMSG_RET_OK;
+}
+
+/**
+ * Clean up all subscriber entries marked as 'to_be_removed'.
+ * If a subscriber is in use when unscribe happens, then this clean up
+ * function should be called later on to clean up subscribers.
+ */
+int32_t
+cmsg_pub_subscriber_cleanup (cmsg_pub *publisher)
+{
+    GList *list;
+    GList *list_next;
+
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
+    /* walk the list and get a client connection for every subscription */
+    for (list = g_list_first (publisher->subscriber_list); list; list = list_next)
+    {
+        list_next = g_list_next (list);
+
+        _cmsg_pub_subscriber_cleanup_link (publisher, list);
+    }
+
+    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
+
+    return CMSG_RET_OK;
+}
+
+/**
+ * Set or unset 'in_use' flag on subscribers using the specified transport.
+ */
+static int32_t
+_cmsg_pub_subscriber_set_transport_in_use (cmsg_pub *publisher, cmsg_transport *transport,
+                                           bool set)
+{
+    GList *list;
+    GList *list_next;
+    cmsg_sub_entry *entry;
+
+    CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (transport != NULL, CMSG_RET_ERR);
+
+    for (list = g_list_first (publisher->subscriber_list); list; list = list_next)
+    {
+        entry = (cmsg_sub_entry *) list->data;
+        list_next = g_list_next (list);
+
+        if (entry->transport == transport)
+        {
+            entry->in_use += set ? 1 : -1;
+            break;
+        }
+    }
+
+    return CMSG_RET_OK;
+}
 
 /**
  * Delete all subscribers belong to the transport being passed in.
@@ -387,9 +464,6 @@ cmsg_pub_subscriber_remove_all_with_transport (cmsg_pub *publisher,
             CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for %s for deletion\n",
                         list_entry->method_name);
 
-            pthread_mutex_lock (&publisher->queue_mutex);
-            cmsg_send_queue_free_all_by_transport (publisher->queue, transport);
-            pthread_mutex_unlock (&publisher->queue_mutex);
             _cmsg_pub_subscriber_delete_link (publisher, list);
         }
     }
@@ -621,7 +695,7 @@ cmsg_pub_invoke (ProtobufCService *service,
         list_entry->client->parent = publisher->self;
 
         // Mark the entry is "in-use" so it cannot be removed while sending notification
-        list_entry->in_use = TRUE;
+        list_entry->in_use++;
 
         // Unlock list to send notification
         pthread_mutex_unlock (&publisher->subscriber_list_mutex);
@@ -647,7 +721,7 @@ cmsg_pub_invoke (ProtobufCService *service,
         pthread_mutex_lock (&publisher->subscriber_list_mutex);
 
         // Now unset "in-use" mark after sending notification
-        list_entry->in_use = FALSE;
+        list_entry->in_use--;
 
         list_next = g_list_next (list);
 
@@ -658,13 +732,9 @@ cmsg_pub_invoke (ProtobufCService *service,
                                       method_name, action == CMSG_QUEUE_FILTER_QUEUE);
             _cmsg_pub_subscriber_delete_link (publisher, list);
         }
-        else
-        {
-            if (list_entry->to_be_removed)
-            {
-                _cmsg_pub_subscriber_delete_link (publisher, list);
-            }
-        }
+
+        /* Clean up the entry (in case the subscriber is mark as 'to_be_removed') */
+        _cmsg_pub_subscriber_cleanup_link (publisher, list);
     }
 
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
@@ -761,16 +831,23 @@ cmsg_pub_subscribe (cmsg_sub_service_Service *service,
     }
     else
     {
+        /* Lock before calling _cmsg_pub_subscriber_delete(), which modifies the publisher.
+         * But make sure the order: subscriber_list_mutex and then queue_mutex */
+        pthread_mutex_lock (&publisher->subscriber_list_mutex);
+
         //delete queued entries for the method being un-subscribed
         if (g_queue_get_length (publisher->queue))
         {
             pthread_mutex_lock (&publisher->queue_mutex);
-            cmsg_send_queue_free_by_transport_method (publisher->queue,
-                                                      subscriber_entry->transport,
-                                                      subscriber_entry->method_name);
+            cmsg_send_queue_free_by_single_transport_method (publisher->queue,
+                                                             subscriber_entry->transport,
+                                                             subscriber_entry->method_name);
             pthread_mutex_unlock (&publisher->queue_mutex);
         }
-        response.return_value = cmsg_pub_subscriber_remove (publisher, subscriber_entry);
+        _cmsg_pub_subscriber_delete (publisher, subscriber_entry);
+        response.return_value = CMSG_RET_OK;
+
+        pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 
         cmsg_client_destroy (subscriber_entry->client);
         cmsg_transport_destroy (subscriber_entry->transport);
@@ -861,28 +938,47 @@ _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
     pthread_mutex_t *queue_mutex = &publisher->queue_mutex;
     const ProtobufCServiceDescriptor *descriptor = publisher->descriptor;
     cmsg_client *send_client = 0;
+    int ret;
 
     if (!queue || !descriptor)
     {
         return 0;
     }
 
+    /* Lock before calling _cmsg_pub_subscriber_set_transport_in_use(), which modifies
+     * the publisher.
+     * But make sure the order: subscriber_list_mutex and then queue_mutex */
+    pthread_mutex_lock (&publisher->subscriber_list_mutex);
     pthread_mutex_lock (queue_mutex);
     if (g_queue_get_length (queue))
     {
         queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
+
+        /* Mark the transport is in-use in the subscriber list */
+        if (queue_entry)
+        {
+            _cmsg_pub_subscriber_set_transport_in_use (publisher, queue_entry->transport,
+                                                       true);
+        }
     }
     pthread_mutex_unlock (queue_mutex);
+    pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 
 
     while (queue_entry)
     {
         send_client = queue_entry->client;
 
-        int ret = cmsg_client_buffer_send_retry (send_client,
-                                                 queue_entry->queue_buffer,
-                                                 queue_entry->queue_buffer_size,
-                                                 CMSG_TRANSPORT_CLIENT_SEND_TRIES);
+        ret = cmsg_client_buffer_send_retry (send_client,
+                                             queue_entry->queue_buffer,
+                                             queue_entry->queue_buffer_size,
+                                             CMSG_TRANSPORT_CLIENT_SEND_TRIES);
+
+        /* Clear the in-use mark after sending message */
+        pthread_mutex_lock (&publisher->subscriber_list_mutex);
+        _cmsg_pub_subscriber_set_transport_in_use (publisher, queue_entry->transport,
+                                                   false);
+        pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 
         if (ret == CMSG_RET_OK)
         {
@@ -890,7 +986,7 @@ _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
         }
         else
         {
-            //remove subscriber from subscribtion list
+            //remove subscriber from subscription list
             cmsg_pub_subscriber_remove_all_with_transport (publisher,
                                                            queue_entry->transport);
 
@@ -909,11 +1005,24 @@ _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher)
         CMSG_FREE (queue_entry);
         queue_entry = NULL;
 
-        //get the next entry
+        /* Lock before modifying publisher by _cmsg_pub_subscriber_set_transport_in_use().
+         * But make sure the order: subscriber_list_mutex and then queue_mutex */
+        pthread_mutex_lock (&publisher->subscriber_list_mutex);
         pthread_mutex_lock (queue_mutex);
+        /* Get the next entry */
         queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
+        /* Mark the transport is in-use in the subscriber list */
+        if (queue_entry)
+        {
+            _cmsg_pub_subscriber_set_transport_in_use (publisher, queue_entry->transport,
+                                                       true);
+        }
         pthread_mutex_unlock (queue_mutex);
+        pthread_mutex_unlock (&publisher->subscriber_list_mutex);
     }
+
+    /* Clean up any subscriber to be removed */
+    cmsg_pub_subscriber_cleanup (publisher);
 
     return processed;
 }

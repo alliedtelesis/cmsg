@@ -67,9 +67,23 @@ cmsg_send_queue_destroy (GQueue *queue)
     g_queue_free (queue);
 }
 
-
-void
-cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport)
+/**
+ * Wrapper function to remove and free all messages for a specific transport
+ * and method name (if specified).
+ * If 'exact' is true, then only the messages having the exact same transport
+ * are removed.
+ * If 'exact is false, then all messages for the application of the specified transport
+ * are removed. This is useful if sending a message to an application fails, then
+ * assume the application is not reachable and remove all messages for the application
+ * including message for other subscriptions.
+ * @param queue         CMSG queue to remove messages from
+ * @param transport     CMSG transport to search
+ * @param method_name   Message name to search
+ * @param exact         Indicate whether transport comparison to be exact match or not
+ */
+static void
+_cmsg_send_queue_free_all_by_transport_method (GQueue *queue, cmsg_transport *transport,
+                                               const char *method_name, bool exact)
 {
     cmsg_send_queue_entry *queue_entry = 0;
     uint32_t queue_length = g_queue_get_length (queue);
@@ -80,7 +94,12 @@ cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport)
         queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
         if (queue_entry)
         {
-            if (cmsg_transport_compare (queue_entry->transport, transport))
+            /* For non-exact match, find any transport from the same application.
+             * If method name is specified, then check the method name of the queue entry
+             * is same as the specified one */
+            if (((exact && queue_entry->transport == transport) ||
+                 (!exact && cmsg_transport_compare (queue_entry->transport, transport))) &&
+                (!method_name || strcmp (queue_entry->method_name, method_name) == 0))
             {
                 CMSG_FREE (queue_entry->queue_buffer);
                 CMSG_FREE (queue_entry);
@@ -93,31 +112,61 @@ cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport)
     }
 }
 
+/**
+ * Remove and free all messages for the application identified by the specified transport.
+ * This means if an application has subscribed multiple methods, then the messages
+ * using different transport but heading to the same application are removed and freed.
+ * @param queue     CMSG queue to remove messages from
+ * @param transport CMSG transport
+ */
+void
+cmsg_send_queue_free_all_by_transport (GQueue *queue, cmsg_transport *transport)
+{
+    _cmsg_send_queue_free_all_by_transport_method (queue, transport, NULL, false);
+}
+
+/**
+ * Remove and free the messages for the specified transport from the queue.
+ * Messages to be sent to the same application but for different subscription
+ * will not be touched.
+ * @param queue     CMSG queue to remove messages from
+ * @param transport CMSG transport
+ */
+void
+cmsg_send_queue_free_all_by_single_transport (GQueue *queue, cmsg_transport *transport)
+{
+    _cmsg_send_queue_free_all_by_transport_method (queue, transport, NULL, true);
+}
+
+/**
+ * Remove and free all messages for the application identified by the specified transport
+ * and method name.
+ * This means if an application has subscribed multiple methods, then the messages
+ * using different transport but heading to the same application are removed and freed.
+ * @param queue     CMSG queue to remove messages from
+ * @param transport CMSG transport
+ * @param method_name   Method name
+ */
 void
 cmsg_send_queue_free_by_transport_method (GQueue *queue, cmsg_transport *transport,
                                           char *method_name)
 {
-    cmsg_send_queue_entry *queue_entry = 0;
-    uint32_t queue_length = g_queue_get_length (queue);
-    uint32_t i = 0;
+    _cmsg_send_queue_free_all_by_transport_method (queue, transport, method_name, false);
+}
 
-    for (i = 0; i < queue_length; i++)
-    {
-        queue_entry = (cmsg_send_queue_entry *) g_queue_pop_tail (queue);
-        if (queue_entry)
-        {
-            if (cmsg_transport_compare (queue_entry->transport, transport) &&
-                (strcmp (queue_entry->method_name, method_name) == 0))
-            {
-                CMSG_FREE (queue_entry->queue_buffer);
-                CMSG_FREE (queue_entry);
-            }
-            else
-            {
-                g_queue_push_head (queue, queue_entry);
-            }
-        }
-    }
+/**
+ * Remove and free the messages for the specified transport and method name from the queue.
+ * Messages to be sent to the same application but for different subscription
+ * will not be touched.
+ * @param queue     CMSG queue to remove messages from
+ * @param transport CMSG transport
+ * @param method_name   Method name
+ */
+void
+cmsg_send_queue_free_by_single_transport_method (GQueue *queue, cmsg_transport *transport,
+                                                 char *method_name)
+{
+    _cmsg_send_queue_free_all_by_transport_method (queue, transport, method_name, true);
 }
 
 
