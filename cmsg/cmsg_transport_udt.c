@@ -20,40 +20,51 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_server.h"
 
-/*
- *
- */
+extern void cmsg_transport_rpc_tcp_funcs_init (cmsg_tport_functions *tport_funcs);
+extern void cmsg_transport_oneway_tcp_funcs_init (cmsg_tport_functions *tport_funcs);
+
+
 static int32_t
-cmsg_transport_oneway_udt_listen (cmsg_transport *transport)
+cmsg_transport_udt_listen (cmsg_transport *transport)
 {
-    // Function isn't needed for User Defined so nothing happens.
+    if (transport->udt_info.functions.listen)
+    {
+        transport->udt_info.functions.listen (transport);
+    }
+
     return 0;
 }
 
 
-
 static int32_t
-cmsg_transport_oneway_udt_server_recv (int32_t socket, cmsg_server *server)
+cmsg_transport_udt_server_recv (int32_t server_socket, cmsg_transport *transport,
+                                uint8_t **recv_buffer, cmsg_header *processed_header,
+                                int *nbytes)
 {
-    cmsg_transport *transport;
-    cmsg_recv_func udt_recv;
-    void *udt_data;
-    int32_t ret = 0;
+    int32_t ret = -1;
 
-    transport = server->_transport;
-    udt_recv = transport->config.udt.recv;
-    udt_data = transport->config.udt.udt_data;
 
-    if (udt_recv == NULL)
+    if (transport->udt_info.functions.server_recv)
     {
-        return -1;
+        ret = transport->udt_info.functions.server_recv (server_socket, transport,
+                                                         recv_buffer, processed_header,
+                                                         nbytes);
     }
 
-    ret = cmsg_transport_server_recv (udt_recv, udt_data, server, NULL);
-
     return ret;
+}
+
+
+int32_t
+cmsg_transport_udt_server_accept (int32_t listen_socket, cmsg_transport *transport)
+{
+    if (transport->udt_info.functions.server_accept)
+    {
+        return transport->udt_info.functions.server_accept (listen_socket, transport);
+    }
+
+    return -1;
 }
 
 
@@ -64,81 +75,130 @@ cmsg_transport_oneway_udt_server_recv (int32_t socket, cmsg_server *server)
  * defined
  */
 static cmsg_status_code
-cmsg_transport_oneway_udt_client_recv (cmsg_transport *transport,
-                                       const ProtobufCServiceDescriptor *descriptor,
-                                       ProtobufCMessage **messagePtPt)
+cmsg_transport_udt_client_recv (cmsg_transport *transport,
+                                const ProtobufCServiceDescriptor *descriptor,
+                                ProtobufCMessage **messagePtPt)
 {
-    // Function isn't needed for User Defined so nothing happens.
+    if (transport->udt_info.functions.client_recv)
+    {
+        return transport->udt_info.functions.client_recv (transport, descriptor,
+                                                          messagePtPt);
+    }
+
     *messagePtPt = NULL;
     return CMSG_STATUS_CODE_SUCCESS;
 }
 
 
 static int32_t
-cmsg_transport_oneway_udt_server_send (cmsg_transport *transport, void *buff, int length,
+cmsg_transport_udt_oneway_server_send (cmsg_transport *transport, void *buff, int length,
                                        int flag)
 {
-    // Function isn't needed for User Defined so nothing happens.
+    if (transport->udt_info.functions.server_send)
+    {
+        return transport->udt_info.functions.server_send (transport, buff, length, flag);
+    }
+
     return 0;
-}
-
-
-static void
-cmsg_transport_oneway_udt_client_close (cmsg_transport *transport)
-{
-    // Function isn't needed for User Defined so nothing happens.
-    return;
-}
-
-
-static void
-cmsg_transport_oneway_udt_server_close (cmsg_transport *transport)
-{
-    // Function isn't needed for User Defined so nothing happens.
-    return;
-}
-
-
-static int
-cmsg_transport_oneway_udt_server_get_socket (cmsg_transport *transport)
-{
-    // Function isn't needed for User Defined so nothing happens.
-    return 0;
-}
-
-
-static int
-cmsg_transport_oneway_udt_client_get_socket (cmsg_transport *transport)
-{
-    // Function isn't needed for User Defined so nothing happens.
-    return 0;
-}
-
-static void
-cmsg_transport_oneway_udt_client_destroy (cmsg_transport *transport)
-{
-    //placeholder to make sure destroy functions are called in the right order
-}
-
-static void
-cmsg_transport_oneway_udt_server_destroy (cmsg_transport *transport)
-{
-    // Function isn't needed for User Defined so nothing happens.
-    return;
 }
 
 static int32_t
-cmsg_transport_oneway_udt_client_send (cmsg_transport *transport, void *buff, int length,
-                                       int flag)
+cmsg_transport_udt_rpc_server_send (cmsg_transport *transport, void *buff, int length,
+                                    int flag)
+{
+    if (transport->udt_info.functions.server_send)
+    {
+        return transport->udt_info.functions.server_send (transport, buff, length, flag);
+    }
+
+    return 0;
+}
+
+
+static void
+cmsg_transport_udt_client_close (cmsg_transport *transport)
+{
+    if (transport->udt_info.functions.client_close)
+    {
+        transport->udt_info.functions.client_close (transport);
+    }
+}
+
+
+static void
+cmsg_transport_udt_server_close (cmsg_transport *transport)
+{
+    if (transport->udt_info.functions.server_close)
+    {
+        transport->udt_info.functions.server_close (transport);
+    }
+}
+
+
+static int
+cmsg_transport_udt_server_get_socket (cmsg_transport *transport)
+{
+    if (transport->udt_info.functions.s_socket)
+    {
+        return transport->udt_info.functions.s_socket (transport);
+    }
+
+    return 0;
+}
+
+
+static int
+cmsg_transport_udt_client_get_socket (cmsg_transport *transport)
+{
+    if (transport->udt_info.functions.c_socket)
+    {
+        return transport->udt_info.functions.c_socket (transport);
+    }
+
+    return 0;
+}
+
+static void
+cmsg_transport_udt_client_destroy (cmsg_transport *transport)
+{
+    if (transport->udt_info.functions.client_destroy)
+    {
+        transport->udt_info.functions.client_destroy (transport);
+    }
+}
+
+static void
+cmsg_transport_udt_server_destroy (cmsg_transport *transport)
+{
+    if (transport->udt_info.functions.server_destroy)
+    {
+        transport->udt_info.functions.server_destroy (transport);
+    }
+}
+
+static int32_t
+cmsg_transport_udt_client_send (cmsg_transport *transport, void *buff, int length, int flag)
 {
 
-    if (transport->config.udt.send)
+    if (transport->udt_info.functions.client_send)
     {
-        return (transport->config.udt.send (transport->config.udt.udt_data, buff,
-                                            length, flag));
+        return transport->udt_info.functions.client_send (transport, buff, length, flag);
     }
 
     // Function isn't defined so just pretend the message was sent.
+    return 0;
+}
+
+int
+cmsg_transport_udt_recv_wrapper (cmsg_transport *transport, int sock, void *buff, int len,
+                                 int flags)
+{
+    if (transport->udt_info.functions.recv_wrapper)
+    {
+        return transport->udt_info.functions.recv_wrapper (transport, sock, buff, len,
+                                                           flags);
+    }
+
     return 0;
 }
 
@@ -148,13 +208,13 @@ cmsg_transport_oneway_udt_client_send (cmsg_transport *transport, void *buff, in
  * the client connection to connected.
  */
 static int32_t
-cmsg_transport_oneway_udt_connect (cmsg_transport *transport, int timeout)
+cmsg_transport_udt_connect (cmsg_transport *transport, int timeout)
 {
     int32_t ret = 0;
 
-    if (transport->config.udt.connect)
+    if (transport->udt_info.functions.connect)
     {
-        ret = transport->config.udt.connect (transport);
+        ret = transport->udt_info.functions.connect (transport, timeout);
     }
 
     return ret;
@@ -165,8 +225,13 @@ cmsg_transport_oneway_udt_connect (cmsg_transport *transport, int timeout)
  * Can't work out whether the UDT is congested
  */
 uint32_t
-cmsg_transport_oneway_udt_is_congested (cmsg_transport *transport)
+cmsg_transport_udt_is_congested (cmsg_transport *transport)
 {
+    if (transport->udt_info.functions.is_congested)
+    {
+        return transport->udt_info.functions.is_congested (transport);
+    }
+
     return FALSE;
 }
 
@@ -175,7 +240,12 @@ int32_t
 cmsg_transport_udt_send_can_block_enable (cmsg_transport *transport,
                                           uint32_t send_can_block)
 {
-    // Don't support send blocking
+    if (transport->udt_info.functions.send_can_block_enable)
+    {
+        return transport->udt_info.functions.send_can_block_enable (transport,
+                                                                    send_can_block);
+    }
+
     return -1;
 }
 
@@ -184,15 +254,63 @@ int32_t
 cmsg_transport_udt_ipfree_bind_enable (cmsg_transport *transport,
                                        cmsg_bool_t use_ipfree_bind)
 {
-    /* not supported yet */
+    if (transport->udt_info.functions.ipfree_bind_enable)
+    {
+        return transport->udt_info.functions.ipfree_bind_enable (transport,
+                                                                 use_ipfree_bind);
+    }
+
     return -1;
 }
 
 
 /**
- * Initialise the function pointers that oneway userdefined transport type
+ * Initialise the function pointers that userdefined transport type
  * will use.
  */
+void
+_cmsg_transport_udt_init_common (cmsg_transport *transport)
+{
+    if (transport == NULL)
+    {
+        return;
+    }
+
+    transport->tport_funcs.recv_wrapper = cmsg_transport_udt_recv_wrapper;
+    transport->tport_funcs.connect = cmsg_transport_udt_connect;
+    transport->tport_funcs.listen = cmsg_transport_udt_listen;
+    transport->tport_funcs.server_accept = cmsg_transport_udt_server_accept;
+    transport->tport_funcs.server_recv = cmsg_transport_udt_server_recv;
+    transport->tport_funcs.client_recv = cmsg_transport_udt_client_recv;
+    transport->tport_funcs.client_send = cmsg_transport_udt_client_send;
+    transport->tport_funcs.client_close = cmsg_transport_udt_client_close;
+    transport->tport_funcs.server_close = cmsg_transport_udt_server_close;
+
+    transport->tport_funcs.s_socket = cmsg_transport_udt_server_get_socket;
+    transport->tport_funcs.c_socket = cmsg_transport_udt_client_get_socket;
+
+    transport->tport_funcs.client_destroy = cmsg_transport_udt_client_destroy;
+    transport->tport_funcs.server_destroy = cmsg_transport_udt_server_destroy;
+
+    transport->tport_funcs.is_congested = cmsg_transport_udt_is_congested;
+    transport->tport_funcs.send_can_block_enable = cmsg_transport_udt_send_can_block_enable;
+    transport->tport_funcs.ipfree_bind_enable = cmsg_transport_udt_ipfree_bind_enable;
+}
+
+void
+cmsg_transport_rpc_udt_init (cmsg_transport *transport)
+{
+    if (transport == NULL)
+    {
+        return;
+    }
+
+    _cmsg_transport_udt_init_common (transport);
+
+    transport->tport_funcs.server_send = cmsg_transport_udt_rpc_server_send;
+}
+
+
 void
 cmsg_transport_oneway_udt_init (cmsg_transport *transport)
 {
@@ -201,29 +319,20 @@ cmsg_transport_oneway_udt_init (cmsg_transport *transport)
         return;
     }
 
-    transport->config.socket.family = PF_INET;
-    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
+    _cmsg_transport_udt_init_common (transport);
 
-    memset (&transport->config.udt, 0, sizeof (transport->config.udt));
-    transport->connect = cmsg_transport_oneway_udt_connect;
-    transport->listen = cmsg_transport_oneway_udt_listen;
-    transport->server_recv = cmsg_transport_oneway_udt_server_recv;
-    transport->client_recv = cmsg_transport_oneway_udt_client_recv;
-    transport->client_send = cmsg_transport_oneway_udt_client_send;
-    transport->server_send = cmsg_transport_oneway_udt_server_send;
-    transport->closure = cmsg_server_closure_oneway;
-    transport->client_close = cmsg_transport_oneway_udt_client_close;
-    transport->server_close = cmsg_transport_oneway_udt_server_close;
+    transport->tport_funcs.server_send = cmsg_transport_udt_oneway_server_send;
+}
 
-    transport->s_socket = cmsg_transport_oneway_udt_server_get_socket;
-    transport->c_socket = cmsg_transport_oneway_udt_client_get_socket;
-
-    transport->client_destroy = cmsg_transport_oneway_udt_client_destroy;
-    transport->server_destroy = cmsg_transport_oneway_udt_server_destroy;
-
-    transport->is_congested = cmsg_transport_oneway_udt_is_congested;
-    transport->send_can_block_enable = cmsg_transport_udt_send_can_block_enable;
-    transport->ipfree_bind_enable = cmsg_transport_udt_ipfree_bind_enable;
-
-    CMSG_DEBUG (CMSG_INFO, "%s: done", __FUNCTION__);
+void
+cmsg_transport_udt_tcp_base_init (cmsg_transport *transport, bool oneway)
+{
+    if (oneway)
+    {
+        cmsg_transport_oneway_tcp_funcs_init (&transport->udt_info.base);
+    }
+    else
+    {
+        cmsg_transport_rpc_tcp_funcs_init (&transport->udt_info.base);
+    }
 }

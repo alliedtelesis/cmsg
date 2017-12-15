@@ -87,10 +87,9 @@ _cmsg_cpg_confchg_fn (cpg_handle_t handle, struct cpg_name *group_name,
 
     if (server->_transport->config.cpg.configchg_cb != NULL)
     {
-        server->_transport->config.cpg.configchg_cb (server, member_list,
-                                                     member_list_entries, left_list,
-                                                     left_list_entries, joined_list,
-                                                     joined_list_entries);
+        server->_transport->config.cpg.configchg_cb (member_list, member_list_entries,
+                                                     left_list, left_list_entries,
+                                                     joined_list, joined_list_entries);
     }
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] %s\n", __FUNCTION__);
 }
@@ -361,15 +360,17 @@ cmsg_transport_cpg_server_listen (cmsg_transport *transport)
  * This should be run in a dedicated thread.
  */
 static int32_t
-cmsg_transport_cpg_server_recv (int32_t socket, cmsg_server *server)
+cmsg_transport_cpg_server_recv (int32_t server_socket, cmsg_transport *transport,
+                                uint8_t **recv_buffer, cmsg_header *processed_header,
+                                int *nbytes)
 {
     int ret;
 
-    ret = cpg_dispatch (server->_transport->connection.cpg.handle, CPG_DISPATCH_ALL);
+    ret = cpg_dispatch (transport->connection.cpg.handle, CPG_DISPATCH_ALL);
 
     if (ret != CPG_OK)
     {
-        CMSG_LOG_TRANSPORT_ERROR (server->_transport, "CPG dispatch failed. Error:%d", ret);
+        CMSG_LOG_TRANSPORT_ERROR (transport, "CPG dispatch failed. Error:%d", ret);
         return -1;
     }
 
@@ -606,27 +607,25 @@ cmsg_transport_cpg_init (cmsg_transport *transport)
 
     transport->config.cpg.configchg_cb = NULL;
 
-    transport->connect = cmsg_transport_cpg_client_connect;
-    transport->listen = cmsg_transport_cpg_server_listen;
-    transport->server_recv = cmsg_transport_cpg_server_recv;
-    transport->client_recv = cmsg_transport_cpg_client_recv;
-    transport->client_send = cmsg_transport_cpg_client_send;
-    transport->server_send = cmsg_transport_cpg_server_send;
+    transport->tport_funcs.connect = cmsg_transport_cpg_client_connect;
+    transport->tport_funcs.listen = cmsg_transport_cpg_server_listen;
+    transport->tport_funcs.server_recv = cmsg_transport_cpg_server_recv;
+    transport->tport_funcs.client_recv = cmsg_transport_cpg_client_recv;
+    transport->tport_funcs.client_send = cmsg_transport_cpg_client_send;
+    transport->tport_funcs.server_send = cmsg_transport_cpg_server_send;
 
-    transport->closure = cmsg_server_closure_oneway;
+    transport->tport_funcs.client_close = cmsg_transport_cpg_client_close;
+    transport->tport_funcs.server_close = cmsg_transport_cpg_server_close;
 
-    transport->client_close = cmsg_transport_cpg_client_close;
-    transport->server_close = cmsg_transport_cpg_server_close;
+    transport->tport_funcs.s_socket = cmsg_transport_cpg_server_get_socket;
+    transport->tport_funcs.c_socket = cmsg_transport_cpg_client_get_socket;
 
-    transport->s_socket = cmsg_transport_cpg_server_get_socket;
-    transport->c_socket = cmsg_transport_cpg_client_get_socket;
+    transport->tport_funcs.client_destroy = cmsg_transport_cpg_client_destroy;
+    transport->tport_funcs.server_destroy = cmsg_transport_cpg_server_destroy;
 
-    transport->client_destroy = cmsg_transport_cpg_client_destroy;
-    transport->server_destroy = cmsg_transport_cpg_server_destroy;
-
-    transport->is_congested = cmsg_transport_cpg_is_congested;
-    transport->send_can_block_enable = cmsg_transport_cpg_send_can_block_enable;
-    transport->ipfree_bind_enable = cmsg_transport_cpg_ipfree_bind_enable;
+    transport->tport_funcs.is_congested = cmsg_transport_cpg_is_congested;
+    transport->tport_funcs.send_can_block_enable = cmsg_transport_cpg_send_can_block_enable;
+    transport->tport_funcs.ipfree_bind_enable = cmsg_transport_cpg_ipfree_bind_enable;
 
     if (cpg_group_name_to_server_hash_table_h == NULL)
     {

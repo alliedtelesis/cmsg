@@ -31,6 +31,32 @@ static cmsg_queue_filter_type cmsg_server_queue_filter_lookup (cmsg_server *serv
 int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
 
 
+static ProtobufCClosure
+cmsg_server_get_closure_func (cmsg_transport *transport)
+{
+    switch (transport->type)
+    {
+    case CMSG_TRANSPORT_RPC_TCP:
+    case CMSG_TRANSPORT_RPC_TIPC:
+    case CMSG_TRANSPORT_RPC_USERDEFINED:
+    case CMSG_TRANSPORT_LOOPBACK:
+    case CMSG_TRANSPORT_RPC_UNIX:
+        return cmsg_server_closure_rpc;
+
+    case CMSG_TRANSPORT_ONEWAY_TCP:
+    case CMSG_TRANSPORT_ONEWAY_TIPC:
+    case CMSG_TRANSPORT_BROADCAST:
+    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
+    case CMSG_TRANSPORT_ONEWAY_UNIX:
+    case CMSG_TRANSPORT_CPG:
+        return cmsg_server_closure_oneway;
+    }
+
+    CMSG_LOG_GEN_ERROR ("Unsupported closure function for transport type");
+    return NULL;
+}
+
+
 /*
  * This is an internal function which can be called from CMSG library.
  * Applications should use cmsg_server_new() instead.
@@ -62,6 +88,8 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
         server->parent.object_type = CMSG_OBJ_TYPE_NONE;
         server->parent.object = NULL;
 
+        server->closure = cmsg_server_get_closure_func (transport);
+
         CMSG_DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n",
                     transport->type);
 
@@ -75,7 +103,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
         }
 #endif /* HAVE_VCSTACK */
 
-        ret = transport->listen (server->_transport);
+        ret = transport->tport_funcs.listen (server->_transport);
 
         if (ret < 0)
         {
@@ -199,7 +227,7 @@ cmsg_server_destroy (cmsg_server *server)
 
     if (server->_transport)
     {
-        server->_transport->server_destroy (server->_transport);
+        server->_transport->tport_funcs.server_destroy (server->_transport);
     }
 
     CMSG_FREE (server);
@@ -263,7 +291,7 @@ cmsg_server_get_socket (cmsg_server *server)
     CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, -1);
 
-    socket = server->_transport->s_socket (server->_transport);
+    socket = server->_transport->tport_funcs.s_socket (server->_transport);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] done. socket: %d\n", socket);
 
@@ -572,6 +600,63 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
 }
 
 
+static int32_t
+cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
+                          uint32_t extra_header_size, uint32_t dyn_len,
+                          int nbytes, cmsg_header *header_converted)
+{
+    cmsg_server_request server_request;
+    int32_t ret;
+
+    // Header is good so make use of it.
+    server_request.msg_type = header_converted->msg_type;
+    server_request.message_length = header_converted->message_length;
+    server_request.method_index = UNDEFINED_METHOD;
+    memset (&(server_request.method_name_recvd), 0, CMSG_SERVER_REQUEST_MAX_NAME_LENGTH);
+
+    ret = cmsg_tlv_header_process (buffer_data, &server_request, extra_header_size,
+                                   server->service->descriptor);
+
+    if (ret != CMSG_RET_OK)
+    {
+        if (ret == CMSG_RET_METHOD_NOT_FOUND)
+        {
+            cmsg_server_empty_method_reply_send (server,
+                                                 CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,
+                                                 UNDEFINED_METHOD);
+        }
+    }
+    else
+    {
+
+        buffer_data = buffer_data + extra_header_size;
+        // Process any message that has no more length or we have received what
+        // we expected to from the socket
+        if (header_converted->message_length == 0 || nbytes == (int) dyn_len)
+        {
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
+            cmsg_buffer_print (buffer_data, dyn_len);
+            server->server_request = &server_request;
+            if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
+            {
+                CMSG_LOG_TRANSPORT_ERROR (server->_transport,
+                                          "Server message processing returned an error.");
+            }
+
+        }
+        else
+        {
+            CMSG_LOG_TRANSPORT_ERROR (server->_transport, "No data on recv socket %d.",
+                                      server->_transport->connection.sockets.client_socket);
+
+            ret = CMSG_RET_ERR;
+        }
+    }
+
+    return ret;
+}
+
+
 /**
  * cmsg_server_receive
  *
@@ -585,11 +670,20 @@ int32_t
 cmsg_server_receive (cmsg_server *server, int32_t socket)
 {
     int32_t ret = 0;
+    uint8_t recv_buf_static[CMSG_RECV_BUFFER_SZ] = { 0 };
+    uint8_t *recv_buff = recv_buf_static;
+    cmsg_header processed_header;
+    int nbytes = 0;
+    uint32_t extra_header_size = 0;
+    uint8_t *buffer_data;
+    uint32_t dyn_len = 0;
 
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, CMSG_RET_ERR);
 
-    ret = server->_transport->server_recv (socket, server);
+    ret = server->_transport->tport_funcs.server_recv (socket, server->_transport,
+                                                       &recv_buff, &processed_header,
+                                                       &nbytes);
 
     if (ret < 0)
     {
@@ -615,7 +709,27 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
         return CMSG_RET_ERR;
     }
 
-    return CMSG_RET_OK;
+    if (nbytes > 0)
+    {
+        extra_header_size = processed_header.header_length - sizeof (cmsg_header);
+
+        // packet size is determined by header_length + message_length.
+        // header_length may be greater than sizeof (cmsg_header)
+        dyn_len = processed_header.message_length + processed_header.header_length;
+
+        buffer_data = recv_buff + sizeof (cmsg_header);
+
+        ret = cmsg_server_recv_process (buffer_data, server, extra_header_size,
+                                        dyn_len, nbytes, &processed_header);
+    }
+
+    if (recv_buff != recv_buf_static)
+    {
+        CMSG_FREE (recv_buff);
+        recv_buff = NULL;
+    }
+
+    return ret;
 }
 
 
@@ -627,14 +741,11 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 
     CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
 
-    if (server->_transport->server_accept != NULL)
+    if (server->_transport->tport_funcs.server_accept != NULL)
     {
-        sock = server->_transport->server_accept (listen_socket, server->_transport);
-        if (sock >= 0 && server->_transport->use_crypto &&
-            server->_transport->config.socket.crypto.accept)
-        {
-            server->_transport->config.socket.crypto.accept (sock);
-        }
+        sock =
+            server->_transport->tport_funcs.server_accept (listen_socket,
+                                                           server->_transport);
         // count the accepted connection
         CMSG_COUNTER_INC (server, cntr_connections_accepted);
     }
@@ -685,10 +796,8 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
     {
     case CMSG_METHOD_OK_TO_INVOKE:
     case CMSG_METHOD_INVOKING_FROM_QUEUE:
-        server->service->invoke (server->service,
-                                 method_index,
-                                 message,
-                                 server->_transport->closure, (void *) &closure_data);
+        server->service->invoke (server->service, method_index, message,
+                                 server->closure, (void *) &closure_data);
 
         if (!(server->app_owns_current_msg || server->app_owns_all_msgs))
         {
@@ -713,14 +822,14 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
         }
 
         // Send response, if required by the closure function
-        server->_transport->closure (message, (void *) &closure_data);
+        server->closure (message, (void *) &closure_data);
         // count this as queued
         CMSG_COUNTER_INC (server, cntr_messages_queued);
         break;
 
     case CMSG_METHOD_DROPPED:
         // Send response, if required by the closure function
-        server->_transport->closure (message, (void *) &closure_data);
+        server->closure (message, (void *) &closure_data);
 
         // count this as dropped
         CMSG_COUNTER_INC (server, cntr_messages_dropped);
@@ -875,50 +984,8 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
 static int
 cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
 {
-    uint8_t *encrypt_buffer;
-    int encrypt_length;
-    int ret = 0;
-    int sock;
-
-    if (server->_transport->config.socket.crypto.encrypt)
-    {
-        sock = server->_transport->connection.sockets.client_socket;
-        encrypt_buffer = (uint8_t *) CMSG_CALLOC (1, length + ENCRYPT_EXTRA);
-        if (encrypt_buffer == NULL)
-        {
-            CMSG_LOG_SERVER_ERROR (server, "Server failed to allocate buffer on socket %d",
-                                   sock);
-            return -1;
-        }
-
-        encrypt_length =
-            server->_transport->config.socket.crypto.encrypt (sock, buff, length,
-                                                              encrypt_buffer,
-                                                              length + ENCRYPT_EXTRA);
-        if (encrypt_length < 0)
-        {
-            CMSG_LOG_SERVER_ERROR (server, "Server encrypt on socket %d failed", sock);
-            CMSG_FREE (encrypt_buffer);
-            return -1;
-        }
-
-        ret = server->_transport->server_send (server->_transport, encrypt_buffer,
-                                               encrypt_length, 0);
-        /* if the send was successful, fixup the return length to match the original
-         * plaintext length so callers are unaware of the encryption */
-        if (encrypt_length == ret)
-        {
-            ret = length;
-        }
-
-        CMSG_FREE (encrypt_buffer);
-    }
-    else
-    {
-        ret = server->_transport->server_send (server->_transport, buff, length, 0);
-    }
-
-    return ret;
+    return server->_transport->tport_funcs.server_send (server->_transport,
+                                                        buff, length, 0);
 }
 
 /**
@@ -1671,9 +1738,7 @@ cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner
 }
 
 /**
- * Close a server socket to a remote client. If the server is using crypto then
- * call out to the server application so it can cleanup any associated
- * crypto structures.
+ * Close a server socket to a remote client.
  *
  * NOTE user applications should not call this routine directly
  *
@@ -1682,12 +1747,5 @@ cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner
 void
 cmsg_server_close_wrapper (cmsg_server *server)
 {
-    int sock = server->_transport->connection.sockets.client_socket;
-
-    if (server->_transport->config.socket.crypto.close)
-    {
-        server->_transport->config.socket.crypto.close (sock);
-    }
-
-    server->_transport->server_close (server->_transport);
+    server->_transport->tport_funcs.server_close (server->_transport);
 }

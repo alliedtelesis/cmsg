@@ -8,10 +8,10 @@
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 #include "cmsg_client.h"
 #include "cmsg_server.h"
-#include "cmsg_sub.h"
-#include "cmsg_pub.h"
 #include "cmsg_transport.h"
 
+//forward delarations
+typedef struct _cmsg_server_s cmsg_server;
 
 typedef struct _cmsg_queue_filter_entry_s
 {

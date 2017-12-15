@@ -3,7 +3,6 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_server.h"
 #include "cmsg_error.h"
 
 
@@ -75,57 +74,29 @@ cmsg_transport_tipc_broadcast_listen (cmsg_transport *transport)
 
 /* Wrapper function to call "recv" on a TIPC broadcast socket */
 int
-cmsg_transport_tipc_broadcast_recv (void *handle, void *buff, int len, int flags)
+cmsg_transport_tipc_broadcast_recv (cmsg_transport *transport, int sock, void *buff,
+                                    int len, int flags)
 {
     uint32_t addrlen = 0;
-    cmsg_server *server;
-    cmsg_transport *transport;
     int nbytes;
+    struct timeval timeout = { 1, 0 };
+    fd_set read_fds;
+    int maxfd;
 
-    server = (cmsg_server *) handle;
+    FD_ZERO (&read_fds);
+    FD_SET (sock, &read_fds);
+    maxfd = sock;
+
+    /* Do select() on the socket to prevent it to go to usleep instantaneously in the loop
+     * if the data is not yet available.*/
+    select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
+
     addrlen = sizeof (struct sockaddr_tipc);
-    transport = server->_transport;
 
-    nbytes =
-        recvfrom (server->_transport->connection.sockets.listening_socket, buff, len, flags,
-                  (struct sockaddr *) &transport->config.socket.sockaddr.tipc, &addrlen);
+    nbytes = recvfrom (transport->connection.sockets.listening_socket, buff, len, flags,
+                       (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
+                       &addrlen);
     return nbytes;
-}
-
-/**
- * Receive a message sent by the client. The data is then passed to the server
- * for processing.
- */
-static int32_t
-cmsg_transport_tipc_broadcast_server_recv (int32_t socket, cmsg_server *server)
-{
-    int32_t ret = CMSG_RET_ERR;
-    cmsg_status_code peek_status;
-    int server_sock;
-    cmsg_header header_received;
-
-    if (!server || socket < 0)
-    {
-        return -1;
-    }
-
-    server_sock = server->_transport->connection.sockets.listening_socket;
-    peek_status = cmsg_transport_peek_for_header (cmsg_transport_tipc_broadcast_recv,
-                                                  (void *) server,
-                                                  server->_transport,
-                                                  server_sock, MAX_SERVER_PEEK_LOOP,
-                                                  &header_received);
-    if (peek_status == CMSG_STATUS_CODE_SUCCESS)
-    {
-        ret = cmsg_transport_server_recv (cmsg_transport_tipc_broadcast_recv, server,
-                                          server, &header_received);
-    }
-    else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
-    {
-        ret = CMSG_RET_CLOSED;
-    }
-
-    return ret;
 }
 
 
@@ -332,22 +303,23 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->config.socket.family = AF_TIPC;
     transport->config.socket.sockaddr.tipc.family = AF_TIPC;
 
-    transport->connect = cmsg_transport_tipc_broadcast_connect;
-    transport->listen = cmsg_transport_tipc_broadcast_listen;
-    transport->server_recv = cmsg_transport_tipc_broadcast_server_recv;
-    transport->client_recv = cmsg_transport_tipc_broadcast_client_recv;
-    transport->client_send = cmsg_transport_tipc_broadcast_client_send;
-    transport->server_send = cmsg_transport_tipc_broadcast_server_send;
-    transport->client_close = cmsg_transport_tipc_broadcast_client_close;
-    transport->server_close = cmsg_transport_tipc_broadcast_server_close;
-    transport->s_socket = cmsg_transport_tipc_broadcast_server_get_socket;
-    transport->c_socket = cmsg_transport_tipc_broadcast_client_get_socket;
-    transport->client_destroy = cmsg_transport_tipc_broadcast_client_destroy;
-    transport->server_destroy = cmsg_transport_tipc_broadcast_server_destroy;
+    transport->tport_funcs.recv_wrapper = cmsg_transport_tipc_broadcast_recv;
+    transport->tport_funcs.connect = cmsg_transport_tipc_broadcast_connect;
+    transport->tport_funcs.listen = cmsg_transport_tipc_broadcast_listen;
+    transport->tport_funcs.server_recv = cmsg_transport_server_recv;
+    transport->tport_funcs.client_recv = cmsg_transport_tipc_broadcast_client_recv;
+    transport->tport_funcs.client_send = cmsg_transport_tipc_broadcast_client_send;
+    transport->tport_funcs.server_send = cmsg_transport_tipc_broadcast_server_send;
+    transport->tport_funcs.client_close = cmsg_transport_tipc_broadcast_client_close;
+    transport->tport_funcs.server_close = cmsg_transport_tipc_broadcast_server_close;
+    transport->tport_funcs.s_socket = cmsg_transport_tipc_broadcast_server_get_socket;
+    transport->tport_funcs.c_socket = cmsg_transport_tipc_broadcast_client_get_socket;
+    transport->tport_funcs.client_destroy = cmsg_transport_tipc_broadcast_client_destroy;
+    transport->tport_funcs.server_destroy = cmsg_transport_tipc_broadcast_server_destroy;
 
-    transport->is_congested = cmsg_transport_tipc_broadcast_is_congested;
-    transport->send_can_block_enable = cmsg_transport_tipc_broadcast_send_can_block_enable;
-    transport->ipfree_bind_enable = cmsg_transport_tipc_broadcast_ipfree_bind_enable;
-
-    transport->closure = cmsg_server_closure_oneway;
+    transport->tport_funcs.is_congested = cmsg_transport_tipc_broadcast_is_congested;
+    transport->tport_funcs.send_can_block_enable =
+        cmsg_transport_tipc_broadcast_send_can_block_enable;
+    transport->tport_funcs.ipfree_bind_enable =
+        cmsg_transport_tipc_broadcast_ipfree_bind_enable;
 }

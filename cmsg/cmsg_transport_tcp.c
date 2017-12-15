@@ -3,7 +3,6 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_server.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
 /* Limit the size of message read */
@@ -205,32 +204,22 @@ recv_all (int sockfd, void *buf, size_t len, int flag)
 
 /* Wrapper function to call "recv" on a TCP socket */
 int
-cmsg_transport_tcp_recv (void *handle, void *buff, int len, int flags)
+cmsg_transport_tcp_recv (cmsg_transport *transport, int sock, void *buff, int len,
+                         int flags)
 {
-    int *sock = (int *) handle;
+    struct timeval timeout = { 1, 0 };
+    fd_set read_fds;
+    int maxfd;
 
-    return recv_all (*sock, buff, len, flags);
-}
+    FD_ZERO (&read_fds);
+    FD_SET (sock, &read_fds);
+    maxfd = sock;
 
+    /* Do select() on the socket to prevent it to go to usleep instantaneously in the loop
+     * if the data is not yet available.*/
+    select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
 
-static int32_t
-cmsg_transport_tcp_server_recv (int32_t server_socket, cmsg_server *server)
-{
-    int32_t ret = 0;
-
-    if (!server || server_socket < 0)
-    {
-        CMSG_LOG_GEN_ERROR ("TCP server receive error. Invalid arguments.");
-        return -1;
-    }
-
-    /* Remember the client socket to use when send reply */
-    server->_transport->connection.sockets.client_socket = server_socket;
-
-    ret = cmsg_transport_server_recv (cmsg_transport_tcp_recv,
-                                      (void *) &server_socket, server, NULL);
-
-    return ret;
+    return recv_all (sock, buff, len, flags);
 }
 
 
@@ -282,7 +271,7 @@ cmsg_transport_tcp_client_recv (cmsg_transport *transport,
     *messagePtPt = NULL;
 
     ret = cmsg_transport_client_recv (cmsg_transport_tcp_recv,
-                                      (void *) &transport->connection.sockets.client_socket,
+                                      transport->connection.sockets.client_socket,
                                       transport, descriptor, messagePtPt);
 
     return ret;
@@ -395,26 +384,35 @@ cmsg_transport_tcp_ipfree_bind_enable (cmsg_transport *transport,
 }
 
 static void
-_cmsg_transport_tcp_init_common (cmsg_transport *transport)
+_cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
 {
-    transport->config.socket.family = PF_INET;
-    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
-    transport->connect = cmsg_transport_tcp_connect;
-    transport->listen = cmsg_transport_tcp_listen;
-    transport->server_accept = cmsg_transport_tcp_server_accept;
-    transport->server_recv = cmsg_transport_tcp_server_recv;
-    transport->client_recv = cmsg_transport_tcp_client_recv;
-    transport->client_send = cmsg_transport_tcp_client_send;
-    transport->client_close = cmsg_transport_tcp_client_close;
-    transport->server_close = cmsg_transport_tcp_server_close;
-    transport->s_socket = cmsg_transport_tcp_server_get_socket;
-    transport->c_socket = cmsg_transport_tcp_client_get_socket;
-    transport->client_destroy = cmsg_transport_tcp_client_destroy;
-    transport->server_destroy = cmsg_transport_tcp_server_destroy;
-    transport->is_congested = cmsg_transport_tcp_is_congested;
-    transport->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
-    transport->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
+    tport_funcs->recv_wrapper = cmsg_transport_tcp_recv;
+    tport_funcs->connect = cmsg_transport_tcp_connect;
+    tport_funcs->listen = cmsg_transport_tcp_listen;
+    tport_funcs->server_accept = cmsg_transport_tcp_server_accept;
+    tport_funcs->server_recv = cmsg_transport_server_recv;
+    tport_funcs->client_recv = cmsg_transport_tcp_client_recv;
+    tport_funcs->client_send = cmsg_transport_tcp_client_send;
+    tport_funcs->client_close = cmsg_transport_tcp_client_close;
+    tport_funcs->server_close = cmsg_transport_tcp_server_close;
+    tport_funcs->s_socket = cmsg_transport_tcp_server_get_socket;
+    tport_funcs->c_socket = cmsg_transport_tcp_client_get_socket;
+    tport_funcs->client_destroy = cmsg_transport_tcp_client_destroy;
+    tport_funcs->server_destroy = cmsg_transport_tcp_server_destroy;
+    tport_funcs->is_congested = cmsg_transport_tcp_is_congested;
+    tport_funcs->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
+    tport_funcs->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
 }
+
+
+void
+cmsg_transport_rpc_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
+{
+    _cmsg_transport_tcp_init_common (tport_funcs);
+
+    tport_funcs->server_send = cmsg_transport_tcp_rpc_server_send;
+}
+
 
 void
 cmsg_transport_tcp_init (cmsg_transport *transport)
@@ -424,12 +422,21 @@ cmsg_transport_tcp_init (cmsg_transport *transport)
         return;
     }
 
-    _cmsg_transport_tcp_init_common (transport);
+    transport->config.socket.family = PF_INET;
+    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
 
-    transport->server_send = cmsg_transport_tcp_rpc_server_send;
-    transport->closure = cmsg_server_closure_rpc;
+    cmsg_transport_rpc_tcp_funcs_init (&transport->tport_funcs);
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
+}
+
+
+void
+cmsg_transport_oneway_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
+{
+    _cmsg_transport_tcp_init_common (tport_funcs);
+
+    tport_funcs->server_send = cmsg_transport_tcp_oneway_server_send;
 }
 
 
@@ -441,10 +448,10 @@ cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
         return;
     }
 
-    _cmsg_transport_tcp_init_common (transport);
+    transport->config.socket.family = PF_INET;
+    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
 
-    transport->server_send = cmsg_transport_tcp_oneway_server_send;
-    transport->closure = cmsg_server_closure_oneway;
+    cmsg_transport_oneway_tcp_funcs_init (&transport->tport_funcs);
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }

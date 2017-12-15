@@ -10,7 +10,6 @@
 
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
-#include "cmsg_server.h"
 #include "cmsg_error.h"
 
 /*
@@ -116,32 +115,22 @@ cmsg_transport_unix_listen (cmsg_transport *transport)
 
 /* Wrapper function to call "recv" on a UNIX socket */
 int
-cmsg_transport_unix_recv (void *handle, void *buff, int len, int flags)
+cmsg_transport_unix_recv (cmsg_transport *transport, int sock, void *buff, int len,
+                          int flags)
 {
-    int *sock = (int *) handle;
+    struct timeval timeout = { 1, 0 };
+    fd_set read_fds;
+    int maxfd;
 
-    return recv (*sock, buff, len, flags);
-}
+    FD_ZERO (&read_fds);
+    FD_SET (sock, &read_fds);
+    maxfd = sock;
 
+    /* Do select() on the socket to prevent it to go to usleep instantaneously in the loop
+     * if the data is not yet available.*/
+    select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
 
-static int32_t
-cmsg_transport_unix_server_recv (int32_t server_socket, cmsg_server *server)
-{
-    int32_t ret = 0;
-
-    if (!server || server_socket < 0)
-    {
-        CMSG_LOG_GEN_ERROR ("UNIX server receive error. Invalid arguments.");
-        return -1;
-    }
-
-    /* Remember the client socket to use when send reply */
-    server->_transport->connection.sockets.client_socket = server_socket;
-
-    ret = cmsg_transport_server_recv (cmsg_transport_unix_recv,
-                                      (void *) &server_socket, server, NULL);
-
-    return ret;
+    return recv (sock, buff, len, flags);
 }
 
 
@@ -236,7 +225,7 @@ cmsg_transport_unix_client_recv (cmsg_transport *transport,
                 /* Didn't allocate memory for recv buffer.  This is an error.
                  * Shut the socket down, it will reopen on the next api call.
                  * Record and return an error. */
-                transport->client_close (transport);
+                transport->tport_funcs.client_close (transport);
                 CMSG_LOG_TRANSPORT_ERROR (transport,
                                           "Couldn't allocate memory for server reply (TLV + message), closed the socket");
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
@@ -459,21 +448,23 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
 {
     transport->config.socket.family = PF_UNIX;
     transport->config.socket.sockaddr.generic.sa_family = PF_UNIX;
-    transport->connect = cmsg_transport_unix_connect;
-    transport->listen = cmsg_transport_unix_listen;
-    transport->server_accept = cmsg_transport_unix_server_accept;
-    transport->server_recv = cmsg_transport_unix_server_recv;
-    transport->client_recv = cmsg_transport_unix_client_recv;
-    transport->client_send = cmsg_transport_unix_client_send;
-    transport->client_close = cmsg_transport_unix_client_close;
-    transport->server_close = cmsg_transport_unix_server_close;
-    transport->client_destroy = cmsg_transport_unix_client_destroy;
-    transport->server_destroy = cmsg_transport_unix_server_destroy;
-    transport->s_socket = cmsg_transport_unix_server_get_socket;
-    transport->c_socket = cmsg_transport_unix_client_get_socket;
-    transport->is_congested = cmsg_transport_unix_is_congested;
-    transport->send_can_block_enable = cmsg_transport_unix_send_can_block_enable;
-    transport->ipfree_bind_enable = NULL;
+    transport->tport_funcs.recv_wrapper = cmsg_transport_unix_recv;
+    transport->tport_funcs.connect = cmsg_transport_unix_connect;
+    transport->tport_funcs.listen = cmsg_transport_unix_listen;
+    transport->tport_funcs.server_accept = cmsg_transport_unix_server_accept;
+    transport->tport_funcs.server_recv = cmsg_transport_server_recv;
+    transport->tport_funcs.client_recv = cmsg_transport_unix_client_recv;
+    transport->tport_funcs.client_send = cmsg_transport_unix_client_send;
+    transport->tport_funcs.client_close = cmsg_transport_unix_client_close;
+    transport->tport_funcs.server_close = cmsg_transport_unix_server_close;
+    transport->tport_funcs.client_destroy = cmsg_transport_unix_client_destroy;
+    transport->tport_funcs.server_destroy = cmsg_transport_unix_server_destroy;
+    transport->tport_funcs.s_socket = cmsg_transport_unix_server_get_socket;
+    transport->tport_funcs.c_socket = cmsg_transport_unix_client_get_socket;
+    transport->tport_funcs.is_congested = cmsg_transport_unix_is_congested;
+    transport->tport_funcs.send_can_block_enable =
+        cmsg_transport_unix_send_can_block_enable;
+    transport->tport_funcs.ipfree_bind_enable = NULL;
 }
 
 void
@@ -486,8 +477,7 @@ cmsg_transport_rpc_unix_init (cmsg_transport *transport)
 
     _cmsg_transport_unix_init_common (transport);
 
-    transport->server_send = cmsg_transport_unix_server_send;
-    transport->closure = cmsg_server_closure_rpc;
+    transport->tport_funcs.server_send = cmsg_transport_unix_server_send;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
@@ -503,8 +493,7 @@ cmsg_transport_oneway_unix_init (cmsg_transport *transport)
 
     _cmsg_transport_unix_init_common (transport);
 
-    transport->server_send = cmsg_transport_unix_oneway_server_send;
-    transport->closure = cmsg_server_closure_rpc;
+    transport->tport_funcs.server_send = cmsg_transport_unix_oneway_server_send;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
