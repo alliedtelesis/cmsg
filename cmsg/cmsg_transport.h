@@ -109,15 +109,6 @@ typedef uint32_t (*is_congested_f) (cmsg_transport *transport);
 typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
 typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
 
-typedef struct _cmsg_udt_s
-{
-    void *udt_data;
-    // Functions for userdefined transport functionality
-    udt_connect_f connect;
-    udt_send_f send;
-    cmsg_recv_func recv;
-} cmsg_udt;
-
 typedef struct _cmsg_tport_functions_s
 {
     cmsg_recv_func recv_wrapper;
