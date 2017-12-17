@@ -302,15 +302,18 @@ cmsg_client_response_receive (cmsg_client *client, ProtobufCMessage **message)
 
 
 /**
- * Connect the transport unless it's already connected.
+ * Connect the transport, unless it is already connected.
+ *
+ * @param client - The client to connect.
+ * @param timeout - The timeout value to use.
+ *
  * Returns 0 on success or a negative integer on failure.
  */
-int32_t
-cmsg_client_connect (cmsg_client *client)
+static int32_t
+_cmsg_client_connect (cmsg_client *client, int timeout)
 {
     int32_t ret = 0;
     int sock;
-    int timeout = CONNECT_TIMEOUT_DEFAULT;
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
@@ -324,15 +327,6 @@ cmsg_client_connect (cmsg_client *client)
     {
         // count the connection attempt
         CMSG_COUNTER_INC (client, cntr_connect_attempts);
-
-        /* During stack failover we need connect attempts for a publisher to
-         * remote nodes that have now left to fail quickly. Otherwise the system
-         * will hang using the default TIPC timeout (30 seconds) and the stack will
-         * fall apart. */
-        if (client->parent.object_type == CMSG_OBJ_TYPE_PUB)
-        {
-            timeout = CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT;
-        }
 
         ret = client->_transport->tport_funcs.connect (client->_transport, timeout);
 
@@ -371,6 +365,36 @@ cmsg_client_connect (cmsg_client *client)
     }
 
     return ret;
+}
+
+
+/**
+ * Connect the transport using the default timeout value,
+ * unless it's already connected.
+ *
+ * @param client - The client to connect.
+ *
+ * Returns 0 on success or a negative integer on failure.
+ */
+int32_t
+cmsg_client_connect (cmsg_client *client)
+{
+    return _cmsg_client_connect (client, CONNECT_TIMEOUT_DEFAULT);
+}
+
+/**
+ * Connect the transport with a non-default timeout value,
+ * unless it's already connected.
+ *
+ * @param client - The client to connect.
+ * @param timeout - The timeout value to use.
+ *
+ * Returns 0 on success or a negative integer on failure.
+ */
+int32_t
+cmsg_client_connect_with_timeout (cmsg_client *client, int timeout)
+{
+    return _cmsg_client_connect (client, timeout);
 }
 
 

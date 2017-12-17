@@ -123,6 +123,8 @@ void cmsg_client_destroy (cmsg_client *client);
 
 int32_t cmsg_client_connect (cmsg_client *client);
 
+int32_t cmsg_client_connect_with_timeout (cmsg_client *client, int timeout);
+
 int cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout);
 
 int cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout);

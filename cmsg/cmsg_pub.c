@@ -195,6 +195,8 @@ cmsg_pub_get_server_socket (cmsg_pub *publisher)
 int32_t
 cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
 {
+    int timeout;
+
     CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
 
     /*
@@ -216,7 +218,13 @@ cmsg_pub_initiate_all_subscriber_connections (cmsg_pub *publisher)
         }
         else if (list_entry->client->state != CMSG_CLIENT_STATE_CONNECTED)
         {
-            if (cmsg_client_connect (list_entry->client) != CMSG_RET_OK)
+            /* During stack failover we need connect attempts for a publisher to
+             * remote nodes that have now left to fail quickly. Otherwise the system
+             * will hang using the default TIPC timeout (30 seconds) and the stack will
+             * fall apart. */
+            timeout = CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT;
+            if (cmsg_client_connect_with_timeout (list_entry->client,
+                                                  timeout) != CMSG_RET_OK)
             {
                 CMSG_LOG_PUBLISHER_DEBUG (publisher,
                                           "[PUB] [LIST] Couldn't connect to subscriber!\n");
