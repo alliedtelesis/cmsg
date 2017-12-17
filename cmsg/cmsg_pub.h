@@ -9,7 +9,6 @@
 #include "cmsg_queue.h"
 #include "cmsg_client.h"
 #include "cmsg_server.h"
-#include "cmsg_sub_service.pb-c.h"
 
 
 /* This defines the minimum amount of time that should lapse between a remove subscriber
@@ -100,11 +99,6 @@ int32_t cmsg_pub_invoke (ProtobufCService *service,
                          uint32_t method_index,
                          const ProtobufCMessage *input,
                          ProtobufCClosure closure, void *closure_data);
-
-//service implementation for handling register messages from the subscriber
-int32_t cmsg_pub_subscribe (cmsg_sub_service_Service *service,
-                            const cmsg_sub_entry_transport_info *input,
-                            cmsg_sub_entry_response_Closure closure, void *closure_data);
 
 //queue api
 void cmsg_pub_queue_enable (cmsg_pub *publisher);

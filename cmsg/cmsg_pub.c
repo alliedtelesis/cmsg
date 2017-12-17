@@ -4,10 +4,16 @@
 #include "cmsg_private.h"
 #include "cmsg_pub.h"
 #include "cmsg_error.h"
+#include "cmsg_sub_service.pb-c.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
 #endif
+
+//service implementation for handling register messages from the subscriber
+int32_t cmsg_pub_subscribe (cmsg_sub_service_Service *service,
+                            const cmsg_sub_entry_transport_info *input,
+                            cmsg_sub_entry_response_Closure closure, void *closure_data);
 
 //macro for register handler implentation
 cmsg_sub_service_Service cmsg_pub_subscriber_service = CMSG_SUB_SERVICE_INIT (cmsg_pub_);
