@@ -36,8 +36,6 @@ typedef struct _cmsg_server_s
     cmsg_object self;
     cmsg_object parent;
 
-    int queue_enabled_from_parent;
-
     // rpc closure function
     ProtobufCClosure closure;
 

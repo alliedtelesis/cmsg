@@ -112,8 +112,6 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
             return NULL;
         }
 
-        server->queue_enabled_from_parent = 0;
-
         if (pthread_mutex_init (&server->queue_mutex, NULL) != 0)
         {
             CMSG_LOG_SERVER_ERROR (server, "Init failed for queue_mutex.");
@@ -933,41 +931,33 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
         return CMSG_RET_ERR;
     }
 
-    if (server->queue_enabled_from_parent)
+    action = cmsg_server_queue_filter_lookup (server, method_name);
+
+    if (action == CMSG_QUEUE_FILTER_ERROR)
     {
-        // queuing has been enable from parent subscriber
-        // so don't do server queue filter lookup
+        CMSG_LOG_SERVER_ERROR (server,
+                               "An error occurred with queue_lookup_filter: %s.",
+                               method_name);
+        CMSG_COUNTER_INC (server, cntr_queue_errors);
+        // Free unpacked message prior to return
+        protobuf_c_message_free_unpacked (message, allocator);
+        return CMSG_RET_ERR;
+    }
+    else if (action == CMSG_QUEUE_FILTER_DROP)
+    {
+        CMSG_DEBUG (CMSG_INFO, "[SERVER] dropping message: %s\n", method_name);
+
+        processing_reason = CMSG_METHOD_DROPPED;
+    }
+    else if (action == CMSG_QUEUE_FILTER_QUEUE)
+    {
         processing_reason = CMSG_METHOD_QUEUED;
     }
-    else
+    else if (action == CMSG_QUEUE_FILTER_PROCESS)
     {
-        action = cmsg_server_queue_filter_lookup (server, method_name);
-
-        if (action == CMSG_QUEUE_FILTER_ERROR)
-        {
-            CMSG_LOG_SERVER_ERROR (server,
-                                   "An error occurred with queue_lookup_filter: %s.",
-                                   method_name);
-            CMSG_COUNTER_INC (server, cntr_queue_errors);
-            // Free unpacked message prior to return
-            protobuf_c_message_free_unpacked (message, allocator);
-            return CMSG_RET_ERR;
-        }
-        else if (action == CMSG_QUEUE_FILTER_DROP)
-        {
-            CMSG_DEBUG (CMSG_INFO, "[SERVER] dropping message: %s\n", method_name);
-
-            processing_reason = CMSG_METHOD_DROPPED;
-        }
-        else if (action == CMSG_QUEUE_FILTER_QUEUE)
-        {
-            processing_reason = CMSG_METHOD_QUEUED;
-        }
-        else if (action == CMSG_QUEUE_FILTER_PROCESS)
-        {
-            processing_reason = CMSG_METHOD_OK_TO_INVOKE;
-        }
+        processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     }
+
 
     cmsg_server_invoke (server, server_request->method_index, message, processing_reason);
 
