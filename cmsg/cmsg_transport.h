@@ -17,10 +17,6 @@
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 
-/* Allow for encrypted data possibly requiring more buffer space than plain-text data
- * to pad the end of the last data block */
-#define ENCRYPT_EXTRA   64
-
 /* When connecting the transport specify that the default timeout value should
  * be used with the connect call */
 #define CONNECT_TIMEOUT_DEFAULT -1
