@@ -17,10 +17,6 @@
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 
-/* Define the size of the sun_path field in struct sockaddr_un. This structure is very
- * old and there is no API define for the size of the sun_path array */
-#define SUN_PATH_SIZE   108
-
 /* Allow for encrypted data possibly requiring more buffer space than plain-text data
  * to pad the end of the last data block */
 #define ENCRYPT_EXTRA   64
