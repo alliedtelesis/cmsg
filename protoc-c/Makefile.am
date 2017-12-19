@@ -1,6 +1,12 @@
 bin_PROGRAMS = protoc-cmsg
 
+http.pb.cc \
+http.pb.h: $(PROTOC_PATH)$(EXEEXT) http.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) --cpp_out=. http.proto
+
 protoc_cmsg_SOURCES = \
+	http.pb.cc \
+	http.pb.h \
 	c_atl_generator.cc \
 	c_atl_generator.h \
 	c_bytes_field.cc \
@@ -42,3 +48,6 @@ protoc_cmsg_LDADD = \
 
 protoc_cmsg_CPPFLAGS = \
 	-include $(top_builddir)/config.h
+
+BUILT_SOURCES = http.pb.cc http.pb.h
+CLEANFILES = $(BUILT_SOURCES)

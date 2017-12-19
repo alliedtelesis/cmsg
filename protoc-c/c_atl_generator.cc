@@ -192,9 +192,9 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntriesPerMethod(const MethodDescri
     vars_["inputname"] = FullNameToLower(method.input_type()->full_name());
     vars_["outputname"] = FullNameToLower(method.output_type()->full_name());
 
-    if (method.options().has_http())
+    if (method.options().HasExtension(http))
     {
-        HttpRule http_rule = method.options().http();
+        HttpRule http_rule = method.options().GetExtension(http);
         GenerateHttpProxyArrayEntry(http_rule, printer);
 
         // Generate an entry for each additional binding

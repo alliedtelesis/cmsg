@@ -26,7 +26,7 @@
 #include <map>
 #include <string>
 #include <google/protobuf/descriptor.h>
-#include <google/protobuf/http.pb.h>
+#include "http.pb.h"
 
 namespace google {
 namespace protobuf {

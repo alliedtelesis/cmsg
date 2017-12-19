@@ -28,6 +28,7 @@ PKG_CHECK_MODULES([GLIB],[glib-2.0])
 PKG_CHECK_MODULES([GMEM_DIAG],[gmem_diag],[],[unittest_prereq=no])
 PKG_CHECK_MODULES([NOVAPROVA],[novaprova],[],[unittest_prereq=no])
 
+AC_ARG_VAR(PROTOC_PATH, [  Path to the protoc compiler])
 AC_ARG_VAR(PROTOC_CMSG_PATH, [  Path to the protoc-cmsg compiler])
 
 BUILD_PROTOC_CMSG=1
@@ -105,6 +106,7 @@ AC_MSG_RESULT([
 
     cmsg options
         protoc-cmsg:            ${BUILD_PROTOC_CMSG}
+        protoc-path:            ${PROTOC_PATH}
         protoc-cmsg-path:       ${PROTOC_CMSG_PATH}
         cmsg:                   ${BUILD_CMSG}
         VCStack:                ${HAVE_VCSTACK}
