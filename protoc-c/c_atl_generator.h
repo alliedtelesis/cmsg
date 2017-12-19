@@ -91,7 +91,7 @@ class AtlCodeGenerator {
   string TypeToString(FieldDescriptor::Type type);
 
   const ServiceDescriptor* descriptor_;
-  map<string, string> vars_;
+  std::map<string, string> vars_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(AtlCodeGenerator);
 };
