@@ -1,6 +1,27 @@
+import "ant_result.proto";
+
 package cmsg_proxy_unit_tests;
 
-import "common.proto";
+message dummy
+{
+/* Empty message that can be used when you don't want to return and/or send a message */
+}
+
+message cmsg_bool
+{
+    optional bool value = 1;
+}
+
+message ant_result_plus_bool
+{
+    optional ant_result _error_info = 1;
+    optional bool _data = 2;
+}
+
+message cmsg_uint32_array
+{
+    repeated uint32 values = 1;
+}
 
 message query_param_test_msg
 {

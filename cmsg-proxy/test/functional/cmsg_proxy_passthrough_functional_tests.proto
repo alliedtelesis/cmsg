@@ -1,4 +1,4 @@
-import "common.proto";
+import "ant_result.proto";
 
 service functional_tests
 {
