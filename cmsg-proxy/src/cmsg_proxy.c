@@ -22,7 +22,7 @@
 #include "cmsg_proxy_mem.h"
 #include "cmsg_proxy_counters.h"
 #include "cmsg_proxy_tree.h"
-#include "common.pb-c.h"
+#include "ant_result.pb-c.h"
 
 #define MSG_BUF_LEN 200
 

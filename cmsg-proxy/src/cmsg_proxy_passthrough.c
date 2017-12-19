@@ -15,7 +15,7 @@
 #include "cmsg_proxy_mem.h"
 #include "cmsg_proxy_counters.h"
 #include "cmsg_proxy_tree.h"
-#include "common.pb-c.h"
+#include "ant_result.pb-c.h"
 
 typedef cmsg_service_info *(*proxy_defs_array_get_func_ptr) ();
 typedef int (*proxy_defs_array_size_func_ptr) ();

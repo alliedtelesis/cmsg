@@ -1,13 +1,13 @@
 lib_LTLIBRARIES = libcmsgproxy.la
 bin_PROGRAMS =
 
-src/common.pb-c.c \
-src/common.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/common.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I. --c_out=. src/common.proto
+src/ant_result.pb-c.c \
+src/ant_result.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/ant_result.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I. --c_out=. src/ant_result.proto
 
 libcmsgproxy_la_SOURCES = \
-	src/common.pb-c.c \
-	src/common.pb-c.h \
+	src/ant_result.pb-c.c \
+	src/ant_result.pb-c.h \
 	src/cmsg_proxy.c \
 	cmsg_proxy.h \
 	src/cmsg_proxy_mem.c \
@@ -29,7 +29,7 @@ libcmsgproxy_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS)
 
 libcmsgproxy_la_CPPFLAGS = -Iinclude
 
-BUILT_SOURCES = src/common.pb-c.c src/common.pb-c.h
+BUILT_SOURCES = src/ant_result.pb-c.c src/ant_result.pb-c.h
 CLEANFILES = $(BUILT_SOURCES)
 
 if BUILD_UNITTEST
@@ -43,8 +43,8 @@ test/unit/cmsg_proxy_unit_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/unit/c
 
 bin_PROGRAMS += cmsg_proxy_unit_tests
 cmsg_proxy_unit_tests_SOURCES = \
-	src/common.pb-c.c \
-	src/common.pb-c.h \
+	src/ant_result.pb-c.c \
+	src/ant_result.pb-c.h \
 	test/unit/cmsg_proxy_unit_tests_proxy_def.c \
 	test/unit/cmsg_proxy_unit_tests_proxy_def.h \
 	test/unit/cmsg_proxy_unit_tests_api_auto.c \
@@ -72,8 +72,8 @@ test/functional/cmsg_proxy_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT)
 
 bin_PROGRAMS += cmsg_proxy_functional_tests
 cmsg_proxy_functional_tests_SOURCES = \
-	src/common.pb-c.c \
-	src/common.pb-c.h \
+	src/ant_result.pb-c.c \
+	src/ant_result.pb-c.h \
 	test/functional/cmsg_proxy_functional_tests_proxy_def.c \
 	test/functional/cmsg_proxy_functional_tests_proxy_def.h \
 	test/functional/cmsg_proxy_functional_tests_api_auto.c \
@@ -102,8 +102,8 @@ test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.h: $(PROTOC_CMSG_PA
 
 bin_PROGRAMS += cmsg_proxy_passthrough_functional_tests
 cmsg_proxy_passthrough_functional_tests_SOURCES = \
-	src/common.pb-c.c \
-	src/common.pb-c.h \
+	src/ant_result.pb-c.c \
+	src/ant_result.pb-c.h \
 	test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.c \
 	test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.h \
 	test/functional/cmsg_proxy_passthrough_functional_tests_api_auto.c \
