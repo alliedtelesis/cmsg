@@ -1,9 +1,10 @@
+import "http.proto";
 import "ant_result.proto";
 
 service functional_tests
 {
     rpc passthrough (passthrough_request) returns (passthrough_response) {
-        option http = {
+        option (http) = {
             // Requried to generate RPC handler
             get: "/placeholder"
         };

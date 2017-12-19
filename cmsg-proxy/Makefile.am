@@ -39,7 +39,7 @@ test/unit/cmsg_proxy_unit_tests_api_auto.c \
 test/unit/cmsg_proxy_unit_tests_api_auto.h \
 test/unit/cmsg_proxy_unit_tests.pb-c.c \
 test/unit/cmsg_proxy_unit_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/unit/cmsg_proxy_unit_tests.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) --proto_path=. --proto_path=src --c_out=. test/unit/cmsg_proxy_unit_tests.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) --proto_path=. --proto_path=src --proto_path=../protoc-c --c_out=. test/unit/cmsg_proxy_unit_tests.proto
 
 bin_PROGRAMS += cmsg_proxy_unit_tests
 cmsg_proxy_unit_tests_SOURCES = \
@@ -68,7 +68,7 @@ test/functional/cmsg_proxy_functional_tests_impl_auto.c \
 test/functional/cmsg_proxy_functional_tests_impl_auto.h \
 test/functional/cmsg_proxy_functional_tests.pb-c.c \
 test/functional/cmsg_proxy_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/functional/cmsg_proxy_functional_tests.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) --proto_path=. --proto_path=src --c_out=. test/functional/cmsg_proxy_functional_tests.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) --proto_path=. --proto_path=src --proto_path=../protoc-c --c_out=. test/functional/cmsg_proxy_functional_tests.proto
 
 bin_PROGRAMS += cmsg_proxy_functional_tests
 cmsg_proxy_functional_tests_SOURCES = \
@@ -98,7 +98,7 @@ test/functional/cmsg_proxy_passthrough_functional_tests_impl_auto.c \
 test/functional/cmsg_proxy_passthrough_functional_tests_impl_auto.h \
 test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.c \
 test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/functional/cmsg_proxy_passthrough_functional_tests.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) --proto_path=. --proto_path=src --c_out=. test/functional/cmsg_proxy_passthrough_functional_tests.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) --proto_path=. --proto_path=src --proto_path=../protoc-c --c_out=. test/functional/cmsg_proxy_passthrough_functional_tests.proto
 
 bin_PROGRAMS += cmsg_proxy_passthrough_functional_tests
 cmsg_proxy_passthrough_functional_tests_SOURCES = \
