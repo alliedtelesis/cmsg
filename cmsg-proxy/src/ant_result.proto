@@ -120,4 +120,38 @@ message passthrough_response
     optional string response_body = 2;
 }
 
-
+// Interface type
+// !!! WARNING, WARNING, WARNING !!!
+// Types are defined in sort order so be careful when making changes.
+// For example running-config is generated in this order.
+// So don't re-order or add a new value to the middle of this enum
+// unless you know what you are doing.
+enum if_hw_type
+{
+    IF_TYPE_UNKNOWN = 0;      /* We intentionally use UNKNOWN instead of NOT_SET */
+    IF_TYPE_PORT = 1;
+    IF_TYPE_ETHERNET = 2;
+    IF_TYPE_LOOPBACK = 3;
+    IF_TYPE_LACP_AGGREGATE = 4;
+    IF_TYPE_STAT_AGGREGATE = 5;
+    IF_TYPE_VLAN = 6;
+    IF_TYPE_MANAGE = 7;
+    IF_TYPE_PBB_LOGICAL = 8;
+    IF_TYPE_IPIP = 9;
+    IF_TYPE_GREIP = 10;
+    IF_TYPE_IPV6IP = 11;
+    IF_TYPE_6TO4 = 12;
+    IF_TYPE_ISATAP = 13;
+    IF_TYPE_WAN = 14;
+    IF_TYPE_CELLULAR = 15;
+    IF_TYPE_FRELAY = 16;
+    IF_TYPE_FRELAY_SUBINT = 17;
+    IF_TYPE_HDLC = 18;
+    IF_TYPE_ATM = 19;
+    IF_TYPE_TUNNEL6 = 20;
+    IF_TYPE_PSEUDO = 21;
+    IF_TYPE_ATL_BRIDGE = 22;
+    IF_TYPE_PPP = 23;
+    IF_TYPE_GRE6IP = 24;
+    IF_TYPE_WWAN = 25;
+}
