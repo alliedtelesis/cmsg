@@ -430,7 +430,7 @@ cmsg_transport_unix_server_destroy (cmsg_transport *transport)
 uint32_t
 cmsg_transport_unix_is_congested (cmsg_transport *transport)
 {
-    return FALSE;
+    return false;
 }
 
 

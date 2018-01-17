@@ -46,7 +46,7 @@ typedef struct _cmsg_server_s
     pthread_mutex_t queueing_state_mutex;
     cmsg_queue_state queueing_state;
     cmsg_queue_state queueing_state_last;
-    uint32_t queue_in_process;
+    bool queue_in_process;
 
     pthread_mutex_t queue_filter_mutex; //hash will be modified by different thread
     GHashTable *queue_filter_hash_table;
@@ -63,11 +63,11 @@ typedef struct _cmsg_server_s
     // memory management
     // flag to tell the server whether or not the application wants to take ownership
     // of the current message, and therefore be responsible for freeing it.
-    cmsg_bool_t app_owns_current_msg;   //set to FALSE by default, and always reset to FALSE
+    cmsg_bool_t app_owns_current_msg;   //set to false by default, and always reset to false
     //after processing of an impl has finished.
     // flag to tell the server whether or not the application wants to take ownership
     // of all received messages, and therefore be responsible for freeing them.
-    cmsg_bool_t app_owns_all_msgs;      //set to FALSE by default but can be changed so
+    cmsg_bool_t app_owns_all_msgs;      //set to false by default but can be changed so
     //that cmsg will NEVER free recv msgs for this
     //server
 
@@ -176,7 +176,7 @@ cmsg_server_list *cmsg_server_list_new (void);
 
 void cmsg_server_list_destroy (cmsg_server_list *server_list);
 
-int cmsg_server_list_is_empty (cmsg_server_list *server_list);
+bool cmsg_server_list_is_empty (cmsg_server_list *server_list);
 
 void cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server);
 

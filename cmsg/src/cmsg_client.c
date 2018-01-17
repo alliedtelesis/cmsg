@@ -157,7 +157,7 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
 
         client->send_timeout = 0;
         client->receive_timeout = 0;
-        client->suppress_errors = FALSE;
+        client->suppress_errors = false;
 
         client->child_clients = NULL;
     }
@@ -1564,7 +1564,7 @@ cmsg_create_client_loopback (ProtobufCService *service)
      * memory that the client declared the message in. We don't want the server
      * trying to free this memory (often it is on the stack) so let it know that
      * it does not own the memory for the messages. */
-    cmsg_server_app_owns_all_msgs_set (server, TRUE);
+    cmsg_server_app_owns_all_msgs_set (server, true);
 
     client_transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
     if (client_transport == NULL)

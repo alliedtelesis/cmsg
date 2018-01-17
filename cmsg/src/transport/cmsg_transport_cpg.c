@@ -414,7 +414,7 @@ cmsg_transport_cpg_is_congested (cmsg_transport *transport)
                                       (int) cpg_rc);
         }
         cpg_error_count++;
-        return TRUE;
+        return true;
     }
 
     cpg_error_count = 0;

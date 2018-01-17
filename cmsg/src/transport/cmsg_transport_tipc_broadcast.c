@@ -266,7 +266,7 @@ cmsg_transport_tipc_broadcast_server_destroy (cmsg_transport *transport)
 uint32_t
 cmsg_transport_tipc_broadcast_is_congested (cmsg_transport *transport)
 {
-    return FALSE;
+    return false;
 }
 
 

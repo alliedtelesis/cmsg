@@ -232,7 +232,7 @@ cmsg_transport_udt_is_congested (cmsg_transport *transport)
         return transport->udt_info.functions.is_congested (transport);
     }
 
-    return FALSE;
+    return false;
 }
 
 
