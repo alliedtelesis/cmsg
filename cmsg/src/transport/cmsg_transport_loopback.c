@@ -78,7 +78,7 @@ cmsg_transport_loopback_client_destroy (cmsg_transport *transport)
 /**
  * Loopback can't be congested so return false
  */
-uint32_t
+bool
 cmsg_transport_loopback_is_congested (cmsg_transport *transport)
 {
     return false;

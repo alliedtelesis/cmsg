@@ -395,7 +395,7 @@ cmsg_transport_cpg_client_recv (cmsg_transport *transport,
 }
 
 
-static uint32_t
+static bool
 cmsg_transport_cpg_is_congested (cmsg_transport *transport)
 {
     static int32_t cpg_error_count = 0;

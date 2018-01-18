@@ -990,7 +990,7 @@ cmsg_client_recv_echo_reply (cmsg_client *client)
 }
 
 
-int32_t
+bool
 cmsg_client_transport_is_congested (cmsg_client *client)
 {
     return client->_transport->tport_funcs.is_congested (client->_transport);

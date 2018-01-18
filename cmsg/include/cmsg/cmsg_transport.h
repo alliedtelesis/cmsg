@@ -105,7 +105,7 @@ typedef int (*s_get_socket_f) (cmsg_transport *transport);
 typedef int (*c_get_socket_f) (cmsg_transport *transport);
 typedef void (*client_destroy_f) (cmsg_transport *transport);
 typedef void (*server_destroy_f) (cmsg_transport *transport);
-typedef uint32_t (*is_congested_f) (cmsg_transport *transport);
+typedef bool (*is_congested_f) (cmsg_transport *transport);
 typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
 typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
 

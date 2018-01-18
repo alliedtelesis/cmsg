@@ -427,7 +427,7 @@ cmsg_transport_unix_server_destroy (cmsg_transport *transport)
 /**
  * UNIX is never congested
  */
-uint32_t
+bool
 cmsg_transport_unix_is_congested (cmsg_transport *transport)
 {
     return false;

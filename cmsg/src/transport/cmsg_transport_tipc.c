@@ -487,7 +487,7 @@ cmsg_transport_tipc_server_destroy (cmsg_transport *transport)
 /**
  * TIPC is never congested
  */
-uint32_t
+bool
 cmsg_transport_tipc_is_congested (cmsg_transport *transport)
 {
     return false;
