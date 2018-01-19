@@ -17,16 +17,6 @@
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 
-/* When connecting the transport specify that the default timeout value should
- * be used with the connect call */
-#define CONNECT_TIMEOUT_DEFAULT -1
-
-/* This value is used to limit the timeout for client message peek to 100s */
-#define MAX_CLIENT_PEEK_LOOP (100)
-
-/* This value is used to limit the timeout for server message peek to 10s */
-#define MAX_SERVER_PEEK_LOOP (10)
-
 #ifdef HAVE_VCSTACK
 typedef struct _cpg_connection_s
 {
@@ -197,18 +187,6 @@ struct _cmsg_transport_s
 };
 
 cmsg_transport *cmsg_transport_new (cmsg_transport_type type);
-void cmsg_transport_tipc_init (cmsg_transport *transport);
-void cmsg_transport_tcp_init (cmsg_transport *transport);
-void cmsg_transport_oneway_tipc_init (cmsg_transport *transport);
-void cmsg_transport_oneway_tcp_init (cmsg_transport *transport);
-void cmsg_transport_oneway_cpumail_init (cmsg_transport *transport);
-void cmsg_transport_loopback_init (cmsg_transport *transport);
-
-#ifdef HAVE_VCSTACK
-void cmsg_transport_cpg_init (cmsg_transport *transport);
-#endif /* HAVE_VCSTACK */
-
-void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
 
 int32_t cmsg_transport_destroy (cmsg_transport *transport);
 
@@ -221,11 +199,6 @@ int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
 int32_t cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
                                     uint8_t **recv_buffer, cmsg_header *processed_header,
                                     int *nbytes);
-
-cmsg_status_code cmsg_transport_client_recv (cmsg_recv_func recv_wrapper, int socket,
-                                             cmsg_transport *transport,
-                                             const ProtobufCServiceDescriptor *descriptor,
-                                             ProtobufCMessage **messagePtPt);
 
 cmsg_transport *cmsg_create_transport_tipc (const char *server_name, int member_id,
                                             int scope, cmsg_transport_type transport_type);
@@ -253,8 +226,7 @@ void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
                                              struct tipc_event *event);
 
 void cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id);
-void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
-void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
+
 cmsg_transport *cmsg_create_transport_unix (const ProtobufCServiceDescriptor *descriptor,
                                             cmsg_transport_type transport_type);
 cmsg_transport *cmsg_create_transport_tcp (cmsg_socket *config,
@@ -262,11 +234,6 @@ cmsg_transport *cmsg_create_transport_tcp (cmsg_socket *config,
 
 char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor);
 void cmsg_transport_unix_sun_path_free (char *sun_path);
-
-cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
-                                                 cmsg_transport *transport, int32_t socket,
-                                                 time_t seconds_to_wait,
-                                                 cmsg_header *header_received);
 
 const char *cmsg_transport_counter_app_tport_id (cmsg_transport *transport);
 

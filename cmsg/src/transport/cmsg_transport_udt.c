@@ -20,6 +20,7 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
+#include "cmsg_transport_private.h"
 
 extern void cmsg_transport_rpc_tcp_funcs_init (cmsg_tport_functions *tport_funcs);
 extern void cmsg_transport_oneway_tcp_funcs_init (cmsg_tport_functions *tport_funcs);

@@ -11,6 +11,7 @@
  */
 #include "cmsg_transport.h"
 #include "cmsg_error.h"
+#include "cmsg_transport_private.h"
 
 
 /******************************************************************************

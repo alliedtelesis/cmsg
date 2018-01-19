@@ -3,6 +3,7 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
+#include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
 

@@ -4,6 +4,7 @@
 #include "cmsg_private.h"
 #include "cmsg_client.h"
 #include "cmsg_error.h"
+#include "transport/cmsg_transport_private.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
