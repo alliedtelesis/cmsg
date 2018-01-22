@@ -193,7 +193,6 @@ cmsg_transport_new (cmsg_transport_type type)
 
     if (transport)
     {
-        transport->client_send_tries = 0;
         transport->connection.sockets.client_socket = -1;
         transport->connection.sockets.listening_socket = -1;
 

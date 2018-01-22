@@ -179,8 +179,6 @@ struct _cmsg_transport_s
 
     //transport function pointers
     cmsg_tport_functions tport_funcs;
-    //transport statistics
-    uint32_t client_send_tries;
 
     //For debug purposes, store the object id of the parent (client/server) using this transport
     char parent_obj_id[CMSG_MAX_OBJ_ID_LEN + 1];
