@@ -395,11 +395,20 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     uint32_t extra_header_size;
     cmsg_server_request server_request;
     int socket = transport->connection.sockets.client_socket;
+    cmsg_status_code ret;
 
     *messagePtPt = NULL;
 
+    ret = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper, transport,
+                                          socket, MAX_CLIENT_PEEK_LOOP, &header_received);
+    if (ret != CMSG_STATUS_CODE_SUCCESS)
+    {
+        return ret;
+    }
+
     nbytes = transport->tport_funcs.recv_wrapper (transport, socket, &header_received,
                                                   sizeof (cmsg_header), MSG_WAITALL);
+
 
     if (nbytes == sizeof (cmsg_header))
     {
@@ -437,6 +446,10 @@ cmsg_transport_client_recv (cmsg_transport *transport,
             recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
             if (recv_buffer == NULL)
             {
+                /* Didn't allocate memory for recv buffer.  This is an error.
+                 * Shut the socket down, it will reopen on the next api call.
+                 * Record and return an error. */
+                transport->tport_funcs.client_close (transport);
                 CMSG_LOG_TRANSPORT_ERROR (transport,
                                           "Failed to allocate memory for received message");
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
