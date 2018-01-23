@@ -43,6 +43,8 @@ static int32_t cmsg_client_invoke (ProtobufCService *service,
 static int32_t cmsg_client_queue_input (cmsg_client *client, uint32_t method_index,
                                         const ProtobufCMessage *input, bool *did_queue);
 
+static void _cmsg_client_destroy (cmsg_client *client);
+
 static void
 cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
 {
@@ -99,6 +101,8 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
     client->base_service.descriptor = descriptor;
 
     cmsg_client_invoke_init (client, transport);
+
+    client->client_destroy = _cmsg_client_destroy;
 
     client->self.object_type = CMSG_OBJ_TYPE_CLIENT;
     client->self.object = client;
@@ -210,12 +214,9 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
     return client;
 }
 
-
 void
-cmsg_client_destroy (cmsg_client *client)
+cmsg_client_deinit (cmsg_client *client)
 {
-    CMSG_ASSERT_RETURN_VOID (client != NULL);
-
     /* Free counter session info but do not destroy counter data in the shared memory */
 #ifdef HAVE_COUNTERD
     cntrd_app_unInit_app (&client->cntr_session, CNTRD_APP_PERSISTENT);
@@ -249,8 +250,24 @@ cmsg_client_destroy (cmsg_client *client)
     }
 
     pthread_mutex_destroy (&client->invoke_mutex);
+}
+
+static void
+_cmsg_client_destroy (cmsg_client *client)
+{
+    CMSG_ASSERT_RETURN_VOID (client != NULL);
+
+    cmsg_client_deinit (client);
 
     CMSG_FREE (client);
+}
+
+void
+cmsg_client_destroy (cmsg_client *client)
+{
+    CMSG_ASSERT_RETURN_VOID (client != NULL);
+
+    client->client_destroy (client);
 }
 
 // create counters
