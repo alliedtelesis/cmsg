@@ -132,18 +132,21 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
         if (pthread_cond_init (&client->queue_process_cond, NULL) != 0)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_cond.");
+            CMSG_FREE (client);
             return NULL;
         }
 
         if (pthread_mutex_init (&client->queue_process_mutex, NULL) != 0)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_mutex.");
+            CMSG_FREE (client);
             return NULL;
         }
 
         if (pthread_mutex_init (&client->invoke_mutex, NULL) != 0)
         {
             CMSG_LOG_CLIENT_ERROR (client, "Init failed for invoke_mutex.");
+            CMSG_FREE (client);
             return NULL;
         }
 
