@@ -90,7 +90,6 @@ typedef struct _cmsg_client_s
     // composite client information
     GList *child_clients;
     pthread_mutex_t child_mutex;
-    int last_ret;
 
     // loopback server
     void *loopback_server;

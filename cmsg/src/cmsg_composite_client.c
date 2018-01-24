@@ -68,7 +68,6 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
             }
             pthread_mutex_unlock (&child->invoke_mutex);
         }
-        child->last_ret = ret;
     }
 
     // For each message successfully sent, receive the reply
@@ -93,7 +92,6 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
         {
             overall_result = ret;
         }
-        child->last_ret = ret;
     }
 
     pthread_mutex_unlock (&composite_client->child_mutex);
