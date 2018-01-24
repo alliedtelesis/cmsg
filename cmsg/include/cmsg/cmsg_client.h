@@ -89,10 +89,6 @@ typedef struct _cmsg_client_s
     // logging - whether to downgrade errors to debug
     cmsg_bool_t suppress_errors;
 
-    // composite client information
-    GList *child_clients;
-    pthread_mutex_t child_mutex;
-
     // loopback server
     void *loopback_server;
 

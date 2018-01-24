@@ -149,8 +149,6 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
     client->receive_timeout = 0;
     client->suppress_errors = false;
 
-    client->child_clients = NULL;
-
     return true;
 }
 
@@ -242,11 +240,6 @@ cmsg_client_deinit (cmsg_client *client)
     {
         cmsg_destroy_server_and_transport (client->loopback_server);
         client->loopback_server = NULL;
-    }
-
-    if (client->child_clients)
-    {
-        g_list_free (client->child_clients);
     }
 
     pthread_mutex_destroy (&client->invoke_mutex);
