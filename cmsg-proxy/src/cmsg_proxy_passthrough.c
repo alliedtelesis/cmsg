@@ -17,6 +17,8 @@
 #include "cmsg_proxy_tree.h"
 #include "ant_result.pb-c.h"
 
+static const char *cmsg_mime_application_json = "application/json";
+
 typedef cmsg_service_info *(*proxy_defs_array_get_func_ptr) ();
 typedef int (*proxy_defs_array_size_func_ptr) ();
 
@@ -201,7 +203,7 @@ cmsg_proxy_passthrough_deinit (void)
  *                        freed by the caller (if it is non NULL).
  * @param response_length - The length of the response data body
  * @param mime_type   - A pointer to a string to store the mime type that will be sent
- *                      in the HTTP response.
+ *                      in the HTTP response ("application/json").
  * @param extra_headers - Pointer to hold any extra headers that should be returned. These
  *                        should be cleaned up with cmsg_proxy_free_extra_headers (not used)
  * @param http_status - A pointer to an integer that will store the HTTP status code to
@@ -246,6 +248,7 @@ cmsg_proxy_passthrough (const char *url, const char *query_string,
          */
         *response_body = strdup (recv_msg->response_body);
         *response_length = strlen (*response_body);
+        *mime_type = cmsg_mime_application_json;
     }
     *http_status = recv_msg->status_code;
 
