@@ -14,6 +14,8 @@
 #include "cmsg_proxy_functional_tests_impl_auto.h"
 
 static const char *mime_type = NULL;
+static size_t output_length = 0;
+static cmsg_proxy_headers *extra_headers = NULL;
 
 /**
  * Mock the '_cmsg_proxy_library_handles_load' function to simply call
@@ -460,6 +462,10 @@ set_up (void)
     np_mock (_cmsg_proxy_library_handles_load, sm_mock_cmsg_proxy_library_handles_load);
     np_mock (cmsg_create_client_unix, sm_mock_cmsg_create_client_unix);
 
+    mime_type = NULL;
+    output_length = 0;
+    extra_headers = NULL;
+
     cmsg_proxy_init ();
     return 0;
 }
@@ -477,8 +483,8 @@ test_single_bool_get (void)
     char *output_json = NULL;
     int http_status = 0;
 
-    cmsg_proxy ("/test_single_bool_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_single_bool_get", NULL, CMSG_HTTP_GET, NULL, 0, NULL, &output_json,
+                &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, "true");
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -492,8 +498,8 @@ test_single_string_get (void)
     char *output_json = NULL;
     int http_status = 0;
 
-    cmsg_proxy ("/test_single_string_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_single_string_get", NULL, CMSG_HTTP_GET, NULL, 0, NULL, &output_json,
+                &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, "\"single string\"");
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -507,8 +513,8 @@ test_single_uint32_get (void)
     char *output_json = NULL;
     int http_status = 0;
 
-    cmsg_proxy ("/test_single_uint32_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_single_uint32_get", NULL, CMSG_HTTP_GET, NULL, 0, NULL, &output_json,
+                &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, "123");
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -529,8 +535,8 @@ test_single_message_get (void)
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_single_message_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_single_message_get", NULL, CMSG_HTTP_GET, NULL, 0, NULL,
+                &output_json, &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -553,8 +559,8 @@ test_repeated_string_get (void)
         "]";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_repeated_string_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_repeated_string_get", NULL, CMSG_HTTP_GET, NULL, 0, NULL,
+                &output_json, &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -577,8 +583,8 @@ test_repeated_uint32_get (void)
         "]";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_repeated_uint32_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_repeated_uint32_get", NULL, CMSG_HTTP_GET, NULL, 0, NULL,
+                &output_json, &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -607,8 +613,8 @@ test_repeated_message_get (void)
         "]";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_repeated_message_get", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_repeated_message_get", NULL, CMSG_HTTP_GET, NULL, 0, NULL,
+                &output_json, &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -633,8 +639,9 @@ test_multiple_fields_message_get (void)
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_multiple_fields_message_get", NULL, CMSG_HTTP_GET, NULL,
-                NULL, &output_json, &mime_type, &http_status);
+    cmsg_proxy ("/test_multiple_fields_message_get", NULL, CMSG_HTTP_GET, NULL, 0,
+                NULL, &output_json, &output_length, &mime_type, &extra_headers,
+                &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -648,8 +655,8 @@ test_ant_result_get_ok (void)
     char *output_json = NULL;
     int http_status = 0;
 
-    cmsg_proxy ("/test_ant_result_get_ok", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_ant_result_get_ok", NULL, CMSG_HTTP_GET, NULL, 0, NULL, &output_json,
+                &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_NULL (output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -671,8 +678,8 @@ test_ant_result_get_error (void)
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_ant_result_get_error", NULL, CMSG_HTTP_GET, NULL, NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_ant_result_get_error", NULL, CMSG_HTTP_GET, NULL, 0, NULL,
+                &output_json, &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_NOT_FOUND);
@@ -694,8 +701,8 @@ test_get_error_with_single_data (void)
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_get_error_with_single_data", NULL, CMSG_HTTP_GET, NULL, NULL,
-                &output_json, &mime_type, &http_status);
+    cmsg_proxy ("/test_get_error_with_single_data", NULL, CMSG_HTTP_GET, NULL, 0, NULL,
+                &output_json, &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_NOT_FOUND);
@@ -717,8 +724,9 @@ test_get_error_with_multiple_data (void)
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_get_error_with_multiple_data", NULL, CMSG_HTTP_GET, NULL,
-                NULL, &output_json, &mime_type, &http_status);
+    cmsg_proxy ("/test_get_error_with_multiple_data", NULL, CMSG_HTTP_GET, NULL, 0,
+                NULL, &output_json, &output_length, &mime_type, &extra_headers,
+                &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_NOT_FOUND);
@@ -739,8 +747,9 @@ test_single_bool_put (void)
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_single_bool_put", NULL, CMSG_HTTP_PUT, "false", NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_single_bool_put", NULL, CMSG_HTTP_PUT, "false", strlen ("false"),
+                NULL, &output_json, &output_length, &mime_type, &extra_headers,
+                &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -762,8 +771,8 @@ test_single_bool_put__invalid (void)
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_single_bool_put", NULL, CMSG_HTTP_PUT, "blah", NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_single_bool_put", NULL, CMSG_HTTP_PUT, "blah", strlen ("blah"), NULL,
+                &output_json, &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_BAD_REQUEST);
@@ -785,7 +794,9 @@ test_single_string_put (void)
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_single_string_put", NULL, CMSG_HTTP_PUT, "\"Test String\"",
-                NULL, &output_json, &mime_type, &http_status);
+                strlen ("\"Test String\""),
+                NULL, &output_json, &output_length, &mime_type, &extra_headers,
+                &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -806,8 +817,8 @@ test_single_uint32_put (void)
         "}";
     /* *INDENT-ON* */
 
-    cmsg_proxy ("/test_single_uint32_put", NULL, CMSG_HTTP_PUT, "987", NULL, &output_json,
-                &mime_type, &http_status);
+    cmsg_proxy ("/test_single_uint32_put", NULL, CMSG_HTTP_PUT, "987", strlen ("987"), NULL,
+                &output_json, &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -829,7 +840,8 @@ test_single_repeated_uint32_put (void)
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_single_repeated_uint32_put", NULL, CMSG_HTTP_PUT, "[9, 8, 7]",
-                NULL, &output_json, &mime_type, &http_status);
+                strlen ("[9, 8, 7]"), NULL, &output_json, &output_length, &mime_type,
+                &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -857,7 +869,8 @@ test_body_mapped_to_sub_message (void)
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_body_mapped_to_sub_message/Bar", NULL, CMSG_HTTP_POST, input_json,
-                NULL, &output_json, &mime_type, &http_status);
+                strlen (input_json), NULL, &output_json, &output_length, &mime_type,
+                &extra_headers, &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -881,7 +894,9 @@ test_body_mapped_to_primitive (void)
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_body_mapped_to_primitive/Foo", NULL, CMSG_HTTP_POST, input_json,
-                NULL, &output_json, &mime_type, &http_status);
+                strlen (input_json),
+                NULL, &output_json, &output_length, &mime_type, &extra_headers,
+                &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -909,7 +924,8 @@ test_body_mapped_to_remaining_multiple_fields (void)
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_body_mapped_to_remaining_multiple_fields/Bar", NULL, CMSG_HTTP_POST,
-                input_json, NULL, &output_json, &mime_type, &http_status);
+                input_json, strlen (input_json), NULL, &output_json, &output_length,
+                &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -937,7 +953,8 @@ test_body_mapped_to_remaining_single_field (void)
     /* *INDENT-ON* */
 
     cmsg_proxy ("/test_body_mapped_to_remaining_single_field/Bar/Foo", NULL, CMSG_HTTP_POST,
-                input_json, NULL, &output_json, &mime_type, &http_status);
+                input_json, strlen (input_json), NULL, &output_json, &output_length,
+                &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -966,8 +983,9 @@ test_body_mapped_to_nothing (void)
 
     /* Test with no input JSON */
 
-    cmsg_proxy ("/test_body_mapped_to_nothing/Bar", NULL, CMSG_HTTP_POST, NULL,
-                NULL, &output_json, &mime_type, &http_status);
+    cmsg_proxy ("/test_body_mapped_to_nothing/Bar", NULL, CMSG_HTTP_POST, NULL, 0,
+                NULL, &output_json, &output_length, &mime_type, &extra_headers,
+                &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
     NP_ASSERT_STR_EQUAL (output_json, expected_ok_output);
@@ -978,7 +996,8 @@ test_body_mapped_to_nothing (void)
     /* Test with input JSON */
 
     cmsg_proxy ("/test_body_mapped_to_nothing/Bar", NULL, CMSG_HTTP_POST, "Test Input",
-                NULL, &output_json, &mime_type, &http_status);
+                strlen ("Test Input"), NULL, &output_json, &output_length, &mime_type,
+                &extra_headers, &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_BAD_REQUEST);
     NP_ASSERT_STR_EQUAL (output_json, expected_error_output);
@@ -996,8 +1015,9 @@ test_internal_web_api_info_set (void)
 
     web_api_info.api_request_ip_address = "1.2.3.4";
     web_api_info.api_request_username = "user123";
-    cmsg_proxy ("/test_internal_web_api_info_set", NULL, CMSG_HTTP_GET, NULL,
-                &web_api_info, &output_json, &mime_type, &http_status);
+    cmsg_proxy ("/test_internal_web_api_info_set", NULL, CMSG_HTTP_GET, NULL, 0,
+                &web_api_info, &output_json, &output_length, &mime_type, &extra_headers,
+                &http_status);
 
     NP_ASSERT_NULL (output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -1028,7 +1048,8 @@ test_internal_web_api_info_not_set_by_user (void)
     web_api_info.api_request_ip_address = "1.2.3.4";
     web_api_info.api_request_username = "user123";
     cmsg_proxy ("/test_internal_web_api_info_set", NULL, CMSG_HTTP_GET, input_json,
-                &web_api_info, &output_json, &mime_type, &http_status);
+                strlen (input_json), &web_api_info, &output_json, &output_length,
+                &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_BAD_REQUEST);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -1052,7 +1073,8 @@ test_single_data_plus_internal_set (void)
     web_api_info.api_request_ip_address = "1.2.3.4";
     web_api_info.api_request_username = "user123";
     cmsg_proxy ("/test_single_data_plus_internal_set", NULL, CMSG_HTTP_PUT, "987",
-                &web_api_info, &output_json, &mime_type, &http_status);
+                strlen ("987"), &web_api_info, &output_json, &output_length, &mime_type,
+                &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -1083,7 +1105,8 @@ test_single_data_plus_internal_set_by_user (void)
     web_api_info.api_request_ip_address = "1.2.3.4";
     web_api_info.api_request_username = "user123";
     cmsg_proxy ("/test_single_data_plus_internal_set", NULL, CMSG_HTTP_PUT, input_json,
-                &web_api_info, &output_json, &mime_type, &http_status);
+                strlen (input_json), &web_api_info, &output_json, &output_length,
+                &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_BAD_REQUEST);
@@ -1112,7 +1135,8 @@ test_multiple_data_plus_internal_set (void)
     web_api_info.api_request_ip_address = "1.2.3.4";
     web_api_info.api_request_username = "user123";
     cmsg_proxy ("/test_multiple_data_plus_internal_set", NULL, CMSG_HTTP_PUT, input_json,
-                &web_api_info, &output_json, &mime_type, &http_status);
+                strlen (input_json), &web_api_info, &output_json, &output_length,
+                &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_OK);
@@ -1143,7 +1167,8 @@ test_multiple_data_plus_internal_set_by_user (void)
     web_api_info.api_request_ip_address = "1.2.3.4";
     web_api_info.api_request_username = "user123";
     cmsg_proxy ("/test_multiple_data_plus_internal_set", NULL, CMSG_HTTP_PUT, input_json,
-                &web_api_info, &output_json, &mime_type, &http_status);
+                strlen (input_json), &web_api_info, &output_json, &output_length,
+                &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
     NP_ASSERT_EQUAL (http_status, HTTP_CODE_BAD_REQUEST);

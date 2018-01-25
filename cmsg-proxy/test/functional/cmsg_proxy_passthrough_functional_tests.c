@@ -24,6 +24,8 @@ char *test_output_string = "Test is OK";
 int test_output_status = 204;
 
 static const char *mime_type = NULL;
+static size_t output_length = 0;
+static cmsg_proxy_headers *extra_headers = NULL;
 
 /**
  * Mock the '_cmsg_proxy_library_handles_load' function to simply call
@@ -109,7 +111,8 @@ test_simple_passthrough_get (void)
     int http_status = 0;
 
     cmsg_proxy_passthrough ("/test_passthrough_get", NULL, CMSG_HTTP_GET, test_input_json,
-                            NULL, &output_json, &mime_type, &http_status);
+                            strlen (test_input_json), NULL, &output_json, &output_length,
+                            &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, test_output_string);
     NP_ASSERT_EQUAL (http_status, test_output_status);
@@ -124,7 +127,8 @@ test_simple_passthrough_put (void)
     int http_status = 0;
 
     cmsg_proxy_passthrough ("/test_passthrough_put", NULL, CMSG_HTTP_PUT, test_input_json,
-                            NULL, &output_json, &mime_type, &http_status);
+                            strlen (test_input_json), NULL, &output_json, &output_length,
+                            &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, test_output_string);
     NP_ASSERT_EQUAL (http_status, test_output_status);
@@ -139,7 +143,8 @@ test_simple_passthrough_post (void)
     int http_status = 0;
 
     cmsg_proxy_passthrough ("/test_passthrough_post", NULL, CMSG_HTTP_POST, test_input_json,
-                            NULL, &output_json, &mime_type, &http_status);
+                            strlen (test_input_json), NULL, &output_json, &output_length,
+                            &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, test_output_string);
     NP_ASSERT_EQUAL (http_status, test_output_status);
@@ -154,7 +159,8 @@ test_simple_passthrough_patch (void)
     int http_status = 0;
 
     cmsg_proxy_passthrough ("/test_passthrough_patch", NULL, CMSG_HTTP_PATCH,
-                            test_input_json, NULL, &output_json, &mime_type, &http_status);
+                            test_input_json, strlen (test_input_json), NULL, &output_json,
+                            &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, test_output_string);
     NP_ASSERT_EQUAL (http_status, test_output_status);
@@ -169,7 +175,8 @@ test_simple_passthrough_delete (void)
     int http_status = 0;
 
     cmsg_proxy_passthrough ("/test_passthrough_delete", NULL, CMSG_HTTP_DELETE,
-                            test_input_json, NULL, &output_json, &mime_type, &http_status);
+                            test_input_json, strlen (test_input_json), NULL, &output_json,
+                            &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_STR_EQUAL (output_json, test_output_string);
     NP_ASSERT_EQUAL (http_status, test_output_status);

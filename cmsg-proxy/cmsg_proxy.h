@@ -19,6 +19,18 @@ typedef enum _cmsg_http_verb
     CMSG_HTTP_PATCH = 5,
 } cmsg_http_verb;
 
+typedef struct _cmsg_proxy_header
+{
+    const char *key;
+    char *value;
+} cmsg_proxy_header;
+
+typedef struct _cmsg_proxy_headers
+{
+    cmsg_proxy_header *headers;
+    int num_headers;
+} cmsg_proxy_headers;
+
 typedef struct _cmsg_proxy_api_request_info
 {
     const char *api_request_ip_address;
@@ -49,20 +61,28 @@ typedef struct _cmsg_proxy_api_info
     const cmsg_service_info *cmsg_http_patch;
 } cmsg_proxy_api_info;
 
+#define CMSG_PROXY_SPECIAL_FIELD_FILE "_file"
+#define CMSG_PROXY_SPECIAL_FIELD_FILE_NAME "file_name"
+#define CMSG_PROXY_SPECIAL_FIELD_BODY "_body"
+
 void cmsg_proxy_init (void);
 void cmsg_proxy_deinit (void);
+void cmsg_proxy_free_extra_headers (cmsg_proxy_headers *extra_headers);
 bool cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
-                 const char *input_json, const cmsg_proxy_api_request_info *web_api_info,
-                 char **output_json, const char **mime_type, int *http_status);
-
+                 const char *input_data, size_t input_length,
+                 const cmsg_proxy_api_request_info *web_api_info,
+                 char **response_body, size_t *response_length, const char **mime_type,
+                 cmsg_proxy_headers **extra_headers, int *http_status);
 void cmsg_proxy_set_pre_api_http_check_callback (pre_api_http_check_callback cb);
 
 void cmsg_proxy_passthrough_init (const char *library_path);
 void cmsg_proxy_passthrough_deinit (void);
 bool cmsg_proxy_passthrough (const char *url, const char *query_string,
                              cmsg_http_verb http_verb, const char *input_json,
+                             size_t input_length,
                              const cmsg_proxy_api_request_info *web_api_info,
-                             char **output_json, const char **response_mime,
+                             char **output_json, size_t *response_length,
+                             const char **response_mime, cmsg_proxy_headers **extra_headers,
                              int *http_status);
 
 #endif /* __CMSG_PROXY_H_ */

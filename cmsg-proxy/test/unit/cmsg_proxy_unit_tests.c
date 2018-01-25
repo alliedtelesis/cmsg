@@ -11,6 +11,8 @@
 #include "cmsg_proxy_unit_tests_api_auto.h"
 
 static char *output_json = NULL;
+static size_t output_length = 0;
+static cmsg_proxy_headers *extra_headers = NULL;
 
 /* Number of nodes expected in the node tree */
 #define CMSG_PROXY_EXPECTED_NUM_NODES 30
@@ -398,8 +400,8 @@ test_cmsg_proxy__invalid_json_input (void)
     setup_standard_test_tree ();
 
     request_handled =
-        cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_PUT, "{", NULL, &output_json,
-                    &mime_type, &http_status);
+        cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_PUT, "{", strlen ("{"), NULL, &output_json,
+                    &output_length, &mime_type, &extra_headers, &http_status);
 
     NP_ASSERT_TRUE (request_handled);
     NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
@@ -524,7 +526,7 @@ test_cmsg_proxy_index__returns_http_ok (void)
     int http_ret;
 
     setup_standard_test_tree ();
-    http_ret = cmsg_proxy_index (NULL, &output_json);
+    http_ret = cmsg_proxy_index (NULL, &output_json, &output_length);
 
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 }
@@ -543,7 +545,7 @@ test_cmsg_proxy_index__json_object_contains_correct_fields (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index (NULL, &output_json);
+    http_ret = cmsg_proxy_index (NULL, &output_json, &output_length);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
     NP_ASSERT_NOT_NULL (output_json);
 
@@ -578,7 +580,7 @@ test_cmsg_proxy_index__returns_all_entries (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index (NULL, &output_json);
+    http_ret = cmsg_proxy_index (NULL, &output_json, &output_length);
     NP_ASSERT_NOT_NULL (output_json);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
@@ -618,7 +620,7 @@ test_cmsg_proxy_index__returns_search_no_braces (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=_url", &output_json);
+    http_ret = cmsg_proxy_index ("search_string=_url", &output_json, &output_length);
     NP_ASSERT_NOT_NULL (output_json);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
@@ -658,7 +660,8 @@ test_cmsg_proxy_index__returns_search_with_braces (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=%7Bfield_a%7D", &output_json);
+    http_ret =
+        cmsg_proxy_index ("search_string=%7Bfield_a%7D", &output_json, &output_length);
     NP_ASSERT_NOT_NULL (output_json);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
@@ -698,7 +701,7 @@ test_cmsg_proxy_index__unknown_query_ignored (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("blah=_url", &output_json);
+    http_ret = cmsg_proxy_index ("blah=_url", &output_json, &output_length);
     NP_ASSERT_NOT_NULL (output_json);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
@@ -738,7 +741,9 @@ test_cmsg_proxy_index__returns_search_unknown_query_before (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("blah=something&search_string=_url", &output_json);
+    http_ret =
+        cmsg_proxy_index ("blah=something&search_string=_url", &output_json,
+                          &output_length);
     NP_ASSERT_NOT_NULL (output_json);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
@@ -778,7 +783,9 @@ test_cmsg_proxy_index__returns_search_unknown_query_after (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=_url&blah=something", &output_json);
+    http_ret =
+        cmsg_proxy_index ("search_string=_url&blah=something", &output_json,
+                          &output_length);
     NP_ASSERT_NOT_NULL (output_json);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
@@ -819,7 +826,7 @@ test_cmsg_proxy_index__returns_first_search (void)
     setup_standard_test_tree ();
 
     http_ret = cmsg_proxy_index ("search_string=all_methods_url&search_string=_url",
-                                 &output_json);
+                                 &output_json, &output_length);
     NP_ASSERT_NOT_NULL (output_json);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
@@ -859,7 +866,7 @@ test_cmsg_proxy_index__returns_all_entries_with_empty_search (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=", &output_json);
+    http_ret = cmsg_proxy_index ("search_string=", &output_json, &output_length);
     NP_ASSERT_NOT_NULL (output_json);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
@@ -895,7 +902,9 @@ test_cmsg_proxy_index__returns_empty_array_when_no_search_match (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=UnlikelyURLSubstring", &output_json);
+    http_ret =
+        cmsg_proxy_index ("search_string=UnlikelyURLSubstring", &output_json,
+                          &output_length);
     NP_ASSERT_NOT_NULL (output_json);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
@@ -928,7 +937,7 @@ test_cmsg_proxy_index__get_method_is_GET_and_sets_url (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=get_url", &output_json);
+    http_ret = cmsg_proxy_index ("search_string=get_url", &output_json, &output_length);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
     NP_ASSERT_NOT_NULL (output_json);
 
@@ -967,7 +976,7 @@ test_cmsg_proxy_index__put_method_is_PUT_and_sets_url (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=put_url", &output_json);
+    http_ret = cmsg_proxy_index ("search_string=put_url", &output_json, &output_length);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
     NP_ASSERT_NOT_NULL (output_json);
 
@@ -1006,7 +1015,7 @@ test_cmsg_proxy_index__post_method_is_POST_and_sets_url (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=post_url", &output_json);
+    http_ret = cmsg_proxy_index ("search_string=post_url", &output_json, &output_length);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
     NP_ASSERT_NOT_NULL (output_json);
 
@@ -1045,7 +1054,7 @@ test_cmsg_proxy_index__patch_method_is_PATCH_and_sets_url (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=patch_url", &output_json);
+    http_ret = cmsg_proxy_index ("search_string=patch_url", &output_json, &output_length);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
     NP_ASSERT_NOT_NULL (output_json);
 
@@ -1084,7 +1093,7 @@ test_cmsg_proxy_index__delete_method_is_DELETE_and_sets_url (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=delete_url", &output_json);
+    http_ret = cmsg_proxy_index ("search_string=delete_url", &output_json, &output_length);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
     NP_ASSERT_NOT_NULL (output_json);
 
@@ -1125,7 +1134,8 @@ test_cmsg_proxy_index__can_return_all_methods_alphabetical (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=all_methods_url", &output_json);
+    http_ret =
+        cmsg_proxy_index ("search_string=all_methods_url", &output_json, &output_length);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
     NP_ASSERT_NOT_NULL (output_json);
 
@@ -1165,7 +1175,7 @@ test_cmsg_proxy_index__api_prefix_in_basepath (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index (NULL, &output_json);
+    http_ret = cmsg_proxy_index (NULL, &output_json, &output_length);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
     NP_ASSERT_NOT_NULL (output_json);
 
@@ -1190,7 +1200,7 @@ test_cmsg_proxy_index__before_tree_init_returns_error (void)
 {
     int http_ret;
 
-    http_ret = cmsg_proxy_index (NULL, &output_json);
+    http_ret = cmsg_proxy_index (NULL, &output_json, &output_length);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_INTERNAL_SERVER_ERROR);
 }
 
@@ -1205,7 +1215,7 @@ test_cmsg_proxy_index__before_tree_init_returns_error_with_query_string (void)
 {
     int http_ret;
 
-    http_ret = cmsg_proxy_index ("search_string=_url", &output_json);
+    http_ret = cmsg_proxy_index ("search_string=_url", &output_json, &output_length);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_INTERNAL_SERVER_ERROR);
 }
 
@@ -1222,7 +1232,7 @@ test_cmsg_proxy_index__output_json_NULL_returns_error (void)
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index (NULL, NULL);
+    http_ret = cmsg_proxy_index (NULL, NULL, &output_length);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_INTERNAL_SERVER_ERROR);
 }
 

@@ -192,14 +192,18 @@ cmsg_proxy_passthrough_deinit (void)
  * @param query_string - Ignored.
  * @param http_verb - The HTTP verb sent with the HTTP request.
  * @param input_json - A string representing the JSON data sent with the HTTP request.
+ * @param input_length - The length of the input JSON data
  * @param web_api_info - A pointer to the structure holding information about the web
  *                       API request.
- * @param output_json - A pointer to a string that will store the output JSON data to.
- *                      be sent with the HTTP response. This pointer may be NULL if the
- *                      rpc does not send any response data and the pointer must be
- *                      freed by the caller (if it is non NULL).
+ * @param response_body - A pointer to hold a string that will store the output JSON data.
+ *                        be sent with the HTTP response. This pointer may be NULL if the
+ *                        rpc does not send any response data and the pointer must be
+ *                        freed by the caller (if it is non NULL).
+ * @param response_length - The length of the response data body
  * @param mime_type   - A pointer to a string to store the mime type that will be sent
  *                      in the HTTP response.
+ * @param extra_headers - Pointer to hold any extra headers that should be returned. These
+ *                        should be cleaned up with cmsg_proxy_free_extra_headers (not used)
  * @param http_status - A pointer to an integer that will store the HTTP status code to
  *                      be sent with the HTTP response.
  *
@@ -209,8 +213,11 @@ cmsg_proxy_passthrough_deinit (void)
 bool
 cmsg_proxy_passthrough (const char *url, const char *query_string,
                         cmsg_http_verb http_verb, const char *input_json,
+                        size_t input_length,
                         const cmsg_proxy_api_request_info *web_api_info,
-                        char **response_body, const char **mime_type, int *http_status)
+                        char **response_body, size_t *response_length,
+                        const char **mime_type, cmsg_proxy_headers **extra_headers,
+                        int *http_status)
 {
     passthrough_request send_msg = PASSTHROUGH_REQUEST_INIT;
     passthrough_response *recv_msg = NULL;
@@ -233,7 +240,12 @@ cmsg_proxy_passthrough (const char *url, const char *query_string,
 
     if (recv_msg->response_body)
     {
+        /* This is allocated with strdup rather than CMSG_PROXY_STRDUP as it is freed with
+         * free by the caller in cmsgProxyHandler. response_body is also populated using
+         * json_dumps, which uses standard allocation.
+         */
         *response_body = strdup (recv_msg->response_body);
+        *response_length = strlen (*response_body);
     }
     *http_status = recv_msg->status_code;
 
