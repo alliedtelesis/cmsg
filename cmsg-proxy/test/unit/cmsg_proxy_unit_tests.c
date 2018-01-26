@@ -10,10 +10,6 @@
 #include "cmsg_proxy_unit_tests_proxy_def.h"
 #include "cmsg_proxy_unit_tests_api_auto.h"
 
-static char *output_json = NULL;
-static size_t output_length = 0;
-static cmsg_proxy_headers *extra_headers = NULL;
-
 /* Number of nodes expected in the node tree */
 #define CMSG_PROXY_EXPECTED_NUM_NODES 30
 
@@ -42,8 +38,6 @@ static cmsg_proxy_headers *extra_headers = NULL;
 #define CMSG_PROXY_INDEX_PATH_KEY "path"
 #define CMSG_PROXY_INDEX_METHODS_KEY "methods"
 
-static const char *mime_type = NULL;
-
 void
 setup_standard_test_tree (void)
 {
@@ -54,9 +48,6 @@ setup_standard_test_tree (void)
 int
 tear_down (void)
 {
-    free (output_json);
-    output_json = NULL;
-
     if (proxy_entries_tree)
     {
         _cmsg_proxy_service_info_deinit ();
@@ -387,7 +378,14 @@ void
 test_cmsg_proxy__invalid_json_input (void)
 {
     bool request_handled;
-    int http_status;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    input.url = "/v1/test";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "{";
+    input.data_length = strlen ("{");
+
 
     /* *INDENT-OFF* */
     char *expected_output_json =
@@ -399,13 +397,12 @@ test_cmsg_proxy__invalid_json_input (void)
 
     setup_standard_test_tree ();
 
-    request_handled =
-        cmsg_proxy ("/v1/test", NULL, CMSG_HTTP_PUT, "{", strlen ("{"), NULL, &output_json,
-                    &output_length, &mime_type, &extra_headers, &http_status);
+    request_handled = cmsg_proxy (&input, &output);
 
     NP_ASSERT_TRUE (request_handled);
-    NP_ASSERT_STR_EQUAL (output_json, expected_output_json);
-    NP_ASSERT_EQUAL (http_status, 400);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_json);
+    NP_ASSERT_EQUAL (output.http_status, 400);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -524,11 +521,13 @@ void
 test_cmsg_proxy_index__returns_http_ok (void)
 {
     int http_ret;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
-    http_ret = cmsg_proxy_index (NULL, &output_json, &output_length);
+    http_ret = cmsg_proxy_index (NULL, &output);
 
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -542,14 +541,15 @@ test_cmsg_proxy_index__json_object_contains_correct_fields (void)
 {
     json_t *json_obj, *paths, *basepath;
     int http_ret;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index (NULL, &output_json, &output_length);
+    http_ret = cmsg_proxy_index (NULL, &output);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
-    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_NOT_NULL (output.response_body);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -561,6 +561,7 @@ test_cmsg_proxy_index__json_object_contains_correct_fields (void)
     NP_ASSERT_EQUAL (json_object_size (json_obj), 2);
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -577,14 +578,15 @@ test_cmsg_proxy_index__returns_all_entries (void)
     int http_ret;
     int operation_count = 0;
     int i;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index (NULL, &output_json, &output_length);
-    NP_ASSERT_NOT_NULL (output_json);
+    http_ret = cmsg_proxy_index (NULL, &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -600,6 +602,7 @@ test_cmsg_proxy_index__returns_all_entries (void)
     NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS);
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -617,14 +620,15 @@ test_cmsg_proxy_index__returns_search_no_braces (void)
     int http_ret;
     int operation_count = 0;
     int i;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=_url", &output_json, &output_length);
-    NP_ASSERT_NOT_NULL (output_json);
+    http_ret = cmsg_proxy_index ("search_string=_url", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -640,6 +644,7 @@ test_cmsg_proxy_index__returns_search_no_braces (void)
     NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_url);
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -657,15 +662,15 @@ test_cmsg_proxy_index__returns_search_with_braces (void)
     int http_ret;
     int operation_count = 0;
     int i;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret =
-        cmsg_proxy_index ("search_string=%7Bfield_a%7D", &output_json, &output_length);
-    NP_ASSERT_NOT_NULL (output_json);
+    http_ret = cmsg_proxy_index ("search_string=%7Bfield_a%7D", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -681,6 +686,7 @@ test_cmsg_proxy_index__returns_search_with_braces (void)
     NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_field_a);
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -698,14 +704,15 @@ test_cmsg_proxy_index__unknown_query_ignored (void)
     int http_ret;
     int operation_count = 0;
     int i;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("blah=_url", &output_json, &output_length);
-    NP_ASSERT_NOT_NULL (output_json);
+    http_ret = cmsg_proxy_index ("blah=_url", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -721,6 +728,7 @@ test_cmsg_proxy_index__unknown_query_ignored (void)
     NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS);
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -738,16 +746,15 @@ test_cmsg_proxy_index__returns_search_unknown_query_before (void)
     int http_ret;
     int operation_count = 0;
     int i;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret =
-        cmsg_proxy_index ("blah=something&search_string=_url", &output_json,
-                          &output_length);
-    NP_ASSERT_NOT_NULL (output_json);
+    http_ret = cmsg_proxy_index ("blah=something&search_string=_url", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -763,6 +770,7 @@ test_cmsg_proxy_index__returns_search_unknown_query_before (void)
     NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_url);
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -780,16 +788,15 @@ test_cmsg_proxy_index__returns_search_unknown_query_after (void)
     int http_ret;
     int operation_count = 0;
     int i;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret =
-        cmsg_proxy_index ("search_string=_url&blah=something", &output_json,
-                          &output_length);
-    NP_ASSERT_NOT_NULL (output_json);
+    http_ret = cmsg_proxy_index ("search_string=_url&blah=something", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -805,6 +812,7 @@ test_cmsg_proxy_index__returns_search_unknown_query_after (void)
     NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_url);
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -822,15 +830,16 @@ test_cmsg_proxy_index__returns_first_search (void)
     int http_ret;
     int operation_count = 0;
     int i;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
     http_ret = cmsg_proxy_index ("search_string=all_methods_url&search_string=_url",
-                                 &output_json, &output_length);
-    NP_ASSERT_NOT_NULL (output_json);
+                                 &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -847,6 +856,7 @@ test_cmsg_proxy_index__returns_first_search (void)
     NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_all_methods_url);
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -863,14 +873,15 @@ test_cmsg_proxy_index__returns_all_entries_with_empty_search (void)
     int http_ret;
     int operation_count = 0;
     int i;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=", &output_json, &output_length);
-    NP_ASSERT_NOT_NULL (output_json);
+    http_ret = cmsg_proxy_index ("search_string=", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -886,6 +897,7 @@ test_cmsg_proxy_index__returns_all_entries_with_empty_search (void)
     NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS);
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -899,16 +911,15 @@ test_cmsg_proxy_index__returns_empty_array_when_no_search_match (void)
 {
     json_t *json_obj, *paths, *basepath;
     int http_ret;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret =
-        cmsg_proxy_index ("search_string=UnlikelyURLSubstring", &output_json,
-                          &output_length);
-    NP_ASSERT_NOT_NULL (output_json);
+    http_ret = cmsg_proxy_index ("search_string=UnlikelyURLSubstring", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -921,6 +932,7 @@ test_cmsg_proxy_index__returns_empty_array_when_no_search_match (void)
     NP_ASSERT_EQUAL (json_object_size (json_obj), 2);
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -934,14 +946,15 @@ test_cmsg_proxy_index__get_method_is_GET_and_sets_url (void)
 {
     json_t *json_obj, *paths, *api, *methods, *method, *path;
     int http_ret;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=get_url", &output_json, &output_length);
+    http_ret = cmsg_proxy_index ("search_string=get_url", &output);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
-    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_NOT_NULL (output.response_body);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -960,6 +973,7 @@ test_cmsg_proxy_index__get_method_is_GET_and_sets_url (void)
     NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/get_url");
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -973,14 +987,15 @@ test_cmsg_proxy_index__put_method_is_PUT_and_sets_url (void)
 {
     json_t *json_obj, *paths, *api, *methods, *method, *path;
     int http_ret;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=put_url", &output_json, &output_length);
+    http_ret = cmsg_proxy_index ("search_string=put_url", &output);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
-    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_NOT_NULL (output.response_body);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -999,6 +1014,7 @@ test_cmsg_proxy_index__put_method_is_PUT_and_sets_url (void)
     NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/put_url");
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -1012,14 +1028,15 @@ test_cmsg_proxy_index__post_method_is_POST_and_sets_url (void)
 {
     json_t *json_obj, *paths, *api, *methods, *method, *path;
     int http_ret;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=post_url", &output_json, &output_length);
+    http_ret = cmsg_proxy_index ("search_string=post_url", &output);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
-    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_NOT_NULL (output.response_body);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -1038,6 +1055,7 @@ test_cmsg_proxy_index__post_method_is_POST_and_sets_url (void)
     NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/post_url");
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -1051,14 +1069,15 @@ test_cmsg_proxy_index__patch_method_is_PATCH_and_sets_url (void)
 {
     json_t *json_obj, *paths, *api, *methods, *method, *path;
     int http_ret;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=patch_url", &output_json, &output_length);
+    http_ret = cmsg_proxy_index ("search_string=patch_url", &output);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
-    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_NOT_NULL (output.response_body);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -1077,6 +1096,7 @@ test_cmsg_proxy_index__patch_method_is_PATCH_and_sets_url (void)
     NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/patch_url");
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -1090,14 +1110,15 @@ test_cmsg_proxy_index__delete_method_is_DELETE_and_sets_url (void)
 {
     json_t *json_obj, *paths, *api, *methods, *method, *path;
     int http_ret;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index ("search_string=delete_url", &output_json, &output_length);
+    http_ret = cmsg_proxy_index ("search_string=delete_url", &output);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
-    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_NOT_NULL (output.response_body);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -1116,6 +1137,7 @@ test_cmsg_proxy_index__delete_method_is_DELETE_and_sets_url (void)
     NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/delete_url");
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -1131,15 +1153,15 @@ test_cmsg_proxy_index__can_return_all_methods_alphabetical (void)
     int http_ret;
     const char *alphabetical_http_methods[] = { "DELETE", "GET", "PATCH", "POST", "PUT" };
     int i;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret =
-        cmsg_proxy_index ("search_string=all_methods_url", &output_json, &output_length);
+    http_ret = cmsg_proxy_index ("search_string=all_methods_url", &output);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
-    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_NOT_NULL (output.response_body);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
@@ -1160,6 +1182,7 @@ test_cmsg_proxy_index__can_return_all_methods_alphabetical (void)
     NP_ASSERT_STR_EQUAL (json_string_value (path), "/v1/test/all_methods_url");
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -1172,14 +1195,15 @@ test_cmsg_proxy_index__api_prefix_in_basepath (void)
 {
     json_t *json_obj, *basepath;
     int http_ret;
+    cmsg_proxy_output output = { 0 };
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index (NULL, &output_json, &output_length);
+    http_ret = cmsg_proxy_index (NULL, &output);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
-    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_NOT_NULL (output.response_body);
 
-    json_obj = json_loads (output_json, 0, NULL);
+    json_obj = json_loads (output.response_body, 0, NULL);
     NP_ASSERT_NOT_NULL (json_obj);
 
     basepath = json_object_get (json_obj, CMSG_PROXY_INDEX_BASEPATH_KEY);
@@ -1187,6 +1211,7 @@ test_cmsg_proxy_index__api_prefix_in_basepath (void)
     NP_ASSERT_STR_EQUAL (json_string_value (basepath), API_PREFIX);
 
     json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -1199,8 +1224,9 @@ void
 test_cmsg_proxy_index__before_tree_init_returns_error (void)
 {
     int http_ret;
+    cmsg_proxy_output output = { 0 };
 
-    http_ret = cmsg_proxy_index (NULL, &output_json, &output_length);
+    http_ret = cmsg_proxy_index (NULL, &output);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_INTERNAL_SERVER_ERROR);
 }
 
@@ -1214,25 +1240,28 @@ void
 test_cmsg_proxy_index__before_tree_init_returns_error_with_query_string (void)
 {
     int http_ret;
+    cmsg_proxy_output output = { 0 };
 
-    http_ret = cmsg_proxy_index ("search_string=_url", &output_json, &output_length);
+    http_ret = cmsg_proxy_index ("search_string=_url", &output);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_INTERNAL_SERVER_ERROR);
+
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
  * Function Tested: cmsg_proxy_index ()
  *
- * Test that calling the function with NULL in the output_json parameter returns
+ * Test that calling the function with NULL in the output parameter returns
  * HTTP_CODE_INTERNAL_SERVER_ERROR.
  */
 void
-test_cmsg_proxy_index__output_json_NULL_returns_error (void)
+test_cmsg_proxy_index__output_NULL_returns_error (void)
 {
     int http_ret;
 
     setup_standard_test_tree ();
 
-    http_ret = cmsg_proxy_index (NULL, NULL, &output_length);
+    http_ret = cmsg_proxy_index (NULL, NULL);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_INTERNAL_SERVER_ERROR);
 }
 

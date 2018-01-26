@@ -890,22 +890,26 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
 }
 
 /**
- * Generates output string and output length for a json_t.
+ * Applies json_t object to output (sets data and length). Output data is allocated.
  * @param json_data json_t of data we want to convert to string
  * @param json_flags conversion flags
- * @param output_length variable to hold length of output string
- * @returns allocated json string that should be freed with free
+ * @param output response data for cmsg proxy
  */
-static char *
-_cmsg_proxy_json_t_to_output (json_t *json_data, size_t json_flags, size_t *output_length)
+void
+_cmsg_proxy_json_t_to_output (json_t *json_data, size_t json_flags,
+                              cmsg_proxy_output *output)
 {
-    char *ret = json_dumps (json_data, json_flags);
-    if (ret && output_length)
-    {
-        *output_length = strlen (ret);
-    }
+    char *response_body = json_dumps (json_data, json_flags);
 
-    return ret;
+    if (response_body)
+    {
+        output->response_body = response_body;
+        output->response_length = strlen (response_body);
+    }
+    else
+    {
+        output->response_length = 0;
+    }
 }
 
 /**
@@ -1001,17 +1005,11 @@ cmsg_proxy_strip_details_from_ant_result (json_t *ant_result_json_object)
  *
  * @param code - ANT_CODE appropriate to the reason for failure
  * @param message - Descriptive error message
- * @param http_status - A pointer to an integer that will store the HTTP status code to
- *                      be sent with the HTTP response.
- * @param output_json - A pointer to a string that will store the output JSON data to
- *                      be sent with the HTTP response.
- * @param output_length - A pointer to an integer that will store the length of the output
- *                        json response.
+ * @param output - CMSG proxy response
  */
 void
 _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
-                                       int *http_status, char **output_json,
-                                       size_t *output_length)
+                                       cmsg_proxy_output *output)
 {
     ant_result error = ANT_RESULT_INIT;
     json_t *converted_json_object = NULL;
@@ -1019,19 +1017,18 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
     CMSG_SET_FIELD_VALUE (&error, code, code);
     CMSG_SET_FIELD_PTR (&error, message, message);
 
-    *http_status = ant_code_to_http_code_array[code];
+    output->http_status = ant_code_to_http_code_array[code];
 
     if (!_cmsg_proxy_protobuf2json_object ((ProtobufCMessage *) &error,
                                            &converted_json_object))
     {
-        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        output->http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
         return;
     }
 
     cmsg_proxy_strip_details_from_ant_result (converted_json_object);
 
-    *output_json =
-        _cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT, output_length);
+    _cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT, output);
     json_decref (converted_json_object);
 }
 
@@ -1040,14 +1037,11 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
  * (CMSG_PROXY_SPECIAL_FIELD_BODY) field.
  *
  * @param output_proto_message - The message returned from calling the CMSG API
- * @param response_body - Pointer to hold the allocated plaintext string that is returned
- * @param response_length - Pointer to hold the length of the string that is returned
- * @param mime_type - Pointer to hold the mimetype of the response ("text/plain").
+ * @param output - CMSG proxy response
  */
 static bool
 _cmsg_proxy_generate_plaintext_response (ProtobufCMessage *output_proto_message,
-                                         char **response_body, size_t *response_length,
-                                         const char **mime_type)
+                                         cmsg_proxy_output *output)
 {
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
     const char **field_value = NULL;
@@ -1055,6 +1049,8 @@ _cmsg_proxy_generate_plaintext_response (ProtobufCMessage *output_proto_message,
     field_descriptor =
         protobuf_c_message_descriptor_get_field_by_name (output_proto_message->descriptor,
                                                          "_body");
+
+    output->response_length = 0;
 
     if (field_descriptor && (field_descriptor->type == PROTOBUF_C_TYPE_STRING))
     {
@@ -1067,14 +1063,14 @@ _cmsg_proxy_generate_plaintext_response (ProtobufCMessage *output_proto_message,
              * free by the caller in cmsgProxyHandler. response_body is also populated using
              * json_dumps, which uses standard allocation.
              */
-            *response_body = strdup (*field_value);
-            *mime_type = cmsg_mime_text_plain;
-            *response_length = strlen (*response_body);
+            output->response_body = strdup (*field_value);
+            output->mime_type = cmsg_mime_text_plain;
+            if (output->response_body)
+            {
+                output->response_length = strlen (output->response_body);
+            }
         }
-        else
-        {
-            *response_length = 0;
-        }
+
         return true;
     }
 
@@ -1087,18 +1083,11 @@ _cmsg_proxy_generate_plaintext_response (ProtobufCMessage *output_proto_message,
  * Sets a header with the file name if the message contains a field called "file_name"
  *
  * @param output_proto_message - The message returned from calling the CMSG API
- * @param response_body - Pointer to hold the allocated data that is returned. This is
- *                        copied from the output message
- * @param response_length - Pointer to hold the length of the data that is returned
- * @param mime_type - Pointer to hold the mimetype of the response ("application/octet-stream").
- * @param extra_headers - Pointer to hold the extra headers for a file response. These should
- *                        be cleaned up with cmsg_proxy_free_extra_headers
+ * @param output - CMSG proxy response
  */
 static bool
 _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
-                                    char **response_body, size_t *response_length,
-                                    const char **mime_type,
-                                    cmsg_proxy_headers **extra_headers)
+                                    cmsg_proxy_output *output)
 {
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
     const char **field_value = NULL;
@@ -1109,6 +1098,8 @@ _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
     char *filename_header_value = NULL;
     int ret;
 
+    output->response_length = 0;
+
     field_descriptor =
         protobuf_c_message_descriptor_get_field_by_name (output_proto_message->descriptor,
                                                          CMSG_PROXY_SPECIAL_FIELD_FILE);
@@ -1116,7 +1107,6 @@ _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
     {
         return false;
     }
-
 
     field_value =
         (const char **) ((char *) output_proto_message + field_descriptor->offset);
@@ -1131,21 +1121,17 @@ _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
          * because this may be binary data that includes (or isn't terminated with) null
          * characters.
          */
-        *response_body = malloc (*field_length);
-        if (!response_body)
+        output->response_body = malloc (*field_length);
+        if (!output->response_body)
         {
             return false;
         }
 
-        memcpy (*response_body, *field_value, *field_length);
+        memcpy (output->response_body, *field_value, *field_length);
 
         // header("Content-Type: application/octet-stream");
-        *mime_type = cmsg_mime_octet_stream;
-        *response_length = *field_length;
-    }
-    else
-    {
-        *response_length = 0;
+        output->mime_type = cmsg_mime_octet_stream;
+        output->response_length = *field_length;
     }
 
     field_descriptor =
@@ -1169,9 +1155,9 @@ _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
         CMSG_PROXY_FREE (header_array);
         CMSG_PROXY_FREE (headers);
         CMSG_PROXY_FREE (filename_header_value);
-        free (*response_body);
-        *response_body = NULL;
-        *response_length = 0;
+        free (output->response_body);
+        output->response_body = NULL;
+        output->response_length = 0;
         return false;
     }
 
@@ -1184,7 +1170,7 @@ _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
     header_array[1].value = CMSG_PROXY_STRDUP (cmsg_binary_encoding);
     headers->headers = header_array;
     headers->num_headers = NUM_FILE_HEADERS;
-    *extra_headers = headers;
+    output->extra_headers = headers;
 
     return true;
 }
@@ -1193,18 +1179,11 @@ _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
  * Generate the body of the response that should be returned to the web API caller.
  *
  * @param output_proto_message - The message returned from calling the CMSG API
- * @param output_json - Pointer to hold the JSON string that is returned
- * @param response_length - Pointer to hold the length of the data that is returned
- * @param mime_type - Pointer to hold the mimetype of the response.
- * @param extra_headers - Pointer to hold any extra headers to be returned. These should
- *                        be cleaned up with cmsg_proxy_free_extra_headers
- * @param http_status - The HTTP status code to be sent with the HTTP response.
+ * @param output - CMSG proxy response
  */
 static bool
 _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
-                                    char **response_body, size_t *response_length,
-                                    const char **mime_type,
-                                    cmsg_proxy_headers **extra_headers, int http_status)
+                                    cmsg_proxy_output *output)
 {
     json_t *converted_json_object = NULL;
     const char *key = NULL;
@@ -1212,21 +1191,17 @@ _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
     json_t *_error_info = NULL;
 
     // Handle special response types (if the response was successful)
-    if (http_status == HTTP_CODE_OK)
+    if (output->http_status == HTTP_CODE_OK)
     {
         if (_cmsg_proxy_msg_has_body_override (output_proto_message->descriptor))
         {
             // If the message provides a '_body' override, simply return that.
-            return _cmsg_proxy_generate_plaintext_response (output_proto_message,
-                                                            response_body, response_length,
-                                                            mime_type);
+            return _cmsg_proxy_generate_plaintext_response (output_proto_message, output);
         }
         else if (_cmsg_proxy_msg_has_file (output_proto_message->descriptor))
         {
             // If the message contains a file, return the contents of the file.
-            return _cmsg_proxy_generate_file_response (output_proto_message,
-                                                       response_body, response_length,
-                                                       mime_type, extra_headers);
+            return _cmsg_proxy_generate_file_response (output_proto_message, output);
         }
     }
 
@@ -1240,9 +1215,7 @@ _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
     if (strcmp (output_proto_message->descriptor->name, "ant_result") == 0)
     {
         cmsg_proxy_strip_details_from_ant_result (converted_json_object);
-        *response_body =
-            _cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT,
-                                          response_length);
+        _cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT, output);
         json_decref (converted_json_object);
 
         return true;
@@ -1250,16 +1223,15 @@ _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
 
     /* If the status is not HTTP_CODE_OK then we need to simply return the
      * '_error_info' subfield of the message to the API caller */
-    if (http_status != HTTP_CODE_OK)
+    if (output->http_status != HTTP_CODE_OK)
     {
         json_object_foreach (converted_json_object, key, value)
         {
             if ((strcmp (key, "_error_info") == 0))
             {
                 cmsg_proxy_strip_details_from_ant_result (value);
-                *response_body =
-                    _cmsg_proxy_json_t_to_output (value, JSON_ENCODE_ANY | JSON_COMPACT,
-                                                  response_length);
+                _cmsg_proxy_json_t_to_output (value, JSON_ENCODE_ANY | JSON_COMPACT,
+                                              output);
                 json_decref (converted_json_object);
                 return true;
             }
@@ -1278,9 +1250,8 @@ _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
         {
             if (strcmp (key, "_error_info") != 0)
             {
-                *response_body =
-                    _cmsg_proxy_json_t_to_output (value, JSON_ENCODE_ANY | JSON_COMPACT,
-                                                  response_length);
+                _cmsg_proxy_json_t_to_output (value, JSON_ENCODE_ANY | JSON_COMPACT,
+                                              output);
                 json_decref (converted_json_object);
                 return true;
             }
@@ -1301,8 +1272,7 @@ _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
     /* If there are more than 2 fields in the message descriptor
      * (and the http status is HTTP_CODE_OK) then simply return the
      * entire message as a JSON string */
-    *response_body =
-        _cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT, response_length);
+    _cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT, output);
     json_decref (converted_json_object);
     return true;
 }
@@ -1511,23 +1481,19 @@ _cmsg_proxy_index_add_element (GNode *node, gpointer data)
  * }
  *
  * @param query_string - The query string sent with the request. Expected to be URL Encoded.
- * @param output_json - A pointer to a string that will store the output JSON data to.
- *                      be sent with the HTTP response. The pointer must be freed by the
- *                      caller. It will contain an object formatted as above. If no
- *                      matches for the search pattern are found, an empty paths array will
- *                      be returned along with the basepath.
+ * @param output - cmsg proxy response data.
  *
  * @return - http status code for request.
  */
 static int
-cmsg_proxy_index (const char *query_string, char **output_json, size_t *output_length)
+cmsg_proxy_index (const char *query_string, cmsg_proxy_output *output)
 {
     char *search_pattern = NULL;
     json_t *result = NULL;
     json_t *api_array = NULL;
     struct index_add_elem_data traverse_data;
 
-    if (!output_json)
+    if (!output)
     {
         return HTTP_CODE_INTERNAL_SERVER_ERROR;
     }
@@ -1550,8 +1516,7 @@ cmsg_proxy_index (const char *query_string, char **output_json, size_t *output_l
     json_object_set_new (result, "basepath", json_string (API_PREFIX));
     json_object_set (result, "paths", api_array);
 
-    *output_json = _cmsg_proxy_json_t_to_output (result, JSON_ENCODE_ANY | JSON_COMPACT,
-                                                 output_length);
+    _cmsg_proxy_json_t_to_output (result, JSON_ENCODE_ANY | JSON_COMPACT, output);
 
     free (search_pattern);
     json_decref (api_array);
@@ -1561,23 +1526,31 @@ cmsg_proxy_index (const char *query_string, char **output_json, size_t *output_l
 }
 
 /**
- * Free data returned in the "extra_headers" pointer in a cmsg_proxy call.
- * @param extra_headers extra_headers pointer returned in cmsg_proxy call
+ * Free data returned in the "output" pointer in a cmsg_proxy call.
+ * @param output pointer previously passed to cmsg_proxy
  */
 void
-cmsg_proxy_free_extra_headers (cmsg_proxy_headers *extra_headers)
+cmsg_proxy_free_output_contents (cmsg_proxy_output *output)
 {
-    if (extra_headers)
+    if (output)
     {
-        if (extra_headers->headers)
+        if (output->extra_headers)
         {
-            for (int i = 0; i < extra_headers->num_headers; i++)
+            if (output->extra_headers->headers)
             {
-                CMSG_PROXY_FREE (extra_headers->headers[i].value);
+                for (int i = 0; i < output->extra_headers->num_headers; i++)
+                {
+                    CMSG_PROXY_FREE (output->extra_headers->headers[i].value);
+                }
+                CMSG_PROXY_FREE (output->extra_headers->headers);
             }
-            CMSG_PROXY_FREE (extra_headers->headers);
+            CMSG_PROXY_FREE (output->extra_headers);
         }
-        CMSG_PROXY_FREE (extra_headers);
+
+        /* Uses free rather than CMSG_PROXY_FREE because this is usually generated by
+         * json_dumps, so all places that allocate response use regular allocation.
+         */
+        free (output->response_body);
     }
 }
 
@@ -1585,25 +1558,8 @@ cmsg_proxy_free_extra_headers (cmsg_proxy_headers *extra_headers)
  * Proxy an HTTP request into the AW+ CMSG internal API. Uses the HttpRules defined
  * for each rpc defined in the CMSG .proto files.
  *
- * @param url - URL the HTTP request is for.
- * @param query_string - The query string sent with the request. Expected to be URL Encoded.
- * @param http_verb - The HTTP verb sent with the HTTP request.
- * @param input_data - Data received for the request. This could be raw file data in some
- *                     cases, but is usually a JSON string.
- * @param input_length - Length of the input data.
- * @param web_api_info - A pointer to the structure holding information about the web
- *                       API request.
- * @param response_body - A pointer to hold the response body to be sent in the HTTP
- *                        response. This could be a JSON string or raw file data.
- *                        The pointer may return NULL if the rpc sends no response data.
- *                        It should be freed with free.
- * @param response_length - Length of the response body.
- * @param mime_type   - A pointer to a string to store the mime type that will be sent
- *                      in the HTTP response.
- * @param extra_headers - Pointer to hold any extra headers that should be returned. These
- *                        should be cleaned up with cmsg_proxy_free_extra_headers
- * @param http_status - A pointer to an integer that will store the HTTP status code to
- *                      be sent with the HTTP response.
+ * @param input. Input data for the request
+ * @param output. output data for the response
  *
  * @return - true if the CMSG proxy actioned the request (i.e. it knew about the URL
  *           because it is defined on an rpc in the .proto files).
@@ -1611,11 +1567,7 @@ cmsg_proxy_free_extra_headers (cmsg_proxy_headers *extra_headers)
  *           to a CMSG API).
  */
 bool
-cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
-            const char *input_data, size_t input_length,
-            const cmsg_proxy_api_request_info *web_api_info,
-            char **response_body, size_t *response_length, const char **mime_type,
-            cmsg_proxy_headers **extra_headers, int *http_status)
+cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
 {
     const cmsg_service_info *service_info = NULL;
     const cmsg_client *client = NULL;
@@ -1630,15 +1582,16 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
 
     /* By default handle responses with MIME type "application/json"
      */
-    *mime_type = cmsg_mime_application_json;
+    output->mime_type = cmsg_mime_application_json;
 
-    if (strcmp (url, "/v1/index") == 0 && http_verb == CMSG_HTTP_GET)
+    if (strcmp (input->url, "/v1/index") == 0 && input->http_verb == CMSG_HTTP_GET)
     {
-        *http_status = cmsg_proxy_index (query_string, response_body, response_length);
+        output->http_status = cmsg_proxy_index (input->query_string, output);
         return true;
     }
 
-    service_info = _cmsg_proxy_get_service_and_parameters (url, query_string, http_verb,
+    service_info = _cmsg_proxy_get_service_and_parameters (input->url, input->query_string,
+                                                           input->http_verb,
                                                            &url_parameters);
     if (service_info == NULL)
     {
@@ -1648,11 +1601,11 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
         return false;
     }
 
-    json_obj = _cmsg_proxy_json_object_create (input_data, input_length,
+    json_obj = _cmsg_proxy_json_object_create (input->data, input->data_length,
                                                service_info->input_msg_descriptor,
                                                service_info->body_string, url_parameters,
                                                &error);
-    if (input_data && !json_obj)
+    if (input->data && !json_obj)
     {
         /* No json object created, report the error */
 
@@ -1665,7 +1618,7 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
 
         _cmsg_proxy_generate_ant_result_error (ANT_CODE_INVALID_ARGUMENT,
                                                (error_msg) ? error_msg : "Invalid JSON",
-                                               http_status, response_body, response_length);
+                                               output);
 
         CMSG_PROXY_FREE (error_msg);
 
@@ -1678,17 +1631,15 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
 
     g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
 
-    _cmsg_proxy_set_internal_api_info (web_api_info, &json_obj,
+    _cmsg_proxy_set_internal_api_info (&input->web_api_info, &json_obj,
                                        service_info->input_msg_descriptor);
 
     client = _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
     if (client == NULL)
     {
         /* This should not occur but check for it */
-        *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
         _cmsg_proxy_json_object_destroy (json_obj);
-        _cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL, NULL, http_status,
-                                               response_body, response_length);
+        _cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL, NULL, output);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_client);
         return true;
     }
@@ -1703,8 +1654,7 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     if (result != ANT_CODE_OK)
     {
         /* The JSON sent with the request is malformed */
-        _cmsg_proxy_generate_ant_result_error (result, message, http_status, response_body,
-                                               response_length);
+        _cmsg_proxy_generate_ant_result_error (result, message, output);
         CMSG_PROXY_FREE (message);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_malformed_input);
         return true;
@@ -1717,17 +1667,17 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     if (is_file_input)
     {
         // Set message "_file" field to point directly to input_data (without copying)
-        _cmsg_proxy_file_data_to_message (input_data, input_length, input_proto_message);
+        _cmsg_proxy_file_data_to_message (input->data, input->data_length,
+                                          input_proto_message);
     }
 
     CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_api_calls);
 
     /* Do the pre-API check */
-    result = _cmsg_proxy_pre_api_check (http_verb, &message);
+    result = _cmsg_proxy_pre_api_check (input->http_verb, &message);
     if (result != ANT_CODE_OK)
     {
-        _cmsg_proxy_generate_ant_result_error (result, message, http_status, response_body,
-                                               response_length);
+        _cmsg_proxy_generate_ant_result_error (result, message, output);
         CMSG_PROXY_FREE (message);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
         return true;
@@ -1747,15 +1697,15 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
     {
         /* Something went wrong calling the CMSG api */
         CMSG_FREE_RECV_MSG (input_proto_message);
-        _cmsg_proxy_generate_ant_result_error (result, NULL, http_status, response_body,
-                                               response_length);
+        _cmsg_proxy_generate_ant_result_error (result, NULL, output);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
         return true;
     }
 
     CMSG_FREE_RECV_MSG (input_proto_message);
 
-    if (!_cmsg_proxy_set_http_status (http_status, http_verb, &output_proto_message))
+    if (!_cmsg_proxy_set_http_status (&output->http_status, input->http_verb,
+                                      &output_proto_message))
     {
         syslog (LOG_ERR, "_error_info is not set for %s", service_info->url_string);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_error_info);
@@ -1763,13 +1713,11 @@ cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
 
     if (output_proto_message)
     {
-        if (!_cmsg_proxy_generate_response_body (output_proto_message, response_body,
-                                                 response_length,
-                                                 mime_type, extra_headers, *http_status))
+        if (!_cmsg_proxy_generate_response_body (output_proto_message, output))
         {
             /* This should not occur (the ProtobufCMessage structure returned
              * by the CMSG api should always be well formed) but check for it */
-            *http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+            output->http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
             CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_protobuf_to_json);
         }
         CMSG_FREE_RECV_MSG (output_proto_message);

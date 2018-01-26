@@ -37,6 +37,54 @@ typedef struct _cmsg_proxy_api_request_info
     const char *api_request_username;
 } cmsg_proxy_api_request_info;
 
+/* CMSG proxy input/request data */
+typedef struct _cmsg_proxy_input
+{
+    /* URL the HTTP request is for. */
+    const char *url;
+
+    /* The query string sent with the request. Expected to be URL Encoded. */
+    const char *query_string;
+
+    /* The HTTP verb sent with the HTTP request. */
+    cmsg_http_verb http_verb;
+
+    /* Data received for the request. This could be raw file data in some cases, but is
+     * usually a JSON string.
+     */
+    const char *data;
+
+    /* Length of the input data. */
+    size_t data_length;
+
+    /* Information about the web API request. */
+    cmsg_proxy_api_request_info web_api_info;
+} cmsg_proxy_input;
+
+/* CMSG proxy output/response data */
+typedef struct _cmsg_proxy_output
+{
+    /* A pointer to hold the response body to be sent in the HTTP response. This could be a
+     * JSON string or raw file data. The pointer may return NULL if the rpc sends no
+     * response data.
+     * Will be freed as part of the call to cmsg_proxy_(passthrough_)free_output_contents.
+     */
+    char *response_body;
+
+    /* Length of the response body. */
+    size_t response_length;
+
+    /* A pointer to the mime type that will be sent in the HTTP response */
+    const char *mime_type;
+
+    /* Pointer to hold any extra headers that should be returned.
+     * Will be freed as part of the call to cmsg_proxy_(passthrough_)free_output_contents.
+     */
+    cmsg_proxy_headers *extra_headers;
+
+    /* The HTTP status code to be returned */
+    int http_status;
+} cmsg_proxy_output;
 
 typedef int (*cmsg_api_func_ptr) ();
 typedef bool (*pre_api_http_check_callback) (cmsg_http_verb http_verb, char **message);
@@ -67,22 +115,13 @@ typedef struct _cmsg_proxy_api_info
 
 void cmsg_proxy_init (void);
 void cmsg_proxy_deinit (void);
-void cmsg_proxy_free_extra_headers (cmsg_proxy_headers *extra_headers);
-bool cmsg_proxy (const char *url, const char *query_string, cmsg_http_verb http_verb,
-                 const char *input_data, size_t input_length,
-                 const cmsg_proxy_api_request_info *web_api_info,
-                 char **response_body, size_t *response_length, const char **mime_type,
-                 cmsg_proxy_headers **extra_headers, int *http_status);
+void cmsg_proxy_free_output_contents (cmsg_proxy_output *output);
+bool cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output);
 void cmsg_proxy_set_pre_api_http_check_callback (pre_api_http_check_callback cb);
 
 void cmsg_proxy_passthrough_init (const char *library_path);
 void cmsg_proxy_passthrough_deinit (void);
-bool cmsg_proxy_passthrough (const char *url, const char *query_string,
-                             cmsg_http_verb http_verb, const char *input_json,
-                             size_t input_length,
-                             const cmsg_proxy_api_request_info *web_api_info,
-                             char **output_json, size_t *response_length,
-                             const char **response_mime, cmsg_proxy_headers **extra_headers,
-                             int *http_status);
+void cmsg_proxy_passthrough_free_output_contents (cmsg_proxy_output *output);
+bool cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output);
 
 #endif /* __CMSG_PROXY_H_ */
