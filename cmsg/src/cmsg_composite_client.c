@@ -17,21 +17,13 @@
 #include "cmsg_client.h"
 #include "cmsg_error.h"
 #include "cmsg_composite_client.h"
+#include "cmsg_composite_client_private.h"
 
 extern cmsg_client *cmsg_client_create (cmsg_transport *transport,
                                         const ProtobufCServiceDescriptor *descriptor);
 extern bool cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
                               const ProtobufCServiceDescriptor *descriptor);
 extern void cmsg_client_deinit (cmsg_client *client);
-
-typedef struct _cmsg_composite_client_s
-{
-    cmsg_client base_client;
-
-    // composite client information
-    GList *child_clients;
-    pthread_mutex_t child_mutex;
-} cmsg_composite_client;
 
 #define CMSG_COMPOSITE_CLIENT_TYPE_CHECK_ERROR \
     "Composite client function called for non composite client type"
@@ -196,11 +188,9 @@ cmsg_composite_client_delete_child (cmsg_client *_composite_client, cmsg_client 
     return 0;
 }
 
-static void
-cmsg_composite_client_destroy (cmsg_client *client)
+void
+cmsg_composite_client_deinit (cmsg_composite_client *comp_client)
 {
-    cmsg_composite_client *comp_client = (cmsg_composite_client *) client;
-
     cmsg_client_deinit (&comp_client->base_client);
 
     if (comp_client->child_clients)
@@ -209,8 +199,43 @@ cmsg_composite_client_destroy (cmsg_client *client)
     }
 
     pthread_mutex_destroy (&comp_client->child_mutex);
+}
 
-    CMSG_FREE (comp_client);
+static void
+cmsg_composite_client_destroy (cmsg_client *client)
+{
+    cmsg_composite_client *comp_client = (cmsg_composite_client *) client;
+
+    cmsg_composite_client_deinit (comp_client);
+
+    CMSG_FREE (client);
+}
+
+bool
+cmsg_composite_client_init (cmsg_composite_client *comp_client,
+                            const ProtobufCServiceDescriptor *descriptor)
+{
+    if (!cmsg_client_init (&comp_client->base_client, NULL, descriptor))
+    {
+        return false;
+    }
+
+    // Override the client->invoke with the composite-specific version
+    comp_client->base_client.invoke = cmsg_composite_client_invoke;
+    comp_client->base_client.base_service.invoke = cmsg_composite_client_invoke;
+    comp_client->base_client.self.object_type = CMSG_OBJ_TYPE_COMPOSITE_CLIENT;
+
+    comp_client->base_client.client_destroy = cmsg_composite_client_destroy;
+
+    comp_client->child_clients = NULL;
+
+    if (pthread_mutex_init (&comp_client->child_mutex, NULL) != 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Init failed for child_mutex.");
+        return false;
+    }
+
+    return true;
 }
 
 
@@ -228,24 +253,8 @@ cmsg_composite_client_new (const ProtobufCServiceDescriptor *descriptor)
 
     if (comp_client)
     {
-        if (!cmsg_client_init (&comp_client->base_client, NULL, descriptor))
+        if (!cmsg_composite_client_init (comp_client, descriptor))
         {
-            CMSG_FREE (comp_client);
-            return NULL;
-        }
-
-        // Override the client->invoke with the composite-specific version
-        comp_client->base_client.invoke = cmsg_composite_client_invoke;
-        comp_client->base_client.base_service.invoke = cmsg_composite_client_invoke;
-        comp_client->base_client.self.object_type = CMSG_OBJ_TYPE_COMPOSITE_CLIENT;
-
-        comp_client->base_client.client_destroy = cmsg_composite_client_destroy;
-
-        comp_client->child_clients = NULL;
-
-        if (pthread_mutex_init (&comp_client->child_mutex, NULL) != 0)
-        {
-            CMSG_LOG_GEN_ERROR ("Init failed for child_mutex.");
             CMSG_FREE (comp_client);
             return NULL;
         }

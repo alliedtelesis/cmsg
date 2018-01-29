@@ -586,7 +586,7 @@ cmsg_tipc_topology_connect_subscribe (const char *server_name, uint32_t lower,
  * @return 0 on normal operation or -1 on failure
  */
 int
-cmsg_tipc_topology_subscription_read (int sock)
+cmsg_tipc_topology_subscription_read (int sock, void *user_cb_data)
 {
     struct tipc_event event;
     struct tipc_subscr *subscr;
@@ -618,7 +618,7 @@ cmsg_tipc_topology_subscription_read (int sock)
             memcpy (&callback, subscr->usr_handle, sizeof (cmsg_tipc_topology_callback));
             if (callback != NULL)
             {
-                callback (&event);
+                callback (&event, user_cb_data);
             }
         }
     }

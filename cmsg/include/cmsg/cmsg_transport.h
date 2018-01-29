@@ -156,7 +156,7 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_ONEWAY_UNIX,
 } cmsg_transport_type;
 
-typedef void (*cmsg_tipc_topology_callback) (struct tipc_event *event);
+typedef void (*cmsg_tipc_topology_callback) (struct tipc_event *event, void *user_cb_data);
 
 #define CMSG_MAX_TPORT_ID_LEN 64
 
@@ -217,7 +217,7 @@ int cmsg_tipc_topology_connect_subscribe (const char *server_name, uint32_t lowe
                                           uint32_t upper,
                                           cmsg_tipc_topology_callback callback);
 
-int cmsg_tipc_topology_subscription_read (int sock);
+int cmsg_tipc_topology_subscription_read (int sock, void *user_cb_data);
 
 void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
                                              const char *event_str,

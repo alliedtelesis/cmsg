@@ -17,9 +17,13 @@ libcmsg_la_SOURCES = \
 	src/transport/cmsg_transport_unix.c \
 	src/transport/cmsg_transport_tipc_broadcast.c \
 	src/transport/cmsg_transport.c \
+	src/broadcast_client/cmsg_broadcast_client_private.h \
+	src/broadcast_client/cmsg_broadcast_client.c \
+	src/broadcast_client/cmsg_broadcast_client_conn_mgmt.c \
 	src/cmsg.c \
 	src/cmsg_client.c \
 	src/cmsg_composite_client.c \
+	src/cmsg_composite_client_private.h \
 	src/cmsg_pub.c \
 	src/cmsg_queue.c \
 	src/cmsg_server.c \
@@ -33,7 +37,8 @@ libcmsg_la_SOURCES = \
 	include/cmsg/cmsg_queue.h \
 	include/cmsg/cmsg_server.h \
 	include/cmsg/cmsg_sub.h \
-	include/cmsg/cmsg_transport.h
+	include/cmsg/cmsg_transport.h \
+	include/cmsg/cmsg_broadcast_client_server.h
 
 
 libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) -lutility -lprotobuf-c
@@ -83,7 +88,8 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/client_server_echo_tests.c \
 	test/functional/publisher_subscriber_tests.c \
 	test/functional/client_queuing_tests.c \
-	test/functional/publisher_queuing_tests.c
+	test/functional/publisher_queuing_tests.c \
+	test/functional/broadcast_client_tests.c
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -Iinclude -Iinclude/cmsg
 cmsg_functional_tests_LDFLAGS = -static
 cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus -lcmsg -lprotobuf-c
