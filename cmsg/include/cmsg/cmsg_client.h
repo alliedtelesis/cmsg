@@ -65,7 +65,6 @@ typedef struct _cmsg_client_s
     cmsg_object self;
     cmsg_object parent;
 
-    int queue_enabled_from_parent;
     cmsg_queue_filter_func_t queue_filter_func;
     cmsg_queue_callback_func_t queue_callback_func;
 
@@ -91,7 +90,6 @@ typedef struct _cmsg_client_s
     // composite client information
     GList *child_clients;
     pthread_mutex_t child_mutex;
-    int last_ret;
 
     // loopback server
     void *loopback_server;
@@ -189,6 +187,10 @@ cmsg_queue_filter_type cmsg_client_queue_filter_lookup (cmsg_client *client,
                                                         const char *method);
 
 void cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable);
+
+int32_t cmsg_client_create_packet (cmsg_client *client, const char *method_name,
+                                   const ProtobufCMessage *input, uint8_t **buffer_ptr,
+                                   uint32_t *total_message_size_ptr);
 
 cmsg_client *cmsg_create_client_tipc_rpc (const char *server_name, int member_id,
                                           int scope,

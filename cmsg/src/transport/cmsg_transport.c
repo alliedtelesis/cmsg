@@ -3,6 +3,7 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
+#include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
 
@@ -192,7 +193,6 @@ cmsg_transport_new (cmsg_transport_type type)
 
     if (transport)
     {
-        transport->client_send_tries = 0;
         transport->connection.sockets.client_socket = -1;
         transport->connection.sockets.listening_socket = -1;
 
@@ -380,8 +380,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket,
 
 /* Receive message from a client and process it */
 cmsg_status_code
-cmsg_transport_client_recv (cmsg_recv_func recv_wrapper, int socket,
-                            cmsg_transport *transport,
+cmsg_transport_client_recv (cmsg_transport *transport,
                             const ProtobufCServiceDescriptor *descriptor,
                             ProtobufCMessage **messagePtPt)
 {
@@ -395,11 +394,12 @@ cmsg_transport_client_recv (cmsg_recv_func recv_wrapper, int socket,
     const ProtobufCMessageDescriptor *desc;
     uint32_t extra_header_size;
     cmsg_server_request server_request;
+    int socket = transport->connection.sockets.client_socket;
 
     *messagePtPt = NULL;
 
-    nbytes = recv_wrapper (transport, socket, &header_received, sizeof (cmsg_header),
-                           MSG_WAITALL);
+    nbytes = transport->tport_funcs.recv_wrapper (transport, socket, &header_received,
+                                                  sizeof (cmsg_header), MSG_WAITALL);
 
     if (nbytes == sizeof (cmsg_header))
     {
@@ -449,7 +449,8 @@ cmsg_transport_client_recv (cmsg_recv_func recv_wrapper, int socket,
         }
 
         //just recv the rest of the data to clear the socket
-        nbytes = recv_wrapper (transport, socket, recv_buffer, dyn_len, MSG_WAITALL);
+        nbytes = transport->tport_funcs.recv_wrapper (transport, socket, recv_buffer,
+                                                      dyn_len, MSG_WAITALL);
 
         if (nbytes == (int) dyn_len)
         {
@@ -523,7 +524,8 @@ cmsg_transport_client_recv (cmsg_recv_func recv_wrapper, int socket,
 
         // TEMP to keep things going
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
-        nbytes = recv_wrapper (transport, socket, recv_buffer, nbytes, MSG_WAITALL);
+        nbytes = transport->tport_funcs.recv_wrapper (transport, socket, recv_buffer,
+                                                      nbytes, MSG_WAITALL);
         CMSG_FREE (recv_buffer);
         recv_buffer = NULL;
     }

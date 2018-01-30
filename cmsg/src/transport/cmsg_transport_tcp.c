@@ -3,6 +3,7 @@
  */
 #include "cmsg_private.h"
 #include "cmsg_transport.h"
+#include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
 /* Limit the size of message read */
@@ -266,15 +267,7 @@ cmsg_transport_tcp_client_recv (cmsg_transport *transport,
                                 const ProtobufCServiceDescriptor *descriptor,
                                 ProtobufCMessage **messagePtPt)
 {
-    cmsg_status_code ret;
-
-    *messagePtPt = NULL;
-
-    ret = cmsg_transport_client_recv (cmsg_transport_tcp_recv,
-                                      transport->connection.sockets.client_socket,
-                                      transport, descriptor, messagePtPt);
-
-    return ret;
+    return cmsg_transport_client_recv (transport, descriptor, messagePtPt);
 }
 
 

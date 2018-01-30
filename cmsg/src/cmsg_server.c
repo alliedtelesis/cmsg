@@ -637,15 +637,15 @@ cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
             server->server_request = &server_request;
             if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
             {
-                CMSG_LOG_TRANSPORT_ERROR (server->_transport,
-                                          "Server message processing returned an error.");
+                CMSG_LOG_SERVER_ERROR (server,
+                                       "Server message processing returned an error.");
             }
 
         }
         else
         {
-            CMSG_LOG_TRANSPORT_ERROR (server->_transport, "No data on recv socket %d.",
-                                      server->_transport->connection.sockets.client_socket);
+            CMSG_LOG_SERVER_ERROR (server, "No data on recv socket %d.",
+                                   server->_transport->connection.sockets.client_socket);
 
             ret = CMSG_RET_ERR;
         }

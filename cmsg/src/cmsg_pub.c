@@ -641,6 +641,9 @@ cmsg_pub_invoke (ProtobufCService *service,
     const char *method_name;
     GList *list = NULL;
     GList *list_next = NULL;
+    bool queue_packet = false;
+    uint8_t *packet = NULL;
+    uint32_t total_message_size = 0;
 
     CMSG_ASSERT_RETURN_VAL (service != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (service->descriptor != NULL, CMSG_RET_ERR);
@@ -653,18 +656,30 @@ cmsg_pub_invoke (ProtobufCService *service,
     cmsg_queue_filter_type action = cmsg_pub_queue_filter_lookup (publisher,
                                                                   method_name);
 
-    if (action == CMSG_QUEUE_FILTER_ERROR)
+    switch (action)
     {
+    case CMSG_QUEUE_FILTER_ERROR:
         CMSG_LOG_PUBLISHER_ERROR (publisher,
                                   "queue_lookup_filter returned an error for: %s\n",
                                   method_name);
         return CMSG_RET_ERR;
-    }
 
-    if (action == CMSG_QUEUE_FILTER_DROP)
-    {
+    case CMSG_QUEUE_FILTER_DROP:
         CMSG_DEBUG (CMSG_ERROR, "[PUB] dropping message: %s\n", method_name);
         return CMSG_RET_OK;
+
+    case CMSG_QUEUE_FILTER_PROCESS:
+        queue_packet = false;
+        break;
+
+    case CMSG_QUEUE_FILTER_QUEUE:
+        queue_packet = true;
+        break;
+
+    default:
+        CMSG_LOG_PUBLISHER_ERROR (publisher, "Bad action for queue filter. Action:%d.",
+                                  action);
+        return CMSG_RET_ERR;
     }
 
     //for each entry in pub->subscriber_entry
@@ -687,24 +702,6 @@ cmsg_pub_invoke (ProtobufCService *service,
             CMSG_DEBUG (CMSG_INFO, "[PUB] subscriber has subscribed to: %s\n", method_name);
         }
 
-        if (action == CMSG_QUEUE_FILTER_PROCESS)
-        {
-            //don't queue, process directly
-            list_entry->client->queue_enabled_from_parent = 0;
-        }
-        else if (action == CMSG_QUEUE_FILTER_QUEUE)
-        {
-            //tell client to queue
-            list_entry->client->queue_enabled_from_parent = 1;
-        }
-        else    //global queue settings
-        {
-            CMSG_LOG_PUBLISHER_ERROR (publisher, "Bad action for queue filter. Action:%d.",
-                                      action);
-            pthread_mutex_unlock (&publisher->subscriber_list_mutex);
-            return CMSG_RET_ERR;
-        }
-
         //pass parent to client for queueing using correct queue
         list_entry->client->parent = publisher->self;
 
@@ -714,21 +711,59 @@ cmsg_pub_invoke (ProtobufCService *service,
         // Unlock list to send notification
         pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 
-        int i = 0;
-        for (i = 0; i <= CMSG_TRANSPORT_CLIENT_SEND_TRIES; i++)
+        if (queue_packet)
         {
-            ret = list_entry->client->invoke ((ProtobufCService *) list_entry->client,
-                                              method_index, input, NULL, NULL);
-            if (ret == CMSG_RET_ERR)
+            ret = cmsg_client_create_packet (list_entry->client, method_name, input,
+                                             &packet, &total_message_size);
+            if (ret == CMSG_RET_OK)
             {
-                //try again
-                CMSG_LOG_PUBLISHER_DEBUG (publisher,
-                                          "Client invoke failed (method: %s) (queue: %d).",
-                                          method_name, action == CMSG_QUEUE_FILTER_QUEUE);
+                pthread_mutex_lock (&publisher->queue_mutex);
+
+                //todo: check return
+                cmsg_send_queue_push (publisher->queue, packet,
+                                      total_message_size,
+                                      list_entry->client, list_entry->client->_transport,
+                                      (char *) method_name);
+
+                pthread_mutex_unlock (&publisher->queue_mutex);
+
+                //send signal to  cmsg_pub_queue_process_all
+                pthread_mutex_lock (&publisher->queue_process_mutex);
+                if (list_entry->client->queue_process_count == 0)
+                {
+                    pthread_cond_signal (&publisher->queue_process_cond);
+                }
+                publisher->queue_process_count = publisher->queue_process_count + 1;
+                pthread_mutex_unlock (&publisher->queue_process_mutex);
+
+                // Execute callback function if configured
+                if (list_entry->client->queue_callback_func != NULL)
+                {
+                    list_entry->client->queue_callback_func (list_entry->client,
+                                                             method_name);
+                }
+
+                CMSG_FREE (packet);
             }
-            else
+        }
+        else
+        {
+            int i = 0;
+            for (i = 0; i <= CMSG_TRANSPORT_CLIENT_SEND_TRIES; i++)
             {
-                break;
+                ret = list_entry->client->invoke ((ProtobufCService *) list_entry->client,
+                                                  method_index, input, NULL, NULL);
+                if (ret == CMSG_RET_ERR)
+                {
+                    //try again
+                    CMSG_LOG_PUBLISHER_DEBUG (publisher,
+                                              "Client invoke failed (method: %s).",
+                                              method_name);
+                }
+                else
+                {
+                    break;
+                }
             }
         }
 
@@ -742,8 +777,8 @@ cmsg_pub_invoke (ProtobufCService *service,
         if (ret == CMSG_RET_ERR)
         {
             CMSG_LOG_PUBLISHER_ERROR (publisher,
-                                      "Failed to send notification (method: %s) (queue: %d). Removing subscription",
-                                      method_name, action == CMSG_QUEUE_FILTER_QUEUE);
+                                      "Failed to send notification (method: %s). Removing subscription",
+                                      method_name);
             _cmsg_pub_subscriber_delete_link (publisher, list);
         }
 
