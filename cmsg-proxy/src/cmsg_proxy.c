@@ -126,6 +126,23 @@ static const char *cmsg_binary_encoding = "binary";
 static const char *cmsg_filename_header_format = "attachment; filename=\"%s\"";
 
 /**
+ * Return the HTTP code that matches a particular ANT code. If the passed in value is
+ * out of range, HTTP_CODE_INTERNAL_SERVER_ERROR is returned.
+ * @param ant_code ant_code to convert to HTTP return code
+ * @returns HTTP code that corresponds to ant_code, or HTTP_CODE_INTERNAL_SERVER_ERROR
+ */
+static int
+_cmsg_proxy_ant_code_to_http_code (int ant_code)
+{
+    if (ant_code < 0 || ant_code >= ANT_CODE_MAX)
+    {
+        return HTTP_CODE_INTERNAL_SERVER_ERROR;
+    }
+
+    return ant_code_to_http_code_array[ant_code];
+}
+
+/**
  * Checks whether the given field name corresponds to a hidden field.
  *
  * @param field_name - The field name to check.
@@ -962,7 +979,7 @@ _cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
     error_message = (ant_result *) (*error_message_ptr);
     if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
     {
-        *http_status = ant_code_to_http_code_array[error_message->code];
+        *http_status = _cmsg_proxy_ant_code_to_http_code (error_message->code);
         if (error_message->code == ANT_CODE_OK && http_verb == CMSG_HTTP_GET)
         {
             /* Unset the error info message from the protobuf message */
@@ -1017,7 +1034,7 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
     CMSG_SET_FIELD_VALUE (&error, code, code);
     CMSG_SET_FIELD_PTR (&error, message, message);
 
-    output->http_status = ant_code_to_http_code_array[code];
+    output->http_status = _cmsg_proxy_ant_code_to_http_code (code);
 
     if (!_cmsg_proxy_protobuf2json_object ((ProtobufCMessage *) &error,
                                            &converted_json_object))
