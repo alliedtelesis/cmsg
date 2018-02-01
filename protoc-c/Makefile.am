@@ -4,9 +4,15 @@ http.pb.cc \
 http.pb.h: $(PROTOC_PATH)$(EXEEXT) http.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) --cpp_out=. http.proto
 
+validation.pb.cc \
+validation.pb.h: $(PROTOC_PATH)$(EXEEXT) validation.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) --cpp_out=. validation.proto
+
 protoc_cmsg_SOURCES = \
 	http.pb.cc \
 	http.pb.h \
+	validation.pb.cc \
+	validation.pb.h \
 	c_atl_generator.cc \
 	c_atl_generator.h \
 	c_bytes_field.cc \
@@ -49,5 +55,5 @@ protoc_cmsg_LDADD = \
 protoc_cmsg_CPPFLAGS = \
 	-include $(top_builddir)/config.h
 
-BUILT_SOURCES = http.pb.cc http.pb.h
+BUILT_SOURCES = http.pb.cc http.pb.h validation.pb.cc validation.pb.h
 CLEANFILES = $(BUILT_SOURCES)

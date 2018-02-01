@@ -73,10 +73,17 @@ test/functional/cmsg_functional_tests_impl_auto.c \
 test/functional/cmsg_functional_tests_impl_auto.h \
 test/functional/cmsg_functional_tests.pb-c.c \
 test/functional/cmsg_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/functional/cmsg_functional_tests.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) --proto_path=. --proto_path=src --c_out=. test/functional/cmsg_functional_tests.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) --proto_path=. --proto_path=src --proto_path=../protoc-c --proto_path=../cmsg-proxy/src --c_out=. test/functional/cmsg_functional_tests.proto
+
+test/functional/ant_result.pb-c.c \
+test/functional/ant_result.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) ../cmsg-proxy/src/ant_result.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) --proto_path=. --proto_path=../cmsg-proxy/src --c_out=test/functional/ ../cmsg-proxy/src/ant_result.proto
+
 
 bin_PROGRAMS += cmsg_functional_tests
 cmsg_functional_tests_SOURCES = \
+	test/functional/ant_result.pb-c.c \
+	test/functional/ant_result.pb-c.h \
 	test/functional/cmsg_functional_tests_api_auto.c \
 	test/functional/cmsg_functional_tests_api_auto.h \
 	test/functional/cmsg_functional_tests_impl_auto.c \
@@ -89,7 +96,9 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/publisher_subscriber_tests.c \
 	test/functional/client_queuing_tests.c \
 	test/functional/publisher_queuing_tests.c \
-	test/functional/broadcast_client_tests.c
+	test/functional/broadcast_client_tests.c \
+	test/functional/server_side_validation.c
+
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -Iinclude -Iinclude/cmsg
 cmsg_functional_tests_LDFLAGS = -static
 cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus -lcmsg -lprotobuf-c

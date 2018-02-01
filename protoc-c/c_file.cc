@@ -181,7 +181,8 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
 
   for (int i = 0; i < file_->dependency_count(); i++) {
 #ifdef ATL_CHANGE
-    if (StripProto(file_->dependency(i)->name()) != "http")
+    if ((StripProto(file_->dependency(i)->name()) != "http") &&
+        (StripProto(file_->dependency(i)->name()) != "validation"))
     {
         printer->Print(
           "#include \"$dependency$.pb-c.h\"\n",
@@ -332,7 +333,8 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
   // Include dependent types header files
   for (int i = 0; i < file_->dependency_count(); i++) {
 #ifdef ATL_CHANGE
-    if (StripProto(file_->dependency(i)->name()) != "http")
+    if ((StripProto(file_->dependency(i)->name()) != "http") &&
+        (StripProto(file_->dependency(i)->name()) != "validation"))
       {
         printer->Print(
           "#include \"$dependency$.h\"\n",
