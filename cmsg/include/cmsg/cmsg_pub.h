@@ -66,8 +66,8 @@ typedef struct _cmsg_pub_s
 
     //thread signaling for queuing
     pthread_cond_t queue_process_cond;
-    pthread_mutex_t queue_process_mutex;
-    uint32_t queue_process_count;
+    bool queue_thread_running;
+    pthread_t queue_thread_id;
     pthread_t self_thread_id;
 } cmsg_pub;
 
@@ -110,6 +110,10 @@ int32_t cmsg_pub_queue_disable (cmsg_pub *publisher);
 uint32_t cmsg_pub_queue_get_length (cmsg_pub *publisher);
 
 int32_t cmsg_pub_queue_process_all (cmsg_pub *publisher);
+
+void cmsg_pub_queue_thread_start (cmsg_pub *publisher);
+
+void cmsg_pub_queue_thread_stop (cmsg_pub *publisher);
 
 //queue filter
 void cmsg_pub_queue_filter_set_all (cmsg_pub *publisher,

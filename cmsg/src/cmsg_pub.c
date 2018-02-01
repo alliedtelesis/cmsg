@@ -116,16 +116,11 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
 
     publisher->queue = g_queue_new ();
     publisher->queue_filter_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
+    publisher->queue_thread_running = false;
 
     if (pthread_cond_init (&publisher->queue_process_cond, NULL) != 0)
     {
         CMSG_LOG_PUBLISHER_ERROR (publisher, "Init failed for queue_process_cond.");
-        return NULL;
-    }
-
-    if (pthread_mutex_init (&publisher->queue_process_mutex, NULL) != 0)
-    {
-        CMSG_LOG_PUBLISHER_ERROR (publisher, "Init failed queue_process_mutex.");
         return NULL;
     }
 
@@ -157,6 +152,8 @@ cmsg_pub_destroy (cmsg_pub *publisher)
         publisher->sub_server = NULL;
     }
 
+    cmsg_pub_queue_thread_stop (publisher);
+
     cmsg_pub_subscriber_remove_all (publisher);
 
     g_list_free (publisher->subscriber_list);
@@ -170,8 +167,6 @@ cmsg_pub_destroy (cmsg_pub *publisher)
     cmsg_send_queue_destroy (publisher->queue);
 
     pthread_mutex_destroy (&publisher->queue_mutex);
-
-    pthread_mutex_destroy (&publisher->queue_process_mutex);
 
     pthread_cond_destroy (&publisher->queue_process_cond);
 
@@ -725,16 +720,9 @@ cmsg_pub_invoke (ProtobufCService *service,
                                       list_entry->client, list_entry->client->_transport,
                                       (char *) method_name);
 
-                pthread_mutex_unlock (&publisher->queue_mutex);
-
                 //send signal to  cmsg_pub_queue_process_all
-                pthread_mutex_lock (&publisher->queue_process_mutex);
-                if (list_entry->client->queue_process_count == 0)
-                {
-                    pthread_cond_signal (&publisher->queue_process_cond);
-                }
-                publisher->queue_process_count = publisher->queue_process_count + 1;
-                pthread_mutex_unlock (&publisher->queue_process_mutex);
+                pthread_cond_signal (&publisher->queue_process_cond);
+                pthread_mutex_unlock (&publisher->queue_mutex);
 
                 // Execute callback function if configured
                 if (list_entry->client->queue_callback_func != NULL)
@@ -913,18 +901,41 @@ cmsg_pub_queue_enable (cmsg_pub *publisher)
     cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_QUEUE);
 }
 
+static void *
+cmsg_pub_queue_process_thread (void *arg)
+{
+    cmsg_pub *publisher = arg;
+    while (1)
+    {
+        cmsg_pub_queue_process_all (publisher);
+    }
+    return NULL;
+}
+
+void
+cmsg_pub_queue_thread_start (cmsg_pub *publisher)
+{
+    if (!publisher->queue_thread_running)
+    {
+        if (pthread_create
+            (&publisher->queue_thread_id, NULL, cmsg_pub_queue_process_thread,
+             publisher) == 0)
+        {
+            publisher->queue_thread_running = true;
+        }
+        else
+        {
+            CMSG_LOG_PUBLISHER_ERROR (publisher, "Unable to start publisher queue thread");
+        }
+    }
+}
+
 void
 cmsg_pub_queue_free_all (cmsg_pub *publisher)
 {
     pthread_mutex_lock (&publisher->queue_mutex);
     cmsg_send_queue_free_all (publisher->queue);
     pthread_mutex_unlock (&publisher->queue_mutex);
-
-    //send signal to  cmsg_pub_queue_process_all
-    pthread_mutex_lock (&publisher->queue_process_mutex);
-    publisher->queue_process_count = -1;
-    pthread_cond_signal (&publisher->queue_process_cond);
-    pthread_mutex_unlock (&publisher->queue_process_mutex);
 }
 
 int32_t
@@ -933,6 +944,17 @@ cmsg_pub_queue_disable (cmsg_pub *publisher)
     cmsg_pub_queue_filter_set_all (publisher, CMSG_QUEUE_FILTER_PROCESS);
 
     return cmsg_pub_queue_process_all (publisher);
+}
+
+void
+cmsg_pub_queue_thread_stop (cmsg_pub *publisher)
+{
+    if (publisher->queue_thread_running)
+    {
+        pthread_cancel (publisher->queue_thread_id);
+        pthread_join (publisher->queue_thread_id, NULL);
+        publisher->queue_thread_running = false;
+    }
 }
 
 uint32_t
@@ -948,34 +970,23 @@ cmsg_pub_queue_get_length (cmsg_pub *publisher)
 int32_t
 cmsg_pub_queue_process_all (cmsg_pub *publisher)
 {
-    struct timespec time_to_wait;
-    uint32_t processed = 0;
-
-    clock_gettime (CLOCK_REALTIME, &time_to_wait);
-
     //if the we run do api calls and processing in different threads wait
     //for a signal from the api thread to start processing
-    if (publisher->self_thread_id != pthread_self ())
+    if (!pthread_equal (publisher->self_thread_id, pthread_self ()))
     {
-        pthread_mutex_lock (&publisher->queue_process_mutex);
-        while (publisher->queue_process_count == 0)
+        pthread_mutex_lock (&publisher->queue_mutex);
+        // Ensure mutex is unlocked if we are cancelled
+        pthread_cleanup_push ((void (*)(void *)) pthread_mutex_unlock,
+                              &publisher->queue_mutex);
+        while (g_queue_get_length (publisher->queue) == 0)
         {
-            time_to_wait.tv_sec++;
-            pthread_cond_timedwait (&publisher->queue_process_cond,
-                                    &publisher->queue_process_mutex, &time_to_wait);
+            pthread_cond_wait (&publisher->queue_process_cond, &publisher->queue_mutex);
         }
-
-        publisher->queue_process_count = publisher->queue_process_count - 1;
-        pthread_mutex_unlock (&publisher->queue_process_mutex);
-
-        processed = _cmsg_pub_queue_process_all_direct (publisher);
-    }
-    else
-    {
-        processed = _cmsg_pub_queue_process_all_direct (publisher);
+        // Unlock mutex
+        pthread_cleanup_pop (1);
     }
 
-    return processed;
+    return _cmsg_pub_queue_process_all_direct (publisher);
 }
 
 static int32_t
