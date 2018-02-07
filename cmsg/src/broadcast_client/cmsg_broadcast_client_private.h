@@ -19,6 +19,10 @@ typedef struct _cmsg_broadcast_client_s
     /* The server used to implement the broadcast functionality */
     cmsg_server *server;
 
+    /* If the user has asked for a loopback client to be included
+     * in the broadcast client then this is stored here. */
+    cmsg_client *loopback_client;
+
     /* Whether to use oneway or RPC child clients */
     bool oneway_children;
 
@@ -40,6 +44,17 @@ typedef struct _cmsg_broadcast_client_s
 
     /* Thread for monitoring the TIPC topology and creating clients as required */
     pthread_t topology_thread;
+
+    /* Thread for accepting any connection attempts to the broadcast server */
+    pthread_t server_accept_thread;
+
+    /* Queue to store new accepted connection sockets. This is used to pass the
+     * new socket descriptors back to the broadcast client user to read from. */
+    GAsyncQueue *accept_sd_queue;
+
+    /* An eventfd object to notify the broadcast client user that there is a new
+     * socket descriptor on the accept_sd_queue.  */
+    int accept_sd_eventfd;
 } cmsg_broadcast_client;
 
 int32_t cmsg_broadcast_conn_mgmt_init (cmsg_broadcast_client *broadcast_client);

@@ -28,11 +28,14 @@ cmsg_broadcast_client_create (const ProtobufCServiceDescriptor *descriptor)
         broadcast_client->oneway_children = false;
         broadcast_client->service_entry_name = NULL;
         broadcast_client->server = NULL;
+        broadcast_client->loopback_client = NULL;
         broadcast_client->my_node_id = 0;
         broadcast_client->lower_node_id = 0;
         broadcast_client->upper_node_id = 0;
         broadcast_client->tipc_subscription_sd = -1;
         broadcast_client->type = CMSG_BROADCAST_LOCAL_NONE;
+        broadcast_client->accept_sd_queue = NULL;
+        broadcast_client->accept_sd_eventfd = -1;
     }
     else
     {
@@ -40,6 +43,26 @@ cmsg_broadcast_client_create (const ProtobufCServiceDescriptor *descriptor)
     }
 
     return broadcast_client;
+}
+
+static cmsg_server *
+cmsg_broadcast_server_create (ProtobufCService *service, const char *service_entry_name,
+                              uint32_t my_node_id, bool oneway)
+{
+    cmsg_server *server = NULL;
+
+    if (oneway)
+    {
+        server = cmsg_create_server_tipc_oneway (service_entry_name, my_node_id,
+                                                 TIPC_CLUSTER_SCOPE, service);
+    }
+    else
+    {
+        server = cmsg_create_server_tipc_rpc (service_entry_name, my_node_id,
+                                              TIPC_CLUSTER_SCOPE, service);
+    }
+
+    return server;
 }
 
 /**
@@ -66,7 +89,6 @@ cmsg_broadcast_client_new (ProtobufCService *service, const char *service_entry_
 {
     int ret = CMSG_RET_OK;
     cmsg_broadcast_client *broadcast_client = NULL;
-    cmsg_server *server = NULL;
     cmsg_client *loopback_client = NULL;
 
     CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
@@ -96,27 +118,14 @@ cmsg_broadcast_client_new (ProtobufCService *service, const char *service_entry_
         }
     }
 
-    if (broadcast_client->type == CMSG_BROADCAST_LOCAL_TIPC)
+    broadcast_client->server = cmsg_broadcast_server_create (service, service_entry_name,
+                                                             my_node_id, oneway);
+    if (!broadcast_client->server)
     {
-        if (broadcast_client->oneway_children)
-        {
-            server = cmsg_create_server_tipc_oneway (service_entry_name, my_node_id,
-                                                     TIPC_CLUSTER_SCOPE, service);
-        }
-        else
-        {
-            server = cmsg_create_server_tipc_rpc (service_entry_name, my_node_id,
-                                                  TIPC_CLUSTER_SCOPE, service);
-        }
-
-        if (!server)
-        {
-            cmsg_destroy_client_and_transport (loopback_client);
-            cmsg_composite_client_deinit (&broadcast_client->base_client);
-            CMSG_FREE (broadcast_client);
-            return NULL;
-        }
-        broadcast_client->server = server;
+        cmsg_destroy_client_and_transport (loopback_client);
+        cmsg_composite_client_deinit (&broadcast_client->base_client);
+        CMSG_FREE (broadcast_client);
+        return NULL;
     }
 
     ret = cmsg_broadcast_conn_mgmt_init (broadcast_client);
@@ -132,6 +141,7 @@ cmsg_broadcast_client_new (ProtobufCService *service, const char *service_entry_
     /* Setup was successful, add the loopback client onto the broadcast composite */
     cmsg_composite_client_add_child ((cmsg_client *) &broadcast_client->base_client,
                                      loopback_client);
+    broadcast_client->loopback_client = loopback_client;
 
     return (cmsg_client *) broadcast_client;
 }
@@ -163,5 +173,44 @@ cmsg_broadcast_client_destroy (cmsg_client *client)
     cmsg_destroy_server_and_transport (broadcast_client->server);
 
     CMSG_FREE (broadcast_client);
+}
 
+cmsg_server *
+cmsg_broadcast_client_get_server (cmsg_client *client)
+{
+    cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) client;
+
+    CMSG_ASSERT_RETURN_VAL (broadcast_client != NULL, NULL);
+
+    return broadcast_client->server;
+}
+
+GAsyncQueue *
+cmsg_broadcast_client_get_accept_queue (cmsg_client *client)
+{
+    cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) client;
+
+    CMSG_ASSERT_RETURN_VAL (broadcast_client != NULL, NULL);
+
+    return broadcast_client->accept_sd_queue;
+}
+
+int
+cmsg_broadcast_client_get_accept_eventfd (cmsg_client *client)
+{
+    cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) client;
+
+    CMSG_ASSERT_RETURN_VAL (broadcast_client != NULL, -1);
+
+    return broadcast_client->accept_sd_eventfd;
+}
+
+cmsg_client *
+cmsg_broadcast_client_get_loopback_client (cmsg_client *client)
+{
+    cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) client;
+
+    CMSG_ASSERT_RETURN_VAL (broadcast_client != NULL, NULL);
+
+    return broadcast_client->loopback_client;
 }

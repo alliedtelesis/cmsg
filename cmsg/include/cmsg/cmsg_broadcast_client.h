@@ -33,5 +33,9 @@ cmsg_client *cmsg_broadcast_client_new (ProtobufCService *service,
                                         uint32_t lower_node_id, uint32_t upper_node_id,
                                         cmsg_broadcast_local_type type, bool oneway);
 void cmsg_broadcast_client_destroy (cmsg_client *client);
+cmsg_server *cmsg_broadcast_client_get_server (cmsg_client *client);
+GAsyncQueue *cmsg_broadcast_client_get_accept_queue (cmsg_client *client);
+int cmsg_broadcast_client_get_accept_eventfd (cmsg_client *client);
+cmsg_client *cmsg_broadcast_client_get_loopback_client (cmsg_client *client);
 
 #endif /* __CMSG_BROADCAST_CLIENT_H_ */

@@ -30,6 +30,8 @@ static const uint16_t tipc_scope = TIPC_CLUSTER_SCOPE;
 static pthread_t server_thread1;
 static pthread_t server_thread2;
 
+static bool impl_function_hit = false;
+
 static int
 sm_mock_cmsg_service_port_get (const char *name, const char *proto)
 {
@@ -177,4 +179,102 @@ test_broadcast_client__servers_up_before_client_init (void)
     cmsg_broadcast_client_destroy (broadcast_client);
 
     stop_servers_and_wait ();
+}
+
+static void *
+client_test_thread_run (void *unused)
+{
+    cmsg_client *client = NULL;
+    int ret = 0;
+    cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
+    cmsg_uint32_msg *recv_msg = NULL;
+
+
+    client = cmsg_create_client_tipc_rpc ("cmsg-test", TEST_CLIENT_TIPC_ID,
+                                          TIPC_CLUSTER_SCOPE, CMSG_DESCRIPTOR (cmsg, test));
+
+    CMSG_SET_FIELD_VALUE (&send_msg, value, 123);
+
+    ret = cmsg_test_api_broadcast_client_test (client, &send_msg, &recv_msg);
+
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    NP_ASSERT_NOT_NULL (recv_msg);
+    NP_ASSERT_EQUAL (recv_msg->value, 456);
+
+    CMSG_FREE_RECV_MSG (recv_msg);
+
+    cmsg_destroy_client_and_transport (client);
+
+    return 0;
+}
+
+void
+cmsg_test_impl_broadcast_client_test (const void *service, const cmsg_uint32_msg *recv_msg)
+{
+    cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
+
+    impl_function_hit = true;
+
+    NP_ASSERT_EQUAL (recv_msg->value, 123);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, value, 456);
+
+    cmsg_test_server_broadcast_client_testSend (service, &send_msg);
+}
+
+/**
+ * First initialise a broadcast client. Then create a standard cmsg client
+ * and confirm that the client can connect and send to the server of the
+ * broadcast client.
+ */
+void
+test_broadcast_client__client_can_send_to_broadcast_client (void)
+{
+    cmsg_client *broadcast_client = NULL;
+    static pthread_t client_thread;
+    GAsyncQueue *accept_queue = NULL;
+    cmsg_server *server = NULL;
+    int accept_eventfd = -1;
+    fd_set read_fds;
+    struct timeval tv = { 5, 0 };
+    int recv_fd = -1;
+    int ret = -1;
+
+    broadcast_client = cmsg_broadcast_client_new (CMSG_SERVICE (cmsg, test), "cmsg-test",
+                                                  TEST_CLIENT_TIPC_ID, MIN_TIPC_ID,
+                                                  MAX_TIPC_ID, CMSG_BROADCAST_LOCAL_NONE,
+                                                  false);
+
+    NP_ASSERT_NOT_NULL (broadcast_client);
+
+    pthread_create (&client_thread, NULL, &client_test_thread_run, NULL);
+
+    server = cmsg_broadcast_client_get_server (broadcast_client);
+    accept_queue = cmsg_broadcast_client_get_accept_queue (broadcast_client);
+    accept_eventfd = cmsg_broadcast_client_get_accept_eventfd (broadcast_client);
+
+    FD_ZERO (&read_fds);
+    FD_SET (accept_eventfd, &read_fds);
+
+    select (accept_eventfd + 1, &read_fds, NULL, NULL, &tv);
+    NP_ASSERT_EQUAL (g_async_queue_length (accept_queue), 1);
+
+    recv_fd = GPOINTER_TO_INT (g_async_queue_try_pop (accept_queue));
+
+    /* Since we are using TIPC the first message will be the
+     * CMSG_MSG_TYPE_CONN_OPEN message */
+    ret = cmsg_server_receive (server, recv_fd);
+    NP_ASSERT_EQUAL (ret, 0);
+
+    /* The next message should be the CMSG_MSG_TYPE_METHOD_REQ
+     * message */
+    ret = cmsg_server_receive (server, recv_fd);
+    NP_ASSERT_EQUAL (ret, 0);
+
+    close (recv_fd);
+
+    NP_ASSERT_TRUE (impl_function_hit);
+
+    cmsg_broadcast_client_destroy (broadcast_client);
+    pthread_join (client_thread, NULL);
 }
