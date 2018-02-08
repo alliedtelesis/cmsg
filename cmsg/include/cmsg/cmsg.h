@@ -5,7 +5,6 @@
 #define __CMSG_H_
 
 #include <protobuf-c/protobuf-c.h>
-#include <glib.h>
 #include <stdbool.h>
 
 // Return codes
@@ -61,13 +60,13 @@ extern ProtobufCAllocator cmsg_memory_allocator;
 #define CMSG_SET_FIELD_VALUE(_name, _field, _value) \
     do {                                            \
         (_name)->_field = (_value);                 \
-        (_name)->has_##_field = TRUE;               \
+        (_name)->has_##_field = true;               \
     } while (0)
 
 #define CMSG_UNSET_AND_ZERO_FIELD_VALUE(_name, _field) \
     do {                                               \
         (_name)->_field = 0;                           \
-        (_name)->has_##_field = FALSE;                 \
+        (_name)->has_##_field = false;                 \
     } while (0)
 
 #define CMSG_SET_FIELD_PTR(_name, _field, _ptr) \
@@ -82,16 +81,16 @@ extern ProtobufCAllocator cmsg_memory_allocator;
     } while (0)
 
 #define CMSG_IS_FIELD_PRESENT(_msg, _field) \
-    ((_msg)->has_##_field ? TRUE : FALSE)
+    ((_msg)->has_##_field ? true : false)
 
 #define CMSG_IS_PTR_PRESENT(_msg, _ptr) \
-    ((_msg)->_ptr ? TRUE : FALSE)
+    ((_msg)->_ptr ? true : false)
 
 #define CMSG_IS_REPEATED_PRESENT(_msg, _field) \
-    ((_msg)->n_##_field ? TRUE : FALSE)
+    ((_msg)->n_##_field ? true : false)
 
 #define CMSG_MSG_HAS_FIELD(_msg, _field_name) \
-    (protobuf_c_message_descriptor_get_field_by_name ((_msg)->base.descriptor, _field_name) ? TRUE : FALSE)
+    (protobuf_c_message_descriptor_get_field_by_name ((_msg)->base.descriptor, _field_name) ? true : false)
 
 /**
  * Helper macro to check whether a given message has a field with the
@@ -100,7 +99,7 @@ extern ProtobufCAllocator cmsg_memory_allocator;
  * @param _field_name the field name to be checked
  */
 #define CMSG_MSG_HAS_FIELD(_msg, _field_name) \
-    (protobuf_c_message_descriptor_get_field_by_name ((_msg)->base.descriptor, _field_name) ? TRUE : FALSE)
+    (protobuf_c_message_descriptor_get_field_by_name ((_msg)->base.descriptor, _field_name) ? true : false)
 
 /**
  * Helper macro to allocate a message struct using the CMSG memory allocator.

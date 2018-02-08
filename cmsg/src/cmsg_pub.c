@@ -295,7 +295,7 @@ _cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link)
     if (entry->in_use > 0)
     {
         CMSG_DEBUG (CMSG_INFO, "[PUB] [LIST] marking entry for deletion\n");
-        entry->to_be_removed = TRUE;
+        entry->to_be_removed = true;
     }
     else
     {

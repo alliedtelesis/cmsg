@@ -352,10 +352,10 @@ cmsg_transport_tcp_server_destroy (cmsg_transport *transport)
 /**
  * TCP is never congested
  */
-uint32_t
+bool
 cmsg_transport_tcp_is_congested (cmsg_transport *transport)
 {
-    return FALSE;
+    return false;
 }
 
 
@@ -489,7 +489,7 @@ cmsg_create_transport_tcp (cmsg_socket *config, cmsg_transport_type transport_ty
         memcpy (&transport->config.socket.sockaddr.in, &config->sockaddr.in,
                 sizeof (struct sockaddr_in));
     }
-    cmsg_transport_ipfree_bind_enable (transport, TRUE);
+    cmsg_transport_ipfree_bind_enable (transport, true);
 
     return transport;
 }

@@ -148,12 +148,12 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
 
         server->queue_process_number = 0;
 
-        server->queue_in_process = 0;
+        server->queue_in_process = false;
 
         pthread_mutex_unlock (&server->queueing_state_mutex);
 
-        server->app_owns_current_msg = FALSE;
-        server->app_owns_all_msgs = FALSE;
+        server->app_owns_current_msg = false;
+        server->app_owns_all_msgs = false;
     }
     else
     {
@@ -331,10 +331,10 @@ cmsg_server_list_destroy (cmsg_server_list *server_list)
     CMSG_FREE (server_list);
 }
 
-int
+bool
 cmsg_server_list_is_empty (cmsg_server_list *server_list)
 {
-    int ret = TRUE;
+    bool ret = true;
 
     if (server_list != NULL)
     {
@@ -389,7 +389,7 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
     struct timeval timeout = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
     int fd;
     int newfd;
-    int check_fdmax = FALSE;
+    bool check_fdmax = false;
     int listen_socket;
 
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
@@ -441,7 +441,7 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
                     shutdown (fd, SHUT_RDWR);
                     close (fd);
                     FD_CLR (fd, master_fdset);
-                    check_fdmax = TRUE;
+                    check_fdmax = true;
                 }
             }
         }
@@ -801,7 +801,7 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
         {
             protobuf_c_message_free_unpacked (message, &cmsg_memory_allocator);
         }
-        server->app_owns_current_msg = FALSE;
+        server->app_owns_current_msg = false;
 
         // Closure is called by the invoke.
         break;
@@ -1244,7 +1244,7 @@ cmsg_server_queue_process (cmsg_server *server)
     {
         if (!server->queue_in_process)
         {
-            server->queue_in_process = TRUE;
+            server->queue_in_process = true;
 
             pthread_mutex_lock (&server->queue_filter_mutex);
             cmsg_queue_filter_set_all (server->queue_filter_hash_table,
@@ -1275,7 +1275,7 @@ cmsg_server_queue_process (cmsg_server *server)
         if (cmsg_server_queue_get_length (server) == 0)
         {
             server->queue_process_number = 0;
-            server->queue_in_process = FALSE;
+            server->queue_in_process = false;
 
             pthread_mutex_lock (&server->queue_filter_mutex);
             cmsg_queue_filter_clear_all (server->queue_filter_hash_table,
@@ -1398,12 +1398,12 @@ int32_t
 cmsg_server_queue_request_process_some (cmsg_server *server, uint32_t num_to_process)
 {
     //thread save, will be executed on the next server receive in the server thread
-    cmsg_bool_t queue_in_process = TRUE;
+    cmsg_bool_t queue_in_process = true;
     pthread_mutex_lock (&server->queueing_state_mutex);
     server->queue_process_number = num_to_process;
     pthread_mutex_unlock (&server->queueing_state_mutex);
 
-    while (queue_in_process == TRUE)
+    while (queue_in_process)
     {
         pthread_mutex_lock (&server->queueing_state_mutex);
         queue_in_process = server->queue_in_process;
@@ -1423,12 +1423,12 @@ int32_t
 cmsg_server_queue_request_process_all (cmsg_server *server)
 {
     //thread save, will be executed on the next server receive in the server thread
-    cmsg_bool_t queue_in_process = TRUE;
+    cmsg_bool_t queue_in_process = true;
     pthread_mutex_lock (&server->queueing_state_mutex);
     server->queue_process_number = -1;
     pthread_mutex_unlock (&server->queueing_state_mutex);
 
-    while (queue_in_process == TRUE)
+    while (queue_in_process)
     {
         pthread_mutex_lock (&server->queueing_state_mutex);
         queue_in_process = server->queue_in_process;
@@ -1638,7 +1638,7 @@ _cmsg_create_server_tcp (cmsg_socket *config, ProtobufCService *descriptor,
     }
 
     /* Configure the transport to enable non-existent, non-local address binding */
-    cmsg_transport_ipfree_bind_enable (transport, TRUE);
+    cmsg_transport_ipfree_bind_enable (transport, true);
 
     server = cmsg_server_new (transport, descriptor);
     if (server == NULL)
@@ -1702,23 +1702,23 @@ cmsg_destroy_server_and_transport (cmsg_server *server)
 void
 cmsg_server_app_owns_current_msg_set (cmsg_server *server)
 {
-    server->app_owns_current_msg = TRUE;
+    server->app_owns_current_msg = true;
 }
 
 /**
  * @brief Allows the application to take ownership of all messages.
- * @brief This flag defaults to FALSE but will never reset once it is set by
+ * @brief This flag defaults to false but will never reset once it is set by
  * @bried the application.
  *
  * @warning Taking ownership also means the application is responsible for freeing all msgs
  * @warning  msgs received from this server.
  * @warning If you want CMSG to takeover ownership of new received messages, the application
- * @warning must call this function again with FALSE. Note, the application will still be
+ * @warning must call this function again with false. Note, the application will still be
  * @warning responsible for freeing any messages it received before resetting this flag.
  * @warning There is no way to change ownership of an existing message once the IMPL exits.
  *
  * @param server The server you are setting the flag in
- * @param app_is_owner Is the application the owner of all messages? TRUE or FALSE
+ * @param app_is_owner Is the application the owner of all messages? true or false
  * @returns nothing
  */
 void

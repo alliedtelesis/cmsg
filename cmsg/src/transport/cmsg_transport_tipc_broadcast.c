@@ -264,10 +264,10 @@ cmsg_transport_tipc_broadcast_server_destroy (cmsg_transport *transport)
 /**
  * TIPC BC can be congested but we don't check for it
  */
-uint32_t
+bool
 cmsg_transport_tipc_broadcast_is_congested (cmsg_transport *transport)
 {
-    return FALSE;
+    return false;
 }
 
 

@@ -225,7 +225,7 @@ cmsg_transport_udt_connect (cmsg_transport *transport, int timeout)
 /**
  * Can't work out whether the UDT is congested
  */
-uint32_t
+bool
 cmsg_transport_udt_is_congested (cmsg_transport *transport)
 {
     if (transport->udt_info.functions.is_congested)
@@ -233,7 +233,7 @@ cmsg_transport_udt_is_congested (cmsg_transport *transport)
         return transport->udt_info.functions.is_congested (transport);
     }
 
-    return FALSE;
+    return false;
 }
 
 

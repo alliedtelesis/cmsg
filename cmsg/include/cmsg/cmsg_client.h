@@ -145,7 +145,7 @@ cmsg_status_code cmsg_client_recv_echo_reply (cmsg_client *client);
 
 int32_t cmsg_client_get_socket (cmsg_client *client);
 
-int32_t cmsg_client_transport_is_congested (cmsg_client *client);
+bool cmsg_client_transport_is_congested (cmsg_client *client);
 
 //queue api
 void cmsg_client_queue_enable (cmsg_client *client);

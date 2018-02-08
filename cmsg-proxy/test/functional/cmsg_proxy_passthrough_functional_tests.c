@@ -103,74 +103,94 @@ tear_down (void)
 void
 test_simple_passthrough_get (void)
 {
-    char *output_json = NULL;
-    int http_status = 0;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
 
-    cmsg_proxy_passthrough ("/test_passthrough_get", NULL, CMSG_HTTP_GET, test_input_json,
-                            NULL, &output_json, &http_status);
+    input.url = "/test_passthrough_get";
+    input.http_verb = CMSG_HTTP_GET;
+    input.data = test_input_json;
+    input.data_length = strlen (test_input_json);
 
-    NP_ASSERT_STR_EQUAL (output_json, test_output_string);
-    NP_ASSERT_EQUAL (http_status, test_output_status);
+    cmsg_proxy_passthrough (&input, &output);
 
-    free (output_json);
+    NP_ASSERT_STR_EQUAL (output.response_body, test_output_string);
+    NP_ASSERT_EQUAL (output.http_status, test_output_status);
+
+    cmsg_proxy_passthrough_free_output_contents (&output);
 }
 
 void
 test_simple_passthrough_put (void)
 {
-    char *output_json = NULL;
-    int http_status = 0;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
 
-    cmsg_proxy_passthrough ("/test_passthrough_put", NULL, CMSG_HTTP_PUT, test_input_json,
-                            NULL, &output_json, &http_status);
+    input.url = "/test_passthrough_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = test_input_json;
+    input.data_length = strlen (test_input_json);
 
-    NP_ASSERT_STR_EQUAL (output_json, test_output_string);
-    NP_ASSERT_EQUAL (http_status, test_output_status);
+    cmsg_proxy_passthrough (&input, &output);
 
-    free (output_json);
+    NP_ASSERT_STR_EQUAL (output.response_body, test_output_string);
+    NP_ASSERT_EQUAL (output.http_status, test_output_status);
+
+    cmsg_proxy_passthrough_free_output_contents (&output);
 }
 
 void
 test_simple_passthrough_post (void)
 {
-    char *output_json = NULL;
-    int http_status = 0;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
 
-    cmsg_proxy_passthrough ("/test_passthrough_post", NULL, CMSG_HTTP_POST, test_input_json,
-                            NULL, &output_json, &http_status);
+    input.url = "/test_passthrough_post";
+    input.http_verb = CMSG_HTTP_POST;
+    input.data = test_input_json;
+    input.data_length = strlen (test_input_json);
 
-    NP_ASSERT_STR_EQUAL (output_json, test_output_string);
-    NP_ASSERT_EQUAL (http_status, test_output_status);
+    cmsg_proxy_passthrough (&input, &output);
 
-    free (output_json);
+    NP_ASSERT_STR_EQUAL (output.response_body, test_output_string);
+    NP_ASSERT_EQUAL (output.http_status, test_output_status);
+
+    cmsg_proxy_passthrough_free_output_contents (&output);
 }
 
 void
 test_simple_passthrough_patch (void)
 {
-    char *output_json = NULL;
-    int http_status = 0;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
 
-    cmsg_proxy_passthrough ("/test_passthrough_patch", NULL, CMSG_HTTP_PATCH,
-                            test_input_json, NULL, &output_json, &http_status);
+    input.url = "/test_passthrough_patch";
+    input.http_verb = CMSG_HTTP_PATCH;
+    input.data = test_input_json;
+    input.data_length = strlen (test_input_json);
 
-    NP_ASSERT_STR_EQUAL (output_json, test_output_string);
-    NP_ASSERT_EQUAL (http_status, test_output_status);
+    cmsg_proxy_passthrough (&input, &output);
 
-    free (output_json);
+    NP_ASSERT_STR_EQUAL (output.response_body, test_output_string);
+    NP_ASSERT_EQUAL (output.http_status, test_output_status);
+
+    cmsg_proxy_passthrough_free_output_contents (&output);
 }
 
 void
 test_simple_passthrough_delete (void)
 {
-    char *output_json = NULL;
-    int http_status = 0;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
 
-    cmsg_proxy_passthrough ("/test_passthrough_delete", NULL, CMSG_HTTP_DELETE,
-                            test_input_json, NULL, &output_json, &http_status);
+    input.url = "/test_passthrough_delete";
+    input.http_verb = CMSG_HTTP_DELETE;
+    input.data = test_input_json;
+    input.data_length = strlen (test_input_json);
 
-    NP_ASSERT_STR_EQUAL (output_json, test_output_string);
-    NP_ASSERT_EQUAL (http_status, test_output_status);
+    cmsg_proxy_passthrough (&input, &output);
 
-    free (output_json);
+    NP_ASSERT_STR_EQUAL (output.response_body, test_output_string);
+    NP_ASSERT_EQUAL (output.http_status, test_output_status);
+
+    cmsg_proxy_passthrough_free_output_contents (&output);
 }

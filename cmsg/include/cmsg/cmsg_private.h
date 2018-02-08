@@ -19,6 +19,7 @@
 #include <sys/time.h>
 #include <string.h>
 #include <utility/tracelog.h>
+#include <glib.h>
 #include <protobuf-c/protobuf-c.h>
 
 // TODO: Perhaps we can refactor the logic around the debug below
@@ -71,7 +72,7 @@
 
 #define CMSG_TLV_SIZE(x) ((2 * sizeof (uint32_t)) + (x))
 
-#define IS_METHOD_DEFINED(x)  (x == UNDEFINED_METHOD ? FALSE : TRUE)
+#define IS_METHOD_DEFINED(x)  (x == UNDEFINED_METHOD ? false : true)
 
 typedef enum _cmsg_object_type_e
 {
