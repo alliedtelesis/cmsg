@@ -97,6 +97,23 @@ typedef struct _cmsg_server_list_s
     pthread_mutex_t server_mutex;   // Used to protect list access.
 } cmsg_server_list;
 
+typedef struct _cmsg_server_accept_thread_info
+{
+    /* The server to accept connections for. */
+    cmsg_server *server;
+
+    /* Thread used to accept any incoming connection attempts. */
+    pthread_t server_accept_thread;
+
+    /* Queue to store new accepted connection sockets. This is used to
+     * pass the new socket descriptors back to the server user. */
+    GAsyncQueue *accept_sd_queue;
+
+    /* An eventfd object to notify the server user that there is a new
+     * socket descriptor on the accept_sd_queue.  */
+    int accept_sd_eventfd;
+} cmsg_server_accept_thread_info;
+
 cmsg_server *cmsg_server_new (cmsg_transport *transport, ProtobufCService *service);
 
 void cmsg_server_destroy (cmsg_server *server);
@@ -193,5 +210,8 @@ cmsg_server *cmsg_create_server_tcp_oneway (cmsg_socket *config,
 void cmsg_server_close_wrapper (cmsg_server *server);
 void cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
                                 uint32_t method_index);
+
+cmsg_server_accept_thread_info *cmsg_server_accept_thread_init (cmsg_server *server);
+void cmsg_server_accept_thread_deinit (cmsg_server_accept_thread_info *info);
 
 #endif /* __CMSG_SERVER_H_ */

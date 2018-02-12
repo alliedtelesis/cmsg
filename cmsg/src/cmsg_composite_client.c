@@ -124,9 +124,9 @@ cmsg_composite_client_add_child (cmsg_client *_composite_client, cmsg_client *cl
 {
     cmsg_composite_client *composite_client = (cmsg_composite_client *) _composite_client;
 
-    if (composite_client == NULL || client == NULL)
+    if (!composite_client || !client)
     {
-        return -1;
+        return CMSG_RET_ERR;
     }
 
     CMSG_COMPOSITE_CLIENT_TYPE_CHECK (composite_client->base_client, -1);
@@ -138,7 +138,7 @@ cmsg_composite_client_add_child (cmsg_client *_composite_client, cmsg_client *cl
     {
         CMSG_LOG_GEN_ERROR ("Transport type %d not supported for composite clients",
                             client->_transport->type);
-        return -1;
+        return CMSG_RET_ERR;
     }
 
     pthread_mutex_lock (&composite_client->child_mutex);
@@ -162,7 +162,7 @@ cmsg_composite_client_add_child (cmsg_client *_composite_client, cmsg_client *cl
 
     pthread_mutex_unlock (&composite_client->child_mutex);
 
-    return 0;
+    return CMSG_RET_OK;
 }
 
 int32_t
@@ -170,7 +170,7 @@ cmsg_composite_client_delete_child (cmsg_client *_composite_client, cmsg_client 
 {
     cmsg_composite_client *composite_client = (cmsg_composite_client *) _composite_client;
 
-    if (composite_client == NULL || client == NULL)
+    if (!composite_client || !client)
     {
         return -1;
     }
