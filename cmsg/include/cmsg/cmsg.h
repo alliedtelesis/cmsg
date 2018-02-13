@@ -80,6 +80,13 @@ extern ProtobufCAllocator cmsg_memory_allocator;
         (_name)->n_##_field = (_n_elem);                      \
     } while (0)
 
+#define CMSG_SET_FIELD_BYTES(_name, _field, _data, _len) \
+    do {                                                 \
+        (_name)->_field.len = (_len);                    \
+        (_name)->_field.data = (_data);                  \
+        (_name)->has_##_field = true;                    \
+    } while (0)
+
 #define CMSG_IS_FIELD_PRESENT(_msg, _field) \
     ((_msg)->has_##_field ? true : false)
 

@@ -114,7 +114,7 @@ message file_data
 {
     optional ant_result _error_info = 1;
     optional string file_name = 2;
-    repeated uint8 _file= 3;
+    optional bytes _file = 3;
 }
 
 message file_name

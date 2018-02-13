@@ -378,9 +378,8 @@ static void
 _cmsg_proxy_file_data_to_message (const char *input_data, size_t input_length,
                                   ProtobufCMessage *msg)
 {
-
-    const char **data_ptr = NULL;
-    size_t *data_len_ptr = NULL;
+    ProtobufCBinaryData *data_ptr = NULL;
+    protobuf_c_boolean *has_field_ptr = NULL;
     const ProtobufCFieldDescriptor *file_field = NULL;
 
     file_field = protobuf_c_message_descriptor_get_field_by_name (msg->descriptor,
@@ -388,11 +387,21 @@ _cmsg_proxy_file_data_to_message (const char *input_data, size_t input_length,
 
     if (file_field)
     {
-        data_ptr = (const char **) (((char *) msg) + file_field->offset);
-        data_len_ptr = (size_t *) (((char *) msg) + file_field->quantifier_offset);
+        data_ptr = (ProtobufCBinaryData *) (((char *) msg) + file_field->offset);
+        has_field_ptr =
+            (protobuf_c_boolean *) (((char *) msg) + file_field->quantifier_offset);
 
-        *data_ptr = input_data;
-        *data_len_ptr = input_length;
+        data_ptr->data = (uint8_t *) input_data;
+        data_ptr->len = input_length;
+
+        if (input_length > 0)
+        {
+            *has_field_ptr = true;
+        }
+        else
+        {
+            *has_field_ptr = false;
+        }
     }
 }
 
@@ -1107,8 +1116,8 @@ _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
                                     cmsg_proxy_output *output)
 {
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
-    const char **field_value = NULL;
-    const size_t *field_length = NULL;
+    const ProtobufCBinaryData *file_ptr = NULL;
+    const char **file_name_ptr = NULL;
     const char *file_name = NULL;
     cmsg_proxy_header *header_array;
     cmsg_proxy_headers *headers;
@@ -1125,12 +1134,11 @@ _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
         return false;
     }
 
-    field_value =
-        (const char **) ((char *) output_proto_message + field_descriptor->offset);
-    field_length =
-        (size_t *) ((char *) output_proto_message + field_descriptor->quantifier_offset);
+    file_ptr =
+        (const ProtobufCBinaryData *) ((char *) output_proto_message +
+                                       field_descriptor->offset);
 
-    if (field_value && *field_value)
+    if (file_ptr && file_ptr->data)
     {
         /* This is allocated with malloc rather than CMSG_PROXY_MALLOC as it is freed with
          * free by the caller in cmsgProxyHandler. response_body is also populated using
@@ -1138,17 +1146,17 @@ _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
          * because this may be binary data that includes (or isn't terminated with) null
          * characters.
          */
-        output->response_body = malloc (*field_length);
+        output->response_body = malloc (file_ptr->len);
         if (!output->response_body)
         {
             return false;
         }
 
-        memcpy (output->response_body, *field_value, *field_length);
+        memcpy (output->response_body, file_ptr->data, file_ptr->len);
 
         // header("Content-Type: application/octet-stream");
         output->mime_type = cmsg_mime_octet_stream;
-        output->response_length = *field_length;
+        output->response_length = file_ptr->len;
     }
 
     field_descriptor =
@@ -1156,9 +1164,9 @@ _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
                                                          CMSG_PROXY_SPECIAL_FIELD_FILE_NAME);
     if (field_descriptor)
     {
-        field_value =
+        file_name_ptr =
             (const char **) ((char *) output_proto_message + field_descriptor->offset);
-        file_name = *field_value;
+        file_name = *file_name_ptr;
     }
     ret = CMSG_PROXY_ASPRINTF (&filename_header_value, cmsg_filename_header_format,
                                file_name ? file_name : "unknown");

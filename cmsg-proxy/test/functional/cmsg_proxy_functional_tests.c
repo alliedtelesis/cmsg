@@ -469,8 +469,7 @@ functional_tests_impl_test_file_get (const void *service, const file_name *recv_
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
-    CMSG_SET_FIELD_REPEATED (&send_msg, _file, expected_file_data,
-                             expected_file_data_length);
+    CMSG_SET_FIELD_BYTES (&send_msg, _file, expected_file_data, expected_file_data_length);
     CMSG_SET_FIELD_PTR (&send_msg, file_name, recv_msg->file_name);
 
     functional_tests_server_test_file_getSend (service, &send_msg);
@@ -484,15 +483,16 @@ functional_tests_impl_test_file_data (const void *service, const file_data *recv
     int i;
 
     NP_ASSERT_STR_EQUAL (recv_msg->file_name, expected_file_name);
-    NP_ASSERT_EQUAL (recv_msg->n__file, expected_file_data_length);
+    NP_ASSERT_TRUE (recv_msg->has__file);
+    NP_ASSERT_EQUAL (recv_msg->_file.len, expected_file_data_length);
     for (i = 0; i < expected_file_data_length; i++)
     {
-        NP_ASSERT_EQUAL (recv_msg->_file[i], expected_file_data[i]);
+        NP_ASSERT_EQUAL (recv_msg->_file.data[i], expected_file_data[i]);
     }
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
-    CMSG_SET_FIELD_REPEATED (&send_msg, _file, recv_msg->_file, recv_msg->n__file);
+    CMSG_SET_FIELD_BYTES (&send_msg, _file, recv_msg->_file.data, recv_msg->_file.len);
     CMSG_SET_FIELD_PTR (&send_msg, file_name, recv_msg->file_name);
 
     functional_tests_server_test_file_dataSend (service, &send_msg);
