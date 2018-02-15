@@ -42,7 +42,7 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
 
     if (composite_client->child_clients == NULL)
     {
-        return CMSG_RET_ERR;
+        return CMSG_RET_OK;
     }
 
     invoke_recv_clients = g_queue_new ();
