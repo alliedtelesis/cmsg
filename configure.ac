@@ -60,14 +60,6 @@ if test "x$enableval" = xyes ; then
 fi)
 AM_CONDITIONAL(BUILD_UNITTEST, test $BUILD_UNITTEST = 1)
 
-# --- Check VCStack is enabled
-HAVE_VCSTACK=0
-AC_ARG_ENABLE(vcstack, [  --enable-vcstack        Enable VCStack],
-if test "x$enableval" = xyes ; then
-  HAVE_VCSTACK=1
-fi)
-AM_CONDITIONAL(HAVE_VCSTACK, test $HAVE_VCSTACK = 1)
-
 # --- Check if counterd is enabled
 HAVE_COUNTERD=0
 AC_ARG_ENABLE(counterd, [  --enable-counterd       Enable counterd],
@@ -109,6 +101,5 @@ AC_MSG_RESULT([
         protoc-path:            ${PROTOC_PATH}
         protoc-cmsg-path:       ${PROTOC_CMSG_PATH}
         cmsg:                   ${BUILD_CMSG}
-        VCStack:                ${HAVE_VCSTACK}
         counterd:               ${HAVE_COUNTERD}
 ])

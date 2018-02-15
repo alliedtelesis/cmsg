@@ -49,12 +49,6 @@ if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
 endif
 
-if HAVE_VCSTACK
-libcmsg_la_SOURCES += \
-	src/transport/cmsg_transport_cpg.c
-libcmsg_la_LIBADD += -lcpg -lcoroipcc
-endif
-
 libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS) -Iinclude/cmsg
 
 BUILT_SOURCES = src/cmsg_sub_service.pb-c.c src/cmsg_sub_service.pb-c.h

@@ -65,7 +65,6 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
             break;
         case CMSG_TRANSPORT_ONEWAY_TCP:
         case CMSG_TRANSPORT_ONEWAY_TIPC:
-        case CMSG_TRANSPORT_CPG:
         case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
         case CMSG_TRANSPORT_BROADCAST:
         case CMSG_TRANSPORT_ONEWAY_UNIX:
