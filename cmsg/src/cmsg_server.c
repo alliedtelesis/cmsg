@@ -1749,6 +1749,7 @@ cmsg_server_accept_thread (void *_info)
     int listen_socket = cmsg_server_get_socket (server);
     int newfd = -1;
     fd_set read_fds;
+    int *newfd_ptr;
 
     FD_ZERO (&read_fds);
     FD_SET (listen_socket, &read_fds);
@@ -1765,7 +1766,9 @@ cmsg_server_accept_thread (void *_info)
         newfd = cmsg_server_accept (server, listen_socket);
         if (newfd >= 0)
         {
-            g_async_queue_push (info->accept_sd_queue, GINT_TO_POINTER (newfd));
+            newfd_ptr = CMSG_CALLOC (1, sizeof (int));
+            *newfd_ptr = newfd;
+            g_async_queue_push (info->accept_sd_queue, newfd_ptr);
             TEMP_FAILURE_RETRY (eventfd_write (info->accept_sd_eventfd, 1));
         }
     }
