@@ -4,8 +4,10 @@
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */
 
+#define _GNU_SOURCE /* for TEMP_FAILURE_RETRY */
 #include <np.h>
 #include <stdint.h>
+#include <sys/eventfd.h>
 #include "cmsg_broadcast_client.h"
 #include "cmsg_server.h"
 #include "cmsg_functional_tests_api_auto.h"
@@ -236,6 +238,8 @@ test_broadcast_client__client_can_send_to_broadcast_client (void)
     int recv_fd = -1;
     int ret = -1;
     cmsg_server_accept_thread_info *info = NULL;
+    eventfd_t value;
+    int *newfd_ptr = NULL;
 
     server = cmsg_create_server_tipc_rpc ("cmsg-test", TEST_CLIENT_TIPC_ID,
                                           TIPC_CLUSTER_SCOPE, CMSG_SERVICE (cmsg, test));
@@ -251,7 +255,12 @@ test_broadcast_client__client_can_send_to_broadcast_client (void)
     select (info->accept_sd_eventfd + 1, &read_fds, NULL, NULL, &tv);
     NP_ASSERT_EQUAL (g_async_queue_length (info->accept_sd_queue), 1);
 
-    recv_fd = GPOINTER_TO_INT (g_async_queue_try_pop (info->accept_sd_queue));
+    /* clear notification */
+    TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
+
+    newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue);
+    recv_fd = *newfd_ptr;
+    CMSG_FREE (newfd_ptr);
 
     /* Since we are using TIPC the first message will be the
      * CMSG_MSG_TYPE_CONN_OPEN message */
