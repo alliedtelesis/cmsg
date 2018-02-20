@@ -1166,6 +1166,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         {
             CMSG_LOG_SERVER_ERROR (server, "Unable to allocate memory for message.");
             CMSG_COUNTER_INC (server, cntr_memory_errors);
+            cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+                                                 server_request->method_index);
             return;
         }
 
@@ -1181,6 +1183,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                                    packed_size);
             CMSG_COUNTER_INC (server, cntr_pack_errors);
             CMSG_FREE (buffer);
+            cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+                                                 server_request->method_index);
             return;
         }
         else if (ret > packed_size)
@@ -1190,6 +1194,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                  packed_size);
             CMSG_COUNTER_INC (server, cntr_pack_errors);
             CMSG_FREE (buffer);
+            cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+                                                 server_request->method_index);
             return;
         }
 
