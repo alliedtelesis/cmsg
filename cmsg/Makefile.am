@@ -29,6 +29,7 @@ libcmsg_la_SOURCES = \
 	src/cmsg_server.c \
 	src/cmsg_sub.c \
 	src/cmsg_mesh.c \
+	src/cmsg_glib_helpers.c \
 	include/cmsg/cmsg.h \
 	include/cmsg/cmsg_private.h \
 	include/cmsg/cmsg_error.h \
@@ -40,7 +41,8 @@ libcmsg_la_SOURCES = \
 	include/cmsg/cmsg_sub.h \
 	include/cmsg/cmsg_transport.h \
 	include/cmsg/cmsg_broadcast_client_server.h \
-	include/cmsg/cmsg_mesh.h
+	include/cmsg/cmsg_mesh.h \
+	include/cmsg/cmsg_glib_helpers.h
 
 
 libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) -lutility -lprotobuf-c

@@ -1841,9 +1841,12 @@ cmsg_server_accept_thread_init (cmsg_server *server)
 void
 cmsg_server_accept_thread_deinit (cmsg_server_accept_thread_info *info)
 {
-    pthread_cancel (info->server_accept_thread);
-    pthread_join (info->server_accept_thread, NULL);
-    close (info->accept_sd_eventfd);
-    g_async_queue_unref (info->accept_sd_queue);
-    CMSG_FREE (info);
+    if (info)
+    {
+        pthread_cancel (info->server_accept_thread);
+        pthread_join (info->server_accept_thread, NULL);
+        close (info->accept_sd_eventfd);
+        g_async_queue_unref (info->accept_sd_queue);
+        CMSG_FREE (info);
+    }
 }
