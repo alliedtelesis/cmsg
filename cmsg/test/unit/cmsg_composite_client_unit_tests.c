@@ -265,8 +265,8 @@ void
 test_cmsg_composite_client_lookup_by_tipc_id (void)
 {
     cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);
-    cmsg_client *child_1 = cmsg_create_client_tipc_rpc ("test", 1, 1,
-                                                        &dummy_service_descriptor);
+    cmsg_client *child_1 = cmsg_create_client_tipc_oneway ("test", 1, 1,
+                                                           &dummy_service_descriptor);
     cmsg_client *child_2 = cmsg_create_client_tipc_rpc ("test", 2, 2,
                                                         &dummy_service_descriptor);
     cmsg_client *child_3 = cmsg_create_client_tipc_rpc ("test", 3, 3,
@@ -278,6 +278,9 @@ test_cmsg_composite_client_lookup_by_tipc_id (void)
 
     lookup_client = cmsg_composite_client_lookup_by_tipc_id (comp_client, 1);
     NP_ASSERT_PTR_EQUAL (lookup_client, child_1);
+
+    lookup_client = cmsg_composite_client_lookup_by_tipc_id (comp_client, 2);
+    NP_ASSERT_PTR_EQUAL (lookup_client, child_2);
 
     lookup_client = cmsg_composite_client_lookup_by_tipc_id (comp_client, 3);
     NP_ASSERT_NULL (lookup_client);

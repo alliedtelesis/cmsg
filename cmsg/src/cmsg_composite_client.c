@@ -214,7 +214,8 @@ cmsg_composite_client_lookup_by_tipc_id (cmsg_client *composite_client, uint32_t
     for (l = composite_client->child_clients; l != NULL; l = l->next)
     {
         child = (cmsg_client *) l->data;
-        if (child->_transport->type == CMSG_TRANSPORT_RPC_TIPC &&
+        if ((child->_transport->type == CMSG_TRANSPORT_RPC_TIPC ||
+             child->_transport->type == CMSG_TRANSPORT_ONEWAY_TIPC) &&
             child->_transport->config.socket.sockaddr.tipc.addr.name.name.instance == id)
         {
             pthread_mutex_unlock (&composite_client->child_mutex);
