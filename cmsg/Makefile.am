@@ -20,6 +20,7 @@ libcmsg_la_SOURCES = \
 	src/cmsg.c \
 	src/cmsg_client.c \
 	src/cmsg_composite_client.c \
+	src/cmsg_debug.c \
 	src/cmsg_pub.c \
 	src/cmsg_queue.c \
 	src/cmsg_server.c \
@@ -29,6 +30,7 @@ libcmsg_la_SOURCES = \
 	include/cmsg/cmsg_error.h \
 	include/cmsg/cmsg_client.h \
 	include/cmsg/cmsg_composite_client.h \
+	include/cmsg_debug.h \
 	include/cmsg/cmsg_pub.h \
 	include/cmsg/cmsg_queue.h \
 	include/cmsg/cmsg_server.h \
