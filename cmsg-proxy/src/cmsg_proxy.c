@@ -22,6 +22,8 @@
 #include "cmsg_proxy_mem.h"
 #include "cmsg_proxy_counters.h"
 #include "cmsg_proxy_tree.h"
+#include "cmsg_proxy_http_streaming.h"
+#include "cmsg_proxy_private.h"
 #include "ant_result.pb-c.h"
 
 #define MSG_BUF_LEN 200
@@ -719,7 +721,7 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
  * @param msg_descriptor - Used to determine the target field type when converting to JSON.
  * @param field_name - Target field name in the message to put the internal api info value.
  */
-static void
+void
 _cmsg_proxy_set_internal_api_value (const char *internal_info_value,
                                     json_t **json_obj,
                                     const ProtobufCMessageDescriptor *msg_descriptor,
@@ -1319,6 +1321,7 @@ cmsg_proxy_init (void)
 #endif /* HAVE_COUNTERD */
 
     cmsg_proxy_tree_init ();
+    cmsg_proxy_streaming_init ();
 }
 
 /**
@@ -1604,6 +1607,7 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
     char *message = NULL;
     json_error_t error;
     bool is_file_input;
+    uint32_t streaming_id = 0;
 
     /* By default handle responses with MIME type "application/json"
      */
@@ -1658,6 +1662,11 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
 
     _cmsg_proxy_set_internal_api_info (&input->web_api_info, &json_obj,
                                        service_info->input_msg_descriptor);
+
+    output->stream_response = cmsg_proxy_setup_streaming (input->connection, &json_obj,
+                                                          service_info->input_msg_descriptor,
+                                                          service_info->output_msg_descriptor,
+                                                          &streaming_id);
 
     client = _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
     if (client == NULL)
@@ -1734,6 +1743,23 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
     {
         syslog (LOG_ERR, "_error_info is not set for %s", service_info->url_string);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_error_info);
+    }
+
+    if (output->stream_response)
+    {
+        if (output->http_status == HTTP_CODE_OK)
+        {
+            /* We're streaming the response so it will be sent back asynchronously */
+            CMSG_FREE_RECV_MSG (output_proto_message);
+            return true;
+        }
+        else
+        {
+            /* The IMPL has rejected/failed the request to stream
+             * the response. */
+            output->stream_response = false;
+            cmsg_proxy_remove_stream_by_id (streaming_id);
+        }
     }
 
     if (output_proto_message)

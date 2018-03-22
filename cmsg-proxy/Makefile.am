@@ -5,9 +5,19 @@ src/ant_result.pb-c.c \
 src/ant_result.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/ant_result.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I. --c_out=. src/ant_result.proto
 
+src/http_streaming_impl_auto.c \
+src/http_streaming_impl_auto.h \
+src/http_streaming.pb-c.c \
+src/http_streaming.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/http_streaming.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I. --c_out=. src/http_streaming.proto
+
 libcmsgproxy_la_SOURCES = \
 	src/ant_result.pb-c.c \
 	src/ant_result.pb-c.h \
+	src/http_streaming_impl_auto.c \
+	src/http_streaming_impl_auto.h \
+	src/http_streaming.pb-c.c \
+	src/http_streaming.pb-c.h \
 	src/cmsg_proxy.c \
 	cmsg_proxy.h \
 	src/cmsg_proxy_mem.c \
@@ -16,7 +26,8 @@ libcmsgproxy_la_SOURCES = \
 	src/cmsg_proxy_counters.h \
 	src/cmsg_proxy_tree.c \
 	src/cmsg_proxy_tree.h \
-	src/cmsg_proxy_passthrough.c
+	src/cmsg_proxy_passthrough.c \
+	src/cmsg_proxy_http_streaming.c
 
 libcmsgproxy_la_LIBADD = \
 	$(GLIB_LIBS) \
@@ -29,7 +40,9 @@ libcmsgproxy_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS)
 
 libcmsgproxy_la_CPPFLAGS = -Iinclude
 
-BUILT_SOURCES = src/ant_result.pb-c.c src/ant_result.pb-c.h
+BUILT_SOURCES = src/ant_result.pb-c.c src/ant_result.pb-c.h \
+                src/http_streaming_impl_auto.c src/http_streaming_impl_auto.h \
+                src/http_streaming.pb-c.c src/http_streaming.pb-c.h
 CLEANFILES = $(BUILT_SOURCES)
 
 if BUILD_UNITTEST

@@ -6,6 +6,7 @@
 
 #include <stdbool.h>
 #include <cmsg/cmsg.h>
+#include <cmsg/cmsg_server.h>
 
 /* Counter session prefix for CMSG Proxy */
 #define CMSG_PROXY_COUNTER_APP_NAME_PREFIX  "CMSG PROXY"
@@ -59,6 +60,9 @@ typedef struct _cmsg_proxy_input
 
     /* Information about the web API request. */
     cmsg_proxy_api_request_info web_api_info;
+
+    /* The connection structure */
+    void *connection;
 } cmsg_proxy_input;
 
 /* CMSG proxy output/response data */
@@ -82,12 +86,31 @@ typedef struct _cmsg_proxy_output
      */
     cmsg_proxy_headers *extra_headers;
 
+    /* The response will be asynchronously written via an HTTP stream */
+    bool stream_response;
+
     /* The HTTP status code to be returned */
     int http_status;
 } cmsg_proxy_output;
 
+typedef struct _cmsg_proxy_stream_response_data
+{
+    void *connection;
+    char *data;
+} cmsg_proxy_stream_response_data;
+
 typedef int (*cmsg_api_func_ptr) ();
 typedef bool (*pre_api_http_check_callback) (cmsg_http_verb http_verb, char **message);
+typedef void (*cmsg_proxy_stream_response_send_func) (cmsg_proxy_stream_response_data
+                                                      *data);
+typedef void (*cmsg_proxy_stream_response_close_func) (void *connection);
+
+typedef struct _cmsg_proxy_web_socket_info
+{
+    const char *id;
+    cmsg_server *server;
+    const void *connection;
+} cmsg_proxy_web_socket_info;
 
 typedef struct _cmsg_service_info
 {
@@ -123,5 +146,12 @@ void cmsg_proxy_passthrough_init (const char *library_path);
 void cmsg_proxy_passthrough_deinit (void);
 void cmsg_proxy_passthrough_free_output_contents (cmsg_proxy_output *output);
 bool cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output);
+
+void cmsg_proxy_set_stream_response_send_function (cmsg_proxy_stream_response_send_func
+                                                   func);
+void cmsg_proxy_set_stream_response_close_function (cmsg_proxy_stream_response_close_func
+                                                    func);
+
+
 
 #endif /* __CMSG_PROXY_H_ */
