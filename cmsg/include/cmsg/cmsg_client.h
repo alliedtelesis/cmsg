@@ -12,8 +12,8 @@ typedef struct _cmsg_client_s cmsg_client;
 #include "cmsg_transport.h"
 
 
-#define CMSG_DESCRIPTOR(package,service)    ((ProtobufCServiceDescriptor *)&package ## _ ## service ## _descriptor)
-#define CMSG_DESCRIPTOR_NOPACKAGE(service)  ((ProtobufCServiceDescriptor *)&service ## _descriptor)
+#define CMSG_DESCRIPTOR(package,service)    (&package ## _ ## service ## _descriptor)
+#define CMSG_DESCRIPTOR_NOPACKAGE(service)  (&service ## _descriptor)
 
 // Maximum stack nodes possible
 #define CMSG_MAX_CLIENTS 24
@@ -194,25 +194,25 @@ int32_t cmsg_client_create_packet (cmsg_client *client, const char *method_name,
 
 cmsg_client *cmsg_create_client_tipc_rpc (const char *server_name, int member_id,
                                           int scope,
-                                          ProtobufCServiceDescriptor *descriptor);
+                                          const ProtobufCServiceDescriptor *descriptor);
 
 cmsg_client *cmsg_create_client_tipc_oneway (const char *server_name, int member_id,
                                              int scope,
-                                             ProtobufCServiceDescriptor *descriptor);
+                                             const ProtobufCServiceDescriptor *descriptor);
 
 cmsg_client *cmsg_create_client_unix (const ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_unix_oneway (const ProtobufCServiceDescriptor *descriptor);
 int32_t cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor);
 
 cmsg_client *cmsg_create_client_tcp_rpc (cmsg_socket *config,
-                                         ProtobufCServiceDescriptor *descriptor);
+                                         const ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_tcp_oneway (cmsg_socket *config,
-                                            ProtobufCServiceDescriptor *descriptor);
+                                            const ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_loopback (ProtobufCService *service);
 
 cmsg_client *cmsg_create_and_connect_client_tipc_rpc (const char *server_name,
                                                       int member_id, int scope,
-                                                      ProtobufCServiceDescriptor
+                                                      const ProtobufCServiceDescriptor
                                                       *descriptor);
 
 void cmsg_client_close_wrapper (cmsg_transport *transport);

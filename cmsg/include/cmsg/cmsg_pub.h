@@ -133,7 +133,7 @@ cmsg_queue_filter_type cmsg_pub_queue_filter_lookup (cmsg_pub *publisher,
 
 cmsg_pub *cmsg_create_publisher_tipc_rpc (const char *server_name, int member_id,
                                           int scope,
-                                          ProtobufCServiceDescriptor *descriptor);
+                                          const ProtobufCServiceDescriptor *descriptor);
 
 void cmsg_destroy_publisher_and_transport (cmsg_pub *publisher);
 
