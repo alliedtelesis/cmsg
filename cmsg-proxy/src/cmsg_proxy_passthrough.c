@@ -87,10 +87,7 @@ _load_library_info (proxy_defs_array_get_func_ptr get_func_addr,
     api_ptr = service_info->api_ptr;
     service_descriptor = service_info->service_descriptor;
 
-#ifdef HAVE_COUNTERD
-    /* Initialise service counter */
     cmsg_proxy_session_counter_init (api_service_info);
-#endif
 
     return true;
 }
@@ -133,10 +130,7 @@ cmsg_proxy_passthrough_init (const char *library_path)
 {
     cmsg_proxy_passthrough_deinit ();
 
-#ifdef HAVE_COUNTERD
-    /* Initialise counters */
     cmsg_proxy_counter_init ();
-#endif /* HAVE_COUNTERD */
 
     if (!_cmsg_proxy_passthrough_library_handle_load (library_path))
     {
@@ -181,10 +175,7 @@ cmsg_proxy_passthrough_deinit (void)
     api_ptr = NULL;
     service_descriptor = NULL;
 
-#ifdef HAVE_COUNTERD
-    /* Cleanup counters */
     cmsg_proxy_counter_deinit ();
-#endif /* HAVE_COUNTERD */
 }
 
 /**

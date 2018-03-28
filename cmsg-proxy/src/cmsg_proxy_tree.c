@@ -453,10 +453,7 @@ _cmsg_proxy_service_info_init (cmsg_service_info *array, int length)
             CMSG_PROXY_COUNTER_INC (cntr_service_info_loaded);
         }
 
-#ifdef HAVE_COUNTERD
-        /* Initialise service counter */
         cmsg_proxy_session_counter_init (service_info);
-#endif
     }
 }
 

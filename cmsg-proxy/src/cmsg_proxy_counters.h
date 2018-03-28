@@ -75,6 +75,21 @@ void cmsg_proxy_counter_deinit (void);
 #else
 #define CMSG_PROXY_COUNTER_INC(counter)
 #define CMSG_PROXY_SESSION_COUNTER_INC(service,counter)
+
+static inline void
+cmsg_proxy_counter_init (void)
+{
+}
+
+static inline void
+cmsg_proxy_counter_deinit (void)
+{
+}
+
+static inline void
+cmsg_proxy_session_counter_init (const cmsg_service_info *service_info)
+{
+}
 #endif /* HAVE_COUNTERD */
 
 #endif /* __CMSG_PROXY_COUNTERS_H_ */
