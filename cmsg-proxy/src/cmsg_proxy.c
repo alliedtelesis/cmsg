@@ -1268,13 +1268,8 @@ _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
 void
 cmsg_proxy_init (void)
 {
-#ifdef CMSG_PROXY_MEM_DEBUG
-    /* For developer debugging, turn on memory tracing */
-    cmsg_proxy_mem_init (1);
-#endif
-
+    cmsg_proxy_mem_init ();
     cmsg_proxy_counter_init ();
-
     cmsg_proxy_tree_init ();
 #ifndef HAVE_UNITTEST
     cmsg_proxy_streaming_init ();

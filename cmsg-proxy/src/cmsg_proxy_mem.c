@@ -15,6 +15,11 @@
 #include "cmsg_proxy_mem.h"
 #include <gmem_diag.h>
 
+/* For developer debugging, uncomment the following line,
+ * which will generate malloc info to a file on receiving SIGUSR2 signal */
+//#define CMSG_PROXY_MEM_DEBUG
+#define CMSG_PROXY_MEM_OUTPUT_FILE  "/tmp/cmsg-proxy-mem.output"
+
 /* CMSG proxy mtype id for memory tracing (0 means disabled) */
 static int cmsg_proxy_mtype = 0;
 
@@ -190,23 +195,27 @@ cmsg_proxy_mem_sigusr2_handler (int signum)
 {
     cmsg_proxy_mem_print (CMSG_PROXY_MEM_OUTPUT_FILE);
 }
-#endif /* CMSG_PROXY_MEM_DEBUG */
 
 /**
  * Init function for CMSG proxy memory tracing
- *
- * @param mtype  - id to keep the record of malloc/free for CMSG proxy (0 indicates disable)
  */
 void
-cmsg_proxy_mem_init (int mtype)
+cmsg_proxy_mem_init (void)
 {
-    cmsg_proxy_mtype = mtype;
+    cmsg_proxy_mtype = 1;
 
-#ifdef CMSG_PROXY_MEM_DEBUG
     /* Also turn on CMSG memory tracing */
     cmsg_malloc_init (mtype + 1);
 
     /* Use SIGUSR2 to dump the current memory allocation info */
     signal (SIGUSR2, cmsg_proxy_mem_sigusr2_handler);
-#endif
 }
+#else
+/**
+ * Init function for CMSG proxy memory tracing
+ */
+void
+cmsg_proxy_mem_init (void)
+{
+}
+#endif /* CMSG_PROXY_MEM_DEBUG */
