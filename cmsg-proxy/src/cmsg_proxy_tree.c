@@ -438,7 +438,7 @@ _cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
  * @param array - Pointer to the start of the array of entries
  * @param length - Length of the array
  */
-static void
+void
 _cmsg_proxy_service_info_init (cmsg_service_info *array, int length)
 {
     int i = 0;
@@ -752,7 +752,7 @@ _cmsg_proxy_library_handles_close (void)
  * Loads all of the *_proto_proxy_def.so libraries that exist in
  * CMSG_PROXY_LIB_PATH into the cmsg proxy library.
  */
-static void
+void
 _cmsg_proxy_library_handles_load (void)
 {
     DIR *d = NULL;

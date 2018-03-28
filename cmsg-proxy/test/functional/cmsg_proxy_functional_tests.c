@@ -6,9 +6,7 @@
 
 #define _GNU_SOURCE
 #include <np.h>
-#include "cmsg_proxy_mem.c"
-#include "cmsg_proxy_tree.c"
-#include "cmsg_proxy.c"
+#include "cmsg_proxy.h"
 #include "cmsg_proxy_functional_tests_proxy_def.h"
 #include "cmsg_proxy_functional_tests_api_auto.h"
 #include "cmsg_proxy_functional_tests_impl_auto.h"
@@ -19,6 +17,16 @@ static uint8_t expected_file_data[BINARY_TEST_DATA_LEN] = { 0, 2, 4, 10, 0, 55, 
 
 static const char *expected_file_name = NULL;
 static const char *expected_body_text = "Some test text to send back\n Blah\n";
+
+extern void _cmsg_proxy_service_info_init (cmsg_service_info *array, int length);
+extern void _cmsg_proxy_library_handles_load (void);
+
+static const char *cmsg_content_disposition_key = "Content-Disposition";
+static const char *cmsg_content_encoding_key = "Content-Transfer-Encoding";
+static const char *cmsg_mime_text_plain = "text/plain";
+static const char *cmsg_mime_octet_stream = "application/octet-stream";
+static const char *cmsg_binary_encoding = "binary";
+static const char *cmsg_filename_header_format = "attachment; filename=\"%s\"";
 
 /**
  * Mock the '_cmsg_proxy_library_handles_load' function to simply call

@@ -58,6 +58,10 @@ bin_PROGRAMS += cmsg_proxy_unit_tests
 cmsg_proxy_unit_tests_SOURCES = \
 	src/ant_result.pb-c.c \
 	src/ant_result.pb-c.h \
+	src/http_streaming_impl_auto.c \
+	src/http_streaming_impl_auto.h \
+	src/http_streaming.pb-c.c \
+	src/http_streaming.pb-c.h \
 	test/unit/cmsg_proxy_unit_tests_proxy_def.c \
 	test/unit/cmsg_proxy_unit_tests_proxy_def.h \
 	test/unit/cmsg_proxy_unit_tests_api_auto.c \
@@ -85,8 +89,6 @@ test/functional/cmsg_proxy_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT)
 
 bin_PROGRAMS += cmsg_proxy_functional_tests
 cmsg_proxy_functional_tests_SOURCES = \
-	src/ant_result.pb-c.c \
-	src/ant_result.pb-c.h \
 	test/functional/cmsg_proxy_functional_tests_proxy_def.c \
 	test/functional/cmsg_proxy_functional_tests_proxy_def.h \
 	test/functional/cmsg_proxy_functional_tests_api_auto.c \
@@ -101,7 +103,7 @@ cmsg_proxy_functional_tests_CPPFLAGS  = -Isrc -Iinclude
 cmsg_proxy_functional_tests_LDFLAGS = -static
 cmsg_proxy_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(GMEM_DIAG_LIBS) \
                                 -lcmsg -lprotobuf-c -lprotobuf2json-c \
-                                -ljansson
+                                -ljansson -lcmsgproxy
 
 test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.c \
 test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.h \
@@ -115,8 +117,6 @@ test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.h: $(PROTOC_CMSG_PA
 
 bin_PROGRAMS += cmsg_proxy_passthrough_functional_tests
 cmsg_proxy_passthrough_functional_tests_SOURCES = \
-	src/ant_result.pb-c.c \
-	src/ant_result.pb-c.h \
 	test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.c \
 	test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.h \
 	test/functional/cmsg_proxy_passthrough_functional_tests_api_auto.c \
@@ -130,6 +130,6 @@ cmsg_proxy_passthrough_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -
 cmsg_proxy_passthrough_functional_tests_CPPFLAGS  = -Isrc -Iinclude
 cmsg_proxy_passthrough_functional_tests_LDFLAGS = -static
 cmsg_proxy_passthrough_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
-                                                  -lcmsg -lprotobuf-c
+                                                  -lcmsg -lprotobuf-c -lcmsgproxy
 endif # BUILD_UNITTEST
 
