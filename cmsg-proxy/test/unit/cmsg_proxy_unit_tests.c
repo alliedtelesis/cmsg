@@ -6,6 +6,7 @@
 #include <np.h>
 #include "cmsg_proxy_tree.c"
 #include "cmsg_proxy_index.c"
+#include "cmsg_proxy_input.c"
 #include "cmsg_proxy.c"
 #include "cmsg_proxy_http_streaming.c"
 #include "cmsg_proxy_unit_tests_proxy_def.h"
@@ -149,7 +150,7 @@ test_cmsg_proxy_find_service_from_url_and_verb__finds_correct_service_entry (voi
 }
 
 /**
- * Function Tested: _cmsg_proxy_convert_json_to_protobuf()
+ * Function Tested: cmsg_proxy_convert_json_to_protobuf()
  *
  * Tests that valid input is correctly converted into a protobuf message
  */
@@ -162,9 +163,9 @@ test_cmsg_proxy_convert_json_to_protobuf__valid_input (void)
     char *error_message = NULL;
     json_t *json_obj = json_loads ("{\n    \"value\":true\n}", 0, &error);
 
-    ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
-                                                &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
-                                                &output, &error_message);
+    ret = cmsg_proxy_convert_json_to_protobuf (json_obj,
+                                               &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
+                                               &output, &error_message);
 
     json_decref (json_obj);
     free (output);
@@ -177,7 +178,7 @@ test_cmsg_proxy_convert_json_to_protobuf__valid_input (void)
 }
 
 /**
- * Function Tested: _cmsg_proxy_convert_json_to_protobuf()
+ * Function Tested: cmsg_proxy_convert_json_to_protobuf()
  *
  * Tests that invalid input fails to be converted into a protobuf message
  */
@@ -193,9 +194,9 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
     /* value is not quoted correctly */
     json_obj = json_loads ("{\n    value\":true\n}", 0, &error);
 
-    ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
-                                                &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
-                                                &output, &error_message);
+    ret = cmsg_proxy_convert_json_to_protobuf (json_obj,
+                                               &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
+                                               &output, &error_message);
 
     if (error_message)
     {
@@ -209,9 +210,9 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
     /* json string is missing closing bracket */
     json_obj = json_loads ("{\n    \"value\":true\n", 0, &error);
 
-    ret = _cmsg_proxy_convert_json_to_protobuf (json_obj,
-                                                &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
-                                                &output, &error_message);
+    ret = cmsg_proxy_convert_json_to_protobuf (json_obj,
+                                               &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
+                                               &output, &error_message);
 
     if (error_message)
     {
@@ -421,9 +422,9 @@ test_cmsg_proxy_parse_query_parameters (void)
     setup_standard_test_tree ();
 
     /* URL: /v1/test/query_param/{key_a}/{key_c} */
-    _cmsg_proxy_get_service_and_parameters ("/v1/test/query_param/AA/CC",
-                                            "key_a=WW&key_b=XX&key_c=YY&key_d=ZZ",
-                                            CMSG_HTTP_GET, &url_parameters);
+    cmsg_proxy_get_service_and_parameters ("/v1/test/query_param/AA/CC",
+                                           "key_a=WW&key_b=XX&key_c=YY&key_d=ZZ",
+                                           CMSG_HTTP_GET, &url_parameters);
 
     /* There should be 4 parameters in the list (skip duplicate keys) */
     NP_ASSERT_EQUAL (g_list_length (url_parameters), 4);
@@ -1464,13 +1465,13 @@ test_cmsg_proxy_service_info_add__conflict_param_with_existing_param2 (void)
 }
 
 /**
- * Function Tested: _cmsg_proxy_field_is_hidden()
+ * Function Tested: cmsg_proxy_field_is_hidden()
  */
 void
 test_cmsg_proxy_field_is_hidden (void)
 {
-    NP_ASSERT_TRUE (_cmsg_proxy_field_is_hidden ("_hidden_field"));
-    NP_ASSERT_FALSE (_cmsg_proxy_field_is_hidden ("non_hidden_field"));
+    NP_ASSERT_TRUE (cmsg_proxy_field_is_hidden ("_hidden_field"));
+    NP_ASSERT_FALSE (cmsg_proxy_field_is_hidden ("non_hidden_field"));
 }
 
 /**
