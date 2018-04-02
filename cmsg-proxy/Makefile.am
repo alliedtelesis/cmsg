@@ -29,7 +29,9 @@ libcmsgproxy_la_SOURCES = \
 	src/cmsg_proxy_passthrough.c \
 	src/cmsg_proxy_http_streaming.c \
 	src/cmsg_proxy_index.c \
-	src/cmsg_proxy_input.c
+	src/cmsg_proxy_input.c \
+	src/cmsg_proxy_output.c \
+	src/cmsg_proxy_output.h
 
 libcmsgproxy_la_LIBADD = \
 	$(GLIB_LIBS) \

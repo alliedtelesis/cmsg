@@ -504,6 +504,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
         return NULL;
     }
     processing_info->service_info = service_info;
+    processing_info->http_verb = input->http_verb;
 
     json_obj = cmsg_proxy_json_object_create (input->data, input->data_length,
                                               service_info->input_msg_descriptor,

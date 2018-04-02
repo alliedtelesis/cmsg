@@ -13,6 +13,8 @@ typedef struct _cmsg_proxy_processing_info
     const cmsg_service_info *service_info;
     const cmsg_client *client;
     uint32_t streaming_id;
+    ant_code cmsg_api_result;
+    cmsg_http_verb http_verb;
 } cmsg_proxy_processing_info;
 
 void _cmsg_proxy_set_internal_api_value (const char *internal_info_value,
@@ -34,5 +36,12 @@ void _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
 
 void _cmsg_proxy_file_data_to_message (const char *input_data, size_t input_length,
                                        ProtobufCMessage *msg);
+
+int _cmsg_proxy_ant_code_to_http_code (int ant_code);
+
+bool _cmsg_proxy_protobuf2json_object (ProtobufCMessage *input_protobuf,
+                                       json_t **output_json);
+
+void cmsg_proxy_strip_details_from_ant_result (json_t *ant_result_json_object);
 
 #endif /* __CMSG_PROXY_PRIVATE_H_ */
