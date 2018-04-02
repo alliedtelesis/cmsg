@@ -379,7 +379,6 @@ test_cmsg_proxy_deinit (void)
 void
 test_cmsg_proxy__invalid_json_input (void)
 {
-    bool request_handled;
     cmsg_proxy_input input = { 0 };
     cmsg_proxy_output output = { 0 };
 
@@ -387,7 +386,6 @@ test_cmsg_proxy__invalid_json_input (void)
     input.http_verb = CMSG_HTTP_PUT;
     input.data = "{";
     input.data_length = strlen ("{");
-
 
     /* *INDENT-OFF* */
     char *expected_output_json =
@@ -399,9 +397,8 @@ test_cmsg_proxy__invalid_json_input (void)
 
     setup_standard_test_tree ();
 
-    request_handled = cmsg_proxy (&input, &output);
+    cmsg_proxy (&input, &output);
 
-    NP_ASSERT_TRUE (request_handled);
     NP_ASSERT_STR_EQUAL (output.response_body, expected_output_json);
     NP_ASSERT_EQUAL (output.http_status, 400);
     cmsg_proxy_free_output_contents (&output);

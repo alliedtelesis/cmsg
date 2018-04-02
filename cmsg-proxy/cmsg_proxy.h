@@ -181,13 +181,13 @@ typedef struct _cmsg_proxy_api_info
 void cmsg_proxy_init (void);
 void cmsg_proxy_deinit (void);
 void cmsg_proxy_free_output_contents (cmsg_proxy_output *output);
-bool cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output);
+void cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output);
 void cmsg_proxy_set_pre_api_http_check_callback (pre_api_http_check_callback cb);
 
 void cmsg_proxy_passthrough_init (const char *library_path);
 void cmsg_proxy_passthrough_deinit (void);
 void cmsg_proxy_passthrough_free_output_contents (cmsg_proxy_output *output);
-bool cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output);
+void cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output);
 
 void cmsg_proxy_set_stream_response_send_function (cmsg_proxy_stream_response_send_func
                                                    func);

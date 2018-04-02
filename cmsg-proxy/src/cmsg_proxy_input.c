@@ -498,6 +498,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     if (service_info == NULL)
     {
         /* The cmsg proxy does not know about this url and verb combination */
+        output->http_status = HTTP_CODE_NOT_IMPLEMENTED;
         g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
         CMSG_PROXY_COUNTER_INC (cntr_unknown_service);
         return NULL;

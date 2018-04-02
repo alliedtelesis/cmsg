@@ -183,11 +183,8 @@ cmsg_proxy_passthrough_deinit (void)
  *
  * @param input. Input data for the request
  * @param output. output data for the response
- *
- * @return - true if the passthrough was successful.
- *           false if the passthrough failed (i.e. the underlying CMSG API call failed).
  */
-bool
+void
 cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output)
 {
     passthrough_request send_msg = PASSTHROUGH_REQUEST_INIT;
@@ -206,7 +203,7 @@ cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output
     {
         syslog (LOG_ERR, "Error calling passthrough API");
         CMSG_PROXY_SESSION_COUNTER_INC (api_service_info, cntr_error_api_failure);
-        return false;
+        return;
     }
 
     output->response_length = 0;
@@ -227,7 +224,6 @@ cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output
     output->http_status = recv_msg->status_code;
 
     CMSG_FREE_RECV_MSG (recv_msg);
-    return true;
 }
 
 /**

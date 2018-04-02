@@ -905,13 +905,8 @@ cmsg_proxy_free_output_contents (cmsg_proxy_output *output)
  *
  * @param input. Input data for the request
  * @param output. output data for the response
- *
- * @return - true if the CMSG proxy actioned the request (i.e. it knew about the URL
- *           because it is defined on an rpc in the .proto files).
- *           false if the CMSG proxy performed no action (i.e. it could not map the URL
- *           to a CMSG API).
  */
-bool
+void
 cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
 {
     ProtobufCMessage *input_proto_message = NULL;
@@ -931,13 +926,13 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
     if (strcmp (input->url, "/v1/index") == 0 && input->http_verb == CMSG_HTTP_GET)
     {
         output->http_status = cmsg_proxy_index (input->query_string, output);
-        return true;
+        return;
     }
 
     input_proto_message = cmsg_proxy_input_process (input, output, &processing_info);
     if (!input_proto_message)
     {
-        return true;
+        return;
     }
 
     result = _cmsg_proxy_call_cmsg_api (processing_info.client, input_proto_message,
@@ -958,7 +953,7 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
         _cmsg_proxy_generate_ant_result_error (result, NULL, output);
         CMSG_PROXY_SESSION_COUNTER_INC (processing_info.service_info,
                                         cntr_error_api_failure);
-        return true;
+        return;
     }
 
     CMSG_FREE_RECV_MSG (input_proto_message);
@@ -978,7 +973,7 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
         {
             /* We're streaming the response so it will be sent back asynchronously */
             CMSG_FREE_RECV_MSG (output_proto_message);
-            return true;
+            return;
         }
         else
         {
@@ -1001,6 +996,4 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
         }
         CMSG_FREE_RECV_MSG (output_proto_message);
     }
-
-    return true;
 }
