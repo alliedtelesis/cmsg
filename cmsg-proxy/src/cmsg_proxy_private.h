@@ -7,6 +7,14 @@
 
 #include "ant_result.pb-c.h"
 
+typedef struct _cmsg_proxy_processing_info
+{
+    bool is_file_input;
+    const cmsg_service_info *service_info;
+    const cmsg_client *client;
+    uint32_t streaming_id;
+} cmsg_proxy_processing_info;
+
 void _cmsg_proxy_set_internal_api_value (const char *internal_info_value,
                                          json_t **json_obj,
                                          const ProtobufCMessageDescriptor *msg_descriptor,

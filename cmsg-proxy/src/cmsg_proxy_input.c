@@ -466,10 +466,23 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
     }
 }
 
+/**
+ * Perform the input path processing for the cmsg proxy functionality.
+ * This function takes the input HTTP information (JSON data, URL and method)
+ * and transforms this into the required CMSG information (client, API function and
+ * ProtobufCMessage structure).
+ *
+ * @param input - Pointer to a cmsg_proxy_input structure storing the input information.
+ * @param output - Pointer to a cmsg_proxy_output structure storing the output information.
+ * @param processing_info - Pointer to a cmsg_proxy_processing_info structure to store information
+ *                          deduced in the input path that is required in the output path.
+ *
+ * @returns The ProtobufCMessage structure transformed from the input JSON, or NULL if the
+ *          input processing fails for any reason.
+ */
 ProtobufCMessage *
 cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *output,
-                          bool *is_file_input, const cmsg_service_info **service_info_ptr,
-                          const cmsg_client **client, uint32_t *streaming_id)
+                          cmsg_proxy_processing_info *processing_info)
 {
     json_t *json_obj = NULL;
     GList *url_parameters = NULL;
@@ -489,7 +502,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
         CMSG_PROXY_COUNTER_INC (cntr_unknown_service);
         return NULL;
     }
-    *service_info_ptr = service_info;
+    processing_info->service_info = service_info;
 
     json_obj = cmsg_proxy_json_object_create (input->data, input->data_length,
                                               service_info->input_msg_descriptor,
@@ -527,10 +540,11 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     output->stream_response = cmsg_proxy_setup_streaming (input->connection, &json_obj,
                                                           service_info->input_msg_descriptor,
                                                           service_info->output_msg_descriptor,
-                                                          streaming_id);
+                                                          &processing_info->streaming_id);
 
-    *client = _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
-    if (*client == NULL)
+    processing_info->client =
+        _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
+    if (processing_info->client == NULL)
     {
         /* This should not occur but check for it */
         cmsg_proxy_json_object_destroy (json_obj);
@@ -557,9 +571,9 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     CMSG_PROXY_FREE (message);
     message = NULL;
 
-    *is_file_input = _cmsg_proxy_msg_has_file (service_info->input_msg_descriptor);
-
-    if (*is_file_input)
+    processing_info->is_file_input =
+        _cmsg_proxy_msg_has_file (service_info->input_msg_descriptor);
+    if (processing_info->is_file_input)
     {
         // Set message "_file" field to point directly to input_data (without copying)
         _cmsg_proxy_file_data_to_message (input->data, input->data_length,

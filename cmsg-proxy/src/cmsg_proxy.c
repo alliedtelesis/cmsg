@@ -34,6 +34,7 @@
 /* compile time check that an array has the expected number of elements */
 #define ARRAY_SIZE_COMPILE_CHECK(array,exp_num) G_STATIC_ASSERT(ARRAY_ELEMENTS((array)) == (exp_num))
 
+
 /**
  * Map the ANT code returned from the CMSG API call to the
  * HTTP response code sent in the HTTP header.
@@ -913,13 +914,15 @@ cmsg_proxy_free_output_contents (cmsg_proxy_output *output)
 bool
 cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
 {
-    const cmsg_service_info *service_info = NULL;
-    const cmsg_client *client = NULL;
     ProtobufCMessage *input_proto_message = NULL;
     ProtobufCMessage *output_proto_message = NULL;
     ant_code result = ANT_CODE_OK;
-    bool is_file_input;
-    uint32_t streaming_id = 0;
+    cmsg_proxy_processing_info processing_info = {
+        .is_file_input = false,
+        .client = NULL,
+        .service_info = NULL,
+        .streaming_id = 0,
+    };
 
     /* By default handle responses with MIME type "application/json"
      */
@@ -931,17 +934,17 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
         return true;
     }
 
-    input_proto_message = cmsg_proxy_input_process (input, output, &is_file_input,
-                                                    &service_info, &client, &streaming_id);
+    input_proto_message = cmsg_proxy_input_process (input, output, &processing_info);
     if (!input_proto_message)
     {
         return true;
     }
 
-    result = _cmsg_proxy_call_cmsg_api (client, input_proto_message,
-                                        &output_proto_message, service_info);
+    result = _cmsg_proxy_call_cmsg_api (processing_info.client, input_proto_message,
+                                        &output_proto_message,
+                                        processing_info.service_info);
 
-    if (is_file_input)
+    if (processing_info.is_file_input)
     {
         // Clear message CMSG_PROXY_SPECIAL_FIELD_FILE field pointer so that we don't
         // attempt to free input_data
@@ -953,7 +956,8 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
         /* Something went wrong calling the CMSG api */
         CMSG_FREE_RECV_MSG (input_proto_message);
         _cmsg_proxy_generate_ant_result_error (result, NULL, output);
-        CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
+        CMSG_PROXY_SESSION_COUNTER_INC (processing_info.service_info,
+                                        cntr_error_api_failure);
         return true;
     }
 
@@ -962,8 +966,10 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
     if (!_cmsg_proxy_set_http_status (&output->http_status, input->http_verb,
                                       &output_proto_message))
     {
-        syslog (LOG_ERR, "_error_info is not set for %s", service_info->url_string);
-        CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_error_info);
+        syslog (LOG_ERR, "_error_info is not set for %s",
+                processing_info.service_info->url_string);
+        CMSG_PROXY_SESSION_COUNTER_INC (processing_info.service_info,
+                                        cntr_error_missing_error_info);
     }
 
     if (output->stream_response)
@@ -979,7 +985,7 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
             /* The IMPL has rejected/failed the request to stream
              * the response. */
             output->stream_response = false;
-            cmsg_proxy_remove_stream_by_id (streaming_id);
+            cmsg_proxy_remove_stream_by_id (processing_info.streaming_id);
         }
     }
 
@@ -990,7 +996,8 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
             /* This should not occur (the ProtobufCMessage structure returned
              * by the CMSG api should always be well formed) but check for it */
             output->http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
-            CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_protobuf_to_json);
+            CMSG_PROXY_SESSION_COUNTER_INC (processing_info.service_info,
+                                            cntr_error_protobuf_to_json);
         }
         CMSG_FREE_RECV_MSG (output_proto_message);
     }
