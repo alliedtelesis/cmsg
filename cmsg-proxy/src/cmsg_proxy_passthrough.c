@@ -203,6 +203,7 @@ cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output
     {
         syslog (LOG_ERR, "Error calling passthrough API");
         CMSG_PROXY_SESSION_COUNTER_INC (api_service_info, cntr_error_api_failure);
+        output->http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
         return;
     }
 
