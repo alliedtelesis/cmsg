@@ -18,14 +18,20 @@ typedef struct _cmsg_proxy_stream_connection
     const ProtobufCMessageDescriptor *output_msg_descriptor;
 } cmsg_proxy_stream_connection;
 
+typedef struct _server_poll_info
+{
+    cmsg_server *server;
+    fd_set readfds;
+    int fd_max;
+} server_poll_info;
+
 static cmsg_proxy_stream_response_send_func stream_response_send = NULL;
 static cmsg_proxy_stream_response_close_func stream_response_close = NULL;
 
-GList *stream_connections_list = NULL;
-pthread_mutex_t stream_connections_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t stream_id_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-
+static GList *stream_connections_list = NULL;
+static pthread_mutex_t stream_connections_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t stream_id_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_t server_thread;
 
 /**
  * Set the function used to send stream responses on an HTTP connection.
@@ -191,66 +197,49 @@ cmsg_proxy_find_connection_by_id (uint32_t id)
     return connection_info;
 }
 
-
-static gboolean
-cmsg_proxy_streaming_server_receive (GIOChannel *source, GIOCondition condition,
-                                     gpointer data)
+static void
+cmsg_proxy_streaming_server_cleanup (server_poll_info *poll_info)
 {
-    int fd = g_io_channel_unix_get_fd (source);
-    cmsg_server *streaming_server = (cmsg_server *) data;
+    int fd;
 
-    if (cmsg_server_receive (streaming_server, fd) < 0)
+    for (fd = 0; fd < poll_info->fd_max; fd++)
     {
-        g_io_channel_shutdown (source, true, NULL);
-        g_io_channel_unref (source);
-        return FALSE;
-    }
-    return TRUE;
-}
-
-/**
- * Callback function for server socket accept
- */
-static gboolean
-cmsg_proxy_streaming_server_accept (GIOChannel *source, GIOCondition condition,
-                                    gpointer data)
-{
-    int server_socket = g_io_channel_unix_get_fd (source);
-    int fd = -1;
-    GIOChannel *server_read_channel = NULL;
-    cmsg_server *streaming_server = (cmsg_server *) data;
-
-    fd = cmsg_server_accept (streaming_server, server_socket);
-    if (fd >= 0)
-    {
-        server_read_channel = g_io_channel_unix_new (fd);
-        g_io_add_watch (server_read_channel, G_IO_IN, cmsg_proxy_streaming_server_receive,
-                        streaming_server);
+        if (FD_ISSET (fd, &poll_info->readfds))
+        {
+            close (fd);
+        }
     }
 
-    return TRUE;
+    cmsg_destroy_server_and_transport (poll_info->server);
 }
 
 static void *
 cmsg_proxy_streaming_server_run (void *arg)
 {
-    GMainLoop *loop = g_main_loop_new (NULL, false);
-    cmsg_server *streaming_server = NULL;
-    GIOChannel *server_accept_channel = NULL;
-    int server_socket = -1;
+    server_poll_info poll_info;
+    int fd = -1;
 
-    streaming_server =
+    poll_info.server = NULL;
+    poll_info.fd_max = 0;
+    FD_ZERO (&poll_info.readfds);
+
+    pthread_cleanup_push ((void (*)(void *)) cmsg_proxy_streaming_server_cleanup,
+                          &poll_info);
+
+    poll_info.server =
         cmsg_create_server_unix_rpc (CMSG_SERVICE_NOPACKAGE (http_streaming));
 
-    server_socket = cmsg_server_get_socket (streaming_server);
+    fd = cmsg_server_get_socket (poll_info.server);
+    poll_info.fd_max = fd + 1;
+    FD_SET (fd, &poll_info.readfds);
 
-    server_accept_channel = g_io_channel_unix_new (server_socket);
+    while (true)
+    {
+        cmsg_server_receive_poll (poll_info.server, -1, &poll_info.readfds,
+                                  &poll_info.fd_max);
+    }
 
-    g_io_add_watch (server_accept_channel, G_IO_IN, cmsg_proxy_streaming_server_accept,
-                    streaming_server);
-
-    g_main_loop_run (loop);
-    g_main_loop_unref (loop);
+    pthread_cleanup_pop (1);
 
     return NULL;
 }
@@ -259,7 +248,6 @@ void
 cmsg_proxy_streaming_init (void)
 {
     int ret;
-    pthread_t server_thread;
 
     ret = pthread_create (&server_thread, NULL, cmsg_proxy_streaming_server_run, NULL);
 
@@ -267,6 +255,13 @@ cmsg_proxy_streaming_init (void)
     {
         syslog (LOG_ERR, "Failed to start cmsg proxy streaming server thread");
     }
+}
+
+void
+cmsg_proxy_streaming_deinit (void)
+{
+    pthread_cancel (server_thread);
+    pthread_join (server_thread, NULL);
 }
 
 void

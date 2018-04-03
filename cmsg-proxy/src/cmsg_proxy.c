@@ -506,9 +506,7 @@ cmsg_proxy_init (void)
     cmsg_proxy_mem_init ();
     cmsg_proxy_counter_init ();
     cmsg_proxy_tree_init ();
-#ifndef HAVE_UNITTEST
     cmsg_proxy_streaming_init ();
-#endif /* HAVE_UNITTEST */
 }
 
 /**
@@ -529,10 +527,9 @@ cmsg_proxy_set_pre_api_http_check_callback (pre_api_http_check_callback cb)
 void
 cmsg_proxy_deinit (void)
 {
+    cmsg_proxy_streaming_deinit ();
     cmsg_proxy_tree_deinit ();
-
     cmsg_proxy_counter_deinit ();
-
     pre_api_check_callback = NULL;
 }
 

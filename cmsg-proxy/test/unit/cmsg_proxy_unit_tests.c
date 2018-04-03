@@ -354,19 +354,19 @@ test_cmsg_proxy_service_info_add (void)
 }
 
 /**
- * Function Tested: cmsg_proxy_deinit()
+ * Function Tested: cmsg_proxy_tree_deinit()
  *
  * Tests that dynamically allocated memory is freed properly
  */
 void
-test_cmsg_proxy_deinit (void)
+test_cmsg_proxy_tree_deinit (void)
 {
     setup_standard_test_tree ();
 
     cmsg_proxy_clients_init ();
     NP_ASSERT_EQUAL (g_list_length (proxy_clients_list), 1);
 
-    cmsg_proxy_deinit ();
+    cmsg_proxy_tree_deinit ();
     NP_ASSERT_PTR_EQUAL (proxy_clients_list, NULL);
     NP_ASSERT_PTR_EQUAL (proxy_entries_tree, NULL);
     NP_ASSERT_PTR_EQUAL (library_handles_list, NULL);
