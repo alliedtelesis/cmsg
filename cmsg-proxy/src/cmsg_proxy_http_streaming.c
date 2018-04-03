@@ -133,9 +133,7 @@ cmsg_proxy_streaming_create_conn (void *connection, json_t **input_json_obj,
 
     id = cmsg_proxy_streaming_generate_id ();
 
-    /* VISTA548-114 TODO - make it so we don't need to convert to string */
     sprintf (buffer, "%u", id);
-
     cmsg_proxy_set_internal_api_value (buffer, input_json_obj, input_msg_descriptor,
                                        "_streaming_id");
 
