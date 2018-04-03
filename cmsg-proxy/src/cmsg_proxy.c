@@ -74,7 +74,7 @@ static const char *cmsg_mime_application_json = "application/json";
  * @returns HTTP code that corresponds to ant_code, or HTTP_CODE_INTERNAL_SERVER_ERROR
  */
 int
-_cmsg_proxy_ant_code_to_http_code (int ant_code)
+cmsg_proxy_ant_code_to_http_code (int ant_code)
 {
     if (ant_code < 0 || ant_code >= ANT_CODE_MAX)
     {
@@ -92,7 +92,7 @@ _cmsg_proxy_ant_code_to_http_code (int ant_code)
  * @returns true if msg_descriptor has the field, else false.
  */
 bool
-_cmsg_proxy_msg_has_file (const ProtobufCMessageDescriptor *msg_descriptor)
+cmsg_proxy_msg_has_file (const ProtobufCMessageDescriptor *msg_descriptor)
 {
     if (protobuf_c_message_descriptor_get_field_by_name (msg_descriptor,
                                                          CMSG_PROXY_SPECIAL_FIELD_FILE))
@@ -127,8 +127,8 @@ G_STATIC_ASSERT (sizeof (json_int_t) == sizeof (long long));
  *            conversion fails or is not supported.
  */
 json_t *
-_cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descriptor,
-                                  const char *value)
+cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descriptor,
+                                 const char *value)
 {
     char *fmt = NULL;
     char *endptr = NULL;
@@ -197,8 +197,8 @@ _cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descript
  * @param msg message to update
  */
 void
-_cmsg_proxy_file_data_to_message (const char *input_data, size_t input_length,
-                                  ProtobufCMessage *msg)
+cmsg_proxy_file_data_to_message (const char *input_data, size_t input_length,
+                                 ProtobufCMessage *msg)
 {
     ProtobufCBinaryData *data_ptr = NULL;
     protobuf_c_boolean *has_field_ptr = NULL;
@@ -236,7 +236,7 @@ _cmsg_proxy_file_data_to_message (const char *input_data, size_t input_length,
  *         a non-zero value is returned.
  */
 static int
-_cmsg_proxy_param_name_matches (gconstpointer param, gconstpointer name_to_match)
+cmsg_proxy_param_name_matches (gconstpointer param, gconstpointer name_to_match)
 {
     cmsg_url_parameter *p = (cmsg_url_parameter *) param;
     const char *key = (const char *) name_to_match;
@@ -258,7 +258,7 @@ _cmsg_proxy_param_name_matches (gconstpointer param, gconstpointer name_to_match
  * @param url_parameters - List of key value pairs of parameters specified in the URL
  */
 void
-_cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_parameters)
+cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_parameters)
 {
     char *tmp_query_string;
     char *next_entry = NULL;
@@ -284,11 +284,11 @@ _cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_parame
                 /* Only add the parameter if it is not already assigned
                  * (query parameters shouldn't overwrite path parameters) */
                 matching_param = g_list_find_custom (*url_parameters, next_entry,
-                                                     _cmsg_proxy_param_name_matches);
+                                                     cmsg_proxy_param_name_matches);
                 if (!matching_param)
                 {
                     decoded_value = g_uri_unescape_string (value + 1, NULL);
-                    param = _cmsg_proxy_create_url_parameter (next_entry, decoded_value);
+                    param = cmsg_proxy_create_url_parameter (next_entry, decoded_value);
                     g_free (decoded_value);
                     *url_parameters = g_list_prepend (*url_parameters, param);
                 }
@@ -308,10 +308,10 @@ _cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_parame
  * @param field_name - Target field name in the message to put the internal api info value.
  */
 void
-_cmsg_proxy_set_internal_api_value (const char *internal_info_value,
-                                    json_t **json_obj,
-                                    const ProtobufCMessageDescriptor *msg_descriptor,
-                                    const char *field_name)
+cmsg_proxy_set_internal_api_value (const char *internal_info_value,
+                                   json_t **json_obj,
+                                   const ProtobufCMessageDescriptor *msg_descriptor,
+                                   const char *field_name)
 {
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
     json_t *new_object = NULL;
@@ -321,8 +321,8 @@ _cmsg_proxy_set_internal_api_value (const char *internal_info_value,
 
     if (field_descriptor)
     {
-        new_object = _cmsg_proxy_json_value_to_object (field_descriptor,
-                                                       internal_info_value);
+        new_object = cmsg_proxy_json_value_to_object (field_descriptor,
+                                                      internal_info_value);
         if (!new_object)
         {
             syslog (LOG_ERR, "Could not create json object for %s", field_name);
@@ -353,7 +353,7 @@ _cmsg_proxy_set_internal_api_value (const char *internal_info_value,
  * @return - true on success, false on failure.
  */
 bool
-_cmsg_proxy_protobuf2json_object (ProtobufCMessage *input_protobuf, json_t **output_json)
+cmsg_proxy_protobuf2json_object (ProtobufCMessage *input_protobuf, json_t **output_json)
 {
     if (protobuf2json_object (input_protobuf, output_json, NULL, 0) < 0)
     {
@@ -380,9 +380,9 @@ _cmsg_proxy_protobuf2json_object (ProtobufCMessage *input_protobuf, json_t **out
  *            ANT_CODE_INTERNAL if CMSG fails internally.
  */
 static ant_code
-_cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_msg,
-                           ProtobufCMessage **output_msg,
-                           const cmsg_service_info *service_info)
+cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_msg,
+                          ProtobufCMessage **output_msg,
+                          const cmsg_service_info *service_info)
 {
     int ret;
 
@@ -416,8 +416,8 @@ _cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_ms
  * @param output response data for cmsg proxy
  */
 void
-_cmsg_proxy_json_t_to_output (json_t *json_data, size_t json_flags,
-                              cmsg_proxy_output *output)
+cmsg_proxy_json_t_to_output (json_t *json_data, size_t json_flags,
+                             cmsg_proxy_output *output)
 {
     char *response_body = json_dumps (json_data, json_flags);
 
@@ -438,9 +438,9 @@ _cmsg_proxy_json_t_to_output (json_t *json_data, size_t json_flags,
  * @param msg message to clear _file pointer for.
  */
 static void
-_cmsg_proxy_file_data_strip (ProtobufCMessage *msg)
+cmsg_proxy_file_data_strip (ProtobufCMessage *msg)
 {
-    _cmsg_proxy_file_data_to_message (NULL, 0, msg);
+    cmsg_proxy_file_data_to_message (NULL, 0, msg);
 }
 
 
@@ -473,8 +473,8 @@ cmsg_proxy_strip_details_from_ant_result (json_t *ant_result_json_object)
  * @param output - CMSG proxy response
  */
 void
-_cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
-                                       cmsg_proxy_output *output)
+cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
+                                      cmsg_proxy_output *output)
 {
     ant_result error = ANT_RESULT_INIT;
     json_t *converted_json_object = NULL;
@@ -482,10 +482,10 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
     CMSG_SET_FIELD_VALUE (&error, code, code);
     CMSG_SET_FIELD_PTR (&error, message, message);
 
-    output->http_status = _cmsg_proxy_ant_code_to_http_code (code);
+    output->http_status = cmsg_proxy_ant_code_to_http_code (code);
 
-    if (!_cmsg_proxy_protobuf2json_object ((ProtobufCMessage *) &error,
-                                           &converted_json_object))
+    if (!cmsg_proxy_protobuf2json_object ((ProtobufCMessage *) &error,
+                                          &converted_json_object))
     {
         output->http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
         return;
@@ -493,7 +493,7 @@ _cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
 
     cmsg_proxy_strip_details_from_ant_result (converted_json_object);
 
-    _cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT, output);
+    cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT, output);
     json_decref (converted_json_object);
 }
 
@@ -602,16 +602,16 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
         return;
     }
 
-    processing_info.cmsg_api_result = _cmsg_proxy_call_cmsg_api (processing_info.client,
-                                                                 input_proto_message,
-                                                                 &output_proto_message,
-                                                                 processing_info.service_info);
+    processing_info.cmsg_api_result = cmsg_proxy_call_cmsg_api (processing_info.client,
+                                                                input_proto_message,
+                                                                &output_proto_message,
+                                                                processing_info.service_info);
 
     if (processing_info.is_file_input)
     {
         // Clear message CMSG_PROXY_SPECIAL_FIELD_FILE field pointer so that we don't
         // attempt to free input_data
-        _cmsg_proxy_file_data_strip (input_proto_message);
+        cmsg_proxy_file_data_strip (input_proto_message);
     }
     CMSG_FREE_RECV_MSG (input_proto_message);
 

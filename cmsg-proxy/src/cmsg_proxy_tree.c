@@ -36,7 +36,7 @@ GNode *proxy_entries_tree = NULL;
  * @return - allocated cmsg_url_parameter or NULL if allocation fails
  */
 cmsg_url_parameter *
-_cmsg_proxy_create_url_parameter (const char *key, const char *value)
+cmsg_proxy_create_url_parameter (const char *key, const char *value)
 {
     cmsg_url_parameter *new = calloc (1, sizeof (cmsg_url_parameter));
 
@@ -61,7 +61,7 @@ _cmsg_proxy_create_url_parameter (const char *key, const char *value)
  * @param ptr - the cms_url_parameter to be freed
  */
 void
-_cmsg_proxy_free_url_parameter (gpointer ptr)
+cmsg_proxy_free_url_parameter (gpointer ptr)
 {
     cmsg_url_parameter *p = (cmsg_url_parameter *) ptr;
 
@@ -80,7 +80,7 @@ _cmsg_proxy_free_url_parameter (gpointer ptr)
  * @param service_info - CMSG service info to be added
  */
 static void
-_cmsg_proxy_api_info_node_set (GNode *leaf_node, const cmsg_service_info *service_info)
+cmsg_proxy_api_info_node_set (GNode *leaf_node, const cmsg_service_info *service_info)
 {
     cmsg_proxy_api_info *api_info = leaf_node->data;
 
@@ -163,7 +163,7 @@ _cmsg_proxy_api_info_node_set (GNode *leaf_node, const cmsg_service_info *servic
  *  @return  Newly created cmsg_api_info_node or the existing one if found.
  */
 static GNode *
-_cmsg_proxy_api_info_node_new (GNode *last_node)
+cmsg_proxy_api_info_node_new (GNode *last_node)
 {
     GNode *first_child = NULL;
     GNode *cmsg_api_info_node = NULL;
@@ -204,7 +204,7 @@ _cmsg_proxy_api_info_node_new (GNode *last_node)
  *           in the tree continues.
  */
 static gboolean
-_cmsg_proxy_api_info_free (GNode *leaf_node, gpointer data)
+cmsg_proxy_api_info_free (GNode *leaf_node, gpointer data)
 {
     cmsg_proxy_api_info *api_info = leaf_node->data;
 
@@ -224,7 +224,7 @@ _cmsg_proxy_api_info_free (GNode *leaf_node, gpointer data)
  *           in the tree continues.
  */
 static gboolean
-_cmsg_proxy_entry_data_free (GNode *node, gpointer data)
+cmsg_proxy_entry_data_free (GNode *node, gpointer data)
 {
     char *str = node->data;
 
@@ -242,7 +242,7 @@ _cmsg_proxy_entry_data_free (GNode *node, gpointer data)
  * @return - true if it is a URL parameter, false otherwise
  */
 static bool
-_cmsg_proxy_token_is_url_param (const char *token)
+cmsg_proxy_token_is_url_param (const char *token)
 {
     int token_len = (token ? strlen (token) : 0);
 
@@ -271,7 +271,7 @@ _cmsg_proxy_token_is_url_param (const char *token)
  *           false otherwise
  */
 static bool
-_cmsg_proxy_service_info_conflicts (GNode *parent_node, const char *token)
+cmsg_proxy_service_info_conflicts (GNode *parent_node, const char *token)
 {
     GNode *node = NULL;
 
@@ -282,8 +282,8 @@ _cmsg_proxy_service_info_conflicts (GNode *parent_node, const char *token)
         /* API info node should be skipped */
         if (!G_NODE_IS_LEAF (node))
         {
-            if (_cmsg_proxy_token_is_url_param (token) ||
-                _cmsg_proxy_token_is_url_param (node->data))
+            if (cmsg_proxy_token_is_url_param (token) ||
+                cmsg_proxy_token_is_url_param (node->data))
             {
                 return true;
             }
@@ -310,7 +310,7 @@ _cmsg_proxy_service_info_conflicts (GNode *parent_node, const char *token)
  * @return - true if it should still be added to the proxy tree. false otherwise.
  */
 static bool
-_cmsg_proxy_allowed_conflicts__DEPRECATED (const char *url)
+cmsg_proxy_allowed_conflicts__DEPRECATED (const char *url)
 {
     if (strstr (url, "/v0.1/statistics/interfaces"))
     {
@@ -374,7 +374,7 @@ _cmsg_proxy_allowed_conflicts__DEPRECATED (const char *url)
  *           false otherwise
  */
 static bool
-_cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
+cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
 {
     char *tmp_url = NULL;
     char *next_entry = NULL;
@@ -408,8 +408,8 @@ _cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
         /* Add if it doesn't exist. Insert as the last child of parent_node. */
         if (!found)
         {
-            if (_cmsg_proxy_service_info_conflicts (parent_node, next_entry) &&
-                !_cmsg_proxy_allowed_conflicts__DEPRECATED (service_info->url_string))
+            if (cmsg_proxy_service_info_conflicts (parent_node, next_entry) &&
+                !cmsg_proxy_allowed_conflicts__DEPRECATED (service_info->url_string))
             {
                 syslog (LOG_ERR, "URL '%s' conflicts with a previously loaded URL",
                         service_info->url_string);
@@ -422,10 +422,10 @@ _cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
         parent_node = node;
     }
 
-    cmsg_api_info_node = _cmsg_proxy_api_info_node_new (parent_node);
+    cmsg_api_info_node = cmsg_proxy_api_info_node_new (parent_node);
 
     /* Fill the cmsg_service_info to the leaf node */
-    _cmsg_proxy_api_info_node_set (cmsg_api_info_node, service_info);
+    cmsg_proxy_api_info_node_set (cmsg_api_info_node, service_info);
 
     CMSG_PROXY_FREE (tmp_url);
 
@@ -439,7 +439,7 @@ _cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
  * @param length - Length of the array
  */
 void
-_cmsg_proxy_service_info_init (cmsg_service_info *array, int length)
+cmsg_proxy_service_info_init (cmsg_service_info *array, int length)
 {
     int i = 0;
     const cmsg_service_info *service_info;
@@ -448,7 +448,7 @@ _cmsg_proxy_service_info_init (cmsg_service_info *array, int length)
     {
         service_info = &array[i];
 
-        if (_cmsg_proxy_service_info_add (service_info))
+        if (cmsg_proxy_service_info_add (service_info))
         {
             CMSG_PROXY_COUNTER_INC (cntr_service_info_loaded);
         }
@@ -461,7 +461,7 @@ _cmsg_proxy_service_info_init (cmsg_service_info *array, int length)
  * Deinitialise the cmsg proxy entry tree with the autogenerated array entries
  */
 static void
-_cmsg_proxy_service_info_deinit (void)
+cmsg_proxy_service_info_deinit (void)
 {
     GNode *root = g_node_get_root (proxy_entries_tree);
 
@@ -469,16 +469,16 @@ _cmsg_proxy_service_info_deinit (void)
     if (!G_NODE_IS_LEAF (root))
     {
         g_node_traverse (root, G_LEVEL_ORDER, G_TRAVERSE_LEAVES, -1,
-                         _cmsg_proxy_api_info_free, NULL);
+                         cmsg_proxy_api_info_free, NULL);
 
         /* Now free all nodes' data */
         g_node_traverse (root, G_POST_ORDER, G_TRAVERSE_NON_LEAVES, -1,
-                         _cmsg_proxy_entry_data_free, NULL);
+                         cmsg_proxy_entry_data_free, NULL);
     }
     else
     {
         /* Free the root node's data. */
-        _cmsg_proxy_entry_data_free (root, NULL);
+        cmsg_proxy_entry_data_free (root, NULL);
     }
 
     g_node_destroy (proxy_entries_tree);
@@ -486,7 +486,7 @@ _cmsg_proxy_service_info_deinit (void)
 }
 
 /**
- * Helper function used by _cmsg_proxy_find_client_by_service()
+ * Helper function used by cmsg_proxy_find_client_by_service()
  * with g_list_find_custom() to find an entry from the proxy
  * client list based on service name.
  *
@@ -494,7 +494,7 @@ _cmsg_proxy_service_info_deinit (void)
  * @param service_name - Service name to match
  */
 static int
-_cmsg_proxy_service_name_cmp (void *list_data, void *service_name)
+cmsg_proxy_service_name_cmp (void *list_data, void *service_name)
 {
     cmsg_client *list_client = (cmsg_client *) list_data;
 
@@ -509,12 +509,12 @@ _cmsg_proxy_service_name_cmp (void *list_data, void *service_name)
  * @return - Pointer to the CMSG client if found, NULL otherwise.
  */
 cmsg_client *
-_cmsg_proxy_find_client_by_service (const ProtobufCServiceDescriptor *service_descriptor)
+cmsg_proxy_find_client_by_service (const ProtobufCServiceDescriptor *service_descriptor)
 {
     GList *found_data;
 
     found_data = g_list_find_custom (proxy_clients_list, service_descriptor->name,
-                                     (GCompareFunc) _cmsg_proxy_service_name_cmp);
+                                     (GCompareFunc) cmsg_proxy_service_name_cmp);
     if (found_data)
     {
         return found_data->data;
@@ -530,7 +530,7 @@ _cmsg_proxy_find_client_by_service (const ProtobufCServiceDescriptor *service_de
  * @param service_descriptor - CMSG service descriptor to connect the client to
  */
 static void
-_cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
+cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
 {
     cmsg_client *client = NULL;
 
@@ -553,7 +553,7 @@ _cmsg_proxy_create_client (const ProtobufCServiceDescriptor *service_descriptor)
  * Free the CMSG proxy clients created
  */
 static void
-_cmsg_proxy_client_free (gpointer data, gpointer user_data)
+cmsg_proxy_client_free (gpointer data, gpointer user_data)
 {
     cmsg_client *client = (cmsg_client *) data;
 
@@ -601,8 +601,8 @@ cmsg_proxy_service_info_get (const cmsg_proxy_api_info *api_info, cmsg_http_verb
  * @return - Pointer to the cmsg_service_info entry if found, NULL otherwise.
  */
 const cmsg_service_info *
-_cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb,
-                                            GList **url_parameters)
+cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb,
+                                           GList **url_parameters)
 {
     GNode *node;
     char *tmp_url;
@@ -632,10 +632,10 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
                 key = (const char *) node->data;
 
                 /* if this URL segment is a parameter, store it to be parsed later */
-                if (_cmsg_proxy_token_is_url_param (key))
+                if (cmsg_proxy_token_is_url_param (key))
                 {
 
-                    param = _cmsg_proxy_create_url_parameter (key, next_entry);
+                    param = cmsg_proxy_create_url_parameter (key, next_entry);
                     *url_parameters = g_list_prepend (*url_parameters, param);
                     parent_node = node;
                     break;
@@ -675,7 +675,7 @@ _cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb
  *           in the tree continues.
  */
 static gboolean
-_cmsg_proxy_clients_add (GNode *leaf_node, gpointer data)
+cmsg_proxy_clients_add (GNode *leaf_node, gpointer data)
 {
     cmsg_proxy_api_info *api_info;
     const cmsg_service_info *service_info;
@@ -687,9 +687,9 @@ _cmsg_proxy_clients_add (GNode *leaf_node, gpointer data)
     {
         service_info = cmsg_proxy_service_info_get (api_info, action);
         if (service_info &&
-            !_cmsg_proxy_find_client_by_service (service_info->service_descriptor))
+            !cmsg_proxy_find_client_by_service (service_info->service_descriptor))
         {
-            _cmsg_proxy_create_client (service_info->service_descriptor);
+            cmsg_proxy_create_client (service_info->service_descriptor);
         }
     }
 
@@ -702,7 +702,7 @@ _cmsg_proxy_clients_add (GNode *leaf_node, gpointer data)
  * GNode proxy entry tree. All the leaf nodes should be contain cmsg_proxy_api_info.
  */
 static void
-_cmsg_proxy_clients_init (void)
+cmsg_proxy_clients_init (void)
 {
     GNode *root = g_node_get_root (proxy_entries_tree);
 
@@ -710,7 +710,7 @@ _cmsg_proxy_clients_init (void)
     if (!G_NODE_IS_LEAF (root))
     {
         g_node_traverse (root, G_LEVEL_ORDER, G_TRAVERSE_LEAVES, -1,
-                         _cmsg_proxy_clients_add, NULL);
+                         cmsg_proxy_clients_add, NULL);
     }
 }
 
@@ -718,19 +718,19 @@ _cmsg_proxy_clients_init (void)
  * Deinitialise the CMSG clients.
  */
 static void
-_cmsg_proxy_clients_deinit (void)
+cmsg_proxy_clients_deinit (void)
 {
-    g_list_foreach (proxy_clients_list, _cmsg_proxy_client_free, NULL);
+    g_list_foreach (proxy_clients_list, cmsg_proxy_client_free, NULL);
     g_list_free (proxy_clients_list);
     proxy_clients_list = NULL;
 }
 
 /**
- * Helper function for _cmsg_proxy_library_handles_deinit().
+ * Helper function for cmsg_proxy_library_handles_deinit().
  * Call dlclose in a way that compiles with g_list_free_full.
  */
 static void
-_cmsg_proxy_dlclose (gpointer data)
+cmsg_proxy_dlclose (gpointer data)
 {
     dlclose (data);
 }
@@ -739,9 +739,9 @@ _cmsg_proxy_dlclose (gpointer data)
  * Close the loaded library handles.
  */
 static void
-_cmsg_proxy_library_handles_close (void)
+cmsg_proxy_library_handles_close (void)
 {
-    g_list_free_full (library_handles_list, _cmsg_proxy_dlclose);
+    g_list_free_full (library_handles_list, cmsg_proxy_dlclose);
     library_handles_list = NULL;
 }
 
@@ -750,7 +750,7 @@ _cmsg_proxy_library_handles_close (void)
  * CMSG_PROXY_LIB_PATH into the cmsg proxy library.
  */
 void
-_cmsg_proxy_library_handles_load (void)
+cmsg_proxy_library_handles_load (void)
 {
     DIR *d = NULL;
     struct dirent *dir = NULL;
@@ -785,7 +785,7 @@ _cmsg_proxy_library_handles_load (void)
 
                 if (get_func_addr && size_func_addr)
                 {
-                    _cmsg_proxy_service_info_init (get_func_addr (), size_func_addr ());
+                    cmsg_proxy_service_info_init (get_func_addr (), size_func_addr ());
 
                     /* We need to leave the library loaded in the process address space so
                      * that the data can be accessed. Store a pointer to the library handle
@@ -841,8 +841,8 @@ cmsg_proxy_tree_init (void)
     /* Create GNode proxy entries tree. */
     proxy_entries_tree = g_node_new (CMSG_PROXY_STRDUP (CMSG_API_VERSION_STR));
 
-    _cmsg_proxy_library_handles_load ();
-    _cmsg_proxy_clients_init ();
+    cmsg_proxy_library_handles_load ();
+    cmsg_proxy_clients_init ();
 }
 
 /**
@@ -852,7 +852,7 @@ cmsg_proxy_tree_init (void)
 void
 cmsg_proxy_tree_deinit (void)
 {
-    _cmsg_proxy_service_info_deinit ();
-    _cmsg_proxy_clients_deinit ();
-    _cmsg_proxy_library_handles_close ();
+    cmsg_proxy_service_info_deinit ();
+    cmsg_proxy_clients_deinit ();
+    cmsg_proxy_library_handles_close ();
 }

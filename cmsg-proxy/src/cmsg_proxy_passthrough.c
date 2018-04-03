@@ -33,7 +33,7 @@ static cmsg_client *client = NULL;
  * Return string for HTTP verb value
  */
 static char *
-_cmsg_proxy_passthrough_verb_to_string (cmsg_http_verb http_verb)
+cmsg_proxy_passthrough_verb_to_string (cmsg_http_verb http_verb)
 {
     switch (http_verb)
     {
@@ -96,7 +96,7 @@ _load_library_info (proxy_defs_array_get_func_ptr get_func_addr,
  * Loads library by given full path
  */
 static bool
-_cmsg_proxy_passthrough_library_handle_load (const char *library_path)
+cmsg_proxy_passthrough_library_handle_load (const char *library_path)
 {
     proxy_defs_array_get_func_ptr get_func_addr = NULL;
     proxy_defs_array_size_func_ptr size_func_addr = NULL;
@@ -132,7 +132,7 @@ cmsg_proxy_passthrough_init (const char *library_path)
 
     cmsg_proxy_counter_init ();
 
-    if (!_cmsg_proxy_passthrough_library_handle_load (library_path))
+    if (!cmsg_proxy_passthrough_library_handle_load (library_path))
     {
         syslog (LOG_ERR, "Unable able to load library %s", library_path);
         return;
@@ -195,7 +195,7 @@ cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output
 
     CMSG_SET_FIELD_PTR (&send_msg, path, (char *) input->url);
     CMSG_SET_FIELD_PTR (&send_msg, method,
-                        _cmsg_proxy_passthrough_verb_to_string (input->http_verb));
+                        cmsg_proxy_passthrough_verb_to_string (input->http_verb));
     CMSG_SET_FIELD_PTR (&send_msg, request_body, (char *) input->data);
 
     ret = api_ptr (client, &send_msg, &recv_msg);

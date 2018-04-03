@@ -36,7 +36,7 @@ cmsg_proxy_index_search_pattern (const char *query_string)
     char *search_pattern = NULL;
     cmsg_url_parameter *param;
 
-    _cmsg_proxy_parse_query_parameters (query_string, &query_params);
+    cmsg_proxy_parse_query_parameters (query_string, &query_params);
 
     for (node = query_params; node; node = node->next)
     {
@@ -51,7 +51,7 @@ cmsg_proxy_index_search_pattern (const char *query_string)
         }
     }
 
-    g_list_free_full (query_params, _cmsg_proxy_free_url_parameter);
+    g_list_free_full (query_params, cmsg_proxy_free_url_parameter);
     return search_pattern;
 }
 
@@ -187,7 +187,7 @@ cmsg_proxy_index (const char *query_string, cmsg_proxy_output *output)
     json_object_set_new (result, "basepath", json_string (API_PREFIX));
     json_object_set (result, "paths", api_array);
 
-    _cmsg_proxy_json_t_to_output (result, JSON_ENCODE_ANY | JSON_COMPACT, output);
+    cmsg_proxy_json_t_to_output (result, JSON_ENCODE_ANY | JSON_COMPACT, output);
 
     free (search_pattern);
     json_decref (api_array);

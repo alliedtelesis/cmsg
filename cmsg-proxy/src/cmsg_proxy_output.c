@@ -24,7 +24,7 @@ static const char *cmsg_filename_header_format = "attachment; filename=\"%s\"";
  * @returns true if msg_descriptor has a field named "_body", else false.
  */
 static bool
-_cmsg_proxy_msg_has_body_override (const ProtobufCMessageDescriptor *msg_descriptor)
+cmsg_proxy_msg_has_body_override (const ProtobufCMessageDescriptor *msg_descriptor)
 {
     if (protobuf_c_message_descriptor_get_field_by_name (msg_descriptor,
                                                          CMSG_PROXY_SPECIAL_FIELD_BODY))
@@ -43,8 +43,8 @@ _cmsg_proxy_msg_has_body_override (const ProtobufCMessageDescriptor *msg_descrip
  * @param output - CMSG proxy response
  */
 static bool
-_cmsg_proxy_generate_plaintext_response (ProtobufCMessage *output_proto_message,
-                                         cmsg_proxy_output *output)
+cmsg_proxy_generate_plaintext_response (ProtobufCMessage *output_proto_message,
+                                        cmsg_proxy_output *output)
 {
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
     const char **field_value = NULL;
@@ -89,8 +89,8 @@ _cmsg_proxy_generate_plaintext_response (ProtobufCMessage *output_proto_message,
  * @param output - CMSG proxy response
  */
 static bool
-_cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
-                                    cmsg_proxy_output *output)
+cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
+                                   cmsg_proxy_output *output)
 {
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
     const ProtobufCBinaryData *file_ptr = NULL;
@@ -194,8 +194,8 @@ _cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
  * @returns 'true' if _error_info is updated with error message otherwise 'false'
  */
 static bool
-_cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
-                             ProtobufCMessage **msg)
+cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
+                            ProtobufCMessage **msg)
 {
     const ProtobufCFieldDescriptor *field_desc = NULL;
     ProtobufCMessage **error_message_ptr = NULL;
@@ -227,7 +227,7 @@ _cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
     error_message = (ant_result *) (*error_message_ptr);
     if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
     {
-        *http_status = _cmsg_proxy_ant_code_to_http_code (error_message->code);
+        *http_status = cmsg_proxy_ant_code_to_http_code (error_message->code);
         if (error_message->code == ANT_CODE_OK && http_verb == CMSG_HTTP_GET)
         {
             /* Unset the error info message from the protobuf message */
@@ -251,8 +251,8 @@ _cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
  * @param output - CMSG proxy response
  */
 static bool
-_cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
-                                    cmsg_proxy_output *output)
+cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
+                                   cmsg_proxy_output *output)
 {
     json_t *converted_json_object = NULL;
     const char *key = NULL;
@@ -262,19 +262,19 @@ _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
     // Handle special response types (if the response was successful)
     if (output->http_status == HTTP_CODE_OK)
     {
-        if (_cmsg_proxy_msg_has_body_override (output_proto_message->descriptor))
+        if (cmsg_proxy_msg_has_body_override (output_proto_message->descriptor))
         {
             // If the message provides a '_body' override, simply return that.
-            return _cmsg_proxy_generate_plaintext_response (output_proto_message, output);
+            return cmsg_proxy_generate_plaintext_response (output_proto_message, output);
         }
-        else if (_cmsg_proxy_msg_has_file (output_proto_message->descriptor))
+        else if (cmsg_proxy_msg_has_file (output_proto_message->descriptor))
         {
             // If the message contains a file, return the contents of the file.
-            return _cmsg_proxy_generate_file_response (output_proto_message, output);
+            return cmsg_proxy_generate_file_response (output_proto_message, output);
         }
     }
 
-    if (!_cmsg_proxy_protobuf2json_object (output_proto_message, &converted_json_object))
+    if (!cmsg_proxy_protobuf2json_object (output_proto_message, &converted_json_object))
     {
         return false;
     }
@@ -284,7 +284,7 @@ _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
     if (strcmp (output_proto_message->descriptor->name, "ant_result") == 0)
     {
         cmsg_proxy_strip_details_from_ant_result (converted_json_object);
-        _cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT, output);
+        cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT, output);
         json_decref (converted_json_object);
 
         return true;
@@ -299,8 +299,7 @@ _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
             if ((strcmp (key, "_error_info") == 0))
             {
                 cmsg_proxy_strip_details_from_ant_result (value);
-                _cmsg_proxy_json_t_to_output (value, JSON_ENCODE_ANY | JSON_COMPACT,
-                                              output);
+                cmsg_proxy_json_t_to_output (value, JSON_ENCODE_ANY | JSON_COMPACT, output);
                 json_decref (converted_json_object);
                 return true;
             }
@@ -319,8 +318,7 @@ _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
         {
             if (strcmp (key, "_error_info") != 0)
             {
-                _cmsg_proxy_json_t_to_output (value, JSON_ENCODE_ANY | JSON_COMPACT,
-                                              output);
+                cmsg_proxy_json_t_to_output (value, JSON_ENCODE_ANY | JSON_COMPACT, output);
                 json_decref (converted_json_object);
                 return true;
             }
@@ -341,7 +339,7 @@ _cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
     /* If there are more than 2 fields in the message descriptor
      * (and the http status is HTTP_CODE_OK) then simply return the
      * entire message as a JSON string */
-    _cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT, output);
+    cmsg_proxy_json_t_to_output (converted_json_object, JSON_COMPACT, output);
     json_decref (converted_json_object);
     return true;
 }
@@ -365,15 +363,15 @@ cmsg_proxy_output_process (ProtobufCMessage *output_proto_message,
     if (processing_info->cmsg_api_result != ANT_CODE_OK)
     {
         /* Something went wrong calling the CMSG api */
-        _cmsg_proxy_generate_ant_result_error (processing_info->cmsg_api_result,
-                                               NULL, output);
+        cmsg_proxy_generate_ant_result_error (processing_info->cmsg_api_result,
+                                              NULL, output);
         CMSG_PROXY_SESSION_COUNTER_INC (processing_info->service_info,
                                         cntr_error_api_failure);
         return;
     }
 
-    if (!_cmsg_proxy_set_http_status (&output->http_status, processing_info->http_verb,
-                                      &output_proto_message))
+    if (!cmsg_proxy_set_http_status (&output->http_status, processing_info->http_verb,
+                                     &output_proto_message))
     {
         syslog (LOG_ERR, "_error_info is not set for %s",
                 processing_info->service_info->url_string);
@@ -400,7 +398,7 @@ cmsg_proxy_output_process (ProtobufCMessage *output_proto_message,
 
     if (output_proto_message)
     {
-        if (!_cmsg_proxy_generate_response_body (output_proto_message, output))
+        if (!cmsg_proxy_generate_response_body (output_proto_message, output))
         {
             /* This should not occur (the ProtobufCMessage structure returned
              * by the CMSG api should always be well formed) but check for it */

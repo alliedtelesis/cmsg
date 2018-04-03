@@ -108,10 +108,10 @@ cmsg_proxy_get_service_and_parameters (const char *url, const char *query_string
 {
     const cmsg_service_info *service_info = NULL;
 
-    service_info = _cmsg_proxy_find_service_from_url_and_verb (url, verb, url_parameters);
+    service_info = cmsg_proxy_find_service_from_url_and_verb (url, verb, url_parameters);
     if (service_info && query_string)
     {
-        _cmsg_proxy_parse_query_parameters (query_string, url_parameters);
+        cmsg_proxy_parse_query_parameters (query_string, url_parameters);
     }
 
     return service_info;
@@ -250,7 +250,7 @@ cmsg_proxy_json_object_create (const char *input_data, size_t input_length,
     int expected_input_fields = msg_descriptor->n_fields - g_list_length (url_parameters);
     int i;
 
-    if (!input_data || _cmsg_proxy_msg_has_file (msg_descriptor))
+    if (!input_data || cmsg_proxy_msg_has_file (msg_descriptor))
     {
         /* Create an empty JSON object if no JSON input was provided or if we expect
          * file input (file will be added later). */
@@ -338,7 +338,7 @@ cmsg_proxy_json_object_create (const char *input_data, size_t input_length,
         {
             /* Ensure the enclosing "" characters are stripped from the input */
             stripped_string = json_string_value (converted_json);
-            json_obj = _cmsg_proxy_json_value_to_object (field_desc, stripped_string);
+            json_obj = cmsg_proxy_json_value_to_object (field_desc, stripped_string);
         }
         else if (field_desc->type == PROTOBUF_C_TYPE_ENUM ||
                  field_desc->type == PROTOBUF_C_TYPE_STRING)
@@ -350,7 +350,7 @@ cmsg_proxy_json_object_create (const char *input_data, size_t input_length,
         }
         else
         {
-            json_obj = _cmsg_proxy_json_value_to_object (field_desc, input_data);
+            json_obj = cmsg_proxy_json_value_to_object (field_desc, input_data);
         }
 
         json_decref (converted_json);
@@ -397,12 +397,12 @@ cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *web_api_inf
 {
     if (web_api_info)
     {
-        _cmsg_proxy_set_internal_api_value (web_api_info->api_request_ip_address,
-                                            json_obj, msg_descriptor,
-                                            "_api_request_ip_address");
-        _cmsg_proxy_set_internal_api_value (web_api_info->api_request_username,
-                                            json_obj, msg_descriptor,
-                                            "_api_request_username");
+        cmsg_proxy_set_internal_api_value (web_api_info->api_request_ip_address,
+                                           json_obj, msg_descriptor,
+                                           "_api_request_ip_address");
+        cmsg_proxy_set_internal_api_value (web_api_info->api_request_username,
+                                           json_obj, msg_descriptor,
+                                           "_api_request_username");
     }
 }
 
@@ -421,8 +421,8 @@ cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *web_api_inf
  * @param msg_descriptor - used to determine the target field type when converting to JSON
  */
 void
-_cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
-                                  const ProtobufCMessageDescriptor *msg_descriptor)
+cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
+                                 const ProtobufCMessageDescriptor *msg_descriptor)
 {
     GList *iter = NULL;
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
@@ -447,7 +447,7 @@ _cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
             continue;   /* TODO: add to json as strings (for unexpected argument error) */
         }
 
-        new_object = _cmsg_proxy_json_value_to_object (field_descriptor, p->value);
+        new_object = cmsg_proxy_json_value_to_object (field_descriptor, p->value);
 
         if (!new_object)
         {
@@ -499,7 +499,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     {
         /* The cmsg proxy does not know about this url and verb combination */
         output->http_status = HTTP_CODE_NOT_IMPLEMENTED;
-        g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
+        g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
         CMSG_PROXY_COUNTER_INC (cntr_unknown_service);
         return NULL;
     }
@@ -521,20 +521,20 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
             error_msg = NULL;
         }
 
-        _cmsg_proxy_generate_ant_result_error (ANT_CODE_INVALID_ARGUMENT,
-                                               (error_msg) ? error_msg : "Invalid JSON",
-                                               output);
+        cmsg_proxy_generate_ant_result_error (ANT_CODE_INVALID_ARGUMENT,
+                                              (error_msg) ? error_msg : "Invalid JSON",
+                                              output);
 
         CMSG_PROXY_FREE (error_msg);
 
-        g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
+        g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
         return NULL;
     }
 
-    _cmsg_proxy_parse_url_parameters (url_parameters, &json_obj,
-                                      service_info->input_msg_descriptor);
+    cmsg_proxy_parse_url_parameters (url_parameters, &json_obj,
+                                     service_info->input_msg_descriptor);
 
-    g_list_free_full (url_parameters, _cmsg_proxy_free_url_parameter);
+    g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
 
     cmsg_proxy_set_internal_api_info (&input->web_api_info, &json_obj,
                                       service_info->input_msg_descriptor);
@@ -545,12 +545,12 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
                                                           &processing_info->streaming_id);
 
     processing_info->client =
-        _cmsg_proxy_find_client_by_service (service_info->service_descriptor);
+        cmsg_proxy_find_client_by_service (service_info->service_descriptor);
     if (processing_info->client == NULL)
     {
         /* This should not occur but check for it */
         cmsg_proxy_json_object_destroy (json_obj);
-        _cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL, NULL, output);
+        cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL, NULL, output);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_client);
         return NULL;
     }
@@ -565,7 +565,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     if (result != ANT_CODE_OK)
     {
         /* The JSON sent with the request is malformed */
-        _cmsg_proxy_generate_ant_result_error (result, message, output);
+        cmsg_proxy_generate_ant_result_error (result, message, output);
         CMSG_PROXY_FREE (message);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_malformed_input);
         return NULL;
@@ -574,12 +574,12 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     message = NULL;
 
     processing_info->is_file_input =
-        _cmsg_proxy_msg_has_file (service_info->input_msg_descriptor);
+        cmsg_proxy_msg_has_file (service_info->input_msg_descriptor);
     if (processing_info->is_file_input)
     {
         // Set message "_file" field to point directly to input_data (without copying)
-        _cmsg_proxy_file_data_to_message (input->data, input->data_length,
-                                          input_proto_message);
+        cmsg_proxy_file_data_to_message (input->data, input->data_length,
+                                         input_proto_message);
     }
 
     CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_api_calls);
@@ -588,7 +588,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     result = cmsg_proxy_pre_api_check (input->http_verb, &message);
     if (result != ANT_CODE_OK)
     {
-        _cmsg_proxy_generate_ant_result_error (result, message, output);
+        cmsg_proxy_generate_ant_result_error (result, message, output);
         CMSG_PROXY_FREE (message);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
         return NULL;

@@ -80,7 +80,7 @@ test_cmsg_proxy_mem_strndup (void)
 }
 
 /**
- * Function Tested: test_cmsg_proxy_mem_free()
+ * Function Tested: cmsg_proxy_mem_free()
  *
  * The above tests have already tested that the function correctly
  * frees memory however test that the function handles a NULL input.
