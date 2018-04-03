@@ -283,19 +283,46 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
     connection_info = cmsg_proxy_find_connection_by_id (recv_msg->id);
     if (!connection_info)
     {
-        // VISTA548-115 TODO - handle this case
+        CMSG_SET_FIELD_VALUE (&send_msg, stream_found, false);
+        http_streaming_server_send_stream_dataSend (service, &send_msg);
+        return;
     }
+
+    CMSG_SET_FIELD_VALUE (&send_msg, stream_found, true);
 
     message = protobuf_c_message_unpack (connection_info->output_msg_descriptor, allocator,
                                          recv_msg->message_data.len,
                                          recv_msg->message_data.data);
-
-    if (protobuf2json_object (message, &converted_json_object, NULL, 0) < 0)
+    if (!message)
     {
-        // VISTA548-115 TODO - handle this case
+        syslog (LOG_ERR, "Failed to unpack stream response (expected message type = %s)",
+                connection_info->output_msg_descriptor->name);
+        http_streaming_server_send_stream_dataSend (service, &send_msg);
+        return;
     }
 
+    if (protobuf2json_object (message, &converted_json_object, NULL, 0) != 0)
+    {
+        syslog (LOG_ERR, "Failed to convert stream response (message type = %s)",
+                connection_info->output_msg_descriptor->name);
+        protobuf_c_message_free_unpacked (message, allocator);
+        http_streaming_server_send_stream_dataSend (service, &send_msg);
+        return;
+    }
+
+    protobuf_c_message_free_unpacked (message, allocator);
+
     response_body = json_dumps (converted_json_object, JSON_COMPACT);
+    if (!response_body)
+    {
+        syslog (LOG_ERR, "Failed to dump stream response (message type = %s)",
+                connection_info->output_msg_descriptor->name);
+        json_decref (converted_json_object);
+        http_streaming_server_send_stream_dataSend (service, &send_msg);
+        return;
+    }
+
+    json_decref (converted_json_object);
 
     data = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_stream_response_data));
     data->connection = connection_info->connection;
