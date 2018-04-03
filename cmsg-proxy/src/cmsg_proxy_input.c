@@ -539,10 +539,11 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     cmsg_proxy_set_internal_api_info (&input->web_api_info, &json_obj,
                                       service_info->input_msg_descriptor);
 
-    output->stream_response = cmsg_proxy_setup_streaming (input->connection, &json_obj,
-                                                          service_info->input_msg_descriptor,
-                                                          service_info->output_msg_descriptor,
-                                                          &processing_info->streaming_id);
+    output->stream_response =
+        cmsg_proxy_streaming_create_conn (input->connection, &json_obj,
+                                          service_info->input_msg_descriptor,
+                                          service_info->output_msg_descriptor,
+                                          &processing_info->streaming_id);
 
     processing_info->client =
         cmsg_proxy_find_client_by_service (service_info->service_descriptor);

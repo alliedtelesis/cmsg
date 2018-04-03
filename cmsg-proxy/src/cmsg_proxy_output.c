@@ -392,7 +392,7 @@ cmsg_proxy_output_process (ProtobufCMessage *output_proto_message,
             /* The IMPL has rejected/failed the request to stream
              * the response. */
             output->stream_response = false;
-            cmsg_proxy_remove_stream_by_id (processing_info->streaming_id);
+            cmsg_proxy_streaming_delete_conn_by_id (processing_info->streaming_id);
         }
     }
 

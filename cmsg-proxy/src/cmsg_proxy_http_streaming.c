@@ -40,7 +40,7 @@ static pthread_t server_thread;
  * @param func - The function used to send stream responses.
  */
 void
-cmsg_proxy_set_stream_response_send_function (cmsg_proxy_stream_response_send_func func)
+cmsg_proxy_streaming_set_response_send_function (cmsg_proxy_stream_response_send_func func)
 {
     stream_response_send = func;
 }
@@ -52,7 +52,8 @@ cmsg_proxy_set_stream_response_send_function (cmsg_proxy_stream_response_send_fu
  * @param func - The function used to finish the streaming of responses.
  */
 void
-cmsg_proxy_set_stream_response_close_function (cmsg_proxy_stream_response_close_func func)
+cmsg_proxy_streaming_set_response_close_function (cmsg_proxy_stream_response_close_func
+                                                  func)
 {
     stream_response_close = func;
 }
@@ -65,7 +66,7 @@ cmsg_proxy_set_stream_response_close_function (cmsg_proxy_stream_response_close_
  * @returns true if the response should be streamed, false otherwise.
  */
 static bool
-cmsg_proxy_streaming_required (const ProtobufCMessageDescriptor *msg_descriptor)
+cmsg_proxy_streaming_is_required (const ProtobufCMessageDescriptor *msg_descriptor)
 {
     if (protobuf_c_message_descriptor_get_field_by_name (msg_descriptor, "_streaming_id"))
     {
@@ -81,7 +82,7 @@ cmsg_proxy_streaming_required (const ProtobufCMessageDescriptor *msg_descriptor)
  * @returns a 32bit unsigned integer to use as the ID.
  */
 static uint32_t
-cmsg_proxy_generate_stream_id (void)
+cmsg_proxy_streaming_generate_id (void)
 {
     static uint32_t last_id_assigned = 0;
     uint32_t new_id = 0;
@@ -109,16 +110,16 @@ cmsg_proxy_generate_stream_id (void)
  * @returns true if streaming is required, or false if streaming is not required.
  */
 bool
-cmsg_proxy_setup_streaming (void *connection, json_t **input_json_obj,
-                            const ProtobufCMessageDescriptor *input_msg_descriptor,
-                            const ProtobufCMessageDescriptor *output_msg_descriptor,
-                            uint32_t *streaming_id)
+cmsg_proxy_streaming_create_conn (void *connection, json_t **input_json_obj,
+                                  const ProtobufCMessageDescriptor *input_msg_descriptor,
+                                  const ProtobufCMessageDescriptor *output_msg_descriptor,
+                                  uint32_t *streaming_id)
 {
     uint32_t id = 0;
     char buffer[50];
     cmsg_proxy_stream_connection *connection_info = NULL;
 
-    if (!cmsg_proxy_streaming_required (input_msg_descriptor))
+    if (!cmsg_proxy_streaming_is_required (input_msg_descriptor))
     {
         return false;
     }
@@ -130,7 +131,7 @@ cmsg_proxy_setup_streaming (void *connection, json_t **input_json_obj,
         return false;
     }
 
-    id = cmsg_proxy_generate_stream_id ();
+    id = cmsg_proxy_streaming_generate_id ();
 
     /* VISTA548-114 TODO - make it so we don't need to convert to string */
     sprintf (buffer, "%u", id);
@@ -156,7 +157,7 @@ cmsg_proxy_setup_streaming (void *connection, json_t **input_json_obj,
  * @param id - The streaming connection id
  */
 void
-cmsg_proxy_remove_stream_by_id (uint32_t id)
+cmsg_proxy_streaming_delete_conn_by_id (uint32_t id)
 {
     GList *iter;
     bool found = false;
@@ -189,7 +190,7 @@ cmsg_proxy_remove_stream_by_id (uint32_t id)
  *          NULL if it does not exist.
  */
 static cmsg_proxy_stream_connection *
-cmsg_proxy_find_connection_by_id (uint32_t id)
+cmsg_proxy_streaming_lookup_conn_by_id (uint32_t id)
 {
     GList *iter;
     cmsg_proxy_stream_connection *connection_info = NULL;
@@ -306,7 +307,7 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
     char *response_body = NULL;
     cmsg_proxy_stream_response_data *data = NULL;
 
-    connection_info = cmsg_proxy_find_connection_by_id (recv_msg->id);
+    connection_info = cmsg_proxy_streaming_lookup_conn_by_id (recv_msg->id);
     if (!connection_info)
     {
         CMSG_SET_FIELD_VALUE (&send_msg, stream_found, false);

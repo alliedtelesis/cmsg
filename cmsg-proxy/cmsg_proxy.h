@@ -189,10 +189,10 @@ void cmsg_proxy_passthrough_deinit (void);
 void cmsg_proxy_passthrough_free_output_contents (cmsg_proxy_output *output);
 void cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output);
 
-void cmsg_proxy_set_stream_response_send_function (cmsg_proxy_stream_response_send_func
-                                                   func);
-void cmsg_proxy_set_stream_response_close_function (cmsg_proxy_stream_response_close_func
-                                                    func);
+void cmsg_proxy_streaming_set_response_send_function (cmsg_proxy_stream_response_send_func
+                                                      func);
+void cmsg_proxy_streaming_set_response_close_function (cmsg_proxy_stream_response_close_func
+                                                       func);
 
 
 
