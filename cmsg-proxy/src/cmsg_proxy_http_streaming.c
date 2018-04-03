@@ -150,7 +150,11 @@ cmsg_proxy_setup_streaming (void *connection, json_t **input_json_obj,
     return true;
 }
 
-
+/**
+ * Delete a streaming connection with the given id.
+ *
+ * @param id - The streaming connection id
+ */
 void
 cmsg_proxy_remove_stream_by_id (uint32_t id)
 {
@@ -176,7 +180,14 @@ cmsg_proxy_remove_stream_by_id (uint32_t id)
     pthread_mutex_unlock (&stream_connections_mutex);
 }
 
-
+/**
+ * Find a streaming connection with the given id.
+ *
+ * @param id - The streaming connection id
+ *
+ * @returns The streaming connection structure or
+ *          NULL if it does not exist.
+ */
 static cmsg_proxy_stream_connection *
 cmsg_proxy_find_connection_by_id (uint32_t id)
 {
@@ -197,6 +208,14 @@ cmsg_proxy_find_connection_by_id (uint32_t id)
     return connection_info;
 }
 
+/**
+ * Function to be called when the 'cmsg_proxy_streaming_server_run'
+ * thread is cancelled. This simply cleans up and frees any sockets/
+ * memory that was used by the thread.
+ *
+ * @param poll_info - Structure containing the cmsg_server and sockets used
+ *                    by the thread.
+ */
 static void
 cmsg_proxy_streaming_server_cleanup (server_poll_info *poll_info)
 {
@@ -213,6 +232,12 @@ cmsg_proxy_streaming_server_cleanup (server_poll_info *poll_info)
     cmsg_destroy_server_and_transport (poll_info->server);
 }
 
+/**
+ * The thread that implements the cmsg proxy http streaming functionality.
+ * Simply runs a cmsg server that clients can send their streaming responses to.
+ *
+ * @param arg - Unused
+ */
 static void *
 cmsg_proxy_streaming_server_run (void *arg)
 {
@@ -244,6 +269,9 @@ cmsg_proxy_streaming_server_run (void *arg)
     return NULL;
 }
 
+/**
+ * Initialise the cmsg proxy http streaming functionality.
+ */
 void
 cmsg_proxy_streaming_init (void)
 {
@@ -257,6 +285,9 @@ cmsg_proxy_streaming_init (void)
     }
 }
 
+/**
+ * Deinitialise the cmsg proxy http streaming functionality.
+ */
 void
 cmsg_proxy_streaming_deinit (void)
 {
