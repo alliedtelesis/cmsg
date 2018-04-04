@@ -44,4 +44,7 @@ bool cmsg_proxy_protobuf2json_object (ProtobufCMessage *input_protobuf,
 
 void cmsg_proxy_strip_details_from_ant_result (json_t *ant_result_json_object);
 
+bool cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
+                                        cmsg_proxy_output *output);
+
 #endif /* __CMSG_PROXY_PRIVATE_H_ */

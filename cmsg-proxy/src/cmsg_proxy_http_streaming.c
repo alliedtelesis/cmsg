@@ -440,9 +440,8 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
     ProtobufCMessage *message = NULL;
     cmsg_proxy_stream_connection *connection_info = NULL;
     ProtobufCAllocator *allocator = &cmsg_memory_allocator;
-    json_t *converted_json_object = NULL;
-    char *response_body = NULL;
     cmsg_proxy_stream_response_data *data = NULL;
+    cmsg_proxy_output output;
 
     connection_info = cmsg_proxy_streaming_lookup_conn_by_id (recv_msg->id);
     if (!connection_info)
@@ -465,9 +464,10 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
         return;
     }
 
-    if (protobuf2json_object (message, &converted_json_object, NULL, 0) != 0)
+    output.http_status = HTTP_CODE_OK;
+    if (!cmsg_proxy_generate_response_body (message, &output))
     {
-        syslog (LOG_ERR, "Failed to convert stream response (message type = %s)",
+        syslog (LOG_ERR, "Failed to generate stream response (message type = %s)",
                 connection_info->output_msg_descriptor->name);
         protobuf_c_message_free_unpacked (message, allocator);
         http_streaming_server_send_stream_dataSend (service, &send_msg);
@@ -476,21 +476,9 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
 
     protobuf_c_message_free_unpacked (message, allocator);
 
-    response_body = json_dumps (converted_json_object, JSON_COMPACT);
-    if (!response_body)
-    {
-        syslog (LOG_ERR, "Failed to dump stream response (message type = %s)",
-                connection_info->output_msg_descriptor->name);
-        json_decref (converted_json_object);
-        http_streaming_server_send_stream_dataSend (service, &send_msg);
-        return;
-    }
-
-    json_decref (converted_json_object);
-
     data = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_stream_response_data));
     data->connection = connection_info->connection;
-    data->data = response_body;
+    data->data = output.response_body;
 
     stream_response_send (data);
 

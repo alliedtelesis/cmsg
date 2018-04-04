@@ -250,7 +250,7 @@ cmsg_proxy_set_http_status (int *http_status, cmsg_http_verb http_verb,
  * @param output_proto_message - The message returned from calling the CMSG API
  * @param output - CMSG proxy response
  */
-static bool
+bool
 cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
                                    cmsg_proxy_output *output)
 {
