@@ -28,9 +28,9 @@ typedef struct _server_poll_info
     int fd_max;
 } server_poll_info;
 
-static cmsg_proxy_stream_response_send_func stream_response_send = NULL;
-static cmsg_proxy_stream_response_close_func stream_response_close = NULL;
-static cmsg_proxy_stream_conn_release_func stream_conn_release = NULL;
+static cmsg_proxy_stream_response_send_func _stream_response_send = NULL;
+static cmsg_proxy_stream_response_close_func _stream_response_close = NULL;
+static cmsg_proxy_stream_conn_release_func _stream_conn_release = NULL;
 
 static GList *stream_connections_list = NULL;
 static pthread_mutex_t stream_connections_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -46,7 +46,7 @@ static pthread_t server_thread;
 void
 cmsg_proxy_streaming_set_response_send_function (cmsg_proxy_stream_response_send_func func)
 {
-    stream_response_send = func;
+    _stream_response_send = func;
 }
 
 /**
@@ -59,7 +59,7 @@ void
 cmsg_proxy_streaming_set_response_close_function (cmsg_proxy_stream_response_close_func
                                                   func)
 {
-    stream_response_close = func;
+    _stream_response_close = func;
 }
 
 /**
@@ -71,7 +71,43 @@ cmsg_proxy_streaming_set_response_close_function (cmsg_proxy_stream_response_clo
 void
 cmsg_proxy_streaming_set_conn_release_function (cmsg_proxy_stream_conn_release_func func)
 {
-    stream_conn_release = func;
+    _stream_conn_release = func;
+}
+
+/**
+ * Wrapper function to call '_stream_response_send' if the function pointer is set.
+ */
+static void
+stream_response_send (cmsg_proxy_stream_response_data *data)
+{
+    if (_stream_response_send)
+    {
+        _stream_response_send (data);
+    }
+}
+
+/**
+ * Wrapper function to call '_stream_response_close' if the function pointer is set.
+ */
+static void
+stream_response_close (void *connection)
+{
+    if (_stream_response_close)
+    {
+        _stream_response_close (connection);
+    }
+}
+
+/**
+ * Wrapper function to call '_stream_conn_release' if the function pointer is set.
+ */
+static void
+stream_conn_release (void *connection)
+{
+    if (_stream_conn_release)
+    {
+        _stream_conn_release (connection);
+    }
 }
 
 /**
