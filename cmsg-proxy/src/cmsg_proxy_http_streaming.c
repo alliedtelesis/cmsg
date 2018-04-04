@@ -27,6 +27,7 @@ typedef struct _server_poll_info
 
 static cmsg_proxy_stream_response_send_func stream_response_send = NULL;
 static cmsg_proxy_stream_response_close_func stream_response_close = NULL;
+static cmsg_proxy_stream_conn_release_func stream_conn_release = NULL;
 
 static GList *stream_connections_list = NULL;
 static pthread_mutex_t stream_connections_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -57,6 +58,20 @@ cmsg_proxy_streaming_set_response_close_function (cmsg_proxy_stream_response_clo
 {
     stream_response_close = func;
 }
+
+/**
+ * Set the function used to release the streaming connection.
+ * This should be called once by the web server when initialising cmsg proxy.
+ *
+ * @param func - The function used to release the streaming connection.
+ */
+void
+cmsg_proxy_streaming_set_conn_release_function (cmsg_proxy_stream_conn_release_func func)
+{
+    stream_conn_release = func;
+}
+
+
 
 /**
  * Check whether the input message specifies the API should stream the response.
@@ -294,6 +309,38 @@ cmsg_proxy_streaming_deinit (void)
     pthread_join (server_thread, NULL);
 }
 
+/**
+ * Function to be called when a given connection has timed out and
+ * subsequently ended.
+ *
+ * @param connection - The HTTP connection that has timed out
+ */
+void
+cmsg_proxy_streaming_conn_timeout (void *connection)
+{
+    GList *iter;
+    bool found = false;
+    cmsg_proxy_stream_connection *connection_info = NULL;
+
+    pthread_mutex_lock (&stream_connections_mutex);
+    for (iter = stream_connections_list; iter; iter = g_list_next (iter))
+    {
+        connection_info = (cmsg_proxy_stream_connection *) iter->data;
+        if (connection_info->connection == connection)
+        {
+            found = true;
+            break;
+        }
+    }
+    if (found)
+    {
+        stream_connections_list = g_list_remove (stream_connections_list, connection_info);
+        CMSG_PROXY_FREE (connection_info);
+    }
+    pthread_mutex_unlock (&stream_connections_mutex);
+    stream_conn_release (connection);
+}
+
 void
 http_streaming_impl_send_stream_data (const void *service, const stream_data *recv_msg)
 {
@@ -358,6 +405,7 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
     if (recv_msg->status == STREAM_STATUS_CLOSE)
     {
         stream_response_close (connection_info->connection);
+        stream_conn_release (connection_info->connection);
     }
 
     http_streaming_server_send_stream_dataSend (service, &send_msg);

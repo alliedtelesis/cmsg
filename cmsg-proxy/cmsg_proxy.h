@@ -146,6 +146,7 @@ typedef bool (*pre_api_http_check_callback) (cmsg_http_verb http_verb, char **me
 typedef void (*cmsg_proxy_stream_response_send_func) (cmsg_proxy_stream_response_data
                                                       *data);
 typedef void (*cmsg_proxy_stream_response_close_func) (void *connection);
+typedef void (*cmsg_proxy_stream_conn_release_func) (void *connection);
 
 typedef struct _cmsg_proxy_web_socket_info
 {
@@ -193,6 +194,9 @@ void cmsg_proxy_streaming_set_response_send_function (cmsg_proxy_stream_response
                                                       func);
 void cmsg_proxy_streaming_set_response_close_function (cmsg_proxy_stream_response_close_func
                                                        func);
+void cmsg_proxy_streaming_set_conn_release_function (cmsg_proxy_stream_conn_release_func
+                                                     func);
+void cmsg_proxy_streaming_conn_timeout (void *connection);
 
 
 
