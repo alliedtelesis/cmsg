@@ -16,6 +16,9 @@ typedef struct _cmsg_proxy_stream_connection
     uint32_t id;
     void *connection;
     const ProtobufCMessageDescriptor *output_msg_descriptor;
+    bool in_use;
+    bool to_delete;
+    pthread_mutex_t lock;
 } cmsg_proxy_stream_connection;
 
 typedef struct _server_poll_info
@@ -71,7 +74,52 @@ cmsg_proxy_streaming_set_conn_release_function (cmsg_proxy_stream_conn_release_f
     stream_conn_release = func;
 }
 
+/**
+ * Delete a connection info structure if it is not in use. Otherwise mark it
+ * to be deleted once the structure is released.
+ *
+ * @param connection_info - The connection info structure to delete
+ */
+static void
+cmsg_proxy_streaming_delete_conn_info (cmsg_proxy_stream_connection *connection_info)
+{
+    pthread_mutex_lock (&connection_info->lock);
+    if (connection_info->in_use)
+    {
+        connection_info->to_delete = true;
+        pthread_mutex_unlock (&connection_info->lock);
+    }
+    else
+    {
+        pthread_mutex_unlock (&connection_info->lock);
+        pthread_mutex_destroy (&connection_info->lock);
+        stream_conn_release (connection_info->connection);
+        CMSG_PROXY_FREE (connection_info);
+    }
+}
 
+/**
+ * Release a connection info structure. If it is marked to be deleted then delete it.
+ *
+ * @param connection_info - The connection info structure to release
+ */
+static void
+cmsg_proxy_streaming_release_conn_info (cmsg_proxy_stream_connection *connection_info)
+{
+    pthread_mutex_lock (&connection_info->lock);
+    if (connection_info->to_delete)
+    {
+        pthread_mutex_unlock (&connection_info->lock);
+        pthread_mutex_destroy (&connection_info->lock);
+        stream_conn_release (connection_info->connection);
+        CMSG_PROXY_FREE (connection_info);
+    }
+    else
+    {
+        connection_info->in_use = false;
+        pthread_mutex_unlock (&connection_info->lock);
+    }
+}
 
 /**
  * Check whether the input message specifies the API should stream the response.
@@ -155,6 +203,9 @@ cmsg_proxy_streaming_create_conn (void *connection, json_t **input_json_obj,
     connection_info->id = id;
     connection_info->output_msg_descriptor = output_msg_descriptor;
     connection_info->connection = connection;
+    connection_info->in_use = false;
+    connection_info->to_delete = false;
+    pthread_mutex_init (&connection_info->lock, NULL);
 
     pthread_mutex_lock (&stream_connections_mutex);
     stream_connections_list = g_list_prepend (stream_connections_list, connection_info);
@@ -165,7 +216,9 @@ cmsg_proxy_streaming_create_conn (void *connection, json_t **input_json_obj,
 }
 
 /**
- * Delete a streaming connection with the given id.
+ * Delete a streaming connection with the given id. Note that this
+ * function does not take the connection lock as it assumes the connection
+ * being removed is never used outside of a single thread.
  *
  * @param id - The streaming connection id
  */
@@ -189,6 +242,7 @@ cmsg_proxy_streaming_delete_conn_by_id (uint32_t id)
     if (found)
     {
         stream_connections_list = g_list_remove (stream_connections_list, connection_info);
+        pthread_mutex_destroy (&connection_info->lock);
         CMSG_PROXY_FREE (connection_info);
     }
     pthread_mutex_unlock (&stream_connections_mutex);
@@ -214,6 +268,9 @@ cmsg_proxy_streaming_lookup_conn_by_id (uint32_t id)
         connection_info = (cmsg_proxy_stream_connection *) iter->data;
         if (connection_info->id == id)
         {
+            pthread_mutex_lock (&connection_info->lock);
+            connection_info->in_use = true;
+            pthread_mutex_unlock (&connection_info->lock);
             break;
         }
     }
@@ -335,10 +392,9 @@ cmsg_proxy_streaming_conn_timeout (void *connection)
     if (found)
     {
         stream_connections_list = g_list_remove (stream_connections_list, connection_info);
-        CMSG_PROXY_FREE (connection_info);
+        cmsg_proxy_streaming_delete_conn_info (connection_info);
     }
     pthread_mutex_unlock (&stream_connections_mutex);
-    stream_conn_release (connection);
 }
 
 void
@@ -405,8 +461,14 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
     if (recv_msg->status == STREAM_STATUS_CLOSE)
     {
         stream_response_close (connection_info->connection);
-        stream_conn_release (connection_info->connection);
+        pthread_mutex_lock (&stream_connections_mutex);
+        stream_connections_list = g_list_remove (stream_connections_list, connection_info);
+        pthread_mutex_unlock (&stream_connections_mutex);
+        connection_info->to_delete = true;
+        connection_info->in_use = false;
     }
+
+    cmsg_proxy_streaming_release_conn_info (connection_info);
 
     http_streaming_server_send_stream_dataSend (service, &send_msg);
 }
