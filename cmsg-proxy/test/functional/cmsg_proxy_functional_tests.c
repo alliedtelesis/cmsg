@@ -10,6 +10,7 @@
 #include "cmsg_proxy_functional_tests_proxy_def.h"
 #include "cmsg_proxy_functional_tests_api_auto.h"
 #include "cmsg_proxy_functional_tests_impl_auto.h"
+#include <http_streaming_api_auto.h>
 
 #define BINARY_TEST_DATA_LEN 8
 static size_t expected_file_data_length = BINARY_TEST_DATA_LEN;
@@ -27,6 +28,17 @@ static const char *cmsg_mime_text_plain = "text/plain";
 static const char *cmsg_mime_octet_stream = "application/octet-stream";
 static const char *cmsg_binary_encoding = "binary";
 static const char *cmsg_filename_header_format = "attachment; filename=\"%s\"";
+
+char *streamed_response = NULL;
+void *streamed_connection_ptr = (void *) 0x123abc;
+
+static void
+stream_response_send (cmsg_proxy_stream_response_data *data)
+{
+    streamed_response = data->data;
+    NP_ASSERT_PTR_EQUAL (data->connection, streamed_connection_ptr);
+    free (data);
+}
 
 /**
  * Mock the 'cmsg_proxy_library_handles_load' function to simply call
@@ -517,6 +529,57 @@ functional_tests_impl_test_body_get (const void *service)
     CMSG_SET_FIELD_PTR (&send_msg, _body, expected_body_text);
 
     functional_tests_server_test_body_getSend (service, &send_msg);
+}
+
+void
+functional_tests_impl_test_http_streaming (const void *service,
+                                           const streaming_id *recv_msg)
+{
+    ant_result error_info = ANT_RESULT_INIT;
+    cmsg_bool inner_msg = CMSG_BOOL_INIT;
+    test_multiple_fields_message_get_msg send_msg =
+        TEST_MULTIPLE_FIELDS_MESSAGE_GET_MSG_INIT;
+    cmsg_client *client = NULL;
+    uint32_t message_size = 0;
+    uint8_t *buffer = NULL;
+    stream_data msg = STREAM_DATA_INIT;
+    server_response *r_msg = NULL;
+    uint32_t ret;
+    cmsg_transport *transport;
+
+    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
+
+    functional_tests_server_test_http_streamingSend (service, &send_msg);
+
+    CMSG_SET_FIELD_VALUE (&inner_msg, value, true);
+    CMSG_SET_FIELD_PTR (&send_msg, inner_bool_msg, &inner_msg);
+    CMSG_SET_FIELD_PTR (&send_msg, inner_string, "test_string");
+    CMSG_SET_FIELD_VALUE (&send_msg, inner_uint32, 123);
+
+    /* cmsg_create_client_unix is mocked during the setup of all the tests
+     * and doesn't appear to be able to be unmocked dynamically. Simply
+     * create a unix client for the one place in the test we wish to use
+     * an actual unix client. */
+    transport = cmsg_create_transport_unix (CMSG_DESCRIPTOR_NOPACKAGE (http_streaming),
+                                            CMSG_TRANSPORT_RPC_UNIX);
+    client = cmsg_client_new (transport, CMSG_DESCRIPTOR_NOPACKAGE (http_streaming));
+
+    message_size = protobuf_c_message_get_packed_size ((ProtobufCMessage *) &send_msg);
+    buffer = (uint8_t *) calloc (1, message_size);
+
+    ret = protobuf_c_message_pack ((ProtobufCMessage *) &send_msg, buffer);
+    NP_ASSERT_EQUAL (ret, message_size);
+
+    CMSG_SET_FIELD_VALUE (&msg, id, recv_msg->_streaming_id);
+    CMSG_SET_FIELD_BYTES (&msg, message_data, buffer, message_size);
+    CMSG_SET_FIELD_VALUE (&msg, status, STREAM_STATUS_IN_PROGRESS);
+
+    http_streaming_api_send_stream_data (client, &msg, &r_msg);
+    CMSG_FREE_RECV_MSG (r_msg);
+
+    free (buffer);
+    cmsg_destroy_client_and_transport (client);
 }
 
 int
@@ -1494,4 +1557,45 @@ test_plaintext_body_get (void)
     NP_ASSERT_NULL (output.extra_headers);
 
     cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Check that the HTTP streaming functionality is behaving as expected.
+ */
+void
+test_http_streaming (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_stream_response =
+        "{"
+        "\"inner_bool_msg\":{"
+        "\"value\":true"
+        "},"
+        "\"inner_string\":\"test_string\","
+        "\"inner_uint32\":123"
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy_streaming_set_response_send_function (stream_response_send);
+
+    input.url = "/test_http_streaming";
+    input.http_verb = CMSG_HTTP_GET;
+    input.connection = streamed_connection_ptr;
+
+    cmsg_proxy (&input, &output);
+
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_OK);
+    /* There should be no response body if the response is to be streamed */
+    NP_ASSERT_NULL (output.response_body);
+    cmsg_proxy_free_output_contents (&output);
+
+    /* The stream functionality is implemented in another thread so give it
+     * time to execute. */
+    sleep (1);
+
+    NP_ASSERT_STR_EQUAL (streamed_response, expected_stream_response);
+    free (streamed_response);
 }
