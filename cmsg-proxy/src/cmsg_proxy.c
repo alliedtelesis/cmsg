@@ -498,6 +498,49 @@ cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
 }
 
 /**
+ * Unset the ant_result field from the input protobuf message if it exists.
+ *
+ * @param msg - Pointer to the ProtobufCMessage to remove the field from.
+ */
+void
+cmsg_proxy_strip_ant_result (ProtobufCMessage **msg)
+{
+    const ProtobufCFieldDescriptor *field_desc = NULL;
+    ProtobufCMessage **error_message_ptr = NULL;
+    ant_result *error_message = NULL;
+
+    if (*msg == NULL)
+    {
+        return;
+    }
+
+    field_desc = protobuf_c_message_descriptor_get_field_by_name ((*msg)->descriptor,
+                                                                  "_error_info");
+    if (field_desc)
+    {
+        error_message_ptr = (ProtobufCMessage **) (((char *) *msg) + field_desc->offset);
+    }
+    else if (strcmp ((*msg)->descriptor->name, "ant_result") == 0)
+    {
+        error_message_ptr = msg;
+    }
+    else
+    {
+        return;
+    }
+
+    error_message = (ant_result *) (*error_message_ptr);
+    if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
+    {
+        /* Unset the error info message from the protobuf message */
+        CMSG_FREE_RECV_MSG (error_message);
+        *error_message_ptr = NULL;
+    }
+
+    return;
+}
+
+/**
  * Initialise the cmsg proxy library
  */
 void

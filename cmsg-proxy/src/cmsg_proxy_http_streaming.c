@@ -464,6 +464,8 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
         return;
     }
 
+    cmsg_proxy_strip_ant_result (&message);
+
     output.http_status = HTTP_CODE_OK;
     if (!cmsg_proxy_generate_response_body (message, &output))
     {
