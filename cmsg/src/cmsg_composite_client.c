@@ -16,9 +16,27 @@
 #include "cmsg_private.h"
 #include "cmsg_client.h"
 #include "cmsg_error.h"
+#include "cmsg_composite_client.h"
+#include "cmsg_composite_client_private.h"
 
 extern cmsg_client *cmsg_client_create (cmsg_transport *transport,
                                         const ProtobufCServiceDescriptor *descriptor);
+extern bool cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
+                              const ProtobufCServiceDescriptor *descriptor);
+extern void cmsg_client_deinit (cmsg_client *client);
+
+#define CMSG_COMPOSITE_CLIENT_TYPE_CHECK_ERROR \
+    "Composite client function called for non composite client type"
+
+#define CMSG_COMPOSITE_CLIENT_TYPE_CHECK(CLIENT, RET_VAL)            \
+do                                                                   \
+{                                                                    \
+    if ((CLIENT).self.object_type != CMSG_OBJ_TYPE_COMPOSITE_CLIENT) \
+    {                                                                \
+        CMSG_LOG_GEN_ERROR (CMSG_COMPOSITE_CLIENT_TYPE_CHECK_ERROR); \
+        return (RET_VAL);                                            \
+    }                                                                \
+} while (0)
 
 /**
  * Send message to a group of clients. If any one message fails, an error is returned.
@@ -31,7 +49,7 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
                               void *closure_data)
 {
     GList *l;
-    cmsg_client *composite_client = (cmsg_client *) service;
+    cmsg_composite_client *composite_client = (cmsg_composite_client *) service;
     cmsg_client *child;
     int i = 0;
     int ret;
@@ -102,22 +120,25 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
 }
 
 int32_t
-cmsg_composite_client_add_child (cmsg_client *composite_client, cmsg_client *client)
+cmsg_composite_client_add_child (cmsg_client *_composite_client, cmsg_client *client)
 {
-    if (composite_client == NULL || client == NULL)
+    cmsg_composite_client *composite_client = (cmsg_composite_client *) _composite_client;
+
+    if (!composite_client || !client)
     {
-        return -1;
+        return CMSG_RET_ERR;
     }
+
+    CMSG_COMPOSITE_CLIENT_TYPE_CHECK (composite_client->base_client, -1);
 
     if (client->_transport->type != CMSG_TRANSPORT_RPC_TCP &&
         client->_transport->type != CMSG_TRANSPORT_RPC_TIPC &&
         client->_transport->type != CMSG_TRANSPORT_LOOPBACK &&
         client->_transport->type != CMSG_TRANSPORT_ONEWAY_TIPC)
     {
-        CMSG_LOG_CLIENT_ERROR (client,
-                               "Transport type %d not supported for composite clients",
-                               client->_transport->type);
-        return -1;
+        CMSG_LOG_GEN_ERROR ("Transport type %d not supported for composite clients",
+                            client->_transport->type);
+        return CMSG_RET_ERR;
     }
 
     pthread_mutex_lock (&composite_client->child_mutex);
@@ -141,16 +162,20 @@ cmsg_composite_client_add_child (cmsg_client *composite_client, cmsg_client *cli
 
     pthread_mutex_unlock (&composite_client->child_mutex);
 
-    return 0;
+    return CMSG_RET_OK;
 }
 
 int32_t
-cmsg_composite_client_delete_child (cmsg_client *composite_client, cmsg_client *client)
+cmsg_composite_client_delete_child (cmsg_client *_composite_client, cmsg_client *client)
 {
-    if (composite_client == NULL || client == NULL)
+    cmsg_composite_client *composite_client = (cmsg_composite_client *) _composite_client;
+
+    if (!composite_client || !client)
     {
         return -1;
     }
+
+    CMSG_COMPOSITE_CLIENT_TYPE_CHECK (composite_client->base_client, -1);
 
     pthread_mutex_lock (&composite_client->child_mutex);
 
@@ -163,6 +188,56 @@ cmsg_composite_client_delete_child (cmsg_client *composite_client, cmsg_client *
     return 0;
 }
 
+void
+cmsg_composite_client_deinit (cmsg_composite_client *comp_client)
+{
+    cmsg_client_deinit (&comp_client->base_client);
+
+    if (comp_client->child_clients)
+    {
+        g_list_free (comp_client->child_clients);
+    }
+
+    pthread_mutex_destroy (&comp_client->child_mutex);
+}
+
+static void
+cmsg_composite_client_destroy (cmsg_client *client)
+{
+    cmsg_composite_client *comp_client = (cmsg_composite_client *) client;
+
+    cmsg_composite_client_deinit (comp_client);
+
+    CMSG_FREE (client);
+}
+
+bool
+cmsg_composite_client_init (cmsg_composite_client *comp_client,
+                            const ProtobufCServiceDescriptor *descriptor)
+{
+    if (!cmsg_client_init (&comp_client->base_client, NULL, descriptor))
+    {
+        return false;
+    }
+
+    // Override the client->invoke with the composite-specific version
+    comp_client->base_client.invoke = cmsg_composite_client_invoke;
+    comp_client->base_client.base_service.invoke = cmsg_composite_client_invoke;
+    comp_client->base_client.self.object_type = CMSG_OBJ_TYPE_COMPOSITE_CLIENT;
+
+    comp_client->base_client.client_destroy = cmsg_composite_client_destroy;
+
+    comp_client->child_clients = NULL;
+
+    if (pthread_mutex_init (&comp_client->child_mutex, NULL) != 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Init failed for child_mutex.");
+        return false;
+    }
+
+    return true;
+}
+
 
 /**
  * Create a new composite CMSG client (but without creating counters).
@@ -172,18 +247,15 @@ cmsg_composite_client_delete_child (cmsg_client *composite_client, cmsg_client *
 cmsg_client *
 cmsg_composite_client_new (const ProtobufCServiceDescriptor *descriptor)
 {
-    cmsg_client *client = cmsg_client_create (NULL, descriptor);
+    cmsg_composite_client *comp_client = NULL;
 
-    if (client)
+    comp_client = (cmsg_composite_client *) CMSG_CALLOC (1, sizeof (cmsg_composite_client));
+
+    if (comp_client)
     {
-        // Override the client->invoke with the composite-specific version
-        client->invoke = cmsg_composite_client_invoke;
-        client->base_service.invoke = cmsg_composite_client_invoke;
-
-        if (pthread_mutex_init (&client->child_mutex, NULL) != 0)
+        if (!cmsg_composite_client_init (comp_client, descriptor))
         {
-            CMSG_LOG_CLIENT_ERROR (client, "Init failed for child_mutex.");
-            CMSG_FREE (client);
+            CMSG_FREE (comp_client);
             return NULL;
         }
     }
@@ -192,22 +264,25 @@ cmsg_composite_client_new (const ProtobufCServiceDescriptor *descriptor)
         CMSG_LOG_GEN_ERROR ("Unable to create composite client.");
     }
 
-    return client;
+    return &comp_client->base_client;
 }
 
 /**
  * Find a child client within a composite client based on tipc node id.
  *
- * @param composite_client - The composite client to look for the child client in.
+ * @param _composite_client - The composite client to look for the child client in.
  * @param id - The tipc id to lookup the child client by.
  *
  * @return - Pointer to the child client if found, NULL otherwise.
  */
 cmsg_client *
-cmsg_composite_client_lookup_by_tipc_id (cmsg_client *composite_client, uint32_t id)
+cmsg_composite_client_lookup_by_tipc_id (cmsg_client *_composite_client, uint32_t id)
 {
     GList *l;
     cmsg_client *child;
+    cmsg_composite_client *composite_client = (cmsg_composite_client *) _composite_client;
+
+    CMSG_COMPOSITE_CLIENT_TYPE_CHECK (composite_client->base_client, NULL);
 
     pthread_mutex_lock (&composite_client->child_mutex);
 
@@ -225,4 +300,24 @@ cmsg_composite_client_lookup_by_tipc_id (cmsg_client *composite_client, uint32_t
 
     pthread_mutex_unlock (&composite_client->child_mutex);
     return NULL;
+}
+
+int
+cmsg_composite_client_num_children (cmsg_client *_composite_client)
+{
+    cmsg_composite_client *composite_client = (cmsg_composite_client *) _composite_client;
+
+    CMSG_COMPOSITE_CLIENT_TYPE_CHECK (composite_client->base_client, 0);
+
+    return g_list_length (composite_client->child_clients);
+}
+
+GList *
+cmsg_composite_client_get_children (cmsg_client *_composite_client)
+{
+    cmsg_composite_client *composite_client = (cmsg_composite_client *) _composite_client;
+
+    CMSG_COMPOSITE_CLIENT_TYPE_CHECK (composite_client->base_client, NULL);
+
+    return composite_client->child_clients;
 }

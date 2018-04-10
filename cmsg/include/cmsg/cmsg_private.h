@@ -81,6 +81,7 @@ typedef enum _cmsg_object_type_e
     CMSG_OBJ_TYPE_SERVER,
     CMSG_OBJ_TYPE_PUB,
     CMSG_OBJ_TYPE_SUB,
+    CMSG_OBJ_TYPE_COMPOSITE_CLIENT,
 } cmsg_object_type;
 
 #define CMSG_MAX_OBJ_ID_LEN 10

@@ -30,10 +30,6 @@ void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
 void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
 void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
 
-#ifdef HAVE_VCSTACK
-void cmsg_transport_cpg_init (cmsg_transport *transport);
-#endif /* HAVE_VCSTACK */
-
 cmsg_status_code cmsg_transport_client_recv (cmsg_transport *transport,
                                              const ProtobufCServiceDescriptor *descriptor,
                                              ProtobufCMessage **messagePtPt);

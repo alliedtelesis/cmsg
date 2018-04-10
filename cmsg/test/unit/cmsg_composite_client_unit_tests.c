@@ -95,15 +95,15 @@ test_cmsg_composite_client_child_add (void)
 
     ret = cmsg_composite_client_add_child (comp_client, child_1);
     NP_ASSERT_EQUAL (ret, 0);
-    NP_ASSERT_EQUAL (g_list_length (comp_client->child_clients), 1);
+    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 1);
 
     ret = cmsg_composite_client_add_child (comp_client, child_2);
     NP_ASSERT_EQUAL (ret, 0);
-    NP_ASSERT_EQUAL (g_list_length (comp_client->child_clients), 2);
+    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 2);
 
     ret = cmsg_composite_client_add_child (comp_client, child_3);
     NP_ASSERT_EQUAL (ret, 0);
-    NP_ASSERT_EQUAL (g_list_length (comp_client->child_clients), 3);
+    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 3);
 
     cmsg_client_destroy (comp_client);
     cmsg_destroy_client_and_transport (child_1);
@@ -129,15 +129,15 @@ test_cmsg_composite_client_child_remove (void)
 
     ret = cmsg_composite_client_delete_child (comp_client, child_3);
     NP_ASSERT_EQUAL (ret, 0);
-    NP_ASSERT_EQUAL (g_list_length (comp_client->child_clients), 2);
+    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 2);
 
     ret = cmsg_composite_client_delete_child (comp_client, child_2);
     NP_ASSERT_EQUAL (ret, 0);
-    NP_ASSERT_EQUAL (g_list_length (comp_client->child_clients), 1);
+    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 1);
 
     ret = cmsg_composite_client_delete_child (comp_client, child_1);
     NP_ASSERT_EQUAL (ret, 0);
-    NP_ASSERT_EQUAL (g_list_length (comp_client->child_clients), 0);
+    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 0);
 
     cmsg_client_destroy (comp_client);
     cmsg_destroy_client_and_transport (child_1);
@@ -163,11 +163,11 @@ test_cmsg_composite_client_child_remove__already_removed (void)
 
     ret = cmsg_composite_client_delete_child (comp_client, child_3);
     NP_ASSERT_EQUAL (ret, 0);
-    NP_ASSERT_EQUAL (g_list_length (comp_client->child_clients), 2);
+    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 2);
 
     ret = cmsg_composite_client_delete_child (comp_client, child_3);
     NP_ASSERT_EQUAL (ret, 0);
-    NP_ASSERT_EQUAL (g_list_length (comp_client->child_clients), 2);
+    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 2);
 
     cmsg_client_destroy (comp_client);
     cmsg_destroy_client_and_transport (child_1);
@@ -217,17 +217,25 @@ test_cmsg_composite_client_add_client__loopback_is_last (void)
                                                         &dummy_service_descriptor);
     cmsg_client *child_4 = cmsg_create_client_loopback (&dummy_service);
     cmsg_client *child_5 = cmsg_create_client_loopback (&dummy_service);
+    GList *child_clients = NULL;
+    cmsg_client *list_child = NULL;
 
     cmsg_composite_client_add_child (comp_client, child_1);
     cmsg_composite_client_add_child (comp_client, child_2);
     cmsg_composite_client_add_child (comp_client, child_4);
-    NP_ASSERT_PTR_EQUAL ((g_list_last (comp_client->child_clients))->data, child_4);
+    child_clients = cmsg_composite_client_get_children (comp_client);
+    list_child = (cmsg_client *) (g_list_last (child_clients))->data;
+    NP_ASSERT_PTR_EQUAL (list_child, child_4);
 
     cmsg_composite_client_add_child (comp_client, child_3);
-    NP_ASSERT_PTR_EQUAL ((g_list_last (comp_client->child_clients))->data, child_4);
+    child_clients = cmsg_composite_client_get_children (comp_client);
+    list_child = (cmsg_client *) (g_list_last (child_clients))->data;
+    NP_ASSERT_PTR_EQUAL (list_child, child_4);
 
     cmsg_composite_client_add_child (comp_client, child_5);
-    NP_ASSERT_PTR_EQUAL ((g_list_last (comp_client->child_clients))->data, child_5);
+    child_clients = cmsg_composite_client_get_children (comp_client);
+    list_child = (cmsg_client *) (g_list_last (child_clients))->data;
+    NP_ASSERT_PTR_EQUAL (list_child, child_5);
 
     cmsg_client_destroy (comp_client);
     cmsg_destroy_client_and_transport (child_1);
@@ -250,11 +258,11 @@ test_cmsg_composite_client_child_add__unsupported_transport (void)
 
     ret = cmsg_composite_client_add_child (comp_client, child_1);
     NP_ASSERT_EQUAL (ret, 0);
-    NP_ASSERT_EQUAL (g_list_length (comp_client->child_clients), 1);
+    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 1);
 
     ret = cmsg_composite_client_add_child (comp_client, child_2);
     NP_ASSERT_EQUAL (ret, -1);
-    NP_ASSERT_EQUAL (g_list_length (comp_client->child_clients), 1);
+    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 1);
 
     cmsg_client_destroy (comp_client);
     cmsg_destroy_client_and_transport (child_1);
@@ -289,4 +297,33 @@ test_cmsg_composite_client_lookup_by_tipc_id (void)
     cmsg_destroy_client_and_transport (child_1);
     cmsg_destroy_client_and_transport (child_2);
     cmsg_destroy_client_and_transport (child_3);
+}
+
+void
+test_wrong_client_type (void)
+{
+    cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);
+    cmsg_client *std_client = cmsg_create_client_tipc_rpc ("test", 1, 1,
+                                                           &dummy_service_descriptor);
+    cmsg_client *child_client = cmsg_create_client_tipc_rpc ("test", 2, 2,
+                                                             &dummy_service_descriptor);
+    int ret;
+
+    np_syslog_ignore (".*");
+
+    ret = cmsg_composite_client_add_child (comp_client, child_client);
+    NP_ASSERT_EQUAL (ret, 0);
+
+    ret = cmsg_composite_client_add_child (std_client, child_client);
+    NP_ASSERT_EQUAL (ret, -1);
+
+    ret = cmsg_composite_client_delete_child (comp_client, child_client);
+    NP_ASSERT_EQUAL (ret, 0);
+
+    ret = cmsg_composite_client_delete_child (std_client, child_client);
+    NP_ASSERT_EQUAL (ret, -1);
+
+    cmsg_client_destroy (comp_client);
+    cmsg_destroy_client_and_transport (std_client);
+    cmsg_destroy_client_and_transport (child_client);
 }

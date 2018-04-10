@@ -10,21 +10,8 @@
 #include <linux/tipc.h>
 #include <sys/un.h>
 
-#ifdef HAVE_VCSTACK
-#include <corosync/cpg.h>
-#endif
-
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
-
-#ifdef HAVE_VCSTACK
-typedef struct _cpg_connection_s
-{
-    cpg_handle_t handle;
-    cpg_callbacks_t callbacks;
-    int fd; //file descriptor for listening
-} cmsg_cpg_connection;
-#endif
 
 typedef struct _generic_connection_s
 {
@@ -34,9 +21,6 @@ typedef struct _generic_connection_s
 
 typedef union _cmsg_connection_u
 {
-#ifdef HAVE_VCSTACK
-    cmsg_cpg_connection cpg;
-#endif
     cmsg_generic_connection sockets;
 } cmsg_connection;
 
@@ -54,23 +38,6 @@ typedef struct _cmsg_socket_s
     int family;
     cmsg_socket_address sockaddr;
 } cmsg_socket;
-
-#ifdef HAVE_VCSTACK
-typedef void (*cpg_configchg_cb_f) (const struct cpg_address *member_list,
-                                    int member_list_entries,
-                                    const struct cpg_address *left_list,
-                                    int left_list_entries,
-                                    const struct cpg_address *joined_list,
-                                    int joined_list_entries);
-#endif
-
-typedef struct _cmsg_cpg_s
-{
-#ifdef HAVE_VCSTACK
-    struct cpg_name group_name; // CPG address structure
-    cpg_configchg_cb_f configchg_cb;
-#endif
-} cmsg_cpg;
 
 typedef struct _cmsg_transport_s cmsg_transport;    //forward declaration
 
@@ -137,7 +104,6 @@ typedef struct _cmsg_udt_info_s
 typedef union _cmsg_transport_config_u
 {
     cmsg_socket socket;
-    cmsg_cpg cpg;
 } cmsg_transport_config;
 
 
@@ -148,7 +114,6 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_RPC_TIPC,
     CMSG_TRANSPORT_ONEWAY_TCP,
     CMSG_TRANSPORT_ONEWAY_TIPC,
-    CMSG_TRANSPORT_CPG,
     CMSG_TRANSPORT_ONEWAY_USERDEFINED,
     CMSG_TRANSPORT_RPC_USERDEFINED,
     CMSG_TRANSPORT_BROADCAST,
@@ -156,7 +121,7 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_ONEWAY_UNIX,
 } cmsg_transport_type;
 
-typedef void (*cmsg_tipc_topology_callback) (struct tipc_event *event);
+typedef void (*cmsg_tipc_topology_callback) (struct tipc_event *event, void *user_cb_data);
 
 #define CMSG_MAX_TPORT_ID_LEN 64
 
@@ -217,7 +182,7 @@ int cmsg_tipc_topology_connect_subscribe (const char *server_name, uint32_t lowe
                                           uint32_t upper,
                                           cmsg_tipc_topology_callback callback);
 
-int cmsg_tipc_topology_subscription_read (int sock);
+int cmsg_tipc_topology_subscription_read (int sock, void *user_cb_data);
 
 void cmsg_tipc_topology_tracelog_tipc_event (const char *tracelog_string,
                                              const char *event_str,

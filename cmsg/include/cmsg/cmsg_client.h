@@ -58,6 +58,8 @@ typedef struct _cmsg_client_s
                             ProtobufCClosure closure, void *closure_data);
     pthread_mutex_t invoke_mutex;
 
+    void (*client_destroy) (cmsg_client *client);
+
     ProtobufCService base_service;
     cmsg_transport *_transport;
     cmsg_client_state state;
@@ -86,10 +88,6 @@ typedef struct _cmsg_client_s
 
     // logging - whether to downgrade errors to debug
     cmsg_bool_t suppress_errors;
-
-    // composite client information
-    GList *child_clients;
-    pthread_mutex_t child_mutex;
 
     // loopback server
     void *loopback_server;

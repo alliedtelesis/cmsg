@@ -1,6 +1,9 @@
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
+#define _GNU_SOURCE
+
+#include <sys/eventfd.h>
 #include "cmsg_private.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
@@ -10,8 +13,6 @@
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"
 #endif
-
-extern GHashTable *cpg_group_name_to_server_hash_table_h;
 
 static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
                                                           uint8_t *buffer_data);
@@ -48,7 +49,6 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
     case CMSG_TRANSPORT_BROADCAST:
     case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
     case CMSG_TRANSPORT_ONEWAY_UNIX:
-    case CMSG_TRANSPORT_CPG:
         return cmsg_server_closure_oneway;
     }
 
@@ -92,16 +92,6 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
 
         CMSG_DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n",
                     transport->type);
-
-#ifdef HAVE_VCSTACK
-        if (server->_transport->type == CMSG_TRANSPORT_CPG)
-        {
-            /* Add entry into the hash table for the server to be found by cpg group name. */
-            g_hash_table_insert (cpg_group_name_to_server_hash_table_h,
-                                 (gpointer) server->_transport->config.cpg.group_name.value,
-                                 (gpointer) server);
-        }
-#endif /* HAVE_VCSTACK */
 
         ret = transport->tport_funcs.listen (server->_transport);
 
@@ -1744,4 +1734,119 @@ void
 cmsg_server_close_wrapper (cmsg_server *server)
 {
     server->_transport->tport_funcs.server_close (server->_transport);
+}
+
+/**
+ * Blocks waiting on an accept call for any incoming connections. Once
+ * the accept completes the new socket is passed back to the broadcast
+ * client user to read from.
+ */
+static void *
+cmsg_server_accept_thread (void *_info)
+{
+    cmsg_server_accept_thread_info *info = (cmsg_server_accept_thread_info *) _info;
+    cmsg_server *server = info->server;
+    int listen_socket = cmsg_server_get_socket (server);
+    int newfd = -1;
+    fd_set read_fds;
+    int *newfd_ptr;
+
+    FD_ZERO (&read_fds);
+    FD_SET (listen_socket, &read_fds);
+
+    while (1)
+    {
+        /* Explicitly set where the thread can be cancelled. This ensures no
+         * data can be leaked if the thread is cancelled while accepting a
+         * connection. */
+        pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+        select (listen_socket + 1, &read_fds, NULL, NULL, NULL);
+        pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+
+        newfd = cmsg_server_accept (server, listen_socket);
+        if (newfd >= 0)
+        {
+            newfd_ptr = CMSG_CALLOC (1, sizeof (int));
+            *newfd_ptr = newfd;
+            g_async_queue_push (info->accept_sd_queue, newfd_ptr);
+            TEMP_FAILURE_RETRY (eventfd_write (info->accept_sd_eventfd, 1));
+        }
+    }
+
+    pthread_exit (NULL);
+}
+
+/**
+ * When destroying the accept_sd_queue there may still be
+ * accepted sockets on there. Simply close them to avoid
+ * leaking the descriptors.
+ */
+static void
+_clear_accept_sd_queue (gpointer data)
+{
+    close (GPOINTER_TO_INT (data));
+}
+
+/**
+ * Start the server accept thread.
+ *
+ * @param server - The server to accept connections for.
+ *
+ * @return Pointer to a cmsg_server_accept_thread_info struct on success,
+ *         NULL on failure.
+ */
+cmsg_server_accept_thread_info *
+cmsg_server_accept_thread_init (cmsg_server *server)
+{
+    cmsg_server_accept_thread_info *info = NULL;
+
+    info = CMSG_CALLOC (1, sizeof (cmsg_server_accept_thread_info));
+    if (info == NULL)
+    {
+        return NULL;
+    }
+
+    info->accept_sd_eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
+    if (info->accept_sd_eventfd < 0)
+    {
+        return NULL;
+    }
+
+    info->accept_sd_queue = g_async_queue_new_full (_clear_accept_sd_queue);
+    if (!info->accept_sd_queue)
+    {
+        close (info->accept_sd_eventfd);
+        return NULL;
+    }
+
+    info->server = server;
+
+    if (pthread_create (&info->server_accept_thread, NULL,
+                        cmsg_server_accept_thread, info) != 0)
+    {
+        close (info->accept_sd_eventfd);
+        g_async_queue_unref (info->accept_sd_queue);
+        return NULL;
+    }
+
+    return info;
+}
+
+/**
+ * Shutdown the server accept thread.
+ *
+ * @param info - The cmsg_server_accept_thread_info struct returned from
+ *               the related cmsg_server_accept_thread_init call.
+ */
+void
+cmsg_server_accept_thread_deinit (cmsg_server_accept_thread_info *info)
+{
+    if (info)
+    {
+        pthread_cancel (info->server_accept_thread);
+        pthread_join (info->server_accept_thread, NULL);
+        close (info->accept_sd_eventfd);
+        g_async_queue_unref (info->accept_sd_queue);
+        CMSG_FREE (info);
+    }
 }

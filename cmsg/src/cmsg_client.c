@@ -43,6 +43,8 @@ static int32_t cmsg_client_invoke (ProtobufCService *service,
 static int32_t cmsg_client_queue_input (cmsg_client *client, uint32_t method_index,
                                         const ProtobufCMessage *input, bool *did_queue);
 
+static void _cmsg_client_destroy (cmsg_client *client);
+
 static void
 cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
 {
@@ -63,7 +65,6 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
             break;
         case CMSG_TRANSPORT_ONEWAY_TCP:
         case CMSG_TRANSPORT_ONEWAY_TIPC:
-        case CMSG_TRANSPORT_CPG:
         case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
         case CMSG_TRANSPORT_BROADCAST:
         case CMSG_TRANSPORT_ONEWAY_UNIX:
@@ -78,6 +79,76 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
             assert (false && "Unknown transport type");
         }
     }
+}
+
+bool
+cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
+                  const ProtobufCServiceDescriptor *descriptor)
+{
+    client->state = CMSG_CLIENT_STATE_INIT;
+
+    if (transport)
+    {
+        client->base_service.destroy = NULL;
+        client->_transport = transport;
+        cmsg_transport_write_id (transport, descriptor->name);
+    }
+
+    //for compatibility with current generated code
+    //this is a hack to get around a check when a client method is called
+    client->descriptor = descriptor;
+    client->base_service.descriptor = descriptor;
+
+    cmsg_client_invoke_init (client, transport);
+
+    client->client_destroy = _cmsg_client_destroy;
+
+    client->self.object_type = CMSG_OBJ_TYPE_CLIENT;
+    client->self.object = client;
+    strncpy (client->self.obj_id, descriptor->name, CMSG_MAX_OBJ_ID_LEN);
+
+    client->parent.object_type = CMSG_OBJ_TYPE_NONE;
+    client->parent.object = NULL;
+
+    if (pthread_mutex_init (&client->queue_mutex, NULL) != 0)
+    {
+        CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_mutex.");
+        return false;
+    }
+
+    client->queue = g_queue_new ();
+    client->queue_filter_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
+
+    if (pthread_cond_init (&client->queue_process_cond, NULL) != 0)
+    {
+        CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_cond.");
+        return false;
+    }
+
+    if (pthread_mutex_init (&client->queue_process_mutex, NULL) != 0)
+    {
+        CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_mutex.");
+        return false;
+    }
+
+    if (pthread_mutex_init (&client->invoke_mutex, NULL) != 0)
+    {
+        CMSG_LOG_CLIENT_ERROR (client, "Init failed for invoke_mutex.");
+        return false;
+    }
+
+    client->self_thread_id = pthread_self ();
+
+    if (transport)
+    {
+        cmsg_client_queue_filter_init (client);
+    }
+
+    client->send_timeout = 0;
+    client->receive_timeout = 0;
+    client->suppress_errors = false;
+
+    return true;
 }
 
 /*
@@ -95,73 +166,11 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
 
     if (client)
     {
-        client->state = CMSG_CLIENT_STATE_INIT;
-
-        if (transport)
+        if (!cmsg_client_init (client, transport, descriptor))
         {
-            client->base_service.destroy = NULL;
-            client->_transport = transport;
-            cmsg_transport_write_id (transport, descriptor->name);
-        }
-
-        //for compatibility with current generated code
-        //this is a hack to get around a check when a client method is called
-        client->descriptor = descriptor;
-        client->base_service.descriptor = descriptor;
-
-        cmsg_client_invoke_init (client, transport);
-
-        client->self.object_type = CMSG_OBJ_TYPE_CLIENT;
-        client->self.object = client;
-        strncpy (client->self.obj_id, descriptor->name, CMSG_MAX_OBJ_ID_LEN);
-
-        client->parent.object_type = CMSG_OBJ_TYPE_NONE;
-        client->parent.object = NULL;
-
-
-        if (pthread_mutex_init (&client->queue_mutex, NULL) != 0)
-        {
-            CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_mutex.");
             CMSG_FREE (client);
             return NULL;
         }
-
-        client->queue = g_queue_new ();
-        client->queue_filter_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
-
-        if (pthread_cond_init (&client->queue_process_cond, NULL) != 0)
-        {
-            CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_cond.");
-            CMSG_FREE (client);
-            return NULL;
-        }
-
-        if (pthread_mutex_init (&client->queue_process_mutex, NULL) != 0)
-        {
-            CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_mutex.");
-            CMSG_FREE (client);
-            return NULL;
-        }
-
-        if (pthread_mutex_init (&client->invoke_mutex, NULL) != 0)
-        {
-            CMSG_LOG_CLIENT_ERROR (client, "Init failed for invoke_mutex.");
-            CMSG_FREE (client);
-            return NULL;
-        }
-
-        client->self_thread_id = pthread_self ();
-
-        if (transport)
-        {
-            cmsg_client_queue_filter_init (client);
-        }
-
-        client->send_timeout = 0;
-        client->receive_timeout = 0;
-        client->suppress_errors = false;
-
-        client->child_clients = NULL;
     }
     else
     {
@@ -202,12 +211,9 @@ cmsg_client_new (cmsg_transport *transport, const ProtobufCServiceDescriptor *de
     return client;
 }
 
-
 void
-cmsg_client_destroy (cmsg_client *client)
+cmsg_client_deinit (cmsg_client *client)
 {
-    CMSG_ASSERT_RETURN_VOID (client != NULL);
-
     /* Free counter session info but do not destroy counter data in the shared memory */
 #ifdef HAVE_COUNTERD
     cntrd_app_unInit_app (&client->cntr_session, CNTRD_APP_PERSISTENT);
@@ -235,14 +241,25 @@ cmsg_client_destroy (cmsg_client *client)
         client->loopback_server = NULL;
     }
 
-    if (client->child_clients)
-    {
-        g_list_free (client->child_clients);
-    }
-
     pthread_mutex_destroy (&client->invoke_mutex);
+}
+
+static void
+_cmsg_client_destroy (cmsg_client *client)
+{
+    CMSG_ASSERT_RETURN_VOID (client != NULL);
+
+    cmsg_client_deinit (client);
 
     CMSG_FREE (client);
+}
+
+void
+cmsg_client_destroy (cmsg_client *client)
+{
+    CMSG_ASSERT_RETURN_VOID (client != NULL);
+
+    client->client_destroy (client);
 }
 
 // create counters
