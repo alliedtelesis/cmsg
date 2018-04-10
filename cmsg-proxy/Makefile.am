@@ -6,7 +6,8 @@ pkgconfiglib_DATA = cmsgproxyconfig.pc
 
 ## Library for general stacking functionality (member-IDs, etc)
 libcmsgproxyconfig_la_LDFLAGS = -version-info 1:0:0 # version:revision:age
-libcmsgproxyconfig_la_SOURCES = src/simple_shm.c src/simple_shm.h src/cmsg_proxy_config.c cmsg_proxy_config.h
+libcmsgproxyconfig_la_SOURCES = src/cmsg_proxy_config.c cmsg_proxy_config.h
+libcmsgproxyconfig_la_LIBADD = -lsimple_shm
 
 src/ant_result.pb-c.c \
 src/ant_result.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/ant_result.proto
