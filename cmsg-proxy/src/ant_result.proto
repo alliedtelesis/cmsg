@@ -1,3 +1,10 @@
+/// Intentional blank comments below.
+/// The c preprocessor introduces a comment at the top of this file before the
+/// docs generator runs. The inserted comment ends up leaking into the auto-docs.
+/// This doesn't happen in the other files because they have import statements at
+/// the top.
+//
+//
 enum ant_code
 {
     // OK is returned on success.
