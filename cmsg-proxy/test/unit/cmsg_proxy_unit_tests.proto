@@ -13,7 +13,7 @@ message cmsg_bool
     optional bool value = 1;
 }
 
-message ant_result_plus_bool
+message bool_result
 {
     optional ant_result _error_info = 1;
     optional bool _data = 2;
@@ -47,7 +47,7 @@ service interface
         };
     }
 
-    rpc test_get (dummy) returns (ant_result_plus_bool) {
+    rpc test_get (dummy) returns (bool_result) {
         option (http) = {
             get: "/v1/test",
             body: "*"
