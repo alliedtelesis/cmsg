@@ -70,7 +70,7 @@ void
 functional_tests_impl_test_single_bool_get (const void *service)
 {
     ant_result error_info = ANT_RESULT_INIT;
-    ant_result_plus_bool send_msg = ANT_RESULT_PLUS_BOOL_INIT;
+    bool_result send_msg = BOOL_RESULT_INIT;
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
@@ -83,7 +83,7 @@ void
 functional_tests_impl_test_single_string_get (const void *service)
 {
     ant_result error_info = ANT_RESULT_INIT;
-    ant_result_plus_string send_msg = ANT_RESULT_PLUS_STRING_INIT;
+    string_result send_msg = STRING_RESULT_INIT;
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
@@ -96,7 +96,7 @@ void
 functional_tests_impl_test_single_uint32_get (const void *service)
 {
     ant_result error_info = ANT_RESULT_INIT;
-    ant_result_plus_uint32 send_msg = ANT_RESULT_PLUS_UINT32_INIT;
+    uint32_result send_msg = UINT32_RESULT_INIT;
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
@@ -125,7 +125,7 @@ functional_tests_impl_test_repeated_string_get (const void *service)
 {
     char *repeated_strings[3] = { "string1", "string2", "string3", };
     ant_result error_info = ANT_RESULT_INIT;
-    ant_result_plus_repeated_string send_msg = ANT_RESULT_PLUS_REPEATED_STRING_INIT;
+    string_array_result send_msg = STRING_ARRAY_RESULT_INIT;
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
@@ -139,7 +139,7 @@ functional_tests_impl_test_repeated_uint32_get (const void *service)
 {
     uint32_t repeated_uint32[3] = { 1, 2, 3 };
     ant_result error_info = ANT_RESULT_INIT;
-    ant_result_plus_uint32_array send_msg = ANT_RESULT_PLUS_UINT32_ARRAY_INIT;
+    uint32_array_result send_msg = UINT32_ARRAY_RESULT_INIT;
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
@@ -214,7 +214,7 @@ void
 functional_tests_impl_test_get_error_with_single_data (const void *service)
 {
     ant_result error_info = ANT_RESULT_INIT;
-    ant_result_plus_bool send_msg = ANT_RESULT_PLUS_BOOL_INIT;
+    bool_result send_msg = BOOL_RESULT_INIT;
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_NOT_FOUND);
     CMSG_SET_FIELD_PTR (&error_info, message, "ERROR: Not found");
