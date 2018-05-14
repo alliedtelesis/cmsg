@@ -38,8 +38,10 @@ GNode *proxy_entries_tree = NULL;
 cmsg_url_parameter *
 cmsg_proxy_create_url_parameter (const char *key, const char *value)
 {
-    cmsg_url_parameter *new = calloc (1, sizeof (cmsg_url_parameter));
+    char *decoded_value = NULL;
+    cmsg_url_parameter *new = NULL;
 
+    new = calloc (1, sizeof (cmsg_url_parameter));
     if (new)
     {
         if (key[0] == '{')
@@ -51,7 +53,9 @@ cmsg_proxy_create_url_parameter (const char *key, const char *value)
         {
             new->key = CMSG_PROXY_STRDUP (key);
         }
-        new->value = value ? CMSG_PROXY_STRDUP (value) : NULL;
+        decoded_value = g_uri_unescape_string (value, NULL);
+        new->value = decoded_value ? CMSG_PROXY_STRDUP (decoded_value) : NULL;
+        g_free (decoded_value);
     }
     return new;
 }
@@ -591,12 +595,12 @@ cmsg_proxy_service_info_get (const cmsg_proxy_api_info *api_info, cmsg_http_verb
 }
 
 /**
- * Lookup a cmsg_service_info entry from the proxy tree based on URL and
- * HTTP verb and update jason_object if any parameter found in the URL
+ * Lookup a cmsg_service_info entry from the proxy tree based on the URL and
+ * HTTP verb and update json_object with any parameters found in the URL.
  *
- * @param url - URL string to use for the lookup.
+ * @param url - The encoded URL string to use for the lookup.
  * @param http_verb - HTTP verb to use for the lookup.
- * @param json_obj - jason object to update
+ * @param json_obj - json object to update
  *
  * @return - Pointer to the cmsg_service_info entry if found, NULL otherwise.
  */
@@ -634,7 +638,6 @@ cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb,
                 /* if this URL segment is a parameter, store it to be parsed later */
                 if (cmsg_proxy_token_is_url_param (key))
                 {
-
                     param = cmsg_proxy_create_url_parameter (key, next_entry);
                     *url_parameters = g_list_prepend (*url_parameters, param);
                     parent_node = node;

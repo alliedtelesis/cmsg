@@ -265,7 +265,6 @@ cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_paramet
     char *next_entry = NULL;
     char *rest = NULL;
     char *value = NULL;
-    char *decoded_value;
     cmsg_url_parameter *param = NULL;
     GList *matching_param = NULL;
 
@@ -288,9 +287,7 @@ cmsg_proxy_parse_query_parameters (const char *query_string, GList **url_paramet
                                                      cmsg_proxy_param_name_matches);
                 if (!matching_param)
                 {
-                    decoded_value = g_uri_unescape_string (value + 1, NULL);
-                    param = cmsg_proxy_create_url_parameter (next_entry, decoded_value);
-                    g_free (decoded_value);
+                    param = cmsg_proxy_create_url_parameter (next_entry, value + 1);
                     *url_parameters = g_list_prepend (*url_parameters, param);
                 }
             }
