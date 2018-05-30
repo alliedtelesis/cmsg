@@ -634,9 +634,9 @@ cmsg_proxy_log_request (const cmsg_proxy_input *input, cmsg_proxy_output *output
     if ((log_mode == CMSG_PROXY_LOG_ALL) ||
         (log_mode == CMSG_PROXY_LOG_SETS && input->http_verb != CMSG_HTTP_GET))
     {
-        syslog (LOG_NOTICE, "Web API request: %s@%s %s %s returned:%u", username,
-                ip_address, cmsg_proxy_http_verb_string (input->http_verb),
-                input->url, output->http_status);
+        syslog (LOG_NOTICE, "API: %s@%s %s %s returned:%u", username, ip_address,
+                cmsg_proxy_http_verb_string (input->http_verb), input->url,
+                output->http_status);
     }
 }
 
