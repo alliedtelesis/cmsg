@@ -1,0 +1,37 @@
+enum stream_status
+{
+    STREAM_STATUS_NOT_SET = 0;
+
+    // There is still more data to send.
+    STREAM_STATUS_IN_PROGRESS = 1;
+
+    // There is no more data to send, close the connection.
+    STREAM_STATUS_CLOSE = 2;
+}
+
+message stream_data
+{
+    // ID of the web streaming connection
+    optional uint32 id = 1;
+
+    // The message body to be converted to JSON and sent as a response.
+    // This should match the message type described as the response in
+    // the original rpc definition with http mapping.
+    optional bytes message_data = 2;
+
+    optional stream_status status = 3;
+};
+
+message server_response
+{
+    // The stream was found to send on by the server. If the
+    // HTTP client has prematurely disconnected the server has
+    // no where to send the data so just discards it and sets
+    // this field to false.
+    optional bool stream_found = 1;
+}
+
+service http_streaming
+{
+    rpc send_stream_data (stream_data) returns (server_response);
+}

@@ -33,7 +33,7 @@ static cmsg_client *client = NULL;
  * Return string for HTTP verb value
  */
 static char *
-_cmsg_proxy_passthrough_verb_to_string (cmsg_http_verb http_verb)
+cmsg_proxy_passthrough_verb_to_string (cmsg_http_verb http_verb)
 {
     switch (http_verb)
     {
@@ -87,10 +87,7 @@ _load_library_info (proxy_defs_array_get_func_ptr get_func_addr,
     api_ptr = service_info->api_ptr;
     service_descriptor = service_info->service_descriptor;
 
-#ifdef HAVE_COUNTERD
-    /* Initialise service counter */
     cmsg_proxy_session_counter_init (api_service_info);
-#endif
 
     return true;
 }
@@ -99,7 +96,7 @@ _load_library_info (proxy_defs_array_get_func_ptr get_func_addr,
  * Loads library by given full path
  */
 static bool
-_cmsg_proxy_passthrough_library_handle_load (const char *library_path)
+cmsg_proxy_passthrough_library_handle_load (const char *library_path)
 {
     proxy_defs_array_get_func_ptr get_func_addr = NULL;
     proxy_defs_array_size_func_ptr size_func_addr = NULL;
@@ -133,12 +130,9 @@ cmsg_proxy_passthrough_init (const char *library_path)
 {
     cmsg_proxy_passthrough_deinit ();
 
-#ifdef HAVE_COUNTERD
-    /* Initialise counters */
     cmsg_proxy_counter_init ();
-#endif /* HAVE_COUNTERD */
 
-    if (!_cmsg_proxy_passthrough_library_handle_load (library_path))
+    if (!cmsg_proxy_passthrough_library_handle_load (library_path))
     {
         syslog (LOG_ERR, "Unable able to load library %s", library_path);
         return;
@@ -181,10 +175,7 @@ cmsg_proxy_passthrough_deinit (void)
     api_ptr = NULL;
     service_descriptor = NULL;
 
-#ifdef HAVE_COUNTERD
-    /* Cleanup counters */
     cmsg_proxy_counter_deinit ();
-#endif /* HAVE_COUNTERD */
 }
 
 /**
@@ -192,11 +183,8 @@ cmsg_proxy_passthrough_deinit (void)
  *
  * @param input. Input data for the request
  * @param output. output data for the response
- *
- * @return - true if the passthrough was successful.
- *           false if the passthrough failed (i.e. the underlying CMSG API call failed).
  */
-bool
+void
 cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output)
 {
     passthrough_request send_msg = PASSTHROUGH_REQUEST_INIT;
@@ -207,7 +195,7 @@ cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output
 
     CMSG_SET_FIELD_PTR (&send_msg, path, (char *) input->url);
     CMSG_SET_FIELD_PTR (&send_msg, method,
-                        _cmsg_proxy_passthrough_verb_to_string (input->http_verb));
+                        cmsg_proxy_passthrough_verb_to_string (input->http_verb));
     CMSG_SET_FIELD_PTR (&send_msg, request_body, (char *) input->data);
 
     ret = api_ptr (client, &send_msg, &recv_msg);
@@ -215,7 +203,8 @@ cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output
     {
         syslog (LOG_ERR, "Error calling passthrough API");
         CMSG_PROXY_SESSION_COUNTER_INC (api_service_info, cntr_error_api_failure);
-        return false;
+        output->http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        return;
     }
 
     output->response_length = 0;
@@ -236,7 +225,6 @@ cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output
     output->http_status = recv_msg->status_code;
 
     CMSG_FREE_RECV_MSG (recv_msg);
-    return true;
 }
 
 /**

@@ -581,6 +581,52 @@ cmsg_repeated_append_uint32 (uint32_t **msg_ptr_array, size_t *num_elems,
 }
 
 /**
+ * This function uses realloc to increase the length of the passed in
+ * int32_t array by 1 and sets the last element to point to the passed in value. The
+ * num_elems field is also incremented if this is done.  If reallocation fails,
+ * the original array is returned untouched.  Can be called when no elements are in
+ * the array yet.
+ * This function is designed to be called by CMSG_REPEATED_APPEND_INT32
+ * @param msg_ptr_array pointer to array of pointers to elements for a repeated field
+ * @param num_elems Pointer to field containing number of pointers stored in msg_ptr_array.
+ *        This is updated if the number is changed.
+ * @param value value to add at the end of the array.
+ * @param file file this is being called from
+ * @param line this is being called from.
+ * @returns the new pointer to the repeated array and updates *num_elems with the new number
+ * of elements. The returned pointer can be freed with CMSG_MSG_ARRAY_FREE.
+ */
+void
+cmsg_repeated_append_int32 (int32_t **msg_ptr_array, size_t *num_elems,
+                            int32_t value, const char *file, int line)
+{
+    int32_t *new_array_ptr = NULL;
+    size_t new_size;
+
+    /* Optimization to reduce reallocations. Allocate a block of pointers
+     * and use until exhausted, rather than reallocating for every append.
+     * Allocate every time num_elems % allocation block size is 0.
+     */
+    if ((*num_elems % CMSG_REPEATED_BLOCK_SIZE) == 0)
+    {
+        new_size = (*num_elems + CMSG_REPEATED_BLOCK_SIZE) * sizeof (int32_t);
+        new_array_ptr = cmsg_realloc (*msg_ptr_array, new_size, file, line);
+    }
+    else
+    {
+        /* We have previously allocated space we can use */
+        new_array_ptr = *msg_ptr_array;
+    }
+
+    if (new_array_ptr)
+    {
+        /* Add new element to array and increment number of elements */
+        new_array_ptr[(*num_elems)++] = value;
+        *msg_ptr_array = new_array_ptr;
+    }
+}
+
+/**
  * Free the contents of a string field in a received message, recording that it has been freed.
  * Then duplicate and record the allocation of the passed in string and set it in the message.
  * Should be called using CMSG_UPDATE_RECV_MSG_STRING_FIELD macro.

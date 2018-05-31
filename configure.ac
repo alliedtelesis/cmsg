@@ -22,7 +22,8 @@ AC_CONFIG_FILES([Makefile
   cmsg/Makefile
   cmsg-proxy/Makefile
   protoc-c/Makefile
-  cmsg/cmsg.pc])
+  cmsg/cmsg.pc
+  cmsg-proxy/cmsgproxyconfig.pc])
 
 PKG_CHECK_MODULES([GLIB],[glib-2.0])
 PKG_CHECK_MODULES([GMEM_DIAG],[gmem_diag],[],[unittest_prereq=no])

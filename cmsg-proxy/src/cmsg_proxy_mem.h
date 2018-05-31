@@ -7,11 +7,6 @@
 #ifndef __CMSG_PROXY_MEM_H_
 #define __CMSG_PROXY_MEM_H_
 
-/* For developer debugging, uncomment the following line,
- * which will generate malloc info to a file on receiving SIGUSR2 signal */
-//#define CMSG_PROXY_MEM_DEBUG
-#define CMSG_PROXY_MEM_OUTPUT_FILE  "/tmp/cmsg-proxy-mem.output"
-
 /* Wrappers for memory tracing */
 #define CMSG_PROXY_CALLOC(n,sz)             cmsg_proxy_mem_calloc ((n), (sz), __FILE__,  __LINE__)
 #define CMSG_PROXY_ASPRINTF(strp,fmt,...)   cmsg_proxy_mem_asprintf (__FILE__,  __LINE__, (strp), (fmt), ##__VA_ARGS__)
@@ -25,6 +20,6 @@ int cmsg_proxy_mem_asprintf (const char *filename, int line, char **strp,
 void *cmsg_proxy_mem_strdup (const char *str, const char *filename, int line);
 void *cmsg_proxy_mem_strndup (const char *str, size_t len, const char *filename, int line);
 void cmsg_proxy_mem_free (void *ptr, const char *filename, int line);
-void cmsg_proxy_mem_init (int mtype);
+void cmsg_proxy_mem_init (void);
 
 #endif /* __CMSG_PROXY_MEM_H_ */

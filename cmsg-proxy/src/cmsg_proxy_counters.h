@@ -43,7 +43,7 @@ typedef struct _session_counter_info
 } session_counter_info;
 
 /* Global counters */
-static counter_info proxy_counter;
+counter_info proxy_counter;
 /* Table to store per-session counters */
 extern GHashTable *proxy_session_counter_table;
 
@@ -75,6 +75,21 @@ void cmsg_proxy_counter_deinit (void);
 #else
 #define CMSG_PROXY_COUNTER_INC(counter)
 #define CMSG_PROXY_SESSION_COUNTER_INC(service,counter)
+
+static inline void
+cmsg_proxy_counter_init (void)
+{
+}
+
+static inline void
+cmsg_proxy_counter_deinit (void)
+{
+}
+
+static inline void
+cmsg_proxy_session_counter_init (const cmsg_service_info *service_info)
+{
+}
 #endif /* HAVE_COUNTERD */
 
 #endif /* __CMSG_PROXY_COUNTERS_H_ */

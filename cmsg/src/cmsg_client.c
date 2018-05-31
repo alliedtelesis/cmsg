@@ -26,7 +26,7 @@ static int32_t _cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer,
 
 static cmsg_client *_cmsg_create_client_tipc (const char *server, int member_id,
                                               int scope,
-                                              ProtobufCServiceDescriptor *descriptor,
+                                              const ProtobufCServiceDescriptor *descriptor,
                                               cmsg_transport_type transport_type);
 
 static int _cmsg_client_apply_send_timeout (int sock, uint32_t timeout);
@@ -1338,7 +1338,7 @@ cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable)
 /* Create a cmsg client and its transport with TIPC (RPC) */
 static cmsg_client *
 _cmsg_create_client_tipc (const char *server, int member_id, int scope,
-                          ProtobufCServiceDescriptor *descriptor,
+                          const ProtobufCServiceDescriptor *descriptor,
                           cmsg_transport_type transport_type)
 {
     cmsg_transport *transport;
@@ -1362,7 +1362,7 @@ _cmsg_create_client_tipc (const char *server, int member_id, int scope,
 
 cmsg_client *
 cmsg_create_client_tipc_rpc (const char *server_name, int member_id, int scope,
-                             ProtobufCServiceDescriptor *descriptor)
+                             const ProtobufCServiceDescriptor *descriptor)
 {
     CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
@@ -1373,7 +1373,7 @@ cmsg_create_client_tipc_rpc (const char *server_name, int member_id, int scope,
 
 cmsg_client *
 cmsg_create_client_tipc_oneway (const char *server_name, int member_id, int scope,
-                                ProtobufCServiceDescriptor *descriptor)
+                                const ProtobufCServiceDescriptor *descriptor)
 {
     CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
@@ -1389,7 +1389,7 @@ cmsg_create_client_tipc_oneway (const char *server_name, int member_id, int scop
  */
 cmsg_client *
 cmsg_create_and_connect_client_tipc_rpc (const char *server_name, int member_id, int scope,
-                                         ProtobufCServiceDescriptor *descriptor)
+                                         const ProtobufCServiceDescriptor *descriptor)
 {
     int ret;
     cmsg_client *client;
@@ -1470,7 +1470,7 @@ cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor)
 
 /* Create a cmsg client and its transport over a TCP socket */
 static cmsg_client *
-_cmsg_create_client_tcp (cmsg_socket *config, ProtobufCServiceDescriptor *descriptor,
+_cmsg_create_client_tcp (cmsg_socket *config, const ProtobufCServiceDescriptor *descriptor,
                          cmsg_transport_type transport_type)
 {
     cmsg_transport *transport;
@@ -1495,7 +1495,8 @@ _cmsg_create_client_tcp (cmsg_socket *config, ProtobufCServiceDescriptor *descri
 }
 
 cmsg_client *
-cmsg_create_client_tcp_rpc (cmsg_socket *config, ProtobufCServiceDescriptor *descriptor)
+cmsg_create_client_tcp_rpc (cmsg_socket *config,
+                            const ProtobufCServiceDescriptor *descriptor)
 {
     CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
@@ -1504,7 +1505,8 @@ cmsg_create_client_tcp_rpc (cmsg_socket *config, ProtobufCServiceDescriptor *des
 }
 
 cmsg_client *
-cmsg_create_client_tcp_oneway (cmsg_socket *config, ProtobufCServiceDescriptor *descriptor)
+cmsg_create_client_tcp_oneway (cmsg_socket *config,
+                               const ProtobufCServiceDescriptor *descriptor)
 {
     CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);

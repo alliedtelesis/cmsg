@@ -21,7 +21,7 @@ extern int32_t cmsg_composite_client_invoke (ProtobufCService *service,
                                              const ProtobufCMessage *input,
                                              ProtobufCClosure closure, void *closure_data);
 
-ProtobufCServiceDescriptor dummy_service_descriptor = {
+const ProtobufCServiceDescriptor dummy_service_descriptor = {
     .name = "dummy",
 };
 

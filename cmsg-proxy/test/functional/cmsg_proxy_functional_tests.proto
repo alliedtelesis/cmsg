@@ -129,6 +129,11 @@ message body_msg
     repeated uint32 should_be_ignored = 3;
 }
 
+message streaming_id
+{
+    optional uint32 _streaming_id = 1;
+}
+
 service functional_tests
 {
     rpc test_single_bool_get (dummy) returns (bool_result) {
@@ -307,6 +312,12 @@ service functional_tests
     rpc test_body_get (dummy) returns (body_msg) {
         option (http) = {
             get: "/test_body_get",
+        };
+    }
+
+    rpc test_http_streaming (streaming_id) returns (test_multiple_fields_message_get_msg) {
+        option (http) = {
+            get: "/test_http_streaming",
         };
     }
 }
