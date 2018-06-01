@@ -94,7 +94,7 @@ cmsg_proxy_convert_json_to_protobuf (json_t *json_obj,
  * the query parameters so that we can prevent query parameters from overwriting
  * the URL parameters.
  *
- * @param url - URL string to use for the lookup.
+ * @param url - The encoded URL to use for the lookup.
  * @param query_string - Query string provided with the URL
  * @param http_verb - HTTP verb to use for the lookup.
  * @param url_parameters - List to populate with parameters parsed from the URL

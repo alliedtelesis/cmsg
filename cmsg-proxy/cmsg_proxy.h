@@ -83,7 +83,7 @@ typedef struct _cmsg_proxy_api_request_info
 /* CMSG proxy input/request data */
 typedef struct _cmsg_proxy_input
 {
-    /* URL the HTTP request is for. */
+    /* URL the HTTP request is for. Expected to be URL Encoded. */
     const char *url;
 
     /* The query string sent with the request. Expected to be URL Encoded. */
