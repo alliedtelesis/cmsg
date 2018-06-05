@@ -96,6 +96,14 @@ extern ProtobufCAllocator cmsg_memory_allocator;
         (_name)->_oneof_name##_case = (_oneof_type);   \
     } while (0)
 
+#define CMSG_SET_FIELD_ONEOF_BYTES(_name, _field, _data, _len, \
+                                   _oneof_name, _oneof_type)   \
+    do {                                                       \
+        (_name)->_field.len = (_len);                          \
+        (_name)->_field.data = (_data);                        \
+        (_name)->_oneof_name##_case = (_oneof_type);           \
+    } while (0)
+
 #define CMSG_IS_FIELD_PRESENT(_msg, _field) \
     ((_msg)->has_##_field ? true : false)
 
