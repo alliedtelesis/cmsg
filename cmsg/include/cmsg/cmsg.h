@@ -108,7 +108,7 @@ extern ProtobufCAllocator cmsg_memory_allocator;
     ((_msg)->has_##_field ? true : false)
 
 #define CMSG_IS_PTR_PRESENT(_msg, _ptr) \
-    ((_msg)->_ptr ? true : false)
+    ((_msg)->_ptr != NULL ? true : false)
 
 #define CMSG_IS_REPEATED_PRESENT(_msg, _field) \
     ((_msg)->n_##_field ? true : false)
