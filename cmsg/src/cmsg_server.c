@@ -359,6 +359,112 @@ cmsg_server_list_remove_server (cmsg_server_list *server_list, cmsg_server *serv
 }
 
 /**
+ * Poll a CMSG server that is accepting connections in a separate thread.
+ *
+ * Note: If the select system call is interrupted before any messages
+ *       are received (i.e. returns EINTR) then this function will
+ *       return success (instead of blocking until the timeout expires)
+ *
+ * Timeout is specified in 'timeout_ms' (0: return immediately,
+ * negative number: no timeout).
+ *
+ * @param info - The 'cmsg_server_accept_thread_info' structure containing
+ *               the CMSG server and it's connection thread.
+ * @param timeout_ms - The timeout to use with select.
+ *                     (0: return immediately, negative number: no timeout).
+ * @param master_fdset - An fd_set containing all of the sockets being polled.
+ * @param fdmax - Pointer to an integer holding the maximum fd number.
+ *
+ * @returns On success returns 0, failure returns -1.
+ */
+int32_t
+cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
+                                 int32_t timeout_ms, fd_set *master_fdset, int *fdmax)
+{
+    int ret = 0;
+    fd_set read_fds = *master_fdset;
+    int nfds = *fdmax;
+    struct timeval timeout = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
+    int fd;
+    bool check_fdmax = false;
+    int accept_event_fd;
+    eventfd_t value;
+    int *newfd_ptr = NULL;
+
+    CMSG_ASSERT_RETURN_VAL (info->server != NULL, CMSG_RET_ERR);
+
+    accept_event_fd = info->accept_sd_eventfd;
+
+    ret = select (nfds + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
+    if (ret == -1)
+    {
+        if (errno == EINTR)
+        {
+            // We were interrupted, this is transient so just pretend we timed out.
+            return CMSG_RET_OK;
+        }
+
+        CMSG_LOG_SERVER_ERROR (info->server,
+                               "An error occurred with receive poll (timeout %dms): %s.",
+                               timeout_ms, strerror (errno));
+        CMSG_COUNTER_INC (info->server, cntr_poll_errors);
+        return CMSG_RET_ERR;
+    }
+    else if (ret == 0)
+    {
+        // timed out, so func success but nothing received, early return
+        return CMSG_RET_OK;
+    }
+
+    // run through the existing connections looking for data to read
+    for (fd = 0; fd <= nfds; fd++)
+    {
+        if (FD_ISSET (fd, &read_fds))
+        {
+            if (fd == accept_event_fd)
+            {
+                /* clear notification */
+                TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
+                while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
+                {
+                    FD_SET (*newfd_ptr, master_fdset);
+                    *fdmax = MAX (*newfd_ptr, *fdmax);
+                    CMSG_FREE (newfd_ptr);
+                }
+            }
+            else
+            {
+                // there is something happening on the socket so receive it.
+                if (cmsg_server_receive (info->server, fd) < 0)
+                {
+                    // only close the socket if we have errored
+                    cmsg_server_close_wrapper (info->server);
+                    shutdown (fd, SHUT_RDWR);
+                    close (fd);
+                    FD_CLR (fd, master_fdset);
+                    check_fdmax = true;
+                }
+            }
+        }
+    }
+
+    // Check the largest file descriptor
+    if (check_fdmax)
+    {
+        for (fd = *fdmax; fd >= 0; fd--)
+        {
+            if (FD_ISSET (fd, master_fdset))
+            {
+                *fdmax = fd;
+                break;
+            }
+        }
+    }
+
+    return CMSG_RET_OK;
+}
+
+/**
  * Wait for any data on a list of sockets or until timeout expires.
  *
  * Note: If the select system call is interrupted before any messages

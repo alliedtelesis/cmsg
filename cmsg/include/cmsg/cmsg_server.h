@@ -123,6 +123,10 @@ int cmsg_server_get_socket (cmsg_server *server);
 int32_t cmsg_server_receive_poll (cmsg_server *server,
                                   int32_t timeout_ms, fd_set *master_fdset, int *fdmax);
 
+int32_t cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
+                                         int32_t timeout_ms, fd_set *master_fdset,
+                                         int *fdmax);
+
 int32_t cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms);
 
 int32_t cmsg_server_receive (cmsg_server *server, int32_t server_socket);
