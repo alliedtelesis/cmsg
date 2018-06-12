@@ -367,6 +367,11 @@ cmsg_proxy_output_process (ProtobufCMessage *output_proto_message,
                                               NULL, output);
         CMSG_PROXY_SESSION_COUNTER_INC (processing_info->service_info,
                                         cntr_error_api_failure);
+        if (output->stream_response)
+        {
+            cmsg_proxy_streaming_delete_conn_by_id (processing_info->streaming_id);
+            output->stream_response = false;
+        }
         return;
     }
 
