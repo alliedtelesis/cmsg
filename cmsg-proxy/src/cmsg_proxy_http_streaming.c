@@ -478,7 +478,9 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
 
     protobuf_c_message_free_unpacked (message, allocator);
 
-    data = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_stream_response_data));
+    /* This memory will eventually be freed by a 'free' call so do not
+     * use CMSG_PROXY_CALLOC to allocate the memory. */
+    data = calloc (1, sizeof (cmsg_proxy_stream_response_data));
     data->connection = connection_info->connection;
     data->data = output.response_body;
 
