@@ -551,12 +551,6 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     cmsg_proxy_set_internal_api_info (&input->web_api_info, &json_obj,
                                       service_info->input_msg_descriptor);
 
-    output->stream_response =
-        cmsg_proxy_streaming_create_conn (input->connection, &json_obj,
-                                          service_info->input_msg_descriptor,
-                                          service_info->output_msg_descriptor,
-                                          &processing_info->streaming_id);
-
     processing_info->client =
         cmsg_proxy_find_client_by_service (service_info->service_descriptor);
     if (processing_info->client == NULL)
@@ -567,6 +561,12 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_client);
         return NULL;
     }
+
+    output->stream_response =
+        cmsg_proxy_streaming_create_conn (input->connection, &json_obj,
+                                          service_info->input_msg_descriptor,
+                                          service_info->output_msg_descriptor,
+                                          &processing_info->streaming_id);
 
     /* Always create an input_proto_message to ensure that if the API call
      * requires an input it has one, even if it is empty. */
@@ -581,6 +581,11 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
         cmsg_proxy_generate_ant_result_error (result, message, output);
         CMSG_PROXY_FREE (message);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_malformed_input);
+        if (output->stream_response)
+        {
+            cmsg_proxy_streaming_delete_conn_by_id (processing_info->streaming_id);
+            output->stream_response = false;
+        }
         return NULL;
     }
     CMSG_PROXY_FREE (message);
