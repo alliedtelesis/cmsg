@@ -1,23 +1,33 @@
-lib_LTLIBRARIES = libcmsgproxyconfig.la libcmsgproxy.la
+lib_LTLIBRARIES = libcmsgproxyconfig.la libcmsgproxy.la libcmsgproxyhttpstreamingapi.la
 bin_PROGRAMS =
 
 pkgconfiglibdir = $(libdir)/pkgconfig
-pkgconfiglib_DATA = cmsgproxyconfig.pc
-
-## Library for general stacking functionality (member-IDs, etc)
-libcmsgproxyconfig_la_LDFLAGS = -version-info 1:0:0 # version:revision:age
-libcmsgproxyconfig_la_SOURCES = src/cmsg_proxy_config.c cmsg_proxy_config.h
-libcmsgproxyconfig_la_LIBADD = -lsimple_shm
+pkgconfiglib_DATA = cmsgproxyconfig.pc cmsgproxyhttpstreamingapi.pc
 
 src/ant_result.pb-c.c \
 src/ant_result.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/ant_result.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I. --c_out=. src/ant_result.proto
 
+src/http_streaming_api_auto.c \
+src/http_streaming_api_auto.h \
 src/http_streaming_impl_auto.c \
 src/http_streaming_impl_auto.h \
 src/http_streaming.pb-c.c \
 src/http_streaming.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/http_streaming.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I. --c_out=. src/http_streaming.proto
+
+## Library for cmsg proxy configuration
+libcmsgproxyconfig_la_LDFLAGS = -version-info 1:0:0 # version:revision:age
+libcmsgproxyconfig_la_SOURCES = src/cmsg_proxy_config.c cmsg_proxy_config.h
+libcmsgproxyconfig_la_LIBADD = -lsimple_shm
+
+## Library for using the cmsg proxy http streaming functionality
+libcmsgproxyhttpstreamingapi_la_CFLAGS  = $(GLIB_CFLAGS)
+libcmsgproxyhttpstreamingapi_la_LDFLAGS = -version-info 1:0:0 # version:revision:age
+libcmsgproxyhttpstreamingapi_la_SOURCES = src/cmsg_proxy_http_streaming_api.c cmsg_proxy_http_streaming_api.h \
+                                          src/http_streaming_api_auto.c src/http_streaming_api_auto.h \
+                                          src/http_streaming.pb-c.c src/http_streaming.pb-c.h \
+libcmsgproxyhttpstreamingapi_la_LIBADD = -lcmsg
 
 libcmsgproxy_la_SOURCES = \
 	src/ant_result.pb-c.c \
@@ -54,6 +64,7 @@ libcmsgproxy_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS)
 libcmsgproxy_la_CPPFLAGS = -Iinclude
 
 BUILT_SOURCES = src/ant_result.pb-c.c src/ant_result.pb-c.h \
+                src/http_streaming_api_auto.c src/http_streaming_api_auto.h \
                 src/http_streaming_impl_auto.c src/http_streaming_impl_auto.h \
                 src/http_streaming.pb-c.c src/http_streaming.pb-c.h
 CLEANFILES = $(BUILT_SOURCES)

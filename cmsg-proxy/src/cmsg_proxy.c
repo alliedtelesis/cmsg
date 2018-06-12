@@ -36,6 +36,8 @@
 /* compile time check that an array has the expected number of elements */
 #define ARRAY_SIZE_COMPILE_CHECK(array,exp_num) G_STATIC_ASSERT(ARRAY_ELEMENTS((array)) == (exp_num))
 
+/* the base path for cmsg API URLs */
+#define API_PREFIX    "/api"
 
 /**
  * Map the ANT code returned from the CMSG API call to the
@@ -625,18 +627,18 @@ cmsg_proxy_http_verb_string (cmsg_http_verb http_verb)
 }
 
 static void
-cmsg_proxy_log_request (const cmsg_proxy_input *input, cmsg_proxy_output *output)
+cmsg_proxy_log_request (const cmsg_proxy_input *input, cmsg_proxy_output *output,
+                        cmsg_proxy_log_mode log_mode)
 {
     const char *username = input->web_api_info.api_request_username;
     const char *ip_address = input->web_api_info.api_request_ip_address;
-    cmsg_proxy_log_mode log_mode = cmsg_proxy_config_get_logging_mode ();
 
     if ((log_mode == CMSG_PROXY_LOG_ALL) ||
         (log_mode == CMSG_PROXY_LOG_SETS && input->http_verb != CMSG_HTTP_GET))
     {
-        syslog (LOG_NOTICE, "Web API request: %s@%s %s %s returned:%u", username,
-                ip_address, cmsg_proxy_http_verb_string (input->http_verb),
-                input->url, output->http_status);
+        syslog (LOG_NOTICE, "API: %s@%s %s " API_PREFIX "%s returned:%u", username,
+                ip_address, cmsg_proxy_http_verb_string (input->http_verb), input->url,
+                output->http_status);
     }
 }
 
@@ -659,6 +661,7 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
         .streaming_id = 0,
         .cmsg_api_result = ANT_CODE_OK,
     };
+    cmsg_proxy_log_mode log_mode = cmsg_proxy_config_get_logging_mode ();
 
     /* By default handle responses with MIME type "application/json"
      */
@@ -667,14 +670,14 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
     if (strcmp (input->url, "/v1/index") == 0 && input->http_verb == CMSG_HTTP_GET)
     {
         output->http_status = cmsg_proxy_index (input->query_string, output);
-        cmsg_proxy_log_request (input, output);
+        cmsg_proxy_log_request (input, output, log_mode);
         return;
     }
 
     input_proto_message = cmsg_proxy_input_process (input, output, &processing_info);
     if (!input_proto_message)
     {
-        cmsg_proxy_log_request (input, output);
+        cmsg_proxy_log_request (input, output, log_mode);
         return;
     }
 
@@ -693,5 +696,5 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
 
     cmsg_proxy_output_process (output_proto_message, output, &processing_info);
 
-    cmsg_proxy_log_request (input, output);
+    cmsg_proxy_log_request (input, output, log_mode);
 }

@@ -573,7 +573,6 @@ functional_tests_impl_test_http_streaming (const void *service,
 
     CMSG_SET_FIELD_VALUE (&msg, id, recv_msg->_streaming_id);
     CMSG_SET_FIELD_BYTES (&msg, message_data, buffer, message_size);
-    CMSG_SET_FIELD_VALUE (&msg, status, STREAM_STATUS_IN_PROGRESS);
 
     http_streaming_api_send_stream_data (client, &msg, &r_msg);
     CMSG_FREE_RECV_MSG (r_msg);

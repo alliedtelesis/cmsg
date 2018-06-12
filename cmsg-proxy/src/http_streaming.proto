@@ -1,14 +1,3 @@
-enum stream_status
-{
-    STREAM_STATUS_NOT_SET = 0;
-
-    // There is still more data to send.
-    STREAM_STATUS_IN_PROGRESS = 1;
-
-    // There is no more data to send, close the connection.
-    STREAM_STATUS_CLOSE = 2;
-}
-
 message stream_data
 {
     // ID of the web streaming connection
@@ -18,8 +7,6 @@ message stream_data
     // This should match the message type described as the response in
     // the original rpc definition with http mapping.
     optional bytes message_data = 2;
-
-    optional stream_status status = 3;
 };
 
 message server_response
@@ -31,7 +18,14 @@ message server_response
     optional bool stream_found = 1;
 }
 
+message stream_id
+{
+    // ID of the web streaming connection
+    optional uint32 id = 1;
+}
+
 service http_streaming
 {
     rpc send_stream_data (stream_data) returns (server_response);
+    rpc close_stream_connection (stream_id) returns (server_response);
 }

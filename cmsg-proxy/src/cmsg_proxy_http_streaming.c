@@ -478,23 +478,42 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
 
     protobuf_c_message_free_unpacked (message, allocator);
 
-    data = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_stream_response_data));
+    /* This memory will eventually be freed by a 'free' call so do not
+     * use CMSG_PROXY_CALLOC to allocate the memory. */
+    data = calloc (1, sizeof (cmsg_proxy_stream_response_data));
     data->connection = connection_info->connection;
     data->data = output.response_body;
 
     stream_response_send (data);
 
-    if (recv_msg->status == STREAM_STATUS_CLOSE)
-    {
-        stream_response_close (connection_info->connection);
-        pthread_mutex_lock (&stream_connections_mutex);
-        stream_connections_list = g_list_remove (stream_connections_list, connection_info);
-        pthread_mutex_unlock (&stream_connections_mutex);
-        connection_info->to_delete = true;
-        connection_info->in_use = false;
-    }
-
     cmsg_proxy_streaming_release_conn_info (connection_info);
 
     http_streaming_server_send_stream_dataSend (service, &send_msg);
+}
+
+void
+http_streaming_impl_close_stream_connection (const void *service, const stream_id *recv_msg)
+{
+    server_response send_msg = SERVER_RESPONSE_INIT;
+    cmsg_proxy_stream_connection *connection_info = NULL;
+    bool found = false;
+
+    connection_info = cmsg_proxy_streaming_lookup_conn_by_id (recv_msg->id);
+    if (connection_info)
+    {
+        stream_response_close (connection_info->connection);
+
+        pthread_mutex_lock (&stream_connections_mutex);
+        stream_connections_list = g_list_remove (stream_connections_list, connection_info);
+        pthread_mutex_unlock (&stream_connections_mutex);
+
+        connection_info->to_delete = true;
+        connection_info->in_use = false;
+        cmsg_proxy_streaming_release_conn_info (connection_info);
+        found = true;
+    }
+
+    CMSG_SET_FIELD_VALUE (&send_msg, stream_found, found);
+
+    http_streaming_server_close_stream_connectionSend (service, &send_msg);
 }

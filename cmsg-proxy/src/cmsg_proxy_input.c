@@ -506,6 +506,18 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     processing_info->service_info = service_info;
     processing_info->http_verb = input->http_verb;
 
+    CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_api_calls);
+
+    /* Do the pre-API check */
+    result = cmsg_proxy_pre_api_check (input->http_verb, &message);
+    if (result != ANT_CODE_OK)
+    {
+        cmsg_proxy_generate_ant_result_error (result, message, output);
+        CMSG_PROXY_FREE (message);
+        CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
+        return NULL;
+    }
+
     json_obj = cmsg_proxy_json_object_create (input->data, input->data_length,
                                               service_info->input_msg_descriptor,
                                               service_info->body_string, url_parameters,
@@ -539,12 +551,6 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     cmsg_proxy_set_internal_api_info (&input->web_api_info, &json_obj,
                                       service_info->input_msg_descriptor);
 
-    output->stream_response =
-        cmsg_proxy_streaming_create_conn (input->connection, &json_obj,
-                                          service_info->input_msg_descriptor,
-                                          service_info->output_msg_descriptor,
-                                          &processing_info->streaming_id);
-
     processing_info->client =
         cmsg_proxy_find_client_by_service (service_info->service_descriptor);
     if (processing_info->client == NULL)
@@ -555,6 +561,12 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_client);
         return NULL;
     }
+
+    output->stream_response =
+        cmsg_proxy_streaming_create_conn (input->connection, &json_obj,
+                                          service_info->input_msg_descriptor,
+                                          service_info->output_msg_descriptor,
+                                          &processing_info->streaming_id);
 
     /* Always create an input_proto_message to ensure that if the API call
      * requires an input it has one, even if it is empty. */
@@ -569,6 +581,11 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
         cmsg_proxy_generate_ant_result_error (result, message, output);
         CMSG_PROXY_FREE (message);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_malformed_input);
+        if (output->stream_response)
+        {
+            cmsg_proxy_streaming_delete_conn_by_id (processing_info->streaming_id);
+            output->stream_response = false;
+        }
         return NULL;
     }
     CMSG_PROXY_FREE (message);
@@ -581,18 +598,6 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
         // Set message "_file" field to point directly to input_data (without copying)
         cmsg_proxy_file_data_to_message (input->data, input->data_length,
                                          input_proto_message);
-    }
-
-    CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_api_calls);
-
-    /* Do the pre-API check */
-    result = cmsg_proxy_pre_api_check (input->http_verb, &message);
-    if (result != ANT_CODE_OK)
-    {
-        cmsg_proxy_generate_ant_result_error (result, message, output);
-        CMSG_PROXY_FREE (message);
-        CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_api_failure);
-        return NULL;
     }
 
     return input_proto_message;
