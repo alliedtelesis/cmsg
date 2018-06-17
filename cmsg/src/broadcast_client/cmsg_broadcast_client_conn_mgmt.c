@@ -4,11 +4,36 @@
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */
 
+#define _GNU_SOURCE /* for TEMP_FAILURE_RETRY */
+#include <sys/eventfd.h>
 #include <glib.h>
 #include "cmsg_broadcast_client_private.h"
 #include "cmsg_transport.h"
 #include "cmsg_error.h"
 #include "cmsg_composite_client.h"
+
+/**
+ * Generate an event for the node/leave join.
+ *
+ * @param broadcast_client - The broadcast client to queue the event on.
+ * @param node_id - The id of the node that has joined/left.
+ * @param joined - true if the node has joined, false if it has left.
+ */
+static void
+cmsg_broadcast_client_generate_event (cmsg_broadcast_client *broadcast_client,
+                                      uint32_t node_id, bool joined)
+{
+    cmsg_broadcast_client_event *event = NULL;
+
+    event = CMSG_MALLOC (sizeof (cmsg_broadcast_client_event));
+    if (event)
+    {
+        event->node_id = node_id;
+        event->joined = joined;
+        g_async_queue_push (broadcast_client->event_queue.queue, event);
+        TEMP_FAILURE_RETRY (eventfd_write (broadcast_client->event_queue.eventfd, 1));
+    }
+}
 
 /**
  * Create a TIPC client to the given node id, connect the client,
@@ -62,6 +87,8 @@ cmsg_broadcast_client_add_child (cmsg_broadcast_client *broadcast_client,
     }
 
     cmsg_composite_client_add_child (comp_client, child);
+
+    cmsg_broadcast_client_generate_event (broadcast_client, tipc_node_id, true);
 }
 
 /**
@@ -105,6 +132,8 @@ cmsg_broadcast_client_delete_child (cmsg_broadcast_client *broadcast_client,
     }
 
     cmsg_destroy_client_and_transport (child);
+
+    cmsg_broadcast_client_generate_event (broadcast_client, tipc_node_id, false);
 }
 
 /**

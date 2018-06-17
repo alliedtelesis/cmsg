@@ -9,7 +9,7 @@ cmsg_tipc_mesh_conn *
 cmsg_tipc_mesh_connection_init (ProtobufCService *service, const char *service_entry_name,
                                 uint32_t my_node_id, uint32_t lower_node_id,
                                 uint32_t upper_node_id, cmsg_mesh_local_type type,
-                                bool oneway)
+                                bool oneway, cmsg_broadcast_event_handler_t event_handler)
 {
     cmsg_tipc_mesh_conn *mesh_info = NULL;
     cmsg_client *bcast_client = NULL;
@@ -29,7 +29,7 @@ cmsg_tipc_mesh_connection_init (ProtobufCService *service, const char *service_e
     bcast_client = cmsg_broadcast_client_new (service->descriptor,
                                               service_entry_name, my_node_id,
                                               lower_node_id, upper_node_id,
-                                              connect_to_self, oneway);
+                                              connect_to_self, oneway, event_handler);
 
     if (bcast_client == NULL)
     {

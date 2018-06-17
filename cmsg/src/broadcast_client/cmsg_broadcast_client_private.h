@@ -11,6 +11,30 @@
 #include "../cmsg_composite_client_private.h"
 #include "cmsg_broadcast_client.h"
 
+typedef struct _cmsg_broadcast_client_event
+{
+    /* Node ID of the node that has joined/left the broadcast client. */
+    uint32_t node_id;
+
+    /* true if the given node has joined the broadcast client, false if
+     * it has left. */
+    bool joined;
+} cmsg_broadcast_client_event;
+
+typedef struct _cmsg_broadcast_client_event_queue
+{
+    /* Queue to store node join/leave events. This is used to
+     * pass the new socket descriptors back to the server user. */
+    GAsyncQueue *queue;
+
+    /* An eventfd object to notify the listener that there is a new
+     * event on the queue.  */
+    int eventfd;
+
+    /* Function to call on each event */
+    cmsg_broadcast_event_handler_t handler;
+} cmsg_broadcast_client_event_queue;
+
 typedef struct _cmsg_broadcast_client_s
 {
     cmsg_composite_client base_client;
@@ -36,6 +60,9 @@ typedef struct _cmsg_broadcast_client_s
 
     /* Thread for monitoring the TIPC topology and creating clients as required */
     pthread_t topology_thread;
+
+    /* Queue for storing node join/leave events to the broadcast client */
+    cmsg_broadcast_client_event_queue event_queue;
 } cmsg_broadcast_client;
 
 int32_t cmsg_broadcast_conn_mgmt_init (cmsg_broadcast_client *broadcast_client);
