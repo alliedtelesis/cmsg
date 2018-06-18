@@ -292,6 +292,56 @@ static bool message_has_validation(const Descriptor *message)
 }
 
 static void
+generate_field_validation (const FieldDescriptor *field, io::Printer* printer)
+{
+    std::map<string, string> vars;
+    std::string int_string;
+    FieldValidation validation_defs = field->options().GetExtension(validation);
+
+    vars["fieldname"] = field->name();
+
+    if (validation_defs.has_int_gt())
+    {
+        int_string = std::to_string(validation_defs.int_gt());
+
+        vars["gtvalue"] = int_string;
+        printer->Print(vars, "if (message->$fieldname$ <= $gtvalue$)\n");
+        printer->Print("{\n");
+        printer->Indent();
+        printer->Print("return false;\n");
+        printer->Outdent();
+        printer->Print("}\n");
+    }
+    if (validation_defs.has_int_lt())
+    {
+        int_string = std::to_string(validation_defs.int_lt());
+
+        vars["ltvalue"] = int_string;
+        printer->Print(vars, "if (message->$fieldname$ >= $ltvalue$)\n");
+        printer->Print("{\n");
+        printer->Indent();
+        printer->Print("return false;\n");
+        printer->Outdent();
+        printer->Print("}\n");
+    }
+}
+
+static void
+generate_fields_validation (const Descriptor *message, io::Printer* printer)
+{
+    const FieldDescriptor *field = NULL;
+
+    for (int i = 0; i < message->field_count(); i++)
+    {
+        field = message->field(i);
+        if (field->options().HasExtension(validation))
+        {
+            generate_field_validation (field, printer);
+        }
+    }
+}
+
+static void
 generate_validation_function (const Descriptor *message, io::Printer* printer)
 {
     std::map<string, string> vars;
@@ -307,6 +357,7 @@ generate_validation_function (const Descriptor *message, io::Printer* printer)
     printer->Print(vars, "bool $lcclassname$_validate (const $classname$ *message)\n");
     printer->Print("{\n");
     printer->Indent();
+    generate_fields_validation (message, printer);
     printer->Print("return true;\n");
     printer->Outdent();
     printer->Print("}\n");
