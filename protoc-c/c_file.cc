@@ -177,6 +177,7 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
   // Add some includes for the ATL generated code
   printer->Print("#include <string.h>\n");
   printer->Print("#include <stdlib.h>\n");
+  printer->Print("#include <stdbool.h>\n");
 #endif /* ATL_CHANGE */
 
   for (int i = 0; i < file_->dependency_count(); i++) {

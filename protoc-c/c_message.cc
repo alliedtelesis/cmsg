@@ -70,6 +70,9 @@
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/wire_format.h>
 #include <google/protobuf/descriptor.pb.h>
+#ifdef ATL_CHANGE
+#include "validation.pb.h"
+#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {
@@ -271,6 +274,46 @@ GenerateStructDefinition(io::Printer* printer) {
 
 }
 
+#ifdef ATL_CHANGE
+static bool message_has_validation(const Descriptor *message)
+{
+    const FieldDescriptor *field = NULL;
+
+    for (int i = 0; i < message->field_count(); i++)
+    {
+        field = message->field(i);
+        if (field->options().HasExtension(validation))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void
+generate_validation_function (const Descriptor *message, io::Printer* printer)
+{
+    std::map<string, string> vars;
+
+    if (!message_has_validation (message))
+    {
+        return;
+    }
+
+    vars["classname"] = FullNameToC(message->full_name());
+    vars["lcclassname"] = FullNameToLower(message->full_name());
+    printer->Print("\n");
+    printer->Print(vars, "bool $lcclassname$_validate (const $classname$ *message)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return true;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+    printer->Print("\n");
+}
+#endif /* ATL_CHANGE */
+
 void MessageGenerator::
 GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage)
 {
@@ -329,6 +372,12 @@ GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage)
 		 "                     ($classname$ *message,\n"
 		 "                      ProtobufCAllocator *allocator);\n"
 		);
+#ifdef ATL_CHANGE
+    if (message_has_validation (descriptor_))
+    {
+        printer->Print(vars, "bool $lcclassname$_validate (const $classname$ *message);\n");
+    }
+#endif /* ATL_CHANGE */
   }
 }
 
@@ -480,6 +529,9 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
 		 "  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);\n"
 		 "}\n"
 		);
+#ifdef ATL_CHANGE
+    generate_validation_function (descriptor_, printer);
+#endif /* ATL_CHANGE */
   }
 }
 
