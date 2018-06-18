@@ -25,13 +25,16 @@ cmsg_broadcast_client_generate_event (cmsg_broadcast_client *broadcast_client,
 {
     cmsg_broadcast_client_event *event = NULL;
 
-    event = CMSG_MALLOC (sizeof (cmsg_broadcast_client_event));
-    if (event)
+    if (broadcast_client->event_queue.queue)
     {
-        event->node_id = node_id;
-        event->joined = joined;
-        g_async_queue_push (broadcast_client->event_queue.queue, event);
-        TEMP_FAILURE_RETRY (eventfd_write (broadcast_client->event_queue.eventfd, 1));
+        event = CMSG_MALLOC (sizeof (cmsg_broadcast_client_event));
+        if (event)
+        {
+            event->node_id = node_id;
+            event->joined = joined;
+            g_async_queue_push (broadcast_client->event_queue.queue, event);
+            TEMP_FAILURE_RETRY (eventfd_write (broadcast_client->event_queue.eventfd, 1));
+        }
     }
 }
 

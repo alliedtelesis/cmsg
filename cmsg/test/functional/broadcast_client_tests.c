@@ -127,7 +127,7 @@ test_broadcast_client__servers_up_after_client_init (void)
 
     broadcast_client = cmsg_broadcast_client_new (CMSG_DESCRIPTOR (cmsg, test), "cmsg-test",
                                                   TEST_CLIENT_TIPC_ID, MIN_TIPC_ID,
-                                                  MAX_TIPC_ID, false, true);
+                                                  MAX_TIPC_ID, false, true, NULL);
 
     NP_ASSERT_NOT_NULL (broadcast_client);
 
@@ -169,7 +169,7 @@ test_broadcast_client__servers_up_before_client_init (void)
 
     broadcast_client = cmsg_broadcast_client_new (CMSG_DESCRIPTOR (cmsg, test), "cmsg-test",
                                                   TEST_CLIENT_TIPC_ID, MIN_TIPC_ID,
-                                                  MAX_TIPC_ID, false, true);
+                                                  MAX_TIPC_ID, false, true, NULL);
 
     NP_ASSERT_NOT_NULL (broadcast_client);
 
