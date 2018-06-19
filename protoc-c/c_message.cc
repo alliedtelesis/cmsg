@@ -308,6 +308,12 @@ generate_field_validation (const FieldDescriptor *field, io::Printer* printer)
         printer->Print(vars, "if (message->$fieldname$ <= $gtvalue$)\n");
         printer->Print("{\n");
         printer->Indent();
+        printer->Print(vars, "if (err_str)\n");
+        printer->Print("{\n");
+        printer->Indent();
+        printer->Print(vars, "snprintf (err_str, err_str_len, \"Field '$fieldname$' must be greater than $gtvalue$.\");\n");
+        printer->Outdent();
+        printer->Print("}\n");
         printer->Print("return false;\n");
         printer->Outdent();
         printer->Print("}\n");
@@ -320,6 +326,12 @@ generate_field_validation (const FieldDescriptor *field, io::Printer* printer)
         printer->Print(vars, "if (message->$fieldname$ >= $ltvalue$)\n");
         printer->Print("{\n");
         printer->Indent();
+        printer->Print(vars, "if (err_str)\n");
+        printer->Print("{\n");
+        printer->Indent();
+        printer->Print(vars, "snprintf (err_str, err_str_len, \"Field '$fieldname$' must be less than $ltvalue$.\");\n");
+        printer->Outdent();
+        printer->Print("}\n");
         printer->Print("return false;\n");
         printer->Outdent();
         printer->Print("}\n");
@@ -354,7 +366,7 @@ generate_validation_function (const Descriptor *message, io::Printer* printer)
     vars["classname"] = FullNameToC(message->full_name());
     vars["lcclassname"] = FullNameToLower(message->full_name());
     printer->Print("\n");
-    printer->Print(vars, "bool $lcclassname$_validate (const $classname$ *message)\n");
+    printer->Print(vars, "bool $lcclassname$_validate (const $classname$ *message, char *err_str, uint32_t err_str_len)\n");
     printer->Print("{\n");
     printer->Indent();
     generate_fields_validation (message, printer);
@@ -426,7 +438,7 @@ GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage)
 #ifdef ATL_CHANGE
     if (message_has_validation (descriptor_))
     {
-        printer->Print(vars, "bool $lcclassname$_validate (const $classname$ *message);\n");
+        printer->Print(vars, "bool $lcclassname$_validate (const $classname$ *message, char *err_str, uint32_t err_str_len);\n");
     }
 #endif /* ATL_CHANGE */
   }
