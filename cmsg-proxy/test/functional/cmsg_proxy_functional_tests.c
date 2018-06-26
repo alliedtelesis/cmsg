@@ -1584,6 +1584,10 @@ test_http_streaming (void)
     input.http_verb = CMSG_HTTP_GET;
     input.connection = streamed_connection_ptr;
 
+    /* Give some time to ensure the http streaming server has actually started
+     * inside the proxy. */
+    sleep (1);
+
     cmsg_proxy (&input, &output);
 
     NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_OK);
