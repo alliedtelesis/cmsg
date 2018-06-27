@@ -119,12 +119,12 @@ cmsg_glib_unix_server_init (ProtobufCService *service)
  */
 cmsg_tipc_mesh_conn *
 cmsg_glib_tipc_mesh_init (ProtobufCService *service, const char *service_entry_name,
-                          int this_node_id, int min_node_id, int max_node_id)
+                          int this_node_id, int min_node_id, int max_node_id,
+                          cmsg_mesh_local_type type, bool oneway)
 {
     cmsg_tipc_mesh_conn *mesh =
         cmsg_tipc_mesh_connection_init (service, service_entry_name, this_node_id,
-                                        min_node_id, max_node_id,
-                                        CMSG_MESH_LOCAL_LOOPBACK, false, NULL);
+                                        min_node_id, max_node_id, type, oneway, NULL);
     if (mesh == NULL)
     {
         CMSG_LOG_GEN_ERROR ("Failed to create mesh connection for %s",

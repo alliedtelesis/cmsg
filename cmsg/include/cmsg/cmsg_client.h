@@ -208,11 +208,6 @@ cmsg_client *cmsg_create_client_tcp_oneway (cmsg_socket *config,
                                             const ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_loopback (ProtobufCService *service);
 
-cmsg_client *cmsg_create_and_connect_client_tipc_rpc (const char *server_name,
-                                                      int member_id, int scope,
-                                                      const ProtobufCServiceDescriptor
-                                                      *descriptor);
-
 void cmsg_client_close_wrapper (cmsg_transport *transport);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
