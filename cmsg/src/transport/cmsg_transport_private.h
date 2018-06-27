@@ -29,6 +29,7 @@ void cmsg_transport_loopback_init (cmsg_transport *transport);
 void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
 void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
 void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
+void cmsg_transport_udt_init (cmsg_transport *transport);
 
 cmsg_status_code cmsg_transport_client_recv (cmsg_transport *transport,
                                              const ProtobufCServiceDescriptor *descriptor,

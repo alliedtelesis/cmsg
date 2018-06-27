@@ -237,7 +237,7 @@ cmsg_client_deinit (cmsg_client *client)
 
     if (client->loopback_server)
     {
-        cmsg_destroy_server_and_transport (client->loopback_server);
+        cmsg_server_destroy (client->loopback_server);
         client->loopback_server = NULL;
     }
 
@@ -873,7 +873,7 @@ cmsg_client_invoke_send (cmsg_client *client, uint32_t method_index,
  * Invoking like this will call the server invoke directly in the same
  * process/thread as the client. No queuing or filtering is performed.
  *
- * The reply from the server will be written onto a pipe internally.
+ * The reply from the server will be stored on the transport internally.
  */
 int32_t
 cmsg_client_invoke_send_direct (cmsg_client *client, uint32_t method_index,
@@ -1493,27 +1493,25 @@ cmsg_create_client_tcp_oneway (cmsg_socket *config,
 cmsg_client *
 cmsg_create_client_loopback (ProtobufCService *service)
 {
-    cmsg_transport *server_transport = NULL;
-    cmsg_transport *client_transport = NULL;
+    cmsg_transport *transport = NULL;
     cmsg_server *server = NULL;
     cmsg_client *client = NULL;
-    int pipe_fds[2] = { -1, -1 };
 
-    server_transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
-    if (server_transport == NULL)
+    transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
+    if (transport == NULL)
     {
-        CMSG_LOG_GEN_ERROR ("Could not create transport for loopback server\n");
+        CMSG_LOG_GEN_ERROR ("Could not create transport for loopback client\n");
         return NULL;
     }
 
     /* The point of the loopback is to process the CMSG within the same process-
      * space, without using RPC. So the client actually does the server-side
      * processing as well */
-    server = cmsg_server_new (server_transport, service);
+    server = cmsg_server_new (transport, service);
     if (server == NULL)
     {
         CMSG_LOG_GEN_ERROR ("Could not create server for loopback transport\n");
-        cmsg_transport_destroy (server_transport);
+        cmsg_transport_destroy (transport);
         return NULL;
     }
 
@@ -1523,46 +1521,18 @@ cmsg_create_client_loopback (ProtobufCService *service)
      * it does not own the memory for the messages. */
     cmsg_server_app_owns_all_msgs_set (server, true);
 
-    client_transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
-    if (client_transport == NULL)
-    {
-        CMSG_LOG_GEN_ERROR ("Could not create transport for loopback client\n");
-        cmsg_destroy_server_and_transport (server);
-        return NULL;
-    }
-
-    client = cmsg_client_new (client_transport, service->descriptor);
+    client = cmsg_client_new (transport, service->descriptor);
 
     if (client == NULL)
     {
         syslog (LOG_ERR, "Could not create loopback client");
         cmsg_destroy_server_and_transport (server);
-        cmsg_transport_destroy (client_transport);
         return NULL;
     }
 
     /* the client stores a pointer to the server so we can access it later to
      * invoke the implementation function directly. */
     client->loopback_server = server;
-
-    /* Create a pipe to allow the server to send RPC replies back to the client.
-     * The server writes to the pipe and the client reads the reply off the pipe.
-     * This is slightly inefficient, but code-wise it's the easiest way to get
-     * the _impl_ response back to the client code */
-    if (pipe (pipe_fds) == -1)
-    {
-        CMSG_LOG_GEN_ERROR ("Could not create pipe for loopback transport");
-        cmsg_destroy_client_and_transport (client);
-        return NULL;
-    }
-
-    /* don't block on either socket */
-    fcntl (pipe_fds[0], F_SETFL, O_NONBLOCK);
-    fcntl (pipe_fds[1], F_SETFL, O_NONBLOCK);
-
-    /* client uses the pipe's read socket, server uses the write socket */
-    client->_transport->connection.sockets.client_socket = pipe_fds[0];
-    server->_transport->connection.sockets.client_socket = pipe_fds[1];
 
     return client;
 }
