@@ -4,7 +4,6 @@
  * Copyright 2018, Allied Telesis Labs New Zealand, Ltd
  */
 
-#include <config.h>
 #include <stdbool.h>
 #include <cmsg/cmsg_client.h>
 #include "http_streaming_api_auto.h"

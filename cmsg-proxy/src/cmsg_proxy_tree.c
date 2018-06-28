@@ -4,7 +4,6 @@
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */
 
-#include <config.h>
 #include "cmsg_proxy.h"
 #include <glib.h>
 #include <dlfcn.h>
@@ -265,7 +264,7 @@ cmsg_proxy_token_is_url_param (const char *token)
  *
  * - We are adding a URL parameter (i.e. '{ xxx }') to a parent_node that already has
  *   another child node that is not a leaf.
- * - We are adding a non URL paremeter to a parent_node that already has another
+ * - We are adding a non URL parameter to a parent_node that already has another
  *   child that is a URL parameter.
  *
  * @param parent_node - The parent node we are adding the new token string to

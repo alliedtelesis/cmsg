@@ -13,7 +13,6 @@
  *   CMSG service APIs
  */
 
-#include <config.h>
 #include "cmsg_proxy.h"
 #include <glib.h>
 #include <string.h>

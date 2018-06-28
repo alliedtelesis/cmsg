@@ -38,7 +38,7 @@ if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
 endif
 
-libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS)
+libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS) -include $(top_builddir)/config.h
 libcmsg_la_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg
 libcmsg_ladir       = $(includedir)/cmsg
 libcmsg_la_HEADERS  = \
@@ -65,7 +65,7 @@ bin_PROGRAMS += cmsg_unit_tests
 cmsg_unit_tests_SOURCES = \
 	test/unit/cmsg_pub_unit_tests.c \
 	test/unit/cmsg_composite_client_unit_tests.c
-cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
+cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
 cmsg_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg
 cmsg_unit_tests_LDFLAGS = -static
 cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus libcmsg.la -lprotobuf-c
@@ -102,7 +102,7 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/broadcast_client_tests.c \
 	test/functional/server_side_validation.c
 
-cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS)
+cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
 cmsg_functional_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg -I$(top_builddir)
 cmsg_functional_tests_LDFLAGS = -static
 cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus libcmsg.la -lprotobuf-c

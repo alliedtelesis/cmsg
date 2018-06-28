@@ -4,7 +4,6 @@
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */
 
-#define _GNU_SOURCE /* for TEMP_FAILURE_RETRY */
 #include <np.h>
 #include <stdint.h>
 #include <sys/eventfd.h>

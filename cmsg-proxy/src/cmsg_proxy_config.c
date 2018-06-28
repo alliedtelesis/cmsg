@@ -5,7 +5,6 @@
  * Copyright 2018, Allied Telesis Labs New Zealand, Ltd
  */
 
-#include <config.h>
 #include <stdint.h>
 #include <stddef.h>
 #include "simple_shm.h"

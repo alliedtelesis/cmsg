@@ -4,7 +4,6 @@
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */
 
-#define _GNU_SOURCE /* for TEMP_FAILURE_RETRY */
 #include <sys/eventfd.h>
 #include <glib.h>
 #include "cmsg_broadcast_client_private.h"

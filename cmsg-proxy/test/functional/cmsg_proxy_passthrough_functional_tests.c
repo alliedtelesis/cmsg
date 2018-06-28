@@ -4,7 +4,6 @@
  * Functional tests for the CMSG proxy library.
  */
 
-#define _GNU_SOURCE
 #include <np.h>
 #include "cmsg_proxy_passthrough.c"
 #include "cmsg_proxy_passthrough_functional_tests_proxy_def.h"

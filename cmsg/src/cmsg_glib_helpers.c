@@ -7,7 +7,6 @@
  *
  */
 
-#define _GNU_SOURCE /* for TEMP_FAILURE_RETRY */
 #include <glib.h>
 #include <sys/eventfd.h>
 #include "cmsg_glib_helpers.h"
