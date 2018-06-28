@@ -1,6 +1,6 @@
 AC_PREREQ(2.64)
 
-AC_INIT([protobuf-cmsg],
+AC_INIT([cmsg],
         [1.0.0])
 PACKAGE_DESCRIPTION="CMSG library implementation in C"
 AC_SUBST(PACKAGE_DESCRIPTION)
@@ -67,6 +67,7 @@ HAVE_COUNTERD=0
 AC_ARG_ENABLE(counterd, [  --enable-counterd       Enable counterd],
 if test "x$enableval" = xyes ; then
   HAVE_COUNTERD=1
+  AC_DEFINE(HAVE_COUNTERD, 1, [enable counterd code])
 fi)
 AM_CONDITIONAL(HAVE_COUNTERD, test $HAVE_COUNTERD = 1)
 

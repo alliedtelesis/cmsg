@@ -1,6 +1,7 @@
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
+#include <config.h>
 #include "cmsg_private.h"
 #include "cmsg_pub.h"
 #include "cmsg_error.h"

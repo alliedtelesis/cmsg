@@ -2,7 +2,7 @@
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #define _GNU_SOURCE
-
+#include <config.h>
 #include <sys/eventfd.h>
 #include "cmsg_private.h"
 #include "cmsg_server.h"
