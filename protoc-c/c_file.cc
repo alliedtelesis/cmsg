@@ -73,7 +73,11 @@
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/descriptor.pb.h>
 
+#ifdef ATL_CHANGE
+#include <protobuf-c/protobuf-c.h>
+#else
 #include "protobuf-c.h"
+#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {

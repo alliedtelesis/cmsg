@@ -2,11 +2,11 @@ bin_PROGRAMS = protoc-cmsg
 
 http.pb.cc \
 http.pb.h: $(PROTOC_PATH)$(EXEEXT) http.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) --cpp_out=. http.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/protoc-c/http.proto
 
 validation.pb.cc \
 validation.pb.h: $(PROTOC_PATH)$(EXEEXT) validation.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) --cpp_out=. validation.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/protoc-c/validation.proto
 
 protoc_cmsg_SOURCES = \
 	http.pb.cc \
@@ -43,9 +43,14 @@ protoc_cmsg_SOURCES = \
 	c_string_field.h \
 	main.cc
 
+protoc_cmsgdir       = $(includedir)/cmsg
+protoc_cmsg_HEADERS  = \
+	http.proto
+
 protoc_cmsg_CXXFLAGS = \
 	-Werror \
-	$(protobuf_CFLAGS)
+	$(protobuf_CFLAGS) \
+	-std=c++11
 
 protoc_cmsg_LDADD = \
 	$(protobuf_LIBS) \
@@ -53,7 +58,8 @@ protoc_cmsg_LDADD = \
 	-lprotobuf
 
 protoc_cmsg_CPPFLAGS = \
-	-include $(top_builddir)/config.h
+	-include $(top_builddir)/config.h \
+	-I$(top_srcdir)
 
 BUILT_SOURCES = http.pb.cc http.pb.h validation.pb.cc validation.pb.h
 CLEANFILES = $(BUILT_SOURCES)
