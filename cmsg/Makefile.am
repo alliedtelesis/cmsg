@@ -1,5 +1,5 @@
 lib_LTLIBRARIES = libcmsg.la
-bin_PROGRAMS =
+bin_PROGRAMS = cmsg
 
 pkgconfiglibdir = $(libdir)/pkgconfig
 pkgconfiglib_DATA = cmsg.pc
@@ -59,6 +59,11 @@ libcmsg_la_HEADERS  = \
 
 BUILT_SOURCES = src/cmsg_sub_service.pb-c.c src/cmsg_sub_service.pb-c.h
 CLEANFILES = $(BUILT_SOURCES)
+
+cmsg_SOURCES = src/shell_application/cmsg_shell_application.c
+cmsg_LDADD   = libcmsg.la $(GLIB_LIBS) -ldl -ljansson -lprotobuf2json-c -lprotobuf-c
+cmsg_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
+cmsg_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg
 
 if BUILD_UNITTEST
 bin_PROGRAMS += cmsg_unit_tests
