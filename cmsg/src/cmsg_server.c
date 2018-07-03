@@ -395,7 +395,10 @@ cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
 
     accept_event_fd = info->accept_sd_eventfd;
 
+    /* Explicitly set where the thread can be cancelled. */
+    pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
     ret = select (nfds + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
+    pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
     if (ret == -1)
     {
         if (errno == EINTR)

@@ -31,6 +31,7 @@ libcmsg_la_SOURCES = \
 	src/cmsg_sub.c \
 	src/cmsg_mesh.c \
 	src/cmsg_glib_helpers.c \
+	src/cmsg_pthread_helpers.c \
 	include/cmsg/cmsg.h \
 	include/cmsg/cmsg_private.h \
 	include/cmsg/cmsg_error.h \
@@ -89,7 +90,8 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/publisher_subscriber_tests.c \
 	test/functional/client_queuing_tests.c \
 	test/functional/publisher_queuing_tests.c \
-	test/functional/broadcast_client_tests.c
+	test/functional/broadcast_client_tests.c \
+	test/functional/pthread_helpers_tests.c
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -Iinclude -Iinclude/cmsg
 cmsg_functional_tests_LDFLAGS = -static
 cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus -lcmsg -lprotobuf-c
