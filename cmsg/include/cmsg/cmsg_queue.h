@@ -10,7 +10,7 @@
 #include "cmsg_server.h"
 #include "cmsg_transport.h"
 
-//forward delarations
+//forward declarations
 typedef struct _cmsg_server_s cmsg_server;
 
 typedef struct _cmsg_queue_filter_entry_s
