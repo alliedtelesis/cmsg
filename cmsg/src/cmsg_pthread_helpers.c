@@ -100,3 +100,109 @@ cmsg_pthread_server_init (pthread_t *thread, cmsg_server *server)
 
     return true;
 }
+
+/**
+ * Creates a cmsg subscriber using a unix transport, subscribes to the input list of
+ * events and finally begins processing the received events in a new thread.
+ *
+ * @param thread - Pointer to a pthread_t variable to create the thread.
+ * @param service - The CMSG service to subscribe to.
+ * @param events - An array of strings containing the events to subscribe to. This
+ *                 array should be NULL terminated, i.e. { "event1", "event2", NULL }.
+ *
+ * Note that this thread can be cancelled using 'pthread_cancel' and then should
+ * be joined using 'pthread_join'. At this stage the subscriber can then be destroyed
+ * using 'cmsg_destroy_subscriber_and_transport'.
+ */
+cmsg_sub *
+cmsg_pthread_unix_subscriber_init (pthread_t *thread, const ProtobufCService *service,
+                                   const char **events)
+{
+    cmsg_transport *sub_transport = NULL;
+    cmsg_transport *transport_r = NULL;
+    cmsg_sub *sub = NULL;
+    const char **event = events;
+
+    /* Create the subscriber transport */
+    sub_transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
+
+    sub_transport->config.socket.family = AF_UNIX;
+    sub_transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
+    snprintf (sub_transport->config.socket.sockaddr.un.sun_path,
+              sizeof (sub_transport->config.socket.sockaddr.un.sun_path) - 1,
+              "/tmp/%s.%u", service->descriptor->name, getpid ());
+
+    /* Create the subscriber */
+    sub = cmsg_sub_new (sub_transport, service);
+    if (!sub)
+    {
+        syslog (LOG_ERR, "Failed to create subscriber");
+        cmsg_transport_destroy (sub_transport);
+        return NULL;
+    }
+
+    /* Subcribe to events */
+    transport_r = cmsg_create_transport_unix (service->descriptor, CMSG_TRANSPORT_RPC_UNIX);
+
+    while (*event)
+    {
+        if (cmsg_sub_subscribe (sub, transport_r, *event) < 0)
+        {
+            syslog (LOG_ERR, "Failed to subscribe for '%s' events", *event);
+        }
+        event++;
+    }
+    cmsg_transport_destroy (transport_r);
+
+    if (!cmsg_pthread_server_init (thread, sub->pub_server))
+    {
+        syslog (LOG_ERR, "Failed to start subscriber processing thread");
+        cmsg_destroy_subscriber_and_transport (sub);
+        return NULL;
+    }
+
+    return sub;
+}
+
+/**
+ * Creates a cmsg publisher using a unix transport and begins processing the
+ * received subscription requests in a new thread. Note that this function
+ * automatically begins queueing the published events and sends them from yet
+ * another thread to avoid any potential deadlock.
+ *
+ * @param thread - Pointer to a pthread_t variable to create the thread.
+ * @param service_desc - The CMSG service descriptor to publish for.
+ *
+ * Note that this thread can be cancelled using 'pthread_cancel' and then should
+ * be joined using 'pthread_join'. At this stage the function 'cmsg_pub_queue_thread_stop'
+ * should be called with the publisher before finally destroying it using
+ * 'cmsg_destroy_publisher_and_transport'.
+ */
+cmsg_pub *
+cmsg_pthread_unix_publisher_init (pthread_t *thread,
+                                  const ProtobufCServiceDescriptor *service_desc)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_pub *pub = NULL;
+
+    transport = cmsg_create_transport_unix (service_desc, CMSG_TRANSPORT_RPC_UNIX);
+    pub = cmsg_pub_new (transport, service_desc);
+    if (!pub)
+    {
+        syslog (LOG_ERR, "Failed to initialize the CMSG publisher");
+        cmsg_transport_destroy (transport);
+        return NULL;
+    }
+
+    if (!cmsg_pthread_server_init (thread, pub->sub_server))
+    {
+        syslog (LOG_ERR, "Failed to start publisher listening thread");
+        cmsg_destroy_publisher_and_transport (pub);
+        return NULL;
+    }
+
+    cmsg_pub_queue_enable (pub);
+    cmsg_pub_queue_thread_start (pub);
+
+    return pub;
+}

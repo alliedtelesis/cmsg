@@ -64,7 +64,7 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
  * Create a new CMSG server (but without creating counters).
  */
 cmsg_server *
-cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
+cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
 {
     int32_t ret = 0;
     cmsg_server *server = NULL;
@@ -159,7 +159,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
  * Create a new CMSG server.
  */
 cmsg_server *
-cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
+cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
 {
     cmsg_server *server;
     server = cmsg_server_create (transport, service);
@@ -893,8 +893,9 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
     {
     case CMSG_METHOD_OK_TO_INVOKE:
     case CMSG_METHOD_INVOKING_FROM_QUEUE:
-        server->service->invoke (server->service, method_index, message,
-                                 server->closure, (void *) &closure_data);
+        server->service->invoke ((ProtobufCService *) server->service,
+                                 method_index, message, server->closure,
+                                 (void *) &closure_data);
 
         if (!(server->app_owns_current_msg || server->app_owns_all_msgs))
         {
@@ -952,7 +953,7 @@ cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
                            uint32_t method_index)
 {
     cmsg_server_request server_request;
-    ProtobufCService *service = server->service;
+    const ProtobufCService *service = server->service;
     const char *method_name;
 
     method_name = service->descriptor->methods[method_index].name;

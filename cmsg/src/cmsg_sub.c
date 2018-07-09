@@ -16,7 +16,7 @@ extern int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
 
 
 cmsg_sub *
-cmsg_sub_new (cmsg_transport *pub_server_transport, ProtobufCService *pub_service)
+cmsg_sub_new (cmsg_transport *pub_server_transport, const ProtobufCService *pub_service)
 {
     cmsg_sub *subscriber = (cmsg_sub *) CMSG_CALLOC (1, sizeof (cmsg_sub));
     if (!subscriber)
@@ -93,7 +93,7 @@ cmsg_sub_server_accept_callback (cmsg_sub *subscriber, int32_t sock)
 
 int32_t
 cmsg_sub_subscribe (cmsg_sub *subscriber,
-                    cmsg_transport *sub_client_transport, char *method_name)
+                    cmsg_transport *sub_client_transport, const char *method_name)
 {
     CMSG_ASSERT_RETURN_VAL (subscriber != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (subscriber->pub_server != NULL, CMSG_RET_ERR);
@@ -108,7 +108,7 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     cmsg_sub_entry_response *response = NULL;
 
     register_entry.add = 1;
-    register_entry.method_name = method_name;
+    register_entry.method_name = (char *) method_name;
     register_entry.transport_type = subscriber->pub_server->_transport->type;
 
     if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_TCP)
