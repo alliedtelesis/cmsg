@@ -5,7 +5,7 @@ service functional_tests
 {
     rpc passthrough (passthrough_request) returns (passthrough_response) {
         option (http) = {
-            // Requried to generate RPC handler
+            // Required to generate RPC handler
             get: "/placeholder"
         };
     }
