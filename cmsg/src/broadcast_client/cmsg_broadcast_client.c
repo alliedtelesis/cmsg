@@ -263,15 +263,17 @@ cmsg_broadcast_event_queue_process (cmsg_client *_broadcast_client)
     cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) _broadcast_client;
     cmsg_broadcast_client_event *event = NULL;
     eventfd_t value;
+    cmsg_broadcast_event_handler_t handler_func = broadcast_client->event_queue.handler;
 
     CMSG_ASSERT_RETURN_VOID (broadcast_client != NULL);
+    CMSG_ASSERT_RETURN_VOID (handler_func != NULL);
 
     /* clear notification */
     TEMP_FAILURE_RETRY (eventfd_read (broadcast_client->event_queue.eventfd, &value));
 
     while ((event = g_async_queue_try_pop (broadcast_client->event_queue.queue)))
     {
-        broadcast_client->event_queue.handler (event->node_id, event->joined);
+        handler_func (event->node_id, event->joined);
         CMSG_FREE (event);
     }
 }
