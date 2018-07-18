@@ -20,6 +20,7 @@ typedef struct _cmsg_sub_s
                        ProtobufCClosure closure, void *closure_data);
 
     cmsg_server *pub_server;    //receiving messages
+    cmsg_server_accept_thread_info *pub_server_thread_info;
 
 } cmsg_sub;
 
