@@ -118,41 +118,19 @@ cmsg_sub *
 cmsg_pthread_unix_subscriber_init (pthread_t *thread, const ProtobufCService *service,
                                    const char **events)
 {
-    cmsg_transport *sub_transport = NULL;
     cmsg_transport *transport_r = NULL;
     cmsg_sub *sub = NULL;
-    const char **event = events;
 
-    /* Create the subscriber transport */
-    sub_transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
+    sub = cmsg_create_subscriber_unix_oneway (service);
 
-    sub_transport->config.socket.family = AF_UNIX;
-    sub_transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
-    snprintf (sub_transport->config.socket.sockaddr.un.sun_path,
-              sizeof (sub_transport->config.socket.sockaddr.un.sun_path) - 1,
-              "/tmp/%s.%u", service->descriptor->name, getpid ());
-
-    /* Create the subscriber */
-    sub = cmsg_sub_new (sub_transport, service);
-    if (!sub)
+    /* Subscribe to events */
+    if (events)
     {
-        syslog (LOG_ERR, "Failed to create subscriber");
-        cmsg_transport_destroy (sub_transport);
-        return NULL;
+        transport_r = cmsg_create_transport_unix (service->descriptor,
+                                                  CMSG_TRANSPORT_RPC_UNIX);
+        cmsg_sub_subscribe_events (sub, transport_r, events);
+        cmsg_transport_destroy (transport_r);
     }
-
-    /* Subcribe to events */
-    transport_r = cmsg_create_transport_unix (service->descriptor, CMSG_TRANSPORT_RPC_UNIX);
-
-    while (*event)
-    {
-        if (cmsg_sub_subscribe (sub, transport_r, *event) < 0)
-        {
-            syslog (LOG_ERR, "Failed to subscribe for '%s' events", *event);
-        }
-        event++;
-    }
-    cmsg_transport_destroy (transport_r);
 
     if (!cmsg_pthread_server_init (thread, sub->pub_server))
     {

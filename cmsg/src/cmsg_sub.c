@@ -209,6 +209,33 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     return return_value;
 }
 
+/**
+ * Subscribe to a list of events using the given subscriber transport
+ * @param subscriber subscriber to add events for
+ * @param sub_client_transport transport to connect to publisher server
+ * @param events Null terminated list of events, eg. { "event1", "event2", NULL }
+ * @returns an error code if any subscriptions fail, else CMSG_RET_OK
+ */
+int32_t
+cmsg_sub_subscribe_events (cmsg_sub *subscriber,
+                           cmsg_transport *sub_client_transport, const char **events)
+{
+    int32_t ret;
+    int32_t return_value = CMSG_RET_OK;
+    const char **event = events;
+
+    while (*event)
+    {
+        ret = cmsg_sub_subscribe (subscriber, sub_client_transport, (char *) *event);
+        if (ret < 0)
+        {
+            return_value = ret;
+        }
+        event++;
+    }
+
+    return return_value;
+}
 
 int32_t
 cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
@@ -327,15 +354,43 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     return return_value;
 }
 
+/**
+ * Unsubscribe from a list of events using the given subscriber transport
+ * @param subscriber subscriber to remove events for
+ * @param sub_client_transport transport to connect to publisher server
+ * @param events Null terminated list of events, eg. { "event1", "event2", NULL }
+ * @returns an error code if any unsubscriptions fail, else CMSG_RET_OK
+ */
+int32_t
+cmsg_sub_unsubscribe_events (cmsg_sub *subscriber,
+                             cmsg_transport *sub_client_transport, const char **events)
+{
+    int32_t ret;
+    int32_t return_value = CMSG_RET_OK;
+    const char **event = events;
+
+    while (*event)
+    {
+        ret = cmsg_sub_unsubscribe (subscriber, sub_client_transport, (char *) *event);
+        if (ret < 0)
+        {
+            return_value = ret;
+        }
+        event++;
+    }
+
+    return return_value;
+}
+
 cmsg_sub *
 cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int scope,
-                                    ProtobufCService *descriptor)
+                                    const ProtobufCService *service)
 {
     cmsg_transport *transport = NULL;
     cmsg_sub *subscriber = NULL;
 
     CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
 
     transport = cmsg_create_transport_tipc (server_name, member_id, scope,
                                             CMSG_TRANSPORT_ONEWAY_TIPC);
@@ -344,12 +399,38 @@ cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int 
         return NULL;
     }
 
-    subscriber = cmsg_sub_new (transport, descriptor);
+    subscriber = cmsg_sub_new (transport, service);
     if (subscriber == NULL)
     {
         cmsg_transport_destroy (transport);
         CMSG_LOG_GEN_ERROR ("[%s%s] No TIPC subscriber to %d",
-                            descriptor->descriptor->name, transport->tport_id, member_id);
+                            service->descriptor->name, transport->tport_id, member_id);
+        return NULL;
+    }
+
+    return subscriber;
+}
+
+cmsg_sub *
+cmsg_create_subscriber_unix_oneway (const ProtobufCService *service)
+{
+    cmsg_sub *subscriber = NULL;
+    cmsg_transport *transport = NULL;
+
+    /* Create the subscriber transport */
+    transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
+    transport->config.socket.family = AF_UNIX;
+    transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
+    snprintf (transport->config.socket.sockaddr.un.sun_path,
+              sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
+              "/tmp/%s.%u", service->descriptor->name, getpid ());
+
+    subscriber = cmsg_sub_new (transport, service);
+    if (!subscriber)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG subscriber for %s",
+                            cmsg_service_name_get (service->descriptor));
         return NULL;
     }
 
