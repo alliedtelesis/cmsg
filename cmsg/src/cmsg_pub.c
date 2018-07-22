@@ -15,7 +15,7 @@ int32_t cmsg_pub_subscribe (cmsg_sub_service_Service *service,
                             const cmsg_sub_entry_transport_info *input,
                             cmsg_sub_entry_response_Closure closure, void *closure_data);
 
-//macro for register handler implentation
+//macro for register handler implementation
 cmsg_sub_service_Service cmsg_pub_subscriber_service = CMSG_SUB_SERVICE_INIT (cmsg_pub_);
 
 static void _cmsg_pub_subscriber_delete (cmsg_pub *publisher, cmsg_sub_entry *entry);
@@ -577,7 +577,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
     cmsg_server_closure_data closure_data;
     const ProtobufCMessageDescriptor *desc;
 
-    // Check for a connection open mesage, discard if received as we do not
+    // Check for a connection open message, discard if received as we do not
     // reply to these.
     if (server_request->msg_type == CMSG_MSG_TYPE_CONN_OPEN)
     {

@@ -54,7 +54,6 @@ libcmsgproxy_la_SOURCES = \
 libcmsgproxy_la_LIBADD = \
 	$(GLIB_LIBS) \
 	$(GMEM_DIAG_LIBS) \
-	-lcmsgproxyconfig \
 	-lcmsg \
 	-ljansson \
 	-lprotobuf2json-c

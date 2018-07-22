@@ -1006,7 +1006,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     CMSG_COUNTER_INC (server, cntr_rpc);
     if (buffer_data)
     {
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] processsing message with data\n");
+        CMSG_DEBUG (CMSG_INFO, "[SERVER] processing message with data\n");
         CMSG_DEBUG (CMSG_INFO, "[SERVER] unpacking message\n");
 
         //unpack the message
@@ -1015,7 +1015,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     }
     else
     {
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] processsing message without data\n");
+        CMSG_DEBUG (CMSG_INFO, "[SERVER] processing message without data\n");
         //create a new empty message
         // ATL_1716_TODO need to allocate message before init'ing it
         protobuf_c_message_init (desc, message);

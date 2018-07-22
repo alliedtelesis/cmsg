@@ -13,30 +13,12 @@
 #include "cmsg_error.h"
 #include "cmsg_transport_private.h"
 
-
-/******************************************************************************
- ******************** Client **************************************************
- *****************************************************************************/
-/**
- * API always connects and therefore this should succeed.
- *
- * Returns 0 on success or a negative integer on failure.
- */
-static int32_t
-cmsg_transport_loopback_connect (cmsg_transport *transport, int timeout)
+struct cmsg_loopback_recv_buffer
 {
-    return 0;
-}
-
-/**
- * Nothing to send so return -1, shouldn't get here so it needs to be an error.
- */
-static int32_t
-cmsg_transport_loopback_client_send (cmsg_transport *transport, void *buff, int length,
-                                     int flag)
-{
-    return -1;
-}
+    uint8_t *msg;
+    uint32_t len;
+    uint32_t pos;
+};
 
 /**
  * Close the socket on the client.
@@ -44,274 +26,88 @@ cmsg_transport_loopback_client_send (cmsg_transport *transport, void *buff, int 
 static void
 cmsg_transport_loopback_client_close (cmsg_transport *transport)
 {
-    if (transport->connection.sockets.client_socket != -1)
+    struct cmsg_loopback_recv_buffer *buffer;
+
+    if (transport->udt_info.data)
     {
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
-
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (transport->connection.sockets.client_socket);
-
-        transport->connection.sockets.client_socket = -1;
+        buffer = transport->udt_info.data;
+        CMSG_FREE (buffer->msg);
+        CMSG_FREE (buffer);
+        transport->udt_info.data = NULL;
     }
-
-    return;
 }
 
 /**
- * Return the client's socket.
- */
-static int
-cmsg_transport_loopback_client_get_socket (cmsg_transport *transport)
-{
-    return transport->connection.sockets.client_socket;
-}
-
-/**
- * Nothing to destroy
- */
-static void
-cmsg_transport_loopback_client_destroy (cmsg_transport *transport)
-{
-    //placeholder to make sure destroy functions are called in the right order
-}
-
-/**
- * Loopback can't be congested so return false
- */
-bool
-cmsg_transport_loopback_is_congested (cmsg_transport *transport)
-{
-    return false;
-}
-
-/**
- * Sets the flag but it does nothing for this transport.
- */
-int32_t
-cmsg_transport_loopback_send_can_block_enable (cmsg_transport *transport,
-                                               uint32_t send_can_block)
-{
-    transport->send_can_block = send_can_block;
-    return 0;
-}
-
-
-int32_t
-cmsg_transport_loopback_ipfree_bind_enable (cmsg_transport *transport,
-                                            cmsg_bool_t use_ipfree_bind)
-{
-    /* not supported yet */
-    return -1;
-}
-
-
-/******************************************************************************
- ******************** Server **************************************************
- *****************************************************************************/
-/**
- * Nothing to listen to, so return 0 as the server always attempts to listen.
- */
-static int32_t
-cmsg_transport_loopback_listen (cmsg_transport *transport)
-{
-    return 0;
-}
-
-/**
- * Nothing to do - return -1 to make sure loopbacks can't do this.
- *
- */
-static int32_t
-cmsg_transport_loopback_server_recv (int32_t server_socket, cmsg_transport *transport,
-                                     uint8_t **recv_buffer, cmsg_header *processed_header,
-                                     int *nbytes)
-{
-    return -1;
-}
-
-/**
- * Server writes the response onto the pipe that client can read it off.
+ * Server stores the response on the transport that the client can then read off.
  */
 static int32_t
 cmsg_transport_loopback_server_send (cmsg_transport *transport, void *buff, int length,
                                      int flag)
 {
-    return write (transport->connection.sockets.client_socket, buff, length);
+    uint8_t *packet_data = NULL;
+    struct cmsg_loopback_recv_buffer *buffer_data = NULL;
+
+    buffer_data = CMSG_MALLOC (sizeof (struct cmsg_loopback_recv_buffer));
+
+    packet_data = CMSG_MALLOC (length);
+    memcpy (packet_data, buff, length);
+
+    buffer_data->msg = packet_data;
+    buffer_data->len = length;
+    buffer_data->pos = 0;
+
+    transport->udt_info.data = buffer_data;
+    return length;
 }
 
-/**
- * Close the socket on the server side.
- */
-static void
-cmsg_transport_loopback_server_close (cmsg_transport *transport)
-{
-    if (transport->connection.sockets.client_socket != -1)
-    {
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] shutting down socket\n");
-        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
-
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] closing socket\n");
-        close (transport->connection.sockets.client_socket);
-    }
-}
-
-/**
- * We don't want the application listening to a socket (and there is none)
- * so return -1 so it will error.
- */
 static int
-cmsg_transport_loopback_server_get_socket (cmsg_transport *transport)
+cmsg_transport_loopback_recv_handler (cmsg_transport *transport, int sock, void *msg,
+                                      int len, int flags)
 {
-    return -1;
-}
+    struct cmsg_loopback_recv_buffer *buffer;
 
-/**
- * Destroy server
- */
-static void
-cmsg_transport_loopback_server_destroy (cmsg_transport *transport)
-{
-    /* the loopback server is just used internally by the client. When we destroy the
-     * server (when the client gets destroyed), make sure we close the pipe file descriptor */
-    cmsg_transport_loopback_server_close (transport);
-}
+    buffer = transport->udt_info.data;
 
+    /* Check whether there is any data to read */
+    if (buffer->pos >= buffer->len)
+    {
+        return -1;
+    }
+
+    /* If the caller asks to read more data than is actually in the buffer ensure we
+     * only return the available data. */
+    if (buffer->pos + len > buffer->len)
+    {
+        len = buffer->len - buffer->pos;
+    }
+
+    memcpy (msg, &buffer->msg[buffer->pos], len);
+
+    /* If we are only peeking at the data then don't increase the buffer position */
+    if (!(flags & MSG_PEEK))
+    {
+        buffer->pos += len;
+    }
+
+    return len;
+}
 
 cmsg_status_code
 cmsg_transport_loopback_client_recv (cmsg_transport *transport,
                                      const ProtobufCServiceDescriptor *descriptor,
                                      ProtobufCMessage **messagePtPt)
 {
-    int nbytes = 0;
-    uint32_t dyn_len = 0;
-    cmsg_header header_received;
-    cmsg_header header_converted;
-    uint8_t *recv_buffer = NULL;
-    uint8_t *buffer = NULL;
-    uint8_t buf_static[512];
-    ProtobufCMessage *message = NULL;
-    ProtobufCAllocator *allocator = &cmsg_memory_allocator;
-    const ProtobufCMessageDescriptor *desc;
-    uint32_t extra_header_size;
-    cmsg_server_request server_request;
+    cmsg_status_code ret;
+    struct cmsg_loopback_recv_buffer *buffer;
 
-    *messagePtPt = NULL;
+    ret = cmsg_transport_client_recv (transport, descriptor, messagePtPt);
 
-    // Read the cmsg header first
-    nbytes = read (transport->connection.sockets.client_socket, &header_received,
-                   sizeof (cmsg_header));
-    if (nbytes == (int) sizeof (cmsg_header))
-    {
-        if (cmsg_header_process (&header_received, &header_converted) != CMSG_RET_OK)
-        {
-            // Couldn't process the header for some reason
-            CMSG_LOG_TRANSPORT_ERROR (transport,
-                                      "Unable to process message header for client receive. Bytes:%d",
-                                      nbytes);
-            return CMSG_STATUS_CODE_SERVICE_FAILED;
-        }
+    buffer = transport->udt_info.data;
 
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
-
-        // Take into account that someone may have changed the size of the header
-        // and we don't know about it, make sure we receive all the information.
-        // Any TLV is taken into account in the header length.
-        dyn_len = header_converted.message_length +
-            header_converted.header_length - sizeof (cmsg_header);
-
-        // There is no more data to read so exit.
-        if (dyn_len == 0)
-        {
-            // May have been queued, dropped or there was no message returned
-            CMSG_DEBUG (CMSG_INFO,
-                        "[TRANSPORT] received response without data. server status %d\n",
-                        header_converted.status_code);
-            return header_converted.status_code;
-        }
-
-        if (dyn_len > sizeof (buf_static))
-        {
-            recv_buffer = (uint8_t *) CMSG_CALLOC (1, dyn_len);
-        }
-        else
-        {
-            recv_buffer = (uint8_t *) buf_static;
-            memset (recv_buffer, 0, sizeof (buf_static));
-        }
-
-        // Read the rest of the data
-        nbytes = read (transport->connection.sockets.client_socket, recv_buffer, dyn_len);
-
-        if (nbytes == (int) dyn_len)
-        {
-            extra_header_size = header_converted.header_length - sizeof (cmsg_header);
-
-
-            cmsg_tlv_header_process (recv_buffer, &server_request, extra_header_size,
-                                     descriptor);
-
-            buffer = recv_buffer + extra_header_size;
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
-
-            cmsg_buffer_print (buffer, dyn_len);
-
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
-
-            desc = descriptor->methods[server_request.method_index].output;
-            message = protobuf_c_message_unpack (desc, allocator,
-                                                 header_converted.message_length, buffer);
-
-            if (recv_buffer != (void *) buf_static)
-            {
-                CMSG_FREE (recv_buffer);
-                recv_buffer = NULL;
-            }
-
-            if (message == NULL)
-            {
-                CMSG_LOG_TRANSPORT_ERROR (transport,
-                                          "Error unpacking response message. Bytes:%d",
-                                          header_converted.message_length);
-                return CMSG_STATUS_CODE_SERVICE_FAILED;
-            }
-            *messagePtPt = message;
-            return CMSG_STATUS_CODE_SUCCESS;
-        }
-        else
-        {
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d no data\n",
-                        transport->connection.sockets.client_socket);
-        }
-        if (recv_buffer != (void *) buf_static)
-        {
-            CMSG_FREE (recv_buffer);
-            recv_buffer = NULL;
-        }
-    }
-    else if (nbytes == 0)
-    {
-        //Normal socket shutdown case. Return other than TRANSPORT_OK to
-        //have socket removed from select set.
-    }
-    else
-    {
-        if (errno == ECONNRESET)
-        {
-            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                        transport->connection.sockets.client_socket, strerror (errno));
-            return CMSG_STATUS_CODE_SERVER_CONNRESET;
-        }
-        else
-        {
-            CMSG_LOG_TRANSPORT_ERROR (transport,
-                                      "Receive error for socket %d. Error: %s",
-                                      transport->connection.sockets.client_socket,
-                                      strerror (errno));
-        }
-    }
-
-    return CMSG_STATUS_CODE_SERVICE_FAILED;
+    CMSG_FREE (buffer->msg);
+    CMSG_FREE (buffer);
+    transport->udt_info.data = NULL;
+    return ret;
 }
 
 void
@@ -322,26 +118,12 @@ cmsg_transport_loopback_init (cmsg_transport *transport)
         return;
     }
 
-    transport->tport_funcs.connect = cmsg_transport_loopback_connect;
-    transport->tport_funcs.listen = cmsg_transport_loopback_listen;
-    transport->tport_funcs.server_accept = NULL;
-    transport->tport_funcs.server_recv = cmsg_transport_loopback_server_recv;
-    transport->tport_funcs.client_recv = cmsg_transport_loopback_client_recv;
-    transport->tport_funcs.client_send = cmsg_transport_loopback_client_send;
-    transport->tport_funcs.server_send = cmsg_transport_loopback_server_send;
-    transport->tport_funcs.client_close = cmsg_transport_loopback_client_close;
-    transport->tport_funcs.server_close = cmsg_transport_loopback_server_close;
+    cmsg_transport_udt_init (transport);
 
-    transport->tport_funcs.s_socket = cmsg_transport_loopback_server_get_socket;
-    transport->tport_funcs.c_socket = cmsg_transport_loopback_client_get_socket;
-
-    transport->tport_funcs.client_destroy = cmsg_transport_loopback_client_destroy;
-    transport->tport_funcs.server_destroy = cmsg_transport_loopback_server_destroy;
-
-    transport->tport_funcs.is_congested = cmsg_transport_loopback_is_congested;
-    transport->tport_funcs.send_can_block_enable =
-        cmsg_transport_loopback_send_can_block_enable;
-    transport->tport_funcs.ipfree_bind_enable = cmsg_transport_loopback_ipfree_bind_enable;
+    transport->udt_info.functions.server_send = cmsg_transport_loopback_server_send;
+    transport->udt_info.functions.recv_wrapper = cmsg_transport_loopback_recv_handler;
+    transport->udt_info.functions.client_recv = cmsg_transport_loopback_client_recv;
+    transport->udt_info.functions.client_close = cmsg_transport_loopback_client_close;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
