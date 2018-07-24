@@ -4,7 +4,6 @@
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */
 
-#include <config.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>

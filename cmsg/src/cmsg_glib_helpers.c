@@ -7,7 +7,6 @@
  *
  */
 
-#define _GNU_SOURCE /* for TEMP_FAILURE_RETRY */
 #include <glib.h>
 #include <sys/eventfd.h>
 #include "cmsg_glib_helpers.h"
@@ -124,7 +123,7 @@ cmsg_glib_tipc_mesh_init (ProtobufCService *service, const char *service_entry_n
 {
     cmsg_tipc_mesh_conn *mesh =
         cmsg_tipc_mesh_connection_init (service, service_entry_name, this_node_id,
-                                        min_node_id, max_node_id, type, oneway);
+                                        min_node_id, max_node_id, type, oneway, NULL);
     if (mesh == NULL)
     {
         CMSG_LOG_GEN_ERROR ("Failed to create mesh connection for %s",

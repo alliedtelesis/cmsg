@@ -1,0 +1,32 @@
+syntax = "proto2";
+
+import "google/protobuf/descriptor.proto";
+
+// More options may be added in the future, see the following project for
+// potential options that could be implemented:
+// https://github.com/mwitkow/go-proto-validators/blob/master/validator.proto
+message FieldValidation
+{
+    optional int64 int_gt = 1;
+    optional int64 int_lt = 2;
+}
+
+// This extension can be used to tell the cmsg compiler to autogenerate a
+// validation function for the message. Based on the FieldValidation options
+// the function will return true/false depending if the message validates.
+// The function generated is simply the message name appended with '_validate'.
+extend google.protobuf.FieldOptions
+{
+    optional FieldValidation validation = 72295729;
+}
+
+// This extension can be used to automatically call the message validate
+// function generated from the 'validation' extension on the server side
+// before the 'impl' function is called. If the message does not validate
+// then an 'ant_result' message is created and returned to the API caller
+// skipping the 'impl' function entirely. Note that to use this extension
+// your method must return an 'ant_result' message.
+extend google.protobuf.MethodOptions
+{
+    optional bool auto_validation = 72295730;
+}

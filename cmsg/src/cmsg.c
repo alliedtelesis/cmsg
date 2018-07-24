@@ -1,7 +1,6 @@
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
-#define _GNU_SOURCE
 #include "cmsg.h"
 #include "cmsg_private.h"
 #include "cmsg_error.h"

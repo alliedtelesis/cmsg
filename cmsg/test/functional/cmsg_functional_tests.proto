@@ -4,6 +4,9 @@
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */
 
+import "validation.proto";
+import "ant_result.proto";
+
 package cmsg;
 
 message dummy
@@ -32,6 +35,11 @@ message bool_plus_repeated_strings
     repeated string strings = 2;
 }
 
+message message_with_validation
+{
+    optional uint32 gt_ten_lt_fifty = 2 [(validation) = {int_gt: 10, int_lt: 50}];
+}
+
 service test
 {
     rpc simple_rpc_test (bool_msg) returns (bool_msg);
@@ -46,4 +54,8 @@ service test
     rpc simple_pub_queue_test_2 (uint32_msg) returns (dummy);
     rpc simple_pub_queue_test_3 (uint32_msg) returns (dummy);
     rpc broadcast_client_test (uint32_msg) returns (uint32_msg);
+    rpc server_side_validation_test (message_with_validation) returns (ant_result)
+    {
+        option (auto_validation) = true;
+    }
 }

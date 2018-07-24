@@ -6,6 +6,7 @@
 
 #include "cmsg_client.h"
 #include "cmsg_server.h"
+#include "cmsg_broadcast_client.h"
 
 typedef struct _cmsg_tipc_mesh_conn
 {
@@ -38,6 +39,8 @@ cmsg_tipc_mesh_conn *cmsg_tipc_mesh_connection_init (ProtobufCService *service,
                                                      uint32_t lower_node_id,
                                                      uint32_t upper_node_id,
                                                      cmsg_mesh_local_type type,
-                                                     bool oneway);
+                                                     bool oneway,
+                                                     cmsg_broadcast_event_handler_t
+                                                     event_handler);
 
 #endif /* __CMSG_MESH_H_ */
