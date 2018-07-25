@@ -48,7 +48,7 @@ libcmsg_la_SOURCES = \
 	include/cmsg/cmsg_glib_helpers.h
 
 
-libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) -lutility -lprotobuf-c
+libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) -lprotobuf-c
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
@@ -66,7 +66,7 @@ cmsg_unit_tests_SOURCES = \
 	test/unit/cmsg_composite_client_unit_tests.c
 cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -Iinclude -Iinclude/cmsg
 cmsg_unit_tests_LDFLAGS = -static
-cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus -lcmsg -lprotobuf-c
+cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) -lcmsg -lprotobuf-c
 
 test/functional/cmsg_functional_tests_api_auto.c \
 test/functional/cmsg_functional_tests_api_auto.h \
@@ -94,5 +94,5 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/pthread_helpers_tests.c
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -Iinclude -Iinclude/cmsg
 cmsg_functional_tests_LDFLAGS = -static
-cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus -lcmsg -lprotobuf-c
+cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) -lcmsg -lprotobuf-c
 endif # BUILD_UNITTEST

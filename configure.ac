@@ -29,6 +29,7 @@ AC_CONFIG_FILES([Makefile
 PKG_CHECK_MODULES([GLIB],[glib-2.0])
 PKG_CHECK_MODULES([GMEM_DIAG],[gmem_diag],[],[unittest_prereq=no])
 PKG_CHECK_MODULES([NOVAPROVA],[novaprova],[],[unittest_prereq=no])
+PKG_CHECK_MODULES([DEBUG_AWPLUS],[debug_awplus],[],[cmsg_prereq=no])
 
 AC_ARG_VAR(PROTOC_PATH, [  Path to the protoc compiler])
 AC_ARG_VAR(PROTOC_CMSG_PATH, [  Path to the protoc-cmsg compiler])
