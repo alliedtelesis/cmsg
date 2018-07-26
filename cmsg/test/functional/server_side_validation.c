@@ -133,8 +133,10 @@ tear_down (void)
 }
 
 void
-cmsg_test_impl_server_side_validation_test (const void *service,
-                                            const cmsg_message_with_validation *recv_msg)
+cmsg_test_impl_server_side_validation_test_integers (const void *service,
+                                                     const
+                                                     cmsg_message_with_integer_validation
+                                                     *recv_msg)
 {
     ant_result send_msg = ANT_RESULT_INIT;
 
@@ -142,7 +144,18 @@ cmsg_test_impl_server_side_validation_test (const void *service,
 
     CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
 
-    cmsg_test_server_server_side_validation_testSend (service, &send_msg);
+    cmsg_test_server_server_side_validation_test_integersSend (service, &send_msg);
+}
+
+void
+cmsg_test_impl_server_side_validation_test_strings (const void *service,
+                                                    const
+                                                    cmsg_message_with_string_validation
+                                                    *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    cmsg_test_server_server_side_validation_test_stringsSend (service, &send_msg);
 }
 
 /**
@@ -150,18 +163,19 @@ cmsg_test_impl_server_side_validation_test (const void *service,
  * as expected when no error message is returned.
  */
 void
-test_message_with_validation_validate_function_no_error_message (void)
+test_integer_validate_function_no_error_message (void)
 {
-    cmsg_message_with_validation send_msg = CMSG_MESSAGE_WITH_VALIDATION_INIT;
+    cmsg_message_with_integer_validation send_msg =
+        CMSG_MESSAGE_WITH_INTEGER_VALIDATION_INIT;
 
-    CMSG_SET_FIELD_VALUE (&send_msg, gt_ten_lt_fifty, 60);
-    NP_ASSERT_FALSE (cmsg_message_with_validation_validate (&send_msg, NULL, 0));
+    CMSG_SET_FIELD_VALUE (&send_msg, ge_ten_le_fifty, 60);
+    NP_ASSERT_FALSE (cmsg_message_with_integer_validation_validate (&send_msg, NULL, 0));
 
-    CMSG_SET_FIELD_VALUE (&send_msg, gt_ten_lt_fifty, 5);
-    NP_ASSERT_FALSE (cmsg_message_with_validation_validate (&send_msg, NULL, 0));
+    CMSG_SET_FIELD_VALUE (&send_msg, ge_ten_le_fifty, 5);
+    NP_ASSERT_FALSE (cmsg_message_with_integer_validation_validate (&send_msg, NULL, 0));
 
-    CMSG_SET_FIELD_VALUE (&send_msg, gt_ten_lt_fifty, 40);
-    NP_ASSERT_TRUE (cmsg_message_with_validation_validate (&send_msg, NULL, 0));
+    CMSG_SET_FIELD_VALUE (&send_msg, ge_ten_le_fifty, 40);
+    NP_ASSERT_TRUE (cmsg_message_with_integer_validation_validate (&send_msg, NULL, 0));
 }
 
 /**
@@ -169,23 +183,24 @@ test_message_with_validation_validate_function_no_error_message (void)
  * as expected when an error message is returned.
  */
 void
-test_message_with_validation_validate_function_with_error_message (void)
+test_integer_validate_function_with_error_message (void)
 {
-    cmsg_message_with_validation send_msg = CMSG_MESSAGE_WITH_VALIDATION_INIT;
+    cmsg_message_with_integer_validation send_msg =
+        CMSG_MESSAGE_WITH_INTEGER_VALIDATION_INIT;
     char err_str[512];
 
-    CMSG_SET_FIELD_VALUE (&send_msg, gt_ten_lt_fifty, 60);
-    NP_ASSERT_FALSE (cmsg_message_with_validation_validate
+    CMSG_SET_FIELD_VALUE (&send_msg, ge_ten_le_fifty, 60);
+    NP_ASSERT_FALSE (cmsg_message_with_integer_validation_validate
                      (&send_msg, err_str, sizeof (err_str)));
-    NP_ASSERT_STR_EQUAL (err_str, "Field 'gt_ten_lt_fifty' must be less than 50.");
+    NP_ASSERT_STR_EQUAL (err_str, "Field 'ge_ten_le_fifty' failed validation.");
 
-    CMSG_SET_FIELD_VALUE (&send_msg, gt_ten_lt_fifty, 5);
-    NP_ASSERT_FALSE (cmsg_message_with_validation_validate
+    CMSG_SET_FIELD_VALUE (&send_msg, ge_ten_le_fifty, 5);
+    NP_ASSERT_FALSE (cmsg_message_with_integer_validation_validate
                      (&send_msg, err_str, sizeof (err_str)));
-    NP_ASSERT_STR_EQUAL (err_str, "Field 'gt_ten_lt_fifty' must be greater than 10.");
+    NP_ASSERT_STR_EQUAL (err_str, "Field 'ge_ten_le_fifty' failed validation.");
 
-    CMSG_SET_FIELD_VALUE (&send_msg, gt_ten_lt_fifty, 40);
-    NP_ASSERT_TRUE (cmsg_message_with_validation_validate
+    CMSG_SET_FIELD_VALUE (&send_msg, ge_ten_le_fifty, 40);
+    NP_ASSERT_TRUE (cmsg_message_with_integer_validation_validate
                     (&send_msg, err_str, sizeof (err_str)));
 }
 
@@ -197,19 +212,21 @@ void
 test_server_side_validation_failure (void)
 {
     int ret = 0;
-    cmsg_message_with_validation send_msg = CMSG_MESSAGE_WITH_VALIDATION_INIT;
+    cmsg_message_with_integer_validation send_msg =
+        CMSG_MESSAGE_WITH_INTEGER_VALIDATION_INIT;
     ant_result *recv_msg = NULL;
 
     impl_func_called = false;
 
-    CMSG_SET_FIELD_VALUE (&send_msg, gt_ten_lt_fifty, 60);
+    CMSG_SET_FIELD_VALUE (&send_msg, ge_ten_le_fifty, 60);
 
-    ret = cmsg_test_api_server_side_validation_test (test_client, &send_msg, &recv_msg);
+    ret =
+        cmsg_test_api_server_side_validation_test_integers (test_client, &send_msg,
+                                                            &recv_msg);
 
     NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
     NP_ASSERT_EQUAL (recv_msg->code, ANT_CODE_INVALID_ARGUMENT);
-    NP_ASSERT_STR_EQUAL (recv_msg->message,
-                         "Field 'gt_ten_lt_fifty' must be less than 50.");
+    NP_ASSERT_STR_EQUAL (recv_msg->message, "Field 'ge_ten_le_fifty' failed validation.");
     NP_ASSERT_FALSE (impl_func_called);
 
     CMSG_FREE_RECV_MSG (recv_msg);
@@ -223,14 +240,17 @@ void
 test_server_side_validation_success (void)
 {
     int ret = 0;
-    cmsg_message_with_validation send_msg = CMSG_MESSAGE_WITH_VALIDATION_INIT;
+    cmsg_message_with_integer_validation send_msg =
+        CMSG_MESSAGE_WITH_INTEGER_VALIDATION_INIT;
     ant_result *recv_msg = NULL;
 
     impl_func_called = false;
 
-    CMSG_SET_FIELD_VALUE (&send_msg, gt_ten_lt_fifty, 40);
+    CMSG_SET_FIELD_VALUE (&send_msg, ge_ten_le_fifty, 40);
 
-    ret = cmsg_test_api_server_side_validation_test (test_client, &send_msg, &recv_msg);
+    ret =
+        cmsg_test_api_server_side_validation_test_integers (test_client, &send_msg,
+                                                            &recv_msg);
 
     NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
     NP_ASSERT_EQUAL (recv_msg->code, ANT_CODE_OK);
@@ -238,4 +258,47 @@ test_server_side_validation_success (void)
     NP_ASSERT_TRUE (impl_func_called);
 
     CMSG_FREE_RECV_MSG (recv_msg);
+}
+
+/**
+ * Test that the autogenerated ip address validate functionality works as
+ * expected for string fields.
+ */
+void
+test_ip_address_format_validation (void)
+{
+    cmsg_message_with_string_validation send_msg = CMSG_MESSAGE_WITH_STRING_VALIDATION_INIT;
+    char err_str[512];
+
+    CMSG_SET_FIELD_PTR (&send_msg, ip_address, NULL);
+    NP_ASSERT_TRUE (cmsg_message_with_string_validation_validate
+                    (&send_msg, err_str, sizeof (err_str)));
+
+    CMSG_SET_FIELD_PTR (&send_msg, ip_address, "127.0.0.1");
+    NP_ASSERT_TRUE (cmsg_message_with_string_validation_validate
+                    (&send_msg, err_str, sizeof (err_str)));
+
+    CMSG_SET_FIELD_PTR (&send_msg, ip_address, "::1");
+    NP_ASSERT_TRUE (cmsg_message_with_string_validation_validate
+                    (&send_msg, err_str, sizeof (err_str)));
+
+    CMSG_SET_FIELD_PTR (&send_msg, ip_address, "blah");
+    NP_ASSERT_FALSE (cmsg_message_with_string_validation_validate
+                     (&send_msg, err_str, sizeof (err_str)));
+    NP_ASSERT_STR_EQUAL (err_str, "Field 'ip_address' must be in IP address format.");
+
+    CMSG_SET_FIELD_PTR (&send_msg, ip_address, "127.00.0.1");
+    NP_ASSERT_FALSE (cmsg_message_with_string_validation_validate
+                     (&send_msg, err_str, sizeof (err_str)));
+    NP_ASSERT_STR_EQUAL (err_str, "Field 'ip_address' must be in IP address format.");
+
+    CMSG_SET_FIELD_PTR (&send_msg, ip_address, "300.0.0.1");
+    NP_ASSERT_FALSE (cmsg_message_with_string_validation_validate
+                     (&send_msg, err_str, sizeof (err_str)));
+    NP_ASSERT_STR_EQUAL (err_str, "Field 'ip_address' must be in IP address format.");
+
+    CMSG_SET_FIELD_PTR (&send_msg, ip_address, "192.168.1.10/27");
+    NP_ASSERT_FALSE (cmsg_message_with_string_validation_validate
+                     (&send_msg, err_str, sizeof (err_str)));
+    NP_ASSERT_STR_EQUAL (err_str, "Field 'ip_address' must be in IP address format.");
 }
