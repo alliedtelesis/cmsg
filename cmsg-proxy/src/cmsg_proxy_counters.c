@@ -4,8 +4,6 @@
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */
 
-#include <config.h>
-
 #ifdef HAVE_COUNTERD
 #include <stdio.h>
 #include "cmsg_proxy_counters.h"

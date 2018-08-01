@@ -73,7 +73,11 @@
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/descriptor.pb.h>
 
+#ifdef ATL_CHANGE
+#include <protobuf-c/protobuf-c.h>
+#else
 #include "protobuf-c.h"
+#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {
@@ -176,12 +180,15 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
 #ifdef ATL_CHANGE
   // Add some includes for the ATL generated code
   printer->Print("#include <string.h>\n");
+  printer->Print("#include <stdio.h>\n");
   printer->Print("#include <stdlib.h>\n");
+  printer->Print("#include <stdbool.h>\n");
 #endif /* ATL_CHANGE */
 
   for (int i = 0; i < file_->dependency_count(); i++) {
 #ifdef ATL_CHANGE
-    if (StripProto(file_->dependency(i)->name()) != "http")
+    if ((StripProto(file_->dependency(i)->name()) != "http") &&
+        (StripProto(file_->dependency(i)->name()) != "validation"))
     {
         printer->Print(
           "#include \"$dependency$.pb-c.h\"\n",
@@ -332,7 +339,8 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
   // Include dependent types header files
   for (int i = 0; i < file_->dependency_count(); i++) {
 #ifdef ATL_CHANGE
-    if (StripProto(file_->dependency(i)->name()) != "http")
+    if ((StripProto(file_->dependency(i)->name()) != "http") &&
+        (StripProto(file_->dependency(i)->name()) != "validation"))
       {
         printer->Print(
           "#include \"$dependency$.h\"\n",

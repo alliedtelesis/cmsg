@@ -23,6 +23,7 @@
 #include <protoc-c/c_atl_generator.h>
 #include <protoc-c/c_helpers.h>
 #include <google/protobuf/io/printer.h>
+#include "validation.pb.h"
 
 namespace google {
 namespace protobuf {
@@ -394,6 +395,7 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     vars_["method"] = FullNameToC(method->full_name());
     vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
     vars_["input_typename_upper"] = FullNameToUpper(method->input_type()->full_name());
+    vars_["input_typename_lower"] = FullNameToLower(method->input_type()->full_name());
     vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
     vars_["output_typename_upper"] = FullNameToUpper(method->output_type()->full_name());
 
@@ -425,8 +427,25 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     //
     // call _impl user function
     //
-    printer->Print("\n");
+    printer->Print("bool call_impl = true;\n");
+    if (method->options().HasExtension(auto_validation) && method->options().GetExtension(auto_validation))
+    {
+        printer->Print("char err_str[512];\n");
+        printer->Print(vars_, "if (!$input_typename_lower$_validate (input, err_str, sizeof (err_str)))\n");
+        printer->Print("{\n");
+        printer->Indent();
+        printer->Print("call_impl = false;\n");
+        printer->Print("ant_result send_msg = ANT_RESULT_INIT;\n");
+        printer->Print("CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_INVALID_ARGUMENT);\n");
+        printer->Print("CMSG_SET_FIELD_PTR (&send_msg, message, err_str);\n");
+        printer->Print(vars_, "$lcfullname$_server_$method$Send (_service, &send_msg);\n");
+        printer->Outdent();
+        printer->Print("}\n");
+    }
 
+    printer->Print("if (call_impl)\n");
+    printer->Print("{\n");
+    printer->Indent();
     // now pass the pbc struct to the new impl function
     printer->Print(vars_, "$lcfullname$_impl_$method$ (_service");
     if (method->input_type()->field_count() > 0)
@@ -434,6 +453,8 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
       printer->Print(", input");
     }
     printer->Print(");\n");
+    printer->Outdent();
+    printer->Print("}\n");
 
     //
     // call closure()

@@ -2,7 +2,6 @@
  * Copyright 2018, Allied Telesis Labs New Zealand, Ltd
  */
 
-#include <config.h>
 #include <stdbool.h>
 #include <protobuf2json.h>
 #include <cmsg/cmsg_server.h>

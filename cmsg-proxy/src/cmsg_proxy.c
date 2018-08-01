@@ -13,7 +13,6 @@
  *   CMSG service APIs
  */
 
-#include <config.h>
 #include "cmsg_proxy.h"
 #include <glib.h>
 #include <string.h>
@@ -382,12 +381,19 @@ cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_msg
                           const cmsg_service_info *service_info)
 {
     int ret;
+    bool no_input_arg = (strcmp (service_info->input_msg_descriptor->name, "dummy") == 0);
+    bool no_output_arg = (strcmp (service_info->output_msg_descriptor->name,
+                                  "dummy") == 0);
 
-    if (strcmp (service_info->input_msg_descriptor->name, "dummy") == 0)
+    if (no_input_arg && no_output_arg)
+    {
+        ret = service_info->api_ptr (client);
+    }
+    else if (no_input_arg)
     {
         ret = service_info->api_ptr (client, output_msg);
     }
-    else if (strcmp (service_info->output_msg_descriptor->name, "dummy") == 0)
+    else if (no_output_arg)
     {
         ret = service_info->api_ptr (client, input_msg);
     }

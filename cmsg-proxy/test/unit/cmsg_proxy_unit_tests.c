@@ -2,8 +2,8 @@
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 
-#define _GNU_SOURCE
 #include <np.h>
+#include "cmsg_proxy_counters.c"
 #include "cmsg_proxy_tree.c"
 #include "cmsg_proxy_index.c"
 #include "cmsg_proxy_input.c"
