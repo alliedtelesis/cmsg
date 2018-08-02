@@ -74,10 +74,45 @@ libcmsgproxy_la_HEADERS  = \
 	cmsg_proxy_http_streaming_api.h \
 	src/ant_result.proto
 
-BUILT_SOURCES = src/ant_result.pb-c.c src/ant_result.pb-c.h \
-                src/http_streaming_api_auto.c src/http_streaming_api_auto.h \
-                src/http_streaming_impl_auto.c src/http_streaming_impl_auto.h \
-                src/http_streaming.pb-c.c src/http_streaming.pb-c.h
+BUILT_SOURCES = \
+	src/ant_result.pb-c.c \
+	src/ant_result.pb-c.h \
+	src/http_streaming_api_auto.c \
+	src/http_streaming_api_auto.h \
+	src/http_streaming_impl_auto.c \
+	src/http_streaming_impl_auto.h \
+	src/http_streaming.pb-c.c \
+	src/http_streaming.pb-c.h
+
+if BUILD_UNITTEST
+BUILT_SOURCES += \
+	test/unit/cmsg_proxy_unit_tests_proxy_def.c \
+	test/unit/cmsg_proxy_unit_tests_proxy_def.h \
+	test/unit/cmsg_proxy_unit_tests_api_auto.c \
+	test/unit/cmsg_proxy_unit_tests_api_auto.h \
+	test/unit/cmsg_proxy_unit_tests.pb-c.c \
+	test/unit/cmsg_proxy_unit_tests.pb-c.h \
+	test/unit/cmsg_proxy_unit_tests_types_auto.h \
+	test/functional/cmsg_proxy_functional_tests_proxy_def.c \
+	test/functional/cmsg_proxy_functional_tests_proxy_def.h \
+	test/functional/cmsg_proxy_functional_tests_api_auto.c \
+	test/functional/cmsg_proxy_functional_tests_api_auto.h \
+	test/functional/cmsg_proxy_functional_tests_impl_auto.c \
+	test/functional/cmsg_proxy_functional_tests_impl_auto.h \
+	test/functional/cmsg_proxy_functional_tests.pb-c.c \
+	test/functional/cmsg_proxy_functional_tests.pb-c.h \
+	test/functional/cmsg_proxy_functional_tests_types_auto.h \
+	test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.c \
+	test/functional/cmsg_proxy_passthrough_functional_tests_proxy_def.h \
+	test/functional/cmsg_proxy_passthrough_functional_tests_api_auto.c \
+	test/functional/cmsg_proxy_passthrough_functional_tests_api_auto.h \
+	test/functional/cmsg_proxy_passthrough_functional_tests_impl_auto.c \
+	test/functional/cmsg_proxy_passthrough_functional_tests_impl_auto.h \
+	test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.c \
+	test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.h \
+	test/functional/cmsg_proxy_passthrough_functional_tests_types_auto.h
+endif
+
 CLEANFILES = $(BUILT_SOURCES)
 
 if BUILD_UNITTEST
