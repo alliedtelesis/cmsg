@@ -120,6 +120,7 @@ test/unit/cmsg_proxy_unit_tests_proxy_def.c \
 test/unit/cmsg_proxy_unit_tests_proxy_def.h \
 test/unit/cmsg_proxy_unit_tests_api_auto.c \
 test/unit/cmsg_proxy_unit_tests_api_auto.h \
+test/unit/cmsg_proxy_unit_tests_types_auto.h \
 test/unit/cmsg_proxy_unit_tests.pb-c.c \
 test/unit/cmsg_proxy_unit_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/unit/cmsg_proxy_unit_tests.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/test/unit -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c --c_out=$(top_srcdir)/cmsg-proxy/test/unit $(top_srcdir)/cmsg-proxy/test/unit/cmsg_proxy_unit_tests.proto
@@ -157,6 +158,7 @@ test/functional/cmsg_proxy_functional_tests_api_auto.c \
 test/functional/cmsg_proxy_functional_tests_api_auto.h \
 test/functional/cmsg_proxy_functional_tests_impl_auto.c \
 test/functional/cmsg_proxy_functional_tests_impl_auto.h \
+test/functional/cmsg_proxy_functional_tests_types_auto.h \
 test/functional/cmsg_proxy_functional_tests.pb-c.c \
 test/functional/cmsg_proxy_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/functional/cmsg_proxy_functional_tests.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c --c_out=$(top_srcdir)/cmsg-proxy/test/functional $(top_srcdir)/cmsg-proxy/test/functional/cmsg_proxy_functional_tests.proto
@@ -192,6 +194,7 @@ test/functional/cmsg_proxy_passthrough_functional_tests_api_auto.c \
 test/functional/cmsg_proxy_passthrough_functional_tests_api_auto.h \
 test/functional/cmsg_proxy_passthrough_functional_tests_impl_auto.c \
 test/functional/cmsg_proxy_passthrough_functional_tests_impl_auto.h \
+test/functional/cmsg_proxy_passthrough_functional_tests_types_auto.h \
 test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.c \
 test/functional/cmsg_proxy_passthrough_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/functional/cmsg_proxy_passthrough_functional_tests.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c --c_out=$(top_srcdir)/cmsg-proxy/test/functional $(top_srcdir)/cmsg-proxy/test/functional/cmsg_proxy_passthrough_functional_tests.proto
