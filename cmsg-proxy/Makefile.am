@@ -110,7 +110,7 @@ cmsg_proxy_unit_tests_CPPFLAGS  = -I$(top_srcdir) -I$(top_srcdir)/cmsg-proxy -I$
 cmsg_proxy_unit_tests_LDFLAGS = -static
 cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(GMEM_DIAG_LIBS) \
                                 -lcmsg -lprotobuf-c -lprotobuf2json-c \
-                                -ljansson -lcmsgproxyconfig
+                                -ljansson libcmsgproxyconfig.la
 
 if HAVE_COUNTERD
 cmsg_proxy_unit_tests_LDADD += -lcntr
