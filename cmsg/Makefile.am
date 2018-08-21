@@ -60,6 +60,21 @@ libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg_validation.h
 
 BUILT_SOURCES = src/cmsg_sub_service.pb-c.c src/cmsg_sub_service.pb-c.h
+
+if BUILD_UNITTEST
+BUILT_SOURCES += \
+	test/functional/cmsg_functional_tests_api_auto.c \
+	test/functional/cmsg_functional_tests_api_auto.h \
+	test/functional/cmsg_functional_tests_impl_auto.c \
+	test/functional/cmsg_functional_tests_impl_auto.h \
+	test/functional/cmsg_functional_tests_types_auto.h \
+	test/functional/cmsg_functional_tests.pb-c.c \
+	test/functional/cmsg_functional_tests.pb-c.h \
+	test/functional/ant_result_types_auto.h \
+	test/functional/ant_result.pb-c.c \
+	test/functional/ant_result.pb-c.h
+endif
+
 CLEANFILES = $(BUILT_SOURCES)
 
 cmsg_SOURCES = src/shell_application/cmsg_shell_application.c
@@ -81,10 +96,12 @@ test/functional/cmsg_functional_tests_api_auto.c \
 test/functional/cmsg_functional_tests_api_auto.h \
 test/functional/cmsg_functional_tests_impl_auto.c \
 test/functional/cmsg_functional_tests_impl_auto.h \
+test/functional/cmsg_functional_tests_types_auto.h \
 test/functional/cmsg_functional_tests.pb-c.c \
 test/functional/cmsg_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/functional/cmsg_functional_tests.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg/test/functional/cmsg_functional_tests.proto
 
+test/functional/ant_result_types_auto.h \
 test/functional/ant_result.pb-c.c \
 test/functional/ant_result.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) $(top_srcdir)/cmsg-proxy/src/ant_result.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg-proxy/src/ant_result.proto
