@@ -388,7 +388,10 @@ cmsg_proxy_streaming_init (void)
     if (ret != 0)
     {
         syslog (LOG_ERR, "Failed to start cmsg proxy streaming server thread");
+        return;
     }
+
+    pthread_setname_np (server_thread, "cmsg_proxy_http");
 }
 
 /**

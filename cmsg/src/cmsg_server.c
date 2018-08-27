@@ -1939,6 +1939,8 @@ cmsg_server_accept_thread_init (cmsg_server *server)
         return NULL;
     }
 
+    cmsg_pthread_setname (info->server_accept_thread,
+                          server->service->descriptor->short_name, CMSG_ACCEPT_PREFIX);
     return info;
 }
 

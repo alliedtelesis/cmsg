@@ -98,6 +98,9 @@ cmsg_pthread_server_init (pthread_t *thread, cmsg_server *server)
         return false;
     }
 
+    cmsg_pthread_setname (*thread,
+                          server->service->descriptor->short_name, CMSG_SERVER_PREFIX);
+
     return true;
 }
 

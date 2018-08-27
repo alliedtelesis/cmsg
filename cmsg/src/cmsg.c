@@ -671,3 +671,21 @@ ProtobufCAllocator cmsg_memory_allocator = {
     .free = &cmsg_memory_free,
     .allocator_data = NULL,
 };
+
+/**
+ * Trying to set cmsg thread name
+ *
+ * Takes a name which would normally be a descriptor service name
+ * prefix is used for types of services.
+ */
+void
+cmsg_pthread_setname (pthread_t thread, const char *cmsg_name, const char *prefix)
+{
+#define NAMELEN 16
+    char thread_name[NAMELEN];
+
+    snprintf (thread_name, NAMELEN, "%s%.*s", prefix,
+              (int) (NAMELEN - strlen (prefix) - 1), cmsg_name ? : "cmsg");
+
+    pthread_setname_np (thread, thread_name);
+}

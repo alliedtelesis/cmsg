@@ -928,6 +928,9 @@ cmsg_pub_queue_thread_start (cmsg_pub *publisher)
         {
             CMSG_LOG_PUBLISHER_ERROR (publisher, "Unable to start publisher queue thread");
         }
+
+        cmsg_pthread_setname (publisher->queue_thread_id,
+                              publisher->descriptor->short_name, CMSG_PUBLISHER_PREFIX);
     }
 }
 
