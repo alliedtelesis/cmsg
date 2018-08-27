@@ -20,12 +20,13 @@ typedef struct _cmsg_sub_s
                        ProtobufCClosure closure, void *closure_data);
 
     cmsg_server *pub_server;    //receiving messages
+    cmsg_server_accept_thread_info *pub_server_thread_info;
 
 } cmsg_sub;
 
 
 cmsg_sub *cmsg_sub_new (cmsg_transport *pub_server_transport,
-                        ProtobufCService *pub_service);
+                        const ProtobufCService *pub_service);
 
 int cmsg_sub_get_server_socket (cmsg_sub *subscriber);
 
@@ -37,14 +38,19 @@ int32_t cmsg_sub_server_accept (cmsg_sub *subscriber, int32_t listen_socket);
 void cmsg_sub_server_accept_callback (cmsg_sub *subscriber, int32_t sock);
 
 int32_t cmsg_sub_subscribe (cmsg_sub *subscriber,
-                            cmsg_transport *sub_client_transport, char *method_name);
-
+                            cmsg_transport *sub_client_transport, const char *method_name);
+int32_t cmsg_sub_subscribe_events (cmsg_sub *subscriber,
+                                   cmsg_transport *sub_client_transport,
+                                   const char **events);
 int32_t cmsg_sub_unsubscribe (cmsg_sub *subscriber,
                               cmsg_transport *sub_client_transport, char *method_name);
+int32_t cmsg_sub_unsubscribe_events (cmsg_sub *subscriber,
+                                     cmsg_transport *sub_client_transport,
+                                     const char **events);
 
 cmsg_sub *cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id,
-                                              int scope, ProtobufCService *descriptor);
-
+                                              int scope, const ProtobufCService *service);
+cmsg_sub *cmsg_create_subscriber_unix_oneway (const ProtobufCService *service);
 void cmsg_destroy_subscriber_and_transport (cmsg_sub *subscriber);
 
 #endif /* __CMSG_SUB_H_ */

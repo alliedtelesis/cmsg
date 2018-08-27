@@ -30,9 +30,10 @@ libcmsg_la_SOURCES = \
 	src/cmsg_server.c \
 	src/cmsg_sub.c \
 	src/cmsg_mesh.c \
-	src/cmsg_glib_helpers.c
+	src/cmsg_glib_helpers.c \
+	src/cmsg_pthread_helpers.c
 
-libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) -lutility -lprotobuf-c
+libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) -lprotobuf-c
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
@@ -55,7 +56,8 @@ libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg_transport.h \
 	include/cmsg/cmsg_broadcast_client.h \
 	include/cmsg/cmsg_mesh.h \
-	include/cmsg/cmsg_glib_helpers.h
+	include/cmsg/cmsg_glib_helpers.h \
+	include/cmsg/cmsg_pthread_helpers.h
 
 BUILT_SOURCES = src/cmsg_sub_service.pb-c.c src/cmsg_sub_service.pb-c.h
 
@@ -88,7 +90,7 @@ cmsg_unit_tests_SOURCES = \
 cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
 cmsg_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg
 cmsg_unit_tests_LDFLAGS = -static
-cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus libcmsg.la -lprotobuf-c
+cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
 
 test/functional/cmsg_functional_tests_api_auto.c \
 test/functional/cmsg_functional_tests_api_auto.h \
@@ -122,10 +124,11 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/client_queuing_tests.c \
 	test/functional/publisher_queuing_tests.c \
 	test/functional/broadcast_client_tests.c \
-	test/functional/server_side_validation.c
+	test/functional/server_side_validation.c \
+	test/functional/pthread_helpers_tests.c
 
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
 cmsg_functional_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg -I$(top_builddir)
 cmsg_functional_tests_LDFLAGS = -static
-cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) -ldebug_awplus libcmsg.la -lprotobuf-c
+cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
 endif # BUILD_UNITTEST
