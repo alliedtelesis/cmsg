@@ -28,7 +28,7 @@ typedef int32_t (*server_message_processor_f) (cmsg_server *server, uint8_t *buf
 
 typedef struct _cmsg_server_s
 {
-    ProtobufCService *service;
+    const ProtobufCService *service;
     cmsg_transport *_transport;
     cmsg_server_request *server_request;
     server_message_processor_f message_processor;
@@ -114,7 +114,7 @@ typedef struct _cmsg_server_accept_thread_info
     int accept_sd_eventfd;
 } cmsg_server_accept_thread_info;
 
-cmsg_server *cmsg_server_new (cmsg_transport *transport, ProtobufCService *service);
+cmsg_server *cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service);
 
 void cmsg_server_destroy (cmsg_server *server);
 

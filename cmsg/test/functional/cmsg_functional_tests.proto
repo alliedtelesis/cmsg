@@ -71,4 +71,5 @@ service test
     rpc server_side_validation_test_strings (message_with_string_validation) returns (ant_result) {
         option (auto_validation) = true;
     }
+    rpc pthread_notification_test (uint32_msg) returns (dummy);
 }

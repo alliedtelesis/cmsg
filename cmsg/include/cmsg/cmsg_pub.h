@@ -51,6 +51,7 @@ typedef struct _cmsg_pub_s
                        ProtobufCClosure closure, void *closure_data);
 
     cmsg_server *sub_server;                                                //registering subscriber
+    cmsg_server_accept_thread_info *sub_server_thread_info;
     const ProtobufCServiceDescriptor *registration_notify_client_service;   //for calling notification methods in notify
     GList *subscriber_list;
     pthread_mutex_t subscriber_list_mutex;
