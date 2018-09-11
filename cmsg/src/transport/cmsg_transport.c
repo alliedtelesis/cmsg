@@ -375,11 +375,22 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     cmsg_server_request server_request;
     int socket = transport->connection.sockets.client_socket;
     cmsg_status_code ret;
+    time_t receive_timeout;
+
+    /* Use the client receive timeout if set. Otherwise use the default. */
+    if (transport->receive_timeout != 0)
+    {
+        receive_timeout = transport->receive_timeout;
+    }
+    else
+    {
+        receive_timeout = MAX_CLIENT_PEEK_LOOP;
+    }
 
     *messagePtPt = NULL;
 
     ret = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper, transport,
-                                          socket, MAX_CLIENT_PEEK_LOOP, &header_received);
+                                          socket, receive_timeout, &header_received);
     if (ret != CMSG_STATUS_CODE_SUCCESS)
     {
         return ret;

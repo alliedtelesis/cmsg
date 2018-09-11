@@ -136,6 +136,9 @@ struct _cmsg_transport_s
     // send to block if message cannot be sent
     uint32_t send_can_block;
 
+    // receive timeout in seconds
+    uint32_t receive_timeout;
+
     // sets IP_FREEBIND in socket options
     cmsg_bool_t use_ipfree_bind;
 
