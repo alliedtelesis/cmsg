@@ -277,6 +277,9 @@ void FileGenerator::GenerateSource(io::Printer* printer) {
     "#define PROTOBUF_C__NO_DEPRECATED\n"
     "#endif\n"
     "\n"
+#ifdef ATL_CHANGE
+    "#include <cmsg/cmsg_validation.h>\n"
+#endif /* ATL_CHANGE */
     "#include \"$basename$.pb-c.h\"\n",
     "filename", file_->name(),
     "basename", StripProto(file_->name()));

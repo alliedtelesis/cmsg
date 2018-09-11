@@ -24,6 +24,7 @@ libcmsgproxyconfig_la_CFLAGS  = -include $(top_builddir)/config.h
 
 ## Library for using the cmsg proxy http streaming functionality
 libcmsgproxyhttpstreamingapi_la_CFLAGS  = $(GLIB_CFLAGS) -include $(top_builddir)/config.h
+libcmsgproxyhttpstreamingapi_la_CPPFLAGS = -I$(top_srcdir)/cmsg/include
 libcmsgproxyhttpstreamingapi_la_LDFLAGS = -version-info 1:0:0 # version:revision:age
 libcmsgproxyhttpstreamingapi_la_SOURCES = src/cmsg_proxy_http_streaming_api.c cmsg_proxy_http_streaming_api.h \
                                           src/http_streaming_api_auto.c src/http_streaming_api_auto.h \
@@ -65,7 +66,7 @@ endif
 
 libcmsgproxy_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS) -include $(top_builddir)/config.h
 
-libcmsgproxy_la_CPPFLAGS = -I$(top_srcdir)/cmsg-proxy
+libcmsgproxy_la_CPPFLAGS = -I$(top_srcdir)/cmsg-proxy -I$(top_srcdir)/cmsg/include
 
 libcmsgproxy_ladir       = $(includedir)/cmsg-proxy
 libcmsgproxy_la_HEADERS  = \

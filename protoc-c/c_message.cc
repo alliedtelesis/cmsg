@@ -292,49 +292,106 @@ static bool message_has_validation(const Descriptor *message)
 }
 
 static void
-generate_field_validation (const FieldDescriptor *field, io::Printer* printer)
+generate_int_validation (const FieldDescriptor *field, io::Printer* printer,
+                         const char *function_name, int64_t compare_value)
+{
+    std::map<string, string> vars;
+    FieldValidation validation_defs = field->options().GetExtension(validation);
+    std::string int_string;
+
+    if (validation_defs.has_error_message())
+    {
+        vars["error_message"] = validation_defs.error_message();
+    }
+    else
+    {
+        vars["error_message"] = "NULL";
+    }
+
+    int_string = std::to_string(compare_value);
+
+    vars["compare_value"] = int_string;
+    vars["fieldname"] = field->name();
+    vars["function_name"] = function_name;
+
+    printer->Print(vars, "if (!$function_name$ (message->$fieldname$, $compare_value$, \"$fieldname$\",\n");
+    printer->Print(vars, "                      \"$error_message$\", err_str, err_str_len))\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return false;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+}
+
+static void
+generate_str_validation (const FieldDescriptor *field, io::Printer* printer,
+                         const char *function_name)
+{
+    std::map<string, string> vars;
+    FieldValidation validation_defs = field->options().GetExtension(validation);
+
+    if (validation_defs.has_error_message())
+    {
+        vars["error_message"] = validation_defs.error_message();
+    }
+    else
+    {
+        vars["error_message"] = "NULL";
+    }
+
+    vars["fieldname"] = field->name();
+    vars["function_name"] = function_name;
+
+    printer->Print(vars, "if (!$function_name$ (message->$fieldname$, \"$fieldname$\",\n");
+    printer->Print(vars, "                      \"$error_message$\", err_str, err_str_len))\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return false;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+}
+
+static void
+generate_string_format_validation (const FieldDescriptor *field, io::Printer* printer)
 {
     std::map<string, string> vars;
     std::string int_string;
     FieldValidation validation_defs = field->options().GetExtension(validation);
+    common_string_format format = validation_defs.string_format();
 
     vars["fieldname"] = field->name();
 
-    if (validation_defs.has_int_gt())
-    {
-        int_string = std::to_string(validation_defs.int_gt());
+    printer->Print(vars, "if (!message->$fieldname$)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return true;\n");
+    printer->Outdent();
+    printer->Print("}\n");
 
-        vars["gtvalue"] = int_string;
-        printer->Print(vars, "if (message->$fieldname$ <= $gtvalue$)\n");
-        printer->Print("{\n");
-        printer->Indent();
-        printer->Print(vars, "if (err_str)\n");
-        printer->Print("{\n");
-        printer->Indent();
-        printer->Print(vars, "snprintf (err_str, err_str_len, \"Field '$fieldname$' must be greater than $gtvalue$.\");\n");
-        printer->Outdent();
-        printer->Print("}\n");
-        printer->Print("return false;\n");
-        printer->Outdent();
-        printer->Print("}\n");
+    if (format == IP_ADDRESS)
+    {
+        generate_str_validation (field, printer, "cmsg_validate_ip_address");
     }
-    if (validation_defs.has_int_lt())
-    {
-        int_string = std::to_string(validation_defs.int_lt());
+}
 
-        vars["ltvalue"] = int_string;
-        printer->Print(vars, "if (message->$fieldname$ >= $ltvalue$)\n");
-        printer->Print("{\n");
-        printer->Indent();
-        printer->Print(vars, "if (err_str)\n");
-        printer->Print("{\n");
-        printer->Indent();
-        printer->Print(vars, "snprintf (err_str, err_str_len, \"Field '$fieldname$' must be less than $ltvalue$.\");\n");
-        printer->Outdent();
-        printer->Print("}\n");
-        printer->Print("return false;\n");
-        printer->Outdent();
-        printer->Print("}\n");
+static void
+generate_field_validation (const FieldDescriptor *field, io::Printer* printer)
+{
+    FieldValidation validation_defs = field->options().GetExtension(validation);
+
+    if (validation_defs.has_int_ge())
+    {
+        generate_int_validation (field, printer, "cmsg_validate_int_ge",
+                                 validation_defs.int_ge());
+    }
+    if (validation_defs.has_int_le())
+    {
+        generate_int_validation (field, printer, "cmsg_validate_int_le",
+                                 validation_defs.int_le());
+    }
+    if (validation_defs.has_string_format())
+    {
+        generate_string_format_validation (field, printer);
     }
 }
 

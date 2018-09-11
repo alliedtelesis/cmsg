@@ -31,6 +31,7 @@ libcmsg_la_SOURCES = \
 	src/cmsg_sub.c \
 	src/cmsg_mesh.c \
 	src/cmsg_glib_helpers.c \
+	src/validation/cmsg_validation.c \
 	src/cmsg_pthread_helpers.c
 
 libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) -lprotobuf-c
@@ -40,7 +41,7 @@ libcmsg_la_LIBADD += -lcntr
 endif
 
 libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS) -include $(top_builddir)/config.h
-libcmsg_la_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg
+libcmsg_la_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include
 libcmsg_ladir       = $(includedir)/cmsg
 libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg.h \
@@ -57,6 +58,7 @@ libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg_broadcast_client.h \
 	include/cmsg/cmsg_mesh.h \
 	include/cmsg/cmsg_glib_helpers.h \
+	include/cmsg/cmsg_validation.h \
 	include/cmsg/cmsg_pthread_helpers.h
 
 BUILT_SOURCES = src/cmsg_sub_service.pb-c.c src/cmsg_sub_service.pb-c.h
