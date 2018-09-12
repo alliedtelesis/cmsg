@@ -505,6 +505,11 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
                                             sockets.client_socket, client->receive_timeout);
     }
 
+    /* Store the timeout in the transport so client receive can timeout properly */
+    if (client->_transport)
+    {
+        client->_transport->receive_timeout = timeout;
+    }
     return 0;
 }
 
