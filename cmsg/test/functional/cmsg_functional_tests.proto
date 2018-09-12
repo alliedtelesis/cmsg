@@ -11,7 +11,6 @@ package cmsg;
 
 message dummy
 {
-
 }
 
 message bool_msg
@@ -35,9 +34,21 @@ message bool_plus_repeated_strings
     repeated string strings = 2;
 }
 
-message message_with_validation
+message message_with_integer_validation
 {
-    optional uint32 gt_ten_lt_fifty = 2 [(validation) = {int_gt: 10, int_lt: 50}];
+    optional uint32 ge_ten_le_fifty = 2 [(validation) = {
+        int_ge: 10,
+        int_le: 50,
+        error_message: "Field 'ge_ten_le_fifty' failed validation."
+    }];
+}
+
+message message_with_string_validation
+{
+    optional string ip_address = 3 [(validation) = {
+        string_format: IP_ADDRESS,
+        error_message: "Field 'ip_address' must be in IP address format."
+    }];
 }
 
 service test
@@ -54,8 +65,11 @@ service test
     rpc simple_pub_queue_test_2 (uint32_msg) returns (dummy);
     rpc simple_pub_queue_test_3 (uint32_msg) returns (dummy);
     rpc broadcast_client_test (uint32_msg) returns (uint32_msg);
-    rpc server_side_validation_test (message_with_validation) returns (ant_result)
-    {
+    rpc server_side_validation_test_integers (message_with_integer_validation) returns (ant_result) {
         option (auto_validation) = true;
     }
+    rpc server_side_validation_test_strings (message_with_string_validation) returns (ant_result) {
+        option (auto_validation) = true;
+    }
+    rpc pthread_notification_test (uint32_msg) returns (dummy);
 }

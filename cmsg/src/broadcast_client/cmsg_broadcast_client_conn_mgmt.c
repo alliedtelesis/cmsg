@@ -238,6 +238,9 @@ cmsg_broadcast_conn_mgmt_init (cmsg_broadcast_client *broadcast_client)
         return CMSG_RET_ERR;
     }
 
+    cmsg_pthread_setname (broadcast_client->topology_thread,
+                          broadcast_client->service_entry_name, CMSG_BC_CLIENT_PREFIX);
+
     return CMSG_RET_OK;
 }
 

@@ -45,7 +45,8 @@ protoc_cmsg_SOURCES = \
 
 protoc_cmsgdir       = $(includedir)/cmsg
 protoc_cmsg_HEADERS  = \
-	http.proto
+	http.proto \
+	validation.proto
 
 protoc_cmsg_CXXFLAGS = \
 	-Werror \

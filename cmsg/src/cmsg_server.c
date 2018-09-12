@@ -62,7 +62,7 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
  * Create a new CMSG server (but without creating counters).
  */
 cmsg_server *
-cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
+cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
 {
     int32_t ret = 0;
     cmsg_server *server = NULL;
@@ -157,7 +157,7 @@ cmsg_server_create (cmsg_transport *transport, ProtobufCService *service)
  * Create a new CMSG server.
  */
 cmsg_server *
-cmsg_server_new (cmsg_transport *transport, ProtobufCService *service)
+cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
 {
     cmsg_server *server;
     server = cmsg_server_create (transport, service);
@@ -393,7 +393,11 @@ cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
 
     accept_event_fd = info->accept_sd_eventfd;
 
+    /* Explicitly set where the thread can be cancelled to avoid leaking
+     * connected sockets. */
+    pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
     ret = select (nfds + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
+    pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
     if (ret == -1)
     {
         if (errno == EINTR)
@@ -888,8 +892,9 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
     {
     case CMSG_METHOD_OK_TO_INVOKE:
     case CMSG_METHOD_INVOKING_FROM_QUEUE:
-        server->service->invoke (server->service, method_index, message,
-                                 server->closure, (void *) &closure_data);
+        server->service->invoke ((ProtobufCService *) server->service,
+                                 method_index, message, server->closure,
+                                 (void *) &closure_data);
 
         if (!(server->app_owns_current_msg || server->app_owns_all_msgs))
         {
@@ -947,7 +952,7 @@ cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
                            uint32_t method_index)
 {
     cmsg_server_request server_request;
-    ProtobufCService *service = server->service;
+    const ProtobufCService *service = server->service;
     const char *method_name;
 
     method_name = service->descriptor->methods[method_index].name;
@@ -1860,19 +1865,20 @@ cmsg_server_accept_thread (void *_info)
 
     while (1)
     {
-        /* Explicitly set where the thread can be cancelled. This ensures no
-         * data can be leaked if the thread is cancelled while accepting a
-         * connection. */
-        pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
         select (listen_socket + 1, &read_fds, NULL, NULL, NULL);
-        pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
 
         newfd = cmsg_server_accept (server, listen_socket);
         if (newfd >= 0)
         {
+            /* Explicitly set where the thread can be cancelled. This ensures no
+             * sockets can be leaked if the thread is cancelled after accepting
+             * a connection. */
+            pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
             newfd_ptr = CMSG_CALLOC (1, sizeof (int));
             *newfd_ptr = newfd;
             g_async_queue_push (info->accept_sd_queue, newfd_ptr);
+            pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+
             TEMP_FAILURE_RETRY (eventfd_write (info->accept_sd_eventfd, 1));
         }
     }
@@ -1933,6 +1939,8 @@ cmsg_server_accept_thread_init (cmsg_server *server)
         return NULL;
     }
 
+    cmsg_pthread_setname (info->server_accept_thread,
+                          server->service->descriptor->short_name, CMSG_ACCEPT_PREFIX);
     return info;
 }
 

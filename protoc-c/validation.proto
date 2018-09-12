@@ -2,13 +2,28 @@ syntax = "proto2";
 
 import "google/protobuf/descriptor.proto";
 
+enum common_string_format
+{
+    /* Either an IPv4 address or an IPv6 address */
+    IP_ADDRESS = 1;
+}
+
 // More options may be added in the future, see the following project for
 // potential options that could be implemented:
 // https://github.com/mwitkow/go-proto-validators/blob/master/validator.proto
 message FieldValidation
 {
-    optional int64 int_gt = 1;
-    optional int64 int_lt = 2;
+    /* The integer field value is strictly greater than or equal to this value */
+    optional int64 int_ge = 1;
+
+    /* The integer field value is strictly less than or equal to this value */
+    optional int64 int_le = 2;
+
+    /* Note that if the string field to test is NULL then this validation is not run */
+    optional common_string_format string_format = 3;
+
+    /* The error message to return if the field validation fails */
+    optional string error_message = 4;
 }
 
 // This extension can be used to tell the cmsg compiler to autogenerate a
