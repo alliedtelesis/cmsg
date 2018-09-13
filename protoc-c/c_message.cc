@@ -368,9 +368,18 @@ generate_string_format_validation (const FieldDescriptor *field, io::Printer* pr
     printer->Outdent();
     printer->Print("}\n");
 
-    if (format == IP_ADDRESS)
+    switch (format)
     {
+    case IP_ADDRESS:
         generate_str_validation (field, printer, "cmsg_validate_ip_address");
+        break;
+
+    case UTC_TIMESTAMP:
+        generate_str_validation (field, printer, "cmsg_validate_utc_timestamp");
+        break;
+
+    default:
+        break;
     }
 }
 

@@ -49,6 +49,10 @@ message message_with_string_validation
         string_format: IP_ADDRESS,
         error_message: "Field 'ip_address' must be in IP address format."
     }];
+    optional string timestamp = 4 [(validation) = {
+        string_format: UTC_TIMESTAMP,
+        error_message: "Field 'timestamp' must be in UTC timestamp format."
+    }];
 }
 
 service test
