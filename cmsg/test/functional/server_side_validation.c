@@ -302,3 +302,34 @@ test_ip_address_format_validation (void)
                      (&send_msg, err_str, sizeof (err_str)));
     NP_ASSERT_STR_EQUAL (err_str, "Field 'ip_address' must be in IP address format.");
 }
+
+/**
+ * Test that the auto generated UTC timestamp validate functionality works as
+ * expected for string fields.
+ */
+void
+test_utc_timestamp_format_validation (void)
+{
+    cmsg_message_with_string_validation send_msg = CMSG_MESSAGE_WITH_STRING_VALIDATION_INIT;
+    char err_str[512];
+
+    CMSG_SET_FIELD_PTR (&send_msg, ip_address, "127.0.0.1");
+
+    CMSG_SET_FIELD_PTR (&send_msg, timestamp, NULL);
+    NP_ASSERT_TRUE (cmsg_message_with_string_validation_validate
+                    (&send_msg, err_str, sizeof (err_str)));
+
+    CMSG_SET_FIELD_PTR (&send_msg, timestamp, "2019-02-02T11:11:11Z");
+    NP_ASSERT_TRUE (cmsg_message_with_string_validation_validate
+                    (&send_msg, err_str, sizeof (err_str)));
+
+    CMSG_SET_FIELD_PTR (&send_msg, timestamp, "2019/03/03T22:12:21");
+    NP_ASSERT_FALSE (cmsg_message_with_string_validation_validate
+                     (&send_msg, err_str, sizeof (err_str)));
+    NP_ASSERT_STR_EQUAL (err_str, "Field 'timestamp' must be in UTC timestamp format.");
+
+    CMSG_SET_FIELD_PTR (&send_msg, timestamp, "2019-03-03T22:12:21");
+    NP_ASSERT_FALSE (cmsg_message_with_string_validation_validate
+                     (&send_msg, err_str, sizeof (err_str)));
+    NP_ASSERT_STR_EQUAL (err_str, "Field 'timestamp' must be in UTC timestamp format.");
+}

@@ -120,3 +120,42 @@ cmsg_validate_ip_address (const char *input_string, const char *field_name,
 
     return true;
 }
+
+/**
+ * Validate a string is of timestamp format
+ *
+ * @param input_string - The string in the input message field.
+ * @param field_name - The name of the field in the message containing the string.
+ * @param supplied_error_message - Prints a custom error message if supplied.
+ * @param err_str - Pointer to a char array to store an error message, this may be NULL.
+ * @param err_str_len - The length of the array to store the error message in.
+ */
+bool
+cmsg_validate_utc_timestamp (const char *input_string, const char *field_name,
+                             const char *supplied_error_message,
+                             char *err_str, uint32_t err_str_len)
+{
+    char *str;
+    struct tm date;
+
+    str = strptime (input_string, "%Y-%m-%dT%H:%M:%SZ", &date);
+
+    if (str == NULL || str[0] != '\0')
+    {
+        if (err_str)
+        {
+            if (supplied_error_message)
+            {
+                snprintf (err_str, err_str_len, supplied_error_message);
+            }
+            else
+            {
+                snprintf (err_str, err_str_len,
+                          "Field '%s' must be in UTC timestamp format.", field_name);
+            }
+        }
+        return false;
+    }
+
+    return true;
+}
