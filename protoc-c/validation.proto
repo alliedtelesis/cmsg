@@ -8,7 +8,7 @@ enum common_string_format
     IP_ADDRESS = 1;
 
     /* ISO 8601 UTC timestamp. i.e "yyyy-mm-ddTHH:MM:SSZ" */
-    UTC_Thu 13 Sep 2018 02:18:53 PM NZST = 2;
+    UTC_TIMESTAMP = 2;
 }
 
 // More options may be added in the future, see the following project for
