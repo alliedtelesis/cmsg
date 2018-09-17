@@ -371,6 +371,10 @@ generate_string_format_validation (const FieldDescriptor *field, io::Printer* pr
         generate_str_validation (field, printer, "cmsg_validate_utc_timestamp");
         break;
 
+    case MAC_ADDRESS:
+        generate_str_validation (field, printer, "cmsg_validate_mac_address");
+        break;
+
     default:
         break;
     }

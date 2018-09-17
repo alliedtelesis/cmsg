@@ -36,7 +36,7 @@ message bool_plus_repeated_strings
 
 message message_with_integer_validation
 {
-    optional uint32 ge_ten_le_fifty = 2 [(validation) = {
+    optional uint32 ge_ten_le_fifty = 1 [(validation) = {
         int_ge: 10,
         int_le: 50,
         error_message: "Field 'ge_ten_le_fifty' failed validation."
@@ -45,13 +45,17 @@ message message_with_integer_validation
 
 message message_with_string_validation
 {
-    optional string ip_address = 3 [(validation) = {
+    optional string ip_address = 1 [(validation) = {
         string_format: IP_ADDRESS,
         error_message: "Field 'ip_address' must be in IP address format."
     }];
-    optional string timestamp = 4 [(validation) = {
+    optional string timestamp = 2 [(validation) = {
         string_format: UTC_TIMESTAMP,
         error_message: "Field 'timestamp' must be in UTC timestamp format."
+    }];
+    optional string mac_address = 3 [(validation) = {
+        string_format: MAC_ADDRESS,
+        error_message: "Field 'mac_address' must be in MAC address format."
     }];
 }
 

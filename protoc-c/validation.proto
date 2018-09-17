@@ -9,6 +9,10 @@ enum common_string_format
 
     /* ISO 8601 UTC timestamp. i.e "yyyy-mm-ddTHH:MM:SSZ" */
     UTC_TIMESTAMP = 2;
+
+    /* Three groups of four hexadecimal digits, separated by dots. Both uppercase
+     * and lowercase characters are accepted. i.e. 0123.ABcd.ff12 */
+    MAC_ADDRESS = 3;
 }
 
 // More options may be added in the future, see the following project for
