@@ -313,8 +313,6 @@ test_utc_timestamp_format_validation (void)
     cmsg_message_with_string_validation send_msg = CMSG_MESSAGE_WITH_STRING_VALIDATION_INIT;
     char err_str[512];
 
-    CMSG_SET_FIELD_PTR (&send_msg, ip_address, "127.0.0.1");
-
     CMSG_SET_FIELD_PTR (&send_msg, timestamp, NULL);
     NP_ASSERT_TRUE (cmsg_message_with_string_validation_validate
                     (&send_msg, err_str, sizeof (err_str)));
