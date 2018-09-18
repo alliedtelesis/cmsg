@@ -142,6 +142,7 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
 
         server->app_owns_current_msg = false;
         server->app_owns_all_msgs = false;
+        server->suppress_errors = false;
     }
     else
     {
@@ -218,6 +219,24 @@ cmsg_server_destroy (cmsg_server *server)
 
     CMSG_FREE (server);
 }
+
+/**
+ * Suppress log-level syslog to debug-level for the server.
+ * @param server    CMSG server
+ * @param enable    Enable/disable error-log suppression
+ */
+void
+cmsg_server_suppress_error (cmsg_server *server, cmsg_bool_t enable)
+{
+    server->suppress_errors = enable;
+
+    /* Apply to transport as well */
+    if (server->_transport)
+    {
+        server->_transport->suppress_errors = enable;
+    }
+}
+
 
 // create counters
 int32_t

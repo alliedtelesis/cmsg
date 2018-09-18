@@ -71,6 +71,9 @@ typedef struct _cmsg_server_s
     //that cmsg will NEVER free recv msgs for this
     //server
 
+    // flag to tell error-level log to be suppressed to debug-level
+    cmsg_bool_t suppress_errors;
+
     //counter information
     void *cntr_session;
     // counterd counters
@@ -217,5 +220,7 @@ void cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *inp
 
 cmsg_server_accept_thread_info *cmsg_server_accept_thread_init (cmsg_server *server);
 void cmsg_server_accept_thread_deinit (cmsg_server_accept_thread_info *info);
+
+void cmsg_server_suppress_error (cmsg_server *server, cmsg_bool_t enable);
 
 #endif /* __CMSG_SERVER_H_ */

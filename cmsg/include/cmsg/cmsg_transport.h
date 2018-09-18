@@ -142,6 +142,9 @@ struct _cmsg_transport_s
     // sets IP_FREEBIND in socket options
     cmsg_bool_t use_ipfree_bind;
 
+    // flag to tell error-level log to be suppressed to debug-level
+    cmsg_bool_t suppress_errors;
+
     cmsg_connection connection;
     pthread_mutex_t connection_mutex;
 

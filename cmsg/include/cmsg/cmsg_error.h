@@ -10,7 +10,7 @@
 /* For client object errors */
 #define CMSG_LOG_CLIENT_ERROR(client, msg, ...) \
     do { \
-       /* if the client doesn't care abut errors, just downgrade them to debug */ \
+       /* if the client doesn't care about errors, just downgrade them to debug */ \
        if (client->suppress_errors) { \
          CMSG_LOG_OBJ_DEBUG (client, client->_transport, msg, ## __VA_ARGS__); \
        } else { \
@@ -19,7 +19,15 @@
     } while (0)
 
 /* For server object errors */
-#define CMSG_LOG_SERVER_ERROR(server, msg, ...) CMSG_LOG_OBJ_ERROR (server, server->_transport, msg, ## __VA_ARGS__)
+#define CMSG_LOG_SERVER_ERROR(server, msg, ...) \
+    do { \
+        /* if the server doesn't care about errors, just downgrade them to debug */ \
+        if (server->suppress_errors) { \
+            CMSG_LOG_OBJ_DEBUG (server, server->_transport, msg, ## __VA_ARGS__); \
+        } else { \
+            CMSG_LOG_OBJ_ERROR (server, server->_transport, msg, ## __VA_ARGS__); \
+        } \
+    } while (0)
 
 /* For publisher object errors */
 #define CMSG_LOG_PUBLISHER_ERROR(publisher, msg, ...) CMSG_LOG_OBJ_ERROR (publisher, publisher->sub_server->_transport, msg, ## __VA_ARGS__)

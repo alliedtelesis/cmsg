@@ -1338,6 +1338,12 @@ void
 cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable)
 {
     client->suppress_errors = enable;
+
+    /* Apply to transport as well */
+    if (client->_transport)
+    {
+        client->_transport->suppress_errors = enable;
+    }
 }
 
 /* Create a cmsg client and its transport with TIPC (RPC) */
