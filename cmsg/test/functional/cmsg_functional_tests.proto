@@ -57,10 +57,6 @@ message message_with_string_validation
         string_format: MAC_ADDRESS,
         error_message: "Field 'mac_address' must be in MAC address format."
     }];
-    optional string timestamp = 4 [(validation) = {
-        string_format: UTC_TIMESTAMP,
-        error_message: "Field 'timestamp' must be in UTC timestamp format."
-    }];
 }
 
 service test
