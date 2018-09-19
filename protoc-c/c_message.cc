@@ -342,8 +342,8 @@ generate_str_validation (const FieldDescriptor *field, io::Printer* printer,
     vars["fieldname"] = field->name();
     vars["function_name"] = function_name;
 
-    printer->Print(vars, "if (!$function_name$ (message->$fieldname$, \"$fieldname$\",\n");
-    printer->Print(vars, "                      \"$error_message$\", err_str, err_str_len))\n");
+    printer->Print(vars, "if (message->$fieldname$ && !$function_name$ (message->$fieldname$, \"$fieldname$\",\n");
+    printer->Print(vars, "                                              \"$error_message$\", err_str, err_str_len))\n");
     printer->Print("{\n");
     printer->Indent();
     printer->Print("return false;\n");
@@ -361,13 +361,6 @@ generate_string_format_validation (const FieldDescriptor *field, io::Printer* pr
 
     vars["fieldname"] = field->name();
 
-    printer->Print(vars, "if (!message->$fieldname$)\n");
-    printer->Print("{\n");
-    printer->Indent();
-    printer->Print("return true;\n");
-    printer->Outdent();
-    printer->Print("}\n");
-
     switch (format)
     {
     case IP_ADDRESS:
@@ -376,6 +369,10 @@ generate_string_format_validation (const FieldDescriptor *field, io::Printer* pr
 
     case UTC_TIMESTAMP:
         generate_str_validation (field, printer, "cmsg_validate_utc_timestamp");
+        break;
+
+    case MAC_ADDRESS:
+        generate_str_validation (field, printer, "cmsg_validate_mac_address");
         break;
 
     default:

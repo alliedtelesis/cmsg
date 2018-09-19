@@ -34,7 +34,7 @@ libcmsg_la_SOURCES = \
 	src/validation/cmsg_validation.c \
 	src/cmsg_pthread_helpers.c
 
-libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) -lprotobuf-c
+libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr

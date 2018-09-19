@@ -17,7 +17,9 @@
 /* For transport related errors */
 #define CMSG_LOG_TRANSPORT_ERROR(transport, msg, ...) \
     do { \
-         syslog (LOG_ERR | LOG_LOCAL6, "CMSG(%d).tport.%s%s: " msg, __LINE__, transport->parent_obj_id, transport->tport_id, ## __VA_ARGS__); \
+        syslog ((transport->suppress_errors ? LOG_DEBUG : LOG_ERR) | LOG_LOCAL6, \
+                "CMSG(%d).tport.%s%s: " msg, \
+                __LINE__, transport->parent_obj_id, transport->tport_id, ## __VA_ARGS__); \
     } while (0)
 
 void cmsg_transport_tipc_init (cmsg_transport *transport);

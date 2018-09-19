@@ -435,10 +435,19 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
         printer->Print("{\n");
         printer->Indent();
         printer->Print("call_impl = false;\n");
-        printer->Print("ant_result send_msg = ANT_RESULT_INIT;\n");
-        printer->Print("CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_INVALID_ARGUMENT);\n");
-        printer->Print("CMSG_SET_FIELD_PTR (&send_msg, message, err_str);\n");
-        printer->Print(vars_, "$lcfullname$_server_$method$Send (_service, &send_msg);\n");
+        printer->Print(vars_, "ant_result ant_result_msg = ANT_RESULT_INIT;\n");
+        printer->Print("CMSG_SET_FIELD_VALUE (&ant_result_msg, code, ANT_CODE_INVALID_ARGUMENT);\n");
+        printer->Print("CMSG_SET_FIELD_PTR (&ant_result_msg, message, err_str);\n");
+        if (strcmp (method->output_type()->full_name().c_str(), "ant_result") == 0)
+        {
+            printer->Print(vars_, "$lcfullname$_server_$method$Send (_service, &ant_result_msg);\n");
+        }
+        else
+        {
+            printer->Print(vars_, "$output_typename$ send_msg = $output_typename_upper$_INIT;\n");
+            printer->Print("CMSG_SET_FIELD_PTR (&send_msg, _error_info, &ant_result_msg);\n");
+            printer->Print(vars_, "$lcfullname$_server_$method$Send (_service, &send_msg);\n");
+        }
         printer->Outdent();
         printer->Print("}\n");
     }
