@@ -286,6 +286,22 @@ static bool message_has_validation(const Descriptor *message)
         {
             return true;
         }
+        if (field->type() == FieldDescriptor::TYPE_MESSAGE)
+         {
+              const Descriptor *submessage = field->message_type();
+
+              /* Check that the sub message type is not the same as the parent message
+               * to avoid infinite recursion. */
+              if (strcmp (message->name().c_str(), submessage->name().c_str()) == 0)
+              {
+                  continue;
+              }
+
+              if (message_has_validation(submessage))
+              {
+                  return true;
+              }
+         }
     }
 
     return false;
@@ -412,6 +428,22 @@ generate_fields_validation (const Descriptor *message, io::Printer* printer)
         if (field->options().HasExtension(validation))
         {
             generate_field_validation (field, printer);
+            continue;
+        }
+        if (field->type() == FieldDescriptor::TYPE_MESSAGE &&
+            message_has_validation (field->message_type()))
+        {
+            std::map<string, string> vars;
+            const Descriptor *submessage = field->message_type();
+            vars["lcclassname"] = FullNameToLower(submessage->full_name());
+            vars["fieldname"] = field->name();
+
+            printer->Print(vars, "if (!$lcclassname$_validate (message->$fieldname$ , err_str, err_str_len))\n");
+            printer->Print("{\n");
+            printer->Indent();
+            printer->Print("return false;\n");
+            printer->Outdent();
+            printer->Print("}\n");
         }
     }
 }
