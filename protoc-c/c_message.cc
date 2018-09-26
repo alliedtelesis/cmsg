@@ -438,7 +438,7 @@ generate_fields_validation (const Descriptor *message, io::Printer* printer)
             vars["lcclassname"] = FullNameToLower(submessage->full_name());
             vars["fieldname"] = field->name();
 
-            printer->Print(vars, "if (!$lcclassname$_validate (message->$fieldname$ , err_str, err_str_len))\n");
+            printer->Print(vars, "if (message->$fieldname$ && !$lcclassname$_validate (message->$fieldname$ , err_str, err_str_len))\n");
             printer->Print("{\n");
             printer->Indent();
             printer->Print("return false;\n");
