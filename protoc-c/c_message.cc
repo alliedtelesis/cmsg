@@ -464,6 +464,12 @@ generate_validation_function (const Descriptor *message, io::Printer* printer)
     printer->Print(vars, "bool $lcclassname$_validate (const $classname$ *message, char *err_str, uint32_t err_str_len)\n");
     printer->Print("{\n");
     printer->Indent();
+    printer->Print(vars, "if (!message)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return true;\n");
+    printer->Outdent();
+    printer->Print("}\n");
     generate_fields_validation (message, printer);
     printer->Print("return true;\n");
     printer->Outdent();
