@@ -73,9 +73,6 @@ cmsg_transport_tcp_listen (cmsg_transport *transport)
     int32_t listening_socket = -1;
     int32_t ret = 0;
     socklen_t addrlen = 0;
-#ifndef DEBUG_DISABLED
-    int port = 0;
-#endif
 
     listening_socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
     if (listening_socket == -1)
