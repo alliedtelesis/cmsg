@@ -261,7 +261,6 @@ void
 cmsg_proxy_streaming_delete_conn_by_id (uint32_t id)
 {
     GList *iter;
-    bool found = false;
     cmsg_proxy_stream_connection *connection_info = NULL;
 
     pthread_mutex_lock (&stream_connections_mutex);
@@ -270,15 +269,12 @@ cmsg_proxy_streaming_delete_conn_by_id (uint32_t id)
         connection_info = (cmsg_proxy_stream_connection *) iter->data;
         if (connection_info->id == id)
         {
-            found = true;
+            stream_connections_list = g_list_remove (stream_connections_list,
+                                                     connection_info);
+            pthread_mutex_destroy (&connection_info->lock);
+            CMSG_PROXY_FREE (connection_info);
             break;
         }
-    }
-    if (found)
-    {
-        stream_connections_list = g_list_remove (stream_connections_list, connection_info);
-        pthread_mutex_destroy (&connection_info->lock);
-        CMSG_PROXY_FREE (connection_info);
     }
     pthread_mutex_unlock (&stream_connections_mutex);
 }
@@ -306,12 +302,13 @@ cmsg_proxy_streaming_lookup_conn_by_id (uint32_t id)
             pthread_mutex_lock (&connection_info->lock);
             connection_info->in_use = true;
             pthread_mutex_unlock (&connection_info->lock);
-            break;
+            pthread_mutex_unlock (&stream_connections_mutex);
+            return connection_info;
         }
     }
-    pthread_mutex_unlock (&stream_connections_mutex);
 
-    return connection_info;
+    pthread_mutex_unlock (&stream_connections_mutex);
+    return NULL;
 }
 
 /**
@@ -414,7 +411,6 @@ void
 cmsg_proxy_streaming_conn_timeout (void *connection)
 {
     GList *iter;
-    bool found = false;
     cmsg_proxy_stream_connection *connection_info = NULL;
 
     pthread_mutex_lock (&stream_connections_mutex);
@@ -423,14 +419,11 @@ cmsg_proxy_streaming_conn_timeout (void *connection)
         connection_info = (cmsg_proxy_stream_connection *) iter->data;
         if (connection_info->connection == connection)
         {
-            found = true;
+            stream_connections_list = g_list_remove (stream_connections_list,
+                                                     connection_info);
+            cmsg_proxy_streaming_delete_conn_info (connection_info);
             break;
         }
-    }
-    if (found)
-    {
-        stream_connections_list = g_list_remove (stream_connections_list, connection_info);
-        cmsg_proxy_streaming_delete_conn_info (connection_info);
     }
     pthread_mutex_unlock (&stream_connections_mutex);
 }
