@@ -146,6 +146,83 @@ cmsg_pthread_unix_subscriber_init (pthread_t *thread, const ProtobufCService *se
 }
 
 /**
+ * Creates a cmsg subscriber using a tipc transport, subscribes to the input list of
+ * events and finally begins processing the received events in a new thread.
+ *
+ * @param thread - Pointer to a pthread_t variable to create the thread.
+ * @param service - The CMSG service to subscribe to.
+ * @param events - An array of strings containing the events to subscribe to. This
+ *                 array should be NULL terminated, i.e. { "event1", "event2", NULL }.
+ * @param subscriber_service_name - The service name of the subscriber. Note that it is
+ *                                  important that if there are multiple subscribers on the
+ *                                  same node then they need to use different port numbers,
+ *                                  and hence different subscriber service names.
+ * @param publisher_service_name - The service name of the publisher to subscribe to.
+ * @param this_node_id - The TIPC node id of this node.
+ * @param scope - The TIPC scope to use.
+ *
+ * Note that this thread can be cancelled using 'pthread_cancel' and then should
+ * be joined using 'pthread_join'. At this stage the subscriber can then be destroyed
+ * using 'cmsg_destroy_subscriber_and_transport'.
+ */
+cmsg_sub *
+cmsg_pthread_tipc_subscriber_init (pthread_t *thread, const ProtobufCService *service,
+                                   const char **events, const char *subscriber_service_name,
+                                   const char *publisher_service_name,
+                                   int this_node_id, int scope)
+{
+    cmsg_transport *transport_r = NULL;
+    cmsg_sub *sub = NULL;
+
+    sub = cmsg_create_subscriber_tipc_oneway (subscriber_service_name, this_node_id,
+                                              scope, service);
+
+    /* Subscribe to events */
+    if (events)
+    {
+        transport_r = cmsg_create_transport_tipc_rpc (publisher_service_name, this_node_id,
+                                                      scope);
+        cmsg_sub_subscribe_events (sub, transport_r, events);
+        cmsg_transport_destroy (transport_r);
+    }
+
+    if (!cmsg_pthread_server_init (thread, sub->pub_server))
+    {
+        syslog (LOG_ERR, "Failed to start subscriber processing thread");
+        cmsg_destroy_subscriber_and_transport (sub);
+        return NULL;
+    }
+
+    return sub;
+}
+
+static cmsg_pub *
+cmsg_pthread_publisher_init (pthread_t *thread, cmsg_transport *transport,
+                             const ProtobufCServiceDescriptor *service_desc)
+{
+    cmsg_pub *pub = NULL;
+
+    pub = cmsg_pub_new (transport, service_desc);
+    if (!pub)
+    {
+        syslog (LOG_ERR, "Failed to initialize the CMSG publisher");
+        return NULL;
+    }
+
+    if (!cmsg_pthread_server_init (thread, pub->sub_server))
+    {
+        syslog (LOG_ERR, "Failed to start publisher listening thread");
+        cmsg_pub_destroy (pub);
+        return NULL;
+    }
+
+    cmsg_pub_queue_enable (pub);
+    cmsg_pub_queue_thread_start (pub);
+
+    return pub;
+}
+
+/**
  * Creates a cmsg publisher using a unix transport and begins processing the
  * received subscription requests in a new thread. Note that this function
  * automatically begins queueing the published events and sends them from yet
@@ -167,23 +244,48 @@ cmsg_pthread_unix_publisher_init (pthread_t *thread,
     cmsg_pub *pub = NULL;
 
     transport = cmsg_create_transport_unix (service_desc, CMSG_TRANSPORT_RPC_UNIX);
-    pub = cmsg_pub_new (transport, service_desc);
+    pub = cmsg_pthread_publisher_init (thread, transport, service_desc);
     if (!pub)
     {
-        syslog (LOG_ERR, "Failed to initialize the CMSG publisher");
         cmsg_transport_destroy (transport);
-        return NULL;
     }
 
-    if (!cmsg_pthread_server_init (thread, pub->sub_server))
+    return pub;
+}
+
+/**
+ * Creates a cmsg publisher using a tipc transport and begins processing the
+ * received subscription requests in a new thread. Note that this function
+ * automatically begins queueing the published events and sends them from yet
+ * another thread to avoid any potential deadlock.
+ *
+ * @param thread - Pointer to a pthread_t variable to create the thread.
+ * @param service_desc - The CMSG service descriptor to publish for.
+ * @param publisher_service_name - The service name of the publisher.
+ * @param this_node_id - The TIPC node id of this node.
+ * @param  scope - The TIPC scope to use.
+ *
+ * Note that this thread can be cancelled using 'pthread_cancel' and then should
+ * be joined using 'pthread_join'. At this stage the function 'cmsg_pub_queue_thread_stop'
+ * should be called with the publisher before finally destroying it using
+ * 'cmsg_destroy_publisher_and_transport'.
+ */
+cmsg_pub *
+cmsg_pthread_tipc_publisher_init (pthread_t *thread,
+                                  const ProtobufCServiceDescriptor *service_desc,
+                                  const char *publisher_service_name, int this_node_id,
+                                  int scope)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_pub *pub = NULL;
+
+    transport = cmsg_create_transport_tipc_rpc (publisher_service_name, this_node_id,
+                                                scope);
+    pub = cmsg_pthread_publisher_init (thread, transport, service_desc);
+    if (!pub)
     {
-        syslog (LOG_ERR, "Failed to start publisher listening thread");
-        cmsg_destroy_publisher_and_transport (pub);
-        return NULL;
+        cmsg_transport_destroy (transport);
     }
-
-    cmsg_pub_queue_enable (pub);
-    cmsg_pub_queue_thread_start (pub);
 
     return pub;
 }

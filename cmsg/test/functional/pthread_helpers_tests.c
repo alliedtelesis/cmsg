@@ -17,7 +17,29 @@
  */
 #define USED __attribute__ ((used))
 
-static bool notification_received = false;
+static const uint16_t tipc_publisher_port = 18888;
+static const uint16_t tipc_subscriber_port = 18889;
+static const uint16_t tipc_instance = 1;
+static const uint16_t tipc_scope = TIPC_NODE_SCOPE;
+
+static bool notification_received;
+
+static int
+sm_mock_cmsg_service_port_get (const char *name, const char *proto)
+{
+    if ((strcmp (name, "cmsg-test-publisher") == 0) && (strcmp (proto, "tipc") == 0))
+    {
+        return tipc_publisher_port;
+    }
+    if ((strcmp (name, "cmsg-test-subscriber") == 0) && (strcmp (proto, "tipc") == 0))
+    {
+        return tipc_subscriber_port;
+    }
+
+    NP_FAIL;
+
+    return 0;
+}
 
 /**
  * Common functionality to run before each test case.
@@ -25,8 +47,13 @@ static bool notification_received = false;
 static int USED
 set_up (void)
 {
+    np_mock (cmsg_service_port_get, sm_mock_cmsg_service_port_get);
+
     /* Ignore SIGPIPE signal if it occurs */
     signal (SIGPIPE, SIG_IGN);
+
+    notification_received = false;
+
     return 0;
 }
 
@@ -103,19 +130,12 @@ send_notification (cmsg_pub *pub)
  * Run a basic RPC test with a server created using 'cmsg_pthread_server_init'.
  */
 void
-test_cmsg_pthread_publisher_subscriber (void)
+_test_cmsg_pthread_publisher_subscriber (cmsg_pub *pub, cmsg_sub *sub,
+                                         cmsg_transport *transport_r,
+                                         pthread_t *publisher_thread,
+                                         pthread_t *subscriber_thread)
 {
     int ret = 0;
-    const char *events[] = { "pthread_notification_test", NULL };
-    pthread_t subscriber_thread;
-    pthread_t publisher_thread;
-    cmsg_pub *pub = NULL;
-    cmsg_sub *sub = NULL;
-
-    pub = cmsg_pthread_unix_publisher_init (&publisher_thread,
-                                            CMSG_DESCRIPTOR (cmsg, test));
-    sub = cmsg_pthread_unix_subscriber_init (&subscriber_thread,
-                                             CMSG_SERVICE (cmsg, test), events);
 
     send_notification (pub);
 
@@ -123,23 +143,67 @@ test_cmsg_pthread_publisher_subscriber (void)
     sleep (1);
 
     /* Unsubscribe - This fixes a socket leak found by valgrind, somehow... */
-    cmsg_transport *transport_r = cmsg_create_transport_unix (CMSG_DESCRIPTOR (cmsg, test),
-                                                              CMSG_TRANSPORT_RPC_UNIX);
     cmsg_sub_unsubscribe (sub, transport_r, "pthread_notification_test");
     cmsg_transport_destroy (transport_r);
 
-    ret = pthread_cancel (subscriber_thread);
+    ret = pthread_cancel (*subscriber_thread);
     NP_ASSERT_EQUAL (ret, 0);
-    ret = pthread_join (subscriber_thread, NULL);
+    ret = pthread_join (*subscriber_thread, NULL);
     NP_ASSERT_EQUAL (ret, 0);
     cmsg_destroy_subscriber_and_transport (sub);
 
-    ret = pthread_cancel (publisher_thread);
+    ret = pthread_cancel (*publisher_thread);
     NP_ASSERT_EQUAL (ret, 0);
-    ret = pthread_join (publisher_thread, NULL);
+    ret = pthread_join (*publisher_thread, NULL);
     NP_ASSERT_EQUAL (ret, 0);
     cmsg_pub_queue_thread_stop (pub);
     cmsg_destroy_publisher_and_transport (pub);
 
     NP_ASSERT_TRUE (notification_received);
+}
+
+void
+test_cmsg_pthread_publisher_subscriber_unix (void)
+{
+    cmsg_pub *pub = NULL;
+    cmsg_sub *sub = NULL;
+    cmsg_transport *transport_r = NULL;
+    pthread_t subscriber_thread;
+    pthread_t publisher_thread;
+    const char *events[] = { "pthread_notification_test", NULL };
+
+    pub = cmsg_pthread_unix_publisher_init (&publisher_thread,
+                                            CMSG_DESCRIPTOR (cmsg, test));
+    sub = cmsg_pthread_unix_subscriber_init (&subscriber_thread,
+                                             CMSG_SERVICE (cmsg, test), events);
+    transport_r = cmsg_create_transport_unix (CMSG_DESCRIPTOR (cmsg, test),
+                                              CMSG_TRANSPORT_RPC_UNIX);
+
+    _test_cmsg_pthread_publisher_subscriber (pub, sub, transport_r, &publisher_thread,
+                                             &subscriber_thread);
+}
+
+void
+test_cmsg_pthread_publisher_subscriber_tipc (void)
+{
+    cmsg_pub *pub = NULL;
+    cmsg_sub *sub = NULL;
+    pthread_t subscriber_thread;
+    pthread_t publisher_thread;
+    cmsg_transport *transport_r = NULL;
+    const char *events[] = { "pthread_notification_test", NULL };
+
+    pub = cmsg_pthread_tipc_publisher_init (&publisher_thread,
+                                            CMSG_DESCRIPTOR (cmsg, test),
+                                            "cmsg-test-publisher", tipc_instance,
+                                            tipc_scope);
+    sub = cmsg_pthread_tipc_subscriber_init (&subscriber_thread,
+                                             CMSG_SERVICE (cmsg, test), events,
+                                             "cmsg-test-subscriber", "cmsg-test-publisher",
+                                             tipc_instance, tipc_scope);
+    transport_r = cmsg_create_transport_tipc_rpc ("cmsg-test-publisher", tipc_instance,
+                                                  tipc_scope);
+
+    _test_cmsg_pthread_publisher_subscriber (pub, sub, transport_r, &publisher_thread,
+                                             &subscriber_thread);
 }
