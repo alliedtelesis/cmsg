@@ -6,6 +6,7 @@
 #define __CMSG_PROXY_PRIVATE_H_
 
 #include "ant_result.pb-c.h"
+#include <protobuf2json.h>
 
 typedef struct _cmsg_proxy_processing_info
 {
@@ -27,6 +28,8 @@ void cmsg_proxy_json_t_to_output (json_t *json_data, size_t json_flags,
                                   cmsg_proxy_output *output);
 
 bool cmsg_proxy_msg_has_file (const ProtobufCMessageDescriptor *msg_descriptor);
+
+bool cmsg_proxy_field_is_hidden (const char *field_name);
 
 json_t *cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descriptor,
                                          const char *value);

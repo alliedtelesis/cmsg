@@ -421,6 +421,35 @@ functional_tests_impl_test_body_mapped_to_nothing (const void *service,
 }
 
 void
+functional_tests_impl_test_accept_empty_body_primitive (const void *service,
+                                                        const test_body_single_primitive
+                                                        *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_NULL (recv_msg->field_a);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, message, NULL);
+
+    functional_tests_server_test_accept_empty_body_primitiveSend (service, &send_msg);
+}
+
+void
+functional_tests_impl_test_accept_empty_body_sub_message (const void *service,
+                                                          const test_body_msg *recv_msg)
+{
+    ant_result send_msg = ANT_RESULT_INIT;
+
+    NP_ASSERT_NULL (recv_msg->field_c);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, message, NULL);
+
+    functional_tests_server_test_accept_empty_body_sub_messageSend (service, &send_msg);
+}
+
+void
 functional_tests_impl_test_internal_web_api_info_set (const void *service,
                                                       const internal_api_info_test
                                                       *recv_msg)
@@ -1178,6 +1207,55 @@ test_body_mapped_to_nothing (void)
     cmsg_proxy_free_output_contents (&output);
 }
 
+/**
+ * Test that an error is returned when passing no input to APIs that expect an input
+ * unless body string is "*".
+ */
+void
+test_missing_body_data (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    const char *expected_error_output =
+        "{"
+        "\"code\":\"ANT_CODE_INVALID_ARGUMENT\","
+        "\"message\":\"Invalid JSON: Input expected but not provided.\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.http_verb = CMSG_HTTP_POST;
+
+    input.url = "/test_body_mapped_to_primitive/Bar";
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_BAD_REQUEST);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_error_output);
+    cmsg_proxy_free_output_contents (&output);
+    output.response_body = NULL;
+
+    input.url = "/test_body_mapped_to_sub_message/Bar";
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_BAD_REQUEST);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_error_output);
+    cmsg_proxy_free_output_contents (&output);
+
+    input.url = "/test_accept_empty_body_primitive";
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_OK);
+    cmsg_proxy_free_output_contents (&output);
+
+    input.url = "/test_accept_empty_body_sub_message/Bar/Foo";
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_OK);
+    cmsg_proxy_free_output_contents (&output);
+
+    input.url = "/test_accept_empty_body_multiple_fields/Bar";
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_OK);
+    cmsg_proxy_free_output_contents (&output);
+}
+
 void
 test_internal_web_api_info_set (void)
 {
@@ -1366,6 +1444,8 @@ _check_file_response (cmsg_proxy_output *output)
     int i;
     char *filename_header_value = NULL;
 
+    NP_ASSERT_EQUAL (output->http_status, HTTP_CODE_OK);
+
     // Filename is expected to be set to "unknown" if it is not provided.
     NP_ASSERT (asprintf (&filename_header_value, cmsg_filename_header_format,
                          expected_file_name ? : "unknown") > 0);
@@ -1375,7 +1455,6 @@ _check_file_response (cmsg_proxy_output *output)
     {
         NP_ASSERT_EQUAL (output->response_body[i], expected_file_data[i]);
     }
-    NP_ASSERT_EQUAL (output->http_status, HTTP_CODE_OK);
 
     NP_ASSERT_STR_EQUAL (output->mime_type, cmsg_mime_octet_stream);
     NP_ASSERT_NOT_NULL (output->extra_headers);
