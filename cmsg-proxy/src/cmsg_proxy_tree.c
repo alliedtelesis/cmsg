@@ -12,6 +12,7 @@
 #include "cmsg_proxy_tree.h"
 #include "cmsg_proxy_mem.h"
 #include "cmsg_proxy_counters.h"
+#include "cmsg_proxy_private.h"
 
 #define CMSG_PROXY_LIB_PATH "/usr/lib"
 
@@ -324,6 +325,70 @@ cmsg_proxy_allowed_conflicts__DEPRECATED (const char *url)
 }
 
 /**
+ * Checks that the API is not incorrectly using '*' for body string
+ * @param service_info info for the API being added
+ * @returns false if the API has body string '*' and all input message fields are either URL
+ *          parameters or hidden fields (excluding _file)
+ *          else true
+ */
+static bool
+cmsg_proxy_body_string_check (const cmsg_service_info *service_info)
+{
+    char *tmp_url = NULL;
+    char *next_entry = NULL;
+    char *rest = NULL;
+    int url_parameters = 0;
+    int expected_fields = 0;
+    const ProtobufCFieldDescriptor *field_desc = NULL;
+    int i = 0;
+    bool ret = true;
+
+    if (strcmp (service_info->body_string, "*") == 0)
+    {
+        /* If the message has a hidden '_file' field, we expect input */
+        if (cmsg_proxy_msg_has_file (service_info->input_msg_descriptor))
+        {
+            return true;
+        }
+
+        tmp_url = CMSG_PROXY_STRDUP (service_info->url_string);
+
+        /* Count URL parameters that aren't expected as body fields */
+        for (next_entry = strtok_r (tmp_url, "/", &rest); next_entry;
+             next_entry = strtok_r (NULL, "/", &rest))
+        {
+            if (cmsg_proxy_token_is_url_param (next_entry))
+            {
+                url_parameters++;
+            }
+        }
+
+        expected_fields = service_info->input_msg_descriptor->n_fields - url_parameters;
+        for (i = 0; i < service_info->input_msg_descriptor->n_fields; i++)
+        {
+            field_desc = &(service_info->input_msg_descriptor->fields[i]);
+
+            /* Subtract hidden fields from number of expected fields. */
+            if (cmsg_proxy_field_is_hidden (field_desc->name))
+            {
+                expected_fields--;
+            }
+        }
+
+        if (expected_fields == 0)
+        {
+            syslog (LOG_ERR, "URL '%s' expects no body data but has body string '*'",
+                    service_info->url_string);
+            ret = false;
+        }
+
+        CMSG_PROXY_FREE (tmp_url);
+    }
+
+    return ret;
+}
+
+/**
  * Parse the given URL string and add to proxy_entries_tree.
  * Add 'cmsg_service_info' to the leaf node.
  * The parser believes the received 'url' is in the correct format.
@@ -419,6 +484,13 @@ cmsg_proxy_service_info_add (const cmsg_service_info *service_info)
                 CMSG_PROXY_FREE (tmp_url);
                 return false;
             }
+
+            if (!cmsg_proxy_body_string_check (service_info))
+            {
+                CMSG_PROXY_FREE (tmp_url);
+                return false;
+            }
+
             node = g_node_insert_data (parent_node, -1, CMSG_PROXY_STRDUP (next_entry));
         }
 
