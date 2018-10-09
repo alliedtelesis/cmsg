@@ -111,7 +111,7 @@ cmsg_proxy_http_streaming_api_send_response (cmsg_client *client, uint32_t strea
     if (!buffer)
     {
         /* Should never happen */
-        return false;
+        return;
     }
 
     CMSG_SET_FIELD_BYTES (&stream_msg, message_data, buffer, message_size);
