@@ -123,7 +123,7 @@ cmsg_proxy_get_service_and_parameters (const char *url, const char *query_string
  *
  * @returns true if the field is hidden, false otherwise.
  */
-bool
+static bool
 cmsg_proxy_field_is_hidden (const char *field_name)
 {
     return (strncmp (field_name, "_", 1) == 0);
@@ -220,50 +220,6 @@ cmsg_proxy_json_object_sanity_check (json_t *json_obj, json_error_t *error)
 }
 
 /**
- * Check that no input data is received if we don't expect any or that input data is
- * received when we do expect it. If input data does not match expectations, generate an
- * appropriate error message.
- * @param data data we received as input
- * @param body_string What the API states we expect as data
- * @param error_message pointer to hold returned error if input data presence does not meet
- *                      expectations. free with CMSG_PROXY_FREE
- * @returns true if data presence is as expected, else false.
- */
-static bool
-cmsg_proxy_input_data_presence_as_expected (const char *data, const char *body_string,
-                                            char **error_message)
-{
-    char *error_msg = NULL;
-    bool data_expected = (strcmp (body_string, "") != 0);
-    bool ret = false;
-
-    if (data_expected && !data)
-    {
-        if (CMSG_PROXY_ASPRINTF
-            (&error_msg, "Invalid JSON: Input expected but not provided.") < 0)
-        {
-            error_msg = NULL;
-        }
-    }
-    else if (!data_expected && data)
-    {
-        if (CMSG_PROXY_ASPRINTF (&error_msg,
-                                 "Invalid JSON: No JSON data expected for API, but JSON data input")
-            < 0)
-        {
-            error_msg = NULL;
-        }
-    }
-    else
-    {
-        ret = true;
-    }
-
-    *error_message = error_msg;
-    return ret;
-}
-
-/**
  * Create a new json object from the json string that was given as
  * input with the cmsg proxy.
  *
@@ -307,6 +263,17 @@ cmsg_proxy_json_object_create (const char *input_data, size_t input_length,
         {
             expected_input_fields--;
         }
+    }
+
+    /* If we don't expect any input JSON but the user has given some then
+     * this is an error (body isn't mapped to a field, or it is mapped to
+     * all remaining fields of which there are none) */
+    if (strcmp (body_string, "") == 0 ||
+        (strcmp (body_string, "*") == 0 && expected_input_fields == 0))
+    {
+        snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
+                  "No JSON data expected for API, but JSON data input");
+        return NULL;
     }
 
     converted_json = json_loads (input_data, JSON_DECODE_ANY, error);
@@ -550,15 +517,6 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
         return NULL;
     }
 
-    if (!cmsg_proxy_input_data_presence_as_expected (input->data, service_info->body_string,
-                                                     &message))
-    {
-        cmsg_proxy_generate_ant_result_error (ANT_CODE_INVALID_ARGUMENT, message, output);
-        CMSG_PROXY_FREE (message);
-        g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
-        return NULL;
-    }
-
     json_obj = cmsg_proxy_json_object_create (input->data, input->data_length,
                                               service_info->input_msg_descriptor,
                                               service_info->body_string, url_parameters,
@@ -566,13 +524,20 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     if (input->data && !json_obj)
     {
         /* No json object created, report the error */
-        if (CMSG_PROXY_ASPRINTF (&message, "Invalid JSON: %s", error.text) < 0)
+
+        char *error_msg;
+
+        if (CMSG_PROXY_ASPRINTF (&error_msg, "Invalid JSON: %s", error.text) < 0)
         {
-            message = NULL;
+            error_msg = NULL;
         }
+
         cmsg_proxy_generate_ant_result_error (ANT_CODE_INVALID_ARGUMENT,
-                                              (message) ? message : "Invalid JSON", output);
-        CMSG_PROXY_FREE (message);
+                                              (error_msg) ? error_msg : "Invalid JSON",
+                                              output);
+
+        CMSG_PROXY_FREE (error_msg);
+
         g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
         return NULL;
     }

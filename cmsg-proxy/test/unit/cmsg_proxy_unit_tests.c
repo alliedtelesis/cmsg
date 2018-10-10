@@ -1276,14 +1276,12 @@ test_cmsg_proxy_service_info_add__no_conflicts (void)
 {
     cmsg_service_info test_service_info_1 = {
         .url_string = "/api/v1/TEST/a",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     cmsg_service_info test_service_info_2 = {
         .url_string = "/api/v1/TEST/b",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
@@ -1304,14 +1302,12 @@ test_cmsg_proxy_service_info_add__conflict_existing_non_param (void)
 {
     cmsg_service_info test_service_info_1 = {
         .url_string = "/api/v1/TEST/a",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     cmsg_service_info test_service_info_2 = {
         .url_string = "/api/v1/TEST/{b}",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     np_syslog_ignore (".*");
@@ -1334,14 +1330,12 @@ test_cmsg_proxy_service_info_add__conflict_existing_non_param2 (void)
 {
     cmsg_service_info test_service_info_1 = {
         .url_string = "/api/v1/TEST/a/{aa}",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     cmsg_service_info test_service_info_2 = {
         .url_string = "/api/v1/{b}/1/2/3",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     np_syslog_ignore (".*");
@@ -1365,14 +1359,12 @@ test_cmsg_proxy_service_info_add__conflict_existing_param (void)
 {
     cmsg_service_info test_service_info_1 = {
         .url_string = "/api/v1/TEST/{a}",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     cmsg_service_info test_service_info_2 = {
         .url_string = "/api/v1/TEST/b",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     np_syslog_ignore (".*");
@@ -1396,14 +1388,12 @@ test_cmsg_proxy_service_info_add__conflict_existing_param2 (void)
 {
     cmsg_service_info test_service_info_1 = {
         .url_string = "/api/v1/{aa}/a/{bb}",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     cmsg_service_info test_service_info_2 = {
         .url_string = "/api/v1/TEST/1/2/3",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     np_syslog_ignore (".*");
@@ -1427,14 +1417,12 @@ test_cmsg_proxy_service_info_add__conflict_param_with_existing_param (void)
 {
     cmsg_service_info test_service_info_1 = {
         .url_string = "/api/v1/TEST/{a}",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     cmsg_service_info test_service_info_2 = {
         .url_string = "/api/v1/TEST/{b}",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     np_syslog_ignore (".*");
@@ -1458,14 +1446,12 @@ test_cmsg_proxy_service_info_add__conflict_param_with_existing_param2 (void)
 {
     cmsg_service_info test_service_info_1 = {
         .url_string = "/api/v1/{aa}/a/{bb}",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     cmsg_service_info test_service_info_2 = {
         .url_string = "/api/v1/{TEST}/1/2/3",
-        .http_verb = CMSG_HTTP_GET,
-        .body_string = ""
+        .http_verb = CMSG_HTTP_GET
     };
 
     np_syslog_ignore (".*");
@@ -1474,76 +1460,6 @@ test_cmsg_proxy_service_info_add__conflict_param_with_existing_param2 (void)
 
     NP_ASSERT_TRUE (cmsg_proxy_service_info_add (&test_service_info_1));
     NP_ASSERT_FALSE (cmsg_proxy_service_info_add (&test_service_info_2));
-}
-
-/**
- * Test that the proxy inserts tree entries where body string is "*" where message has
- * valid parameters that can be set or a hidden file field.
- * (Checks that these entries are not rejected).
- */
-void
-test_cmsg_proxy_service_info_add_body_string_check_ok (void)
-{
-    cmsg_service_info test_service_info_1 = {
-        .url_string = "/api/v1/test_body_string_ok",
-        .http_verb = CMSG_HTTP_PUT,
-        .body_string = "*",
-        .input_msg_descriptor = &cmsg_proxy_unit_tests_body_check_msg_descriptor,
-    };
-
-    cmsg_service_info test_service_info_2 = {
-        .url_string = "/api/v1/test_body_string_ok/{field_a}",
-        .http_verb = CMSG_HTTP_PUT,
-        .body_string = "*",
-        .input_msg_descriptor = &cmsg_proxy_unit_tests_body_check_msg_descriptor,
-    };
-
-    cmsg_service_info test_service_info_3 = {
-        .url_string = "/api/v1/test_body_string_file",
-        .http_verb = CMSG_HTTP_PUT,
-        .body_string = "*",
-        .input_msg_descriptor = &cmsg_proxy_unit_tests_file_msg_descriptor,
-    };
-
-    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
-
-    NP_ASSERT_TRUE (cmsg_proxy_service_info_add (&test_service_info_1));
-    NP_ASSERT_TRUE (cmsg_proxy_service_info_add (&test_service_info_2));
-    NP_ASSERT_TRUE (cmsg_proxy_service_info_add (&test_service_info_3));
-}
-
-/**
- * Test that the proxy rejects tree entries where body string is "*" with no settable
- * fields in the message (e.g. all non URL fields are hidden).
- */
-void
-test_cmsg_proxy_service_info_add_body_string_check_bad (void)
-{
-    cmsg_service_info test_service_info_1 = {
-        .url_string = "/api/v1/test_body_string/{field_a}/{field_b}",
-        .http_verb = CMSG_HTTP_PUT,
-        .body_string = "*",
-        .input_msg_descriptor = &cmsg_proxy_unit_tests_body_check_msg_descriptor,
-    };
-
-    cmsg_service_info test_service_info_2 = {
-        .url_string = "/api/v1/test_body_string_dummy",
-        .http_verb = CMSG_HTTP_PUT,
-        .body_string = "*",
-        .input_msg_descriptor = &cmsg_proxy_unit_tests_dummy_descriptor,
-    };
-
-    proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
-
-    np_syslog_match
-        ("URL '/api/v1/test_body_string.*' expects no body data but has body string '\\*'",
-         0);
-
-    NP_ASSERT_FALSE (cmsg_proxy_service_info_add (&test_service_info_1));
-    NP_ASSERT_EQUAL (np_syslog_count (0), 1);
-
-    NP_ASSERT_FALSE (cmsg_proxy_service_info_add (&test_service_info_2));
-    NP_ASSERT_EQUAL (np_syslog_count (0), 2);
 }
 
 /**

@@ -3,7 +3,7 @@ import "ant_result.proto";
 
 message dummy
 {
-    /* Empty message that can be used when you don't want to return and/or send a message */
+/* Empty message that can be used when you don't want to return and/or send a message */
 }
 
 message cmsg_bool
@@ -210,63 +210,63 @@ service functional_tests
 
     rpc test_body_mapped_to_sub_message (test_body_msg) returns (ant_result) {
         option (http) = {
-            post: "/test_body_mapped_to_sub_message/{field_a}",
-            body: "field_c",
+            post: "/test_body_mapped_to_sub_message/{field_a}"
+            body: "field_c"
         };
     }
 
     rpc test_body_mapped_to_primitive (test_body_msg) returns (ant_result) {
         option (http) = {
-            post: "/test_body_mapped_to_primitive/{field_b}",
-            body: "field_a",
+            post: "/test_body_mapped_to_primitive/{field_b}"
+            body: "field_a"
         };
     }
 
     rpc test_body_mapped_to_remaining_multiple_fields (test_body_msg) returns (ant_result) {
         option (http) = {
-            post: "/test_body_mapped_to_remaining_multiple_fields/{field_a}",
-            body: "*",
+            post: "/test_body_mapped_to_remaining_multiple_fields/{field_a}"
+            body: "*"
         };
     }
 
     rpc test_body_mapped_to_remaining_single_field (test_body_msg) returns (ant_result) {
         option (http) = {
-            post: "/test_body_mapped_to_remaining_single_field/{field_a}/{field_b}",
-            body: "*",
+            post: "/test_body_mapped_to_remaining_single_field/{field_a}/{field_b}"
+            body: "*"
         };
     }
 
     rpc test_body_mapped_to_nothing (test_body_msg) returns (ant_result) {
         option (http) = {
-            post: "/test_body_mapped_to_nothing/{field_a}",
+            post: "/test_body_mapped_to_nothing/{field_a}"
         };
     }
 
     rpc test_single_bool_put (cmsg_bool) returns (ant_result) {
         option (http) = {
             put: "/test_single_bool_put",
-            body: "value",
+            body: "value"
         };
     }
 
     rpc test_single_string_put (cmsg_string) returns (ant_result) {
         option (http) = {
             put: "/test_single_string_put",
-            body: "value",
+            body: "value"
         };
     }
 
     rpc test_single_uint32_put (cmsg_uint32) returns (ant_result) {
         option (http) = {
             put: "/test_single_uint32_put",
-            body: "value",
+            body: "value"
         };
     }
 
     rpc test_single_repeated_uint32_put (cmsg_uint32_array) returns (ant_result) {
         option (http) = {
             put: "/test_single_repeated_uint32_put",
-            body: "values",
+            body: "values"
         };
     }
 
@@ -279,14 +279,14 @@ service functional_tests
     rpc test_single_data_plus_internal_set (single_data_and_internal) returns (ant_result) {
         option (http) = {
             put: "/test_single_data_plus_internal_set",
-            body: "*",
+            body: "*"
         };
     }
 
     rpc test_multiple_data_plus_internal_set (multiple_data_and_internal) returns (ant_result) {
         option (http) = {
             put: "/test_multiple_data_plus_internal_set",
-            body: "*",
+            body: "*"
         };
     }
 
@@ -305,7 +305,6 @@ service functional_tests
             body: "_file",
             additional_bindings {
                 post: "/test_file_data/{file_name}",
-                body: "_file",
             }
         };
     }
