@@ -2,6 +2,7 @@
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #include <sys/eventfd.h>
+#include <sys/epoll.h>
 #include "cmsg_private.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
@@ -11,6 +12,17 @@
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"
 #endif
+
+/* Thread for all the servers of this process. */
+static pthread_t global_server_accept_thread = -1;
+static pthread_mutex_t global_server_accept_lock = PTHREAD_MUTEX_INITIALIZER;
+static unsigned int global_server_accept_count = 0;
+
+/* Global epoll data. Note that MAX_EVENTS may need to be increased at some point
+ * as it is the number of CMSG servers using the global accept thread. */
+#define MAX_EVENTS 64
+static struct epoll_event events[MAX_EVENTS];
+static int epollfd = -1;
 
 static cmsg_server *_cmsg_create_server_tipc (const char *server_name, int member_id,
                                               int scope, ProtobufCService *descriptor,
@@ -1917,35 +1929,44 @@ cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner
  * client user to read from.
  */
 static void *
-cmsg_server_accept_thread (void *_info)
+cmsg_server_accept_thread (void *unused)
 {
-    cmsg_server_accept_thread_info *info = (cmsg_server_accept_thread_info *) _info;
-    cmsg_server *server = info->server;
-    int listen_socket = cmsg_server_get_socket (server);
+    cmsg_server_accept_thread_info *info = NULL;
     int newfd = -1;
-    fd_set read_fds;
     int *newfd_ptr;
-
-    FD_ZERO (&read_fds);
-    FD_SET (listen_socket, &read_fds);
+    int n;
+    int nfds;
 
     while (1)
     {
-        select (listen_socket + 1, &read_fds, NULL, NULL, NULL);
-
-        newfd = cmsg_server_accept (server, listen_socket);
-        if (newfd >= 0)
+        nfds = epoll_wait (epollfd, events, MAX_EVENTS, -1);
+        if (nfds == -1)
         {
-            /* Explicitly set where the thread can be cancelled. This ensures no
-             * sockets can be leaked if the thread is cancelled after accepting
-             * a connection. */
-            pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
-            newfd_ptr = CMSG_CALLOC (1, sizeof (int));
-            *newfd_ptr = newfd;
-            g_async_queue_push (info->accept_sd_queue, newfd_ptr);
-            pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+            continue;
+        }
 
-            TEMP_FAILURE_RETRY (eventfd_write (info->accept_sd_eventfd, 1));
+        for (n = 0; n < nfds; n++)
+        {
+            if (events[n].events & EPOLLIN)
+            {
+                info = events[n].data.ptr;
+
+                newfd = cmsg_server_accept (info->server,
+                                            cmsg_server_get_socket (info->server));
+                if (newfd >= 0)
+                {
+                    /* Explicitly set where the thread can be cancelled. This ensures no
+                     * sockets can be leaked if the thread is cancelled after accepting
+                     * a connection. */
+                    pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+                    newfd_ptr = CMSG_CALLOC (1, sizeof (int));
+                    *newfd_ptr = newfd;
+                    g_async_queue_push (info->accept_sd_queue, newfd_ptr);
+                    pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+
+                    TEMP_FAILURE_RETRY (eventfd_write (info->accept_sd_eventfd, 1));
+                }
+            }
         }
     }
 
@@ -1975,6 +1996,41 @@ cmsg_server_accept_thread_info *
 cmsg_server_accept_thread_init (cmsg_server *server)
 {
     cmsg_server_accept_thread_info *info = NULL;
+    struct epoll_event ev;
+
+    /* Global thread data is to be setup. */
+    pthread_mutex_lock (&global_server_accept_lock);
+    if (epollfd == -1)
+    {
+        epollfd = epoll_create1 (0);
+        if (epollfd == -1)
+        {
+            pthread_mutex_unlock (&global_server_accept_lock);
+            return NULL;
+        }
+    }
+
+    if (global_server_accept_thread == -1)
+    {
+        if (pthread_create (&global_server_accept_thread, NULL,
+                            cmsg_server_accept_thread, NULL) != 0)
+        {
+            global_server_accept_thread = -1;
+            pthread_mutex_unlock (&global_server_accept_lock);
+            return NULL;
+        }
+        cmsg_pthread_setname (global_server_accept_thread, "global", CMSG_ACCEPT_PREFIX);
+    }
+
+    if (global_server_accept_count == MAX_EVENTS)
+    {
+        /* This should not happen in an actual release but during development.
+         * As more servers are added, the limit will need to be increased. */
+        syslog (LOG_ERROR, "Maximum CMSG server accept thread limit has been reached!");
+        pthread_mutex_unlock (&global_server_accept_lock);
+        return NULL;
+    }
+    pthread_mutex_unlock (&global_server_accept_lock);
 
     info = CMSG_CALLOC (1, sizeof (cmsg_server_accept_thread_info));
     if (info == NULL)
@@ -1985,6 +2041,7 @@ cmsg_server_accept_thread_init (cmsg_server *server)
     info->accept_sd_eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
     if (info->accept_sd_eventfd < 0)
     {
+        CMSG_FREE (info);
         return NULL;
     }
 
@@ -1992,21 +2049,27 @@ cmsg_server_accept_thread_init (cmsg_server *server)
     if (!info->accept_sd_queue)
     {
         close (info->accept_sd_eventfd);
+        CMSG_FREE (info);
         return NULL;
     }
 
     info->server = server;
 
-    if (pthread_create (&info->server_accept_thread, NULL,
-                        cmsg_server_accept_thread, info) != 0)
+    memset (&ev, 0, sizeof (struct epoll_event));
+    ev.events = EPOLLIN;
+    ev.data.ptr = info;
+    if (epoll_ctl (epollfd, EPOLL_CTL_ADD, cmsg_server_get_socket (server), &ev) == -1)
     {
         close (info->accept_sd_eventfd);
         g_async_queue_unref (info->accept_sd_queue);
+        CMSG_FREE (info);
         return NULL;
     }
 
-    cmsg_pthread_setname (info->server_accept_thread,
-                          server->service->descriptor->short_name, CMSG_ACCEPT_PREFIX);
+    pthread_mutex_lock (&global_server_accept_lock);
+    global_server_accept_count++;
+    pthread_mutex_unlock (&global_server_accept_lock);
+
     return info;
 }
 
@@ -2021,10 +2084,24 @@ cmsg_server_accept_thread_deinit (cmsg_server_accept_thread_info *info)
 {
     if (info)
     {
-        pthread_cancel (info->server_accept_thread);
-        pthread_join (info->server_accept_thread, NULL);
         close (info->accept_sd_eventfd);
         g_async_queue_unref (info->accept_sd_queue);
+
+        epoll_ctl (epollfd, EPOLL_CTL_DEL, cmsg_server_get_socket (info->server), NULL);
+
+        pthread_mutex_lock (&global_server_accept_lock);
+        global_server_accept_count--;
+        if (global_server_accept_count == 0)
+        {
+            pthread_cancel (global_server_accept_thread);
+            pthread_join (global_server_accept_thread, NULL);
+            global_server_accept_thread = -1;
+
+            close (epollfd);
+            epollfd = -1;
+        }
+        pthread_mutex_unlock (&global_server_accept_lock);
+
         CMSG_FREE (info);
     }
 }

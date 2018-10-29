@@ -110,9 +110,6 @@ typedef struct _cmsg_server_accept_thread_info
     /* The server to accept connections for. */
     cmsg_server *server;
 
-    /* Thread used to accept any incoming connection attempts. */
-    pthread_t server_accept_thread;
-
     /* Queue to store new accepted connection sockets. This is used to
      * pass the new socket descriptors back to the server user. */
     GAsyncQueue *accept_sd_queue;
