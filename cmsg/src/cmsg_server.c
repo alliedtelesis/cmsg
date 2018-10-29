@@ -3,6 +3,7 @@
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #include <sys/eventfd.h>
+#include <sys/epoll.h>
 #include "cmsg_private.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
@@ -23,6 +24,19 @@
  * outside of error conditions why peeking the header on a server should
  * take a long time. */
 #define SERVER_RECV_HEADER_PEEK_TIMEOUT 10
+
+/* Thread for all the servers of this process. */
+static pthread_t global_server_accept_thread = -1;
+static pthread_mutex_t global_server_accept_lock = PTHREAD_MUTEX_INITIALIZER;
+static unsigned int global_server_accept_count = 0;
+/* Hash table of servers to ensure server is not processed after it is freed. */
+static GHashTable *global_servers_hash = NULL;
+
+/* Global epoll data. Note that MAX_EVENTS may need to be increased at some point
+ * as it is the number of CMSG servers using the global accept thread. */
+#define MAX_EVENTS 128
+static struct epoll_event events[MAX_EVENTS];
+static int epollfd = -1;
 
 static void cmsg_server_queue_filter_init (cmsg_server *server);
 
@@ -247,7 +261,7 @@ cmsg_server_destroy (cmsg_server *server)
     // Close accept thread before destroying any structures
     // it might use (like counters), or closing currently accepted
     // sockets
-    if (server->accept_thread_info)
+    if (server->accept_sd_queue)
     {
         cmsg_server_accept_thread_deinit (server);
     }
@@ -476,12 +490,10 @@ cmsg_server_thread_receive_poll (cmsg_server *server, int32_t timeout_ms,
     int accept_event_fd;
     eventfd_t value;
     int *newfd_ptr = NULL;
-    cmsg_server_accept_thread_info *info;
 
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
 
-    info = server->accept_thread_info;
-    accept_event_fd = info->accept_sd_eventfd;
+    accept_event_fd = server->accept_sd_eventfd;
 
     /* Explicitly set where the thread can be cancelled to avoid leaking
      * connected sockets. */
@@ -516,8 +528,8 @@ cmsg_server_thread_receive_poll (cmsg_server *server, int32_t timeout_ms,
             if (fd == accept_event_fd)
             {
                 /* clear notification */
-                TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
-                while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
+                TEMP_FAILURE_RETRY (eventfd_read (server->accept_sd_eventfd, &value));
+                while ((newfd_ptr = g_async_queue_try_pop (server->accept_sd_queue)))
                 {
                     FD_SET (*newfd_ptr, master_fdset);
                     *fdmax = MAX (*newfd_ptr, *fdmax);
@@ -574,7 +586,6 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     int fdmax;
     int ret;
     int fd;
-    cmsg_server_accept_thread_info *info;
     int accept_event_fd;
     eventfd_t value;
     int *newfd_ptr = NULL;
@@ -602,8 +613,7 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     {
         server = (cmsg_server *) node->data;
 
-        info = server->accept_thread_info;
-        accept_event_fd = info->accept_sd_eventfd;
+        accept_event_fd = server->accept_sd_eventfd;
 
         FD_SET (accept_event_fd, &read_fds);
         fdmax = MAX (fdmax, accept_event_fd);
@@ -649,8 +659,7 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
          node = g_list_next (node))
     {
         server = (cmsg_server *) node->data;
-        info = server->accept_thread_info;
-        accept_event_fd = info->accept_sd_eventfd;
+        accept_event_fd = server->accept_sd_eventfd;
 
         for (fd = 0; fd <= fdmax; fd++)
         {
@@ -659,8 +668,8 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
                 if (fd == accept_event_fd)
                 {
                     /* clear notification */
-                    TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
-                    while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
+                    TEMP_FAILURE_RETRY (eventfd_read (server->accept_sd_eventfd, &value));
+                    while ((newfd_ptr = g_async_queue_try_pop (server->accept_sd_queue)))
                     {
                         FD_SET (*newfd_ptr, &server->accepted_fdset);
                         server->accepted_fdmax = MAX (server->accepted_fdmax, *newfd_ptr);
@@ -2415,33 +2424,44 @@ cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner
  * client user to read from.
  */
 static void *
-cmsg_server_accept_thread (void *_server)
+cmsg_server_accept_thread (void *unused)
 {
-    cmsg_server *server = (cmsg_server *) _server;
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
-    int listen_socket = cmsg_server_get_socket (server);
+    cmsg_server *server;
     int newfd = -1;
     int *newfd_ptr;
-    struct pollfd pfd = {
-        .events = POLLIN,
-        .fd = listen_socket,
-    };
+    int n;
+    int nfds;
 
     while (1)
     {
-        if (TEMP_FAILURE_RETRY (poll (&pfd, 1, -1)) > 0)
+        nfds = epoll_wait (epollfd, events, MAX_EVENTS, -1);
+        if (nfds == -1)
         {
+            continue;
+        }
+        for (n = 0; n < nfds; n++)
+        {
+            /* Explicitly set where the thread can be cancelled. This ensures no
+             * sockets can be leaked if the thread is cancelled after accepting
+             * a connection. */
             pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
-            newfd = cmsg_server_accept (server, listen_socket);
-            if (newfd >= 0)
+            if (events[n].events & EPOLLIN)
             {
-                /* Explicitly set where the thread can be cancelled. This ensures no
-                 * sockets can be leaked if the thread is cancelled after accepting
-                 * a connection. */
-                newfd_ptr = CMSG_CALLOC (1, sizeof (int));
-                *newfd_ptr = newfd;
-                g_async_queue_push (info->accept_sd_queue, newfd_ptr);
-                TEMP_FAILURE_RETRY (eventfd_write (info->accept_sd_eventfd, 1));
+                server = events[n].data.ptr;
+
+                pthread_mutex_lock (&global_server_accept_lock);
+                if (g_hash_table_contains (global_servers_hash, server))
+                {
+                    newfd = cmsg_server_accept (server, cmsg_server_get_socket (server));
+                    if (newfd >= 0)
+                    {
+                        newfd_ptr = CMSG_CALLOC (1, sizeof (int));
+                        *newfd_ptr = newfd;
+                        g_async_queue_push (server->accept_sd_queue, newfd_ptr);
+                        TEMP_FAILURE_RETRY (eventfd_write (server->accept_sd_eventfd, 1));
+                    }
+                }
+                pthread_mutex_unlock (&global_server_accept_lock);
             }
             else
             {
@@ -2478,49 +2498,86 @@ _clear_accept_sd_queue (gpointer data)
 int32_t
 cmsg_server_accept_thread_init (cmsg_server *server)
 {
-    cmsg_server_accept_thread_info *info = NULL;
+    struct epoll_event ev;
 
-    if (server->accept_thread_info)
+    /* Global thread data is to be setup. */
+    pthread_mutex_lock (&global_server_accept_lock);
+    if (epollfd == -1)
+    {
+        epollfd = epoll_create1 (0);
+        if (epollfd == -1)
+        {
+            pthread_mutex_unlock (&global_server_accept_lock);
+            return CMSG_RET_ERR;
+        }
+    }
+
+    if (!global_servers_hash)
+    {
+        global_servers_hash = g_hash_table_new (g_direct_hash, g_direct_equal);
+        if (!global_servers_hash)
+        {
+            pthread_mutex_unlock (&global_server_accept_lock);
+            return CMSG_RET_ERR;
+        }
+    }
+
+    if (global_server_accept_thread == -1)
+    {
+        if (pthread_create (&global_server_accept_thread, NULL,
+                            cmsg_server_accept_thread, NULL) != 0)
+        {
+            global_server_accept_thread = -1;
+            pthread_mutex_unlock (&global_server_accept_lock);
+            return CMSG_RET_ERR;
+        }
+        cmsg_pthread_setname (global_server_accept_thread, "global", CMSG_ACCEPT_PREFIX);
+    }
+
+    if (global_server_accept_count == MAX_EVENTS)
+    {
+        /* This should not happen in an actual release but during development.
+         * As more servers are added, the limit will need to be increased.
+         * Continue processing but the new server will fail to run. */
+        syslog (LOG_ALERT, "Maximum CMSG server accept thread limit has been reached!");
+    }
+    pthread_mutex_unlock (&global_server_accept_lock);
+
+    if (server->accept_sd_eventfd)
     {
         /* Already initialised */
         return CMSG_RET_OK;
     }
 
-    info = CMSG_CALLOC (1, sizeof (cmsg_server_accept_thread_info));
-    if (info == NULL)
+    server->accept_sd_eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
+    if (server->accept_sd_eventfd < 0)
     {
         return CMSG_RET_ERR;
     }
 
-    info->accept_sd_eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
-    if (info->accept_sd_eventfd < 0)
+    server->accept_sd_queue = g_async_queue_new_full (_clear_accept_sd_queue);
+    if (!server->accept_sd_queue)
     {
-        CMSG_FREE (info);
+        close (server->accept_sd_eventfd);
         return CMSG_RET_ERR;
     }
 
-    info->accept_sd_queue = g_async_queue_new_full (_clear_accept_sd_queue);
-    if (!info->accept_sd_queue)
+    memset (&ev, 0, sizeof (struct epoll_event));
+    ev.events = EPOLLIN;
+    ev.data.ptr = server;
+    if (epoll_ctl (epollfd, EPOLL_CTL_ADD, cmsg_server_get_socket (server), &ev) == -1)
     {
-        close (info->accept_sd_eventfd);
-        CMSG_FREE (info);
+        close (server->accept_sd_eventfd);
+        g_async_queue_unref (server->accept_sd_queue);
+        server->accept_sd_queue = NULL;
         return CMSG_RET_ERR;
     }
 
-    server->accept_thread_info = info;
+    pthread_mutex_lock (&global_server_accept_lock);
+    global_server_accept_count++;
+    g_hash_table_insert (global_servers_hash, server, server);
+    pthread_mutex_unlock (&global_server_accept_lock);
 
-    if (pthread_create (&info->server_accept_thread, NULL,
-                        cmsg_server_accept_thread, server) != 0)
-    {
-        close (info->accept_sd_eventfd);
-        g_async_queue_unref (info->accept_sd_queue);
-        CMSG_FREE (info);
-        server->accept_thread_info = NULL;
-        return CMSG_RET_ERR;
-    }
-
-    cmsg_pthread_setname (info->server_accept_thread,
-                          server->service->descriptor->short_name, CMSG_ACCEPT_PREFIX);
     return CMSG_RET_OK;
 }
 
@@ -2532,14 +2589,28 @@ cmsg_server_accept_thread_init (cmsg_server *server)
 void
 cmsg_server_accept_thread_deinit (cmsg_server *server)
 {
-    if (server && server->accept_thread_info)
+    if (server && server->accept_sd_eventfd)
     {
-        pthread_cancel (server->accept_thread_info->server_accept_thread);
-        pthread_join (server->accept_thread_info->server_accept_thread, NULL);
-        close (server->accept_thread_info->accept_sd_eventfd);
-        g_async_queue_unref (server->accept_thread_info->accept_sd_queue);
-        CMSG_FREE (server->accept_thread_info);
-        server->accept_thread_info = NULL;
+        pthread_mutex_lock (&global_server_accept_lock);
+
+        epoll_ctl (epollfd, EPOLL_CTL_DEL, cmsg_server_get_socket (server), NULL);
+        close (server->accept_sd_eventfd);
+        g_async_queue_unref (server->accept_sd_queue);
+        server->accept_sd_queue = NULL;
+
+        g_hash_table_remove (global_servers_hash, server);
+
+        global_server_accept_count--;
+        if (global_server_accept_count == 0)
+        {
+            pthread_cancel (global_server_accept_thread);
+            pthread_join (global_server_accept_thread, NULL);
+            global_server_accept_thread = -1;
+
+            close (epollfd);
+            epollfd = -1;
+        }
+        pthread_mutex_unlock (&global_server_accept_lock);
     }
 }
 
@@ -2731,7 +2802,6 @@ cmsg_server_thread_task_info_create (cmsg_server *server, int timeout)
         info->timeout = timeout;
         info->running = true;
     }
-
     return info;
 }
 
@@ -2759,7 +2829,7 @@ cmsg_server_thread_task (void *_info)
 
     cmsg_server_accept_thread_init (info->server);
 
-    accept_sd_eventfd = info->server->accept_thread_info->accept_sd_eventfd;
+    accept_sd_eventfd = info->server->accept_sd_eventfd;
     fd_max = accept_sd_eventfd;
     FD_SET (fd_max, &readfds);
 

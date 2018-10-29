@@ -77,20 +77,6 @@ typedef int32_t (*server_message_processor_f) (int socket,
                                                cmsg_server_request *server_request,
                                                cmsg_server *server, uint8_t *buffer_data);
 
-typedef struct _cmsg_server_accept_thread_info
-{
-    /* Thread used to accept any incoming connection attempts. */
-    pthread_t server_accept_thread;
-
-    /* Queue to store new accepted connection sockets. This is used to
-     * pass the new socket descriptors back to the server user. */
-    GAsyncQueue *accept_sd_queue;
-
-    /* An eventfd object to notify the server user that there is a new
-     * socket descriptor on the accept_sd_queue.  */
-    int accept_sd_eventfd;
-} cmsg_server_accept_thread_info;
-
 typedef struct _cmsg_server_s
 {
     const ProtobufCService *service;
@@ -138,7 +124,13 @@ typedef struct _cmsg_server_s
     // flag to tell error-level log to be suppressed to debug-level
     cmsg_bool_t suppress_errors;
 
-    cmsg_server_accept_thread_info *accept_thread_info;
+    /* Queue to store new accepted connection sockets. This is used to
+     * pass the new socket descriptors back to the server user. */
+    GAsyncQueue *accept_sd_queue;
+
+    /* An eventfd object to notify the server user that there is a new
+     * socket descriptor on the accept_sd_queue.  */
+    int accept_sd_eventfd;
 
     void *event_loop_data;
 
