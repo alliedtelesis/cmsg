@@ -359,11 +359,12 @@ cmsg_proxy_output_process (ProtobufCMessage *output_proto_message,
                            cmsg_proxy_output *output,
                            cmsg_proxy_processing_info *processing_info)
 {
+    char *error_msg = NULL;
     if (processing_info->cmsg_api_result != ANT_CODE_OK)
     {
         /* Something went wrong calling the CMSG api */
         cmsg_proxy_generate_ant_result_error (processing_info->cmsg_api_result,
-                                              NULL, output);
+                                              "Internal CMSG operation failed", output);
         CMSG_PROXY_SESSION_COUNTER_INC (processing_info->service_info,
                                         cntr_error_api_failure);
         if (output->stream_response)
@@ -377,10 +378,19 @@ cmsg_proxy_output_process (ProtobufCMessage *output_proto_message,
     if (!cmsg_proxy_set_http_status (&output->http_status, processing_info->http_verb,
                                      &output_proto_message))
     {
-        syslog (LOG_ERR, "_error_info is not set for %s",
-                processing_info->service_info->url_string);
+        CMSG_PROXY_ASPRINTF (&error_msg, "_error_info is not set for %s",
+                             processing_info->service_info->url_string);
+        cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL, error_msg, output);
         CMSG_PROXY_SESSION_COUNTER_INC (processing_info->service_info,
                                         cntr_error_missing_error_info);
+        if (output->stream_response)
+        {
+            cmsg_proxy_streaming_delete_conn_by_id (processing_info->streaming_id);
+            output->stream_response = false;
+        }
+        CMSG_PROXY_FREE (error_msg);
+        CMSG_FREE_RECV_MSG (output_proto_message);
+        return;
     }
 
     if (output->stream_response)
@@ -406,7 +416,9 @@ cmsg_proxy_output_process (ProtobufCMessage *output_proto_message,
         {
             /* This should not occur (the ProtobufCMessage structure returned
              * by the CMSG api should always be well formed) but check for it */
-            output->http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+            cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL,
+                                                  "Internal CMSG response is malformed",
+                                                  output);
             CMSG_PROXY_SESSION_COUNTER_INC (processing_info->service_info,
                                             cntr_error_protobuf_to_json);
         }
