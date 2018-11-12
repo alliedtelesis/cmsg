@@ -1214,7 +1214,7 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
         {
             CMSG_LOG_DEBUG ("[CLIENT] client is not connected (method: %s, error: %d)",
                             method_name, connect_error);
-            return CMSG_RET_ERR;
+            return CMSG_RET_CLOSED;
         }
     }
 
@@ -1253,28 +1253,27 @@ cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
 static int32_t
 _cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_size)
 {
-    int ret = 0;
+    int send_ret = 0;
+    int connect_ret = 0;
 
-    ret = cmsg_client_connect (client);
-
-    if (client->state == CMSG_CLIENT_STATE_CONNECTED)
+    connect_ret = cmsg_client_connect (client);
+    if (client->state != CMSG_CLIENT_STATE_CONNECTED)
     {
-        ret = client->_transport->tport_funcs.client_send (client->_transport, buffer,
-                                                           buffer_size, 0);
+        CMSG_LOG_DEBUG ("[CLIENT] client is not connected, error: %d)", connect_ret);
+        return CMSG_RET_CLOSED;
+    }
 
-        if (ret < (int) buffer_size)
-        {
-            CMSG_DEBUG (CMSG_ERROR, "[CLIENT] sending buffer failed, send: %d of %d\n",
-                        ret, buffer_size);
-            CMSG_COUNTER_INC (client, cntr_send_errors);
-        }
-        return CMSG_RET_OK;
-    }
-    else
+    send_ret = client->_transport->tport_funcs.client_send (client->_transport, buffer,
+                                                            buffer_size, 0);
+    if (send_ret < (int) buffer_size)
     {
-        CMSG_LOG_DEBUG ("[CLIENT] client is not connected, error: %d)", ret);
+        CMSG_DEBUG (CMSG_ERROR, "[CLIENT] sending buffer failed, send: %d of %d\n",
+                    send_ret, buffer_size);
+        CMSG_COUNTER_INC (client, cntr_send_errors);
+        return CMSG_RET_ERR;
     }
-    return CMSG_RET_ERR;
+
+    return CMSG_RET_OK;
 }
 
 void
