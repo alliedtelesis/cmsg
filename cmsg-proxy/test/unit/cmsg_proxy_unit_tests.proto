@@ -52,10 +52,10 @@ message file_msg
 
 service interface
 {
-    rpc test_put (cmsg_bool) returns (dummy) {
+    rpc test_put (cmsg_bool) returns (ant_result) {
         option (http) = {
             put: "/v1/test",
-            body: "*",
+            body: "value",
         };
     }
 

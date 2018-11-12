@@ -5,7 +5,9 @@
  */
 
 #include <np.h>
-#include "cmsg_proxy.h"
+#include "cmsg_proxy.c"
+#include "cmsg_proxy_input.c"
+#include "cmsg_proxy_output.c"
 #include "cmsg_proxy_functional_tests_proxy_def.h"
 #include "cmsg_proxy_functional_tests_api_auto.h"
 #include "cmsg_proxy_functional_tests_impl_auto.h"
@@ -20,13 +22,16 @@ static const char *expected_body_text = "Some test text to send back\n Blah\n";
 
 extern void cmsg_proxy_service_info_init (cmsg_service_info *array, int length);
 extern void cmsg_proxy_library_handles_load (void);
-
-static const char *cmsg_content_disposition_key = "Content-Disposition";
-static const char *cmsg_content_encoding_key = "Content-Transfer-Encoding";
-static const char *cmsg_mime_text_plain = "text/plain";
-static const char *cmsg_mime_octet_stream = "application/octet-stream";
-static const char *cmsg_binary_encoding = "binary";
-static const char *cmsg_filename_header_format = "attachment; filename=\"%s\"";
+extern const cmsg_service_info *cmsg_proxy_get_service_and_parameters (const char *url,
+                                                                       const char
+                                                                       *query_string,
+                                                                       cmsg_http_verb verb,
+                                                                       GList
+                                                                       **url_parameters);
+extern cmsg_client *cmsg_proxy_find_client_by_service (const ProtobufCServiceDescriptor
+                                                       *service_descriptor);
+extern bool cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
+                                               cmsg_proxy_output *output);
 
 char *streamed_response = NULL;
 void *streamed_connection_ptr = (void *) 0x123abc;
@@ -1679,4 +1684,477 @@ test_http_streaming (void)
 
     NP_ASSERT_STR_EQUAL (streamed_response, expected_stream_response);
     free (streamed_response);
+}
+
+/**
+ * Mock the cmsg_proxy_get_service_and_parameters function to simulate it returning NULL.
+ */
+const cmsg_service_info *
+sm_mock_cmsg_proxy_get_service_and_parameters__error (const char *url,
+                                                      const char *query_string,
+                                                      cmsg_http_verb verb,
+                                                      GList **url_parameters)
+{
+    return NULL;
+}
+
+/*
+ * Test that cmsg_proxy correctly handles an error happening within
+ * cmsg_proxy_get_service_and_parameters.
+ */
+void
+test_get_service_and_parameters__error (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_UNIMPLEMENTED\","
+        "\"message\":\"Unknown url and verb combination\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/test_single_bool_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    /* Force cmsg_proxy_get_service_and_parameters to return NULL. This simulates
+     * cmsg proxy being provided with an unknown url and verb combination, producing
+     * an error in cmsg_proxy_input_process. */
+    np_mock (cmsg_proxy_get_service_and_parameters,
+             sm_mock_cmsg_proxy_get_service_and_parameters__error);
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_NOT_IMPLEMENTED);
+
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Mock the cmsg_proxy_pre_api_check function to simulate it returning ANT_CODE_UNAVAILABLE
+ * and an appropriate error message.
+ */
+ant_code
+sm_mock_cmsg_proxy_pre_api_check__error (cmsg_http_verb http_verb, char **message)
+{
+    CMSG_PROXY_ASPRINTF (message, "Pre-API check failed");
+    return ANT_CODE_UNAVAILABLE;
+}
+
+/*
+ * Test that cmsg_proxy correctly handles an error happening within
+ * cmsg_proxy_pre_api_check.
+ */
+void
+test_generate_pre_api_check__error (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_UNAVAILABLE\","
+        "\"message\":\"Pre-API check failed\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/test_single_bool_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    /* Force cmsg_proxy_pre_api_check to return ANT_CODE_UNAVAILABLE. This simulates
+     * the pre-API check callback function failing, producing an error in
+     * cmsg_proxy_input_process. */
+    np_mock (cmsg_proxy_pre_api_check, sm_mock_cmsg_proxy_pre_api_check__error);
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_SERVICE_UNAVAILABLE);
+
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Mock the cmsg_proxy_input_data_presence_as_expected function to simulate it returning false.
+ */
+bool
+sm_mock_cmsg_proxy_input_data_presence_as_expected__error (const char *data,
+                                                           const char *body_string,
+                                                           char **error_message)
+{
+    CMSG_PROXY_ASPRINTF (error_message, "Invalid JSON: Input expected but not provided.");
+    return false;
+}
+
+/*
+ * Test that cmsg_proxy correctly handles an error happening within
+ * cmsg_proxy_input_data_presence_as_expected.
+ */
+void
+test_input_data_presence_as_expected__error (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_INVALID_ARGUMENT\","
+        "\"message\":\"Invalid JSON: Input expected but not provided.\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/test_single_bool_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    /* Simulate the case when input data is expected but not provided by
+     * forcing cmsg_proxy_input_data_presence_as_expected to return false
+     * and the associated error message. An error will be produced in
+     * cmsg_proxy_input_process. */
+    np_mock (cmsg_proxy_input_data_presence_as_expected,
+             sm_mock_cmsg_proxy_input_data_presence_as_expected__error);
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_BAD_REQUEST);
+
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Mock the cmsg_proxy_json_object_create function to simulate it returning NULL.
+ */
+json_t *
+sm_mock_cmsg_proxy_json_object_create__error (const char *input_data, size_t input_length,
+                                              const ProtobufCMessageDescriptor
+                                              *msg_descriptor, const char *body_string,
+                                              GList *url_parameters, json_error_t *error)
+{
+    snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "Internal proxy error");
+    return NULL;
+}
+
+/*
+ * Test that cmsg_proxy correctly handles an error happening within
+ * cmsg_proxy_json_object_create.
+ */
+void
+test_cmsg_proxy_json_object_create__error (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_INVALID_ARGUMENT\","
+        "\"message\":\"Invalid JSON: Internal proxy error\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/test_single_bool_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    /* Force cmsg_proxy_json_object_create to return NULL. This simulates
+     * the JSON object creation failing because the field descriptor is
+     * not defined. An error will be produced in cmsg_proxy_input_process. */
+    np_mock (cmsg_proxy_json_object_create, sm_mock_cmsg_proxy_json_object_create__error);
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_BAD_REQUEST);
+
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Mock the cmsg_proxy_find_client_by_service function to simulate it returning NULL.
+ */
+cmsg_client *
+sm_mock_cmsg_proxy_find_client_by_service__error (const ProtobufCServiceDescriptor
+                                                  *service_descriptor)
+{
+    return NULL;
+}
+
+/*
+ * Test that cmsg_proxy correctly handles an error happening within
+ * cmsg_proxy_find_client_by_service.
+ */
+void
+test_cmsg_proxy_find_client_by_service__error (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_INTERNAL\","
+        "\"message\":\"Client not found in proxy_clients_list\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/test_single_bool_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    /* Simulate the case when the CMSG client is not found in the
+     * proxy_clients_list by forcing cmsg_proxy_find_client_by_service to
+     * return NULL. An error will be produced in cmsg_proxy_input_process. */
+    np_mock (cmsg_proxy_find_client_by_service,
+             sm_mock_cmsg_proxy_find_client_by_service__error);
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_INTERNAL_SERVER_ERROR);
+
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Mock the cmsg_proxy_convert_json_to_protobuf function
+ * to simulate it returning ANT_CODE_INVALID_ARGUMENT.
+ */
+ant_code
+sm_mock_cmsg_proxy_convert_json_to_protobuf__inv_arg (json_t *json_obj,
+                                                      const ProtobufCMessageDescriptor
+                                                      *msg_descriptor,
+                                                      ProtobufCMessage **output_protobuf,
+                                                      char **message)
+{
+    CMSG_PROXY_ASPRINTF (message, "JSON is not an object required for GPB message");
+    return ANT_CODE_INVALID_ARGUMENT;
+}
+
+/*
+ * Test that cmsg_proxy correctly handles an error happening within
+ * cmsg_proxy_convert_json_to_protobuf, producing ANT_CODE_INVALID_ARGUMENT.
+ */
+void
+test_cmsg_proxy_convert_json_to_protobuf__inv_arg (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_INVALID_ARGUMENT\","
+        "\"message\":\"JSON is not an object required for GPB message\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/test_single_bool_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    /* Simulate the case when the input JSON object fails to be converted
+     * to a ProtobufCMessage, returning ANT_CODE_INVALID_ARGUMENT and a
+     * sample error message. An error will be produced in
+     * cmsg_proxy_input_process. */
+    np_mock (cmsg_proxy_convert_json_to_protobuf,
+             sm_mock_cmsg_proxy_convert_json_to_protobuf__inv_arg);
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_BAD_REQUEST);
+
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Mock the cmsg_proxy_convert_json_to_protobuf function to simulate it
+ * returning ANT_CODE_INTERNAL.
+ */
+ant_code
+sm_mock_cmsg_proxy_convert_json_to_protobuf__int (json_t *json_obj,
+                                                  const ProtobufCMessageDescriptor
+                                                  *msg_descriptor,
+                                                  ProtobufCMessage **output_protobuf,
+                                                  char **message)
+{
+    CMSG_PROXY_ASPRINTF (message, "JSON to Protobuf conversion failed");
+    return ANT_CODE_INTERNAL;
+}
+
+/*
+ * Test that cmsg_proxy correctly handles an error happening within
+ * cmsg_proxy_convert_json_to_protobuf, producing ANT_CODE_INTERNAL.
+ */
+void
+test_cmsg_proxy_convert_json_to_protobuf__int (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_INTERNAL\","
+        "\"message\":\"JSON to Protobuf conversion failed\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/test_single_bool_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    /* Simulate the case when the input JSON object fails to be converted
+     * to a ProtobufCMessage, returning ANT_CODE_INTERNAL and the
+     * associated error message. An error will be produced in
+     * cmsg_proxy_input_process. */
+    np_mock (cmsg_proxy_convert_json_to_protobuf,
+             sm_mock_cmsg_proxy_convert_json_to_protobuf__int);
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_INTERNAL_SERVER_ERROR);
+
+    cmsg_proxy_free_output_contents (&output);
+
+}
+
+/**
+ * Mock the cmsg_proxy_call_cmsg_api function to simulate it
+ * returning ANT_CODE_INTERNAL.
+ */
+ant_code
+sm_mock_cmsg_proxy_call_cmsg_api__error (const cmsg_client *client,
+                                         ProtobufCMessage *input_msg,
+                                         ProtobufCMessage **output_msg,
+                                         const cmsg_service_info *service_info)
+{
+    return ANT_CODE_INTERNAL;
+}
+
+/*
+ * Test that cmsg_proxy correctly handles an error happening within
+ * cmsg_proxy_call_cmsg_api.
+ */
+void
+test_call_cmsg_api__error (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_INTERNAL\","
+        "\"message\":\"Internal CMSG operation failed\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/test_single_bool_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    /* Force cmsg_proxy_call_cmsg_api to return ANT_CODE_INTERNAL. This simulates
+     * an internal error occurring within CMSG, producing an error in
+     * cmsg_proxy_output_process. */
+    np_mock (cmsg_proxy_call_cmsg_api, sm_mock_cmsg_proxy_call_cmsg_api__error);
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_INTERNAL_SERVER_ERROR);
+
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Mock the cmsg_proxy_set_http_status function to simulate it returning false.
+ */
+bool
+sm_mock_cmsg_proxy_set_http_status__error (int *http_status, cmsg_http_verb http_verb,
+                                           ProtobufCMessage **msg)
+{
+    return false;
+}
+
+/*
+ * Test that cmsg_proxy correctly handles an error happening within
+ * cmsg_proxy_set_http_status.
+ */
+void
+test_set_http_status__error (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_INTERNAL\","
+        "\"message\":\"_error_info is not set for /test_single_bool_put\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/test_single_bool_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    /* Force cmsg_proxy_set_http_status to return false. This simulates
+     * the case when the _error_info field in the ProtobufCMessage is not
+     * successfully updated. An error is produced in cmsg_proxy_output_process. */
+    np_mock (cmsg_proxy_set_http_status, sm_mock_cmsg_proxy_set_http_status__error);
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_INTERNAL_SERVER_ERROR);
+
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Mock the cmsg_proxy_generate_response_body function to simulate it returning false.
+ */
+bool
+sm_mock_cmsg_proxy_generate_response_body__error (ProtobufCMessage *output_proto_message,
+                                                  cmsg_proxy_output *output)
+{
+    return false;
+}
+
+/*
+ * Test that cmsg_proxy correctly handles an error happening within
+ * cmsg_proxy_generate_response_body.
+ */
+void
+test_generate_response_body__error (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_INTERNAL\","
+        "\"message\":\"Internal CMSG response is malformed\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/test_single_bool_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    /* Force cmsg_proxy_generate_response_body to return false. This simulates
+     * the CMSG API returning a poorly formed Protobuf output message, such as a
+     * message which will fail the Protobuf to JSON conversion, or where the message
+     * fields do not match expectations. An error is produced in
+     * cmsg_proxy_output_process. */
+    np_mock (cmsg_proxy_generate_response_body,
+             sm_mock_cmsg_proxy_generate_response_body__error);
+    cmsg_proxy (&input, &output);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_INTERNAL_SERVER_ERROR);
+
+    cmsg_proxy_free_output_contents (&output);
 }
