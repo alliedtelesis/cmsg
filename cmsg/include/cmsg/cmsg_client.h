@@ -204,8 +204,6 @@ int32_t cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descrip
 
 cmsg_client *cmsg_create_client_tcp_rpc (cmsg_socket *config,
                                          const ProtobufCServiceDescriptor *descriptor);
-cmsg_client *cmsg_create_client_tcp_oneway (cmsg_socket *config,
-                                            const ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_loopback (ProtobufCService *service);
 
 void cmsg_client_close_wrapper (cmsg_transport *transport);

@@ -1748,14 +1748,16 @@ cmsg_create_server_unix_oneway (ProtobufCService *descriptor)
     return _cmsg_create_server_unix (descriptor, CMSG_TRANSPORT_ONEWAY_UNIX);
 }
 
-static cmsg_server *
-_cmsg_create_server_tcp (cmsg_socket *config, ProtobufCService *descriptor,
-                         cmsg_transport_type transport_type)
+cmsg_server *
+cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
 {
     cmsg_transport *transport = NULL;
     cmsg_server *server = NULL;
 
-    transport = cmsg_create_transport_tcp (config, transport_type);
+    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    transport = cmsg_create_transport_tcp (config, CMSG_TRANSPORT_RPC_TCP);
     if (transport == NULL)
     {
         return NULL;
@@ -1774,24 +1776,6 @@ _cmsg_create_server_tcp (cmsg_socket *config, ProtobufCService *descriptor,
     }
 
     return server;
-}
-
-cmsg_server *
-cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_server_tcp (config, descriptor, CMSG_TRANSPORT_RPC_TCP);
-}
-
-cmsg_server *
-cmsg_create_server_tcp_oneway (cmsg_socket *config, ProtobufCService *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_server_tcp (config, descriptor, CMSG_TRANSPORT_ONEWAY_TCP);
 }
 
 /**

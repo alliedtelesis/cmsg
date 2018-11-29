@@ -1449,16 +1449,17 @@ cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor)
     return ret;
 }
 
-/* Create a cmsg client and its transport over a TCP socket */
-static cmsg_client *
-_cmsg_create_client_tcp (cmsg_socket *config, const ProtobufCServiceDescriptor *descriptor,
-                         cmsg_transport_type transport_type)
+cmsg_client *
+cmsg_create_client_tcp_rpc (cmsg_socket *config,
+                            const ProtobufCServiceDescriptor *descriptor)
 {
     cmsg_transport *transport;
     cmsg_client *client;
 
-    transport = cmsg_create_transport_tcp (config, transport_type);
+    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
+    transport = cmsg_create_transport_tcp (config, CMSG_TRANSPORT_RPC_TCP);
     if (!transport)
     {
         return NULL;
@@ -1473,26 +1474,6 @@ _cmsg_create_client_tcp (cmsg_socket *config, const ProtobufCServiceDescriptor *
     }
 
     return client;
-}
-
-cmsg_client *
-cmsg_create_client_tcp_rpc (cmsg_socket *config,
-                            const ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_client_tcp (config, descriptor, CMSG_TRANSPORT_RPC_TCP);
-}
-
-cmsg_client *
-cmsg_create_client_tcp_oneway (cmsg_socket *config,
-                               const ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_client_tcp (config, descriptor, CMSG_TRANSPORT_ONEWAY_TCP);
 }
 
 /**

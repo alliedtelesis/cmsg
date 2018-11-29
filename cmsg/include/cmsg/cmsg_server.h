@@ -211,8 +211,6 @@ void cmsg_server_app_owns_current_msg_set (cmsg_server *server);
 void cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner);
 
 cmsg_server *cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor);
-cmsg_server *cmsg_create_server_tcp_oneway (cmsg_socket *config,
-                                            ProtobufCService *descriptor);
 
 void cmsg_server_close_wrapper (cmsg_server *server);
 void cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
