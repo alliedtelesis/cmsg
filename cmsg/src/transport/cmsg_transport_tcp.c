@@ -490,3 +490,49 @@ cmsg_create_transport_tcp (cmsg_socket *config, cmsg_transport_type transport_ty
 
     return transport;
 }
+
+/**
+ * Create a CMSG transport that uses TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to use.
+ * @param oneway - Whether to make a one-way transport, or a two-way (RPC) transport.
+ */
+cmsg_transport *
+cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr, bool oneway)
+{
+    uint32_t port = 0;
+    cmsg_transport *transport = NULL;
+    char ip_addr[INET_ADDRSTRLEN] = { };
+    cmsg_transport_type transport_type;
+
+    transport_type = (oneway == true ? CMSG_TRANSPORT_ONEWAY_TCP : CMSG_TRANSPORT_RPC_TCP);
+
+    port = cmsg_service_port_get (service_name, "tcp");
+    if (port <= 0)
+    {
+        inet_ntop (AF_INET, addr, ip_addr, INET_ADDRSTRLEN);
+        CMSG_LOG_GEN_ERROR ("Unknown TCP service. Server:%s, IP:%s", service_name, ip_addr);
+        return NULL;
+    }
+
+    transport = cmsg_transport_new (transport_type);
+    if (transport == NULL)
+    {
+        inet_ntop (AF_INET, addr, ip_addr, INET_ADDRSTRLEN);
+        CMSG_LOG_GEN_ERROR ("Unable to create TCP transport. Server:%s, IP:%s",
+                            service_name, ip_addr);
+        return NULL;
+    }
+
+    transport->config.socket.family = PF_INET;
+    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
+    transport->config.socket.sockaddr.in.sin_family = AF_INET;
+    transport->config.socket.sockaddr.in.sin_port = htons (port);
+    transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (addr->s_addr);
+
+    cmsg_transport_ipfree_bind_enable (transport, true);
+
+    return transport;
+}

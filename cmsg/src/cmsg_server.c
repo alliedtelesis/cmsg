@@ -1795,6 +1795,77 @@ cmsg_create_server_tcp_oneway (cmsg_socket *config, ProtobufCService *descriptor
 }
 
 /**
+ * Helper function for creating a CMSG server using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on.
+ * @param service - The CMSG service.
+ * @param oneway - Whether to make a one-way server, or a two-way (RPC) server.
+ */
+static cmsg_server *
+_cmsg_create_server_tcp_ipv4 (const char *service_name, struct in_addr *addr,
+                              const ProtobufCService *service, bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_server *server;
+
+    transport = cmsg_create_transport_tcp_ipv4 (service_name, addr, oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (!server)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No TCP IPC server on %s", service->descriptor->name);
+        return NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create a RPC (two-way) CMSG server using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on.
+ * @param service - The CMSG service.
+ */
+cmsg_server *
+cmsg_create_server_tcp_ipv4_rpc (const char *service_name, struct in_addr *addr,
+                                 const ProtobufCService *service)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    return _cmsg_create_server_tcp_ipv4 (service_name, addr, service, false);
+}
+
+/**
+ * Create a oneway CMSG server using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on.
+ * @param service - The CMSG service.
+ */
+cmsg_server *
+cmsg_create_server_tcp_ipv4_oneway (const char *service_name, struct in_addr *addr,
+                                    const ProtobufCService *service)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    return _cmsg_create_server_tcp_ipv4 (service_name, addr, service, true);
+}
+
+/**
  * Destroy a cmsg server and its transport
  *
  * @param server - the cmsg server to destroy

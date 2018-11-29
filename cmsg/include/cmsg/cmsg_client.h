@@ -211,4 +211,12 @@ cmsg_client *cmsg_create_client_loopback (ProtobufCService *service);
 void cmsg_client_close_wrapper (cmsg_transport *transport);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
+
+cmsg_client *cmsg_create_client_tcp_ipv4_rpc (const char *service_name,
+                                              struct in_addr *addr,
+                                              const ProtobufCServiceDescriptor *descriptor);
+cmsg_client *cmsg_create_client_tcp_ipv4_oneway (const char *service_name,
+                                                 struct in_addr *addr,
+                                                 const ProtobufCServiceDescriptor
+                                                 *descriptor);
 #endif /* __CMSG_CLIENT_H_ */

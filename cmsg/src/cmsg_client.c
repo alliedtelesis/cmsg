@@ -1577,3 +1577,74 @@ cmsg_destroy_client_and_transport (cmsg_client *client)
         cmsg_transport_destroy (transport);
     }
 }
+
+/**
+ * Helper function for creating a CMSG client using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to connect to.
+ * @param descriptor - The CMSG service descriptor for the service.
+ * @param oneway - Whether to make a one-way client, or a two-way (RPC) client.
+ */
+static cmsg_client *
+_cmsg_create_client_tcp_ipv4 (const char *service_name, struct in_addr *addr,
+                              const ProtobufCServiceDescriptor *descriptor, bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_client *client;
+
+    transport = cmsg_create_transport_tcp_ipv4 (service_name, addr, oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    client = cmsg_client_new (transport, descriptor);
+    if (!client)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No TCP IPC client on %s", descriptor->name);
+        return NULL;
+    }
+
+    return client;
+}
+
+/**
+ * Create a RPC (two-way) CMSG client using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to connect to.
+ * @param descriptor - The CMSG service descriptor for the service.
+ */
+cmsg_client *
+cmsg_create_client_tcp_ipv4_rpc (const char *service_name, struct in_addr *addr,
+                                 const ProtobufCServiceDescriptor *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_client_tcp_ipv4 (service_name, addr, descriptor, false);
+}
+
+/**
+ * Create a oneway CMSG client using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to connect to.
+ * @param descriptor - The CMSG service descriptor for the service.
+ */
+cmsg_client *
+cmsg_create_client_tcp_ipv4_oneway (const char *service_name, struct in_addr *addr,
+                                    const ProtobufCServiceDescriptor *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_client_tcp_ipv4 (service_name, addr, descriptor, true);
+}

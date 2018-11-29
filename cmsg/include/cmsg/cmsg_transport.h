@@ -210,4 +210,7 @@ void cmsg_transport_udt_tcp_base_init (cmsg_transport *transport, bool oneway);
 
 bool cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two);
 
+cmsg_transport *cmsg_create_transport_tcp_ipv4 (const char *service_name,
+                                                struct in_addr *addr, bool oneway);
+
 #endif /* __CMSG_TRANSPORT_H_ */
