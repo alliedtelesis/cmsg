@@ -15,6 +15,7 @@
 #include <dirent.h>
 #include <glib.h>
 #include <protobuf2json.h>
+#include <arpa/inet.h>
 #include "cmsg.h"
 #include "cmsg_client.h"
 
@@ -28,6 +29,7 @@ typedef enum transport_type_e
     TRANSPORT_TYPE_NONE,
     TRANSPORT_TYPE_UNIX,
     TRANSPORT_TYPE_TIPC,
+    TRANSPORT_TYPE_TCP,
 } transport_type_t;
 
 typedef struct program_args_s
@@ -38,8 +40,10 @@ typedef struct program_args_s
     char *service_name;
     char *api_name;
     char *message_data;
-    char *tipc_service_name;
+    char *port_service_name;
     int32_t tipc_member_id;
+    struct in_addr tcp_ip_address;
+    bool valid_ip_address;
     bool oneway;
 } program_args;
 
@@ -51,7 +55,7 @@ typedef struct pbc_descriptors_s
     cmsg_api_func_ptr api_ptr;
 } pbc_descriptors;
 
-#define SHELL_OPTIONS    "a:f:hi:m:n:op:s:t:"
+#define SHELL_OPTIONS    "a:f:hi:m:n:op:s:t:r:"
 
 static struct option longopts[] = {
     { "api_name", required_argument, NULL, 'a' },
@@ -59,11 +63,12 @@ static struct option longopts[] = {
     { "help", no_argument, NULL, 'h' },
     { "tipc_member_id", required_argument, NULL, 'i' },
     { "message_data", required_argument, NULL, 'm' },
-    { "tipc_service_name", required_argument, NULL, 'n' },
+    { "port_service_name", required_argument, NULL, 'n' },
     { "one_way", no_argument, NULL, 'o' },
     { "package_name", required_argument, NULL, 'p' },
     { "service_name", required_argument, NULL, 's' },
     { "transport_type", required_argument, NULL, 't' },
+    { "ip_address", required_argument, NULL, 'r' },
     { 0 }
 };
 
@@ -74,9 +79,9 @@ static void
 usage (void)
 {
     fprintf (stderr,
-             "Usage: cmsg [-t {unix|tipc}] | [-f FILE_NAME] | [-p PACKAGE_NAME] |\n"
+             "Usage: cmsg [-t {unix|tipc|tcp}] | [-f FILE_NAME] | [-p PACKAGE_NAME] |\n"
              "            [-s CMSG_SERVICE_NAME] | [-a API_NAME] | [-m MESSAGE_DATA] |\n"
-             "            [-o] | [-n TIPC_SERVICE_NAME] | [-i TIPC_MEMBER_ID]\n"
+             "            [-o] | [-n PORT_SERVICE_NAME] | [-i TIPC_MEMBER_ID]\n"
              "\n"
              "Options:\n"
              "  -h                      Display this message.\n"
@@ -89,7 +94,10 @@ usage (void)
              "  -m MESSAGE_DATA         The message to call the api/rpc with. This should be\n"
              "                          in JSON format.\n"
              "  -o                      The CMSG client should be oneway (defaults to two-way/rpc).\n"
-             "  -n TIPC_SERVICE_NAME    The TIPC service name (if using TIPC transport).\n"
+             "  -n PORT_SERVICE_NAME    The service name for the port specified in the /etc/services file\n"
+             "                          (if using a TIPC or TCP transport).\n"
+             "  -r TCP_IP_ADDRESS       The IP address of the server to connect to (if using a\n"
+             "                          TCP transport). Currently this must be an IPv4 address.\n"
              "  -i TIPC_MEMBER_ID       The TIPC node to connect to (if using TIPC transport).\n"
              "                          This assumes TIPC_CLUSTER_SCOPE.\n\n");
 }
@@ -115,8 +123,25 @@ get_transport_type (const char *type_string)
     {
         type = TRANSPORT_TYPE_TIPC;
     }
+    else if (strcmp (type_string, "tcp") == 0)
+    {
+        type = TRANSPORT_TYPE_TCP;
+    }
 
     return type;
+}
+
+static void
+get_ipv4_address (program_args *args, const char *addr_string)
+{
+    if (inet_pton (AF_INET, addr_string, &args->tcp_ip_address) == 1)
+    {
+        args->valid_ip_address = true;
+    }
+    else
+    {
+        args->valid_ip_address = false;
+    }
 }
 
 /**
@@ -157,9 +182,10 @@ program_args_init (program_args *args)
     args->service_name = NULL;
     args->api_name = NULL;
     args->message_data = NULL;
-    args->tipc_service_name = NULL;
+    args->port_service_name = NULL;
     args->tipc_member_id = -1;
     args->oneway = false;
+    args->valid_ip_address = false;
 }
 
 /**
@@ -200,14 +226,27 @@ check_input_arguments (program_args *args)
     }
     if (args->transport_type == TRANSPORT_TYPE_TIPC)
     {
-        if (args->tipc_service_name == NULL)
+        if (args->port_service_name == NULL)
         {
-            fprintf (stderr, "A TIPC service name must be supplied.\n");
+            fprintf (stderr, "A service name for the port must be supplied.\n");
             return false;
         }
         if (args->tipc_member_id == -1)
         {
             fprintf (stderr, "A TIPC member id must be supplied.\n");
+            return false;
+        }
+    }
+    if (args->transport_type == TRANSPORT_TYPE_TCP)
+    {
+        if (args->port_service_name == NULL)
+        {
+            fprintf (stderr, "A service name for the port must be supplied.\n");
+            return false;
+        }
+        if (args->valid_ip_address == false)
+        {
+            fprintf (stderr, "A valid IP address of the server must be supplied.\n");
             return false;
         }
     }
@@ -262,7 +301,7 @@ parse_input_arguments (int argc, char **argv, program_args *args)
             args->message_data = optarg;
             break;
         case 'n':
-            args->tipc_service_name = optarg;
+            args->port_service_name = optarg;
             break;
         case 'o':
             args->oneway = true;
@@ -275,6 +314,9 @@ parse_input_arguments (int argc, char **argv, program_args *args)
             break;
         case 't':
             args->transport_type = get_transport_type (optarg);
+            break;
+        case 'r':
+            get_ipv4_address (args, optarg);
             break;
         case '?':
             /* getopt_long already printed an error message. */
@@ -462,20 +504,35 @@ create_client (program_args *args, const ProtobufCServiceDescriptor *service_des
             client = cmsg_create_client_unix (service_descriptor);
         }
     }
-    else
+    else if (args->transport_type == TRANSPORT_TYPE_TIPC)
     {
         if (args->oneway)
         {
-            client = cmsg_create_client_tipc_oneway (args->tipc_service_name,
+            client = cmsg_create_client_tipc_oneway (args->port_service_name,
                                                      args->tipc_member_id,
                                                      TIPC_CLUSTER_SCOPE,
                                                      service_descriptor);
         }
         else
         {
-            client = cmsg_create_client_tipc_rpc (args->tipc_service_name,
+            client = cmsg_create_client_tipc_rpc (args->port_service_name,
                                                   args->tipc_member_id,
                                                   TIPC_CLUSTER_SCOPE, service_descriptor);
+        }
+    }
+    else if (args->transport_type == TRANSPORT_TYPE_TCP)
+    {
+        if (args->oneway)
+        {
+            client = cmsg_create_client_tcp_ipv4_oneway (args->port_service_name,
+                                                         &args->tcp_ip_address,
+                                                         service_descriptor);
+        }
+        else
+        {
+            client = cmsg_create_client_tcp_ipv4_rpc (args->port_service_name,
+                                                      &args->tcp_ip_address,
+                                                      service_descriptor);
         }
     }
 
