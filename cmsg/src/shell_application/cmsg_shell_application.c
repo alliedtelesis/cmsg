@@ -45,6 +45,7 @@ typedef struct program_args_s
     struct in_addr tcp_ip_address;
     bool valid_ip_address;
     bool oneway;
+    bool disable_error_logs;
 } program_args;
 
 typedef struct pbc_descriptors_s
@@ -65,6 +66,7 @@ static struct option longopts[] = {
     { "message_data", required_argument, NULL, 'm' },
     { "port_service_name", required_argument, NULL, 'n' },
     { "one_way", no_argument, NULL, 'o' },
+    { "disable_error_logs", no_argument, NULL, 'q' },
     { "package_name", required_argument, NULL, 'p' },
     { "service_name", required_argument, NULL, 's' },
     { "transport_type", required_argument, NULL, 't' },
@@ -94,6 +96,7 @@ usage (void)
              "  -m MESSAGE_DATA         The message to call the api/rpc with. This should be\n"
              "                          in JSON format.\n"
              "  -o                      The CMSG client should be oneway (defaults to two-way/rpc).\n"
+             "  -q                      Disable the printing of any error logs that may occur.\n"
              "  -n PORT_SERVICE_NAME    The service name for the port specified in the /etc/services file\n"
              "                          (if using a TIPC or TCP transport).\n"
              "  -r TCP_IP_ADDRESS       The IP address of the server to connect to (if using a\n"
@@ -186,6 +189,7 @@ program_args_init (program_args *args)
     args->tipc_member_id = -1;
     args->oneway = false;
     args->valid_ip_address = false;
+    args->disable_error_logs = false;
 }
 
 /**
@@ -305,6 +309,9 @@ parse_input_arguments (int argc, char **argv, program_args *args)
             break;
         case 'o':
             args->oneway = true;
+            break;
+        case 'q':
+            args->disable_error_logs = true;
             break;
         case 'p':
             args->package_name = optarg;
@@ -534,6 +541,11 @@ create_client (program_args *args, const ProtobufCServiceDescriptor *service_des
                                                       &args->tcp_ip_address,
                                                       service_descriptor);
         }
+    }
+
+    if (client && args->disable_error_logs)
+    {
+        cmsg_client_suppress_error (client, true);
     }
 
     return client;
