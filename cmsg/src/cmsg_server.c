@@ -1092,8 +1092,10 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
 static int
 cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
 {
-    return server->_transport->tport_funcs.server_send (server->_transport,
-                                                        buff, length, 0);
+    int socket = server->_transport->connection.sockets.client_socket;
+
+    return server->_transport->tport_funcs.server_send (socket, server->_transport, buff,
+                                                        length, 0);
 }
 
 /**

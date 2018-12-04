@@ -275,10 +275,10 @@ cmsg_transport_tcp_client_send (cmsg_transport *transport, void *buff, int lengt
 }
 
 static int32_t
-cmsg_transport_tcp_rpc_server_send (cmsg_transport *transport, void *buff, int length,
-                                    int flag)
+cmsg_transport_tcp_rpc_server_send (int socket, cmsg_transport *transport, void *buff,
+                                    int length, int flag)
 {
-    return (send (transport->connection.sockets.client_socket, buff, length, flag));
+    return (send (socket, buff, length, flag));
 }
 
 /**
@@ -286,8 +286,8 @@ cmsg_transport_tcp_rpc_server_send (cmsg_transport *transport, void *buff, int l
  * returns 0.
  */
 static int32_t
-cmsg_transport_tcp_oneway_server_send (cmsg_transport *transport, void *buff, int length,
-                                       int flag)
+cmsg_transport_tcp_oneway_server_send (int socket, cmsg_transport *transport, void *buff,
+                                       int length, int flag)
 {
     return 0;
 }

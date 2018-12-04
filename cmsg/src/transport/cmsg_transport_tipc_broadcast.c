@@ -176,8 +176,8 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_transport *transport, void *buff
  * defined
  */
 static int32_t
-cmsg_transport_tipc_broadcast_server_send (cmsg_transport *transport, void *buff,
-                                           int length, int flag)
+cmsg_transport_tipc_broadcast_server_send (int socket, cmsg_transport *transport,
+                                           void *buff, int length, int flag)
 {
     return 0;
 }

@@ -55,7 +55,8 @@ typedef cmsg_status_code (*client_recv_f) (cmsg_transport *transport,
                                            const ProtobufCServiceDescriptor *descriptor,
                                            ProtobufCMessage **messagePtPt);
 typedef int (*client_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
-typedef int (*server_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
+typedef int (*server_send_f) (int socket, cmsg_transport *transport, void *buff, int length,
+                              int flag);
 typedef void (*client_close_f) (cmsg_transport *transport);
 typedef void (*server_close_f) (cmsg_transport *transport);
 typedef int (*s_get_socket_f) (cmsg_transport *transport);

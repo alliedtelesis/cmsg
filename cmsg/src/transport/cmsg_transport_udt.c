@@ -92,11 +92,13 @@ cmsg_transport_udt_client_recv (cmsg_transport *transport,
 
 
 static int32_t
-cmsg_transport_udt_server_send (cmsg_transport *transport, void *buff, int length, int flag)
+cmsg_transport_udt_server_send (int socket, cmsg_transport *transport, void *buff,
+                                int length, int flag)
 {
     if (transport->udt_info.functions.server_send)
     {
-        return transport->udt_info.functions.server_send (transport, buff, length, flag);
+        return transport->udt_info.functions.server_send (socket, transport, buff, length,
+                                                          flag);
     }
 
     return 0;
