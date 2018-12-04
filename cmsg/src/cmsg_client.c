@@ -238,7 +238,6 @@ cmsg_client_deinit (cmsg_client *client)
     if (client->_transport)
     {
         cmsg_client_close_wrapper (client->_transport);
-        client->_transport->tport_funcs.client_destroy (client->_transport);
     }
 
     if (client->loopback_server)

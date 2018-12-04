@@ -202,12 +202,6 @@ cmsg_transport_unix_server_close (cmsg_transport *transport)
 }
 
 static void
-cmsg_transport_unix_client_destroy (cmsg_transport *transport)
-{
-    //placeholder to make sure destroy functions are called in the right order
-}
-
-static void
 cmsg_transport_unix_server_destroy (cmsg_transport *transport)
 {
     if (transport->socket != -1)
@@ -254,7 +248,6 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
     transport->tport_funcs.client_send = cmsg_transport_unix_client_send;
     transport->tport_funcs.client_close = cmsg_transport_unix_client_close;
     transport->tport_funcs.server_close = cmsg_transport_unix_server_close;
-    transport->tport_funcs.client_destroy = cmsg_transport_unix_client_destroy;
     transport->tport_funcs.server_destroy = cmsg_transport_unix_server_destroy;
     transport->tport_funcs.get_socket = cmsg_transport_get_socket;
     transport->tport_funcs.is_congested = cmsg_transport_unix_is_congested;

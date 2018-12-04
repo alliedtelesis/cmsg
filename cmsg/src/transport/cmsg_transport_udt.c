@@ -136,16 +136,6 @@ cmsg_transport_udt_get_socket (cmsg_transport *transport)
     return 0;
 }
 
-
-static void
-cmsg_transport_udt_client_destroy (cmsg_transport *transport)
-{
-    if (transport->udt_info.functions.client_destroy)
-    {
-        transport->udt_info.functions.client_destroy (transport);
-    }
-}
-
 static void
 cmsg_transport_udt_server_destroy (cmsg_transport *transport)
 {
@@ -268,7 +258,6 @@ cmsg_transport_udt_init (cmsg_transport *transport)
 
     transport->tport_funcs.get_socket = cmsg_transport_udt_get_socket;
 
-    transport->tport_funcs.client_destroy = cmsg_transport_udt_client_destroy;
     transport->tport_funcs.server_destroy = cmsg_transport_udt_server_destroy;
 
     transport->tport_funcs.is_congested = cmsg_transport_udt_is_congested;
