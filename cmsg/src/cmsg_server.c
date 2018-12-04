@@ -26,6 +26,10 @@ static cmsg_queue_filter_type cmsg_server_queue_filter_lookup (cmsg_server *serv
 
 int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
 
+static void cmsg_server_empty_method_reply_send (int socket, cmsg_server *server,
+                                                 cmsg_status_code status_code,
+                                                 uint32_t method_index);
+
 
 static ProtobufCClosure
 cmsg_server_get_closure_func (cmsg_transport *transport)
@@ -719,6 +723,7 @@ cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
 {
     cmsg_server_request server_request;
     int32_t ret;
+    int socket = server->_transport->connection.sockets.client_socket;
 
     // Header is good so make use of it.
     server_request.msg_type = header_converted->msg_type;
@@ -733,7 +738,7 @@ cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
     {
         if (ret == CMSG_RET_METHOD_NOT_FOUND)
         {
-            cmsg_server_empty_method_reply_send (server,
+            cmsg_server_empty_method_reply_send (socket, server,
                                                  CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,
                                                  UNDEFINED_METHOD);
         }
@@ -1169,13 +1174,12 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
 }
 
 
-void
-cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code status_code,
-                                     uint32_t method_index)
+static void
+cmsg_server_empty_method_reply_send (int socket, cmsg_server *server,
+                                     cmsg_status_code status_code, uint32_t method_index)
 {
     int ret = 0;
     cmsg_header header;
-    int socket = server->_transport->connection.sockets.client_socket;
 
     CMSG_ASSERT_RETURN_VOID (server != NULL);
 
@@ -1218,7 +1222,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     uint32_t ret = 0;
     int send_ret = 0;
     int type = CMSG_TLV_METHOD_TYPE;
-    int socket = -1;
+    int socket = server->_transport->connection.sockets.client_socket;
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] invoking rpc method=%d\n",
                 server_request->method_index);
@@ -1238,7 +1242,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         CMSG_DEBUG (CMSG_INFO, "[SERVER] method %d queued, sending response without data\n",
                     server_request->method_index);
 
-        cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_QUEUED,
+        cmsg_server_empty_method_reply_send (socket, server,
+                                             CMSG_STATUS_CODE_SERVICE_QUEUED,
                                              server_request->method_index);
         return;
     }
@@ -1251,7 +1256,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                     "[SERVER] method %d dropped, sending response without data\n",
                     server_request->method_index);
 
-        cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_DROPPED,
+        cmsg_server_empty_method_reply_send (socket, server,
+                                             CMSG_STATUS_CODE_SERVICE_DROPPED,
                                              server_request->method_index);
         return;
     }
@@ -1261,7 +1267,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     {
         CMSG_DEBUG (CMSG_INFO, "[SERVER] sending response without data\n");
 
-        cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+        cmsg_server_empty_method_reply_send (socket, server,
+                                             CMSG_STATUS_CODE_SERVICE_FAILED,
                                              server_request->method_index);
         CMSG_COUNTER_INC (server, cntr_memory_errors);
         return;
@@ -1288,7 +1295,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         {
             CMSG_LOG_SERVER_ERROR (server, "Unable to allocate memory for message.");
             CMSG_COUNTER_INC (server, cntr_memory_errors);
-            cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+            cmsg_server_empty_method_reply_send (socket, server,
+                                                 CMSG_STATUS_CODE_SERVICE_FAILED,
                                                  server_request->method_index);
             return;
         }
@@ -1305,7 +1313,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                                    packed_size);
             CMSG_COUNTER_INC (server, cntr_pack_errors);
             CMSG_FREE (buffer);
-            cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+            cmsg_server_empty_method_reply_send (socket, server,
+                                                 CMSG_STATUS_CODE_SERVICE_FAILED,
                                                  server_request->method_index);
             return;
         }
@@ -1316,7 +1325,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                  packed_size);
             CMSG_COUNTER_INC (server, cntr_pack_errors);
             CMSG_FREE (buffer);
-            cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+            cmsg_server_empty_method_reply_send (socket, server,
+                                                 CMSG_STATUS_CODE_SERVICE_FAILED,
                                                  server_request->method_index);
             return;
         }
@@ -1327,7 +1337,6 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         CMSG_DEBUG (CMSG_INFO, "[SERVER] response data\n");
         cmsg_buffer_print ((void *) buffer_data, packed_size);
 
-        socket = server->_transport->connection.sockets.client_socket;
         send_ret = cmsg_server_send_wrapper (socket, server->_transport, buffer,
                                              total_message_size);
 
