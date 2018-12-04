@@ -48,8 +48,7 @@ typedef int (*server_send_f) (int socket, cmsg_transport *transport, void *buff,
                               int flag);
 typedef void (*client_close_f) (cmsg_transport *transport);
 typedef void (*server_close_f) (cmsg_transport *transport);
-typedef int (*s_get_socket_f) (cmsg_transport *transport);
-typedef int (*c_get_socket_f) (cmsg_transport *transport);
+typedef int (*get_socket_f) (cmsg_transport *transport);
 typedef void (*client_destroy_f) (cmsg_transport *transport);
 typedef void (*server_destroy_f) (cmsg_transport *transport);
 typedef bool (*is_congested_f) (cmsg_transport *transport);
@@ -68,8 +67,7 @@ typedef struct _cmsg_tport_functions_s
     server_send_f server_send;                  // server send function
     client_close_f client_close;                // client close socket function
     server_close_f server_close;                // server close socket function
-    s_get_socket_f s_socket;                    //
-    c_get_socket_f c_socket;                    //
+    get_socket_f get_socket;                    // gets the socket used by the transport
     server_destroy_f server_destroy;            // Server destroy function
     client_destroy_f client_destroy;            // Client destroy function
     is_congested_f is_congested;                // Check whether transport is congested

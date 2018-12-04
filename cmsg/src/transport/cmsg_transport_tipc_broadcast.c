@@ -278,8 +278,7 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->tport_funcs.server_send = cmsg_transport_oneway_server_send;
     transport->tport_funcs.client_close = cmsg_transport_tipc_broadcast_client_close;
     transport->tport_funcs.server_close = cmsg_transport_tipc_broadcast_server_close;
-    transport->tport_funcs.s_socket = cmsg_transport_get_socket;
-    transport->tport_funcs.c_socket = cmsg_transport_get_socket;
+    transport->tport_funcs.get_socket = cmsg_transport_get_socket;
     transport->tport_funcs.client_destroy = cmsg_transport_tipc_broadcast_client_destroy;
     transport->tport_funcs.server_destroy = cmsg_transport_tipc_broadcast_server_destroy;
 

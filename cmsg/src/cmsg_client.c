@@ -905,7 +905,7 @@ cmsg_client_get_socket (cmsg_client *client)
 
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        sock = client->_transport->tport_funcs.c_socket (client->_transport);
+        sock = client->_transport->tport_funcs.get_socket (client->_transport);
     }
     else
     {
@@ -952,7 +952,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
     }
 
     // return socket to listen on
-    return client->_transport->tport_funcs.c_socket (client->_transport);
+    return client->_transport->tport_funcs.get_socket (client->_transport);
 }
 
 
