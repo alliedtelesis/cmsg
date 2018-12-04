@@ -46,13 +46,10 @@ setup_udt_tcp_transport_functions (cmsg_transport *udt_transport)
         udt_transport->udt_info.base.client_recv;
     udt_transport->udt_info.functions.client_send =
         udt_transport->udt_info.base.client_send;
-    udt_transport->udt_info.functions.client_close =
-        udt_transport->udt_info.base.client_close;
+    udt_transport->udt_info.functions.socket_close =
+        udt_transport->udt_info.base.socket_close;
 
     udt_transport->udt_info.functions.get_socket = udt_transport->udt_info.base.get_socket;
-
-    udt_transport->udt_info.functions.server_destroy =
-        udt_transport->udt_info.base.server_destroy;
 
     udt_transport->udt_info.functions.is_congested =
         udt_transport->udt_info.base.is_congested;

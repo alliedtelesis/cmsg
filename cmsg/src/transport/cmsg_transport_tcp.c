@@ -310,9 +310,8 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->server_recv = cmsg_transport_server_recv;
     tport_funcs->client_recv = cmsg_transport_tcp_client_recv;
     tport_funcs->client_send = cmsg_transport_tcp_client_send;
-    tport_funcs->client_close = cmsg_transport_socket_close;
+    tport_funcs->socket_close = cmsg_transport_socket_close;
     tport_funcs->get_socket = cmsg_transport_get_socket;
-    tport_funcs->server_destroy = cmsg_transport_socket_close;
     tport_funcs->is_congested = cmsg_transport_tcp_is_congested;
     tport_funcs->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
     tport_funcs->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;

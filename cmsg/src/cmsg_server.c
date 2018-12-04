@@ -215,7 +215,7 @@ cmsg_server_destroy (cmsg_server *server)
 
     if (server->_transport)
     {
-        server->_transport->tport_funcs.server_destroy (server->_transport);
+        server->_transport->tport_funcs.socket_close (server->_transport);
     }
 
     CMSG_FREE (server);

@@ -45,6 +45,8 @@ static int32_t cmsg_client_queue_input (cmsg_client *client, uint32_t method_ind
 
 static void _cmsg_client_destroy (cmsg_client *client);
 
+static void cmsg_client_close_wrapper (cmsg_transport *transport);
+
 static void
 cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
 {
@@ -1539,10 +1541,10 @@ cmsg_create_client_loopback (ProtobufCService *service)
  * NOTE user applications should not call this routine directly
  *
  */
-void
+static void
 cmsg_client_close_wrapper (cmsg_transport *transport)
 {
-    transport->tport_funcs.client_close (transport);
+    transport->tport_funcs.socket_close (transport);
 }
 
 /**

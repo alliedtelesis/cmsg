@@ -430,7 +430,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
                 /* Didn't allocate memory for recv buffer.  This is an error.
                  * Shut the socket down, it will reopen on the next api call.
                  * Record and return an error. */
-                transport->tport_funcs.client_close (transport);
+                transport->tport_funcs.socket_close (transport);
                 CMSG_LOG_TRANSPORT_ERROR (transport,
                                           "Failed to allocate memory for received message");
                 return CMSG_STATUS_CODE_SERVICE_FAILED;

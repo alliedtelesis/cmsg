@@ -212,8 +212,7 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
     transport->tport_funcs.server_recv = cmsg_transport_server_recv;
     transport->tport_funcs.client_recv = cmsg_transport_unix_client_recv;
     transport->tport_funcs.client_send = cmsg_transport_unix_client_send;
-    transport->tport_funcs.client_close = cmsg_transport_socket_close;
-    transport->tport_funcs.server_destroy = cmsg_transport_socket_close;
+    transport->tport_funcs.socket_close = cmsg_transport_socket_close;
     transport->tport_funcs.get_socket = cmsg_transport_get_socket;
     transport->tport_funcs.is_congested = cmsg_transport_unix_is_congested;
     transport->tport_funcs.send_can_block_enable =

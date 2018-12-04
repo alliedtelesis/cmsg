@@ -46,9 +46,8 @@ typedef cmsg_status_code (*client_recv_f) (cmsg_transport *transport,
 typedef int (*client_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
 typedef int (*server_send_f) (int socket, cmsg_transport *transport, void *buff, int length,
                               int flag);
-typedef void (*client_close_f) (cmsg_transport *transport);
+typedef void (*socket_close_f) (cmsg_transport *transport);
 typedef int (*get_socket_f) (cmsg_transport *transport);
-typedef void (*server_destroy_f) (cmsg_transport *transport);
 typedef bool (*is_congested_f) (cmsg_transport *transport);
 typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
 typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
@@ -63,9 +62,8 @@ typedef struct _cmsg_tport_functions_s
     client_recv_f client_recv;                  // receive function
     client_send_f client_send;                  // client send function
     server_send_f server_send;                  // server send function
-    client_close_f client_close;                // client close socket function
+    socket_close_f socket_close;                // close socket function
     get_socket_f get_socket;                    // gets the socket used by the transport
-    server_destroy_f server_destroy;            // Server destroy function
     is_congested_f is_congested;                // Check whether transport is congested
     send_can_block_enable_f send_can_block_enable;
     ipfree_bind_enable_f ipfree_bind_enable;    // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
