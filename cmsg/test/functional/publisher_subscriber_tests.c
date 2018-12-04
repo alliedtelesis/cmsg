@@ -313,8 +313,7 @@ create_subscriber_and_test (cmsg_transport_type type)
     cmsg_sub_unsubscribe (subscriber, pub_transport, "simple_notification_test");
 
     cmsg_destroy_subscriber_and_transport (subscriber);
-    close (pub_transport->connection.sockets.client_socket);
-    close (pub_transport->connection.sockets.listening_socket);
+    close (pub_transport->socket);
     cmsg_transport_destroy (pub_transport);
 }
 

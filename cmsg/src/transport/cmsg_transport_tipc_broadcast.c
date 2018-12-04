@@ -18,10 +18,9 @@ cmsg_transport_tipc_broadcast_connect (cmsg_transport *transport, int timeout)
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_broadcast_connect\n");
 
-    transport->connection.sockets.client_socket = socket (transport->config.socket.family,
-                                                          SOCK_RDM, 0);
+    transport->socket = socket (transport->config.socket.family, SOCK_RDM, 0);
 
-    if (transport->connection.sockets.client_socket < 0)
+    if (transport->socket < 0)
     {
         ret = -errno;
         CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
@@ -67,7 +66,7 @@ cmsg_transport_tipc_broadcast_listen (cmsg_transport *transport)
     }
 
     //TODO: Do we need a listen?
-    transport->connection.sockets.listening_socket = listening_socket;
+    transport->socket = listening_socket;
     //TODO: Add debug
     return 0;
 }
@@ -94,7 +93,7 @@ cmsg_transport_tipc_broadcast_recv (cmsg_transport *transport, int sock, void *b
 
     addrlen = sizeof (struct sockaddr_tipc);
 
-    nbytes = recvfrom (transport->connection.sockets.listening_socket, buff, len, flags,
+    nbytes = recvfrom (transport->socket, buff, len, flags,
                        (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                        &addrlen);
     return nbytes;
@@ -128,7 +127,7 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_transport *transport, void *buff
     int retries = 0;
     int saved_errno = 0;
 
-    int result = sendto (transport->connection.sockets.client_socket, buff, length,
+    int result = sendto (transport->socket, buff, length,
                          MSG_DONTWAIT,
                          (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                          sizeof (struct sockaddr_tipc));
@@ -143,7 +142,7 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_transport *transport, void *buff
             usleep (50000);
             retries++;
 
-            result = sendto (transport->connection.sockets.client_socket, buff, length,
+            result = sendto (transport->socket, buff, length,
                              MSG_DONTWAIT,
                              (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                              sizeof (struct sockaddr_tipc));
@@ -175,15 +174,15 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_transport *transport, void *buff
 static void
 cmsg_transport_tipc_broadcast_client_close (cmsg_transport *transport)
 {
-    if (transport->connection.sockets.client_socket != -1)
+    if (transport->socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
+        shutdown (transport->socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (transport->connection.sockets.client_socket);
+        close (transport->socket);
 
-        transport->connection.sockets.client_socket = -1;
+        transport->socket = -1;
     }
 }
 
@@ -207,7 +206,7 @@ cmsg_transport_tipc_broadcast_server_close (cmsg_transport *transport)
 static int
 cmsg_transport_tipc_broadcast_server_get_socket (cmsg_transport *transport)
 {
-    return transport->connection.sockets.listening_socket;
+    return transport->socket;
 }
 
 
@@ -217,7 +216,7 @@ cmsg_transport_tipc_broadcast_server_get_socket (cmsg_transport *transport)
 static int
 cmsg_transport_tipc_broadcast_client_get_socket (cmsg_transport *transport)
 {
-    return transport->connection.sockets.client_socket;
+    return transport->socket;
 }
 
 /**
@@ -236,13 +235,13 @@ cmsg_transport_tipc_broadcast_client_destroy (cmsg_transport *transport)
 static void
 cmsg_transport_tipc_broadcast_server_destroy (cmsg_transport *transport)
 {
-    if (transport->connection.sockets.listening_socket != -1)
+    if (transport->socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-        shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
+        shutdown (transport->socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-        close (transport->connection.sockets.listening_socket);
+        close (transport->socket);
     }
 }
 

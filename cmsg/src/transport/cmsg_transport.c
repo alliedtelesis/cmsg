@@ -172,8 +172,7 @@ cmsg_transport_new (cmsg_transport_type type)
 
     if (transport)
     {
-        transport->connection.sockets.client_socket = -1;
-        transport->connection.sockets.listening_socket = -1;
+        transport->socket = -1;
     }
 
     return transport;
@@ -365,7 +364,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     const ProtobufCMessageDescriptor *desc;
     uint32_t extra_header_size;
     cmsg_server_request server_request;
-    int socket = transport->connection.sockets.client_socket;
+    int socket = transport->socket;
     cmsg_status_code ret;
     time_t receive_timeout;
 
@@ -499,7 +498,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
         {
             CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
-                                      transport->connection.sockets.client_socket,
+                                      transport->socket,
                                       dyn_len, nbytes, errno, strerror (errno));
 
         }
@@ -515,7 +514,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
          */
         CMSG_LOG_TRANSPORT_ERROR (transport,
                                   "Bad header length for recv. Socket:%d nbytes:%d",
-                                  transport->connection.sockets.client_socket, nbytes);
+                                  transport->socket, nbytes);
 
         // TEMP to keep things going
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
@@ -534,14 +533,13 @@ cmsg_transport_client_recv (cmsg_transport *transport,
         if (errno == ECONNRESET)
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                        transport->connection.sockets.client_socket, strerror (errno));
+                        transport->socket, strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
         {
             CMSG_LOG_TRANSPORT_ERROR (transport, "Recv error. Socket:%d Error:%s",
-                                      transport->connection.sockets.client_socket,
-                                      strerror (errno));
+                                      transport->socket, strerror (errno));
         }
     }
 

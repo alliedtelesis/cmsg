@@ -13,17 +13,6 @@
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 
-typedef struct _generic_connection_s
-{
-    int listening_socket;
-    int client_socket;
-} cmsg_generic_connection;
-
-typedef union _cmsg_connection_u
-{
-    cmsg_generic_connection sockets;
-} cmsg_connection;
-
 typedef union _cmsg_socket_address_u
 {
     struct sockaddr generic;    // Generic socket address. Used for determining Address Family.
@@ -146,7 +135,8 @@ struct _cmsg_transport_s
     // flag to tell error-level log to be suppressed to debug-level
     cmsg_bool_t suppress_errors;
 
-    cmsg_connection connection;
+    // The socket used by the transport
+    int socket;
 
     //transport function pointers
     cmsg_tport_functions tport_funcs;

@@ -23,10 +23,9 @@ cmsg_transport_tipc_connect (cmsg_transport *transport, int timeout)
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_connect\n");
 
-    transport->connection.sockets.client_socket = socket (transport->config.socket.family,
-                                                          SOCK_STREAM, 0);
+    transport->socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
 
-    if (transport->connection.sockets.client_socket < 0)
+    if (transport->socket < 0)
     {
         ret = -errno;
         CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
@@ -38,11 +37,11 @@ cmsg_transport_tipc_connect (cmsg_transport *transport, int timeout)
     if (timeout != CONNECT_TIMEOUT_DEFAULT)
     {
         int tipc_timeout = timeout;
-        setsockopt (transport->connection.sockets.client_socket, SOL_TIPC,
+        setsockopt (transport->socket, SOL_TIPC,
                     TIPC_CONN_TIMEOUT, &tipc_timeout, sizeof (int));
     }
 
-    ret = connect (transport->connection.sockets.client_socket,
+    ret = connect (transport->socket,
                    (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                    sizeof (transport->config.socket.sockaddr.tipc));
     if (ret < 0)
@@ -53,9 +52,9 @@ cmsg_transport_tipc_connect (cmsg_transport *transport, int timeout)
                         transport->config.socket.sockaddr.tipc.addr.name.name.instance,
                         strerror (errno));
 
-        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
-        close (transport->connection.sockets.client_socket);
-        transport->connection.sockets.client_socket = -1;
+        shutdown (transport->socket, SHUT_RDWR);
+        close (transport->socket);
+        transport->socket = -1;
 
         return ret;
     }
@@ -84,9 +83,9 @@ cmsg_transport_tipc_connect (cmsg_transport *transport, int timeout)
              transport->config.socket.sockaddr.tipc.addr.name.name.type,
              transport->config.socket.sockaddr.tipc.addr.name.name.instance, ret,
              strerror (errno));
-        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
-        close (transport->connection.sockets.client_socket);
-        transport->connection.sockets.client_socket = -1;
+        shutdown (transport->socket, SHUT_RDWR);
+        close (transport->socket);
+        transport->socket = -1;
         return -1;
     }
 
@@ -139,7 +138,7 @@ cmsg_transport_tipc_listen (cmsg_transport *transport)
         return -1;
     }
 
-    transport->connection.sockets.listening_socket = listening_socket;
+    transport->socket = listening_socket;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tipc socket: %d\n", listening_socket);
 
@@ -226,21 +225,21 @@ static int32_t
 cmsg_transport_tipc_client_send (cmsg_transport *transport, void *buff, int length,
                                  int flag)
 {
-    return (send (transport->connection.sockets.client_socket, buff, length, flag));
+    return (send (transport->socket, buff, length, flag));
 }
 
 static void
 cmsg_transport_tipc_client_close (cmsg_transport *transport)
 {
-    if (transport->connection.sockets.client_socket != -1)
+    if (transport->socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
+        shutdown (transport->socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (transport->connection.sockets.client_socket);
+        close (transport->socket);
 
-        transport->connection.sockets.client_socket = -1;
+        transport->socket = -1;
     }
 
 }
@@ -255,14 +254,14 @@ cmsg_transport_tipc_server_close (cmsg_transport *transport)
 static int
 cmsg_transport_tipc_server_get_socket (cmsg_transport *transport)
 {
-    return transport->connection.sockets.listening_socket;
+    return transport->socket;
 }
 
 
 static int
 cmsg_transport_tipc_client_get_socket (cmsg_transport *transport)
 {
-    return transport->connection.sockets.client_socket;
+    return transport->socket;
 }
 
 static void
@@ -274,13 +273,13 @@ cmsg_transport_tipc_client_destroy (cmsg_transport *transport)
 static void
 cmsg_transport_tipc_server_destroy (cmsg_transport *transport)
 {
-    if (transport->connection.sockets.listening_socket != -1)
+    if (transport->socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-        shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
+        shutdown (transport->socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-        close (transport->connection.sockets.listening_socket);
+        close (transport->socket);
     }
 }
 

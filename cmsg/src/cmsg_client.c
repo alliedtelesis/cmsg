@@ -365,7 +365,7 @@ _cmsg_client_connect (cmsg_client *client, int timeout)
         else
         {
             client->state = CMSG_CLIENT_STATE_CONNECTED;
-            sock = client->_transport->connection.sockets.client_socket;
+            sock = client->_transport->socket;
 
             if (client->send_timeout > 0)
             {
@@ -440,8 +440,7 @@ cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout)
     /* If the client is already connected, then apply the new timeout immediately */
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        _cmsg_client_apply_send_timeout (client->_transport->connection.
-                                         sockets.client_socket, client->send_timeout);
+        _cmsg_client_apply_send_timeout (client->_transport->socket, client->send_timeout);
     }
 
     return 0;
@@ -508,8 +507,8 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
     /* If the client is already connected, then apply the new timeout immediately */
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        _cmsg_client_apply_receive_timeout (client->_transport->connection.
-                                            sockets.client_socket, client->receive_timeout);
+        _cmsg_client_apply_receive_timeout (client->_transport->socket,
+                                            client->receive_timeout);
     }
 
     /* Store the timeout in the transport so client receive can timeout properly */

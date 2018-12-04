@@ -20,10 +20,9 @@ cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
     struct sockaddr *addr;
     uint32_t addr_len;
 
-    transport->connection.sockets.client_socket = socket (transport->config.socket.family,
-                                                          SOCK_STREAM, 0);
+    transport->socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
 
-    if (transport->connection.sockets.client_socket < 0)
+    if (transport->socket < 0)
     {
         ret = -errno;
         CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
@@ -42,7 +41,7 @@ cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
         addr_len = sizeof (transport->config.socket.sockaddr.in);
     }
 
-    if (connect (transport->connection.sockets.client_socket, addr, addr_len) < 0)
+    if (connect (transport->socket, addr, addr_len) < 0)
     {
         if (errno == EINPROGRESS)
         {
@@ -53,8 +52,8 @@ cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
         CMSG_LOG_TRANSPORT_ERROR (transport, "Failed to connect to remote host. Error:%s",
                                   strerror (errno));
 
-        close (transport->connection.sockets.client_socket);
-        transport->connection.sockets.client_socket = -1;
+        close (transport->socket);
+        transport->socket = -1;
 
         return ret;
     }
@@ -136,7 +135,7 @@ cmsg_transport_tcp_listen (cmsg_transport *transport)
         return -1;
     }
 
-    transport->connection.sockets.listening_socket = listening_socket;
+    transport->socket = listening_socket;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tcp socket: %d\n", listening_socket);
 
@@ -271,21 +270,21 @@ cmsg_transport_tcp_client_recv (cmsg_transport *transport,
 static int32_t
 cmsg_transport_tcp_client_send (cmsg_transport *transport, void *buff, int length, int flag)
 {
-    return (send (transport->connection.sockets.client_socket, buff, length, flag));
+    return (send (transport->socket, buff, length, flag));
 }
 
 static void
 cmsg_transport_tcp_client_close (cmsg_transport *transport)
 {
-    if (transport->connection.sockets.client_socket != -1)
+    if (transport->socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
+        shutdown (transport->socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (transport->connection.sockets.client_socket);
+        close (transport->socket);
 
-        transport->connection.sockets.client_socket = -1;
+        transport->socket = -1;
     }
 }
 
@@ -298,14 +297,14 @@ cmsg_transport_tcp_server_close (cmsg_transport *transport)
 static int
 cmsg_transport_tcp_server_get_socket (cmsg_transport *transport)
 {
-    return transport->connection.sockets.listening_socket;
+    return transport->socket;
 }
 
 
 static int
 cmsg_transport_tcp_client_get_socket (cmsg_transport *transport)
 {
-    return transport->connection.sockets.client_socket;
+    return transport->socket;
 }
 
 static void
@@ -317,13 +316,13 @@ cmsg_transport_tcp_client_destroy (cmsg_transport *transport)
 static void
 cmsg_transport_tcp_server_destroy (cmsg_transport *transport)
 {
-    if (transport->connection.sockets.listening_socket != -1)
+    if (transport->socket != -1)
     {
         CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-        shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
+        shutdown (transport->socket, SHUT_RDWR);
 
         CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-        close (transport->connection.sockets.listening_socket);
+        close (transport->socket);
     }
 }
 

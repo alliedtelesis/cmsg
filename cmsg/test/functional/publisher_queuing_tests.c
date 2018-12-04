@@ -300,8 +300,7 @@ void
 cleanup_subscriber (cmsg_transport *pub_transport, cmsg_sub *subscriber)
 {
     cmsg_destroy_subscriber_and_transport (subscriber);
-    close (pub_transport->connection.sockets.client_socket);
-    close (pub_transport->connection.sockets.listening_socket);
+    close (pub_transport->socket);
     cmsg_transport_destroy (pub_transport);
 }
 
