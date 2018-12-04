@@ -882,12 +882,10 @@ cmsg_server_accept_callback (cmsg_server *server, int32_t sock)
 }
 
 
-/**
- * Assumes that server_request will have been set in the server by the caller.
- */
 void
-cmsg_server_invoke (int socket, cmsg_server *server, uint32_t method_index,
-                    ProtobufCMessage *message, cmsg_method_processing_reason process_reason)
+cmsg_server_invoke (int socket, cmsg_server_request *server_request, cmsg_server *server,
+                    uint32_t method_index, ProtobufCMessage *message,
+                    cmsg_method_processing_reason process_reason)
 {
     uint32_t queue_length = 0;
     cmsg_server_closure_data closure_data;
@@ -896,7 +894,7 @@ cmsg_server_invoke (int socket, cmsg_server *server, uint32_t method_index,
 
     // Setup closure_data so it can be used no matter what the action is
     closure_data.server = server;
-    closure_data.server_request = server->server_request;
+    closure_data.server_request = server_request;
     closure_data.reply_socket = socket;
     closure_data.method_processing_reason = process_reason;
 
@@ -982,11 +980,10 @@ cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
     server_request.message_length = protobuf_c_message_get_packed_size (input);
     server_request.method_index = method_index;
     strcpy (server_request.method_name_recvd, method_name);
-    server->server_request = &server_request;
 
     /* call the server invoke function. */
-    cmsg_server_invoke (socket, server, method_index, (ProtobufCMessage *) input,
-                        CMSG_METHOD_OK_TO_INVOKE);
+    cmsg_server_invoke (socket, &server_request, server, method_index,
+                        (ProtobufCMessage *) input, CMSG_METHOD_OK_TO_INVOKE);
 }
 
 
@@ -1078,8 +1075,8 @@ _cmsg_server_method_req_message_processor (int socket, cmsg_server *server,
         processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     }
 
-    cmsg_server_invoke (socket, server, server_request->method_index, message,
-                        processing_reason);
+    cmsg_server_invoke (socket, server_request, server, server_request->method_index,
+                        message, processing_reason);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] end of message processor\n");
 
