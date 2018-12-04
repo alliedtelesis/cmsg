@@ -1090,8 +1090,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
  * @returns -1 on failure, 0 on success
  */
 static int
-cmsg_server_send_wrapper (int socket, cmsg_transport *transport, void *buff, int length,
-                          int flag)
+cmsg_server_send_wrapper (int socket, cmsg_transport *transport, void *buff, int length)
 {
     return transport->tport_funcs.server_send (socket, transport, buff, length, 0);
 
@@ -1116,8 +1115,7 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = cmsg_server_send_wrapper (socket, server->_transport, &header,
-                                    sizeof (header), 0);
+    ret = cmsg_server_send_wrapper (socket, server->_transport, &header, sizeof (header));
     if (ret < (int) sizeof (header))
     {
         CMSG_LOG_SERVER_ERROR (server, "Sending of echo reply failed. Sent:%d of %u bytes.",
@@ -1187,8 +1185,7 @@ cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code statu
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = cmsg_server_send_wrapper (socket, server->_transport, &header,
-                                    sizeof (header), 0);
+    ret = cmsg_server_send_wrapper (socket, server->_transport, &header, sizeof (header));
     if (ret < (int) sizeof (header))
     {
         CMSG_DEBUG (CMSG_ERROR,
@@ -1331,7 +1328,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
 
         socket = server->_transport->connection.sockets.client_socket;
         send_ret = cmsg_server_send_wrapper (socket, server->_transport, buffer,
-                                             total_message_size, 0);
+                                             total_message_size);
 
         if (send_ret < (int) total_message_size)
         {
