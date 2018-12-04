@@ -23,7 +23,8 @@ static void _cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link);
 
 static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
 
-static int32_t cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data);
+static int32_t cmsg_pub_message_processor (int socket, cmsg_server *server,
+                                           uint8_t *buffer_data);
 
 extern cmsg_server *cmsg_server_create (cmsg_transport *transport,
                                         ProtobufCService *service);
@@ -562,7 +563,7 @@ cmsg_pub_server_accept_callback (cmsg_pub *publisher, int32_t sd)
 }
 
 static int32_t
-cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
+cmsg_pub_message_processor (int socket, cmsg_server *server, uint8_t *buffer_data)
 {
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, CMSG_RET_ERR);
@@ -612,7 +613,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
     }
 
     closure_data.server = server;
-    closure_data.reply_socket = server->_transport->connection.sockets.client_socket;
+    closure_data.reply_socket = socket;
     closure_data.method_processing_reason = CMSG_METHOD_OK_TO_INVOKE;
 
     //this is calling: cmsg_pub_subscribe

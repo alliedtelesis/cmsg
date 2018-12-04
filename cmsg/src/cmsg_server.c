@@ -27,6 +27,9 @@ static void cmsg_server_empty_method_reply_send (int socket, cmsg_server *server
                                                  cmsg_status_code status_code,
                                                  uint32_t method_index);
 
+static int32_t cmsg_server_message_processor (int socket, cmsg_server *server,
+                                              uint8_t *buffer_data);
+
 
 static ProtobufCClosure
 cmsg_server_get_closure_func (cmsg_transport *transport)
@@ -751,7 +754,7 @@ cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
             cmsg_buffer_print (buffer_data, dyn_len);
             server->server_request = &server_request;
-            if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
+            if (server->message_processor (socket, server, buffer_data) != CMSG_RET_OK)
             {
                 CMSG_LOG_SERVER_ERROR (server,
                                        "Server message processing returned an error.");
@@ -1136,15 +1139,11 @@ _cmsg_server_echo_req_message_processor (int socket, cmsg_server *server,
  * If the
  */
 int32_t
-cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
+cmsg_server_message_processor (int socket, cmsg_server *server, uint8_t *buffer_data)
 {
-    int socket = -1;
-
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (buffer_data != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (server->server_request != NULL, CMSG_RET_ERR);
-
-    socket = server->_transport->connection.sockets.client_socket;
 
     cmsg_server_request *server_request = server->server_request;
 
