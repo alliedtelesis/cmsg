@@ -23,8 +23,8 @@ static void _cmsg_pub_subscriber_delete_link (cmsg_pub *publisher, GList *link);
 
 static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
 
-static int32_t cmsg_pub_message_processor (int socket, cmsg_server *server,
-                                           uint8_t *buffer_data);
+static int32_t cmsg_pub_message_processor (int socket, cmsg_server_request *server_request,
+                                           cmsg_server *server, uint8_t *buffer_data);
 
 extern cmsg_server *cmsg_server_create (cmsg_transport *transport,
                                         ProtobufCService *service);
@@ -563,16 +563,16 @@ cmsg_pub_server_accept_callback (cmsg_pub *publisher, int32_t sd)
 }
 
 static int32_t
-cmsg_pub_message_processor (int socket, cmsg_server *server, uint8_t *buffer_data)
+cmsg_pub_message_processor (int socket, cmsg_server_request *server_request,
+                            cmsg_server *server, uint8_t *buffer_data)
 {
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (server->service != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (server->service->descriptor != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (server->server_request != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (server_request != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (buffer_data != NULL, CMSG_RET_ERR);
 
-    cmsg_server_request *server_request = server->server_request;
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = &cmsg_memory_allocator;
     cmsg_server_closure_data closure_data;

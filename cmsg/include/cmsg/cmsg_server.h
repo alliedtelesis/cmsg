@@ -28,14 +28,14 @@ typedef struct _cmsg_server_closure_data_s
     cmsg_method_processing_reason method_processing_reason;
 } cmsg_server_closure_data;
 
-typedef int32_t (*server_message_processor_f) (int socket, cmsg_server *server,
-                                               uint8_t *buffer_data);
+typedef int32_t (*server_message_processor_f) (int socket,
+                                               cmsg_server_request *server_request,
+                                               cmsg_server *server, uint8_t *buffer_data);
 
 typedef struct _cmsg_server_s
 {
     const ProtobufCService *service;
     cmsg_transport *_transport;
-    cmsg_server_request *server_request;
     server_message_processor_f message_processor;
 
     cmsg_object self;

@@ -27,8 +27,9 @@ static void cmsg_server_empty_method_reply_send (int socket, cmsg_server *server
                                                  cmsg_status_code status_code,
                                                  uint32_t method_index);
 
-static int32_t cmsg_server_message_processor (int socket, cmsg_server *server,
-                                              uint8_t *buffer_data);
+static int32_t cmsg_server_message_processor (int socket,
+                                              cmsg_server_request *server_request,
+                                              cmsg_server *server, uint8_t *buffer_data);
 
 
 static ProtobufCClosure
@@ -749,8 +750,8 @@ cmsg_server_recv_process (int socket, uint8_t *buffer_data, cmsg_server *server,
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
             cmsg_buffer_print (buffer_data, dyn_len);
-            server->server_request = &server_request;
-            if (server->message_processor (socket, server, buffer_data) != CMSG_RET_OK)
+            if (server->message_processor (socket, &server_request, server,
+                                           buffer_data) != CMSG_RET_OK)
             {
                 CMSG_LOG_SERVER_ERROR (server,
                                        "Server message processing returned an error.");
@@ -995,14 +996,13 @@ cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
  * @returns -1 on failure, 0 on success
  */
 static int32_t
-_cmsg_server_method_req_message_processor (int socket, cmsg_server *server,
-                                           uint8_t *buffer_data)
+_cmsg_server_method_req_message_processor (int socket, cmsg_server_request *server_request,
+                                           cmsg_server *server, uint8_t *buffer_data)
 {
     cmsg_queue_filter_type action;
     cmsg_method_processing_reason processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = &cmsg_memory_allocator;
-    cmsg_server_request *server_request = server->server_request;
     const char *method_name;
     const ProtobufCMessageDescriptor *desc;
 
@@ -1128,22 +1128,21 @@ _cmsg_server_echo_req_message_processor (int socket, cmsg_server *server,
 /**
  * The buffer has been received and now needs to be processed by protobuf-c.
  * Once unpacked the method will be invoked.
- * If the
  */
-int32_t
-cmsg_server_message_processor (int socket, cmsg_server *server, uint8_t *buffer_data)
+static int32_t
+cmsg_server_message_processor (int socket, cmsg_server_request *server_request,
+                               cmsg_server *server, uint8_t *buffer_data)
 {
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (buffer_data != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (server->server_request != NULL, CMSG_RET_ERR);
-
-    cmsg_server_request *server_request = server->server_request;
+    CMSG_ASSERT_RETURN_VAL (server_request != NULL, CMSG_RET_ERR);
 
     // Check that the msg received is a type we support
     switch (server_request->msg_type)
     {
     case CMSG_MSG_TYPE_METHOD_REQ:
-        return _cmsg_server_method_req_message_processor (socket, server, buffer_data);
+        return _cmsg_server_method_req_message_processor (socket, server_request,
+                                                          server, buffer_data);
         break;
 
     case CMSG_MSG_TYPE_ECHO_REQ:
