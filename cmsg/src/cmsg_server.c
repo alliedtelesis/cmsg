@@ -12,9 +12,6 @@
 #include "cntrd_app_api.h"
 #endif
 
-static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
-                                                          uint8_t *buffer_data);
-
 static cmsg_server *_cmsg_create_server_tipc (const char *server_name, int member_id,
                                               int scope, ProtobufCService *descriptor,
                                               cmsg_transport_type transport_type);
@@ -1002,7 +999,8 @@ cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
  * @returns -1 on failure, 0 on success
  */
 static int32_t
-_cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_data)
+_cmsg_server_method_req_message_processor (int socket, cmsg_server *server,
+                                           uint8_t *buffer_data)
 {
     cmsg_queue_filter_type action;
     cmsg_method_processing_reason processing_reason = CMSG_METHOD_OK_TO_INVOKE;
@@ -1011,7 +1009,6 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     cmsg_server_request *server_request = server->server_request;
     const char *method_name;
     const ProtobufCMessageDescriptor *desc;
-    int socket = server->_transport->connection.sockets.client_socket;
 
     method_name = server->service->descriptor->methods[server_request->method_index].name;
     desc = server->service->descriptor->methods[server_request->method_index].input;
@@ -1081,7 +1078,6 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
     {
         processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     }
-
 
     cmsg_server_invoke (socket, server, server_request->method_index, message,
                         processing_reason);
@@ -1156,7 +1152,7 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
     switch (server_request->msg_type)
     {
     case CMSG_MSG_TYPE_METHOD_REQ:
-        return _cmsg_server_method_req_message_processor (server, buffer_data);
+        return _cmsg_server_method_req_message_processor (socket, server, buffer_data);
         break;
 
     case CMSG_MSG_TYPE_ECHO_REQ:
