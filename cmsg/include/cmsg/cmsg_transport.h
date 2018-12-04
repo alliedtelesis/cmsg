@@ -146,7 +146,6 @@ struct _cmsg_transport_s
     cmsg_bool_t suppress_errors;
 
     cmsg_connection connection;
-    pthread_mutex_t connection_mutex;
 
     //transport function pointers
     cmsg_tport_functions tport_funcs;

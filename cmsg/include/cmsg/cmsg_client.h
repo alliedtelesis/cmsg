@@ -92,6 +92,9 @@ typedef struct _cmsg_client_s
     // loopback server
     void *loopback_server;
 
+    // mutex for safe client usage across multiple threads
+    pthread_mutex_t send_mutex;
+
     //counter information
     void *cntr_session;
     // counterd counters

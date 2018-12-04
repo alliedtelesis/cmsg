@@ -174,13 +174,6 @@ cmsg_transport_new (cmsg_transport_type type)
     {
         transport->connection.sockets.client_socket = -1;
         transport->connection.sockets.listening_socket = -1;
-
-        if (pthread_mutex_init (&transport->connection_mutex, NULL) != 0)
-        {
-            CMSG_LOG_GEN_ERROR ("Init failed for transport connection_mutex.");
-            CMSG_FREE (transport);
-            return NULL;
-        }
     }
 
     return transport;
@@ -191,7 +184,6 @@ cmsg_transport_destroy (cmsg_transport *transport)
 {
     if (transport)
     {
-        pthread_mutex_destroy (&transport->connection_mutex);
         CMSG_FREE (transport);
         return 0;
     }

@@ -137,6 +137,12 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
         return false;
     }
 
+    if (pthread_mutex_init (&client->send_mutex, NULL) != 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Init failed for send_mutex.");
+        return false;
+    }
+
     client->self_thread_id = pthread_self ();
 
     if (transport)
@@ -242,6 +248,7 @@ cmsg_client_deinit (cmsg_client *client)
     }
 
     pthread_mutex_destroy (&client->invoke_mutex);
+    pthread_mutex_destroy (&client->send_mutex);
 }
 
 static void
@@ -1136,12 +1143,12 @@ cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
-    pthread_mutex_lock (&client->_transport->connection_mutex);
+    pthread_mutex_lock (&client->send_mutex);
 
     ret = _cmsg_client_buffer_send_retry_once (client, queue_buffer,
                                                queue_buffer_size, method_name);
 
-    pthread_mutex_unlock (&client->_transport->connection_mutex);
+    pthread_mutex_unlock (&client->send_mutex);
 
     return ret;
 }
@@ -1232,9 +1239,9 @@ cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
 
     for (c = 0; c <= max_tries; c++)
     {
-        pthread_mutex_lock (&client->_transport->connection_mutex);
+        pthread_mutex_lock (&client->send_mutex);
         int ret = _cmsg_client_buffer_send (client, queue_buffer, queue_buffer_size);
-        pthread_mutex_unlock (&client->_transport->connection_mutex);
+        pthread_mutex_unlock (&client->send_mutex);
 
         if (ret == CMSG_RET_OK)
         {
