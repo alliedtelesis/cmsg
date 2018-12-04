@@ -717,13 +717,12 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
 
 
 static int32_t
-cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
+cmsg_server_recv_process (int socket, uint8_t *buffer_data, cmsg_server *server,
                           uint32_t extra_header_size, uint32_t dyn_len,
                           int nbytes, cmsg_header *header_converted)
 {
     cmsg_server_request server_request;
     int32_t ret;
-    int socket = server->_transport->connection.sockets.client_socket;
 
     // Header is good so make use of it.
     server_request.msg_type = header_converted->msg_type;
@@ -763,8 +762,7 @@ cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
         }
         else
         {
-            CMSG_LOG_SERVER_ERROR (server, "No data on recv socket %d.",
-                                   server->_transport->connection.sockets.client_socket);
+            CMSG_LOG_SERVER_ERROR (server, "No data on recv socket %d.", socket);
 
             ret = CMSG_RET_ERR;
         }
@@ -836,7 +834,7 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
 
         buffer_data = recv_buff + sizeof (cmsg_header);
 
-        ret = cmsg_server_recv_process (buffer_data, server, extra_header_size,
+        ret = cmsg_server_recv_process (socket, buffer_data, server, extra_header_size,
                                         dyn_len, nbytes, &processed_header);
     }
 

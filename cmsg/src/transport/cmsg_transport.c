@@ -582,9 +582,6 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
 
     CMSG_ASSERT_RETURN_VAL (transport != NULL, CMSG_RET_ERR);
 
-    /* Remember the client socket to use when send reply */
-    transport->connection.sockets.client_socket = server_socket;
-
     peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
                                                   transport,
                                                   server_socket, MAX_SERVER_PEEK_LOOP,
