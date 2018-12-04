@@ -1090,12 +1090,11 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
  * @returns -1 on failure, 0 on success
  */
 static int
-cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
+cmsg_server_send_wrapper (int socket, cmsg_transport *transport, void *buff, int length,
+                          int flag)
 {
-    int socket = server->_transport->connection.sockets.client_socket;
+    return transport->tport_funcs.server_send (socket, transport, buff, length, 0);
 
-    return server->_transport->tport_funcs.server_send (socket, server->_transport, buff,
-                                                        length, 0);
 }
 
 /**
@@ -1108,6 +1107,7 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
 {
     int ret = 0;
     cmsg_header header;
+    int socket = server->_transport->connection.sockets.client_socket;
 
     header = cmsg_header_create (CMSG_MSG_TYPE_ECHO_REPLY, 0, 0 /* empty msg */ ,
                                  CMSG_STATUS_CODE_SUCCESS);
@@ -1116,7 +1116,8 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = cmsg_server_send_wrapper (server, &header, sizeof (header), 0);
+    ret = cmsg_server_send_wrapper (socket, server->_transport, &header,
+                                    sizeof (header), 0);
     if (ret < (int) sizeof (header))
     {
         CMSG_LOG_SERVER_ERROR (server, "Sending of echo reply failed. Sent:%d of %u bytes.",
@@ -1175,6 +1176,7 @@ cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code statu
 {
     int ret = 0;
     cmsg_header header;
+    int socket = server->_transport->connection.sockets.client_socket;
 
     CMSG_ASSERT_RETURN_VOID (server != NULL);
 
@@ -1185,7 +1187,8 @@ cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code statu
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = cmsg_server_send_wrapper (server, &header, sizeof (header), 0);
+    ret = cmsg_server_send_wrapper (socket, server->_transport, &header,
+                                    sizeof (header), 0);
     if (ret < (int) sizeof (header))
     {
         CMSG_DEBUG (CMSG_ERROR,
@@ -1217,6 +1220,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     uint32_t ret = 0;
     int send_ret = 0;
     int type = CMSG_TLV_METHOD_TYPE;
+    int socket = -1;
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] invoking rpc method=%d\n",
                 server_request->method_index);
@@ -1325,7 +1329,9 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         CMSG_DEBUG (CMSG_INFO, "[SERVER] response data\n");
         cmsg_buffer_print ((void *) buffer_data, packed_size);
 
-        send_ret = cmsg_server_send_wrapper (server, buffer, total_message_size, 0);
+        socket = server->_transport->connection.sockets.client_socket;
+        send_ret = cmsg_server_send_wrapper (socket, server->_transport, buffer,
+                                             total_message_size, 0);
 
         if (send_ret < (int) total_message_size)
         {
