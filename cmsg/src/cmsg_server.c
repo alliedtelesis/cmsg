@@ -15,9 +15,6 @@
 static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
                                                           uint8_t *buffer_data);
 
-static int32_t _cmsg_server_echo_req_message_processor (cmsg_server *server,
-                                                        uint8_t *buffer_data);
-
 static cmsg_server *_cmsg_create_server_tipc (const char *server_name, int member_id,
                                               int scope, ProtobufCService *descriptor,
                                               cmsg_transport_type transport_type);
@@ -1102,11 +1099,11 @@ cmsg_server_send_wrapper (int socket, cmsg_transport *transport, void *buff, int
  * We reply straight away to an ECHO_REQ
  */
 static int32_t
-_cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_data)
+_cmsg_server_echo_req_message_processor (int socket, cmsg_server *server,
+                                         uint8_t *buffer_data)
 {
     int ret = 0;
     cmsg_header header;
-    int socket = server->_transport->connection.sockets.client_socket;
 
     header = cmsg_header_create (CMSG_MSG_TYPE_ECHO_REPLY, 0, 0 /* empty msg */ ,
                                  CMSG_STATUS_CODE_SUCCESS);
@@ -1135,9 +1132,13 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
 int32_t
 cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
 {
+    int socket = -1;
+
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (buffer_data != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (server->server_request != NULL, CMSG_RET_ERR);
+
+    socket = server->_transport->connection.sockets.client_socket;
 
     cmsg_server_request *server_request = server->server_request;
 
@@ -1149,7 +1150,7 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
         break;
 
     case CMSG_MSG_TYPE_ECHO_REQ:
-        return _cmsg_server_echo_req_message_processor (server, buffer_data);
+        return _cmsg_server_echo_req_message_processor (socket, server, buffer_data);
         break;
 
     case CMSG_MSG_TYPE_CONN_OPEN:
