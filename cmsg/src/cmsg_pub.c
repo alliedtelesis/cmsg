@@ -613,6 +613,7 @@ cmsg_pub_message_processor (int socket, cmsg_server *server, uint8_t *buffer_dat
     }
 
     closure_data.server = server;
+    closure_data.server_request = server_request;
     closure_data.reply_socket = socket;
     closure_data.method_processing_reason = CMSG_METHOD_OK_TO_INVOKE;
 

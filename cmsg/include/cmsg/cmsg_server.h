@@ -18,6 +18,7 @@ typedef struct _cmsg_server_s cmsg_server;
 typedef struct _cmsg_server_closure_data_s
 {
     cmsg_server *server;
+    cmsg_server_request *server_request;
 
     /* The socket to send the response on. */
     int reply_socket;

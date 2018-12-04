@@ -896,6 +896,7 @@ cmsg_server_invoke (int socket, cmsg_server *server, uint32_t method_index,
 
     // Setup closure_data so it can be used no matter what the action is
     closure_data.server = server;
+    closure_data.server_request = server->server_request;
     closure_data.reply_socket = socket;
     closure_data.method_processing_reason = process_reason;
 
@@ -1209,10 +1210,10 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     CMSG_ASSERT_RETURN_VOID (closure_data != NULL);
     CMSG_ASSERT_RETURN_VOID (closure_data->server != NULL);
     CMSG_ASSERT_RETURN_VOID (closure_data->server->_transport != NULL);
-    CMSG_ASSERT_RETURN_VOID (closure_data->server->server_request != NULL);
+    CMSG_ASSERT_RETURN_VOID (closure_data->server_request != NULL);
 
     cmsg_server *server = closure_data->server;
-    cmsg_server_request *server_request = server->server_request;
+    cmsg_server_request *server_request = closure_data->server_request;
     uint32_t ret = 0;
     int send_ret = 0;
     int type = CMSG_TLV_METHOD_TYPE;
