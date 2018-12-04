@@ -294,19 +294,6 @@ cmsg_transport_tcp_server_close (cmsg_transport *transport)
     return;
 }
 
-static int
-cmsg_transport_tcp_server_get_socket (cmsg_transport *transport)
-{
-    return transport->socket;
-}
-
-
-static int
-cmsg_transport_tcp_client_get_socket (cmsg_transport *transport)
-{
-    return transport->socket;
-}
-
 static void
 cmsg_transport_tcp_client_destroy (cmsg_transport *transport)
 {
@@ -366,8 +353,8 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->client_send = cmsg_transport_tcp_client_send;
     tport_funcs->client_close = cmsg_transport_tcp_client_close;
     tport_funcs->server_close = cmsg_transport_tcp_server_close;
-    tport_funcs->s_socket = cmsg_transport_tcp_server_get_socket;
-    tport_funcs->c_socket = cmsg_transport_tcp_client_get_socket;
+    tport_funcs->s_socket = cmsg_transport_get_socket;
+    tport_funcs->c_socket = cmsg_transport_get_socket;
     tport_funcs->client_destroy = cmsg_transport_tcp_client_destroy;
     tport_funcs->server_destroy = cmsg_transport_tcp_server_destroy;
     tport_funcs->is_congested = cmsg_transport_tcp_is_congested;

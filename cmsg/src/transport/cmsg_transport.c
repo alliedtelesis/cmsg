@@ -616,6 +616,12 @@ cmsg_transport_oneway_server_send (int socket, cmsg_transport *transport, void *
     return 0;
 }
 
+int
+cmsg_transport_get_socket (cmsg_transport *transport)
+{
+    return transport->socket;
+}
+
 bool
 cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
 {
