@@ -884,11 +884,11 @@ cmsg_server_accept_callback (cmsg_server *server, int32_t sock)
 
 void
 cmsg_server_invoke (int socket, cmsg_server_request *server_request, cmsg_server *server,
-                    uint32_t method_index, ProtobufCMessage *message,
-                    cmsg_method_processing_reason process_reason)
+                    ProtobufCMessage *message, cmsg_method_processing_reason process_reason)
 {
     uint32_t queue_length = 0;
     cmsg_server_closure_data closure_data;
+    uint32_t method_index = server_request->method_index;
 
     CMSG_ASSERT_RETURN_VOID (server != NULL);
 
@@ -982,7 +982,7 @@ cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
     strcpy (server_request.method_name_recvd, method_name);
 
     /* call the server invoke function. */
-    cmsg_server_invoke (socket, &server_request, server, method_index,
+    cmsg_server_invoke (socket, &server_request, server,
                         (ProtobufCMessage *) input, CMSG_METHOD_OK_TO_INVOKE);
 }
 
@@ -1075,8 +1075,7 @@ _cmsg_server_method_req_message_processor (int socket, cmsg_server *server,
         processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     }
 
-    cmsg_server_invoke (socket, server_request, server, server_request->method_index,
-                        message, processing_reason);
+    cmsg_server_invoke (socket, server_request, server, message, processing_reason);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] end of message processor\n");
 

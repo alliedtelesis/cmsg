@@ -230,7 +230,6 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
 
         server_request.method_index = queue_entry->method_index;
         cmsg_server_invoke (socket, &server_request, server,
-                            queue_entry->method_index,
                             (ProtobufCMessage *) queue_entry->queue_buffer,
                             CMSG_METHOD_INVOKING_FROM_QUEUE);
 
