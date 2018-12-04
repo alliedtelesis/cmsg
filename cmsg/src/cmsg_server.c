@@ -901,6 +901,7 @@ cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage
 
     // Setup closure_data so it can be used no matter what the action is
     closure_data.server = server;
+    closure_data.reply_socket = server->_transport->connection.sockets.client_socket;
     closure_data.method_processing_reason = process_reason;
 
     // increment the counter if this message has unknown fields,
@@ -1209,20 +1210,19 @@ cmsg_server_empty_method_reply_send (int socket, cmsg_server *server,
 void
 cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_void)
 {
-
     cmsg_server_closure_data *closure_data = (cmsg_server_closure_data *) closure_data_void;
+
+    CMSG_ASSERT_RETURN_VOID (closure_data != NULL);
+    CMSG_ASSERT_RETURN_VOID (closure_data->server != NULL);
+    CMSG_ASSERT_RETURN_VOID (closure_data->server->_transport != NULL);
+    CMSG_ASSERT_RETURN_VOID (closure_data->server->server_request != NULL);
+
     cmsg_server *server = closure_data->server;
-
-    CMSG_ASSERT_RETURN_VOID (server != NULL);
-    CMSG_ASSERT_RETURN_VOID (closure_data_void != NULL);
-    CMSG_ASSERT_RETURN_VOID (server->_transport != NULL);
-    CMSG_ASSERT_RETURN_VOID (server->server_request != NULL);
-
     cmsg_server_request *server_request = server->server_request;
     uint32_t ret = 0;
     int send_ret = 0;
     int type = CMSG_TLV_METHOD_TYPE;
-    int socket = server->_transport->connection.sockets.client_socket;
+    int socket = closure_data->reply_socket;
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] invoking rpc method=%d\n",
                 server_request->method_index);

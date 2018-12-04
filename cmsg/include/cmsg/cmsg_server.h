@@ -18,9 +18,12 @@ typedef struct _cmsg_server_s cmsg_server;
 typedef struct _cmsg_server_closure_data_s
 {
     cmsg_server *server;
+
+    /* The socket to send the response on. */
+    int reply_socket;
+
     /* Whether the server has decided to do something different with the method
-     * call or has invoked the method.
-     */
+     * call or has invoked the method. */
     cmsg_method_processing_reason method_processing_reason;
 } cmsg_server_closure_data;
 

@@ -612,6 +612,7 @@ cmsg_pub_message_processor (cmsg_server *server, uint8_t *buffer_data)
     }
 
     closure_data.server = server;
+    closure_data.reply_socket = server->_transport->connection.sockets.client_socket;
     closure_data.method_processing_reason = CMSG_METHOD_OK_TO_INVOKE;
 
     //this is calling: cmsg_pub_subscribe
