@@ -274,24 +274,6 @@ cmsg_transport_tcp_client_send (cmsg_transport *transport, void *buff, int lengt
     return (send (transport->connection.sockets.client_socket, buff, length, flag));
 }
 
-static int32_t
-cmsg_transport_tcp_rpc_server_send (int socket, cmsg_transport *transport, void *buff,
-                                    int length, int flag)
-{
-    return (send (socket, buff, length, flag));
-}
-
-/**
- * TCP oneway servers do not send replies to received messages. This function therefore
- * returns 0.
- */
-static int32_t
-cmsg_transport_tcp_oneway_server_send (int socket, cmsg_transport *transport, void *buff,
-                                       int length, int flag)
-{
-    return 0;
-}
-
 static void
 cmsg_transport_tcp_client_close (cmsg_transport *transport)
 {
@@ -400,7 +382,7 @@ cmsg_transport_rpc_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
 {
     _cmsg_transport_tcp_init_common (tport_funcs);
 
-    tport_funcs->server_send = cmsg_transport_tcp_rpc_server_send;
+    tport_funcs->server_send = cmsg_transport_rpc_server_send;
 }
 
 
@@ -426,7 +408,7 @@ cmsg_transport_oneway_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
 {
     _cmsg_transport_tcp_init_common (tport_funcs);
 
-    tport_funcs->server_send = cmsg_transport_tcp_oneway_server_send;
+    tport_funcs->server_send = cmsg_transport_oneway_server_send;
 }
 
 

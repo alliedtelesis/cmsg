@@ -603,6 +603,24 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
     return ret;
 }
 
+int32_t
+cmsg_transport_rpc_server_send (int socket, cmsg_transport *transport, void *buff,
+                                int length, int flag)
+{
+    return (send (socket, buff, length, flag));
+}
+
+/**
+ * Oneway servers do not send replies to received messages. This function therefore
+ * returns 0.
+ */
+int32_t
+cmsg_transport_oneway_server_send (int socket, cmsg_transport *transport, void *buff,
+                                   int length, int flag)
+{
+    return 0;
+}
+
 bool
 cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
 {

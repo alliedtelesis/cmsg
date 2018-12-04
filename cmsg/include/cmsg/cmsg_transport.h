@@ -168,6 +168,10 @@ int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
 int32_t cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
                                     uint8_t **recv_buffer, cmsg_header *processed_header,
                                     int *nbytes);
+int32_t cmsg_transport_rpc_server_send (int socket, cmsg_transport *transport, void *buff,
+                                        int length, int flag);
+int32_t cmsg_transport_oneway_server_send (int socket, cmsg_transport *transport,
+                                           void *buff, int length, int flag);
 
 cmsg_transport *cmsg_create_transport_tipc (const char *server_name, int member_id,
                                             int scope, cmsg_transport_type transport_type);

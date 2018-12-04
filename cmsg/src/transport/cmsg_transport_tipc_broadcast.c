@@ -170,20 +170,6 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_transport *transport, void *buff
 
 
 /**
- * TIPC broadcast servers do not send replies to received messages. This
- * function therefore returns 0. It should not be called by the server, but
- * it prevents a null pointer exception from occurring if no function is
- * defined
- */
-static int32_t
-cmsg_transport_tipc_broadcast_server_send (int socket, cmsg_transport *transport,
-                                           void *buff, int length, int flag)
-{
-    return 0;
-}
-
-
-/**
  * Close the clients socket after a message has been sent.
  */
 static void
@@ -310,7 +296,7 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->tport_funcs.server_recv = cmsg_transport_server_recv;
     transport->tport_funcs.client_recv = cmsg_transport_tipc_broadcast_client_recv;
     transport->tport_funcs.client_send = cmsg_transport_tipc_broadcast_client_send;
-    transport->tport_funcs.server_send = cmsg_transport_tipc_broadcast_server_send;
+    transport->tport_funcs.server_send = cmsg_transport_oneway_server_send;
     transport->tport_funcs.client_close = cmsg_transport_tipc_broadcast_client_close;
     transport->tport_funcs.server_close = cmsg_transport_tipc_broadcast_server_close;
     transport->tport_funcs.s_socket = cmsg_transport_tipc_broadcast_server_get_socket;

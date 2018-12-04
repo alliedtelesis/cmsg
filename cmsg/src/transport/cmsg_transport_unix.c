@@ -182,24 +182,6 @@ cmsg_transport_unix_client_send (cmsg_transport *transport, void *buff, int leng
     return (send (transport->connection.sockets.client_socket, buff, length, flag));
 }
 
-static int32_t
-cmsg_transport_unix_server_send (int socket, cmsg_transport *transport, void *buff,
-                                 int length, int flag)
-{
-    return (send (socket, buff, length, flag));
-}
-
-/**
- * UNIX oneway servers do not send replies to received messages. This function therefore
- * returns 0.
- */
-static int32_t
-cmsg_transport_unix_oneway_server_send (int socket, cmsg_transport *transport, void *buff,
-                                        int length, int flag)
-{
-    return 0;
-}
-
 static void
 cmsg_transport_unix_client_close (cmsg_transport *transport)
 {
@@ -307,7 +289,7 @@ cmsg_transport_rpc_unix_init (cmsg_transport *transport)
 
     _cmsg_transport_unix_init_common (transport);
 
-    transport->tport_funcs.server_send = cmsg_transport_unix_server_send;
+    transport->tport_funcs.server_send = cmsg_transport_rpc_server_send;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
@@ -323,7 +305,7 @@ cmsg_transport_oneway_unix_init (cmsg_transport *transport)
 
     _cmsg_transport_unix_init_common (transport);
 
-    transport->tport_funcs.server_send = cmsg_transport_unix_oneway_server_send;
+    transport->tport_funcs.server_send = cmsg_transport_oneway_server_send;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
