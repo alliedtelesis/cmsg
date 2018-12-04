@@ -48,8 +48,6 @@ setup_udt_tcp_transport_functions (cmsg_transport *udt_transport)
         udt_transport->udt_info.base.client_send;
     udt_transport->udt_info.functions.client_close =
         udt_transport->udt_info.base.client_close;
-    udt_transport->udt_info.functions.server_close =
-        udt_transport->udt_info.base.server_close;
 
     udt_transport->udt_info.functions.get_socket = udt_transport->udt_info.base.get_socket;
 

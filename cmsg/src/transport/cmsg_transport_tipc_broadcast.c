@@ -188,19 +188,6 @@ cmsg_transport_tipc_broadcast_client_close (cmsg_transport *transport)
 
 
 /**
- * This function is called by the server to close the socket that the server
- * has used to receive a message from a client. TIPC broadcast does not use a
- * dedicated socket to do this, instead it receives messages on its listening
- * socket. Therefore this function does nothing when called.
- */
-static void
-cmsg_transport_tipc_broadcast_server_close (cmsg_transport *transport)
-{
-    return;
-}
-
-
-/**
  * Close the servers listening socket
  */
 static void
@@ -268,7 +255,6 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->tport_funcs.client_send = cmsg_transport_tipc_broadcast_client_send;
     transport->tport_funcs.server_send = cmsg_transport_oneway_server_send;
     transport->tport_funcs.client_close = cmsg_transport_tipc_broadcast_client_close;
-    transport->tport_funcs.server_close = cmsg_transport_tipc_broadcast_server_close;
     transport->tport_funcs.get_socket = cmsg_transport_get_socket;
     transport->tport_funcs.server_destroy = cmsg_transport_tipc_broadcast_server_destroy;
 

@@ -289,12 +289,6 @@ cmsg_transport_tcp_client_close (cmsg_transport *transport)
 }
 
 static void
-cmsg_transport_tcp_server_close (cmsg_transport *transport)
-{
-    return;
-}
-
-static void
 cmsg_transport_tcp_server_destroy (cmsg_transport *transport)
 {
     if (transport->socket != -1)
@@ -346,7 +340,6 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->client_recv = cmsg_transport_tcp_client_recv;
     tport_funcs->client_send = cmsg_transport_tcp_client_send;
     tport_funcs->client_close = cmsg_transport_tcp_client_close;
-    tport_funcs->server_close = cmsg_transport_tcp_server_close;
     tport_funcs->get_socket = cmsg_transport_get_socket;
     tport_funcs->server_destroy = cmsg_transport_tcp_server_destroy;
     tport_funcs->is_congested = cmsg_transport_tcp_is_congested;

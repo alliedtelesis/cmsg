@@ -460,7 +460,6 @@ cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
                 if (cmsg_server_receive (info->server, fd) < 0)
                 {
                     // only close the socket if we have errored
-                    cmsg_server_close_wrapper (info->server);
                     shutdown (fd, SHUT_RDWR);
                     close (fd);
                     FD_CLR (fd, master_fdset);
@@ -555,7 +554,6 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
                 if (cmsg_server_receive (server, fd) < 0)
                 {
                     // only close the socket if we have errored
-                    cmsg_server_close_wrapper (server);
                     shutdown (fd, SHUT_RDWR);
                     close (fd);
                     FD_CLR (fd, master_fdset);
@@ -695,7 +693,6 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
                     if (cmsg_server_receive (server, fd) < 0)
                     {
                         // only close the socket if we have errored
-                        cmsg_server_close_wrapper (server);
                         shutdown (fd, SHUT_RDWR);
                         close (fd);
                         FD_CLR (fd, &server->accepted_fdset);
@@ -1916,19 +1913,6 @@ void
 cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner)
 {
     server->app_owns_all_msgs = app_is_owner;
-}
-
-/**
- * Close a server socket to a remote client.
- *
- * NOTE user applications should not call this routine directly
- *
- * @param server - the server that is closing the current client connection
- */
-void
-cmsg_server_close_wrapper (cmsg_server *server)
-{
-    server->_transport->tport_funcs.server_close (server->_transport);
 }
 
 /**
