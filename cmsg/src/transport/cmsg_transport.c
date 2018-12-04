@@ -622,6 +622,21 @@ cmsg_transport_get_socket (cmsg_transport *transport)
     return transport->socket;
 }
 
+void
+cmsg_transport_socket_close (cmsg_transport *transport)
+{
+    if (transport->socket != -1)
+    {
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
+        shutdown (transport->socket, SHUT_RDWR);
+
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
+        close (transport->socket);
+
+        transport->socket = -1;
+    }
+}
+
 bool
 cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
 {

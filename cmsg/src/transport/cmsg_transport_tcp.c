@@ -273,35 +273,6 @@ cmsg_transport_tcp_client_send (cmsg_transport *transport, void *buff, int lengt
     return (send (transport->socket, buff, length, flag));
 }
 
-static void
-cmsg_transport_tcp_client_close (cmsg_transport *transport)
-{
-    if (transport->socket != -1)
-    {
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (transport->socket, SHUT_RDWR);
-
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (transport->socket);
-
-        transport->socket = -1;
-    }
-}
-
-static void
-cmsg_transport_tcp_server_destroy (cmsg_transport *transport)
-{
-    if (transport->socket != -1)
-    {
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-        shutdown (transport->socket, SHUT_RDWR);
-
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-        close (transport->socket);
-    }
-}
-
-
 /**
  * TCP is never congested
  */
@@ -339,9 +310,9 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->server_recv = cmsg_transport_server_recv;
     tport_funcs->client_recv = cmsg_transport_tcp_client_recv;
     tport_funcs->client_send = cmsg_transport_tcp_client_send;
-    tport_funcs->client_close = cmsg_transport_tcp_client_close;
+    tport_funcs->client_close = cmsg_transport_socket_close;
     tport_funcs->get_socket = cmsg_transport_get_socket;
-    tport_funcs->server_destroy = cmsg_transport_tcp_server_destroy;
+    tport_funcs->server_destroy = cmsg_transport_socket_close;
     tport_funcs->is_congested = cmsg_transport_tcp_is_congested;
     tport_funcs->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
     tport_funcs->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;

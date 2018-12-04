@@ -169,42 +169,6 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_transport *transport, void *buff
 
 
 /**
- * Close the clients socket after a message has been sent.
- */
-static void
-cmsg_transport_tipc_broadcast_client_close (cmsg_transport *transport)
-{
-    if (transport->socket != -1)
-    {
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (transport->socket, SHUT_RDWR);
-
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (transport->socket);
-
-        transport->socket = -1;
-    }
-}
-
-
-/**
- * Close the servers listening socket
- */
-static void
-cmsg_transport_tipc_broadcast_server_destroy (cmsg_transport *transport)
-{
-    if (transport->socket != -1)
-    {
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-        shutdown (transport->socket, SHUT_RDWR);
-
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-        close (transport->socket);
-    }
-}
-
-
-/**
  * TIPC BC can be congested but we don't check for it
  */
 bool
@@ -254,9 +218,9 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->tport_funcs.client_recv = cmsg_transport_tipc_broadcast_client_recv;
     transport->tport_funcs.client_send = cmsg_transport_tipc_broadcast_client_send;
     transport->tport_funcs.server_send = cmsg_transport_oneway_server_send;
-    transport->tport_funcs.client_close = cmsg_transport_tipc_broadcast_client_close;
+    transport->tport_funcs.client_close = cmsg_transport_socket_close;
     transport->tport_funcs.get_socket = cmsg_transport_get_socket;
-    transport->tport_funcs.server_destroy = cmsg_transport_tipc_broadcast_server_destroy;
+    transport->tport_funcs.server_destroy = cmsg_transport_socket_close;
 
     transport->tport_funcs.is_congested = cmsg_transport_tipc_broadcast_is_congested;
     transport->tport_funcs.send_can_block_enable =

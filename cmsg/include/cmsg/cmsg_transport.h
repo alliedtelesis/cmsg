@@ -157,6 +157,7 @@ int32_t cmsg_transport_rpc_server_send (int socket, cmsg_transport *transport, v
 int32_t cmsg_transport_oneway_server_send (int socket, cmsg_transport *transport,
                                            void *buff, int length, int flag);
 int cmsg_transport_get_socket (cmsg_transport *transport);
+void cmsg_transport_socket_close (cmsg_transport *transport);
 
 cmsg_transport *cmsg_create_transport_tipc (const char *server_name, int member_id,
                                             int scope, cmsg_transport_type transport_type);
