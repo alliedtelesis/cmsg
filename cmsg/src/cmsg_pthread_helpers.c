@@ -7,6 +7,7 @@
  *
  */
 
+#include <sys/eventfd.h>
 #include "cmsg_pthread_helpers.h"
 
 typedef struct _cmsg_pthread_server_info
@@ -15,6 +16,12 @@ typedef struct _cmsg_pthread_server_info
     int fd_max;
     cmsg_server_accept_thread_info *accept_thread_info;
 } cmsg_pthread_server_info;
+
+typedef struct _cmsg_pthread_multithreaded_server_recv_info
+{
+    cmsg_pthread_multithreaded_server_info *server_info;
+    int socket;
+} cmsg_pthread_multithreaded_server_recv_info;
 
 /**
  * Function to be called when the 'ffo_health_cmsg_server_thread_run'
@@ -288,4 +295,273 @@ cmsg_pthread_tipc_publisher_init (pthread_t *thread,
     }
 
     return pub;
+}
+
+/**
+ * When processing the server in the multi-threaded mode of operation when one of
+ * the receive threads or the accept thread exits we need to decrement the counter
+ * storing the number of threads in use. Furthermore, if the server has been marked
+ * as shutting down then if this is the last thread to exit then we need to notify
+ * the caller of the shutdown that they can now destroy the server.
+ *
+ * @param server_info - The 'cmsg_pthread_multithreaded_server_info' structure containing
+ *                      the information about this server and its operation.
+ */
+static void
+cmsg_pthread_multithreaded_thread_exit (cmsg_pthread_multithreaded_server_info *server_info)
+{
+    pthread_mutex_lock (&server_info->lock);
+    server_info->num_threads--;
+    if (server_info->exiting && server_info->num_threads == 0)
+    {
+        pthread_cond_signal (&server_info->wakeup_cond);
+    }
+    pthread_mutex_unlock (&server_info->lock);
+}
+
+/**
+ * The thread receiving data on a connection when processing the server in
+ * the multi-threaded mode of operation.
+ *
+ * @param _recv_info - Pointer to a 'cmsg_pthread_multithreaded_server_recv_info' structure
+ *                     containing information about the connection and the server.
+ *
+ * @return NULL on thread exit.
+ */
+static void *
+cmsg_pthread_multithreaded_receive_thread (void *_recv_info)
+{
+    fd_set read_fds;
+    int fdmax;
+    struct timeval tv;
+    struct timeval *tv_ptr;
+    int ret;
+    cmsg_pthread_multithreaded_server_recv_info *recv_info = NULL;
+    cmsg_pthread_multithreaded_server_info *server_info = NULL;
+
+    pthread_detach (pthread_self ());
+
+    recv_info = (cmsg_pthread_multithreaded_server_recv_info *) _recv_info;
+    server_info = recv_info->server_info;
+
+    fdmax = MAX (recv_info->socket, server_info->shutdown_eventfd);
+
+    while (1)
+    {
+        FD_ZERO (&read_fds);
+        FD_SET (recv_info->socket, &read_fds);
+        FD_SET (server_info->shutdown_eventfd, &read_fds);
+
+        if (server_info->timeout)
+        {
+            tv.tv_sec = server_info->timeout;
+            tv.tv_usec = 0;
+            tv_ptr = &tv;
+        }
+        else
+        {
+            tv_ptr = NULL;
+        }
+
+        ret = select (fdmax + 1, &read_fds, NULL, NULL, tv_ptr);
+        if (ret == 0)
+        {
+            /* There has been no activity on the socket for 5 minutes.
+             * Close the connection and exit the thread. */
+            close (recv_info->socket);
+            break;
+        }
+        if (FD_ISSET (recv_info->socket, &read_fds))
+        {
+            if (cmsg_server_receive (server_info->server, recv_info->socket) < 0)
+            {
+                close (recv_info->socket);
+                break;
+            }
+        }
+        if (FD_ISSET (server_info->shutdown_eventfd, &read_fds))
+        {
+            close (recv_info->socket);
+            break;
+        }
+    }
+
+    cmsg_pthread_multithreaded_thread_exit (server_info);
+    free (recv_info);
+
+    return NULL;
+}
+
+/**
+ * The thread that accepts incoming connections when processing the server in the
+ * multi-threaded mode of operation.
+ *
+ * @param info - Pointer to the 'cmsg_pthread_multithreaded_server_info' structure
+ *               containing information about the server and its operation.
+ *
+ * @return NULL on thread exit.
+ */
+static void *
+cmsg_pthread_multithreaded_accept_thread (void *_server_info)
+{
+    int ret;
+    int server_socket;
+    int fd = -1;
+    static pthread_t new_recv_thread;
+    fd_set read_fds;
+    int fdmax;
+    cmsg_pthread_multithreaded_server_info *server_info = NULL;
+    cmsg_pthread_multithreaded_server_recv_info *recv_info = NULL;
+
+    pthread_detach (pthread_self ());
+
+    server_info = (cmsg_pthread_multithreaded_server_info *) _server_info;
+
+    server_socket = cmsg_server_get_socket (server_info->server);
+    fdmax = MAX (server_socket, server_info->shutdown_eventfd);
+
+    while (1)
+    {
+        FD_ZERO (&read_fds);
+        FD_SET (server_socket, &read_fds);
+        FD_SET (server_info->shutdown_eventfd, &read_fds);
+
+        select (fdmax + 1, &read_fds, NULL, NULL, NULL);
+        if (FD_ISSET (server_socket, &read_fds))
+        {
+            fd = cmsg_server_accept (server_info->server, server_socket);
+            if (fd >= 0)
+            {
+                recv_info = malloc (sizeof (*recv_info));
+                if (!recv_info)
+                {
+                    syslog (LOG_ERR, "Failed to allocate memory for CMSG server receive");
+                    close (fd);
+                    continue;
+                }
+
+                recv_info->server_info = server_info;
+                recv_info->socket = fd;
+                ret = pthread_create (&new_recv_thread, NULL,
+                                      cmsg_pthread_multithreaded_receive_thread,
+                                      (void *) recv_info);
+                if (ret == 0)
+                {
+                    pthread_mutex_lock (&server_info->lock);
+                    server_info->num_threads++;
+                    pthread_mutex_unlock (&server_info->lock);
+                }
+                else
+                {
+                    syslog (LOG_ERR, "Failed to create thread for CMSG server receive");
+                    close (fd);
+                    free (recv_info);
+                }
+            }
+        }
+        if (FD_ISSET (server_info->shutdown_eventfd, &read_fds))
+        {
+            break;
+        }
+    }
+
+    cmsg_pthread_multithreaded_thread_exit (server_info);
+
+    return NULL;
+}
+
+/**
+ * Start the processing of a CMSG server in multi-threaded operation.
+ * This will cause every connection to be processed in a separate thread.
+ *
+ * @param server - The server to start multi-threaded processing for.
+ * @param timeout - The number of seconds of inactivity before closing a connection.
+ *                  Set to 0 if the connections should never be closed due to inactivity.
+ *
+ * @return cmsg_pthread_multithreaded_server_info' structure on success.
+ *         This should subsequently be called with 'cmsg_pthread_multithreaded_server_destroy'
+ *         to shutdown the processing of the server and then destroy it.
+ */
+cmsg_pthread_multithreaded_server_info *
+cmsg_pthread_multithreaded_server_init (cmsg_server *server, uint32_t timeout)
+{
+    int ret;
+    pthread_t accept_thread;
+    cmsg_pthread_multithreaded_server_info *server_info = NULL;
+
+    server_info = malloc (sizeof (*server_info));
+    if (!server_info)
+    {
+        return NULL;
+    }
+
+    server_info->server = server;
+    server_info->timeout = timeout;
+    server_info->num_threads = 0;
+    server_info->exiting = false;
+    server_info->shutdown_eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
+    if (server_info->shutdown_eventfd < 0)
+    {
+        free (server_info);
+        return NULL;
+    }
+    if (pthread_cond_init (&server_info->wakeup_cond, NULL) != 0)
+    {
+        close (server_info->shutdown_eventfd);
+        free (server_info);
+        return NULL;
+    }
+    if (pthread_mutex_init (&server_info->lock, NULL) != 0)
+    {
+        close (server_info->shutdown_eventfd);
+        pthread_cond_destroy (&server_info->wakeup_cond);
+        free (server_info);
+        return NULL;
+    }
+
+    ret = pthread_create (&accept_thread, NULL, &cmsg_pthread_multithreaded_accept_thread,
+                          (void *) server_info);
+    if (ret == 0)
+    {
+        pthread_mutex_lock (&server_info->lock);
+        server_info->num_threads++;
+        pthread_mutex_unlock (&server_info->lock);
+    }
+    else
+    {
+        close (server_info->shutdown_eventfd);
+        pthread_cond_destroy (&server_info->wakeup_cond);
+        pthread_mutex_destroy (&server_info->lock);
+        free (server_info);
+        return NULL;
+    }
+
+    return server_info;
+}
+
+/**
+ * Shutdown and destroy the server previously initialised using
+ * 'cmsg_pthread_multithreaded_server_init'.
+ *
+ * @param info - The 'cmsg_pthread_multithreaded_server_info' structure returned
+ *               from the call to 'cmsg_pthread_multithreaded_server_init'.
+ */
+void
+cmsg_pthread_multithreaded_server_destroy (cmsg_pthread_multithreaded_server_info *info)
+{
+    info->exiting = true;
+    TEMP_FAILURE_RETRY (eventfd_write (info->shutdown_eventfd, 1));
+
+    pthread_mutex_lock (&info->lock);
+    while (info->num_threads != 0)
+    {
+        pthread_cond_wait (&info->wakeup_cond, &info->lock);
+    }
+    pthread_mutex_unlock (&info->lock);
+
+    close (info->shutdown_eventfd);
+    pthread_cond_destroy (&info->wakeup_cond);
+    pthread_mutex_destroy (&info->lock);
+    cmsg_destroy_server_and_transport (info->server);
+    free (info);
 }
