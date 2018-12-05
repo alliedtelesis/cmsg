@@ -27,5 +27,6 @@ message stream_id
 service http_streaming
 {
     rpc send_stream_data (stream_data) returns (server_response);
+    rpc send_stream_file_data (stream_data) returns (server_response);
     rpc close_stream_connection (stream_id) returns (server_response);
 }

@@ -101,6 +101,7 @@ cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
     int ret;
 
     output->response_length = 0;
+    output->response_body = NULL;
 
     field_descriptor =
         protobuf_c_message_descriptor_get_field_by_name (output_proto_message->descriptor,

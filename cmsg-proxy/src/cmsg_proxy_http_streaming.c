@@ -437,6 +437,7 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
     ProtobufCAllocator *allocator = &cmsg_memory_allocator;
     cmsg_proxy_stream_response_data *data = NULL;
     cmsg_proxy_output output;
+    char *new_response_body = NULL;
 
     connection_info = cmsg_proxy_streaming_lookup_conn_by_id (recv_msg->id);
     if (!connection_info)
@@ -477,7 +478,51 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
      * use CMSG_PROXY_CALLOC to allocate the memory. */
     data = calloc (1, sizeof (cmsg_proxy_stream_response_data));
     data->connection = connection_info->connection;
-    data->data = output.response_body;
+
+    /* Add a newline to the end of the text */
+    if (asprintf (&new_response_body, "%s\n", output.response_body) >= 0)
+    {
+        data->data = new_response_body;
+        data->length = output.response_length + 1;
+
+        /* This needs to be freed here since it isn't passed to stream_response_send */
+        free (output.response_body);
+    }
+
+    stream_response_send (data);
+
+    cmsg_proxy_streaming_release_conn_info (connection_info);
+
+    http_streaming_server_send_stream_dataSend (service, &send_msg);
+}
+
+void
+http_streaming_impl_send_stream_file_data (const void *service, const stream_data *recv_msg)
+{
+    server_response send_msg = SERVER_RESPONSE_INIT;
+    cmsg_proxy_stream_connection *connection_info = NULL;
+    cmsg_proxy_stream_response_data *data = NULL;
+
+    connection_info = cmsg_proxy_streaming_lookup_conn_by_id (recv_msg->id);
+    if (!connection_info)
+    {
+        CMSG_SET_FIELD_VALUE (&send_msg, stream_found, false);
+        http_streaming_server_send_stream_dataSend (service, &send_msg);
+        return;
+    }
+
+    CMSG_SET_FIELD_VALUE (&send_msg, stream_found, true);
+
+    /* This memory will eventually be freed by a 'free' call so do not
+     * use CMSG_PROXY_CALLOC to allocate the memory. */
+    data = calloc (1, sizeof (cmsg_proxy_stream_response_data));
+    data->connection = connection_info->connection;
+    data->length = recv_msg->message_data.len;
+    data->data = malloc (recv_msg->message_data.len);
+    if (data->data)
+    {
+        memcpy (data->data, recv_msg->message_data.data, recv_msg->message_data.len);
+    }
 
     stream_response_send (data);
 

@@ -127,3 +127,39 @@ cmsg_proxy_http_streaming_api_send_response (cmsg_client *client, uint32_t strea
 
     return ret;
 }
+
+/**
+ * Send the streamed file data. The data does not need to be packed.
+ *
+ * @param client - The cmsg_client to send to the server with. This should have been
+ *                 created using 'cmsg_proxy_http_streaming_api_create_client'.
+ * @param stream_id - The streaming id to send to.
+ * @param data - The raw file data to send.
+ * @param length - The length of the data buffer.
+ *
+ * @returns true if sending to the streaming server was successful and it knew about
+ *          the streamed connection, false otherwise.
+ */
+bool
+cmsg_proxy_http_streaming_api_send_file_response (cmsg_client *client, uint32_t stream_id,
+                                                  uint8_t *data, ssize_t length)
+{
+    bool ret = false;
+    int cmsg_ret;
+    server_response *response_msg = NULL;
+    stream_data stream_msg = STREAM_DATA_INIT;
+
+    CMSG_SET_FIELD_VALUE (&stream_msg, id, stream_id);
+    CMSG_SET_FIELD_BYTES (&stream_msg, message_data, data, length);
+
+    cmsg_ret = http_streaming_api_send_stream_file_data (client, &stream_msg,
+                                                         &response_msg);
+    if (cmsg_ret == CMSG_RET_OK)
+    {
+        ret = response_msg->stream_found;
+    }
+
+    CMSG_FREE_RECV_MSG (response_msg);
+
+    return ret;
+}

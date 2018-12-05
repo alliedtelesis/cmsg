@@ -139,6 +139,7 @@ typedef struct _cmsg_proxy_stream_response_data
 {
     void *connection;
     char *data;
+    size_t length;
 } cmsg_proxy_stream_response_data;
 
 typedef int (*cmsg_api_func_ptr) ();
