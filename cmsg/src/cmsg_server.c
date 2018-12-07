@@ -2026,7 +2026,7 @@ cmsg_server_accept_thread_init (cmsg_server *server)
     {
         /* This should not happen in an actual release but during development.
          * As more servers are added, the limit will need to be increased. */
-        syslog (LOG_ERROR, "Maximum CMSG server accept thread limit has been reached!");
+        CMSG_LOG_GEN_ERROR ("Maximum CMSG server accept thread limit has been reached!");
         pthread_mutex_unlock (&global_server_accept_lock);
         return NULL;
     }
