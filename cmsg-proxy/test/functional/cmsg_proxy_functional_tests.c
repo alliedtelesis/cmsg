@@ -1653,7 +1653,7 @@ test_http_streaming (void)
         "},"
         "\"inner_string\":\"test_string\","
         "\"inner_uint32\":123"
-        "}";
+        "}\n";
     /* *INDENT-ON* */
 
     cmsg_proxy_streaming_set_response_send_function (stream_response_send);
