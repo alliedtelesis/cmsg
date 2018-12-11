@@ -27,9 +27,20 @@ typedef struct _server_poll_info
     int fd_max;
 } server_poll_info;
 
+static const char *cmsg_content_type_key = "Content-Type";
+static const char *cmsg_content_disposition_key = "Content-Disposition";
+static const char *cmsg_content_encoding_key = "Content-Transfer-Encoding";
+static const char *cmsg_content_length_key = "Content-Length";
+static const char *cmsg_mime_octet_stream = "application/octet-stream";
+static const char *cmsg_mime_application_json = "application/json";
+static const char *cmsg_mime_text_plain = "text/plain";
+static const char *cmsg_binary_encoding = "binary";
+static const char *cmsg_filename_header_format = "attachment; filename=\"%s\"";
+
 static cmsg_proxy_stream_response_send_func _stream_response_send = NULL;
 static cmsg_proxy_stream_response_close_func _stream_response_close = NULL;
 static cmsg_proxy_stream_conn_release_func _stream_conn_release = NULL;
+static cmsg_proxy_stream_headers_set_func _stream_headers_set = NULL;
 
 static GList *stream_connections_list = NULL;
 static pthread_mutex_t stream_connections_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -74,6 +85,18 @@ cmsg_proxy_streaming_set_conn_release_function (cmsg_proxy_stream_conn_release_f
 }
 
 /**
+ * Set the function used to set the correct headers for a streaming connection.
+ * This should be called once by the web server when initialising cmsg proxy.
+ *
+ * @param func - The function used to release the streaming connection.
+ */
+void
+cmsg_proxy_streaming_set_headers_set_function (cmsg_proxy_stream_headers_set_func func)
+{
+    _stream_headers_set = func;
+}
+
+/**
  * Wrapper function to call '_stream_response_send' if the function pointer is set.
  */
 static void
@@ -106,6 +129,53 @@ stream_conn_release (void *connection)
     if (_stream_conn_release)
     {
         _stream_conn_release (connection);
+    }
+}
+
+static void
+stream_headers_set (cmsg_proxy_stream_header_data *data)
+{
+    if (_stream_headers_set)
+    {
+        _stream_headers_set (data);
+    }
+}
+
+/**
+ * Free data allocated to a cmsg_proxy_stream_response_data struct.
+ *
+ * @param data - The struct to free.
+ */
+void
+cmsg_proxy_streaming_free_stream_response_data (cmsg_proxy_stream_response_data *data)
+{
+    if (data)
+    {
+        CMSG_PROXY_FREE (data->data);
+        CMSG_PROXY_FREE (data);
+    }
+}
+
+/**
+ * Free data allocated to a cmsg_proxy_stream_header_data struct.
+ *
+ * @param data - The struct to free.
+ */
+void
+cmsg_proxy_streaming_free_stream_header_data (cmsg_proxy_stream_header_data *data)
+{
+    int i = 0;
+
+    if (data)
+    {
+        /* Free all the header values */
+        for (i = 0; i < data->headers->num_headers; i++)
+        {
+            CMSG_PROXY_FREE (data->headers->headers[i].value);
+        }
+        CMSG_PROXY_FREE (data->headers->headers);
+        CMSG_PROXY_FREE (data->headers);
+        CMSG_PROXY_FREE (data);
     }
 }
 
@@ -474,13 +544,11 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
 
     protobuf_c_message_free_unpacked (message, allocator);
 
-    /* This memory will eventually be freed by a 'free' call so do not
-     * use CMSG_PROXY_CALLOC to allocate the memory. */
-    data = calloc (1, sizeof (cmsg_proxy_stream_response_data));
+    data = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_stream_response_data));
     data->connection = connection_info->connection;
 
     /* Add a newline to the end of the text */
-    if (asprintf (&new_response_body, "%s\n", output.response_body) >= 0)
+    if (CMSG_PROXY_ASPRINTF (&new_response_body, "%s\n", output.response_body) >= 0)
     {
         data->data = new_response_body;
         data->length = output.response_length + 1;
@@ -513,12 +581,10 @@ http_streaming_impl_send_stream_file_data (const void *service, const stream_dat
 
     CMSG_SET_FIELD_VALUE (&send_msg, stream_found, true);
 
-    /* This memory will eventually be freed by a 'free' call so do not
-     * use CMSG_PROXY_CALLOC to allocate the memory. */
-    data = calloc (1, sizeof (cmsg_proxy_stream_response_data));
+    data = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_stream_response_data));
     data->connection = connection_info->connection;
     data->length = recv_msg->message_data.len;
-    data->data = malloc (recv_msg->message_data.len);
+    data->data = CMSG_PROXY_CALLOC (1, recv_msg->message_data.len);
     if (data->data)
     {
         memcpy (data->data, recv_msg->message_data.data, recv_msg->message_data.len);
@@ -556,4 +622,85 @@ http_streaming_impl_close_stream_connection (const void *service, const stream_i
     CMSG_SET_FIELD_VALUE (&send_msg, stream_found, found);
 
     http_streaming_server_close_stream_connectionSend (service, &send_msg);
+}
+
+void
+http_streaming_impl_set_stream_headers (const void *service,
+                                        const stream_headers_info *recv_msg)
+{
+    server_response send_msg = SERVER_RESPONSE_INIT;
+    cmsg_proxy_stream_connection *connection_info = NULL;
+    cmsg_proxy_stream_header_data *data = NULL;
+    cmsg_proxy_header *header_array;
+    cmsg_proxy_headers *headers;
+    int n_headers;
+
+    connection_info = cmsg_proxy_streaming_lookup_conn_by_id (recv_msg->id);
+    if (!connection_info)
+    {
+        CMSG_SET_FIELD_VALUE (&send_msg, stream_found, false);
+        http_streaming_server_send_stream_dataSend (service, &send_msg);
+        return;
+    }
+
+    CMSG_SET_FIELD_VALUE (&send_msg, stream_found, true);
+
+    data = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_stream_header_data));
+    data->connection = connection_info->connection;
+    headers = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_headers));
+
+    switch (recv_msg->type)
+    {
+    case CONTENT_TYPE_JSON:
+        n_headers = 1;
+        header_array = CMSG_PROXY_CALLOC (n_headers, sizeof (cmsg_proxy_header));
+        header_array[0].key = cmsg_content_type_key;
+        header_array[0].value = CMSG_PROXY_STRDUP (cmsg_mime_application_json);
+        break;
+    case CONTENT_TYPE_FILE:
+        if (!CMSG_IS_PTR_PRESENT (recv_msg, file_info))
+        {
+            syslog (LOG_ERR, "stream_headers_info message with content type "
+                    "'CONTENT_TYPE_FILE' missing file_info field");
+            cmsg_proxy_streaming_release_conn_info (connection_info);
+            http_streaming_server_send_stream_dataSend (service, &send_msg);
+            return;
+        }
+
+        n_headers = 4;
+        header_array = CMSG_PROXY_CALLOC (n_headers, sizeof (cmsg_proxy_header));
+        header_array[0].key = cmsg_content_type_key;
+        header_array[0].value = CMSG_PROXY_STRDUP (cmsg_mime_octet_stream);
+        header_array[1].key = cmsg_content_encoding_key;
+        header_array[1].value = CMSG_PROXY_STRDUP (cmsg_binary_encoding);
+        header_array[2].key = cmsg_content_disposition_key;
+        CMSG_PROXY_ASPRINTF (&(header_array[2].value), cmsg_filename_header_format,
+                             recv_msg->file_info->file_name);
+        header_array[3].key = cmsg_content_length_key;
+        CMSG_PROXY_ASPRINTF (&(header_array[3].value), "%d",
+                             recv_msg->file_info->file_size);
+        break;
+    case CONTENT_TYPE_PLAINTEXT:
+        n_headers = 1;
+        header_array = CMSG_PROXY_CALLOC (n_headers, sizeof (cmsg_proxy_header));
+        header_array[0].key = cmsg_content_type_key;
+        header_array[0].value = CMSG_PROXY_STRDUP (cmsg_mime_text_plain);
+        break;
+    default:
+        syslog (LOG_ERR, "Unrecognized content type for streaming API response (type = %d)",
+                recv_msg->type);
+        cmsg_proxy_streaming_release_conn_info (connection_info);
+        http_streaming_server_send_stream_dataSend (service, &send_msg);
+        return;
+    }
+
+    headers->headers = header_array;
+    headers->num_headers = n_headers;
+    data->headers = headers;
+
+    stream_headers_set (data);
+
+    cmsg_proxy_streaming_release_conn_info (connection_info);
+
+    http_streaming_server_send_stream_dataSend (service, &send_msg);
 }

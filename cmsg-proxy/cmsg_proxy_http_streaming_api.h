@@ -15,5 +15,9 @@ bool cmsg_proxy_http_streaming_api_send_response (cmsg_client *client, uint32_t 
 bool cmsg_proxy_http_streaming_api_send_file_response (cmsg_client *client,
                                                        uint32_t stream_id, uint8_t *data,
                                                        ssize_t length);
+bool cmsg_proxy_http_streaming_api_set_file_data_headers (cmsg_client *client,
+                                                          uint32_t stream_id,
+                                                          const char *file_name,
+                                                          uint32_t file_size);
 
 #endif /* __CMSG_PROXY_HTTP_STREAMING_API_H_ */

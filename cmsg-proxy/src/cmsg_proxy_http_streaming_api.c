@@ -163,3 +163,44 @@ cmsg_proxy_http_streaming_api_send_file_response (cmsg_client *client, uint32_t 
 
     return ret;
 }
+
+/**
+ * Sets the correct HTTP headers for streaming file data.
+ *
+ * @param client - The cmsg_client to send to the server with. This should have been
+ *                 created using 'cmsg_proxy_http_streaming_api_create_client'.
+ * @param stream_id - The streaming id to send to.
+ * @param file_name - The name of the file being streamed.
+ * @param file_size - The size of the file in bytes.
+ *
+ * @returns true if sending to the streaming server was successful and it knew about
+ *          the streamed connection, false otherwise.
+ */
+bool
+cmsg_proxy_http_streaming_api_set_file_data_headers (cmsg_client *client,
+                                                     uint32_t stream_id,
+                                                     const char *file_name,
+                                                     uint32_t file_size)
+{
+    bool ret = false;
+    int cmsg_ret;
+    server_response *response_msg = NULL;
+    stream_headers_info stream_msg = STREAM_HEADERS_INFO_INIT;
+    file_info file_info_msg = FILE_INFO_INIT;
+
+    CMSG_SET_FIELD_VALUE (&stream_msg, id, stream_id);
+    CMSG_SET_FIELD_VALUE (&stream_msg, type, CONTENT_TYPE_FILE);
+    CMSG_SET_FIELD_PTR (&stream_msg, file_info, &file_info_msg);
+    CMSG_SET_FIELD_PTR (&file_info_msg, file_name, file_name);
+    CMSG_SET_FIELD_VALUE (&file_info_msg, file_size, file_size);
+
+    cmsg_ret = http_streaming_api_set_stream_headers (client, &stream_msg, &response_msg);
+    if (cmsg_ret == CMSG_RET_OK)
+    {
+        ret = response_msg->stream_found;
+    }
+
+    CMSG_FREE_RECV_MSG (response_msg);
+
+    return ret;
+}

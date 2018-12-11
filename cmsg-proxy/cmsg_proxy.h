@@ -142,12 +142,19 @@ typedef struct _cmsg_proxy_stream_response_data
     size_t length;
 } cmsg_proxy_stream_response_data;
 
+typedef struct _cmsg_proxy_stream_header_data
+{
+    void *connection;
+    cmsg_proxy_headers *headers;
+} cmsg_proxy_stream_header_data;
+
 typedef int (*cmsg_api_func_ptr) ();
 typedef bool (*pre_api_http_check_callback) (cmsg_http_verb http_verb, char **message);
 typedef void (*cmsg_proxy_stream_response_send_func) (cmsg_proxy_stream_response_data
                                                       *data);
 typedef void (*cmsg_proxy_stream_response_close_func) (void *connection);
 typedef void (*cmsg_proxy_stream_conn_release_func) (void *connection);
+typedef void (*cmsg_proxy_stream_headers_set_func) (cmsg_proxy_stream_header_data *data);
 
 typedef struct _cmsg_proxy_web_socket_info
 {
@@ -177,7 +184,6 @@ typedef struct _cmsg_proxy_api_info
 } cmsg_proxy_api_info;
 
 #define CMSG_PROXY_SPECIAL_FIELD_FILE "_file"
-#define CMSG_PROXY_SPECIAL_FIELD_FILE_NAME "file_name"
 #define CMSG_PROXY_SPECIAL_FIELD_BODY "_body"
 
 void cmsg_proxy_init (void);
@@ -197,8 +203,11 @@ void cmsg_proxy_streaming_set_response_close_function (cmsg_proxy_stream_respons
                                                        func);
 void cmsg_proxy_streaming_set_conn_release_function (cmsg_proxy_stream_conn_release_func
                                                      func);
+void cmsg_proxy_streaming_set_headers_set_function (cmsg_proxy_stream_headers_set_func
+                                                    func);
 void cmsg_proxy_streaming_conn_timeout (void *connection);
-
+void cmsg_proxy_streaming_free_stream_response_data (cmsg_proxy_stream_response_data *data);
+void cmsg_proxy_streaming_free_stream_header_data (cmsg_proxy_stream_header_data *data);
 
 
 #endif /* __CMSG_PROXY_H_ */
