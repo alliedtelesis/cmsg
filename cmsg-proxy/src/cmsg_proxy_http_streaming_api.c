@@ -165,6 +165,39 @@ cmsg_proxy_http_streaming_api_send_file_response (cmsg_client *client, uint32_t 
 }
 
 /**
+ * Sets the correct HTTP headers for streaming JSON data.
+ *
+ * @param client - The cmsg_client to send to the server with. This should have been
+ *                 created using 'cmsg_proxy_http_streaming_api_create_client'.
+ * @param stream_id - The streaming id to send to.
+ *
+ * @returns true if sending to the streaming server was successful and it knew about
+ *          the streamed connection, false otherwise.
+ */
+bool
+cmsg_proxy_http_streaming_api_set_json_data_headers (cmsg_client *client,
+                                                     uint32_t stream_id)
+{
+    bool ret = false;
+    int cmsg_ret;
+    server_response *response_msg = NULL;
+    stream_headers_info stream_msg = STREAM_HEADERS_INFO_INIT;
+
+    CMSG_SET_FIELD_VALUE (&stream_msg, id, stream_id);
+    CMSG_SET_FIELD_VALUE (&stream_msg, type, CONTENT_TYPE_JSON);
+
+    cmsg_ret = http_streaming_api_set_stream_headers (client, &stream_msg, &response_msg);
+    if (cmsg_ret == CMSG_RET_OK)
+    {
+        ret = response_msg->stream_found;
+    }
+
+    CMSG_FREE_RECV_MSG (response_msg);
+
+    return ret;
+}
+
+/**
  * Sets the correct HTTP headers for streaming file data.
  *
  * @param client - The cmsg_client to send to the server with. This should have been
