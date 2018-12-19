@@ -17,21 +17,43 @@ static uint8_t expected_file_data[BINARY_TEST_DATA_LEN] = { 0, 2, 4, 10, 0, 55, 
 
 static const char *expected_file_name = NULL;
 static const char *expected_body_text = "Some test text to send back\n Blah\n";
+static const char *expected_stream_response = NULL;
+static int expected_number_of_headers = 0;
+static const cmsg_proxy_header *expected_header_array = NULL;
 
 extern void cmsg_proxy_service_info_init (cmsg_service_info *array, int length);
 extern void cmsg_proxy_library_handles_load (void);
 
+static const char *cmsg_content_type_key = "Content-Type";
+static const char *cmsg_mime_application_json = "application/json";
 static const char *cmsg_mime_text_plain = "text/plain";
 
-char *streamed_response = NULL;
 void *streamed_connection_ptr = (void *) 0x123abc;
 
 static void
 stream_response_send (cmsg_proxy_stream_response_data *data)
 {
-    streamed_response = data->data;
     NP_ASSERT_PTR_EQUAL (data->connection, streamed_connection_ptr);
-    free (data);
+    NP_ASSERT_STR_EQUAL (data->data, expected_stream_response);
+
+    cmsg_proxy_streaming_free_stream_response_data (data);
+}
+
+static void
+stream_headers_set (cmsg_proxy_stream_header_data *data)
+{
+    int i;
+
+    NP_ASSERT_EQUAL (data->headers->num_headers, expected_number_of_headers);
+
+    for (i = 0; i < expected_number_of_headers; i++)
+    {
+        NP_ASSERT_STR_EQUAL (data->headers->headers[i].key, expected_header_array[i].key);
+        NP_ASSERT_STR_EQUAL (data->headers->headers[i].value,
+                             expected_header_array[i].value);
+    }
+
+    cmsg_proxy_streaming_free_stream_header_data (data);
 }
 
 /**
@@ -569,6 +591,7 @@ functional_tests_impl_test_http_streaming (const void *service,
     server_response *r_msg = NULL;
     uint32_t ret;
     cmsg_transport *transport;
+    stream_headers_info headers_msg = STREAM_HEADERS_INFO_INIT;
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
@@ -594,6 +617,13 @@ functional_tests_impl_test_http_streaming (const void *service,
     ret = protobuf_c_message_pack ((ProtobufCMessage *) &send_msg, buffer);
     NP_ASSERT_EQUAL (ret, message_size);
 
+    CMSG_SET_FIELD_VALUE (&headers_msg, id, recv_msg->_streaming_id);
+    CMSG_SET_FIELD_VALUE (&headers_msg, type, CONTENT_TYPE_JSON);
+
+    http_streaming_api_set_stream_headers (client, &headers_msg, &r_msg);
+    CMSG_FREE_RECV_MSG (r_msg);
+    r_msg = NULL;
+
     CMSG_SET_FIELD_VALUE (&msg, id, recv_msg->_streaming_id);
     CMSG_SET_FIELD_BYTES (&msg, message_data, buffer, message_size);
 
@@ -611,6 +641,9 @@ set_up (void)
     np_mock (cmsg_create_client_unix, sm_mock_cmsg_create_client_unix);
 
     expected_file_name = NULL;
+    expected_stream_response = NULL;
+    expected_number_of_headers = 0;
+    expected_header_array = NULL;
 
     cmsg_proxy_init ();
     return 0;
@@ -1466,7 +1499,7 @@ test_http_streaming (void)
     cmsg_proxy_output output = { 0 };
 
     /* *INDENT-OFF* */
-    char *expected_stream_response =
+    char *expected_response =
         "{"
         "\"inner_bool_msg\":{"
         "\"value\":true"
@@ -1474,9 +1507,18 @@ test_http_streaming (void)
         "\"inner_string\":\"test_string\","
         "\"inner_uint32\":123"
         "}\n";
+
+    cmsg_proxy_header expected_headers[] = {
+        {.key = cmsg_content_type_key, .value = (char *) cmsg_mime_application_json}
+    };
     /* *INDENT-ON* */
 
+    expected_stream_response = expected_response;
+    expected_number_of_headers = 1;
+    expected_header_array = expected_headers;
+
     cmsg_proxy_streaming_set_response_send_function (stream_response_send);
+    cmsg_proxy_streaming_set_headers_set_function (stream_headers_set);
 
     input.url = "/test_http_streaming";
     input.http_verb = CMSG_HTTP_GET;
@@ -1496,7 +1538,4 @@ test_http_streaming (void)
     /* The stream functionality is implemented in another thread so give it
      * time to execute. */
     sleep (1);
-
-    NP_ASSERT_STR_EQUAL (streamed_response, expected_stream_response);
-    free (streamed_response);
 }
