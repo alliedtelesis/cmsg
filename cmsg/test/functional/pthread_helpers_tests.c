@@ -6,6 +6,7 @@
 
 #include <np.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <cmsg_pthread_helpers.h>
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
@@ -217,6 +218,11 @@ cmsg_test_impl_server_multi_threading_test (const void *service,
                                             const cmsg_uint32_msg *recv_msg)
 {
     cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
+
+    /* Sleep between 900-1100us to simulate the API call taking a while to process, to test
+     * the situation where multiple calls are being processed by the server simultaneously.
+     */
+    usleep (900 + rand () % 200);
 
     CMSG_SET_FIELD_VALUE (&send_msg, value, recv_msg->value);
 

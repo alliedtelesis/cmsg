@@ -119,11 +119,6 @@ void ServiceGenerator::GenerateVfuncs(io::Printer* printer)
                    "         $metpad$  $output_typename$_Closure closure,\n"
                    "         $metpad$  void *closure_data);\n");
   }
-#ifdef ATL_CHANGE
-  printer->Print(vars_,
-                 "  void *closure;\n"
-                 "  void *closure_data;\n");
-#endif /* ATL_CHANGE */
   printer->Print(vars_,
 		 "};\n");
   printer->Print(vars_,

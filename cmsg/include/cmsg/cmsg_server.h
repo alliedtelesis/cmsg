@@ -15,6 +15,12 @@
 
 typedef struct _cmsg_server_s cmsg_server;
 
+typedef struct _cmsg_server_closure_info_s
+{
+    void *closure;
+    void *closure_data;
+} cmsg_server_closure_info;
+
 typedef struct _cmsg_server_closure_data_s
 {
     cmsg_server *server;
