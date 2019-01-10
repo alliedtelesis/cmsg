@@ -12,21 +12,31 @@
 #include <http_streaming_api_auto.h>
 
 #define BINARY_TEST_DATA_LEN 8
-static size_t expected_file_data_length = BINARY_TEST_DATA_LEN;
-static uint8_t expected_file_data[BINARY_TEST_DATA_LEN] = { 0, 2, 4, 10, 0, 55, 0, 11 };
+static const char *test_file_name = "test.file";
+static size_t test_file_length = BINARY_TEST_DATA_LEN;
+static uint8_t test_file_data[BINARY_TEST_DATA_LEN] = { 0, 2, 4, 10, 0, 55, 0, 11 };
 
 static const char *expected_file_name = NULL;
 static const char *expected_body_text = "Some test text to send back\n Blah\n";
 static const char *expected_stream_response = NULL;
+static const char *expected_content_length = "8";
+static const char *expected_content_disposition = "attachment; filename=\"test.file\"";
 static int expected_number_of_headers = 0;
 static const cmsg_proxy_header *expected_header_array = NULL;
+static uint8_t *expected_file_data = NULL;
+static size_t expected_file_data_length = 0;
 
 extern void cmsg_proxy_service_info_init (cmsg_service_info *array, int length);
 extern void cmsg_proxy_library_handles_load (void);
 
 static const char *cmsg_content_type_key = "Content-Type";
+static const char *cmsg_content_disposition_key = "Content-Disposition";
+static const char *cmsg_content_encoding_key = "Content-Transfer-Encoding";
+static const char *cmsg_content_length_key = "Content-Length";
 static const char *cmsg_mime_application_json = "application/json";
+static const char *cmsg_mime_octet_stream = "application/octet-stream";
 static const char *cmsg_mime_text_plain = "text/plain";
+static const char *cmsg_binary_encoding = "binary";
 
 void *streamed_connection_ptr = (void *) 0x123abc;
 
@@ -35,6 +45,15 @@ stream_response_send (cmsg_proxy_stream_response_data *data)
 {
     NP_ASSERT_PTR_EQUAL (data->connection, streamed_connection_ptr);
     NP_ASSERT_STR_EQUAL (data->data, expected_stream_response);
+
+    cmsg_proxy_streaming_free_stream_response_data (data);
+}
+
+static void
+stream_file_data_response_send (cmsg_proxy_stream_response_data *data)
+{
+    NP_ASSERT_PTR_EQUAL (data->connection, streamed_connection_ptr);
+    NP_ASSERT_TRUE (memcmp (data->data, expected_file_data, expected_file_data_length) == 0);
 
     cmsg_proxy_streaming_free_stream_response_data (data);
 }
@@ -525,45 +544,6 @@ functional_tests_impl_test_multiple_data_plus_internal_set (const void *service,
 }
 
 void
-functional_tests_impl_test_file_get (const void *service, const file_name *recv_msg)
-{
-    file_data send_msg = FILE_DATA_INIT;
-    ant_result error_info = ANT_RESULT_INIT;
-
-    NP_ASSERT_STR_EQUAL (recv_msg->file_name, expected_file_name);
-
-    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
-    CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
-    CMSG_SET_FIELD_BYTES (&send_msg, _file, expected_file_data, expected_file_data_length);
-    CMSG_SET_FIELD_PTR (&send_msg, file_name, recv_msg->file_name);
-
-    functional_tests_server_test_file_getSend (service, &send_msg);
-}
-
-void
-functional_tests_impl_test_file_data (const void *service, const file_data *recv_msg)
-{
-    file_data send_msg = FILE_DATA_INIT;
-    ant_result error_info = ANT_RESULT_INIT;
-    int i;
-
-    NP_ASSERT_STR_EQUAL (recv_msg->file_name, expected_file_name);
-    NP_ASSERT_TRUE (recv_msg->has__file);
-    NP_ASSERT_EQUAL (recv_msg->_file.len, expected_file_data_length);
-    for (i = 0; i < expected_file_data_length; i++)
-    {
-        NP_ASSERT_EQUAL (recv_msg->_file.data[i], expected_file_data[i]);
-    }
-
-    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
-    CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
-    CMSG_SET_FIELD_BYTES (&send_msg, _file, recv_msg->_file.data, recv_msg->_file.len);
-    CMSG_SET_FIELD_PTR (&send_msg, file_name, recv_msg->file_name);
-
-    functional_tests_server_test_file_dataSend (service, &send_msg);
-}
-
-void
 functional_tests_impl_test_body_get (const void *service)
 {
     body_msg send_msg = BODY_MSG_INIT;
@@ -634,6 +614,54 @@ functional_tests_impl_test_http_streaming (const void *service,
     cmsg_destroy_client_and_transport (client);
 }
 
+void
+functional_tests_impl_test_http_file_streaming (const void *service,
+                                                const streaming_id *recv_msg)
+{
+    ant_result error_info = ANT_RESULT_INIT;
+    file_response send_msg = FILE_RESPONSE_INIT;
+    cmsg_client *client = NULL;
+    uint8_t *buffer = NULL;
+    stream_data msg = STREAM_DATA_INIT;
+    server_response *r_msg = NULL;
+    cmsg_transport *transport;
+    stream_headers_info headers_msg = STREAM_HEADERS_INFO_INIT;
+    file_info file_info_msg = FILE_INFO_INIT;
+
+    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
+
+    functional_tests_server_test_http_file_streamingSend (service, &send_msg);
+
+    /* cmsg_create_client_unix is mocked during the setup of all the tests
+     * and doesn't appear to be able to be unmocked dynamically. Simply
+     * create a unix client for the one place in the test we wish to use
+     * an actual unix client. */
+    transport = cmsg_create_transport_unix (CMSG_DESCRIPTOR_NOPACKAGE (http_streaming),
+                                            CMSG_TRANSPORT_RPC_UNIX);
+    client = cmsg_client_new (transport, CMSG_DESCRIPTOR_NOPACKAGE (http_streaming));
+
+    CMSG_SET_FIELD_VALUE (&headers_msg, id, recv_msg->_streaming_id);
+    CMSG_SET_FIELD_VALUE (&headers_msg, type, CONTENT_TYPE_FILE);
+
+    CMSG_SET_FIELD_PTR (&file_info_msg, file_name, test_file_name);
+    CMSG_SET_FIELD_VALUE (&file_info_msg, file_size, test_file_length);
+    CMSG_SET_FIELD_PTR (&headers_msg, file_info, &file_info_msg);
+
+    http_streaming_api_set_stream_headers (client, &headers_msg, &r_msg);
+    CMSG_FREE_RECV_MSG (r_msg);
+    r_msg = NULL;
+
+    CMSG_SET_FIELD_VALUE (&msg, id, recv_msg->_streaming_id);
+    CMSG_SET_FIELD_BYTES (&msg, message_data, test_file_data, test_file_length);
+
+    http_streaming_api_send_stream_file_data (client, &msg, &r_msg);
+    CMSG_FREE_RECV_MSG (r_msg);
+
+    free (buffer);
+    cmsg_destroy_client_and_transport (client);
+}
+
 int
 set_up (void)
 {
@@ -641,9 +669,11 @@ set_up (void)
     np_mock (cmsg_create_client_unix, sm_mock_cmsg_create_client_unix);
 
     expected_file_name = NULL;
+    expected_file_data = NULL;
     expected_stream_response = NULL;
     expected_number_of_headers = 0;
     expected_header_array = NULL;
+    expected_file_data_length = 0;
 
     cmsg_proxy_init ();
     return 0;
@@ -1522,6 +1552,50 @@ test_http_streaming (void)
 
     input.url = "/test_http_streaming";
     input.http_verb = CMSG_HTTP_GET;
+    input.connection = streamed_connection_ptr;
+
+    /* Give some time to ensure the http streaming server has actually started
+     * inside the proxy. */
+    sleep (1);
+
+    cmsg_proxy (&input, &output);
+
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_OK);
+    /* There should be no response body if the response is to be streamed */
+    NP_ASSERT_NULL (output.response_body);
+    cmsg_proxy_free_output_contents (&output);
+
+    /* The stream functionality is implemented in another thread so give it
+     * time to execute. */
+    sleep (1);
+}
+
+/**
+ * Check that HTTP streaming of raw file data works as expected.
+ */
+void
+test_http_file_streaming (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    cmsg_proxy_header expected_headers[] = {
+        {.key = cmsg_content_type_key, .value = (char *) cmsg_mime_octet_stream},
+        {.key = cmsg_content_encoding_key, .value = (char *) cmsg_binary_encoding},
+        {.key = cmsg_content_disposition_key, .value = (char *) expected_content_disposition},
+        {.key = cmsg_content_length_key, .value = (char *) expected_content_length},
+    };
+
+    expected_file_data = test_file_data;
+    expected_file_data_length = test_file_length;
+    expected_number_of_headers = 4;
+    expected_header_array = expected_headers;
+
+    cmsg_proxy_streaming_set_response_send_function (stream_file_data_response_send);
+    cmsg_proxy_streaming_set_headers_set_function (stream_headers_set);
+
+    input.url = "/test_http_file_streaming";
+    input.http_verb = CMSG_HTTP_POST;
     input.connection = streamed_connection_ptr;
 
     /* Give some time to ensure the http streaming server has actually started

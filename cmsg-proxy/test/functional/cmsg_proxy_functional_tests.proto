@@ -139,6 +139,14 @@ message streaming_id
     optional uint32 _streaming_id = 1;
 }
 
+message file_response
+{
+    optional ant_result _error_info = 1;
+
+    // Raw file data
+    optional bytes _file = 2;
+}
+
 service functional_tests
 {
     rpc test_single_bool_get (dummy) returns (bool_result) {
@@ -313,26 +321,6 @@ service functional_tests
         };
     }
 
-    rpc test_file_get (file_name) returns (file_data) {
-        option (http) = {
-            get: "/test_file_get",
-            additional_bindings {
-                get: "/test_file_get/{file_name}",
-            }
-        };
-    }
-
-    rpc test_file_data (file_data) returns (file_data) {
-        option (http) = {
-            post: "/test_file_data",
-            body: "_file",
-            additional_bindings {
-                post: "/test_file_data/{file_name}",
-                body: "_file",
-            }
-        };
-    }
-
     rpc test_body_get (dummy) returns (body_msg) {
         option (http) = {
             get: "/test_body_get",
@@ -342,6 +330,12 @@ service functional_tests
     rpc test_http_streaming (streaming_id) returns (test_multiple_fields_message_get_msg) {
         option (http) = {
             get: "/test_http_streaming",
+        };
+    }
+
+    rpc test_http_file_streaming (streaming_id) returns (file_response) {
+        option (http) = {
+            post: "/test_http_file_streaming",
         };
     }
 }
