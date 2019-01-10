@@ -63,7 +63,7 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
  * @param info - The 'cmsg_server_accept_thread_info' structure holding the
  *               information about the CMSG server listening in a separate thread.
  */
-static void
+void
 cmsg_glib_server_processing_start (cmsg_server_accept_thread_info *info)
 {
     GIOChannel *accept_channel = g_io_channel_unix_new (info->accept_sd_eventfd);
@@ -318,4 +318,34 @@ cmsg_glib_tipc_mesh_init (ProtobufCService *service, const char *service_entry_n
     cmsg_glib_server_processing_start (mesh->server_thread_info);
 
     return mesh;
+}
+
+/**
+ * Callback function that fires when an event is generated from a CMSG
+ * broadcast client.
+ */
+static int
+cmsg_glib_broadcast_event_process (GIOChannel *source, GIOCondition condition,
+                                   gpointer data)
+{
+    cmsg_client *broadcast_client = (cmsg_client *) data;
+
+    cmsg_broadcast_event_queue_process (broadcast_client);
+
+    return TRUE;
+}
+
+/**
+ * Start the processing of the generated events from a CMSG broadcast client.
+ *
+ * @param info - The broadcast client generating events.
+ */
+void
+cmsg_glib_bcast_client_processing_start (cmsg_client *broadcast_client)
+{
+    int event_fd = cmsg_broadcast_client_get_event_fd (broadcast_client);
+
+    GIOChannel *event_channel = g_io_channel_unix_new (event_fd);
+    g_io_add_watch (event_channel, G_IO_IN, cmsg_glib_broadcast_event_process,
+                    broadcast_client);
 }
