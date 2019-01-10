@@ -10,6 +10,7 @@
 #include "cmsg_pub.h"
 #include "cmsg_sub.h"
 
+void cmsg_glib_server_processing_start (cmsg_server_accept_thread_info *info);
 cmsg_server_accept_thread_info *cmsg_glib_server_init (cmsg_server *server);
 cmsg_server_accept_thread_info *cmsg_glib_unix_server_init (ProtobufCService *service);
 cmsg_tipc_mesh_conn *cmsg_glib_tipc_mesh_init (ProtobufCService *service,
@@ -23,5 +24,6 @@ cmsg_pub *cmsg_glib_tipc_publisher_init (const char *service_entry_name, int thi
 cmsg_pub *cmsg_glib_unix_publisher_init (const ProtobufCServiceDescriptor *descriptor);
 cmsg_sub *cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events);
 void cmsg_glib_subscriber_deinit (cmsg_sub *sub);
+void cmsg_glib_bcast_client_processing_start (cmsg_client *broadcast_client);
 
 #endif /* __CMSG_GLIB_HELPERS_H_ */
