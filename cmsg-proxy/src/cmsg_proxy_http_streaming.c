@@ -396,7 +396,7 @@ cmsg_proxy_streaming_server_cleanup (server_poll_info *poll_info)
 {
     int fd;
 
-    for (fd = 0; fd < poll_info->fd_max; fd++)
+    for (fd = 0; fd <= poll_info->fd_max; fd++)
     {
         if (FD_ISSET (fd, &poll_info->readfds))
         {
@@ -430,7 +430,7 @@ cmsg_proxy_streaming_server_run (void *arg)
         cmsg_create_server_unix_rpc (CMSG_SERVICE_NOPACKAGE (http_streaming));
 
     fd = cmsg_server_get_socket (poll_info.server);
-    poll_info.fd_max = fd + 1;
+    poll_info.fd_max = fd;
     FD_SET (fd, &poll_info.readfds);
 
     while (true)

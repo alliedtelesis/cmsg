@@ -493,9 +493,13 @@ cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
  *       are received (i.e. returns EINTR) then this function will
  *       return success (instead of blocking until the timeout expires)
  *
- * Timeout is specified in 'timeout_ms' (0: return immediately,
- * negative number: no timeout).
- * On success returns 0, failure returns -1.
+ * @param server - The server to poll.
+ * @param timeout_ms - The timeout to use with select.
+ *                     (0: return immediately, negative number: no timeout).
+ * @param master_fdset - An fd_set containing all of the sockets being polled.
+ * @param fdmax - Pointer to an integer holding the maximum fd number (NOT max + 1).
+ *
+ * @return On success returns 0, failure returns -1.
  */
 int32_t
 cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *master_fdset,

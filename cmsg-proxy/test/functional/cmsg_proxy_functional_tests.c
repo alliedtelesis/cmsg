@@ -26,6 +26,10 @@ static const cmsg_proxy_header *expected_header_array = NULL;
 static uint8_t *expected_file_data = NULL;
 static size_t expected_file_data_length = 0;
 
+static bool headers_set = false;
+static bool response_sent = false;
+static bool impl_finished = false;
+
 extern void cmsg_proxy_service_info_init (cmsg_service_info *array, int length);
 extern void cmsg_proxy_library_handles_load (void);
 
@@ -47,6 +51,8 @@ stream_response_send (cmsg_proxy_stream_response_data *data)
     NP_ASSERT_STR_EQUAL (data->data, expected_stream_response);
 
     cmsg_proxy_streaming_free_stream_response_data (data);
+
+    response_sent = true;
 }
 
 static void
@@ -56,6 +62,8 @@ stream_file_data_response_send (cmsg_proxy_stream_response_data *data)
     NP_ASSERT_TRUE (memcmp (data->data, expected_file_data, expected_file_data_length) == 0);
 
     cmsg_proxy_streaming_free_stream_response_data (data);
+
+    response_sent = true;
 }
 
 static void
@@ -73,6 +81,8 @@ stream_headers_set (cmsg_proxy_stream_header_data *data)
     }
 
     cmsg_proxy_streaming_free_stream_header_data (data);
+
+    headers_set = true;
 }
 
 /**
@@ -612,6 +622,8 @@ functional_tests_impl_test_http_streaming (const void *service,
 
     free (buffer);
     cmsg_destroy_client_and_transport (client);
+
+    impl_finished = true;
 }
 
 void
@@ -660,6 +672,8 @@ functional_tests_impl_test_http_file_streaming (const void *service,
 
     free (buffer);
     cmsg_destroy_client_and_transport (client);
+
+    impl_finished = true;
 }
 
 int
@@ -674,6 +688,10 @@ set_up (void)
     expected_number_of_headers = 0;
     expected_header_array = NULL;
     expected_file_data_length = 0;
+
+    headers_set = false;
+    response_sent = false;
+    impl_finished = false;
 
     cmsg_proxy_init ();
     return 0;
@@ -1565,9 +1583,11 @@ test_http_streaming (void)
     NP_ASSERT_NULL (output.response_body);
     cmsg_proxy_free_output_contents (&output);
 
-    /* The stream functionality is implemented in another thread so give it
-     * time to execute. */
-    sleep (1);
+    /* Wait until all the stages of the test have finished. */
+    while (!response_sent || !headers_set || !impl_finished)
+    {
+        usleep (1000);
+    }
 }
 
 /**
@@ -1609,7 +1629,9 @@ test_http_file_streaming (void)
     NP_ASSERT_NULL (output.response_body);
     cmsg_proxy_free_output_contents (&output);
 
-    /* The stream functionality is implemented in another thread so give it
-     * time to execute. */
-    sleep (1);
+    /* Wait until all the stages of the test have finished. */
+    while (!response_sent || !headers_set || !impl_finished)
+    {
+        usleep (1000);
+    }
 }

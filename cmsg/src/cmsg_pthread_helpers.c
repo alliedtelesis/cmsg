@@ -39,7 +39,7 @@ pthread_server_cancelled (cmsg_pthread_server_info *pthread_info)
     cmsg_server_accept_thread_deinit (pthread_info->accept_thread_info);
     pthread_info->accept_thread_info = NULL;
 
-    for (fd = 0; fd < pthread_info->fd_max; fd++)
+    for (fd = 0; fd <= pthread_info->fd_max; fd++)
     {
         /* Don't double close the accept event fd */
         if (fd == accept_sd_eventfd)
@@ -68,7 +68,7 @@ pthread_server_run (void *_server)
     pthread_info.accept_thread_info = cmsg_server_accept_thread_init (server);
 
     fd = pthread_info.accept_thread_info->accept_sd_eventfd;
-    pthread_info.fd_max = fd + 1;
+    pthread_info.fd_max = fd;
     FD_SET (fd, &pthread_info.readfds);
 
     while (true)
