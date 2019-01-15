@@ -16,6 +16,10 @@ src/http_streaming.pb-c.c \
 src/http_streaming.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/http_streaming.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src --c_out=$(top_srcdir)/cmsg-proxy/src $(top_srcdir)/cmsg-proxy/src/http_streaming.proto
 
+src/file_upload.pb-c.c \
+src/file_upload.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/file_upload.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src --c_out=$(top_srcdir)/cmsg-proxy/src $(top_srcdir)/cmsg-proxy/src/file_upload.proto
+
 ## Library for cmsg proxy configuration
 libcmsgproxyconfig_la_LDFLAGS = -version-info 1:0:0 # version:revision:age
 libcmsgproxyconfig_la_SOURCES = src/cmsg_proxy_config.c cmsg_proxy_config.h
@@ -38,6 +42,8 @@ libcmsgproxy_la_SOURCES = \
 	src/http_streaming_impl_auto.h \
 	src/http_streaming.pb-c.c \
 	src/http_streaming.pb-c.h \
+	src/file_upload.pb-c.c \
+	src/file_upload.pb-c.h \
 	src/cmsg_proxy.c \
 	cmsg_proxy.h \
 	src/cmsg_proxy_mem.c \
@@ -73,7 +79,8 @@ libcmsgproxy_la_HEADERS  = \
 	cmsg_proxy.h \
 	cmsg_proxy_config.h \
 	cmsg_proxy_http_streaming_api.h \
-	src/ant_result.proto
+	src/ant_result.proto \
+	src/file_upload.proto
 
 BUILT_SOURCES = \
 	src/ant_result.pb-c.c \
@@ -83,7 +90,9 @@ BUILT_SOURCES = \
 	src/http_streaming_impl_auto.c \
 	src/http_streaming_impl_auto.h \
 	src/http_streaming.pb-c.c \
-	src/http_streaming.pb-c.h
+	src/http_streaming.pb-c.h \
+	src/file_upload.pb-c.c \
+	src/file_upload.pb-c.h
 
 if BUILD_UNITTEST
 BUILT_SOURCES += \

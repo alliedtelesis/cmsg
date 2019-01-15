@@ -433,6 +433,7 @@ cmsg_proxy_json_object_destroy (json_t *json_obj)
  * Set any required internal api info fields in the input message descriptor.
  *
  * @param web_api_info - The structure holding the web api request information
+ * @param file_info - The structure holding the uploaded file information
  * @param json_obj - Pointer to the message body.
  * @param msg_descriptor - Used to determine the target field type when converting to JSON
  */
@@ -450,6 +451,49 @@ cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *web_api_inf
                                            json_obj, msg_descriptor,
                                            "_api_request_username");
     }
+}
+
+
+/**
+ * Sets fields describing the file upload information in the input message descriptor.
+ * Only sets fields if a file has been uploaded and the input message name matches the
+ * input name for the upload rpc defined in fs.proto.
+ *
+ * @param file_info - The structure holding the uploaded file information.
+ * @param msg_descriptor - Used to determine the target field type when converting to JSON.
+ * @param json_obj - Pointer to the message body.
+ * @param error_message - Error message populated if ANT_CODE_INVALID_ARGUMENT is returned.
+ * @return ANT_CODE_OK on success or ANT_CODE_INVALID_ARGUMENT on failure.
+ * The caller will need to free memory allocated to error_message.
+ */
+static ant_code
+cmsg_proxy_set_file_upload_info (const cmsg_proxy_api_file_info *file_info,
+                                 const ProtobufCMessageDescriptor *msg_descriptor,
+                                 json_t **json_obj, char **error_message)
+{
+    const char *upload_message_name = "file_upload_info";
+
+    if (file_info->upload_request)
+    {
+        if (strcmp (msg_descriptor->name, upload_message_name) == 0)
+        {
+            cmsg_proxy_set_internal_api_value (file_info->temp_filename,
+                                               json_obj, msg_descriptor, "_temp_filename");
+            cmsg_proxy_set_internal_api_value (file_info->client_filename,
+                                               json_obj, msg_descriptor,
+                                               "_client_filename");
+            return ANT_CODE_OK;
+        }
+        else
+        {
+            *error_message =
+                CMSG_PROXY_STRDUP ("API does not accept uploaded files as input data");
+            return ANT_CODE_INVALID_ARGUMENT;
+        }
+    }
+
+    /* File has not been uploaded as upload_request field is not set */
+    return ANT_CODE_OK;
 }
 
 /**
@@ -598,6 +642,16 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
 
     cmsg_proxy_set_internal_api_info (&input->web_api_info, &json_obj,
                                       service_info->input_msg_descriptor);
+
+    result = cmsg_proxy_set_file_upload_info (&input->file_info,
+                                              service_info->input_msg_descriptor,
+                                              &json_obj, &message);
+    if (result != ANT_CODE_OK)
+    {
+        cmsg_proxy_generate_ant_result_error (result, message, output);
+        CMSG_PROXY_FREE (message);
+        return NULL;
+    }
 
     processing_info->client =
         cmsg_proxy_find_client_by_service (service_info->service_descriptor);

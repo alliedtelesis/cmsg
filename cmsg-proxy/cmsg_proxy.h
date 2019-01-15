@@ -80,6 +80,14 @@ typedef struct _cmsg_proxy_api_request_info
     const char *api_request_username;
 } cmsg_proxy_api_request_info;
 
+typedef struct _cmsg_proxy_api_file_info
+{
+    /* Set true when a file is uploaded with appweb. */
+    bool upload_request;
+    const char *temp_filename;
+    const char *client_filename;
+} cmsg_proxy_api_file_info;
+
 /* CMSG proxy input/request data */
 typedef struct _cmsg_proxy_input
 {
@@ -102,6 +110,9 @@ typedef struct _cmsg_proxy_input
 
     /* Information about the web API request. */
     cmsg_proxy_api_request_info web_api_info;
+
+    /* Information about the file uploaded with appweb. */
+    cmsg_proxy_api_file_info file_info;
 
     /* The connection structure */
     void *connection;
