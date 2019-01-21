@@ -21,5 +21,6 @@ bool cmsg_proxy_http_streaming_api_set_file_data_headers (cmsg_client *client,
                                                           uint32_t stream_id,
                                                           const char *file_name,
                                                           uint32_t file_size);
+void cmsg_proxy_http_streaming_api_abort_connection (cmsg_client *client, uint32_t id);
 
 #endif /* __CMSG_PROXY_HTTP_STREAMING_API_H_ */

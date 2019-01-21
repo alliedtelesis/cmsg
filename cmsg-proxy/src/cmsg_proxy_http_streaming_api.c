@@ -9,8 +9,6 @@
 #include "http_streaming_api_auto.h"
 #include "cmsg_proxy_http_streaming_api.h"
 
-static cmsg_client *stream_client = NULL;
-
 /**
  * Create a cmsg_client to use to talk to the http streaming server.
  *
@@ -26,8 +24,8 @@ cmsg_proxy_http_streaming_api_create_client (void)
 /**
  * Close the streaming connection with the given id.
  *
- * @client - The cmsg_client to send to the server with. This should have been
- *           created using 'cmsg_proxy_http_streaming_api_create_client'.
+ * @param client - The cmsg_client to send to the server with. This should have been
+ *                 created using 'cmsg_proxy_http_streaming_api_create_client'.
  * @param id - The id of the streaming connection to close.
  */
 void
@@ -86,8 +84,8 @@ cmsg_proxy_http_streaming_api_pack_response (ProtobufCMessage *send_msg,
 /**
  * Send the streamed response message.
  *
- * @client - The cmsg_client to send to the server with. This should have been
- *           created using 'cmsg_proxy_http_streaming_api_create_client'.
+ * @param client - The cmsg_client to send to the server with. This should have been
+ *                 created using 'cmsg_proxy_http_streaming_api_create_client'.
  * @param stream_id - The streaming id to send to.
  * @param send_msg - The 'ProtobufCMessage' message to send.
  *
@@ -236,4 +234,23 @@ cmsg_proxy_http_streaming_api_set_file_data_headers (cmsg_client *client,
     CMSG_FREE_RECV_MSG (response_msg);
 
     return ret;
+}
+
+/**
+ * Abort the streaming connection.
+ *
+ * @param client - The cmsg_client to send to the server with. This should have been
+ *                 created using 'cmsg_proxy_http_streaming_api_create_client'.
+ * @param id - The id of the streaming connection to abort.
+ */
+void
+cmsg_proxy_http_streaming_api_abort_connection (cmsg_client *client, uint32_t id)
+{
+    stream_id send_msg = STREAM_ID_INIT;
+    server_response *recv_msg = NULL;
+
+    CMSG_SET_FIELD_VALUE (&send_msg, id, id);
+
+    http_streaming_api_abort_stream_connection (client, &send_msg, &recv_msg);
+    CMSG_FREE_RECV_MSG (recv_msg);
 }

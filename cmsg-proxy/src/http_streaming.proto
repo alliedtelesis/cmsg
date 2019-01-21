@@ -59,4 +59,5 @@ service http_streaming
     rpc send_stream_file_data (stream_data) returns (server_response);
     rpc set_stream_headers (stream_headers_info) returns (server_response);
     rpc close_stream_connection (stream_id) returns (server_response);
+    rpc abort_stream_connection (stream_id) returns (server_response);
 }

@@ -155,6 +155,7 @@ typedef void (*cmsg_proxy_stream_response_send_func) (cmsg_proxy_stream_response
 typedef void (*cmsg_proxy_stream_response_close_func) (void *connection);
 typedef void (*cmsg_proxy_stream_conn_release_func) (void *connection);
 typedef void (*cmsg_proxy_stream_headers_set_func) (cmsg_proxy_stream_header_data *data);
+typedef void (*cmsg_proxy_stream_conn_abort_func) (void *connection);
 
 typedef struct _cmsg_proxy_web_socket_info
 {
@@ -205,6 +206,7 @@ void cmsg_proxy_streaming_set_conn_release_function (cmsg_proxy_stream_conn_rele
                                                      func);
 void cmsg_proxy_streaming_set_headers_set_function (cmsg_proxy_stream_headers_set_func
                                                     func);
+void cmsg_proxy_streaming_set_conn_abort_function (cmsg_proxy_stream_conn_abort_func func);
 void cmsg_proxy_streaming_conn_timeout (void *connection);
 void cmsg_proxy_streaming_free_stream_response_data (cmsg_proxy_stream_response_data *data);
 void cmsg_proxy_streaming_free_stream_header_data (cmsg_proxy_stream_header_data *data);
