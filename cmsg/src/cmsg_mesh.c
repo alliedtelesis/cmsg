@@ -61,8 +61,16 @@ cmsg_tipc_mesh_connection_init (ProtobufCService *service, const char *service_e
         }
     }
 
-    server = cmsg_create_server_tipc_rpc (service_entry_name, my_node_id,
-                                          TIPC_CLUSTER_SCOPE, service);
+    if (oneway)
+    {
+        server = cmsg_create_server_tipc_oneway (service_entry_name, my_node_id,
+                                                 TIPC_CLUSTER_SCOPE, service);
+    }
+    else
+    {
+        server = cmsg_create_server_tipc_rpc (service_entry_name, my_node_id,
+                                              TIPC_CLUSTER_SCOPE, service);
+    }
 
     if (!server)
     {
