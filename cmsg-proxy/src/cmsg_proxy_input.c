@@ -26,8 +26,15 @@ extern pre_api_http_check_callback pre_api_check_callback;
 static ant_code
 cmsg_proxy_pre_api_check (cmsg_http_verb http_verb, char **message)
 {
-    if (pre_api_check_callback && !pre_api_check_callback (http_verb, message))
+    char *error_msg = NULL;
+
+    if (pre_api_check_callback && !pre_api_check_callback (http_verb, &error_msg))
     {
+        if (!error_msg)
+        {
+            error_msg = CMSG_PROXY_STRDUP ("Pre-API check failed");
+        }
+        *message = error_msg;
         return ANT_CODE_UNAVAILABLE;
     }
 
@@ -52,6 +59,7 @@ cmsg_proxy_convert_json_to_protobuf (json_t *json_obj,
                                      ProtobufCMessage **output_protobuf, char **message)
 {
     char conversion_message[MSG_BUF_LEN] = { 0 };
+    char *error_msg = NULL;
     ant_code ret = ANT_CODE_OK;
     int res = json2protobuf_object (json_obj, msg_descriptor, output_protobuf,
                                     conversion_message, MSG_BUF_LEN);
@@ -71,18 +79,18 @@ cmsg_proxy_convert_json_to_protobuf (json_t *json_obj,
     case PROTOBUF2JSON_ERR_CANNOT_PARSE_STRING:
     case PROTOBUF2JSON_ERR_CANNOT_PARSE_FILE:
     case PROTOBUF2JSON_ERR_UNSUPPORTED_FIELD_TYPE:
-        if (message)
-        {
-            *message = CMSG_PROXY_STRDUP (conversion_message);
-        }
+        error_msg = CMSG_PROXY_STRDUP (conversion_message);
         ret = ANT_CODE_INVALID_ARGUMENT;
         break;
     case PROTOBUF2JSON_ERR_CANNOT_DUMP_STRING:
     case PROTOBUF2JSON_ERR_CANNOT_DUMP_FILE:
     case PROTOBUF2JSON_ERR_JANSSON_INTERNAL:
     case PROTOBUF2JSON_ERR_CANNOT_ALLOCATE_MEMORY:
+        error_msg = CMSG_PROXY_STRDUP ("JSON to Protobuf conversion failed");
         ret = ANT_CODE_INTERNAL;
     }
+
+    *message = error_msg;
 
     return ret;
 }
@@ -240,12 +248,9 @@ cmsg_proxy_input_data_presence_as_expected (const char *data, const char *body_s
     {
         if (data)
         {
-            if (CMSG_PROXY_ASPRINTF (&error_msg,
-                                     "Invalid JSON: No JSON data expected for API, but JSON data input")
-                < 0)
-            {
-                error_msg = NULL;
-            }
+            error_msg =
+                CMSG_PROXY_STRDUP
+                ("Invalid JSON: No JSON data expected for API, but JSON data input");
         }
         else
         {
@@ -262,11 +267,7 @@ cmsg_proxy_input_data_presence_as_expected (const char *data, const char *body_s
          * There are existing APIs both with primitive and non-primitive fields that are
          * documented as being input optional.
          */
-        if (CMSG_PROXY_ASPRINTF
-            (&error_msg, "Invalid JSON: Input expected but not provided.") < 0)
-        {
-            error_msg = NULL;
-        }
+        error_msg = CMSG_PROXY_STRDUP ("Invalid JSON: Input expected but not provided.");
     }
     else
     {
@@ -274,6 +275,7 @@ cmsg_proxy_input_data_presence_as_expected (const char *data, const char *body_s
     }
 
     *error_message = error_msg;
+
     return ret;
 }
 
@@ -588,7 +590,8 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     if (service_info == NULL)
     {
         /* The cmsg proxy does not know about this url and verb combination */
-        output->http_status = HTTP_CODE_NOT_IMPLEMENTED;
+        cmsg_proxy_generate_ant_result_error (ANT_CODE_UNIMPLEMENTED,
+                                              "Unknown url and verb combination", output);
         g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
         CMSG_PROXY_COUNTER_INC (cntr_unknown_service);
         return NULL;
@@ -624,10 +627,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     if (input->data && !json_obj)
     {
         /* No json object created, report the error */
-        if (CMSG_PROXY_ASPRINTF (&message, "Invalid JSON: %s", error.text) < 0)
-        {
-            message = NULL;
-        }
+        CMSG_PROXY_ASPRINTF (&message, "Invalid JSON: %s", error.text);
         cmsg_proxy_generate_ant_result_error (ANT_CODE_INVALID_ARGUMENT,
                                               (message) ? message : "Invalid JSON", output);
         CMSG_PROXY_FREE (message);
@@ -659,7 +659,9 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     {
         /* This should not occur but check for it */
         cmsg_proxy_json_object_destroy (json_obj);
-        cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL, NULL, output);
+        cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL,
+                                              "Client not found in proxy_clients_list",
+                                              output);
         CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_error_missing_client);
         return NULL;
     }

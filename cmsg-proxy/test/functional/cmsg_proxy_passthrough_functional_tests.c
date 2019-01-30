@@ -193,3 +193,45 @@ test_simple_passthrough_delete (void)
 
     cmsg_proxy_passthrough_free_output_contents (&output);
 }
+
+/**
+ * Mock the api_ptr function to simulate it returning CMSG_RET_ERR.
+ */
+int
+sm_mock_api_ptr_err (const cmsg_client *client, ProtobufCMessage *send_msg,
+                     ProtobufCMessage *recv_msg)
+{
+    return CMSG_RET_ERR;
+}
+
+/*
+ * Test that cmsg_proxy correctly handles an error happening within
+ * cmsg_proxy_convert_json_to_protobuf, producing ANT_CODE_INTERNAL.
+ */
+void
+test_cmsg_proxy_passthrough__error (void)
+{
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_INTERNAL\","
+        "\"message\":\"Error calling passthrough API\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/test_passthrough_put";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = test_input_json;
+    input.data_length = strlen (test_input_json);
+
+    np_mock (api_ptr, sm_mock_api_ptr_err);
+    cmsg_proxy_passthrough (&input, &output);
+
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_INTERNAL_SERVER_ERROR);
+
+    cmsg_proxy_passthrough_free_output_contents (&output);
+}

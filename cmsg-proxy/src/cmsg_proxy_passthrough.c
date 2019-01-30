@@ -14,6 +14,7 @@
 #include "cmsg_proxy_mem.h"
 #include "cmsg_proxy_counters.h"
 #include "cmsg_proxy_tree.h"
+#include "cmsg_proxy_private.h"
 #include "ant_result.pb-c.h"
 
 static const char *cmsg_mime_application_json = "application/json";
@@ -200,9 +201,9 @@ cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output
     ret = api_ptr (client, &send_msg, &recv_msg);
     if (ret != CMSG_RET_OK)
     {
-        syslog (LOG_ERR, "Error calling passthrough API");
         CMSG_PROXY_SESSION_COUNTER_INC (api_service_info, cntr_error_api_failure);
-        output->http_status = HTTP_CODE_INTERNAL_SERVER_ERROR;
+        cmsg_proxy_generate_ant_result_error (ANT_CODE_INTERNAL,
+                                              "Error calling passthrough API", output);
         return;
     }
 

@@ -199,14 +199,15 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
                                                &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
                                                &output, &error_message);
 
+    NP_ASSERT_FALSE (ret == 0);
+    NP_ASSERT_STR_EQUAL (error_message, "JSON is not an object required for GPB message");
+
+    json_decref (json_obj);
     if (error_message)
     {
         free (error_message);
         error_message = NULL;
     }
-
-    NP_ASSERT_FALSE (ret == 0);
-    json_decref (json_obj);
 
     /* json string is missing closing bracket */
     json_obj = json_loads ("{\n    \"value\":true\n", 0, &error);
@@ -215,14 +216,15 @@ test_cmsg_proxy_convert_json_to_protobuf__invalid_input (void)
                                                &cmsg_proxy_unit_tests_cmsg_bool_descriptor,
                                                &output, &error_message);
 
+    NP_ASSERT_FALSE (ret == 0);
+    NP_ASSERT_STR_EQUAL (error_message, "JSON is not an object required for GPB message");
+
+    json_decref (json_obj);
     if (error_message)
     {
         free (error_message);
         error_message = NULL;
     }
-
-    json_decref (json_obj);
-    NP_ASSERT_FALSE (ret == 0);
 }
 
 /**
@@ -496,6 +498,12 @@ static bool
 _pre_api_check_dummy (cmsg_http_verb http_verb, char **message)
 {
     return true;
+}
+
+static bool
+_pre_api_check_dummy_returns_false (cmsg_http_verb http_verb, char **message)
+{
+    return false;
 }
 
 /**
@@ -1575,4 +1583,563 @@ test_cmsg_proxy_json_value_to_object__invalid_boolean (void)
     output_json = cmsg_proxy_json_value_to_object (&field_descriptor, "blah");
 
     NP_ASSERT_NULL (output_json);
+}
+
+/**
+ * Function Tested: cmsg_proxy_protobuf2json_object()
+ *
+ * Tests that valid input is correctly converted into a json object.
+ */
+void
+test_cmsg_proxy_protobuf2json_object_valid_input (void)
+{
+    cmsg_proxy_unit_tests_cmsg_bool proto_message = CMSG_PROXY_UNIT_TESTS_CMSG_BOOL_INIT;
+    json_t *json_obj = NULL;
+
+    NP_ASSERT_TRUE (cmsg_proxy_protobuf2json_object ((ProtobufCMessage *) &proto_message,
+                                                     &json_obj));
+    json_decref (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_protobuf2json_object()
+ *
+ * Tests that function returns false when provided with an invalid entry
+ * in the ProtobufCMessage message.
+ */
+void
+test_cmsg_proxy_protobuf2json_object_invalid_input (void)
+{
+    ant_result error_info = ANT_RESULT_INIT;
+    json_t *json_obj = NULL;
+    /* Incorrect ant_code will cause the protobuf conversion to fail. */
+    ant_code code = -1;
+
+    CMSG_SET_FIELD_VALUE (&error_info, code, code);
+
+    NP_ASSERT_FALSE (cmsg_proxy_protobuf2json_object ((ProtobufCMessage *) &error_info,
+                                                      &json_obj));
+
+}
+
+/**
+ * Function Tested: cmsg_proxy_generate_ant_result_error()
+ *
+ * Tests that a valid input correctly changes http_status and updates output
+ * with error code and message.
+ */
+void
+test_cmsg_proxy_generate_ant_result_error_valid_input (void)
+{
+    cmsg_proxy_output output = { 0 };
+    ant_code code = ANT_CODE_INTERNAL;
+    int http_code = cmsg_proxy_ant_code_to_http_code (code);
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_INTERNAL\","
+        "\"message\":\"Internal error occurred\""
+        "}";
+    /* *INDENT-ON* */
+
+    cmsg_proxy_generate_ant_result_error (code, "Internal error occurred", &output);
+
+    NP_ASSERT_EQUAL (output.http_status, http_code);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Function Tested: cmsg_proxy_generate_ant_result_error()
+ *
+ * Tests that the function correctly handles an invalid ant_code input
+ * by returning HTTP_CODE_INTERNAL_SERVER_ERROR.
+ */
+void
+test_cmsg_proxy_generate_ant_result_error_invalid_input (void)
+{
+    cmsg_proxy_output output = { 0 };
+    ant_code code_min = -1;
+    ant_code code_max = 200;
+    int http_code = HTTP_CODE_INTERNAL_SERVER_ERROR;
+
+    /* Provided ant_code is < 0 */
+    cmsg_proxy_generate_ant_result_error (code_min, NULL, &output);
+    NP_ASSERT_EQUAL (output.http_status, http_code);
+    NP_ASSERT_NULL (output.response_body);
+
+    /* Provided ant_code exceeds ANT_CODE_MAX */
+    cmsg_proxy_generate_ant_result_error (code_max, NULL, &output);
+
+    NP_ASSERT_EQUAL (output.http_status, http_code);
+    NP_ASSERT_NULL (output.response_body);
+
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Function Tested: cmsg_proxy_find_client_by_service()
+ *
+ * Tests that the client is successfully obtained when provided with a valid service descriptor.
+ */
+void
+test_cmsg_proxy_find_client_by_service_valid_input (void)
+{
+    cmsg_client *test_client;
+
+    setup_standard_test_tree ();
+    cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
+    test_client =
+        cmsg_proxy_find_client_by_service (&cmsg_proxy_unit_tests_interface_descriptor);
+
+    NP_ASSERT_NOT_NULL (test_client);
+}
+
+/**
+ * Function Tested: cmsg_proxy_find_client_by_service()
+ *
+ * Tests that the function returns NULL if the client cannot be found on the proxy_clients_list.
+ */
+void
+test_cmsg_proxy_find_client_by_service_invalid_input (void)
+{
+    cmsg_client *test_client;
+    ProtobufCServiceDescriptor invalid_interface_descriptor;
+
+    setup_standard_test_tree ();
+    /* service_descriptor is not set in the proxy_clients_list so this will fail */
+    test_client = cmsg_proxy_find_client_by_service (&invalid_interface_descriptor);
+
+    NP_ASSERT_NULL (test_client);
+}
+
+/**
+ * Function Tested: cmsg_proxy_json_object_create()
+ *
+ * Tests that json object is successfully created when provided with a valid input.
+ */
+void
+test_cmsg_proxy_json_object_create_valid_input (void)
+{
+    cmsg_proxy_input input = { 0 };
+    const cmsg_service_info *test_service_info;
+    GList *url_parameters = NULL;
+    json_t *json_obj = NULL;
+    json_error_t error;
+    char *json_output_str = NULL;
+
+    input.url = "/v1/test";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    setup_standard_test_tree ();
+
+    test_service_info = cmsg_proxy_get_service_and_parameters (input.url, NULL,
+                                                               input.http_verb,
+                                                               &url_parameters);
+
+    json_obj = cmsg_proxy_json_object_create (input.data, input.data_length,
+                                              test_service_info->input_msg_descriptor,
+                                              test_service_info->body_string,
+                                              url_parameters, &error);
+
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    json_output_str = json_dumps (json_obj, JSON_COMPACT);
+    NP_ASSERT_STR_EQUAL (json_output_str, "{\"value\":false}");
+
+    g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
+    cmsg_proxy_json_object_destroy (json_obj);
+    free (json_output_str);
+}
+
+/**
+ * Function Tested: cmsg_proxy_json_object_create()
+ *
+ * Tests that the function returns NULL if it fails to create the json object.
+ */
+void
+test_cmsg_proxy_json_object_create_invalid_input (void)
+{
+    cmsg_proxy_input input = { 0 };
+    const cmsg_service_info *test_service_info;
+    const char *invalid_body_string = "";
+    GList *url_parameters = NULL;
+    json_t *json_obj = NULL;
+    json_error_t error;
+
+    input.url = "/v1/test";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    setup_standard_test_tree ();
+
+    test_service_info = cmsg_proxy_get_service_and_parameters (input.url, NULL,
+                                                               input.http_verb,
+                                                               &url_parameters);
+
+    /* Try and create json_obj with invalid body_string provided. */
+    json_obj = cmsg_proxy_json_object_create (input.data, input.data_length,
+                                              test_service_info->input_msg_descriptor,
+                                              invalid_body_string, url_parameters, &error);
+    NP_ASSERT_NULL (json_obj);
+
+    /* Try and create json_obj with no input data provided. */
+    input.data = "";
+    json_obj = cmsg_proxy_json_object_create (input.data, input.data_length,
+                                              test_service_info->input_msg_descriptor,
+                                              test_service_info->body_string,
+                                              url_parameters, &error);
+    NP_ASSERT_NULL (json_obj);
+
+    g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
+    cmsg_proxy_json_object_destroy (json_obj);
+}
+
+/**
+ * Function Tested: cmsg_proxy_pre_api_check ()
+ *
+ * Tests that the function successfully calls the pre-API check callback function
+ * when provided with valid inputs.
+ */
+void
+test_cmsg_proxy_pre_api_check_valid_input (void)
+{
+    char *message = NULL;
+    ant_code code = ANT_CODE_OK;
+
+    cmsg_proxy_set_pre_api_http_check_callback (_pre_api_check_dummy);
+
+    code = cmsg_proxy_pre_api_check (CMSG_HTTP_PUT, &message);
+
+    NP_ASSERT_EQUAL (code, ANT_CODE_OK);
+    CMSG_PROXY_FREE (message);
+}
+
+/**
+ * Function Tested: cmsg_proxy_pre_api_check ()
+ *
+ * Tests that the function returns ANT_CODE_UNAVAILABLE and the correct
+ * error message when provided with invalid inputs.
+ */
+void
+test_cmsg_proxy_pre_api_check_invalid_input (void)
+{
+    char *message = NULL;
+    ant_code code = ANT_CODE_OK;
+
+    /* Incorrectly set up the pre_api_check_callback function pointer so the pre-API check fails. */
+    cmsg_proxy_set_pre_api_http_check_callback (_pre_api_check_dummy_returns_false);
+
+    code = cmsg_proxy_pre_api_check (CMSG_HTTP_PUT, &message);
+
+    NP_ASSERT_EQUAL (code, ANT_CODE_UNAVAILABLE);
+    NP_ASSERT_STR_EQUAL (message, "Pre-API check failed");
+    CMSG_PROXY_FREE (message);
+}
+
+/**
+ * Function Tested: cmsg_proxy_input_data_presence_as_expected ()
+ *
+ * Tests that the function returns true when provided with valid inputs.
+ */
+void
+test_cmsg_proxy_input_data_presence_as_expected_valid_input (void)
+{
+    cmsg_proxy_input input = { 0 };
+    const cmsg_service_info *test_service_info;
+    GList *url_parameters = NULL;
+    char *message = NULL;
+    bool ret = true;
+
+    input.url = "/v1/test";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    setup_standard_test_tree ();
+
+    test_service_info = cmsg_proxy_get_service_and_parameters (input.url, NULL,
+                                                               input.http_verb,
+                                                               &url_parameters);
+
+    ret =
+        cmsg_proxy_input_data_presence_as_expected (input.data,
+                                                    test_service_info->body_string,
+                                                    &message);
+
+    NP_ASSERT_EQUAL (ret, true);
+    CMSG_PROXY_FREE (message);
+    g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
+
+}
+
+/**
+ * Function Tested: cmsg_proxy_input_data_presence_as_expected ()
+ *
+ * Tests that the function returns false and the appropriate error message
+ * when provided with invalid inputs.
+ */
+void
+test_cmsg_proxy_input_data_presence_as_expected_invalid_input (void)
+{
+    cmsg_proxy_input input = { 0 };
+    GList *url_parameters = NULL;
+    char *message_1 = NULL;
+    char *message_2 = NULL;
+    bool ret = true;
+
+    input.url = "/v1/test";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    /* Call function with valid input.data and an empty cmsg_service_info body_string. */
+    cmsg_service_info test_service_info = {
+        .url_string = input.url,
+        .http_verb = input.http_verb,
+        .body_string = ""
+    };
+    ret =
+        cmsg_proxy_input_data_presence_as_expected (input.data,
+                                                    test_service_info.body_string,
+                                                    &message_1);
+    NP_ASSERT_EQUAL (ret, false);
+    NP_ASSERT_STR_EQUAL (message_1,
+                         "Invalid JSON: No JSON data expected for API, but JSON data input");
+
+    /* Call function with valid body_string and empty input.data. */
+    test_service_info.body_string = "value";
+    input.data = NULL;
+    ret =
+        cmsg_proxy_input_data_presence_as_expected (input.data,
+                                                    test_service_info.body_string,
+                                                    &message_2);
+    NP_ASSERT_EQUAL (ret, false);
+    NP_ASSERT_STR_EQUAL (message_2, "Invalid JSON: Input expected but not provided.");
+
+    CMSG_PROXY_FREE (message_1);
+    CMSG_PROXY_FREE (message_2);
+    g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
+
+}
+
+/**
+ * Function Tested: cmsg_proxy_input_process()
+ *
+ * Tests that cmsg_proxy_input_process successfully processes valid inputs.
+ */
+void
+test_cmsg_proxy_input_process_valid_input (void)
+{
+    ProtobufCMessage *input_message = NULL;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+    cmsg_proxy_processing_info processing_info = { 0 };
+
+    input.url = "/v1/test";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    output.http_status = HTTP_CODE_OK;
+
+    setup_standard_test_tree ();
+    cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
+
+    input_message = cmsg_proxy_input_process (&input, &output, &processing_info);
+
+    NP_ASSERT_NOT_NULL (input_message);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_OK);
+
+    CMSG_FREE_RECV_MSG (input_message);
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Function Tested: cmsg_proxy_input_process()
+ *
+ * Tests that cmsg_proxy_input_process handles invalid inputs.
+ */
+void
+test_cmsg_proxy_input_process_invalid_input (void)
+{
+    ProtobufCMessage *input_message = NULL;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+    cmsg_proxy_processing_info processing_info = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_UNIMPLEMENTED\","
+        "\"message\":\"Unknown url and verb combination\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "incorrect url";
+    input.http_verb = CMSG_HTTP_PUT;
+
+    setup_standard_test_tree ();
+
+    input_message = cmsg_proxy_input_process (&input, &output, &processing_info);
+
+    NP_ASSERT_NULL (input_message);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+
+    CMSG_FREE_RECV_MSG (input_message);
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Function Tested: cmsg_proxy_set_http_status()
+ *
+ * Tests that cmsg_proxy_set_http_status returns true if the _error_info field
+ * is updated with the error message successfully, and that http_status is set
+ * accordingly.
+ */
+void
+test_cmsg_proxy_set_http_status_valid_input (void)
+{
+    cmsg_proxy_output output = { 0 };
+    bool ret = false;
+    cmsg_proxy_unit_tests_bool_result valid_message_init =
+        CMSG_PROXY_UNIT_TESTS_BOOL_RESULT_INIT;
+    ProtobufCMessage *valid_message = (ProtobufCMessage *) &valid_message_init;
+
+    ant_result error_info = ANT_RESULT_INIT;
+    CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
+    CMSG_SET_FIELD_PTR (&valid_message_init, _error_info, &error_info);
+
+    ret = cmsg_proxy_set_http_status (&output.http_status, CMSG_HTTP_PUT, &valid_message);
+
+    NP_ASSERT_EQUAL (ret, true);
+    NP_ASSERT_EQUAL (output.http_status, cmsg_proxy_ant_code_to_http_code (ANT_CODE_OK));
+
+}
+
+/**
+ * Function Tested: cmsg_proxy_set_http_status()
+ *
+ * Tests that cmsg_proxy_set_http_status returns false if the _error_info field
+ * is not updated with the error message successfully, and that http_status is set
+ * accordingly.
+ */
+void
+test_cmsg_proxy_set_http_status_invalid_input (void)
+{
+    ProtobufCMessage *null_message = NULL;
+    cmsg_proxy_output output = { 0 };
+    bool ret = false;
+    cmsg_proxy_unit_tests_dummy invalid_message_init = CMSG_PROXY_UNIT_TESTS_DUMMY_INIT;
+    ProtobufCMessage *invalid_message = (ProtobufCMessage *) &invalid_message_init;
+
+    /* Set http_status with ProtobufCMessage set to NULL. */
+    ret = cmsg_proxy_set_http_status (&output.http_status, CMSG_HTTP_PUT, &null_message);
+    NP_ASSERT_NULL (null_message);
+    NP_ASSERT_EQUAL (ret, false);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_INTERNAL_SERVER_ERROR);
+
+    /* Set http_status with no field named _error_info or ant_result in the ProtobufCMessage. */
+    ret = cmsg_proxy_set_http_status (&output.http_status, CMSG_HTTP_PUT, &invalid_message);
+    NP_ASSERT_NOT_NULL (invalid_message);
+    NP_ASSERT_EQUAL (ret, false);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_INTERNAL_SERVER_ERROR);
+
+}
+
+/**
+ * Function Tested: cmsg_proxy_output_process()
+ *
+ * Tests that cmsg_proxy_output_process successfully processes a valid output message,
+ * and that the http status is set to HTTP_CODE_OK.
+ */
+void
+test_cmsg_proxy_output_process_valid_input (void)
+{
+    ProtobufCMessage *input_message = NULL;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+    cmsg_proxy_processing_info processing_info = { 0 };
+
+    input.url = "/v1/test";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    output.http_status = HTTP_CODE_OK;
+
+    setup_standard_test_tree ();
+    cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
+
+    input_message = cmsg_proxy_input_process (&input, &output, &processing_info);
+    NP_ASSERT_NOT_NULL (input_message);
+    processing_info.cmsg_api_result = ANT_CODE_OK;
+
+    ant_result *output_info = malloc (sizeof (ant_result));
+    ant_result_init (output_info);
+    ant_code code = ANT_CODE_OK;
+    CMSG_SET_FIELD_VALUE (output_info, code, code);
+    ProtobufCMessage *output_message = (ProtobufCMessage *) output_info;
+
+    cmsg_proxy_output_process (output_message, &output, &processing_info);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_OK);
+
+    CMSG_FREE_RECV_MSG (input_message);
+    cmsg_proxy_free_output_contents (&output);
+
+}
+
+/**
+ * Function Tested: cmsg_proxy_output_process()
+ *
+ * Tests that cmsg_proxy_output_process successfully handles
+ * a poorly formed ProtobufCMessage structure.
+ */
+void
+test_cmsg_proxy_output_process_invalid_input (void)
+{
+    ProtobufCMessage *input_message = NULL;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+    cmsg_proxy_processing_info processing_info = { 0 };
+
+    /* *INDENT-OFF* */
+    char *expected_output_response_body =
+        "{"
+        "\"code\":\"ANT_CODE_INTERNAL\","
+        "\"message\":\"Internal CMSG response is malformed\""
+        "}";
+    /* *INDENT-ON* */
+
+    input.url = "/v1/test";
+    input.http_verb = CMSG_HTTP_PUT;
+    input.data = "false";
+    input.data_length = strlen ("false");
+
+    output.http_status = HTTP_CODE_OK;
+
+    setup_standard_test_tree ();
+    cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
+
+    input_message = cmsg_proxy_input_process (&input, &output, &processing_info);
+    NP_ASSERT_NOT_NULL (input_message);
+    processing_info.cmsg_api_result = ANT_CODE_OK;
+
+    ant_result *output_info = malloc (sizeof (ant_result));
+    ant_result_init (output_info);
+    ant_code code = -1;
+    CMSG_SET_FIELD_VALUE (output_info, code, code);
+    ProtobufCMessage *output_message = (ProtobufCMessage *) output_info;
+
+    cmsg_proxy_output_process (output_message, &output, &processing_info);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_INTERNAL_SERVER_ERROR);
+    NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
+
+    CMSG_FREE_RECV_MSG (input_message);
+    cmsg_proxy_free_output_contents (&output);
 }
