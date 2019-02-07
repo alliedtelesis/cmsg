@@ -836,8 +836,8 @@ cmsg_get_msg_from_file (const ProtobufCMessageDescriptor *desc, const char *file
     if (len != file_info.st_size)
     {
         CMSG_LOG_GEN_ERROR
-            ("Failed to read packed message data (expected = %llu, read = %zu).",
-             file_info.st_size, len);
+            ("Failed to read packed message data (expected = %u, read = %zu).",
+             (uint32_t) file_info.st_size, len);
         free (packed_data);
         fclose (fp);
         return NULL;
