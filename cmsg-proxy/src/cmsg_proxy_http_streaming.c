@@ -43,6 +43,7 @@ static cmsg_proxy_stream_response_close_func _stream_response_close = NULL;
 static cmsg_proxy_stream_conn_release_func _stream_conn_release = NULL;
 static cmsg_proxy_stream_headers_set_func _stream_headers_set = NULL;
 static cmsg_proxy_stream_conn_abort_func _stream_conn_abort = NULL;
+static cmsg_proxy_stream_conn_busy_func _stream_conn_busy = NULL;
 
 static GList *stream_connections_list = NULL;
 static pthread_mutex_t stream_connections_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -111,6 +112,18 @@ cmsg_proxy_streaming_set_conn_abort_function (cmsg_proxy_stream_conn_abort_func 
 }
 
 /**
+ * Set the function used to get whether a streaming connection is busy.
+ * This should be called once by the web server when initialising cmsg proxy.
+ *
+ * @param func - The function used to get whether a streaming connection is busy.
+ */
+void
+cmsg_proxy_streaming_set_conn_busy_function (cmsg_proxy_stream_conn_busy_func func)
+{
+    _stream_conn_busy = func;
+}
+
+/**
  * Wrapper function to call '_stream_response_send' if the function pointer is set.
  */
 static void
@@ -168,6 +181,20 @@ stream_conn_abort (void *connection)
     {
         _stream_conn_abort (connection);
     }
+}
+
+/**
+ * Wrapper function to call '_stream_conn_busy' if the function pointer is set.
+ */
+static bool
+stream_conn_busy (void *connection)
+{
+    if (_stream_conn_busy)
+    {
+        return _stream_conn_busy (connection);
+    }
+
+    return false;
 }
 
 /**
@@ -659,6 +686,11 @@ http_streaming_impl_send_stream_file_data (const void *service, const stream_dat
     if (data->data)
     {
         memcpy (data->data, recv_msg->message_data.data, recv_msg->message_data.len);
+    }
+
+    while (stream_conn_busy (connection_info->connection))
+    {
+        usleep (1000);
     }
 
     stream_response_send (data);
