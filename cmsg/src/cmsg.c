@@ -5,6 +5,9 @@
 #include "cmsg_private.h"
 #include "cmsg_error.h"
 #include <gmem_diag.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #define CMSG_REPEATED_BLOCK_SIZE 64
 
@@ -688,4 +691,167 @@ cmsg_pthread_setname (pthread_t thread, const char *cmsg_name, const char *prefi
               (int) (NAMELEN - strlen (prefix) - 1), cmsg_name ? : "cmsg");
 
     pthread_setname_np (thread, thread_name);
+}
+
+/**
+ * Helper function for serialising a protobuf message to bytes.
+ *
+ * @param msg - The protobuf message to serialise.
+ * @param packed_data_size - Pointer to store the number of bytes used to serialise
+ *                           the message.
+ *
+ * @returns Pointer to the serialised data on success, NULL otherwise. Note that the
+ *          serialised data must be freed by the caller.
+ */
+static uint8_t *
+cmsg_pack_msg (const ProtobufCMessage *msg, uint32_t *packed_data_size)
+{
+    uint8_t *packed_data = NULL;
+    uint32_t message_size = 0;
+    uint32_t ret;
+
+    message_size = protobuf_c_message_get_packed_size (msg);
+    packed_data = (uint8_t *) calloc (1, message_size);
+
+    ret = protobuf_c_message_pack (msg, packed_data);
+    if (ret < message_size)
+    {
+        CMSG_LOG_GEN_ERROR ("Underpacked message data. Packed %d of %d bytes.", ret,
+                            message_size);
+        free (packed_data);
+        return NULL;
+    }
+    else if (ret > message_size)
+    {
+        CMSG_LOG_GEN_ERROR ("Overpacked message data. Packed %d of %d bytes.", ret,
+                            message_size);
+        free (packed_data);
+        return NULL;
+    }
+
+    *packed_data_size = message_size;
+    return packed_data;
+}
+
+/**
+ * Serialises the given protobuf message to bytes and writes these to
+ * the given file name.
+ *
+ * @param msg - The protobuf message to serialise and dump to a file.
+ * @param file_name - The name/path of the file to dump the message to.
+ *
+ * @returns true on success, false otherwise.
+ */
+bool
+cmsg_dump_msg_to_file (const ProtobufCMessage *msg, const char *file_name)
+{
+    FILE *fp;
+    uint8_t *packed_data = NULL;
+    uint32_t packed_data_len = 0;
+    size_t len;
+    char *tmp_file_name = NULL;
+    bool ret = false;
+
+    if (CMSG_ASPRINTF (&tmp_file_name, "%s.tmp", file_name) < 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to allocate temporary file name string.");
+        return false;
+    }
+
+    fp = fopen (tmp_file_name, "w");
+    if (!fp)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to open temporary file.");
+        free (tmp_file_name);
+        return false;
+    }
+
+    packed_data = cmsg_pack_msg (msg, &packed_data_len);
+    if (packed_data)
+    {
+        len = fwrite (packed_data, sizeof (*packed_data), packed_data_len, fp);
+        if (len == packed_data_len)
+        {
+            ret = true;
+        }
+        else
+        {
+            CMSG_LOG_GEN_ERROR
+                ("Failed to dump message data (expected = %u, written = %zu).",
+                 packed_data_len, len);
+        }
+
+        free (packed_data);
+    }
+
+    fclose (fp);
+    rename (tmp_file_name, file_name);
+    free (tmp_file_name);
+
+    return ret;
+}
+
+/**
+ * Reads a serialised protobuf message from a file, unserialises it and returns it
+ * to the caller.
+ *
+ * @param desc - The ProtobufCMessageDescriptor of the message in the file.
+ * @param file_name - The name/path of the file to read the message from.
+ *
+ * @returns Pointer to the message on success, NULL otherwise. This message must be freed
+ *          by the caller using CMSG_FREE_RECV_MSG.
+ */
+ProtobufCMessage *
+cmsg_get_msg_from_file (const ProtobufCMessageDescriptor *desc, const char *file_name)
+{
+    ProtobufCMessage *message = NULL;
+    ProtobufCAllocator *allocator = &cmsg_memory_allocator;
+    struct stat file_info;
+    uint8_t *packed_data = NULL;
+    FILE *fp;
+    size_t len;
+
+    if (stat (file_name, &file_info) != 0)
+    {
+        CMSG_LOG_GEN_ERROR ("File %s does not exist", file_name);
+        return NULL;
+    }
+
+    fp = fopen (file_name, "r");
+    if (!fp)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to open file %s", file_name);
+        return NULL;
+    }
+
+    packed_data = malloc (file_info.st_size);
+    if (!packed_data)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to allocate memory");
+        fclose (fp);
+        return NULL;
+    }
+
+    len = fread (packed_data, sizeof (*packed_data), file_info.st_size, fp);
+    if (len != file_info.st_size)
+    {
+        CMSG_LOG_GEN_ERROR
+            ("Failed to read packed message data (expected = %llu, read = %zu).",
+             file_info.st_size, len);
+        free (packed_data);
+        fclose (fp);
+        return NULL;
+    }
+    fclose (fp);
+
+    message = protobuf_c_message_unpack (desc, allocator, len, packed_data);
+    if (!message)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to unpack message");
+        free (packed_data);
+        return NULL;
+    }
+    free (packed_data);
+
+    return message;
 }

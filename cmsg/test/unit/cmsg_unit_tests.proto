@@ -1,0 +1,25 @@
+/*
+ * RPC definitions used by the CMSG unit test suite.
+ *
+ * Copyright 2019, Allied Telesis Labs New Zealand, Ltd
+ */
+
+package cmsg;
+
+message internal_dump_msg
+{
+    optional uint32 internal_uint32_value = 1;
+}
+
+message dump_msg
+{
+    optional bool bool_value = 1;
+    optional uint32 uint32_value = 2;
+    optional string string_value = 3;
+    repeated uint32 uint32_array = 4;
+    optional internal_dump_msg internal_message = 5;
+}
+
+service unit_test
+{
+}

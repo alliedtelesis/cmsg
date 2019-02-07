@@ -234,8 +234,15 @@ extern ProtobufCAllocator cmsg_memory_allocator;
 #define CMSG_UPDATE_RECV_MSG_STRING_FIELD(_name, _field, _new_value) \
     cmsg_update_recv_msg_string_field (&((_name)->_field), _new_value, __FILE__, __LINE__)
 
+#define CMSG_MSG_DESCRIPTOR(msg) \
+    (&msg##_descriptor)
+
 int cmsg_service_port_get (const char *name, const char *proto);
 
 const char *cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor);
+
+bool cmsg_dump_msg_to_file (const ProtobufCMessage *msg, const char *file_name);
+ProtobufCMessage *cmsg_get_msg_from_file (const ProtobufCMessageDescriptor *desc,
+                                          const char *file_name);
 
 #endif /* __CMSG_H_ */

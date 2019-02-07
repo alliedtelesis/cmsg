@@ -85,12 +85,28 @@ cmsg_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
 cmsg_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg
 
 if BUILD_UNITTEST
+test/unit/cmsg_unit_tests_api_auto.c \
+test/unit/cmsg_unit_tests_api_auto.h \
+test/unit/cmsg_unit_tests_impl_auto.c \
+test/unit/cmsg_unit_tests_impl_auto.h \
+test/unit/cmsg_unit_tests_types_auto.h \
+test/unit/cmsg_unit_tests.pb-c.c \
+test/unit/cmsg_unit_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/unit/cmsg_unit_tests.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/unit --c_out=$(top_srcdir)/cmsg/test/unit $(top_srcdir)/cmsg/test/unit/cmsg_unit_tests.proto
+
 bin_PROGRAMS += cmsg_unit_tests
 cmsg_unit_tests_SOURCES = \
+	test/unit/cmsg_unit_tests_api_auto.c \
+	test/unit/cmsg_unit_tests_api_auto.h \
+	test/unit/cmsg_unit_tests_impl_auto.c \
+	test/unit/cmsg_unit_tests_impl_auto.h \
+	test/unit/cmsg_unit_tests.pb-c.c \
+	test/unit/cmsg_unit_tests.pb-c.h \
 	test/unit/cmsg_pub_unit_tests.c \
-	test/unit/cmsg_composite_client_unit_tests.c
+	test/unit/cmsg_composite_client_unit_tests.c \
+	test/unit/cmsg_unit_tests.c
 cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
-cmsg_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg
+cmsg_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg
 cmsg_unit_tests_LDFLAGS = -static
 cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
 
