@@ -633,6 +633,7 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
         free (output.response_body);
     }
 
+    /* 'data' will be freed by this call */
     stream_response_send (data);
 
     cmsg_proxy_streaming_release_conn_info (connection_info);
@@ -693,6 +694,7 @@ http_streaming_impl_send_stream_file_data (const void *service, const stream_dat
         usleep (1000);
     }
 
+    /* 'data' will be freed by this call */
     stream_response_send (data);
 
     cmsg_proxy_streaming_release_conn_info (connection_info);
@@ -814,6 +816,7 @@ http_streaming_impl_set_stream_headers (const void *service,
     headers->num_headers = n_headers;
     data->headers = headers;
 
+    /* 'data' will be freed by this call */
     stream_headers_set (data);
 
     pthread_mutex_lock (&connection_info->lock);
