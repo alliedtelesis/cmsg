@@ -807,6 +807,8 @@ http_streaming_impl_set_stream_headers (const void *service,
     default:
         syslog (LOG_ERR, "Unrecognized content type for streaming API response (type = %d)",
                 recv_msg->type);
+        CMSG_PROXY_FREE (data);
+        CMSG_PROXY_FREE (headers);
         cmsg_proxy_streaming_release_conn_info (connection_info);
         http_streaming_server_set_stream_headersSend (service, &send_msg);
         return;
