@@ -6,6 +6,7 @@
 
 #include <np.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <cmsg_pthread_helpers.h>
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
@@ -23,6 +24,10 @@ static const uint16_t tipc_instance = 1;
 static const uint16_t tipc_scope = TIPC_NODE_SCOPE;
 
 static bool notification_received;
+
+#define NUM_CLIENT_THREADS 32
+#define NUM_SENT_MESSAGES 20
+static uint32_t client_threads = 0;
 
 static int
 sm_mock_cmsg_service_port_get (const char *name, const char *proto)
@@ -206,4 +211,82 @@ test_cmsg_pthread_publisher_subscriber_tipc (void)
 
     _test_cmsg_pthread_publisher_subscriber (pub, sub, transport_r, &publisher_thread,
                                              &subscriber_thread);
+}
+
+void
+cmsg_test_impl_server_multi_threading_test (const void *service,
+                                            const cmsg_uint32_msg *recv_msg)
+{
+    cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
+
+    /* Sleep between 900-1100us to simulate the API call taking a while to process, to test
+     * the situation where multiple calls are being processed by the server simultaneously.
+     */
+    usleep (900 + rand () % 200);
+
+    CMSG_SET_FIELD_VALUE (&send_msg, value, recv_msg->value);
+
+    cmsg_test_server_server_multi_threading_testSend (service, &send_msg);
+}
+
+static void *
+client_thread_run (void *value)
+{
+    uintptr_t sent_value = (uintptr_t) value;
+    cmsg_client *client = NULL;
+    cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
+    cmsg_uint32_msg *recv_msg = NULL;
+    int i;
+
+    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg, test));
+
+    CMSG_SET_FIELD_VALUE (&send_msg, value, sent_value);
+
+    for (i = 0; i < NUM_SENT_MESSAGES; i++)
+    {
+        cmsg_test_api_server_multi_threading_test (client, &send_msg, &recv_msg);
+        NP_ASSERT_EQUAL (recv_msg->value, sent_value);
+        CMSG_FREE_RECV_MSG (recv_msg);
+    }
+
+    cmsg_destroy_client_and_transport (client);
+
+    client_threads--;
+
+    return NULL;
+}
+
+/**
+ * Test the operation of a CMSG server running in multi-threaded mode.
+ * Specifically create NUM_CLIENT_THREADS threads, where each thread
+ * will create a client and connect to the server before sending
+ * NUM_SENT_MESSAGES messages and testing the received message is as
+ * expected.
+ */
+void
+test_cmsg_pthread_multithreaded_server (void)
+{
+    int ret;
+    uintptr_t i;
+    pthread_t pid;
+    cmsg_pthread_multithreaded_server_info *server_info = NULL;
+    cmsg_server *server = NULL;
+
+    server = cmsg_create_server_unix_rpc (CMSG_SERVICE (cmsg, test));
+    server_info = cmsg_pthread_multithreaded_server_init (server, 0);
+
+    for (i = 0; i < NUM_CLIENT_THREADS; i++)
+    {
+        client_threads++;
+        ret = pthread_create (&pid, NULL, client_thread_run, (void *) i);
+        NP_ASSERT_EQUAL (ret, 0);
+    }
+
+    /* Wait for all the child threads to complete */
+    while (client_threads != 0)
+    {
+        usleep (100000);
+    }
+
+    cmsg_pthread_multithreaded_server_destroy (server_info);
 }

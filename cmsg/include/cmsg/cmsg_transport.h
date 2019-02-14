@@ -13,17 +13,6 @@
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 
-typedef struct _generic_connection_s
-{
-    int listening_socket;
-    int client_socket;
-} cmsg_generic_connection;
-
-typedef union _cmsg_connection_u
-{
-    cmsg_generic_connection sockets;
-} cmsg_connection;
-
 typedef union _cmsg_socket_address_u
 {
     struct sockaddr generic;    // Generic socket address. Used for determining Address Family.
@@ -55,13 +44,10 @@ typedef cmsg_status_code (*client_recv_f) (cmsg_transport *transport,
                                            const ProtobufCServiceDescriptor *descriptor,
                                            ProtobufCMessage **messagePtPt);
 typedef int (*client_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
-typedef int (*server_send_f) (cmsg_transport *transport, void *buff, int length, int flag);
-typedef void (*client_close_f) (cmsg_transport *transport);
-typedef void (*server_close_f) (cmsg_transport *transport);
-typedef int (*s_get_socket_f) (cmsg_transport *transport);
-typedef int (*c_get_socket_f) (cmsg_transport *transport);
-typedef void (*client_destroy_f) (cmsg_transport *transport);
-typedef void (*server_destroy_f) (cmsg_transport *transport);
+typedef int (*server_send_f) (int socket, cmsg_transport *transport, void *buff, int length,
+                              int flag);
+typedef void (*socket_close_f) (cmsg_transport *transport);
+typedef int (*get_socket_f) (cmsg_transport *transport);
 typedef bool (*is_congested_f) (cmsg_transport *transport);
 typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
 typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
@@ -76,12 +62,8 @@ typedef struct _cmsg_tport_functions_s
     client_recv_f client_recv;                  // receive function
     client_send_f client_send;                  // client send function
     server_send_f server_send;                  // server send function
-    client_close_f client_close;                // client close socket function
-    server_close_f server_close;                // server close socket function
-    s_get_socket_f s_socket;                    //
-    c_get_socket_f c_socket;                    //
-    server_destroy_f server_destroy;            // Server destroy function
-    client_destroy_f client_destroy;            // Client destroy function
+    socket_close_f socket_close;                // close socket function
+    get_socket_f get_socket;                    // gets the socket used by the transport
     is_congested_f is_congested;                // Check whether transport is congested
     send_can_block_enable_f send_can_block_enable;
     ipfree_bind_enable_f ipfree_bind_enable;    // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
@@ -145,8 +127,8 @@ struct _cmsg_transport_s
     // flag to tell error-level log to be suppressed to debug-level
     cmsg_bool_t suppress_errors;
 
-    cmsg_connection connection;
-    pthread_mutex_t connection_mutex;
+    // The socket used by the transport
+    int socket;
 
     //transport function pointers
     cmsg_tport_functions tport_funcs;
@@ -168,6 +150,12 @@ int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
 int32_t cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
                                     uint8_t **recv_buffer, cmsg_header *processed_header,
                                     int *nbytes);
+int32_t cmsg_transport_rpc_server_send (int socket, cmsg_transport *transport, void *buff,
+                                        int length, int flag);
+int32_t cmsg_transport_oneway_server_send (int socket, cmsg_transport *transport,
+                                           void *buff, int length, int flag);
+int cmsg_transport_get_socket (cmsg_transport *transport);
+void cmsg_transport_socket_close (cmsg_transport *transport);
 
 cmsg_transport *cmsg_create_transport_tipc (const char *server_name, int member_id,
                                             int scope, cmsg_transport_type transport_type);
@@ -209,5 +197,8 @@ const char *cmsg_transport_counter_app_tport_id (cmsg_transport *transport);
 void cmsg_transport_udt_tcp_base_init (cmsg_transport *transport, bool oneway);
 
 bool cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two);
+
+cmsg_transport *cmsg_create_transport_tcp_ipv4 (const char *service_name,
+                                                struct in_addr *addr, bool oneway);
 
 #endif /* __CMSG_TRANSPORT_H_ */

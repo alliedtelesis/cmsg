@@ -92,11 +92,13 @@ cmsg_transport_udt_client_recv (cmsg_transport *transport,
 
 
 static int32_t
-cmsg_transport_udt_server_send (cmsg_transport *transport, void *buff, int length, int flag)
+cmsg_transport_udt_server_send (int socket, cmsg_transport *transport, void *buff,
+                                int length, int flag)
 {
     if (transport->udt_info.functions.server_send)
     {
-        return transport->udt_info.functions.server_send (transport, buff, length, flag);
+        return transport->udt_info.functions.server_send (socket, transport, buff, length,
+                                                          flag);
     }
 
     return 0;
@@ -106,62 +108,22 @@ cmsg_transport_udt_server_send (cmsg_transport *transport, void *buff, int lengt
 static void
 cmsg_transport_udt_client_close (cmsg_transport *transport)
 {
-    if (transport->udt_info.functions.client_close)
+    if (transport->udt_info.functions.socket_close)
     {
-        transport->udt_info.functions.client_close (transport);
-    }
-}
-
-
-static void
-cmsg_transport_udt_server_close (cmsg_transport *transport)
-{
-    if (transport->udt_info.functions.server_close)
-    {
-        transport->udt_info.functions.server_close (transport);
+        transport->udt_info.functions.socket_close (transport);
     }
 }
 
 
 static int
-cmsg_transport_udt_server_get_socket (cmsg_transport *transport)
+cmsg_transport_udt_get_socket (cmsg_transport *transport)
 {
-    if (transport->udt_info.functions.s_socket)
+    if (transport->udt_info.functions.get_socket)
     {
-        return transport->udt_info.functions.s_socket (transport);
+        return transport->udt_info.functions.get_socket (transport);
     }
 
     return 0;
-}
-
-
-static int
-cmsg_transport_udt_client_get_socket (cmsg_transport *transport)
-{
-    if (transport->udt_info.functions.c_socket)
-    {
-        return transport->udt_info.functions.c_socket (transport);
-    }
-
-    return 0;
-}
-
-static void
-cmsg_transport_udt_client_destroy (cmsg_transport *transport)
-{
-    if (transport->udt_info.functions.client_destroy)
-    {
-        transport->udt_info.functions.client_destroy (transport);
-    }
-}
-
-static void
-cmsg_transport_udt_server_destroy (cmsg_transport *transport)
-{
-    if (transport->udt_info.functions.server_destroy)
-    {
-        transport->udt_info.functions.server_destroy (transport);
-    }
 }
 
 static int32_t
@@ -272,14 +234,9 @@ cmsg_transport_udt_init (cmsg_transport *transport)
     transport->tport_funcs.server_recv = cmsg_transport_udt_server_recv;
     transport->tport_funcs.client_recv = cmsg_transport_udt_client_recv;
     transport->tport_funcs.client_send = cmsg_transport_udt_client_send;
-    transport->tport_funcs.client_close = cmsg_transport_udt_client_close;
-    transport->tport_funcs.server_close = cmsg_transport_udt_server_close;
+    transport->tport_funcs.socket_close = cmsg_transport_udt_client_close;
 
-    transport->tport_funcs.s_socket = cmsg_transport_udt_server_get_socket;
-    transport->tport_funcs.c_socket = cmsg_transport_udt_client_get_socket;
-
-    transport->tport_funcs.client_destroy = cmsg_transport_udt_client_destroy;
-    transport->tport_funcs.server_destroy = cmsg_transport_udt_server_destroy;
+    transport->tport_funcs.get_socket = cmsg_transport_udt_get_socket;
 
     transport->tport_funcs.is_congested = cmsg_transport_udt_is_congested;
     transport->tport_funcs.send_can_block_enable = cmsg_transport_udt_send_can_block_enable;

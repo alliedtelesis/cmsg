@@ -107,7 +107,7 @@ void
 cmsg_test_impl_simple_pub_queue_test_1 (const void *service,
                                         const cmsg_uint32_msg *recv_msg)
 {
-    void *_closure_data = ((const cmsg_test_Service *) service)->closure_data;
+    void *_closure_data = ((const cmsg_server_closure_info *) service)->closure_data;
     cmsg_server_closure_data *closure_data = (cmsg_server_closure_data *) _closure_data;
     recv_counters_s *counters = get_subscriber_counters (closure_data->server);
 
@@ -120,7 +120,7 @@ void
 cmsg_test_impl_simple_pub_queue_test_2 (const void *service,
                                         const cmsg_uint32_msg *recv_msg)
 {
-    void *_closure_data = ((const cmsg_test_Service *) service)->closure_data;
+    void *_closure_data = ((const cmsg_server_closure_info *) service)->closure_data;
     cmsg_server_closure_data *closure_data = (cmsg_server_closure_data *) _closure_data;
 
     recv_counters_s *counters = get_subscriber_counters (closure_data->server);
@@ -133,7 +133,7 @@ void
 cmsg_test_impl_simple_pub_queue_test_3 (const void *service,
                                         const cmsg_uint32_msg *recv_msg)
 {
-    void *_closure_data = ((const cmsg_test_Service *) service)->closure_data;
+    void *_closure_data = ((const cmsg_server_closure_info *) service)->closure_data;
     cmsg_server_closure_data *closure_data = (cmsg_server_closure_data *) _closure_data;
 
     recv_counters_s *counters = get_subscriber_counters (closure_data->server);
@@ -300,8 +300,7 @@ void
 cleanup_subscriber (cmsg_transport *pub_transport, cmsg_sub *subscriber)
 {
     cmsg_destroy_subscriber_and_transport (subscriber);
-    close (pub_transport->connection.sockets.client_socket);
-    close (pub_transport->connection.sockets.listening_socket);
+    close (pub_transport->socket);
     cmsg_transport_destroy (pub_transport);
 }
 

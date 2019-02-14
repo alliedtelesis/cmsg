@@ -1,0 +1,10 @@
+// File upload information required for the file upload API.
+
+message file_upload_info
+{
+    // Temporary file name set by appweb when the file is uploaded.
+    optional string _temp_filename = 1;
+
+    // Original file name provided by client.
+    optional string _client_filename = 2;
+}

@@ -15,22 +15,33 @@
 
 typedef struct _cmsg_server_s cmsg_server;
 
+typedef struct _cmsg_server_closure_info_s
+{
+    void *closure;
+    void *closure_data;
+} cmsg_server_closure_info;
+
 typedef struct _cmsg_server_closure_data_s
 {
     cmsg_server *server;
+    cmsg_server_request *server_request;
+
+    /* The socket to send the response on. */
+    int reply_socket;
+
     /* Whether the server has decided to do something different with the method
-     * call or has invoked the method.
-     */
+     * call or has invoked the method. */
     cmsg_method_processing_reason method_processing_reason;
 } cmsg_server_closure_data;
 
-typedef int32_t (*server_message_processor_f) (cmsg_server *server, uint8_t *buffer_data);
+typedef int32_t (*server_message_processor_f) (int socket,
+                                               cmsg_server_request *server_request,
+                                               cmsg_server *server, uint8_t *buffer_data);
 
 typedef struct _cmsg_server_s
 {
     const ProtobufCService *service;
     cmsg_transport *_transport;
-    cmsg_server_request *server_request;
     server_message_processor_f message_processor;
 
     cmsg_object self;
@@ -138,16 +149,9 @@ int32_t cmsg_server_accept (cmsg_server *server, int32_t listen_socket);
 
 void cmsg_server_accept_callback (cmsg_server *server, int32_t sock);
 
-void cmsg_server_invoke (cmsg_server *server,
-                         uint32_t method_index,
-                         ProtobufCMessage *message,
+void cmsg_server_invoke (int socket, cmsg_server_request *server_request,
+                         cmsg_server *server, ProtobufCMessage *message,
                          cmsg_method_processing_reason process_reason);
-
-int32_t cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data);
-
-void cmsg_server_empty_method_reply_send (cmsg_server *server,
-                                          cmsg_status_code status_code,
-                                          uint32_t method_index);
 
 void cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data);
 
@@ -211,10 +215,7 @@ void cmsg_server_app_owns_current_msg_set (cmsg_server *server);
 void cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner);
 
 cmsg_server *cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor);
-cmsg_server *cmsg_create_server_tcp_oneway (cmsg_socket *config,
-                                            ProtobufCService *descriptor);
 
-void cmsg_server_close_wrapper (cmsg_server *server);
 void cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
                                 uint32_t method_index);
 
@@ -222,5 +223,12 @@ cmsg_server_accept_thread_info *cmsg_server_accept_thread_init (cmsg_server *ser
 void cmsg_server_accept_thread_deinit (cmsg_server_accept_thread_info *info);
 
 void cmsg_server_suppress_error (cmsg_server *server, cmsg_bool_t enable);
+
+cmsg_server *cmsg_create_server_tcp_ipv4_rpc (const char *service_name,
+                                              struct in_addr *addr,
+                                              const ProtobufCService *service);
+cmsg_server *cmsg_create_server_tcp_ipv4_oneway (const char *service_name,
+                                                 struct in_addr *addr,
+                                                 const ProtobufCService *service);
 
 #endif /* __CMSG_SERVER_H_ */

@@ -20,10 +20,9 @@ cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
     struct sockaddr *addr;
     uint32_t addr_len;
 
-    transport->connection.sockets.client_socket = socket (transport->config.socket.family,
-                                                          SOCK_STREAM, 0);
+    transport->socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
 
-    if (transport->connection.sockets.client_socket < 0)
+    if (transport->socket < 0)
     {
         ret = -errno;
         CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
@@ -42,7 +41,7 @@ cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
         addr_len = sizeof (transport->config.socket.sockaddr.in);
     }
 
-    if (connect (transport->connection.sockets.client_socket, addr, addr_len) < 0)
+    if (connect (transport->socket, addr, addr_len) < 0)
     {
         if (errno == EINPROGRESS)
         {
@@ -53,8 +52,8 @@ cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
         CMSG_LOG_TRANSPORT_ERROR (transport, "Failed to connect to remote host. Error:%s",
                                   strerror (errno));
 
-        close (transport->connection.sockets.client_socket);
-        transport->connection.sockets.client_socket = -1;
+        close (transport->socket);
+        transport->socket = -1;
 
         return ret;
     }
@@ -136,7 +135,7 @@ cmsg_transport_tcp_listen (cmsg_transport *transport)
         return -1;
     }
 
-    transport->connection.sockets.listening_socket = listening_socket;
+    transport->socket = listening_socket;
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] listening on tcp socket: %d\n", listening_socket);
 
@@ -271,80 +270,8 @@ cmsg_transport_tcp_client_recv (cmsg_transport *transport,
 static int32_t
 cmsg_transport_tcp_client_send (cmsg_transport *transport, void *buff, int length, int flag)
 {
-    return (send (transport->connection.sockets.client_socket, buff, length, flag));
+    return (send (transport->socket, buff, length, flag));
 }
-
-static int32_t
-cmsg_transport_tcp_rpc_server_send (cmsg_transport *transport, void *buff, int length,
-                                    int flag)
-{
-    return (send (transport->connection.sockets.client_socket, buff, length, flag));
-}
-
-/**
- * TCP oneway servers do not send replies to received messages. This function therefore
- * returns 0.
- */
-static int32_t
-cmsg_transport_tcp_oneway_server_send (cmsg_transport *transport, void *buff, int length,
-                                       int flag)
-{
-    return 0;
-}
-
-static void
-cmsg_transport_tcp_client_close (cmsg_transport *transport)
-{
-    if (transport->connection.sockets.client_socket != -1)
-    {
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
-
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (transport->connection.sockets.client_socket);
-
-        transport->connection.sockets.client_socket = -1;
-    }
-}
-
-static void
-cmsg_transport_tcp_server_close (cmsg_transport *transport)
-{
-    return;
-}
-
-static int
-cmsg_transport_tcp_server_get_socket (cmsg_transport *transport)
-{
-    return transport->connection.sockets.listening_socket;
-}
-
-
-static int
-cmsg_transport_tcp_client_get_socket (cmsg_transport *transport)
-{
-    return transport->connection.sockets.client_socket;
-}
-
-static void
-cmsg_transport_tcp_client_destroy (cmsg_transport *transport)
-{
-    //placeholder to make sure destroy functions are called in the right order
-}
-
-static void
-cmsg_transport_tcp_server_destroy (cmsg_transport *transport)
-{
-    if (transport->connection.sockets.listening_socket != -1)
-    {
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-        shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
-
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-        close (transport->connection.sockets.listening_socket);
-    }
-}
-
 
 /**
  * TCP is never congested
@@ -383,12 +310,8 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->server_recv = cmsg_transport_server_recv;
     tport_funcs->client_recv = cmsg_transport_tcp_client_recv;
     tport_funcs->client_send = cmsg_transport_tcp_client_send;
-    tport_funcs->client_close = cmsg_transport_tcp_client_close;
-    tport_funcs->server_close = cmsg_transport_tcp_server_close;
-    tport_funcs->s_socket = cmsg_transport_tcp_server_get_socket;
-    tport_funcs->c_socket = cmsg_transport_tcp_client_get_socket;
-    tport_funcs->client_destroy = cmsg_transport_tcp_client_destroy;
-    tport_funcs->server_destroy = cmsg_transport_tcp_server_destroy;
+    tport_funcs->socket_close = cmsg_transport_socket_close;
+    tport_funcs->get_socket = cmsg_transport_get_socket;
     tport_funcs->is_congested = cmsg_transport_tcp_is_congested;
     tport_funcs->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
     tport_funcs->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
@@ -400,7 +323,7 @@ cmsg_transport_rpc_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
 {
     _cmsg_transport_tcp_init_common (tport_funcs);
 
-    tport_funcs->server_send = cmsg_transport_tcp_rpc_server_send;
+    tport_funcs->server_send = cmsg_transport_rpc_server_send;
 }
 
 
@@ -426,7 +349,7 @@ cmsg_transport_oneway_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
 {
     _cmsg_transport_tcp_init_common (tport_funcs);
 
-    tport_funcs->server_send = cmsg_transport_tcp_oneway_server_send;
+    tport_funcs->server_send = cmsg_transport_oneway_server_send;
 }
 
 
@@ -486,6 +409,52 @@ cmsg_create_transport_tcp (cmsg_socket *config, cmsg_transport_type transport_ty
         memcpy (&transport->config.socket.sockaddr.in, &config->sockaddr.in,
                 sizeof (struct sockaddr_in));
     }
+    cmsg_transport_ipfree_bind_enable (transport, true);
+
+    return transport;
+}
+
+/**
+ * Create a CMSG transport that uses TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to use.
+ * @param oneway - Whether to make a one-way transport, or a two-way (RPC) transport.
+ */
+cmsg_transport *
+cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr, bool oneway)
+{
+    uint32_t port = 0;
+    cmsg_transport *transport = NULL;
+    char ip_addr[INET_ADDRSTRLEN] = { };
+    cmsg_transport_type transport_type;
+
+    transport_type = (oneway == true ? CMSG_TRANSPORT_ONEWAY_TCP : CMSG_TRANSPORT_RPC_TCP);
+
+    port = cmsg_service_port_get (service_name, "tcp");
+    if (port <= 0)
+    {
+        inet_ntop (AF_INET, addr, ip_addr, INET_ADDRSTRLEN);
+        CMSG_LOG_GEN_ERROR ("Unknown TCP service. Server:%s, IP:%s", service_name, ip_addr);
+        return NULL;
+    }
+
+    transport = cmsg_transport_new (transport_type);
+    if (transport == NULL)
+    {
+        inet_ntop (AF_INET, addr, ip_addr, INET_ADDRSTRLEN);
+        CMSG_LOG_GEN_ERROR ("Unable to create TCP transport. Server:%s, IP:%s",
+                            service_name, ip_addr);
+        return NULL;
+    }
+
+    transport->config.socket.family = PF_INET;
+    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
+    transport->config.socket.sockaddr.in.sin_family = AF_INET;
+    transport->config.socket.sockaddr.in.sin_port = htons (port);
+    transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (addr->s_addr);
+
     cmsg_transport_ipfree_bind_enable (transport, true);
 
     return transport;

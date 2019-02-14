@@ -9,6 +9,35 @@ message stream_data
     optional bytes message_data = 2;
 };
 
+enum content_type
+{
+    CONTENT_TYPE_UNSET = 0;
+    CONTENT_TYPE_JSON = 1;
+    CONTENT_TYPE_FILE = 2;
+    CONTENT_TYPE_PLAINTEXT = 3;
+}
+
+message file_info
+{
+    // The name of the file to be streamed to the caller.
+    optional string file_name = 1;
+
+    // The size of the file to be streamed, in bytes.
+    optional uint32 file_size = 2;
+}
+
+message stream_headers_info
+{
+    optional uint32 id = 1;
+
+    // The type of data in the response.
+    optional content_type type = 2;
+
+    // Information about a file to be streamed to the caller. This should be set if
+    // the 'type' field is set to 'CONTENT_TYPE_FILE'.
+    optional file_info file_info = 3;
+}
+
 message server_response
 {
     // The stream was found to send on by the server. If the
@@ -27,5 +56,8 @@ message stream_id
 service http_streaming
 {
     rpc send_stream_data (stream_data) returns (server_response);
+    rpc send_stream_file_data (stream_data) returns (server_response);
+    rpc set_stream_headers (stream_headers_info) returns (server_response);
     rpc close_stream_connection (stream_id) returns (server_response);
+    rpc abort_stream_connection (stream_id) returns (server_response);
 }

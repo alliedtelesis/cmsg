@@ -41,8 +41,8 @@ cmsg_transport_loopback_client_close (cmsg_transport *transport)
  * Server stores the response on the transport that the client can then read off.
  */
 static int32_t
-cmsg_transport_loopback_server_send (cmsg_transport *transport, void *buff, int length,
-                                     int flag)
+cmsg_transport_loopback_server_send (int socket, cmsg_transport *transport, void *buff,
+                                     int length, int flag)
 {
     uint8_t *packet_data = NULL;
     struct cmsg_loopback_recv_buffer *buffer_data = NULL;
@@ -123,7 +123,7 @@ cmsg_transport_loopback_init (cmsg_transport *transport)
     transport->udt_info.functions.server_send = cmsg_transport_loopback_server_send;
     transport->udt_info.functions.recv_wrapper = cmsg_transport_loopback_recv_handler;
     transport->udt_info.functions.client_recv = cmsg_transport_loopback_client_recv;
-    transport->udt_info.functions.client_close = cmsg_transport_loopback_client_close;
+    transport->udt_info.functions.socket_close = cmsg_transport_loopback_client_close;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }

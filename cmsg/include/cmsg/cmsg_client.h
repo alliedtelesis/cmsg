@@ -92,6 +92,9 @@ typedef struct _cmsg_client_s
     // loopback server
     void *loopback_server;
 
+    // mutex for safe client usage across multiple threads
+    pthread_mutex_t send_mutex;
+
     //counter information
     void *cntr_session;
     // counterd counters
@@ -204,11 +207,15 @@ int32_t cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descrip
 
 cmsg_client *cmsg_create_client_tcp_rpc (cmsg_socket *config,
                                          const ProtobufCServiceDescriptor *descriptor);
-cmsg_client *cmsg_create_client_tcp_oneway (cmsg_socket *config,
-                                            const ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_loopback (ProtobufCService *service);
 
-void cmsg_client_close_wrapper (cmsg_transport *transport);
-
 void cmsg_destroy_client_and_transport (cmsg_client *client);
+
+cmsg_client *cmsg_create_client_tcp_ipv4_rpc (const char *service_name,
+                                              struct in_addr *addr,
+                                              const ProtobufCServiceDescriptor *descriptor);
+cmsg_client *cmsg_create_client_tcp_ipv4_oneway (const char *service_name,
+                                                 struct in_addr *addr,
+                                                 const ProtobufCServiceDescriptor
+                                                 *descriptor);
 #endif /* __CMSG_CLIENT_H_ */
