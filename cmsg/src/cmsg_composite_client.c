@@ -134,7 +134,8 @@ cmsg_composite_client_add_child (cmsg_client *_composite_client, cmsg_client *cl
     if (client->_transport->type != CMSG_TRANSPORT_RPC_TCP &&
         client->_transport->type != CMSG_TRANSPORT_RPC_TIPC &&
         client->_transport->type != CMSG_TRANSPORT_LOOPBACK &&
-        client->_transport->type != CMSG_TRANSPORT_ONEWAY_TIPC)
+        client->_transport->type != CMSG_TRANSPORT_ONEWAY_TIPC &&
+        client->_transport->type != CMSG_TRANSPORT_ONEWAY_TCP)
     {
         CMSG_LOG_GEN_ERROR ("Transport type %d not supported for composite clients",
                             client->_transport->type);

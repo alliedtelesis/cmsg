@@ -1,13 +1,42 @@
 lib_LTLIBRARIES = libcmsg.la
-bin_PROGRAMS = cmsg
+bin_PROGRAMS = cmsg cmsg_sld
 
 pkgconfiglibdir = $(libdir)/pkgconfig
 pkgconfiglib_DATA = cmsg.pc
+
+src/cmsg_api_auto.c \
+src/cmsg_api_auto.h \
+src/cmsg_impl_auto.c \
+src/cmsg_impl_auto.h \
+src/cmsg_impl_types_auto.h \
+src/cmsg.pb-c.c \
+src/cmsg.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/cmsg.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/cmsg.proto
+
+src/service_listener/configuration_api_auto.c \
+src/service_listener/configuration_api_auto.h \
+src/service_listener/configuration_impl_auto.c \
+src/service_listener/configuration_impl_auto.h \
+src/service_listener/configuration_impl_types_auto.h \
+src/service_listener/configuration.pb-c.c \
+src/service_listener/configuration.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/service_listener/configuration.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/configuration.proto
+
+src/service_listener/remote_sync_api_auto.c \
+src/service_listener/remote_sync_api_auto.h \
+src/service_listener/remote_sync_impl_auto.c \
+src/service_listener/remote_sync_impl_auto.h \
+src/service_listener/remote_sync_impl_types_auto.h \
+src/service_listener/remote_sync.pb-c.c \
+src/service_listener/remote_sync.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/service_listener/remote_sync.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/remote_sync.proto
 
 src/cmsg_sub_service.pb-c.c src/cmsg_sub_service.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/cmsg_sub_service.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/cmsg_sub_service.proto
 
 libcmsg_la_SOURCES = \
+	src/cmsg.pb-c.c \
+	src/cmsg.pb-c.h \
 	src/cmsg_sub_service.pb-c.c \
 	src/cmsg_sub_service.pb-c.h \
 	src/transport/cmsg_transport_loopback.c \
@@ -32,7 +61,10 @@ libcmsg_la_SOURCES = \
 	src/cmsg_mesh.c \
 	src/cmsg_glib_helpers.c \
 	src/validation/cmsg_validation.c \
-	src/cmsg_pthread_helpers.c
+	src/cmsg_pthread_helpers.c \
+	src/service_listener/cmsg_sl_api.c \
+	src/service_listener/configuration_api_auto.c \
+	src/service_listener/configuration.pb-c.c
 
 libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c
 
@@ -41,7 +73,7 @@ libcmsg_la_LIBADD += -lcntr
 endif
 
 libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS) -include $(top_builddir)/config.h
-libcmsg_la_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include
+libcmsg_la_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 libcmsg_ladir       = $(includedir)/cmsg
 libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg.h \
@@ -59,7 +91,8 @@ libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg_mesh.h \
 	include/cmsg/cmsg_glib_helpers.h \
 	include/cmsg/cmsg_validation.h \
-	include/cmsg/cmsg_pthread_helpers.h
+	include/cmsg/cmsg_pthread_helpers.h \
+	include/cmsg/cmsg_sl_config.h
 
 BUILT_SOURCES = src/cmsg_sub_service.pb-c.c src/cmsg_sub_service.pb-c.h
 
@@ -83,6 +116,19 @@ cmsg_SOURCES = src/shell_application/cmsg_shell_application.c
 cmsg_LDADD   = libcmsg.la $(GLIB_LIBS) -ldl -ljansson -lprotobuf2json-c -lprotobuf-c
 cmsg_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
 cmsg_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg
+
+cmsg_sld_SOURCES = \
+	src/service_listener/main.c \
+	src/service_listener/configuration.c \
+	src/service_listener/remote_sync.c \
+	src/service_listener/configuration_impl_auto.c \
+	src/service_listener/configuration.pb-c.c \
+	src/service_listener/remote_sync_api_auto.c \
+	src/service_listener/remote_sync_impl_auto.c \
+	src/service_listener/remote_sync.pb-c.c
+cmsg_sld_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c
+cmsg_sld_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
+cmsg_sld_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 
 if BUILD_UNITTEST
 test/unit/cmsg_unit_tests_api_auto.c \

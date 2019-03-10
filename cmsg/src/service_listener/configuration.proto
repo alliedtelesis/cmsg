@@ -1,0 +1,22 @@
+/*
+ * Copyright 2019, Allied Telesis Labs New Zealand, Ltd
+ */
+
+import "cmsg.proto";
+
+message subscription_info
+{
+    optional string service = 1;
+    optional cmsg_transport_info subscriber_info = 2;
+}
+
+service configuration
+{
+    rpc address_set (cmsg_uint32) returns (dummy);
+    rpc add_host (cmsg_uint32) returns (dummy);
+    rpc delete_host (cmsg_uint32) returns (dummy);
+    rpc subscribe (subscription_info) returns (dummy);
+    rpc unsubscribe (subscription_info) returns (dummy);
+    rpc add_server (cmsg_service_info) returns (dummy);
+    rpc remove_server (cmsg_service_info) returns (dummy);
+}

@@ -1,0 +1,47 @@
+/*
+ * Copyright 2019, Allied Telesis Labs New Zealand, Ltd
+ */
+
+message dummy
+{
+}
+
+message cmsg_uint32
+{
+    optional uint32 value = 1;
+}
+
+enum cmsg_transport_info_type
+{
+    CMSG_TRANSPORT_INFO_TYPE_NOT_SET = 0;
+    CMSG_TRANSPORT_INFO_TYPE_UNIX = 1;
+    CMSG_TRANSPORT_INFO_TYPE_TCP = 2;
+}
+
+message cmsg_unix_transport_info
+{
+    optional string path = 1;
+}
+
+message cmsg_tcp_transport_info
+{
+    optional bool ipv4 = 1;
+    optional bytes addr = 2;
+    optional uint32 port = 3;
+}
+
+message cmsg_transport_info
+{
+    optional cmsg_transport_info_type type = 1;
+    optional bool one_way = 2;
+    oneof data {
+        cmsg_unix_transport_info unix_info = 3;
+        cmsg_tcp_transport_info tcp_info = 4;
+    }
+}
+
+message cmsg_service_info
+{
+    optional string service = 1;
+    optional cmsg_transport_info server_info = 2;
+}
