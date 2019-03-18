@@ -82,6 +82,16 @@ configuration_impl_unsubscribe (const void *service, const subscription_info *re
 void
 configuration_impl_add_server (const void *service, const cmsg_service_info *recv_msg)
 {
+    if (recv_msg->server_info->type == CMSG_TRANSPORT_INFO_TYPE_NOT_SET)
+    {
+        /* Ignore everything except TCP and UNIX services for now */
+        configuration_server_add_serverSend (service);
+        return;
+    }
+
+    /* We hold onto the message to store in the data hash table */
+    cmsg_server_app_owns_current_msg_set (server);
+
     configuration_server_add_serverSend (service);
 }
 
@@ -92,6 +102,13 @@ configuration_impl_add_server (const void *service, const cmsg_service_info *rec
 void
 configuration_impl_remove_server (const void *service, const cmsg_service_info *recv_msg)
 {
+    if (recv_msg->server_info->type == CMSG_TRANSPORT_INFO_TYPE_NOT_SET)
+    {
+        /* Ignore everything except TCP and UNIX services for now */
+        configuration_server_add_serverSend (service);
+        return;
+    }
+
     configuration_server_remove_serverSend (service);
 }
 

@@ -11,6 +11,7 @@
 #include <glib.h>
 #include <glib-unix.h>
 #include "configuration.h"
+#include "data.h"
 
 /**
  * Handles SIGTERM and SIGINT signals indicating that the CMSG service listener
@@ -65,6 +66,7 @@ main (int argc, char **argv)
     /* Avoid exiting upon receiving an unintentional SIGPIPE */
     signal (SIGPIPE, SIG_IGN);
 
+    data_init ();
     configuration_server_init ();
 
     /* Create run file */
