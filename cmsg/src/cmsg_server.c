@@ -12,12 +12,6 @@
 #include "cntrd_app_api.h"
 #endif
 
-static int32_t _cmsg_server_method_req_message_processor (cmsg_server *server,
-                                                          uint8_t *buffer_data);
-
-static int32_t _cmsg_server_echo_req_message_processor (cmsg_server *server,
-                                                        uint8_t *buffer_data);
-
 static cmsg_server *_cmsg_create_server_tipc (const char *server_name, int member_id,
                                               int scope, ProtobufCService *descriptor,
                                               cmsg_transport_type transport_type);
@@ -28,6 +22,14 @@ static cmsg_queue_filter_type cmsg_server_queue_filter_lookup (cmsg_server *serv
                                                                const char *method);
 
 int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
+
+static void cmsg_server_empty_method_reply_send (int socket, cmsg_server *server,
+                                                 cmsg_status_code status_code,
+                                                 uint32_t method_index);
+
+static int32_t cmsg_server_message_processor (int socket,
+                                              cmsg_server_request *server_request,
+                                              cmsg_server *server, uint8_t *buffer_data);
 
 
 static ProtobufCClosure
@@ -214,7 +216,7 @@ cmsg_server_destroy (cmsg_server *server)
 
     if (server->_transport)
     {
-        server->_transport->tport_funcs.server_destroy (server->_transport);
+        server->_transport->tport_funcs.socket_close (server->_transport);
     }
 
     CMSG_FREE (server);
@@ -296,7 +298,7 @@ cmsg_server_get_socket (cmsg_server *server)
     CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, -1);
 
-    socket = server->_transport->tport_funcs.s_socket (server->_transport);
+    socket = server->_transport->tport_funcs.get_socket (server->_transport);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] done. socket: %d\n", socket);
 
@@ -459,7 +461,6 @@ cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
                 if (cmsg_server_receive (info->server, fd) < 0)
                 {
                     // only close the socket if we have errored
-                    cmsg_server_close_wrapper (info->server);
                     shutdown (fd, SHUT_RDWR);
                     close (fd);
                     FD_CLR (fd, master_fdset);
@@ -492,9 +493,13 @@ cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
  *       are received (i.e. returns EINTR) then this function will
  *       return success (instead of blocking until the timeout expires)
  *
- * Timeout is specified in 'timeout_ms' (0: return immediately,
- * negative number: no timeout).
- * On success returns 0, failure returns -1.
+ * @param server - The server to poll.
+ * @param timeout_ms - The timeout to use with select.
+ *                     (0: return immediately, negative number: no timeout).
+ * @param master_fdset - An fd_set containing all of the sockets being polled.
+ * @param fdmax - Pointer to an integer holding the maximum fd number (NOT max + 1).
+ *
+ * @return On success returns 0, failure returns -1.
  */
 int32_t
 cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *master_fdset,
@@ -554,7 +559,6 @@ cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *maste
                 if (cmsg_server_receive (server, fd) < 0)
                 {
                     // only close the socket if we have errored
-                    cmsg_server_close_wrapper (server);
                     shutdown (fd, SHUT_RDWR);
                     close (fd);
                     FD_CLR (fd, master_fdset);
@@ -694,7 +698,6 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
                     if (cmsg_server_receive (server, fd) < 0)
                     {
                         // only close the socket if we have errored
-                        cmsg_server_close_wrapper (server);
                         shutdown (fd, SHUT_RDWR);
                         close (fd);
                         FD_CLR (fd, &server->accepted_fdset);
@@ -716,7 +719,7 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
 
 
 static int32_t
-cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
+cmsg_server_recv_process (int socket, uint8_t *buffer_data, cmsg_server *server,
                           uint32_t extra_header_size, uint32_t dyn_len,
                           int nbytes, cmsg_header *header_converted)
 {
@@ -736,7 +739,7 @@ cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
     {
         if (ret == CMSG_RET_METHOD_NOT_FOUND)
         {
-            cmsg_server_empty_method_reply_send (server,
+            cmsg_server_empty_method_reply_send (socket, server,
                                                  CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,
                                                  UNDEFINED_METHOD);
         }
@@ -751,8 +754,8 @@ cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received data\n");
             cmsg_buffer_print (buffer_data, dyn_len);
-            server->server_request = &server_request;
-            if (server->message_processor (server, buffer_data) != CMSG_RET_OK)
+            if (server->message_processor (socket, &server_request, server,
+                                           buffer_data) != CMSG_RET_OK)
             {
                 CMSG_LOG_SERVER_ERROR (server,
                                        "Server message processing returned an error.");
@@ -761,8 +764,7 @@ cmsg_server_recv_process (uint8_t *buffer_data, cmsg_server *server,
         }
         else
         {
-            CMSG_LOG_SERVER_ERROR (server, "No data on recv socket %d.",
-                                   server->_transport->connection.sockets.client_socket);
+            CMSG_LOG_SERVER_ERROR (server, "No data on recv socket %d.", socket);
 
             ret = CMSG_RET_ERR;
         }
@@ -834,7 +836,7 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
 
         buffer_data = recv_buff + sizeof (cmsg_header);
 
-        ret = cmsg_server_recv_process (buffer_data, server, extra_header_size,
+        ret = cmsg_server_recv_process (socket, buffer_data, server, extra_header_size,
                                         dyn_len, nbytes, &processed_header);
     }
 
@@ -885,20 +887,20 @@ cmsg_server_accept_callback (cmsg_server *server, int32_t sock)
 }
 
 
-/**
- * Assumes that server_request will have been set in the server by the caller.
- */
 void
-cmsg_server_invoke (cmsg_server *server, uint32_t method_index, ProtobufCMessage *message,
-                    cmsg_method_processing_reason process_reason)
+cmsg_server_invoke (int socket, cmsg_server_request *server_request, cmsg_server *server,
+                    ProtobufCMessage *message, cmsg_method_processing_reason process_reason)
 {
     uint32_t queue_length = 0;
     cmsg_server_closure_data closure_data;
+    uint32_t method_index = server_request->method_index;
 
     CMSG_ASSERT_RETURN_VOID (server != NULL);
 
     // Setup closure_data so it can be used no matter what the action is
     closure_data.server = server;
+    closure_data.server_request = server_request;
+    closure_data.reply_socket = socket;
     closure_data.method_processing_reason = process_reason;
 
     // increment the counter if this message has unknown fields,
@@ -973,6 +975,8 @@ cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
     cmsg_server_request server_request;
     const ProtobufCService *service = server->service;
     const char *method_name;
+    int socket = -1;    /* When invoking the server directly the data is not sent
+                         * back across a socket. */
 
     method_name = service->descriptor->methods[method_index].name;
 
@@ -981,11 +985,10 @@ cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
     server_request.message_length = protobuf_c_message_get_packed_size (input);
     server_request.method_index = method_index;
     strcpy (server_request.method_name_recvd, method_name);
-    server->server_request = &server_request;
 
     /* call the server invoke function. */
-    cmsg_server_invoke (server, method_index, (ProtobufCMessage *) input,
-                        CMSG_METHOD_OK_TO_INVOKE);
+    cmsg_server_invoke (socket, &server_request, server,
+                        (ProtobufCMessage *) input, CMSG_METHOD_OK_TO_INVOKE);
 }
 
 
@@ -997,13 +1000,13 @@ cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
  * @returns -1 on failure, 0 on success
  */
 static int32_t
-_cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_data)
+_cmsg_server_method_req_message_processor (int socket, cmsg_server_request *server_request,
+                                           cmsg_server *server, uint8_t *buffer_data)
 {
     cmsg_queue_filter_type action;
     cmsg_method_processing_reason processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     ProtobufCMessage *message = NULL;
     ProtobufCAllocator *allocator = &cmsg_memory_allocator;
-    cmsg_server_request *server_request = server->server_request;
     const char *method_name;
     const ProtobufCMessageDescriptor *desc;
 
@@ -1076,8 +1079,7 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
         processing_reason = CMSG_METHOD_OK_TO_INVOKE;
     }
 
-
-    cmsg_server_invoke (server, server_request->method_index, message, processing_reason);
+    cmsg_server_invoke (socket, server_request, server, message, processing_reason);
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] end of message processor\n");
 
@@ -1090,10 +1092,10 @@ _cmsg_server_method_req_message_processor (cmsg_server *server, uint8_t *buffer_
  * @returns -1 on failure, 0 on success
  */
 static int
-cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
+cmsg_server_send_wrapper (int socket, cmsg_transport *transport, void *buff, int length)
 {
-    return server->_transport->tport_funcs.server_send (server->_transport,
-                                                        buff, length, 0);
+    return transport->tport_funcs.server_send (socket, transport, buff, length, 0);
+
 }
 
 /**
@@ -1102,7 +1104,8 @@ cmsg_server_send_wrapper (cmsg_server *server, void *buff, int length, int flag)
  * We reply straight away to an ECHO_REQ
  */
 static int32_t
-_cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_data)
+_cmsg_server_echo_req_message_processor (int socket, cmsg_server *server,
+                                         uint8_t *buffer_data)
 {
     int ret = 0;
     cmsg_header header;
@@ -1114,7 +1117,7 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = cmsg_server_send_wrapper (server, &header, sizeof (header), 0);
+    ret = cmsg_server_send_wrapper (socket, server->_transport, &header, sizeof (header));
     if (ret < (int) sizeof (header))
     {
         CMSG_LOG_SERVER_ERROR (server, "Sending of echo reply failed. Sent:%d of %u bytes.",
@@ -1129,26 +1132,25 @@ _cmsg_server_echo_req_message_processor (cmsg_server *server, uint8_t *buffer_da
 /**
  * The buffer has been received and now needs to be processed by protobuf-c.
  * Once unpacked the method will be invoked.
- * If the
  */
-int32_t
-cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
+static int32_t
+cmsg_server_message_processor (int socket, cmsg_server_request *server_request,
+                               cmsg_server *server, uint8_t *buffer_data)
 {
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (buffer_data != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (server->server_request != NULL, CMSG_RET_ERR);
-
-    cmsg_server_request *server_request = server->server_request;
+    CMSG_ASSERT_RETURN_VAL (server_request != NULL, CMSG_RET_ERR);
 
     // Check that the msg received is a type we support
     switch (server_request->msg_type)
     {
     case CMSG_MSG_TYPE_METHOD_REQ:
-        return _cmsg_server_method_req_message_processor (server, buffer_data);
+        return _cmsg_server_method_req_message_processor (socket, server_request,
+                                                          server, buffer_data);
         break;
 
     case CMSG_MSG_TYPE_ECHO_REQ:
-        return _cmsg_server_echo_req_message_processor (server, buffer_data);
+        return _cmsg_server_echo_req_message_processor (socket, server, buffer_data);
         break;
 
     case CMSG_MSG_TYPE_CONN_OPEN:
@@ -1167,9 +1169,9 @@ cmsg_server_message_processor (cmsg_server *server, uint8_t *buffer_data)
 }
 
 
-void
-cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code status_code,
-                                     uint32_t method_index)
+static void
+cmsg_server_empty_method_reply_send (int socket, cmsg_server *server,
+                                     cmsg_status_code status_code, uint32_t method_index)
 {
     int ret = 0;
     cmsg_header header;
@@ -1183,7 +1185,7 @@ cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code statu
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = cmsg_server_send_wrapper (server, &header, sizeof (header), 0);
+    ret = cmsg_server_send_wrapper (socket, server->_transport, &header, sizeof (header));
     if (ret < (int) sizeof (header))
     {
         CMSG_DEBUG (CMSG_ERROR,
@@ -1202,19 +1204,19 @@ cmsg_server_empty_method_reply_send (cmsg_server *server, cmsg_status_code statu
 void
 cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_void)
 {
-
     cmsg_server_closure_data *closure_data = (cmsg_server_closure_data *) closure_data_void;
+
+    CMSG_ASSERT_RETURN_VOID (closure_data != NULL);
+    CMSG_ASSERT_RETURN_VOID (closure_data->server != NULL);
+    CMSG_ASSERT_RETURN_VOID (closure_data->server->_transport != NULL);
+    CMSG_ASSERT_RETURN_VOID (closure_data->server_request != NULL);
+
     cmsg_server *server = closure_data->server;
-
-    CMSG_ASSERT_RETURN_VOID (server != NULL);
-    CMSG_ASSERT_RETURN_VOID (closure_data_void != NULL);
-    CMSG_ASSERT_RETURN_VOID (server->_transport != NULL);
-    CMSG_ASSERT_RETURN_VOID (server->server_request != NULL);
-
-    cmsg_server_request *server_request = server->server_request;
+    cmsg_server_request *server_request = closure_data->server_request;
     uint32_t ret = 0;
     int send_ret = 0;
     int type = CMSG_TLV_METHOD_TYPE;
+    int socket = closure_data->reply_socket;
 
     CMSG_DEBUG (CMSG_INFO, "[SERVER] invoking rpc method=%d\n",
                 server_request->method_index);
@@ -1234,7 +1236,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         CMSG_DEBUG (CMSG_INFO, "[SERVER] method %d queued, sending response without data\n",
                     server_request->method_index);
 
-        cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_QUEUED,
+        cmsg_server_empty_method_reply_send (socket, server,
+                                             CMSG_STATUS_CODE_SERVICE_QUEUED,
                                              server_request->method_index);
         return;
     }
@@ -1247,7 +1250,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                     "[SERVER] method %d dropped, sending response without data\n",
                     server_request->method_index);
 
-        cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_DROPPED,
+        cmsg_server_empty_method_reply_send (socket, server,
+                                             CMSG_STATUS_CODE_SERVICE_DROPPED,
                                              server_request->method_index);
         return;
     }
@@ -1257,7 +1261,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
     {
         CMSG_DEBUG (CMSG_INFO, "[SERVER] sending response without data\n");
 
-        cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+        cmsg_server_empty_method_reply_send (socket, server,
+                                             CMSG_STATUS_CODE_SERVICE_FAILED,
                                              server_request->method_index);
         CMSG_COUNTER_INC (server, cntr_memory_errors);
         return;
@@ -1284,7 +1289,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         {
             CMSG_LOG_SERVER_ERROR (server, "Unable to allocate memory for message.");
             CMSG_COUNTER_INC (server, cntr_memory_errors);
-            cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+            cmsg_server_empty_method_reply_send (socket, server,
+                                                 CMSG_STATUS_CODE_SERVICE_FAILED,
                                                  server_request->method_index);
             return;
         }
@@ -1301,7 +1307,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                                    packed_size);
             CMSG_COUNTER_INC (server, cntr_pack_errors);
             CMSG_FREE (buffer);
-            cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+            cmsg_server_empty_method_reply_send (socket, server,
+                                                 CMSG_STATUS_CODE_SERVICE_FAILED,
                                                  server_request->method_index);
             return;
         }
@@ -1312,7 +1319,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
                  packed_size);
             CMSG_COUNTER_INC (server, cntr_pack_errors);
             CMSG_FREE (buffer);
-            cmsg_server_empty_method_reply_send (server, CMSG_STATUS_CODE_SERVICE_FAILED,
+            cmsg_server_empty_method_reply_send (socket, server,
+                                                 CMSG_STATUS_CODE_SERVICE_FAILED,
                                                  server_request->method_index);
             return;
         }
@@ -1323,7 +1331,8 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         CMSG_DEBUG (CMSG_INFO, "[SERVER] response data\n");
         cmsg_buffer_print ((void *) buffer_data, packed_size);
 
-        send_ret = cmsg_server_send_wrapper (server, buffer, total_message_size, 0);
+        send_ret = cmsg_server_send_wrapper (socket, server->_transport, buffer,
+                                             total_message_size);
 
         if (send_ret < (int) total_message_size)
         {
@@ -1748,14 +1757,16 @@ cmsg_create_server_unix_oneway (ProtobufCService *descriptor)
     return _cmsg_create_server_unix (descriptor, CMSG_TRANSPORT_ONEWAY_UNIX);
 }
 
-static cmsg_server *
-_cmsg_create_server_tcp (cmsg_socket *config, ProtobufCService *descriptor,
-                         cmsg_transport_type transport_type)
+cmsg_server *
+cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
 {
     cmsg_transport *transport = NULL;
     cmsg_server *server = NULL;
 
-    transport = cmsg_create_transport_tcp (config, transport_type);
+    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    transport = cmsg_create_transport_tcp (config, CMSG_TRANSPORT_RPC_TCP);
     if (transport == NULL)
     {
         return NULL;
@@ -1776,22 +1787,75 @@ _cmsg_create_server_tcp (cmsg_socket *config, ProtobufCService *descriptor,
     return server;
 }
 
-cmsg_server *
-cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
+/**
+ * Helper function for creating a CMSG server using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on.
+ * @param service - The CMSG service.
+ * @param oneway - Whether to make a one-way server, or a two-way (RPC) server.
+ */
+static cmsg_server *
+_cmsg_create_server_tcp_ipv4 (const char *service_name, struct in_addr *addr,
+                              const ProtobufCService *service, bool oneway)
 {
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+    cmsg_transport *transport;
+    cmsg_server *server;
 
-    return _cmsg_create_server_tcp (config, descriptor, CMSG_TRANSPORT_RPC_TCP);
+    transport = cmsg_create_transport_tcp_ipv4 (service_name, addr, oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (!server)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No TCP IPC server on %s", service->descriptor->name);
+        return NULL;
+    }
+
+    return server;
 }
 
+/**
+ * Create a RPC (two-way) CMSG server using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on.
+ * @param service - The CMSG service.
+ */
 cmsg_server *
-cmsg_create_server_tcp_oneway (cmsg_socket *config, ProtobufCService *descriptor)
+cmsg_create_server_tcp_ipv4_rpc (const char *service_name, struct in_addr *addr,
+                                 const ProtobufCService *service)
 {
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
 
-    return _cmsg_create_server_tcp (config, descriptor, CMSG_TRANSPORT_ONEWAY_TCP);
+    return _cmsg_create_server_tcp_ipv4 (service_name, addr, service, false);
+}
+
+/**
+ * Create a oneway CMSG server using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on.
+ * @param service - The CMSG service.
+ */
+cmsg_server *
+cmsg_create_server_tcp_ipv4_oneway (const char *service_name, struct in_addr *addr,
+                                    const ProtobufCService *service)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    return _cmsg_create_server_tcp_ipv4 (service_name, addr, service, true);
 }
 
 /**
@@ -1849,19 +1913,6 @@ void
 cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner)
 {
     server->app_owns_all_msgs = app_is_owner;
-}
-
-/**
- * Close a server socket to a remote client.
- *
- * NOTE user applications should not call this routine directly
- *
- * @param server - the server that is closing the current client connection
- */
-void
-cmsg_server_close_wrapper (cmsg_server *server)
-{
-    server->_transport->tport_funcs.server_close (server->_transport);
 }
 
 /**

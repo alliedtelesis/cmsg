@@ -187,6 +187,7 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
     cmsg_receive_queue_entry *queue_entry = 0;
     cmsg_server_request server_request;
     uint32_t queue_length = 0;
+    int socket;
 
     if (num_to_process == 0)
     {
@@ -206,7 +207,10 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
      * in place by the invoke and closure calls.
      */
     server_request.message_length = 0;
-    server->server_request = &server_request;
+
+    /* Initialise the socket value, it doesn't matter as when we invoke from a
+     * server queue we don't actually send a reply on the socket. */
+    socket = -1;
 
     // Go through the whole list invoke the server method for the message,
     // freeing the message and moving to the next.
@@ -225,7 +229,7 @@ cmsg_receive_queue_process_some (GQueue *queue, pthread_mutex_t *queue_mutex,
         processed++;
 
         server_request.method_index = queue_entry->method_index;
-        cmsg_server_invoke (server, queue_entry->method_index,
+        cmsg_server_invoke (socket, &server_request, server,
                             (ProtobufCMessage *) queue_entry->queue_buffer,
                             CMSG_METHOD_INVOKING_FROM_QUEUE);
 

@@ -20,9 +20,7 @@
 #define STRING_ARRAY_LENGTH         100
 #define TEST_STRING                 "The quick brown fox jumps over the lazy dog"
 
-static const uint16_t tcp_port = 18888;
-
-static const uint16_t tipc_port = 18888;
+static const uint16_t port_number = 18888;
 static const uint16_t tipc_instance = 1;
 static const uint16_t tipc_scope = TIPC_NODE_SCOPE;
 
@@ -48,18 +46,10 @@ setup_udt_tcp_transport_functions (cmsg_transport *udt_transport)
         udt_transport->udt_info.base.client_recv;
     udt_transport->udt_info.functions.client_send =
         udt_transport->udt_info.base.client_send;
-    udt_transport->udt_info.functions.client_close =
-        udt_transport->udt_info.base.client_close;
-    udt_transport->udt_info.functions.server_close =
-        udt_transport->udt_info.base.server_close;
+    udt_transport->udt_info.functions.socket_close =
+        udt_transport->udt_info.base.socket_close;
 
-    udt_transport->udt_info.functions.s_socket = udt_transport->udt_info.base.s_socket;
-    udt_transport->udt_info.functions.c_socket = udt_transport->udt_info.base.c_socket;
-
-    udt_transport->udt_info.functions.client_destroy =
-        udt_transport->udt_info.base.client_destroy;
-    udt_transport->udt_info.functions.server_destroy =
-        udt_transport->udt_info.base.server_destroy;
+    udt_transport->udt_info.functions.get_socket = udt_transport->udt_info.base.get_socket;
 
     udt_transport->udt_info.functions.is_congested =
         udt_transport->udt_info.base.is_congested;
@@ -75,9 +65,9 @@ setup_udt_tcp_transport_functions (cmsg_transport *udt_transport)
 static int
 sm_mock_cmsg_service_port_get (const char *name, const char *proto)
 {
-    if ((strcmp (name, "cmsg-test") == 0) && (strcmp (proto, "tipc") == 0))
+    if (strcmp (name, "cmsg-test") == 0)
     {
-        return tipc_port;
+        return port_number;
     }
 
     NP_FAIL;
@@ -186,15 +176,14 @@ server_thread_process (void *arg)
 {
     cmsg_transport_type transport_type = (uintptr_t) arg;
     cmsg_transport *server_transport = NULL;
+    struct in_addr tcp_addr;
 
     switch (transport_type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
-        server_transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
-        server_transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_ANY);
-        server_transport->config.socket.sockaddr.in.sin_port = htons (tcp_port);
-
-        server = cmsg_server_new (server_transport, CMSG_SERVICE (cmsg, test));
+        tcp_addr.s_addr = INADDR_ANY;
+        server = cmsg_create_server_tcp_ipv4_rpc ("cmsg-test", &tcp_addr,
+                                                  CMSG_SERVICE (cmsg, test));
         break;
 
     case CMSG_TRANSPORT_RPC_TIPC:
@@ -211,7 +200,7 @@ server_thread_process (void *arg)
         server_transport->config.socket.family = PF_INET;
         server_transport->config.socket.sockaddr.generic.sa_family = PF_INET;
         server_transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_ANY);
-        server_transport->config.socket.sockaddr.in.sin_port = htons (tcp_port);
+        server_transport->config.socket.sockaddr.in.sin_port = htons (port_number);
 
         setup_udt_tcp_transport_functions (server_transport);
 
@@ -298,14 +287,14 @@ create_client (cmsg_transport_type type)
 {
     cmsg_transport *transport = NULL;
     cmsg_client *client = NULL;
+    struct in_addr tcp_addr;
 
     switch (type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
-        transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
-        transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
-        transport->config.socket.sockaddr.in.sin_port = htons (tcp_port);
-        client = cmsg_client_new (transport, CMSG_DESCRIPTOR (cmsg, test));
+        tcp_addr.s_addr = INADDR_ANY;
+        client = cmsg_create_client_tcp_ipv4_rpc ("cmsg-test", &tcp_addr,
+                                                  CMSG_DESCRIPTOR (cmsg, test));
         break;
 
     case CMSG_TRANSPORT_RPC_TIPC:
@@ -326,7 +315,7 @@ create_client (cmsg_transport_type type)
         transport->config.socket.family = PF_INET;
         transport->config.socket.sockaddr.generic.sa_family = PF_INET;
         transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
-        transport->config.socket.sockaddr.in.sin_port = htons (tcp_port);
+        transport->config.socket.sockaddr.in.sin_port = htons (port_number);
 
         setup_udt_tcp_transport_functions (transport);
 

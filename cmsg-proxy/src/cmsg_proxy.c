@@ -64,7 +64,7 @@ ARRAY_SIZE_COMPILE_CHECK (ant_code_to_http_code_array, ANT_CODE_MAX);
 
 pre_api_http_check_callback pre_api_check_callback = NULL;
 
-static const char *cmsg_mime_application_json = "application/json";
+static const char *cmsg_proxy_mime_application_json = "application/json";
 
 /**
  * Return the HTTP code that matches a particular ANT code. If the passed in value is
@@ -631,7 +631,7 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
 
     /* By default handle responses with MIME type "application/json"
      */
-    output->mime_type = cmsg_mime_application_json;
+    output->mime_type = cmsg_proxy_mime_application_json;
 
     if (strcmp (input->url, "/v1/index") == 0 && input->http_verb == CMSG_HTTP_GET)
     {

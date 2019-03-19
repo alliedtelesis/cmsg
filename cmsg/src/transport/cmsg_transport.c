@@ -172,15 +172,7 @@ cmsg_transport_new (cmsg_transport_type type)
 
     if (transport)
     {
-        transport->connection.sockets.client_socket = -1;
-        transport->connection.sockets.listening_socket = -1;
-
-        if (pthread_mutex_init (&transport->connection_mutex, NULL) != 0)
-        {
-            CMSG_LOG_GEN_ERROR ("Init failed for transport connection_mutex.");
-            CMSG_FREE (transport);
-            return NULL;
-        }
+        transport->socket = -1;
     }
 
     return transport;
@@ -191,7 +183,6 @@ cmsg_transport_destroy (cmsg_transport *transport)
 {
     if (transport)
     {
-        pthread_mutex_destroy (&transport->connection_mutex);
         CMSG_FREE (transport);
         return 0;
     }
@@ -373,7 +364,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     const ProtobufCMessageDescriptor *desc;
     uint32_t extra_header_size;
     cmsg_server_request server_request;
-    int socket = transport->connection.sockets.client_socket;
+    int socket = transport->socket;
     cmsg_status_code ret;
     time_t receive_timeout;
 
@@ -439,7 +430,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
                 /* Didn't allocate memory for recv buffer.  This is an error.
                  * Shut the socket down, it will reopen on the next api call.
                  * Record and return an error. */
-                transport->tport_funcs.client_close (transport);
+                transport->tport_funcs.socket_close (transport);
                 CMSG_LOG_TRANSPORT_ERROR (transport,
                                           "Failed to allocate memory for received message");
                 return CMSG_STATUS_CODE_SERVICE_FAILED;
@@ -507,7 +498,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
         {
             CMSG_LOG_TRANSPORT_ERROR (transport,
                                       "No data for recv. socket:%d, dyn_len:%d, actual len:%d strerr %d:%s",
-                                      transport->connection.sockets.client_socket,
+                                      transport->socket,
                                       dyn_len, nbytes, errno, strerror (errno));
 
         }
@@ -523,7 +514,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
          */
         CMSG_LOG_TRANSPORT_ERROR (transport,
                                   "Bad header length for recv. Socket:%d nbytes:%d",
-                                  transport->connection.sockets.client_socket, nbytes);
+                                  transport->socket, nbytes);
 
         // TEMP to keep things going
         recv_buffer = (uint8_t *) CMSG_CALLOC (1, nbytes);
@@ -542,14 +533,13 @@ cmsg_transport_client_recv (cmsg_transport *transport,
         if (errno == ECONNRESET)
         {
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
-                        transport->connection.sockets.client_socket, strerror (errno));
+                        transport->socket, strerror (errno));
             return CMSG_STATUS_CODE_SERVER_CONNRESET;
         }
         else
         {
             CMSG_LOG_TRANSPORT_ERROR (transport, "Recv error. Socket:%d Error:%s",
-                                      transport->connection.sockets.client_socket,
-                                      strerror (errno));
+                                      transport->socket, strerror (errno));
         }
     }
 
@@ -590,9 +580,6 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
 
     CMSG_ASSERT_RETURN_VAL (transport != NULL, CMSG_RET_ERR);
 
-    /* Remember the client socket to use when send reply */
-    transport->connection.sockets.client_socket = server_socket;
-
     peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
                                                   transport,
                                                   server_socket, MAX_SERVER_PEEK_LOOP,
@@ -609,6 +596,45 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
     }
 
     return ret;
+}
+
+int32_t
+cmsg_transport_rpc_server_send (int socket, cmsg_transport *transport, void *buff,
+                                int length, int flag)
+{
+    return (send (socket, buff, length, flag));
+}
+
+/**
+ * Oneway servers do not send replies to received messages. This function therefore
+ * returns 0.
+ */
+int32_t
+cmsg_transport_oneway_server_send (int socket, cmsg_transport *transport, void *buff,
+                                   int length, int flag)
+{
+    return 0;
+}
+
+int
+cmsg_transport_get_socket (cmsg_transport *transport)
+{
+    return transport->socket;
+}
+
+void
+cmsg_transport_socket_close (cmsg_transport *transport)
+{
+    if (transport->socket != -1)
+    {
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
+        shutdown (transport->socket, SHUT_RDWR);
+
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
+        close (transport->socket);
+
+        transport->socket = -1;
+    }
 }
 
 bool

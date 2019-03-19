@@ -409,7 +409,9 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     printer->Print("{\n");
     printer->Indent();
 
+    printer->Print("cmsg_server_closure_info closure_info;\n");
     printer->Print("\n");
+
     printer->Print("if (input == NULL)\n");
     printer->Print("{\n");
     printer->Indent();
@@ -420,8 +422,8 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
 
     printer->Print("\n");
     printer->Print("// these are needed in 'Send' function for sending reply back to the client\n");
-    printer->Print("_service->closure = _closure;\n");
-    printer->Print("_service->closure_data = _closure_data;\n");
+    printer->Print("closure_info.closure = _closure;\n");
+    printer->Print("closure_info.closure_data = _closure_data;\n");
     printer->Print("\n");
 
     //
@@ -440,13 +442,13 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
         printer->Print("CMSG_SET_FIELD_PTR (&ant_result_msg, message, err_str);\n");
         if (strcmp (method->output_type()->full_name().c_str(), "ant_result") == 0)
         {
-            printer->Print(vars_, "$lcfullname$_server_$method$Send (_service, &ant_result_msg);\n");
+            printer->Print(vars_, "$lcfullname$_server_$method$Send (&closure_info, &ant_result_msg);\n");
         }
         else
         {
             printer->Print(vars_, "$output_typename$ send_msg = $output_typename_upper$_INIT;\n");
             printer->Print("CMSG_SET_FIELD_PTR (&send_msg, _error_info, &ant_result_msg);\n");
-            printer->Print(vars_, "$lcfullname$_server_$method$Send (_service, &send_msg);\n");
+            printer->Print(vars_, "$lcfullname$_server_$method$Send (&closure_info, &send_msg);\n");
         }
         printer->Outdent();
         printer->Print("}\n");
@@ -456,7 +458,7 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     printer->Print("{\n");
     printer->Indent();
     // now pass the pbc struct to the new impl function
-    printer->Print(vars_, "$lcfullname$_impl_$method$ (_service");
+    printer->Print(vars_, "$lcfullname$_impl_$method$ (&closure_info");
     if (method->input_type()->field_count() > 0)
     {
       printer->Print(", input");
@@ -468,9 +470,7 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     //
     // call closure()
     //
-    printer->Print("// clean up\n");
-    printer->Print("_service->closure = NULL;\n");
-    printer->Print("_service->closure_data = NULL;\n");
+    printer->Print("\n");
     printer->Print("return CMSG_RET_OK;\n");
 
     // end of the function
@@ -564,8 +564,8 @@ void AtlCodeGenerator::GenerateAtlServerSendImplementation(const MethodDescripto
   printer->Print("{\n");
   printer->Indent();
 
-  printer->Print(vars_, "$output_typename$_Closure _closure = ((const $cname$_Service *)_service)->closure;\n");
-  printer->Print(vars_, "void *_closure_data = ((const $cname$_Service *)_service)->closure_data;\n");
+  printer->Print(vars_, "$output_typename$_Closure _closure = ((const cmsg_server_closure_info *)_service)->closure;\n");
+  printer->Print(vars_, "void *_closure_data = ((const cmsg_server_closure_info *)_service)->closure_data;\n");
 
   if (method.output_type()->field_count() == 0)
   {

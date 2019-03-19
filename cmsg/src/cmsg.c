@@ -191,6 +191,8 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
 {
     cmsg_tlv_method_header *tlv_method_header;
     cmsg_tlv_header *tlv_header;
+    cmsg_tlv_header_type tlv_type;
+    uint32_t tlv_total_length;
 
     /* If there is no tlv header, we have nothing to process */
     if (extra_header_size == 0)
@@ -203,13 +205,13 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
     while (extra_header_size >= CMSG_TLV_SIZE (0))
     {
         tlv_header = (cmsg_tlv_header *) buf;
-        tlv_header->type = ntohl (tlv_header->type);
-        tlv_header->tlv_value_length = ntohl (tlv_header->tlv_value_length);
+        tlv_type = ntohl (tlv_header->type);
+        tlv_total_length = CMSG_TLV_SIZE (ntohl (tlv_header->tlv_value_length));
 
         /* Make sure there is enough extra_header_size for the entire tlv header */
-        if (extra_header_size >= CMSG_TLV_SIZE (tlv_header->tlv_value_length))
+        if (extra_header_size >= tlv_total_length)
         {
-            switch (tlv_header->type)
+            switch (tlv_type)
             {
             case CMSG_TLV_METHOD_TYPE:
                 tlv_method_header = (cmsg_tlv_method_header *) buf;
@@ -237,14 +239,25 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
 
             default:
                 CMSG_LOG_GEN_ERROR ("Processing TLV header, bad TLV type value - %d",
-                                    tlv_header->type);
+                                    tlv_type);
                 return CMSG_RET_ERR;
             }
-        }
 
-        buf = buf + CMSG_TLV_SIZE (tlv_header->tlv_value_length);
-        extra_header_size =
-            extra_header_size - CMSG_TLV_SIZE (tlv_header->tlv_value_length);
+            buf = buf + tlv_total_length;
+            extra_header_size = extra_header_size - tlv_total_length;
+        }
+        else
+        {
+            /* TLV value size is longer than the header size so cannot be
+             * correct.
+             * Prevent integer overflows by not processing anymore of the
+             * header and returning an error.
+             */
+            CMSG_LOG_GEN_ERROR
+                ("Unable to process TLV header, %u tlv length is longer than the remaining header size %u",
+                 tlv_total_length, extra_header_size);
+            return CMSG_RET_ERR;
+        }
     }
 
     /* At this point, there should be no extra_header_size left over. If there is, this

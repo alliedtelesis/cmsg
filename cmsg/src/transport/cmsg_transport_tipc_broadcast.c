@@ -18,10 +18,9 @@ cmsg_transport_tipc_broadcast_connect (cmsg_transport *transport, int timeout)
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_broadcast_connect\n");
 
-    transport->connection.sockets.client_socket = socket (transport->config.socket.family,
-                                                          SOCK_RDM, 0);
+    transport->socket = socket (transport->config.socket.family, SOCK_RDM, 0);
 
-    if (transport->connection.sockets.client_socket < 0)
+    if (transport->socket < 0)
     {
         ret = -errno;
         CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to create socket. Error:%s",
@@ -67,7 +66,7 @@ cmsg_transport_tipc_broadcast_listen (cmsg_transport *transport)
     }
 
     //TODO: Do we need a listen?
-    transport->connection.sockets.listening_socket = listening_socket;
+    transport->socket = listening_socket;
     //TODO: Add debug
     return 0;
 }
@@ -94,7 +93,7 @@ cmsg_transport_tipc_broadcast_recv (cmsg_transport *transport, int sock, void *b
 
     addrlen = sizeof (struct sockaddr_tipc);
 
-    nbytes = recvfrom (transport->connection.sockets.listening_socket, buff, len, flags,
+    nbytes = recvfrom (transport->socket, buff, len, flags,
                        (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                        &addrlen);
     return nbytes;
@@ -128,7 +127,7 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_transport *transport, void *buff
     int retries = 0;
     int saved_errno = 0;
 
-    int result = sendto (transport->connection.sockets.client_socket, buff, length,
+    int result = sendto (transport->socket, buff, length,
                          MSG_DONTWAIT,
                          (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                          sizeof (struct sockaddr_tipc));
@@ -143,7 +142,7 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_transport *transport, void *buff
             usleep (50000);
             retries++;
 
-            result = sendto (transport->connection.sockets.client_socket, buff, length,
+            result = sendto (transport->socket, buff, length,
                              MSG_DONTWAIT,
                              (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                              sizeof (struct sockaddr_tipc));
@@ -166,98 +165,6 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_transport *transport, void *buff
     }
 
     return result;
-}
-
-
-/**
- * TIPC broadcast servers do not send replies to received messages. This
- * function therefore returns 0. It should not be called by the server, but
- * it prevents a null pointer exception from occurring if no function is
- * defined
- */
-static int32_t
-cmsg_transport_tipc_broadcast_server_send (cmsg_transport *transport, void *buff,
-                                           int length, int flag)
-{
-    return 0;
-}
-
-
-/**
- * Close the clients socket after a message has been sent.
- */
-static void
-cmsg_transport_tipc_broadcast_client_close (cmsg_transport *transport)
-{
-    if (transport->connection.sockets.client_socket != -1)
-    {
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
-        shutdown (transport->connection.sockets.client_socket, SHUT_RDWR);
-
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
-        close (transport->connection.sockets.client_socket);
-
-        transport->connection.sockets.client_socket = -1;
-    }
-}
-
-
-/**
- * This function is called by the server to close the socket that the server
- * has used to receive a message from a client. TIPC broadcast does not use a
- * dedicated socket to do this, instead it receives messages on its listening
- * socket. Therefore this function does nothing when called.
- */
-static void
-cmsg_transport_tipc_broadcast_server_close (cmsg_transport *transport)
-{
-    return;
-}
-
-
-/**
- * Return the servers listening socket
- */
-static int
-cmsg_transport_tipc_broadcast_server_get_socket (cmsg_transport *transport)
-{
-    return transport->connection.sockets.listening_socket;
-}
-
-
-/**
- * Return the socket the client will use to send messages
- */
-static int
-cmsg_transport_tipc_broadcast_client_get_socket (cmsg_transport *transport)
-{
-    return transport->connection.sockets.client_socket;
-}
-
-/**
- * Close the client
- */
-static void
-cmsg_transport_tipc_broadcast_client_destroy (cmsg_transport *transport)
-{
-    //placeholder to make sure destroy functions are called in the right order
-}
-
-
-/**
- * Close the servers listening socket
- */
-static void
-cmsg_transport_tipc_broadcast_server_destroy (cmsg_transport *transport)
-{
-    if (transport->connection.sockets.listening_socket != -1)
-    {
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] Shutting down listening socket\n");
-        shutdown (transport->connection.sockets.listening_socket, SHUT_RDWR);
-
-        CMSG_DEBUG (CMSG_INFO, "[SERVER] Closing listening socket\n");
-        close (transport->connection.sockets.listening_socket);
-    }
 }
 
 
@@ -310,13 +217,9 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->tport_funcs.server_recv = cmsg_transport_server_recv;
     transport->tport_funcs.client_recv = cmsg_transport_tipc_broadcast_client_recv;
     transport->tport_funcs.client_send = cmsg_transport_tipc_broadcast_client_send;
-    transport->tport_funcs.server_send = cmsg_transport_tipc_broadcast_server_send;
-    transport->tport_funcs.client_close = cmsg_transport_tipc_broadcast_client_close;
-    transport->tport_funcs.server_close = cmsg_transport_tipc_broadcast_server_close;
-    transport->tport_funcs.s_socket = cmsg_transport_tipc_broadcast_server_get_socket;
-    transport->tport_funcs.c_socket = cmsg_transport_tipc_broadcast_client_get_socket;
-    transport->tport_funcs.client_destroy = cmsg_transport_tipc_broadcast_client_destroy;
-    transport->tport_funcs.server_destroy = cmsg_transport_tipc_broadcast_server_destroy;
+    transport->tport_funcs.server_send = cmsg_transport_oneway_server_send;
+    transport->tport_funcs.socket_close = cmsg_transport_socket_close;
+    transport->tport_funcs.get_socket = cmsg_transport_get_socket;
 
     transport->tport_funcs.is_congested = cmsg_transport_tipc_broadcast_is_congested;
     transport->tport_funcs.send_can_block_enable =

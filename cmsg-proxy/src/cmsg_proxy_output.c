@@ -9,12 +9,7 @@
 #include "cmsg_proxy_counters.h"
 #include "cmsg_proxy_http_streaming.h"
 
-static const char *cmsg_content_disposition_key = "Content-Disposition";
-static const char *cmsg_content_encoding_key = "Content-Transfer-Encoding";
-static const char *cmsg_mime_text_plain = "text/plain";
-static const char *cmsg_mime_octet_stream = "application/octet-stream";
-static const char *cmsg_binary_encoding = "binary";
-static const char *cmsg_filename_header_format = "attachment; filename=\"%s\"";
+static const char *cmsg_proxy_output_mime_text_plain = "text/plain";
 
 /**
  * Returns true if a message has a field named "_body" (CMSG_PROXY_SPECIAL_FIELD_BODY).
@@ -66,7 +61,7 @@ cmsg_proxy_generate_plaintext_response (ProtobufCMessage *output_proto_message,
              * json_dumps, which uses standard allocation.
              */
             output->response_body = strdup (*field_value);
-            output->mime_type = cmsg_mime_text_plain;
+            output->mime_type = cmsg_proxy_output_mime_text_plain;
             if (output->response_body)
             {
                 output->response_length = strlen (output->response_body);
@@ -77,103 +72,6 @@ cmsg_proxy_generate_plaintext_response (ProtobufCMessage *output_proto_message,
     }
 
     return false;
-}
-
-/**
- * Generate a file response based on the contents of the "_file"
- * (CMSG_PROXY_SPECIAL_FIELD_FILE) field.
- * Sets a header with the file name if the message contains a field called "file_name"
- *
- * @param output_proto_message - The message returned from calling the CMSG API
- * @param output - CMSG proxy response
- */
-static bool
-cmsg_proxy_generate_file_response (ProtobufCMessage *output_proto_message,
-                                   cmsg_proxy_output *output)
-{
-    const ProtobufCFieldDescriptor *field_descriptor = NULL;
-    const ProtobufCBinaryData *file_ptr = NULL;
-    const char **file_name_ptr = NULL;
-    const char *file_name = NULL;
-    cmsg_proxy_header *header_array;
-    cmsg_proxy_headers *headers;
-    char *filename_header_value = NULL;
-    int ret;
-
-    output->response_length = 0;
-
-    field_descriptor =
-        protobuf_c_message_descriptor_get_field_by_name (output_proto_message->descriptor,
-                                                         CMSG_PROXY_SPECIAL_FIELD_FILE);
-    if (!field_descriptor)
-    {
-        return false;
-    }
-
-    file_ptr =
-        (const ProtobufCBinaryData *) ((char *) output_proto_message +
-                                       field_descriptor->offset);
-
-    if (file_ptr && file_ptr->data)
-    {
-        /* This is allocated with malloc rather than CMSG_PROXY_MALLOC as it is freed with
-         * free by the caller in cmsgProxyHandler. response_body is also populated using
-         * json_dumps, which uses standard allocation. memcpy is used rather than strdup,
-         * because this may be binary data that includes (or isn't terminated with) null
-         * characters.
-         */
-        output->response_body = malloc (file_ptr->len);
-        if (!output->response_body)
-        {
-            return false;
-        }
-
-        memcpy (output->response_body, file_ptr->data, file_ptr->len);
-
-        // header("Content-Type: application/octet-stream");
-        output->mime_type = cmsg_mime_octet_stream;
-        output->response_length = file_ptr->len;
-    }
-
-    field_descriptor =
-        protobuf_c_message_descriptor_get_field_by_name (output_proto_message->descriptor,
-                                                         CMSG_PROXY_SPECIAL_FIELD_FILE_NAME);
-    if (field_descriptor)
-    {
-        file_name_ptr =
-            (const char **) ((char *) output_proto_message + field_descriptor->offset);
-        file_name = *file_name_ptr;
-    }
-    ret = CMSG_PROXY_ASPRINTF (&filename_header_value, cmsg_filename_header_format,
-                               file_name ? file_name : "unknown");
-
-#define NUM_FILE_HEADERS 2
-
-    header_array = CMSG_PROXY_CALLOC (NUM_FILE_HEADERS, sizeof (cmsg_proxy_header));
-    headers = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_headers));
-    if (!header_array || !headers || ret < 0)
-    {
-        CMSG_PROXY_FREE (header_array);
-        CMSG_PROXY_FREE (headers);
-        CMSG_PROXY_FREE (filename_header_value);
-        free (output->response_body);
-        output->response_body = NULL;
-        output->response_length = 0;
-        return false;
-    }
-
-    // header("Content-Disposition: attachment; filename=\"$file_name\"");
-    // header("Content-Transfer-Encoding: binary");
-
-    header_array[0].key = cmsg_content_disposition_key;
-    header_array[0].value = filename_header_value;
-    header_array[1].key = cmsg_content_encoding_key;
-    header_array[1].value = CMSG_PROXY_STRDUP (cmsg_binary_encoding);
-    headers->headers = header_array;
-    headers->num_headers = NUM_FILE_HEADERS;
-    output->extra_headers = headers;
-
-    return true;
 }
 
 /**
@@ -265,11 +163,6 @@ cmsg_proxy_generate_response_body (ProtobufCMessage *output_proto_message,
         {
             // If the message provides a '_body' override, simply return that.
             return cmsg_proxy_generate_plaintext_response (output_proto_message, output);
-        }
-        else if (cmsg_proxy_msg_has_file (output_proto_message->descriptor))
-        {
-            // If the message contains a file, return the contents of the file.
-            return cmsg_proxy_generate_file_response (output_proto_message, output);
         }
     }
 

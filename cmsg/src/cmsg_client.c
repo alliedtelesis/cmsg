@@ -45,6 +45,8 @@ static int32_t cmsg_client_queue_input (cmsg_client *client, uint32_t method_ind
 
 static void _cmsg_client_destroy (cmsg_client *client);
 
+static void cmsg_client_close_wrapper (cmsg_transport *transport);
+
 static void
 cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
 {
@@ -134,6 +136,12 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
     if (pthread_mutex_init (&client->invoke_mutex, NULL) != 0)
     {
         CMSG_LOG_CLIENT_ERROR (client, "Init failed for invoke_mutex.");
+        return false;
+    }
+
+    if (pthread_mutex_init (&client->send_mutex, NULL) != 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Init failed for send_mutex.");
         return false;
     }
 
@@ -232,7 +240,6 @@ cmsg_client_deinit (cmsg_client *client)
     if (client->_transport)
     {
         cmsg_client_close_wrapper (client->_transport);
-        client->_transport->tport_funcs.client_destroy (client->_transport);
     }
 
     if (client->loopback_server)
@@ -242,6 +249,7 @@ cmsg_client_deinit (cmsg_client *client)
     }
 
     pthread_mutex_destroy (&client->invoke_mutex);
+    pthread_mutex_destroy (&client->send_mutex);
 }
 
 static void
@@ -358,7 +366,7 @@ _cmsg_client_connect (cmsg_client *client, int timeout)
         else
         {
             client->state = CMSG_CLIENT_STATE_CONNECTED;
-            sock = client->_transport->connection.sockets.client_socket;
+            sock = client->_transport->socket;
 
             if (client->send_timeout > 0)
             {
@@ -433,8 +441,7 @@ cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout)
     /* If the client is already connected, then apply the new timeout immediately */
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        _cmsg_client_apply_send_timeout (client->_transport->connection.
-                                         sockets.client_socket, client->send_timeout);
+        _cmsg_client_apply_send_timeout (client->_transport->socket, client->send_timeout);
     }
 
     return 0;
@@ -501,8 +508,8 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
     /* If the client is already connected, then apply the new timeout immediately */
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        _cmsg_client_apply_receive_timeout (client->_transport->connection.
-                                            sockets.client_socket, client->receive_timeout);
+        _cmsg_client_apply_receive_timeout (client->_transport->socket,
+                                            client->receive_timeout);
     }
 
     /* Store the timeout in the transport so client receive can timeout properly */
@@ -899,7 +906,7 @@ cmsg_client_get_socket (cmsg_client *client)
 
     if (client->state == CMSG_CLIENT_STATE_CONNECTED)
     {
-        sock = client->_transport->tport_funcs.c_socket (client->_transport);
+        sock = client->_transport->tport_funcs.get_socket (client->_transport);
     }
     else
     {
@@ -946,7 +953,7 @@ cmsg_client_send_echo_request (cmsg_client *client)
     }
 
     // return socket to listen on
-    return client->_transport->tport_funcs.c_socket (client->_transport);
+    return client->_transport->tport_funcs.get_socket (client->_transport);
 }
 
 
@@ -1136,12 +1143,12 @@ cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
-    pthread_mutex_lock (&client->_transport->connection_mutex);
+    pthread_mutex_lock (&client->send_mutex);
 
     ret = _cmsg_client_buffer_send_retry_once (client, queue_buffer,
                                                queue_buffer_size, method_name);
 
-    pthread_mutex_unlock (&client->_transport->connection_mutex);
+    pthread_mutex_unlock (&client->send_mutex);
 
     return ret;
 }
@@ -1232,9 +1239,9 @@ cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
 
     for (c = 0; c <= max_tries; c++)
     {
-        pthread_mutex_lock (&client->_transport->connection_mutex);
+        pthread_mutex_lock (&client->send_mutex);
         int ret = _cmsg_client_buffer_send (client, queue_buffer, queue_buffer_size);
-        pthread_mutex_unlock (&client->_transport->connection_mutex);
+        pthread_mutex_unlock (&client->send_mutex);
 
         if (ret == CMSG_RET_OK)
         {
@@ -1449,16 +1456,17 @@ cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor)
     return ret;
 }
 
-/* Create a cmsg client and its transport over a TCP socket */
-static cmsg_client *
-_cmsg_create_client_tcp (cmsg_socket *config, const ProtobufCServiceDescriptor *descriptor,
-                         cmsg_transport_type transport_type)
+cmsg_client *
+cmsg_create_client_tcp_rpc (cmsg_socket *config,
+                            const ProtobufCServiceDescriptor *descriptor)
 {
     cmsg_transport *transport;
     cmsg_client *client;
 
-    transport = cmsg_create_transport_tcp (config, transport_type);
+    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
+    transport = cmsg_create_transport_tcp (config, CMSG_TRANSPORT_RPC_TCP);
     if (!transport)
     {
         return NULL;
@@ -1473,26 +1481,6 @@ _cmsg_create_client_tcp (cmsg_socket *config, const ProtobufCServiceDescriptor *
     }
 
     return client;
-}
-
-cmsg_client *
-cmsg_create_client_tcp_rpc (cmsg_socket *config,
-                            const ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_client_tcp (config, descriptor, CMSG_TRANSPORT_RPC_TCP);
-}
-
-cmsg_client *
-cmsg_create_client_tcp_oneway (cmsg_socket *config,
-                               const ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_client_tcp (config, descriptor, CMSG_TRANSPORT_ONEWAY_TCP);
 }
 
 /**
@@ -1553,10 +1541,10 @@ cmsg_create_client_loopback (ProtobufCService *service)
  * NOTE user applications should not call this routine directly
  *
  */
-void
+static void
 cmsg_client_close_wrapper (cmsg_transport *transport)
 {
-    transport->tport_funcs.client_close (transport);
+    transport->tport_funcs.socket_close (transport);
 }
 
 /**
@@ -1576,4 +1564,75 @@ cmsg_destroy_client_and_transport (cmsg_client *client)
 
         cmsg_transport_destroy (transport);
     }
+}
+
+/**
+ * Helper function for creating a CMSG client using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to connect to.
+ * @param descriptor - The CMSG service descriptor for the service.
+ * @param oneway - Whether to make a one-way client, or a two-way (RPC) client.
+ */
+static cmsg_client *
+_cmsg_create_client_tcp_ipv4 (const char *service_name, struct in_addr *addr,
+                              const ProtobufCServiceDescriptor *descriptor, bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_client *client;
+
+    transport = cmsg_create_transport_tcp_ipv4 (service_name, addr, oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    client = cmsg_client_new (transport, descriptor);
+    if (!client)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No TCP IPC client on %s", descriptor->name);
+        return NULL;
+    }
+
+    return client;
+}
+
+/**
+ * Create a RPC (two-way) CMSG client using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to connect to.
+ * @param descriptor - The CMSG service descriptor for the service.
+ */
+cmsg_client *
+cmsg_create_client_tcp_ipv4_rpc (const char *service_name, struct in_addr *addr,
+                                 const ProtobufCServiceDescriptor *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_client_tcp_ipv4 (service_name, addr, descriptor, false);
+}
+
+/**
+ * Create a oneway CMSG client using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to connect to.
+ * @param descriptor - The CMSG service descriptor for the service.
+ */
+cmsg_client *
+cmsg_create_client_tcp_ipv4_oneway (const char *service_name, struct in_addr *addr,
+                                    const ProtobufCServiceDescriptor *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_client_tcp_ipv4 (service_name, addr, descriptor, true);
 }
