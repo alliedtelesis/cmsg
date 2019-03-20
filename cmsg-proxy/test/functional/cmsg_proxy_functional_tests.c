@@ -72,7 +72,8 @@ static void
 stream_file_data_response_send (cmsg_proxy_stream_response_data *data)
 {
     NP_ASSERT_PTR_EQUAL (data->connection, streamed_connection_ptr);
-    NP_ASSERT_TRUE (memcmp (data->data, expected_file_data, expected_file_data_length) == 0);
+    NP_ASSERT_TRUE (memcmp (data->data, expected_file_data, expected_file_data_length) ==
+                    0);
 
     cmsg_proxy_streaming_free_stream_response_data (data);
 
@@ -1628,10 +1629,11 @@ test_http_file_streaming (void)
     cmsg_proxy_output output = { 0 };
 
     cmsg_proxy_header expected_headers[] = {
-        {.key = cmsg_content_type_key, .value = (char *) cmsg_mime_octet_stream},
-        {.key = cmsg_content_encoding_key, .value = (char *) cmsg_binary_encoding},
-        {.key = cmsg_content_disposition_key, .value = (char *) expected_content_disposition},
-        {.key = cmsg_content_length_key, .value = (char *) expected_content_length},
+        { .key = cmsg_content_type_key,.value = (char *) cmsg_mime_octet_stream },
+        { .key = cmsg_content_encoding_key,.value = (char *) cmsg_binary_encoding },
+        { .key = cmsg_content_disposition_key,.value =
+         (char *) expected_content_disposition },
+        { .key = cmsg_content_length_key,.value = (char *) expected_content_length },
     };
 
     expected_file_data = test_file_data;
