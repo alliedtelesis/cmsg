@@ -10,6 +10,7 @@
 #include <cmsg_pthread_helpers.h>
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
+#include "setup.h"
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it
@@ -58,6 +59,8 @@ set_up (void)
     signal (SIGPIPE, SIG_IGN);
 
     notification_received = false;
+
+    cmsg_service_listener_mock_functions ();
 
     return 0;
 }

@@ -189,7 +189,7 @@ cmsg_proxy_functional_tests_SOURCES = \
 	src/http_streaming.pb-c.h \
 	test/functional/cmsg_proxy_functional_tests.c
 cmsg_proxy_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
-cmsg_proxy_functional_tests_CPPFLAGS  = -I$(top_srcdir) -I$(top_srcdir)/cmsg-proxy -I$(top_srcdir)/cmsg-proxy/src
+cmsg_proxy_functional_tests_CPPFLAGS  = -I$(top_srcdir) -I$(top_srcdir)/cmsg-proxy -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/src
 cmsg_proxy_functional_tests_LDFLAGS = -static
 cmsg_proxy_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(GMEM_DIAG_LIBS) \
                                 -lcmsg -lprotobuf-c -lprotobuf2json-c \

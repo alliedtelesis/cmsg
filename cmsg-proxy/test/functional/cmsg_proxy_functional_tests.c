@@ -12,6 +12,7 @@
 #include "cmsg_proxy_functional_tests_api_auto.h"
 #include "cmsg_proxy_functional_tests_impl_auto.h"
 #include <http_streaming_api_auto.h>
+#include "service_listener/cmsg_service_listener_api_private.h"
 
 #define BINARY_TEST_DATA_LEN 8
 static const char *test_file_name = "test.file";
@@ -95,6 +96,18 @@ stream_headers_set (cmsg_proxy_stream_header_data *data)
     cmsg_proxy_streaming_free_stream_header_data (data);
 
     headers_set = true;
+}
+
+static void
+sm_mock_cmsg_service_listener_add_server (cmsg_server *server)
+{
+    /* Do nothing. */
+}
+
+void
+sm_mock_cmsg_service_listener_remove_server (cmsg_server *server)
+{
+    /* Do nothing. */
 }
 
 /**
@@ -693,6 +706,9 @@ set_up (void)
 {
     np_mock (cmsg_proxy_library_handles_load, sm_mock_cmsg_proxy_library_handles_load);
     np_mock (cmsg_create_client_unix, sm_mock_cmsg_create_client_unix);
+    np_mock (cmsg_service_listener_add_server, sm_mock_cmsg_service_listener_add_server);
+    np_mock (cmsg_service_listener_remove_server,
+             sm_mock_cmsg_service_listener_remove_server);
 
     expected_file_name = NULL;
     expected_file_data = NULL;
