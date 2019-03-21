@@ -9,6 +9,7 @@
 
 #include "configuration_api_auto.h"
 #include "cmsg_sl_config.h"
+#include "cmsg_server_private.h"
 
 /**
  * Configure the IP address of the server running in the service listener
@@ -111,14 +112,46 @@ cmsg_service_listener_unsubscribe (void)
     /* todo */
 }
 
+/**
+ * Tell the service listener daemon that a server implementing a specific service
+ * is now running.
+ *
+ * @param server - The newly created server.
+ */
 void
 cmsg_service_listener_add_server (cmsg_server *server)
 {
-    /* todo */
+    cmsg_client *client = NULL;
+    cmsg_service_info *send_msg = NULL;
+
+    send_msg = cmsg_server_service_info_create (server);
+    if (send_msg)
+    {
+        client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR_NOPACKAGE (configuration));
+        configuration_api_add_server (client, send_msg);
+        cmsg_destroy_client_and_transport (client);
+        cmsg_server_service_info_free (send_msg);
+    }
 }
 
+/**
+ * Tell the service listener daemon that a server implementing a specific service
+ * is no longer running.
+ *
+ * @param server - The server that is being deleted.
+ */
 void
 cmsg_service_listener_remove_server (cmsg_server *server)
 {
-    /* todo */
+    cmsg_client *client = NULL;
+    cmsg_service_info *send_msg = NULL;
+
+    send_msg = cmsg_server_service_info_create (server);
+    if (send_msg)
+    {
+        client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR_NOPACKAGE (configuration));
+        configuration_api_remove_server (client, send_msg);
+        cmsg_destroy_client_and_transport (client);
+        cmsg_server_service_info_free (send_msg);
+    }
 }

@@ -6,6 +6,8 @@
 #include "cmsg_server.h"
 #include "cmsg_error.h"
 #include "cmsg_transport.h"
+#include "transport/cmsg_transport_private.h"
+#include "service_listener/cmsg_sl_api_private.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
@@ -165,6 +167,8 @@ cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
     cmsg_server *server;
     server = cmsg_server_create (transport, service);
 
+    cmsg_service_listener_add_server (server);
+
 #ifdef HAVE_COUNTERD
     char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
@@ -192,6 +196,8 @@ cmsg_server_destroy (cmsg_server *server)
     int fd;
 
     CMSG_ASSERT_RETURN_VOID (server != NULL);
+
+    cmsg_service_listener_remove_server (server);
 
     // Close accepted sockets before destroying server
     for (fd = 0; fd <= server->accepted_fdmax; fd++)
@@ -2031,4 +2037,61 @@ cmsg_server_accept_thread_deinit (cmsg_server_accept_thread_info *info)
         g_async_queue_unref (info->accept_sd_queue);
         CMSG_FREE (info);
     }
+}
+
+/**
+ * Create a 'cmsg_service_info' message for the given CMSG server.
+ * This message should be freed using 'cmsg_server_service_info_free'.
+ *
+ * @param server - The server to build the message for.
+ *
+ * @returns A pointer to the message on success, NULL on failure.
+ */
+cmsg_service_info *
+cmsg_server_service_info_create (cmsg_server *server)
+{
+    cmsg_service_info *info = NULL;
+    cmsg_transport_info *transport_info = NULL;
+    char *service_str = NULL;
+
+    service_str = CMSG_STRDUP (cmsg_service_name_get (server->service->descriptor));
+    if (!service_str)
+    {
+        return NULL;
+    }
+
+    transport_info = cmsg_transport_info_create (server->_transport);
+    if (!transport_info)
+    {
+        CMSG_FREE (service_str);
+        return NULL;
+    }
+
+    info = CMSG_MALLOC (sizeof (cmsg_service_info));
+    if (!info)
+    {
+        CMSG_FREE (service_str);
+        cmsg_transport_info_free (transport_info);
+        return NULL;
+    }
+
+    cmsg_service_info_init (info);
+    CMSG_SET_FIELD_PTR (info, server_info, transport_info);
+    CMSG_SET_FIELD_PTR (info, service, service_str);
+
+    return info;
+}
+
+/**
+ * Free a 'cmsg_service_info' message created by a call to
+ * 'cmsg_server_service_info_create'.
+ *
+ * @param info - The message to free.
+ */
+void
+cmsg_server_service_info_free (cmsg_service_info *info)
+{
+    CMSG_FREE (info->service);
+    cmsg_transport_info_free (info->server_info);
+    CMSG_FREE (info);
 }

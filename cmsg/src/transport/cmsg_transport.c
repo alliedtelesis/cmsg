@@ -692,3 +692,171 @@ cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
 
     return false;
 }
+
+/**
+ * Create a 'cmsg_tcp_transport_info' message for the given tcp transport.
+ *
+ * @param transport - The tcp transport to build the message for.
+ *
+ * @returns A pointer to the message on success, NULL on failure.
+ */
+cmsg_tcp_transport_info *
+cmsg_transport_tcp_info_create (cmsg_transport *transport)
+{
+    cmsg_tcp_transport_info *tcp_info = NULL;
+    bool ipv4;
+    void *addr;
+    uint32_t addr_len;
+    uint16_t port;
+
+    tcp_info = CMSG_MALLOC (sizeof (cmsg_tcp_transport_info));
+    if (!tcp_info)
+    {
+        return NULL;
+    }
+
+    cmsg_tcp_transport_info_init (tcp_info);
+
+    ipv4 = (transport->config.socket.family != PF_INET6);
+    if (ipv4)
+    {
+        addr = (void *) &transport->config.socket.sockaddr.in.sin_addr.s_addr;
+        addr_len = sizeof (transport->config.socket.sockaddr.in.sin_addr.s_addr);
+        port = transport->config.socket.sockaddr.in.sin_port;
+    }
+    else
+    {
+        addr = (void *) &transport->config.socket.sockaddr.in6.sin6_addr.s6_addr;
+        addr_len = sizeof (transport->config.socket.sockaddr.in6.sin6_addr.s6_addr);
+        port = transport->config.socket.sockaddr.in6.sin6_port;
+    }
+
+    CMSG_SET_FIELD_VALUE (tcp_info, ipv4, ipv4);
+    CMSG_SET_FIELD_BYTES (tcp_info, addr, addr, addr_len);
+    CMSG_SET_FIELD_VALUE (tcp_info, port, port);
+
+    return tcp_info;
+}
+
+/**
+ * Create a 'cmsg_unix_transport_info' message for the given unix transport.
+ *
+ * @param transport - The unix transport to build the message for.
+ *
+ * @returns A pointer to the message on success, NULL on failure.
+ */
+cmsg_unix_transport_info *
+cmsg_transport_unix_info_create (cmsg_transport *transport)
+{
+    cmsg_unix_transport_info *unix_info = NULL;
+    char *unix_path = NULL;
+
+    unix_path = CMSG_STRDUP (transport->config.socket.sockaddr.un.sun_path);
+    if (!unix_path)
+    {
+        return NULL;
+    }
+
+    unix_info = CMSG_MALLOC (sizeof (cmsg_unix_transport_info));
+    if (!unix_info)
+    {
+        CMSG_FREE (unix_path);
+        return NULL;
+    }
+    cmsg_unix_transport_info_init (unix_info);
+
+    CMSG_SET_FIELD_PTR (unix_info, path, unix_path);
+
+    return unix_info;
+}
+
+/**
+ * Create a 'cmsg_transport_info' message for the given transport.
+ *
+ * @param transport - The transport to build the message for.
+ *
+ * @returns A pointer to the message on success, NULL on failure.
+ *          This message should be freed using 'cmsg_transport_info_free'.
+ */
+cmsg_transport_info *
+cmsg_transport_info_create (cmsg_transport *transport)
+{
+    cmsg_transport_info *transport_info = NULL;
+    cmsg_tcp_transport_info *tcp_info = NULL;
+    cmsg_unix_transport_info *unix_info = NULL;
+
+    if (transport->type != CMSG_TRANSPORT_RPC_TCP &&
+        transport->type != CMSG_TRANSPORT_RPC_UNIX &&
+        transport->type != CMSG_TRANSPORT_ONEWAY_UNIX &&
+        transport->type != CMSG_TRANSPORT_ONEWAY_TCP)
+    {
+        return NULL;
+    }
+
+    transport_info = CMSG_MALLOC (sizeof (cmsg_transport_info));
+    if (!transport_info)
+    {
+        return NULL;
+    }
+    cmsg_transport_info_init (transport_info);
+
+    if (transport->type == CMSG_TRANSPORT_RPC_TCP ||
+        transport->type == CMSG_TRANSPORT_ONEWAY_TCP)
+    {
+        tcp_info = cmsg_transport_tcp_info_create (transport);
+        if (tcp_info)
+        {
+            CMSG_SET_FIELD_VALUE (transport_info, type, CMSG_TRANSPORT_INFO_TYPE_TCP);
+            CMSG_SET_FIELD_VALUE (transport_info, one_way,
+                                  transport->type == CMSG_TRANSPORT_ONEWAY_TCP);
+            CMSG_SET_FIELD_ONEOF (transport_info, tcp_info, tcp_info,
+                                  data, CMSG_TRANSPORT_INFO_DATA_TCP_INFO);
+        }
+        else
+        {
+            CMSG_FREE (transport_info);
+            transport_info = NULL;
+        }
+    }
+    else if (transport->type == CMSG_TRANSPORT_RPC_UNIX ||
+             transport->type == CMSG_TRANSPORT_ONEWAY_UNIX)
+    {
+        unix_info = cmsg_transport_unix_info_create (transport);
+        if (unix_info)
+        {
+            CMSG_SET_FIELD_VALUE (transport_info, type, CMSG_TRANSPORT_INFO_TYPE_UNIX);
+            CMSG_SET_FIELD_VALUE (transport_info, one_way,
+                                  transport->type == CMSG_TRANSPORT_ONEWAY_UNIX);
+            CMSG_SET_FIELD_ONEOF (transport_info, unix_info, unix_info,
+                                  data, CMSG_TRANSPORT_INFO_DATA_UNIX_INFO);
+        }
+        else
+        {
+            CMSG_FREE (transport_info);
+            transport_info = NULL;
+        }
+    }
+
+    return transport_info;
+}
+
+/**
+ * Free a 'cmsg_transport_info' message created by a call to
+ * 'cmsg_transport_info_create'.
+ *
+ * @param info - The message to free.
+ */
+void
+cmsg_transport_info_free (cmsg_transport_info *transport_info)
+{
+    if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_UNIX)
+    {
+        CMSG_FREE (transport_info->unix_info->path);
+        CMSG_FREE (transport_info->unix_info);
+    }
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    {
+        CMSG_FREE (transport_info->tcp_info);
+    }
+    CMSG_FREE (transport_info);
+}

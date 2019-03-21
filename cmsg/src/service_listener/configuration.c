@@ -9,6 +9,7 @@
 #include <cmsg/cmsg_glib_helpers.h>
 #include "configuration_impl_auto.h"
 #include "remote_sync.h"
+#include "cmsg_server_private.h"
 
 static cmsg_server *server = NULL;
 static cmsg_server_accept_thread_info *info = NULL;
@@ -75,7 +76,8 @@ configuration_impl_unsubscribe (const void *service, const subscription_info *re
 }
 
 /**
- * todo
+ * Tell the service listener daemon that a server implementing a specific service
+ * is now running.
  */
 void
 configuration_impl_add_server (const void *service, const cmsg_service_info *recv_msg)
@@ -84,7 +86,8 @@ configuration_impl_add_server (const void *service, const cmsg_service_info *rec
 }
 
 /**
- * todo
+ * Tell the service listener daemon that a server implementing a specific service
+ * is no longer running.
  */
 void
 configuration_impl_remove_server (const void *service, const cmsg_service_info *recv_msg)
@@ -98,7 +101,20 @@ configuration_impl_remove_server (const void *service, const cmsg_service_info *
 void
 configuration_server_init (void)
 {
-    server = cmsg_create_server_unix_oneway (CMSG_SERVICE_NOPACKAGE (configuration));
+    cmsg_transport *transport = NULL;
+
+    transport = cmsg_create_transport_unix (CMSG_DESCRIPTOR_NOPACKAGE (configuration),
+                                            CMSG_TRANSPORT_ONEWAY_UNIX);
+    if (transport == NULL)
+    {
+        syslog (LOG_ERR, "Failed to initialize configuration server");
+        return;
+    }
+
+    /* Use 'cmsg_server_create' directly, rather than 'cmsg_server_new' to avoid
+     * calling the function for sending the service information to the service listener
+     * daemon which would deadlock. */
+    server = cmsg_server_create (transport, CMSG_SERVICE_NOPACKAGE (configuration));
     if (!server)
     {
         syslog (LOG_ERR, "Failed to initialize configuration server");
