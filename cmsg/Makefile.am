@@ -31,6 +31,15 @@ src/service_listener/remote_sync.pb-c.c \
 src/service_listener/remote_sync.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/service_listener/remote_sync.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/remote_sync.proto
 
+src/service_listener/events_api_auto.c \
+src/service_listener/events_api_auto.h \
+src/service_listener/events_impl_auto.c \
+src/service_listener/events_impl_auto.h \
+src/service_listener/events_impl_types_auto.h \
+src/service_listener/events.pb-c.c \
+src/service_listener/events.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/service_listener/events.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/events.proto
+
 src/cmsg_sub_service.pb-c.c src/cmsg_sub_service.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/cmsg_sub_service.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/cmsg_sub_service.proto
 
@@ -64,7 +73,9 @@ libcmsg_la_SOURCES = \
 	src/cmsg_pthread_helpers.c \
 	src/service_listener/cmsg_sl_api.c \
 	src/service_listener/configuration_api_auto.c \
-	src/service_listener/configuration.pb-c.c
+	src/service_listener/configuration.pb-c.c \
+	src/service_listener/events_impl_auto.c \
+	src/service_listener/events.pb-c.c
 
 libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c
 
@@ -126,7 +137,9 @@ cmsg_sld_SOURCES = \
 	src/service_listener/configuration.pb-c.c \
 	src/service_listener/remote_sync_api_auto.c \
 	src/service_listener/remote_sync_impl_auto.c \
-	src/service_listener/remote_sync.pb-c.c
+	src/service_listener/remote_sync.pb-c.c \
+	src/service_listener/events_api_auto.c \
+	src/service_listener/events.pb-c.c
 cmsg_sld_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c
 cmsg_sld_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
 cmsg_sld_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
