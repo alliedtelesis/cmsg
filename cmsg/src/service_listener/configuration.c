@@ -10,6 +10,7 @@
 #include "configuration_impl_auto.h"
 #include "remote_sync.h"
 #include "cmsg_server_private.h"
+#include "data.h"
 
 static cmsg_server *server = NULL;
 static cmsg_server_accept_thread_info *info = NULL;
@@ -93,6 +94,7 @@ configuration_impl_add_server (const void *service, const cmsg_service_info *rec
 
     /* We hold onto the message to store in the data hash table */
     cmsg_server_app_owns_current_msg_set (server);
+    data_add_server (recv_msg);
 
     configuration_server_add_serverSend (service);
 }
@@ -110,6 +112,8 @@ configuration_impl_remove_server (const void *service, const cmsg_service_info *
         configuration_server_add_serverSend (service);
         return;
     }
+
+    data_remove_server (recv_msg);
 
     configuration_server_remove_serverSend (service);
 }
