@@ -105,7 +105,33 @@ libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg_pthread_helpers.h \
 	include/cmsg/cmsg_sl_config.h
 
-BUILT_SOURCES = src/cmsg_sub_service.pb-c.c src/cmsg_sub_service.pb-c.h
+BUILT_SOURCES =  \
+	src/cmsg_api_auto.c \
+	src/cmsg_api_auto.h \
+	src/cmsg_impl_auto.c \
+	src/cmsg_impl_auto.h \
+	src/cmsg.pb-c.c \
+	src/cmsg.pb-c.h \
+	src/service_listener/configuration_api_auto.c \
+	src/service_listener/configuration_api_auto.h \
+	src/service_listener/configuration_impl_auto.c \
+	src/service_listener/configuration_impl_auto.h \
+	src/service_listener/configuration.pb-c.c \
+	src/service_listener/configuration.pb-c.h \
+	src/service_listener/remote_sync_api_auto.c \
+	src/service_listener/remote_sync_api_auto.h \
+	src/service_listener/remote_sync_impl_auto.c \
+	src/service_listener/remote_sync_impl_auto.h \
+	src/service_listener/remote_sync.pb-c.c \
+	src/service_listener/remote_sync.pb-c.h \
+	src/service_listener/events_api_auto.c \
+	src/service_listener/events_api_auto.h \
+	src/service_listener/events_impl_auto.c \
+	src/service_listener/events_impl_auto.h \
+	src/service_listener/events.pb-c.c \
+	src/service_listener/events.pb-c.h \
+	src/cmsg_sub_service.pb-c.c \
+	src/cmsg_sub_service.pb-c.h
 
 if BUILD_UNITTEST
 BUILT_SOURCES += \
