@@ -7,6 +7,10 @@
 #ifndef __REMOTE_SYNC_H_
 #define __REMOTE_SYNC_H_
 
+#include <stdio.h>
+#include <netinet/in.h>
+
+void remote_sync_debug_dump (FILE *fp);
 void remote_sync_address_set (struct in_addr addr);
 void remote_sync_add_host (struct in_addr addr);
 void remote_sync_delete_host (struct in_addr addr);

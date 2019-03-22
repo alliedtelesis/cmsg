@@ -7,9 +7,11 @@
  * Copyright 2019, Allied Telesis Labs New Zealand, Ltd
  */
 
+#include <arpa/inet.h>
 #include <cmsg/cmsg_glib_helpers.h>
 #include <cmsg/cmsg_composite_client.h>
 #include "remote_sync_impl_auto.h"
+#include "remote_sync.h"
 
 static cmsg_server *server = NULL;
 static cmsg_server_accept_thread_info *info = NULL;
@@ -103,4 +105,72 @@ remote_sync_delete_host (struct in_addr addr)
 {
     /* todo, remove all services for given host */
     /* todo, remove client from composite */
+}
+
+/**
+ * Prints the IP address used by the given TCP transport.
+ *
+ * @param fp - The file to print to.
+ * @param transport - The TCP transport to print the IP address for.
+ */
+static void
+remote_sync_debug_print_transport_ip (FILE *fp, cmsg_transport *transport)
+{
+    char ip[INET6_ADDRSTRLEN] = { };
+    uint32_t addr;
+
+    addr = transport->config.socket.sockaddr.in.sin_addr.s_addr;
+    addr = ntohl (addr);
+    inet_ntop (AF_INET, &addr, ip, INET6_ADDRSTRLEN);
+
+    fprintf (fp, "%s", ip);
+}
+
+/**
+ * Helper function called for each client to a remote host. Prints the
+ * IP address of the remote host.
+ *
+ * @param data - The cmsg client.
+ * @param user_data - The file to print to.
+ */
+static void
+data_debug_server_dump (gpointer data, gpointer user_data)
+{
+    const cmsg_client *client = (const cmsg_client *) data;
+    FILE *fp = (FILE *) user_data;
+
+    remote_sync_debug_print_transport_ip (fp, client->_transport);
+    fprintf (fp, " ");
+}
+
+/**
+ * Dump the current information about all known hosts to the debug file.
+ *
+ * @param fp - The file to print to.
+ */
+void
+remote_sync_debug_dump (FILE *fp)
+{
+    GList *child_clients = NULL;
+
+    fprintf (fp, "Hosts:\n");
+    fprintf (fp, " local: ");
+    if (server)
+    {
+        remote_sync_debug_print_transport_ip (fp, server->_transport);
+    }
+    else
+    {
+        fprintf (fp, "none");
+    }
+    fprintf (fp, "\n");
+
+    fprintf (fp, " remote: ");
+    if (comp_client)
+    {
+        child_clients = cmsg_composite_client_get_children (comp_client);
+        g_list_foreach (child_clients, data_debug_server_dump, fp);
+    }
+
+    fprintf (fp, "\n");
 }

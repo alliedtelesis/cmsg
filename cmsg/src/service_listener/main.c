@@ -12,6 +12,29 @@
 #include <glib-unix.h>
 #include "configuration.h"
 #include "data.h"
+#include "remote_sync.h"
+
+#define DEBUG_FILE "/tmp/cmsg_sld_debug.txt"
+
+/**
+ * Handles SIGUSR1 indicating that the daemon should dump the current
+ * service information and state of the daemon to the debug file.
+ */
+static gboolean
+debug_handler (gpointer user_data)
+{
+    FILE *fp;
+    fp = fopen (DEBUG_FILE, "w");
+
+    if (fp != NULL)
+    {
+        remote_sync_debug_dump (fp);
+        data_debug_dump (fp);
+        fclose (fp);
+    }
+
+    return G_SOURCE_CONTINUE;
+}
 
 /**
  * Handles SIGTERM and SIGINT signals indicating that the CMSG service listener
@@ -62,6 +85,7 @@ main (int argc, char **argv)
 
     g_unix_signal_add (SIGTERM, shutdown_handler, loop);
     g_unix_signal_add (SIGINT, shutdown_handler, loop);
+    g_unix_signal_add (SIGUSR1, debug_handler, loop);
 
     /* Avoid exiting upon receiving an unintentional SIGPIPE */
     signal (SIGPIPE, SIG_IGN);

@@ -7,6 +7,7 @@
  * Copyright 2019, Allied Telesis Labs New Zealand, Ltd
  */
 
+#include <arpa/inet.h>
 #include <cmsg/cmsg_glib_helpers.h>
 #include "configuration_impl_auto.h"
 #include "events_api_auto.h"
@@ -274,4 +275,122 @@ data_init (void)
         syslog (LOG_ERR, "Failed to initialize hash table");
         return;
     }
+}
+
+/**
+ * Helper function called for each subscriber associated with a service. Prints the
+ * information about each individual subscriber for a service.
+ *
+ * @param data - The client connected to the subscriber.
+ * @param user_data - The file to print to.
+ */
+static void
+data_debug_subscriber_dump (gpointer data, gpointer user_data)
+{
+    FILE *fp = (FILE *) user_data;
+    const cmsg_client *client = (const cmsg_client *) data;
+
+    fprintf (fp, "   %s\n", client->_transport->config.socket.sockaddr.un.sun_path);
+}
+
+/**
+ * Print the information about a UNIX transport.
+ *
+ * @param fp - The file to print to.
+ * @param transport_info - The 'cmsg_transport_info' structure for the transport.
+ * @param oneway_str - String to print for the oneway/rpc nature of the transport.
+ */
+static void
+data_debug_unix_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
+                             const char *oneway_str)
+{
+
+    fprintf (fp, "   (unix, %s) path = %s\n", oneway_str, transport_info->unix_info->path);
+}
+
+/**
+ * Print the information about a TCP transport.
+ *
+ * @param fp - The file to print to.
+ * @param transport_info - The 'cmsg_transport_info' structure for the transport.
+ * @param oneway_str - String to print for the oneway/rpc nature of the transport.
+ */
+static void
+data_debug_tcp_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
+                            const char *oneway_str)
+{
+    cmsg_tcp_transport_info *tcp_info = transport_info->tcp_info;
+    char ip[INET6_ADDRSTRLEN] = { };
+    uint16_t port;
+
+    port = tcp_info->port;
+
+    if (tcp_info->ipv4)
+    {
+        inet_ntop (AF_INET, tcp_info->addr.data, ip, INET6_ADDRSTRLEN);
+    }
+    else
+    {
+        inet_ntop (AF_INET6, tcp_info->addr.data, ip, INET6_ADDRSTRLEN);
+    }
+
+    fprintf (fp, "   (tcp, %s) %s:%u\n", oneway_str, ip, port);
+}
+
+/**
+ * Helper function called for each server associated with a service. Prints the
+ * information about each individual server for a service.
+ *
+ * @param data - The 'cmsg_service_info' structure for the server.
+ * @param user_data - The file to print to.
+ */
+static void
+data_debug_server_dump (gpointer data, gpointer user_data)
+{
+    FILE *fp = (FILE *) user_data;
+    const cmsg_service_info *service_info = (const cmsg_service_info *) data;
+    const cmsg_transport_info *transport_info = service_info->server_info;
+    const char *oneway_str = (transport_info->one_way ? "one-way" : "rpc");
+
+    if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_UNIX)
+    {
+        data_debug_unix_server_dump (fp, transport_info, oneway_str);
+    }
+    else
+    {
+        data_debug_tcp_server_dump (fp, transport_info, oneway_str);
+    }
+}
+
+/**
+ * Helper function called for each entry in the hash table. Prints the
+ * information about each individual service.
+ *
+ * @param key - The key from the hash table (service name)
+ * @param value - The value associated with the key (service_data_entry structure)
+ * @param user_data - The file to print to.
+ */
+static void
+_data_debug_dump (gpointer key, gpointer value, gpointer user_data)
+{
+    FILE *fp = (FILE *) user_data;
+    service_data_entry *entry = (service_data_entry *) value;
+
+    fprintf (fp, " service: %s\n", (char *) key);
+    fprintf (fp, "  servers:\n");
+    g_list_foreach (entry->servers, data_debug_server_dump, fp);
+    fprintf (fp, "  subscribers:\n");
+    g_list_foreach (entry->subscribers, data_debug_subscriber_dump, fp);
+}
+
+/**
+ * Dump the current information about all known services to the debug file.
+ *
+ * @param fp - The file to print to.
+ */
+void
+data_debug_dump (FILE *fp)
+{
+    fprintf (fp, "Services:\n");
+    g_hash_table_foreach (hash_table, _data_debug_dump, fp);
 }
