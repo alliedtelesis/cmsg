@@ -75,6 +75,28 @@ events_impl_server_removed (const void *service, const cmsg_service_info *recv_m
 }
 
 /**
+ * Initialise the server for receiving events from the service listener.
+ */
+static void
+event_server_init (void)
+{
+    cmsg_transport *transport = NULL;
+
+    if (!event_server)
+    {
+        transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
+        transport->config.socket.family = AF_UNIX;
+        transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
+        snprintf (transport->config.socket.sockaddr.un.sun_path,
+                  sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
+                  "/tmp/%s.%u", cmsg_service_name_get (CMSG_DESCRIPTOR_NOPACKAGE (events)),
+                  getpid ());
+
+        event_server = cmsg_server_new (transport, CMSG_SERVICE_NOPACKAGE (events));
+    }
+}
+
+/**
  * Helper function for calling the API to the CMSG service listener
  * to add/remove a subscription for a given service.
  *
@@ -88,10 +110,7 @@ _cmsg_service_listener_subscribe (const char *service_name, bool subscribe)
     subscription_info send_msg = SUBSCRIPTION_INFO_INIT;
     cmsg_transport_info *transport_info = NULL;
 
-    if (!event_server)
-    {
-        event_server = cmsg_create_server_unix_oneway (CMSG_SERVICE_NOPACKAGE (events));
-    }
+    event_server_init ();
 
     transport_info = cmsg_transport_info_create (event_server->_transport);
 
@@ -187,10 +206,7 @@ cmsg_service_listener_unsubscribe (const char *service_name)
 cmsg_server *
 cmsg_service_listener_subscription_server_get (void)
 {
-    if (!event_server)
-    {
-        event_server = cmsg_create_server_unix_oneway (CMSG_SERVICE_NOPACKAGE (events));
-    }
+    event_server_init ();
 
     return event_server;
 }

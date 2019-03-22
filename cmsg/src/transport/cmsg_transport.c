@@ -860,3 +860,72 @@ cmsg_transport_info_free (cmsg_transport_info *transport_info)
     }
     CMSG_FREE (transport_info);
 }
+
+/**
+ * Create a 'cmsg_transport' structure based on the input 'cmsg_transport_info'
+ * message.
+ *
+ * @param transport_info - The 'cmsg_transport_info' message to build the transport
+ *                         for.
+ *
+ * @returns A pointer to the transport on success, NULL on failure.
+ */
+cmsg_transport *
+cmsg_transport_info_to_transport (cmsg_transport_info *transport_info)
+{
+    cmsg_transport *transport = NULL;
+
+    if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_UNIX)
+    {
+        if (transport_info->one_way)
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
+        }
+        else
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_UNIX);
+        }
+
+        transport->config.socket.family = AF_UNIX;
+        transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
+        snprintf (transport->config.socket.sockaddr.un.sun_path,
+                  sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
+                  transport_info->unix_info->path);
+    }
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    {
+        uint16_t port = transport_info->tcp_info->port;
+        uint8_t *addr = transport_info->tcp_info->addr.data;
+        uint32_t addr_len = transport_info->tcp_info->addr.len;
+
+        if (transport_info->one_way)
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_TCP);
+        }
+        else
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
+        }
+
+        if (transport_info->tcp_info->ipv4)
+        {
+            transport->config.socket.family = PF_INET;
+            transport->config.socket.sockaddr.generic.sa_family = PF_INET;
+            transport->config.socket.sockaddr.in.sin_family = AF_INET;
+            transport->config.socket.sockaddr.in.sin_port = port;
+            memcpy (&transport->config.socket.sockaddr.in.sin_addr.s_addr, addr, addr_len);
+        }
+        else
+        {
+            transport->config.socket.family = PF_INET6;
+            transport->config.socket.sockaddr.generic.sa_family = PF_INET6;
+            transport->config.socket.sockaddr.in6.sin6_port = port;
+            memcpy (&transport->config.socket.sockaddr.in6.sin6_addr.s6_addr, addr,
+                    addr_len);
+        }
+
+        cmsg_transport_ipfree_bind_enable (transport, true);
+    }
+
+    return transport;
+}

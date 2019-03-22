@@ -9,7 +9,9 @@
 
 #include <cmsg/cmsg_glib_helpers.h>
 #include "configuration_impl_auto.h"
+#include "events_api_auto.h"
 #include "remote_sync.h"
+#include "transport/cmsg_transport_private.h"
 
 typedef struct _service_data_entry_s
 {
@@ -18,6 +20,79 @@ typedef struct _service_data_entry_s
 } service_data_entry;
 
 static GHashTable *hash_table = NULL;
+
+/**
+ * Gets the 'service_data_entry' structure for the given service name
+ * or creates one if it doesn't already exist.
+ *
+ * @param service - The name of the service.
+ *
+ * @returns A pointer to the related 'service_data_entry' structure.
+ */
+static service_data_entry *
+get_service_entry_or_create (const char *service)
+{
+    service_data_entry *entry = NULL;
+
+    entry = (service_data_entry *) g_hash_table_lookup (hash_table, service);
+    if (!entry)
+    {
+        entry = CMSG_CALLOC (1, sizeof (service_data_entry));
+        g_hash_table_insert (hash_table, (char *) service, entry);
+    }
+
+    return entry;
+}
+
+/**
+ * Notify all subscribers of a given service about a server that has been added
+ * or removed for that service.
+ *
+ * @param server_info - The information about the server that has been added/removed.
+ * @param entry - The 'service_data_entry' containing the list of subscribers.
+ * @param adeded - Whether the server has been added or removed.
+ */
+static void
+notify_subscribers (const cmsg_service_info *server_info, service_data_entry *entry,
+                    bool added)
+{
+    GList *list = NULL;
+    GList *list_next = NULL;
+    cmsg_client *client = NULL;
+    GList *removal_list = NULL;
+    int ret;
+
+    for (list = g_list_first (entry->subscribers); list; list = list_next)
+    {
+        client = (cmsg_client *) list->data;
+        list_next = g_list_next (list);
+
+        if (added)
+        {
+            ret = events_api_server_added (client, server_info);
+        }
+        else
+        {
+            ret = events_api_server_added (client, server_info);
+        }
+
+        if (ret != CMSG_RET_OK)
+        {
+            removal_list = g_list_append (removal_list, client);
+        }
+    }
+
+    /* Remove any clients that we failed to send events to */
+    for (list = g_list_first (removal_list); list; list = list_next)
+    {
+        client = (cmsg_client *) list->data;
+        list_next = g_list_next (list);
+
+        entry->subscribers = g_list_remove (entry->subscribers, client);
+        cmsg_destroy_client_and_transport (client);
+    }
+    g_list_free (removal_list);
+}
 
 /**
  * Add a newly created server to the database of servers running
@@ -30,19 +105,10 @@ data_add_server (const cmsg_service_info *server_info)
 {
     service_data_entry *entry = NULL;
 
-    entry = (service_data_entry *) g_hash_table_lookup (hash_table, server_info->service);
-    if (entry)
-    {
-        entry->servers = g_list_append (entry->servers, (gpointer) server_info);
-    }
-    else
-    {
-        entry = CMSG_CALLOC (1, sizeof (service_data_entry));
-        entry->servers = g_list_append (entry->servers, (gpointer) server_info);
-        g_hash_table_insert (hash_table, server_info->service, entry);
-    }
+    entry = get_service_entry_or_create (server_info->service);
+    entry->servers = g_list_append (entry->servers, (gpointer) server_info);
 
-    /* todo: notify subscribers */
+    notify_subscribers (server_info, entry, true);
     /* todo: remote sync */
 }
 
@@ -54,18 +120,14 @@ data_add_server (const cmsg_service_info *server_info)
  *
  * @returns true if they are equal, false otherwise.
  */
-static gint
-find_server (gconstpointer a, gconstpointer b)
+static bool
+cmsg_transport_info_compare (cmsg_transport_info *transport_info_a,
+                             cmsg_transport_info *transport_info_b)
 {
-    cmsg_service_info *service_a = (cmsg_service_info *) a;
-    cmsg_service_info *service_b = (cmsg_service_info *) b;
-    cmsg_transport_info *transport_info_a = service_a->server_info;
-    cmsg_transport_info *transport_info_b = service_b->server_info;
-
     if (transport_info_a->type != transport_info_b->type ||
         transport_info_a->one_way != transport_info_b->one_way)
     {
-        return -1;
+        return false;
     }
 
     if (transport_info_a->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
@@ -77,9 +139,9 @@ find_server (gconstpointer a, gconstpointer b)
             tcp_info_a->port == tcp_info_b->port &&
             !memcmp (tcp_info_a->addr.data, tcp_info_b->addr.data, tcp_info_a->addr.len))
         {
-            return 0;
+            return true;
         }
-        return -1;
+        return false;
     }
 
     if (transport_info_a->type == CMSG_TRANSPORT_INFO_TYPE_UNIX)
@@ -87,10 +149,28 @@ find_server (gconstpointer a, gconstpointer b)
         cmsg_unix_transport_info *unix_info_a = transport_info_a->unix_info;
         cmsg_unix_transport_info *unix_info_b = transport_info_b->unix_info;
 
-        return strcmp (unix_info_a->path, unix_info_b->path);
+        return (strcmp (unix_info_a->path, unix_info_b->path) == 0);
     }
 
-    return -1;
+    return false;
+}
+
+/**
+ * Helper function used with 'g_list_foreach'. Compares to server entries
+ * for a service for equality.
+ */
+static gint
+find_server (gconstpointer a, gconstpointer b)
+{
+    cmsg_service_info *service_a = (cmsg_service_info *) a;
+    cmsg_service_info *service_b = (cmsg_service_info *) b;
+    cmsg_transport_info *transport_info_a = service_a->server_info;
+    cmsg_transport_info *transport_info_b = service_b->server_info;
+    bool ret;
+
+    ret = cmsg_transport_info_compare (transport_info_a, transport_info_b);
+
+    return (ret ? 0 : -1);
 }
 
 /**
@@ -110,8 +190,76 @@ data_remove_server (const cmsg_service_info *server_info)
     CMSG_FREE_RECV_MSG (list_entry->data);
     entry->servers = g_list_delete_link (entry->servers, list_entry);
 
-    /* todo: notify subscribers */
+    notify_subscribers (server_info, entry, false);
     /* todo: remote sync */
+}
+
+/**
+ * Add a new subscriber for a service.
+ *
+ * @param info - Information about the subscriber and the service
+ *               they are subscribing for.
+ */
+void
+data_add_subscriber (const subscription_info *info)
+{
+    service_data_entry *entry = NULL;
+    cmsg_transport *transport = NULL;
+    GList *list = NULL;
+    GList *list_next = NULL;
+    cmsg_service_info *server_info = NULL;
+    cmsg_client *client = NULL;
+
+    entry = get_service_entry_or_create (info->service);
+    transport = cmsg_transport_info_to_transport (info->subscriber_info);
+    client = cmsg_client_new (transport, CMSG_DESCRIPTOR_NOPACKAGE (events));
+    entry->subscribers = g_list_append (entry->subscribers, client);
+
+    for (list = g_list_first (entry->servers); list; list = list_next)
+    {
+        server_info = (cmsg_service_info *) list->data;
+        list_next = g_list_next (list);
+
+        if (!events_api_server_added (client, server_info) != CMSG_RET_OK)
+        {
+            entry->subscribers = g_list_remove (entry->subscribers, client);
+            cmsg_destroy_client_and_transport (client);
+            break;
+        }
+    }
+}
+
+/**
+ * Remove a subscriber for a service.
+ *
+ * @param info - Information about the subscriber and the service
+ *               they are unsubscribing from.
+ */
+void
+data_remove_subscriber (const subscription_info *info)
+{
+    service_data_entry *entry = NULL;
+    GList *list = NULL;
+    GList *list_next = NULL;
+    cmsg_client *client = NULL;
+    entry = get_service_entry_or_create (info->service);
+    cmsg_transport_info *transport_info = NULL;
+
+    for (list = g_list_first (entry->subscribers); list; list = list_next)
+    {
+        client = (cmsg_client *) list->data;
+        list_next = g_list_next (list);
+
+        transport_info = cmsg_transport_info_create (client->_transport);
+
+        if (cmsg_transport_info_compare (info->subscriber_info, transport_info))
+        {
+            break;
+        }
+    }
+
+    entry->subscribers = g_list_remove (entry->subscribers, client);
+    cmsg_destroy_client_and_transport (client);
 }
 
 /**
