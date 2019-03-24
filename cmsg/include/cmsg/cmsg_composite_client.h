@@ -14,6 +14,8 @@ cmsg_client *cmsg_composite_client_new (const ProtobufCServiceDescriptor *descri
 
 cmsg_client *cmsg_composite_client_lookup_by_tipc_id (cmsg_client *composite_client,
                                                       uint32_t id);
+cmsg_client *cmsg_composite_client_lookup_by_tcp_ipv4_addr (cmsg_client *_composite_client,
+                                                            uint32_t addr);
 int cmsg_composite_client_num_children (cmsg_client *_composite_client);
 GList *cmsg_composite_client_get_children (cmsg_client *_composite_client);
 

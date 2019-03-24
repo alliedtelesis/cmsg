@@ -303,6 +303,42 @@ cmsg_composite_client_lookup_by_tipc_id (cmsg_client *_composite_client, uint32_
     return NULL;
 }
 
+/**
+ * Find a child client within a composite client based on ip address.
+ *
+ * @param _composite_client - The composite client to look for the child client in.
+ * @param addr - The address to lookup the child client by.
+ *
+ * @return - Pointer to the child client if found, NULL otherwise.
+ */
+cmsg_client *
+cmsg_composite_client_lookup_by_tcp_ipv4_addr (cmsg_client *_composite_client,
+                                               uint32_t addr)
+{
+    GList *l;
+    cmsg_client *child;
+    cmsg_composite_client *composite_client = (cmsg_composite_client *) _composite_client;
+
+    CMSG_COMPOSITE_CLIENT_TYPE_CHECK (composite_client->base_client, NULL);
+
+    pthread_mutex_lock (&composite_client->child_mutex);
+
+    for (l = composite_client->child_clients; l != NULL; l = l->next)
+    {
+        child = (cmsg_client *) l->data;
+        if ((child->_transport->type == CMSG_TRANSPORT_RPC_TCP ||
+             child->_transport->type == CMSG_TRANSPORT_ONEWAY_TCP) &&
+            child->_transport->config.socket.sockaddr.in.sin_addr.s_addr == addr)
+        {
+            pthread_mutex_unlock (&composite_client->child_mutex);
+            return child;
+        }
+    }
+
+    pthread_mutex_unlock (&composite_client->child_mutex);
+    return NULL;
+}
+
 int
 cmsg_composite_client_num_children (cmsg_client *_composite_client)
 {
