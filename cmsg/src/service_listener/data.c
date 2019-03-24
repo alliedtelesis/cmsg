@@ -110,7 +110,7 @@ data_add_server (const cmsg_service_info *server_info)
     entry->servers = g_list_append (entry->servers, (gpointer) server_info);
 
     notify_subscribers (server_info, entry, true);
-    /* todo: remote sync */
+    remote_sync_server_added (server_info);
 }
 
 /**
@@ -192,7 +192,7 @@ data_remove_server (const cmsg_service_info *server_info)
     entry->servers = g_list_delete_link (entry->servers, list_entry);
 
     notify_subscribers (server_info, entry, false);
-    /* todo: remote sync */
+    remote_sync_server_removed (server_info);
 }
 
 /**

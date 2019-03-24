@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <cmsg/cmsg_glib_helpers.h>
 #include <cmsg/cmsg_composite_client.h>
+#include "remote_sync_api_auto.h"
 #include "remote_sync_impl_auto.h"
 #include "remote_sync.h"
 
@@ -27,21 +28,103 @@ remote_sync_impl_bulk_sync (const void *service, const bulk_sync_data *recv_msg)
 }
 
 /**
- * todo
+ * Tell the service listener daemon that a server on a remote host has started.
  */
 void
 remote_sync_impl_add_server (const void *service, const cmsg_service_info *recv_msg)
 {
+    /* We hold onto the message to store in the data hash table */
+    cmsg_server_app_owns_current_msg_set (server);
+
+    data_add_server (recv_msg);
     remote_sync_server_add_serverSend (service);
 }
 
 /**
- * todo
+ * Tell the service listener daemon that a server running on a remote host
+ * is no longer running.
  */
 void
 remote_sync_impl_remove_server (const void *service, const cmsg_service_info *recv_msg)
 {
+    data_remove_server (recv_msg);
     remote_sync_server_remove_serverSend (service);
+}
+
+/**
+ * Get the IP address of the remote sync server running locally.
+ *
+ * @returns The IPv4 address of the server.
+ */
+static uint32_t
+remote_sync_get_local_ip (void)
+{
+    uint32_t addr = 0;
+
+    if (server)
+    {
+        addr = server->_transport->config.socket.sockaddr.in.sin_addr.s_addr;
+    }
+
+    return addr;
+}
+
+/**
+ * Helper function to notify remote hosts when a server is added or removed.
+ *
+ * @param server_info - The 'cmsg_service_info' message describing the server.
+ * @param added - Whether the server has been added or removed.
+ */
+static void
+remote_sync_server_added_removed (const cmsg_service_info *server_info, bool added)
+{
+    uint32_t addr;
+    cmsg_transport_info *transport_info = server_info->server_info;
+
+    /* Don't sync if:
+     * - The composite client is not created, i.e. no remote hosts yet
+     * - The server is not using a TCP transport
+     * - The server is using a TCP transport but it uses an ipv6 address */
+    if (!comp_client || transport_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP ||
+        !transport_info->tcp_info->ipv4)
+    {
+        return;
+    }
+
+    /* Only sync TCP servers that use the same IP address as the address that
+     * we sync to remote nodes using. */
+    memcpy (&addr, transport_info->tcp_info->addr.data, sizeof (uint32_t));
+    if (addr != remote_sync_get_local_ip ())
+    {
+        return;
+    }
+
+    if (added)
+    {
+        remote_sync_api_add_server (comp_client, server_info);
+    }
+    else
+    {
+        remote_sync_api_remove_server (comp_client, server_info);
+    }
+}
+
+/**
+ * Notify all remote hosts of the server that has been added locally.
+ */
+void
+remote_sync_server_added (const cmsg_service_info *server_info)
+{
+    remote_sync_server_added_removed (server_info, true);
+}
+
+/**
+ * Notify all remote hosts of the server that has been removed locally.
+ */
+void
+remote_sync_server_removed (const cmsg_service_info *server_info)
+{
+    remote_sync_server_added_removed (server_info, false);
 }
 
 /**
