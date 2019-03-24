@@ -20,6 +20,12 @@ typedef struct _service_data_entry_s
     GList *subscribers;
 } service_data_entry;
 
+typedef struct _service_lookup_data
+{
+    GList *list;
+    uint32_t addr;
+} service_lookup_data;
+
 static GHashTable *hash_table = NULL;
 
 /**
@@ -320,6 +326,64 @@ data_remove_subscriber (const subscription_info *info)
 
     entry->subscribers = g_list_remove (entry->subscribers, client);
     cmsg_destroy_client_and_transport (client);
+}
+
+/**
+ * Helper function called for each entry in the hash table. Finds any
+ * servers for a service that match an IP address and stores them in a
+ * GList.
+ *
+ * @param key - The key from the hash table (service name)
+ * @param value - The value associated with the key (service_data_entry structure)
+ * @param user_data - Pointer to a 'service_lookup_data' structure containing the
+ *                    list to store the servers in and the address to match against.
+ */
+static void
+_get_servers_by_addr (gpointer key, gpointer value, gpointer user_data)
+{
+    service_lookup_data *lookup_data = (service_lookup_data *) user_data;
+    service_data_entry *entry = (service_data_entry *) value;
+    GList *list = NULL;
+    GList *list_next = NULL;
+    cmsg_service_info *service_info = NULL;
+
+    for (list = g_list_first (entry->servers); list; list = list_next)
+    {
+        service_info = (cmsg_service_info *) list->data;
+
+        if (service_info->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+        {
+            cmsg_tcp_transport_info *info = service_info->server_info->tcp_info;
+
+            if (info->ipv4 && !memcmp (info->addr.data, &lookup_data->addr, info->addr.len))
+            {
+                lookup_data->list = g_list_append (lookup_data->list, service_info);
+            }
+        }
+
+        list_next = g_list_next (list);
+    }
+}
+
+/**
+ * Get a list of all servers for a given address.
+ *
+ * @param addr - The address to get the servers for.
+ *
+ * @returns A GList containing all of the servers. This list should be freed
+ *          by the caller using 'g_list_free'.
+ */
+GList *
+data_get_servers_by_addr (uint32_t addr)
+{
+    service_lookup_data lookup_data;
+
+    lookup_data.list = NULL;
+    lookup_data.addr = addr;
+
+    g_hash_table_foreach (hash_table, _get_servers_by_addr, &lookup_data);
+
+    return lookup_data.list;
 }
 
 /**

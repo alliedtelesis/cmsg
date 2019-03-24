@@ -13,17 +13,34 @@
 #include "remote_sync_api_auto.h"
 #include "remote_sync_impl_auto.h"
 #include "remote_sync.h"
+#include "data.h"
 
 static cmsg_server *server = NULL;
 static cmsg_server_accept_thread_info *info = NULL;
 static cmsg_client *comp_client = NULL;
 
 /**
- * todo
+ * Tell the service listener daemon about all servers running on a remote host.
  */
 void
 remote_sync_impl_bulk_sync (const void *service, const bulk_sync_data *recv_msg)
 {
+    int index = 0;
+    cmsg_service_info *info = NULL;
+    bulk_sync_data *recv_data = NULL;
+
+    /* Cast away the const so that we can modify the message to keep
+     * some internal memory */
+    recv_data = (bulk_sync_data *) recv_msg;
+
+    for (index = 0; index < recv_data->n_data; index++)
+    {
+        info = recv_data->data[index];
+        data_add_server (info);
+        /* Set to NULL so that the memory is not freed */
+        recv_data->data[index] = NULL;
+    }
+
     remote_sync_server_bulk_syncSend (service);
 }
 
@@ -156,6 +173,41 @@ remote_sync_address_set (struct in_addr addr)
 }
 
 /**
+ * Helper function called with 'g_list_foreach'. Fills a 'bulk_sync_data'
+ * message with each entry in the GList.
+ *
+ * @param data - The service info message.
+ * @param user_data - The 'bulk_sync_data' message to fill.
+ */
+static void
+fill_bulk_sync_msg (gpointer data, gpointer user_data)
+{
+    bulk_sync_data *send_msg = (bulk_sync_data *) user_data;
+    cmsg_service_info *service_info = (cmsg_service_info *) data;
+    CMSG_REPEATED_APPEND (send_msg, data, service_info);
+}
+
+/**
+ * Bulk sync all TCP servers running on the local remote sync IP address
+ * to a remote node.
+ *
+ * @param client - The CMSG client connected to the remote host to sync to.
+ */
+static void
+remote_sync_bulk_sync_services (cmsg_client *client)
+{
+    bulk_sync_data send_msg = BULK_SYNC_DATA_INIT;
+    GList *services_list = NULL;
+
+    services_list = data_get_servers_by_addr (remote_sync_get_local_ip ());
+    g_list_foreach (services_list, fill_bulk_sync_msg, &send_msg);
+
+    remote_sync_api_bulk_sync (client, &send_msg);
+    CMSG_REPEATED_FREE (send_msg.data);
+    g_list_free (services_list);
+}
+
+/**
  * Add a remote host to synchronise the local service information to.
  *
  * @param addr - The address of the remote host.
@@ -168,13 +220,12 @@ remote_sync_add_host (struct in_addr addr)
     client = cmsg_create_client_tcp_ipv4_oneway ("cmsg_sld_sync", &addr,
                                                  CMSG_DESCRIPTOR_NOPACKAGE (remote_sync));
 
-    /* todo bulk sync */
-
     if (!comp_client)
     {
         comp_client = cmsg_composite_client_new (CMSG_DESCRIPTOR_NOPACKAGE (remote_sync));
     }
     cmsg_composite_client_add_child (comp_client, client);
+    remote_sync_bulk_sync_services (client);
 }
 
 /**

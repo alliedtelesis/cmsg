@@ -16,5 +16,6 @@ void data_debug_dump (FILE *fp);
 void data_add_server (const cmsg_service_info *server_info);
 void data_remove_server (const cmsg_service_info *server_info);
 void data_remove_servers_by_addr (struct in_addr addr);
+GList *data_get_servers_by_addr (uint32_t addr);
 
 #endif /* __DATA_H_ */
