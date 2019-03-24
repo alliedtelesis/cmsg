@@ -55,6 +55,7 @@ configuration_impl_delete_host (const void *service, const cmsg_uint32 *recv_msg
     addr.s_addr = recv_msg->value;
 
     remote_sync_delete_host (addr);
+    data_remove_servers_by_addr (addr);
     configuration_server_delete_hostSend (service);
 }
 

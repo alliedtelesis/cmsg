@@ -186,8 +186,16 @@ remote_sync_add_host (struct in_addr addr)
 void
 remote_sync_delete_host (struct in_addr addr)
 {
-    /* todo, remove all services for given host */
-    /* todo, remove client from composite */
+    cmsg_client *child_client = NULL;
+
+    if (!comp_client)
+    {
+        return;
+    }
+
+    child_client = cmsg_composite_client_lookup_by_tcp_ipv4_addr (comp_client, addr.s_addr);
+    cmsg_composite_client_delete_child (comp_client, child_client);
+    cmsg_destroy_client_and_transport (child_client);
 }
 
 /**

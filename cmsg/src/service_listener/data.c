@@ -196,6 +196,65 @@ data_remove_server (const cmsg_service_info *server_info)
 }
 
 /**
+ * Helper function called for each entry in the hash table. Finds any
+ * servers for a service that match an IP address and deletes them.
+ *
+ * @param key - The key from the hash table (service name)
+ * @param value - The value associated with the key (service_data_entry structure)
+ * @param user_data - The address to match against.
+ */
+static void
+_delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
+{
+    uint32_t *addr = (uint32_t *) user_data;
+    service_data_entry *entry = (service_data_entry *) value;
+    GList *list = NULL;
+    GList *list_next = NULL;
+    cmsg_service_info *service_info = NULL;
+    GList *removal_list = NULL;
+
+    for (list = g_list_first (entry->servers); list; list = list_next)
+    {
+        service_info = (cmsg_service_info *) list->data;
+
+        if (service_info->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+        {
+            cmsg_tcp_transport_info *info = service_info->server_info->tcp_info;
+
+            if (info->ipv4 && !memcmp (info->addr.data, addr, info->addr.len))
+            {
+                removal_list = g_list_append (removal_list, service_info);
+            }
+        }
+
+        list_next = g_list_next (list);
+    }
+
+    for (list = g_list_first (removal_list); list; list = list_next)
+    {
+        service_info = (cmsg_service_info *) list->data;
+        list_next = g_list_next (list);
+
+        entry->servers = g_list_remove (entry->servers, service_info);
+        notify_subscribers (service_info, entry, false);
+        remote_sync_server_removed (service_info);
+        CMSG_FREE_RECV_MSG (service_info);
+    }
+    g_list_free (removal_list);
+}
+
+/**
+ * Remove any servers that match the given address from the hash table.
+ *
+ * @param addr - The IP address to match against.
+ */
+void
+data_remove_servers_by_addr (struct in_addr addr)
+{
+    g_hash_table_foreach (hash_table, _delete_server_by_addr, &addr.s_addr);
+}
+
+/**
  * Add a new subscriber for a service.
  *
  * @param info - Information about the subscriber and the service
