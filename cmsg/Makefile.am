@@ -1,5 +1,5 @@
 lib_LTLIBRARIES = libcmsg.la
-bin_PROGRAMS = cmsg cmsg_sld
+bin_PROGRAMS = cmsg cmsg_sld cmsg_pssd
 
 pkgconfiglibdir = $(libdir)/pkgconfig
 pkgconfiglib_DATA = cmsg.pc
@@ -43,6 +43,16 @@ src/service_listener/events.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/service_lis
 src/publisher_subscriber/cmsg_sub_service.pb-c.c \
 src/publisher_subscriber/cmsg_sub_service.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/publisher_subscriber/cmsg_sub_service.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber/ $(top_srcdir)/cmsg/src/publisher_subscriber/cmsg_sub_service.proto
+
+src/publisher_subscriber/configuration_api_auto.c \
+src/publisher_subscriber/configuration_api_auto.h \
+src/publisher_subscriber/configuration_impl_auto.c \
+src/publisher_subscriber/configuration_impl_auto.h \
+src/publisher_subscriber/configuration_impl_types_auto.h \
+src/publisher_subscriber/configuration.pb-c.c \
+src/publisher_subscriber/configuration.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/publisher_subscriber/configuration.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/configuration.proto
+
 
 libcmsg_la_SOURCES = \
 	src/cmsg.pb-c.c \
@@ -132,7 +142,13 @@ BUILT_SOURCES =  \
 	src/service_listener/events.pb-c.c \
 	src/service_listener/events.pb-c.h \
 	src/publisher_subscriber/cmsg_sub_service.pb-c.c \
-	src/publisher_subscriber/cmsg_sub_service.pb-c.h
+	src/publisher_subscriber/cmsg_sub_service.pb-c.h \
+	src/publisher_subscriber/configuration_api_auto.c \
+	src/publisher_subscriber/configuration_api_auto.h \
+	src/publisher_subscriber/configuration_impl_auto.c \
+	src/publisher_subscriber/configuration_impl_auto.h \
+	src/publisher_subscriber/configuration.pb-c.c \
+	src/publisher_subscriber/configuration.pb-c.h
 
 if BUILD_UNITTEST
 BUILT_SOURCES += \
@@ -170,6 +186,15 @@ cmsg_sld_SOURCES = \
 cmsg_sld_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c
 cmsg_sld_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
 cmsg_sld_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
+
+cmsg_pssd_SOURCES = \
+	src/publisher_subscriber/main.c \
+	src/publisher_subscriber/configuration.c \
+	src/publisher_subscriber/configuration_impl_auto.c \
+	src/publisher_subscriber/configuration.pb-c.c
+cmsg_pssd_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c
+cmsg_pssd_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
+cmsg_pssd_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 
 if BUILD_UNITTEST
 test/unit/cmsg_unit_tests_api_auto.c \
