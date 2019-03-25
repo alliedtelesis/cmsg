@@ -286,7 +286,7 @@ data_add_listener (const cmsg_sld_listener_info *info)
         server_info = (cmsg_service_info *) list->data;
         list_next = g_list_next (list);
 
-        if (!cmsg_sld_events_api_server_added (client, server_info) != CMSG_RET_OK)
+        if (cmsg_sld_events_api_server_added (client, server_info) != CMSG_RET_OK)
         {
             entry->listeners = g_list_remove (entry->listeners, client);
             cmsg_destroy_client_and_transport (client);
