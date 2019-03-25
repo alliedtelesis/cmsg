@@ -76,11 +76,11 @@ notify_listeners (const cmsg_service_info *server_info, service_data_entry *entr
 
         if (added)
         {
-            ret = events_api_server_added (client, server_info);
+            ret = cmsg_sld_events_api_server_added (client, server_info);
         }
         else
         {
-            ret = events_api_server_added (client, server_info);
+            ret = cmsg_sld_events_api_server_added (client, server_info);
         }
 
         if (ret != CMSG_RET_OK)
@@ -267,7 +267,7 @@ data_remove_servers_by_addr (struct in_addr addr)
  *               they are listening for.
  */
 void
-data_add_listener (const listener_info *info)
+data_add_listener (const cmsg_sld_listener_info *info)
 {
     service_data_entry *entry = NULL;
     cmsg_transport *transport = NULL;
@@ -278,7 +278,7 @@ data_add_listener (const listener_info *info)
 
     entry = get_service_entry_or_create (info->service);
     transport = cmsg_transport_info_to_transport (info->transport_info);
-    client = cmsg_client_new (transport, CMSG_DESCRIPTOR_NOPACKAGE (events));
+    client = cmsg_client_new (transport, CMSG_DESCRIPTOR (cmsg_sld, events));
     entry->listeners = g_list_append (entry->listeners, client);
 
     for (list = g_list_first (entry->servers); list; list = list_next)
@@ -286,7 +286,7 @@ data_add_listener (const listener_info *info)
         server_info = (cmsg_service_info *) list->data;
         list_next = g_list_next (list);
 
-        if (!events_api_server_added (client, server_info) != CMSG_RET_OK)
+        if (!cmsg_sld_events_api_server_added (client, server_info) != CMSG_RET_OK)
         {
             entry->listeners = g_list_remove (entry->listeners, client);
             cmsg_destroy_client_and_transport (client);
@@ -302,7 +302,7 @@ data_add_listener (const listener_info *info)
  *               they are unlistening from.
  */
 void
-data_remove_listener (const listener_info *info)
+data_remove_listener (const cmsg_sld_listener_info *info)
 {
     service_data_entry *entry = NULL;
     GList *list = NULL;

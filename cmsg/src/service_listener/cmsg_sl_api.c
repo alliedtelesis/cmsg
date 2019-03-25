@@ -41,7 +41,7 @@ find_function_entry (gconstpointer a, gconstpointer b)
  * a specific service has been added.
  */
 void
-events_impl_server_added (const void *service, const cmsg_service_info *recv_msg)
+cmsg_sld_events_impl_server_added (const void *service, const cmsg_service_info *recv_msg)
 {
     GList *function_list_entry = NULL;
     function_info *info = NULL;
@@ -52,7 +52,7 @@ events_impl_server_added (const void *service, const cmsg_service_info *recv_msg
 
     info->func (recv_msg, true);
 
-    events_server_server_addedSend (service);
+    cmsg_sld_events_server_server_addedSend (service);
 }
 
 /**
@@ -60,7 +60,7 @@ events_impl_server_added (const void *service, const cmsg_service_info *recv_msg
  * a specific service has been removed.
  */
 void
-events_impl_server_removed (const void *service, const cmsg_service_info *recv_msg)
+cmsg_sld_events_impl_server_removed (const void *service, const cmsg_service_info *recv_msg)
 {
     GList *function_list_entry = NULL;
     function_info *info = NULL;
@@ -71,7 +71,7 @@ events_impl_server_removed (const void *service, const cmsg_service_info *recv_m
 
     info->func (recv_msg, false);
 
-    events_server_server_removedSend (service);
+    cmsg_sld_events_server_server_removedSend (service);
 }
 
 /**
@@ -89,10 +89,10 @@ event_server_init (void)
         transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
         snprintf (transport->config.socket.sockaddr.un.sun_path,
                   sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
-                  "/tmp/%s.%u", cmsg_service_name_get (CMSG_DESCRIPTOR_NOPACKAGE (events)),
+                  "/tmp/%s.%u", cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_sld, events)),
                   getpid ());
 
-        event_server = cmsg_server_new (transport, CMSG_SERVICE_NOPACKAGE (events));
+        event_server = cmsg_server_new (transport, CMSG_SERVICE (cmsg_sld, events));
     }
 }
 
@@ -107,7 +107,7 @@ static void
 _cmsg_service_listener_listen (const char *service_name, bool listen)
 {
     cmsg_client *client = NULL;
-    listener_info send_msg = LISTENER_INFO_INIT;
+    cmsg_sld_listener_info send_msg = CMSG_SLD_LISTENER_INFO_INIT;
     cmsg_transport_info *transport_info = NULL;
 
     event_server_init ();
@@ -117,15 +117,15 @@ _cmsg_service_listener_listen (const char *service_name, bool listen)
     CMSG_SET_FIELD_PTR (&send_msg, service, (char *) service_name);
     CMSG_SET_FIELD_PTR (&send_msg, transport_info, transport_info);
 
-    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR_NOPACKAGE (configuration));
+    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
 
     if (listen)
     {
-        configuration_api_listen (client, &send_msg);
+        cmsg_sld_configuration_api_listen (client, &send_msg);
     }
     else
     {
-        configuration_api_unlisten (client, &send_msg);
+        cmsg_sld_configuration_api_unlisten (client, &send_msg);
     }
 
     cmsg_destroy_client_and_transport (client);
@@ -226,7 +226,7 @@ cmsg_service_listener_address_set (struct in_addr addr)
     cmsg_uint32 send_msg = CMSG_UINT32_INIT;
     int ret;
 
-    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR_NOPACKAGE (configuration));
+    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
     if (!client)
     {
         return false;
@@ -234,7 +234,7 @@ cmsg_service_listener_address_set (struct in_addr addr)
 
     CMSG_SET_FIELD_VALUE (&send_msg, value, addr.s_addr);
 
-    ret = configuration_api_address_set (client, &send_msg);
+    ret = cmsg_sld_configuration_api_address_set (client, &send_msg);
     cmsg_destroy_client_and_transport (client);
 
     return (ret == CMSG_RET_OK);
@@ -256,7 +256,7 @@ cmsg_service_listener_add_host (struct in_addr addr)
     cmsg_uint32 send_msg = CMSG_UINT32_INIT;
     int ret;
 
-    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR_NOPACKAGE (configuration));
+    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
     if (!client)
     {
         return false;
@@ -264,7 +264,7 @@ cmsg_service_listener_add_host (struct in_addr addr)
 
     CMSG_SET_FIELD_VALUE (&send_msg, value, addr.s_addr);
 
-    ret = configuration_api_add_host (client, &send_msg);
+    ret = cmsg_sld_configuration_api_add_host (client, &send_msg);
     cmsg_destroy_client_and_transport (client);
 
     return (ret == CMSG_RET_OK);
@@ -286,7 +286,7 @@ cmsg_service_listener_delete_host (struct in_addr addr)
     cmsg_uint32 send_msg = CMSG_UINT32_INIT;
     int ret;
 
-    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR_NOPACKAGE (configuration));
+    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
     if (!client)
     {
         return false;
@@ -294,7 +294,7 @@ cmsg_service_listener_delete_host (struct in_addr addr)
 
     CMSG_SET_FIELD_VALUE (&send_msg, value, addr.s_addr);
 
-    ret = configuration_api_delete_host (client, &send_msg);
+    ret = cmsg_sld_configuration_api_delete_host (client, &send_msg);
     cmsg_destroy_client_and_transport (client);
 
     return (ret == CMSG_RET_OK);
@@ -315,8 +315,8 @@ cmsg_service_listener_add_server (cmsg_server *server)
     send_msg = cmsg_server_service_info_create (server);
     if (send_msg)
     {
-        client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR_NOPACKAGE (configuration));
-        configuration_api_add_server (client, send_msg);
+        client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
+        cmsg_sld_configuration_api_add_server (client, send_msg);
         cmsg_destroy_client_and_transport (client);
         cmsg_server_service_info_free (send_msg);
     }
@@ -337,8 +337,8 @@ cmsg_service_listener_remove_server (cmsg_server *server)
     send_msg = cmsg_server_service_info_create (server);
     if (send_msg)
     {
-        client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR_NOPACKAGE (configuration));
-        configuration_api_remove_server (client, send_msg);
+        client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
+        cmsg_sld_configuration_api_remove_server (client, send_msg);
         cmsg_destroy_client_and_transport (client);
         cmsg_server_service_info_free (send_msg);
     }

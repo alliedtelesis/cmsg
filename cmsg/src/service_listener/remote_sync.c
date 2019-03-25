@@ -23,15 +23,16 @@ static cmsg_client *comp_client = NULL;
  * Tell the service listener daemon about all servers running on a remote host.
  */
 void
-remote_sync_impl_bulk_sync (const void *service, const bulk_sync_data *recv_msg)
+cmsg_sld_remote_sync_impl_bulk_sync (const void *service,
+                                     const cmsg_sld_bulk_sync_data *recv_msg)
 {
     int index = 0;
     cmsg_service_info *info = NULL;
-    bulk_sync_data *recv_data = NULL;
+    cmsg_sld_bulk_sync_data *recv_data = NULL;
 
     /* Cast away the const so that we can modify the message to keep
      * some internal memory */
-    recv_data = (bulk_sync_data *) recv_msg;
+    recv_data = (cmsg_sld_bulk_sync_data *) recv_msg;
 
     for (index = 0; index < recv_data->n_data; index++)
     {
@@ -41,20 +42,21 @@ remote_sync_impl_bulk_sync (const void *service, const bulk_sync_data *recv_msg)
         recv_data->data[index] = NULL;
     }
 
-    remote_sync_server_bulk_syncSend (service);
+    cmsg_sld_remote_sync_server_bulk_syncSend (service);
 }
 
 /**
  * Tell the service listener daemon that a server on a remote host has started.
  */
 void
-remote_sync_impl_add_server (const void *service, const cmsg_service_info *recv_msg)
+cmsg_sld_remote_sync_impl_add_server (const void *service,
+                                      const cmsg_service_info *recv_msg)
 {
     /* We hold onto the message to store in the data hash table */
     cmsg_server_app_owns_current_msg_set (server);
 
     data_add_server (recv_msg);
-    remote_sync_server_add_serverSend (service);
+    cmsg_sld_remote_sync_server_add_serverSend (service);
 }
 
 /**
@@ -62,10 +64,11 @@ remote_sync_impl_add_server (const void *service, const cmsg_service_info *recv_
  * is no longer running.
  */
 void
-remote_sync_impl_remove_server (const void *service, const cmsg_service_info *recv_msg)
+cmsg_sld_remote_sync_impl_remove_server (const void *service,
+                                         const cmsg_service_info *recv_msg)
 {
     data_remove_server (recv_msg);
-    remote_sync_server_remove_serverSend (service);
+    cmsg_sld_remote_sync_server_remove_serverSend (service);
 }
 
 /**
@@ -118,11 +121,11 @@ remote_sync_server_added_removed (const cmsg_service_info *server_info, bool add
 
     if (added)
     {
-        remote_sync_api_add_server (comp_client, server_info);
+        cmsg_sld_remote_sync_api_add_server (comp_client, server_info);
     }
     else
     {
-        remote_sync_api_remove_server (comp_client, server_info);
+        cmsg_sld_remote_sync_api_remove_server (comp_client, server_info);
     }
 }
 
@@ -156,7 +159,7 @@ remote_sync_address_set (struct in_addr addr)
     if (!server)
     {
         server = cmsg_create_server_tcp_ipv4_oneway ("cmsg_sld_sync", &addr,
-                                                     CMSG_SERVICE_NOPACKAGE (remote_sync));
+                                                     CMSG_SERVICE (cmsg_sld, remote_sync));
         if (!server)
         {
             syslog (LOG_ERR, "Failed to initialize remote sync server");
@@ -173,16 +176,16 @@ remote_sync_address_set (struct in_addr addr)
 }
 
 /**
- * Helper function called with 'g_list_foreach'. Fills a 'bulk_sync_data'
+ * Helper function called with 'g_list_foreach'. Fills a 'cmsg_sld_bulk_sync_data'
  * message with each entry in the GList.
  *
  * @param data - The service info message.
- * @param user_data - The 'bulk_sync_data' message to fill.
+ * @param user_data - The 'cmsg_sld_bulk_sync_data' message to fill.
  */
 static void
 fill_bulk_sync_msg (gpointer data, gpointer user_data)
 {
-    bulk_sync_data *send_msg = (bulk_sync_data *) user_data;
+    cmsg_sld_bulk_sync_data *send_msg = (cmsg_sld_bulk_sync_data *) user_data;
     cmsg_service_info *service_info = (cmsg_service_info *) data;
     CMSG_REPEATED_APPEND (send_msg, data, service_info);
 }
@@ -196,13 +199,13 @@ fill_bulk_sync_msg (gpointer data, gpointer user_data)
 static void
 remote_sync_bulk_sync_services (cmsg_client *client)
 {
-    bulk_sync_data send_msg = BULK_SYNC_DATA_INIT;
+    cmsg_sld_bulk_sync_data send_msg = CMSG_SLD_BULK_SYNC_DATA_INIT;
     GList *services_list = NULL;
 
     services_list = data_get_servers_by_addr (remote_sync_get_local_ip ());
     g_list_foreach (services_list, fill_bulk_sync_msg, &send_msg);
 
-    remote_sync_api_bulk_sync (client, &send_msg);
+    cmsg_sld_remote_sync_api_bulk_sync (client, &send_msg);
     CMSG_REPEATED_FREE (send_msg.data);
     g_list_free (services_list);
 }
@@ -218,11 +221,11 @@ remote_sync_add_host (struct in_addr addr)
     cmsg_client *client = NULL;
 
     client = cmsg_create_client_tcp_ipv4_oneway ("cmsg_sld_sync", &addr,
-                                                 CMSG_DESCRIPTOR_NOPACKAGE (remote_sync));
+                                                 CMSG_DESCRIPTOR (cmsg_sld, remote_sync));
 
     if (!comp_client)
     {
-        comp_client = cmsg_composite_client_new (CMSG_DESCRIPTOR_NOPACKAGE (remote_sync));
+        comp_client = cmsg_composite_client_new (CMSG_DESCRIPTOR (cmsg_sld, remote_sync));
     }
     cmsg_composite_client_add_child (comp_client, client);
     remote_sync_bulk_sync_services (client);
