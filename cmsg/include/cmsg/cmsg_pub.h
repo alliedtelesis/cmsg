@@ -90,12 +90,6 @@ int32_t cmsg_publisher_receive_poll (cmsg_pub *publisher,
 
 void cmsg_pub_subscriber_remove_all (cmsg_pub *publisher);
 
-int32_t cmsg_pub_server_receive (cmsg_pub *publisher, int32_t server_socket);
-
-int32_t cmsg_pub_server_accept (cmsg_pub *publisher, int32_t listen_socket);
-
-void cmsg_pub_server_accept_callback (cmsg_pub *publisher, int32_t sd);
-
 int32_t cmsg_pub_invoke (ProtobufCService *service,
                          uint32_t method_index,
                          const ProtobufCMessage *input,

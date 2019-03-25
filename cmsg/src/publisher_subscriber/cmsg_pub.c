@@ -531,34 +531,6 @@ cmsg_pub_subscriber_remove_all (cmsg_pub *publisher)
     pthread_mutex_unlock (&publisher->subscriber_list_mutex);
 }
 
-
-int32_t
-cmsg_pub_server_receive (cmsg_pub *publisher, int32_t server_socket)
-{
-    CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
-
-    CMSG_DEBUG (CMSG_INFO, "[PUB]\n");
-
-    return cmsg_server_receive (publisher->sub_server, server_socket);
-}
-
-int32_t
-cmsg_pub_server_accept (cmsg_pub *publisher, int32_t listen_socket)
-{
-    CMSG_ASSERT_RETURN_VAL (publisher != NULL, CMSG_RET_ERR);
-
-    return cmsg_server_accept (publisher->sub_server, listen_socket);
-}
-
-void
-cmsg_pub_server_accept_callback (cmsg_pub *publisher, int32_t sd)
-{
-    if (publisher != NULL)
-    {
-        cmsg_server_accept_callback (publisher->sub_server, sd);
-    }
-}
-
 static int32_t
 cmsg_pub_message_processor (int socket, cmsg_server_request *server_request,
                             cmsg_server *server, uint8_t *buffer_data)
