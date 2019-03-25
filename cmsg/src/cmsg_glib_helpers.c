@@ -96,77 +96,6 @@ cmsg_glib_server_init (cmsg_server *server)
 }
 
 /**
- * init and start processing a cmsg publisher for the given service with the given transport
- *
- * @param service service to start the publisher for
- * @param transport transport to use for the publisher
- *
- * @returns Pointer to the publisher structure.
- *          NULL on failure.
- */
-static cmsg_pub *
-cmsg_glib_publisher_init (const ProtobufCServiceDescriptor *service,
-                          cmsg_transport *transport)
-{
-    cmsg_pub *publisher;
-    cmsg_server_accept_thread_info *info;
-
-    publisher = cmsg_pub_new (transport, service);
-    if (!publisher)
-    {
-        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG publisher for %s",
-                            cmsg_service_name_get (service));
-        return NULL;
-    }
-
-    cmsg_pub_queue_enable (publisher);
-    cmsg_pub_queue_thread_start (publisher);
-
-    info = cmsg_glib_server_init (publisher->sub_server);
-
-    if (!info)
-    {
-        cmsg_pub_destroy (publisher);
-        return NULL;
-    }
-    publisher->sub_server_thread_info = info;
-
-    return publisher;
-}
-
-/**
- * Create and start processing a UNIX transport based CMSG publisher for the given
- * CMSG service.
- *
- * @param descriptor - The protobuf-c service descriptor the server is to implement.
- *
- * @returns Pointer to the publisher structure.
- *          NULL on failure.
- */
-cmsg_pub *
-cmsg_glib_unix_publisher_init (const ProtobufCServiceDescriptor *descriptor)
-{
-    cmsg_transport *transport;
-    cmsg_pub *publisher;
-
-    transport = cmsg_create_transport_unix (descriptor, CMSG_TRANSPORT_RPC_UNIX);
-    if (!transport)
-    {
-        CMSG_LOG_GEN_ERROR ("Failed to create CMSG transport for %s",
-                            cmsg_service_name_get (descriptor));
-        return NULL;
-    }
-
-    publisher = cmsg_glib_publisher_init (descriptor, transport);
-    if (!publisher)
-    {
-        cmsg_transport_destroy (transport);
-    }
-
-    return publisher;
-}
-
-/**
  * deinit and destroy the given cmsg glib subscriber. It is advisable to unsubscribe from
  * events before calling this.
  *
@@ -218,43 +147,6 @@ cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events)
     }
 
     return sub;
-}
-
-/**
- * Create and start processing a tipc transport based CMSG publisher for the given
- * CMSG service.
- *
- * @param service_entry_name - The name of the publisher service in the services file
- * @param this_node_id local node ID.
- * @param scope - tipc scope.
- * @param descriptor - The protobuf-c service descriptor the server is to implement.
- *
- * @returns Pointer to the publisher structure.
- *          NULL on failure.
- */
-cmsg_pub *
-cmsg_glib_tipc_publisher_init (const char *service_entry_name, int this_node_id,
-                               int scope, const ProtobufCServiceDescriptor *descriptor)
-{
-    cmsg_transport *transport;
-    cmsg_pub *publisher;
-
-    transport = cmsg_create_transport_tipc (service_entry_name, this_node_id, scope,
-                                            CMSG_TRANSPORT_RPC_TIPC);
-    if (!transport)
-    {
-        CMSG_LOG_GEN_ERROR ("Failed to create CMSG transport for %s",
-                            cmsg_service_name_get (descriptor));
-        return NULL;
-    }
-
-    publisher = cmsg_glib_publisher_init (descriptor, transport);
-    if (!publisher)
-    {
-        cmsg_transport_destroy (transport);
-    }
-
-    return publisher;
 }
 
 /**
