@@ -419,7 +419,7 @@ cmsg_create_transport_tcp (cmsg_socket *config, cmsg_transport_type transport_ty
  *
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
- * @param addr - The IPv4 address to use.
+ * @param addr - The IPv4 address to use (in network byte order).
  * @param oneway - Whether to make a one-way transport, or a two-way (RPC) transport.
  */
 cmsg_transport *
@@ -452,8 +452,8 @@ cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr, 
     transport->config.socket.family = PF_INET;
     transport->config.socket.sockaddr.generic.sa_family = PF_INET;
     transport->config.socket.sockaddr.in.sin_family = AF_INET;
-    transport->config.socket.sockaddr.in.sin_port = htons (port);
-    transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (addr->s_addr);
+    transport->config.socket.sockaddr.in.sin_port = port;
+    transport->config.socket.sockaddr.in.sin_addr.s_addr = addr->s_addr;
 
     cmsg_transport_ipfree_bind_enable (transport, true);
 

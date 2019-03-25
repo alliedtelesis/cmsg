@@ -262,7 +262,6 @@ remote_sync_debug_print_transport_ip (FILE *fp, cmsg_transport *transport)
     uint32_t addr;
 
     addr = transport->config.socket.sockaddr.in.sin_addr.s_addr;
-    addr = ntohl (addr);
     inet_ntop (AF_INET, &addr, ip, INET6_ADDRSTRLEN);
 
     fprintf (fp, "%s", ip);

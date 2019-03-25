@@ -1798,7 +1798,7 @@ cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
  *
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
- * @param addr - The IPv4 address to listen on.
+ * @param addr - The IPv4 address to listen on (in network byte order).
  * @param service - The CMSG service.
  * @param oneway - Whether to make a one-way server, or a two-way (RPC) server.
  */
@@ -1831,7 +1831,7 @@ _cmsg_create_server_tcp_ipv4 (const char *service_name, struct in_addr *addr,
  *
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
- * @param addr - The IPv4 address to listen on.
+ * @param addr - The IPv4 address to listen on (in network byte order).
  * @param service - The CMSG service.
  */
 cmsg_server *

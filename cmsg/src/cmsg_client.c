@@ -1571,7 +1571,7 @@ cmsg_destroy_client_and_transport (cmsg_client *client)
  *
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
- * @param addr - The IPv4 address to connect to.
+ * @param addr - The IPv4 address to connect to (in network byte order).
  * @param descriptor - The CMSG service descriptor for the service.
  * @param oneway - Whether to make a one-way client, or a two-way (RPC) client.
  */
@@ -1604,7 +1604,7 @@ _cmsg_create_client_tcp_ipv4 (const char *service_name, struct in_addr *addr,
  *
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
- * @param addr - The IPv4 address to connect to.
+ * @param addr - The IPv4 address to connect to (in network byte order).
  * @param descriptor - The CMSG service descriptor for the service.
  */
 cmsg_client *
@@ -1623,7 +1623,7 @@ cmsg_create_client_tcp_ipv4_rpc (const char *service_name, struct in_addr *addr,
  *
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
- * @param addr - The IPv4 address to connect to.
+ * @param addr - The IPv4 address to connect to (in network byte order).
  * @param descriptor - The CMSG service descriptor for the service.
  */
 cmsg_client *
