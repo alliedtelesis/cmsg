@@ -40,14 +40,13 @@ src/service_listener/events.pb-c.c \
 src/service_listener/events.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/service_listener/events.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/events.proto
 
-src/cmsg_sub_service.pb-c.c src/cmsg_sub_service.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/cmsg_sub_service.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/cmsg_sub_service.proto
+src/publisher_subscriber/cmsg_sub_service.pb-c.c \
+src/publisher_subscriber/cmsg_sub_service.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/publisher_subscriber/cmsg_sub_service.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber/ $(top_srcdir)/cmsg/src/publisher_subscriber/cmsg_sub_service.proto
 
 libcmsg_la_SOURCES = \
 	src/cmsg.pb-c.c \
 	src/cmsg.pb-c.h \
-	src/cmsg_sub_service.pb-c.c \
-	src/cmsg_sub_service.pb-c.h \
 	src/transport/cmsg_transport_loopback.c \
 	src/transport/cmsg_transport_tcp.c \
 	src/transport/cmsg_transport_tipc.c \
@@ -63,10 +62,12 @@ libcmsg_la_SOURCES = \
 	src/cmsg_composite_client.c \
 	src/cmsg_composite_client_private.h \
 	src/cmsg_debug.c \
-	src/cmsg_pub.c \
+	src/publisher_subscriber/cmsg_sub_service.pb-c.c \
+	src/publisher_subscriber/cmsg_sub_service.pb-c.h \
+	src/publisher_subscriber/cmsg_pub.c \
+	src/publisher_subscriber/cmsg_sub.c \
 	src/cmsg_queue.c \
 	src/cmsg_server.c \
-	src/cmsg_sub.c \
 	src/cmsg_mesh.c \
 	src/cmsg_glib_helpers.c \
 	src/validation/cmsg_validation.c \
@@ -130,8 +131,8 @@ BUILT_SOURCES =  \
 	src/service_listener/events_impl_auto.h \
 	src/service_listener/events.pb-c.c \
 	src/service_listener/events.pb-c.h \
-	src/cmsg_sub_service.pb-c.c \
-	src/cmsg_sub_service.pb-c.h
+	src/publisher_subscriber/cmsg_sub_service.pb-c.c \
+	src/publisher_subscriber/cmsg_sub_service.pb-c.h
 
 if BUILD_UNITTEST
 BUILT_SOURCES += \
