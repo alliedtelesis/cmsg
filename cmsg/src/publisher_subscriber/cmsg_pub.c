@@ -135,9 +135,6 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
 
     cmsg_pub_queue_filter_init (publisher);
 
-    //init random for publishing reconnection sleep
-    srand (time (NULL));
-
     return publisher;
 }
 
