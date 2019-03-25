@@ -17,7 +17,7 @@
 typedef struct _service_data_entry_s
 {
     GList *servers;
-    GList *subscribers;
+    GList *listeners;
 } service_data_entry;
 
 typedef struct _service_lookup_data
@@ -52,16 +52,16 @@ get_service_entry_or_create (const char *service)
 }
 
 /**
- * Notify all subscribers of a given service about a server that has been added
+ * Notify all listeners of a given service about a server that has been added
  * or removed for that service.
  *
  * @param server_info - The information about the server that has been added/removed.
- * @param entry - The 'service_data_entry' containing the list of subscribers.
- * @param adeded - Whether the server has been added or removed.
+ * @param entry - The 'service_data_entry' containing the list of listeners.
+ * @param added - Whether the server has been added or removed.
  */
 static void
-notify_subscribers (const cmsg_service_info *server_info, service_data_entry *entry,
-                    bool added)
+notify_listeners (const cmsg_service_info *server_info, service_data_entry *entry,
+                  bool added)
 {
     GList *list = NULL;
     GList *list_next = NULL;
@@ -69,7 +69,7 @@ notify_subscribers (const cmsg_service_info *server_info, service_data_entry *en
     GList *removal_list = NULL;
     int ret;
 
-    for (list = g_list_first (entry->subscribers); list; list = list_next)
+    for (list = g_list_first (entry->listeners); list; list = list_next)
     {
         client = (cmsg_client *) list->data;
         list_next = g_list_next (list);
@@ -95,7 +95,7 @@ notify_subscribers (const cmsg_service_info *server_info, service_data_entry *en
         client = (cmsg_client *) list->data;
         list_next = g_list_next (list);
 
-        entry->subscribers = g_list_remove (entry->subscribers, client);
+        entry->listeners = g_list_remove (entry->listeners, client);
         cmsg_destroy_client_and_transport (client);
     }
     g_list_free (removal_list);
@@ -115,7 +115,7 @@ data_add_server (const cmsg_service_info *server_info)
     entry = get_service_entry_or_create (server_info->service);
     entry->servers = g_list_append (entry->servers, (gpointer) server_info);
 
-    notify_subscribers (server_info, entry, true);
+    notify_listeners (server_info, entry, true);
     remote_sync_server_added (server_info);
 }
 
@@ -197,7 +197,7 @@ data_remove_server (const cmsg_service_info *server_info)
     CMSG_FREE_RECV_MSG (list_entry->data);
     entry->servers = g_list_delete_link (entry->servers, list_entry);
 
-    notify_subscribers (server_info, entry, false);
+    notify_listeners (server_info, entry, false);
     remote_sync_server_removed (server_info);
 }
 
@@ -242,7 +242,7 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
         list_next = g_list_next (list);
 
         entry->servers = g_list_remove (entry->servers, service_info);
-        notify_subscribers (service_info, entry, false);
+        notify_listeners (service_info, entry, false);
         remote_sync_server_removed (service_info);
         CMSG_FREE_RECV_MSG (service_info);
     }
@@ -261,13 +261,13 @@ data_remove_servers_by_addr (struct in_addr addr)
 }
 
 /**
- * Add a new subscriber for a service.
+ * Add a new listener for a service.
  *
- * @param info - Information about the subscriber and the service
- *               they are subscribing for.
+ * @param info - Information about the listener and the service
+ *               they are listening for.
  */
 void
-data_add_subscriber (const subscription_info *info)
+data_add_listener (const listener_info *info)
 {
     service_data_entry *entry = NULL;
     cmsg_transport *transport = NULL;
@@ -277,9 +277,9 @@ data_add_subscriber (const subscription_info *info)
     cmsg_client *client = NULL;
 
     entry = get_service_entry_or_create (info->service);
-    transport = cmsg_transport_info_to_transport (info->subscriber_info);
+    transport = cmsg_transport_info_to_transport (info->transport_info);
     client = cmsg_client_new (transport, CMSG_DESCRIPTOR_NOPACKAGE (events));
-    entry->subscribers = g_list_append (entry->subscribers, client);
+    entry->listeners = g_list_append (entry->listeners, client);
 
     for (list = g_list_first (entry->servers); list; list = list_next)
     {
@@ -288,7 +288,7 @@ data_add_subscriber (const subscription_info *info)
 
         if (!events_api_server_added (client, server_info) != CMSG_RET_OK)
         {
-            entry->subscribers = g_list_remove (entry->subscribers, client);
+            entry->listeners = g_list_remove (entry->listeners, client);
             cmsg_destroy_client_and_transport (client);
             break;
         }
@@ -296,13 +296,13 @@ data_add_subscriber (const subscription_info *info)
 }
 
 /**
- * Remove a subscriber for a service.
+ * Remove a listener for a service.
  *
- * @param info - Information about the subscriber and the service
- *               they are unsubscribing from.
+ * @param info - Information about the listener and the service
+ *               they are unlistening from.
  */
 void
-data_remove_subscriber (const subscription_info *info)
+data_remove_listener (const listener_info *info)
 {
     service_data_entry *entry = NULL;
     GList *list = NULL;
@@ -311,20 +311,20 @@ data_remove_subscriber (const subscription_info *info)
     entry = get_service_entry_or_create (info->service);
     cmsg_transport_info *transport_info = NULL;
 
-    for (list = g_list_first (entry->subscribers); list; list = list_next)
+    for (list = g_list_first (entry->listeners); list; list = list_next)
     {
         client = (cmsg_client *) list->data;
         list_next = g_list_next (list);
 
         transport_info = cmsg_transport_info_create (client->_transport);
 
-        if (cmsg_transport_info_compare (info->subscriber_info, transport_info))
+        if (cmsg_transport_info_compare (info->transport_info, transport_info))
         {
             break;
         }
     }
 
-    entry->subscribers = g_list_remove (entry->subscribers, client);
+    entry->listeners = g_list_remove (entry->listeners, client);
     cmsg_destroy_client_and_transport (client);
 }
 
@@ -401,14 +401,14 @@ data_init (void)
 }
 
 /**
- * Helper function called for each subscriber associated with a service. Prints the
- * information about each individual subscriber for a service.
+ * Helper function called for each listener associated with a service. Prints the
+ * information about each individual listener for a service.
  *
- * @param data - The client connected to the subscriber.
+ * @param data - The client connected to the listener.
  * @param user_data - The file to print to.
  */
 static void
-data_debug_subscriber_dump (gpointer data, gpointer user_data)
+data_debug_listener_dump (gpointer data, gpointer user_data)
 {
     FILE *fp = (FILE *) user_data;
     const cmsg_client *client = (const cmsg_client *) data;
@@ -502,8 +502,8 @@ _data_debug_dump (gpointer key, gpointer value, gpointer user_data)
     fprintf (fp, " service: %s\n", (char *) key);
     fprintf (fp, "  servers:\n");
     g_list_foreach (entry->servers, data_debug_server_dump, fp);
-    fprintf (fp, "  subscribers:\n");
-    g_list_foreach (entry->subscribers, data_debug_subscriber_dump, fp);
+    fprintf (fp, "  listeners:\n");
+    g_list_foreach (entry->listeners, data_debug_listener_dump, fp);
 }
 
 /**

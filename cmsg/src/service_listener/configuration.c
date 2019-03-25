@@ -60,23 +60,23 @@ configuration_impl_delete_host (const void *service, const cmsg_uint32 *recv_msg
 }
 
 /**
- * Tell the service listener daemon that a subscriber wishes to receive
+ * Tell the service listener daemon that a listener wishes to receive
  * events about a given service.
  */
 void
-configuration_impl_subscribe (const void *service, const subscription_info *recv_msg)
+configuration_impl_listen (const void *service, const listener_info *recv_msg)
 {
-    configuration_server_subscribeSend (service);
+    configuration_server_listenSend (service);
 }
 
 /**
- * Tell the service listener daemon that a subscriber no longer wishes to receive
+ * Tell the service listener daemon that a listener no longer wishes to receive
  * events about a given service.
  */
 void
-configuration_impl_unsubscribe (const void *service, const subscription_info *recv_msg)
+configuration_impl_unlisten (const void *service, const listener_info *recv_msg)
 {
-    configuration_server_unsubscribeSend (service);
+    configuration_server_unlistenSend (service);
 }
 
 /**

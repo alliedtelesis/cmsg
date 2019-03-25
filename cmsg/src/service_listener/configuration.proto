@@ -4,10 +4,10 @@
 
 import "cmsg.proto";
 
-message subscription_info
+message listener_info
 {
     optional string service = 1;
-    optional cmsg_transport_info subscriber_info = 2;
+    optional cmsg_transport_info transport_info = 2;
 }
 
 service configuration
@@ -15,8 +15,8 @@ service configuration
     rpc address_set (cmsg_uint32) returns (dummy);
     rpc add_host (cmsg_uint32) returns (dummy);
     rpc delete_host (cmsg_uint32) returns (dummy);
-    rpc subscribe (subscription_info) returns (dummy);
-    rpc unsubscribe (subscription_info) returns (dummy);
+    rpc listen (listener_info) returns (dummy);
+    rpc unlisten (listener_info) returns (dummy);
     rpc add_server (cmsg_service_info) returns (dummy);
     rpc remove_server (cmsg_service_info) returns (dummy);
 }

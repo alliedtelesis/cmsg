@@ -98,16 +98,16 @@ event_server_init (void)
 
 /**
  * Helper function for calling the API to the CMSG service listener
- * to add/remove a subscription for a given service.
+ * to add/remove a listener for a given service.
  *
- * @param service_name - The name of the service to subscribe/unsubscibe for.
- * @param subscribe - true to subscribe, false to unsubscribe.
+ * @param service_name - The name of the service to listen/unlisten for.
+ * @param listen - true to listen, false to unlisten.
  */
 static void
-_cmsg_service_listener_subscribe (const char *service_name, bool subscribe)
+_cmsg_service_listener_listen (const char *service_name, bool listen)
 {
     cmsg_client *client = NULL;
-    subscription_info send_msg = SUBSCRIPTION_INFO_INIT;
+    listener_info send_msg = LISTENER_INFO_INIT;
     cmsg_transport_info *transport_info = NULL;
 
     event_server_init ();
@@ -115,17 +115,17 @@ _cmsg_service_listener_subscribe (const char *service_name, bool subscribe)
     transport_info = cmsg_transport_info_create (event_server->_transport);
 
     CMSG_SET_FIELD_PTR (&send_msg, service, (char *) service_name);
-    CMSG_SET_FIELD_PTR (&send_msg, subscriber_info, transport_info);
+    CMSG_SET_FIELD_PTR (&send_msg, transport_info, transport_info);
 
     client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR_NOPACKAGE (configuration));
 
-    if (subscribe)
+    if (listen)
     {
-        configuration_api_subscribe (client, &send_msg);
+        configuration_api_listen (client, &send_msg);
     }
     else
     {
-        configuration_api_unsubscribe (client, &send_msg);
+        configuration_api_unlisten (client, &send_msg);
     }
 
     cmsg_destroy_client_and_transport (client);
@@ -133,15 +133,15 @@ _cmsg_service_listener_subscribe (const char *service_name, bool subscribe)
 }
 
 /**
- * Subscribe for events for the given service name.
+ * Listen for events for the given service name.
  *
- * @param service_name - The service to subscribe for.
+ * @param service_name - The service to listen for.
  * @param func - The function to call when a server is added or removed
  *               for the given service.
  */
 void
-cmsg_service_listener_subscribe (const char *service_name,
-                                 cmsg_service_listener_event_func func)
+cmsg_service_listener_listen (const char *service_name,
+                              cmsg_service_listener_event_func func)
 {
     GList *function_list_entry = NULL;
     function_info *info = NULL;
@@ -150,7 +150,7 @@ cmsg_service_listener_subscribe (const char *service_name,
                                               find_function_entry);
     if (function_list_entry)
     {
-        /* Already subscribed for this service */
+        /* Already listening for this service */
         return;
     }
 
@@ -165,17 +165,17 @@ cmsg_service_listener_subscribe (const char *service_name,
 
     function_list = g_list_append (function_list, info);
 
-    _cmsg_service_listener_subscribe (service_name, true);
+    _cmsg_service_listener_listen (service_name, true);
 
 }
 
 /**
- * Unsubscribe from events for the given service name.
+ * Unlisten from events for the given service name.
  *
- * @param service_name - The service to unsubscribe from.
+ * @param service_name - The service to unlisten from.
  */
 void
-cmsg_service_listener_unsubscribe (const char *service_name)
+cmsg_service_listener_unlisten (const char *service_name)
 {
     GList *function_list_entry = NULL;
     function_info *info = NULL;
@@ -184,7 +184,7 @@ cmsg_service_listener_unsubscribe (const char *service_name)
                                               find_function_entry);
     if (!function_list_entry)
     {
-        /* No subscription exists for this service */
+        /* No listener exists for this service */
         return;
     }
 
@@ -193,7 +193,7 @@ cmsg_service_listener_unsubscribe (const char *service_name)
     CMSG_FREE (info->service_name);
     CMSG_FREE (info);
 
-    _cmsg_service_listener_subscribe (service_name, false);
+    _cmsg_service_listener_listen (service_name, false);
 }
 
 /**
@@ -204,7 +204,7 @@ cmsg_service_listener_unsubscribe (const char *service_name)
  * @returns The CMSG server that receives service notifications
  */
 cmsg_server *
-cmsg_service_listener_subscription_server_get (void)
+cmsg_service_listener_server_get (void)
 {
     event_server_init ();
 
