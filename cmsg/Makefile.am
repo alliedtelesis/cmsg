@@ -53,6 +53,14 @@ src/publisher_subscriber/configuration.pb-c.c \
 src/publisher_subscriber/configuration.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/publisher_subscriber/configuration.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/configuration.proto
 
+src/publisher_subscriber/remote_sync_api_auto.c \
+src/publisher_subscriber/remote_sync_api_auto.h \
+src/publisher_subscriber/remote_sync_impl_auto.c \
+src/publisher_subscriber/remote_sync_impl_auto.h \
+src/publisher_subscriber/remote_sync_impl_types_auto.h \
+src/publisher_subscriber/remote_sync.pb-c.c \
+src/publisher_subscriber/remote_sync.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/publisher_subscriber/remote_sync.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/remote_sync.proto
 
 libcmsg_la_SOURCES = \
 	src/cmsg.pb-c.c \
@@ -86,7 +94,10 @@ libcmsg_la_SOURCES = \
 	src/service_listener/configuration_api_auto.c \
 	src/service_listener/configuration.pb-c.c \
 	src/service_listener/events_impl_auto.c \
-	src/service_listener/events.pb-c.c
+	src/service_listener/events.pb-c.c \
+	src/publisher_subscriber/cmsg_pss_api.c \
+	src/publisher_subscriber/configuration_api_auto.c \
+	src/publisher_subscriber/configuration.pb-c.c
 
 libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c
 
@@ -114,7 +125,8 @@ libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg_glib_helpers.h \
 	include/cmsg/cmsg_validation.h \
 	include/cmsg/cmsg_pthread_helpers.h \
-	include/cmsg/cmsg_sl_config.h
+	include/cmsg/cmsg_sl_config.h \
+	include/cmsg/cmsg_pss_config.h
 
 BUILT_SOURCES =  \
 	src/cmsg_api_auto.c \
@@ -190,8 +202,12 @@ cmsg_sld_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/inclu
 cmsg_pssd_SOURCES = \
 	src/publisher_subscriber/main.c \
 	src/publisher_subscriber/configuration.c \
+	src/publisher_subscriber/remote_sync.c \
 	src/publisher_subscriber/configuration_impl_auto.c \
-	src/publisher_subscriber/configuration.pb-c.c
+	src/publisher_subscriber/configuration.pb-c.c \
+	src/publisher_subscriber/remote_sync_api_auto.c \
+	src/publisher_subscriber/remote_sync_impl_auto.c \
+	src/publisher_subscriber/remote_sync.pb-c.c
 cmsg_pssd_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c
 cmsg_pssd_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
 cmsg_pssd_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src

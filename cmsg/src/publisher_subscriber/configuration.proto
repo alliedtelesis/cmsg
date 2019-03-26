@@ -8,4 +8,5 @@ import "cmsg.proto";
 
 service configuration
 {
+    rpc address_set (cmsg_uint32) returns (dummy);
 }
