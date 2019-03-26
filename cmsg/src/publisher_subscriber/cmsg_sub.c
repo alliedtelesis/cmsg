@@ -412,6 +412,36 @@ cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int 
 }
 
 cmsg_sub *
+cmsg_create_subscriber_tcp (const char *server_name, struct in_addr addr,
+                            const ProtobufCService *service)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_sub *subscriber = NULL;
+
+    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    transport = cmsg_create_transport_tcp_ipv4 (server_name, &addr, true);
+    if (transport == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to create TCP subscriber for %s",
+                            service->descriptor->name);
+        return NULL;
+    }
+
+    subscriber = cmsg_sub_new (transport, service);
+    if (subscriber == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("Failed to create TCP subscriber for %s",
+                            service->descriptor->name);
+        return NULL;
+    }
+
+    return subscriber;
+}
+
+cmsg_sub *
 cmsg_create_subscriber_unix_oneway (const ProtobufCService *service)
 {
     cmsg_sub *subscriber = NULL;

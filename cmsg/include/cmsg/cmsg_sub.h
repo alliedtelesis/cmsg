@@ -50,6 +50,8 @@ int32_t cmsg_sub_unsubscribe_events (cmsg_sub *subscriber,
 
 cmsg_sub *cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id,
                                               int scope, const ProtobufCService *service);
+cmsg_sub *cmsg_create_subscriber_tcp (const char *server_name, struct in_addr addr,
+                                      const ProtobufCService *service);
 cmsg_sub *cmsg_create_subscriber_unix_oneway (const ProtobufCService *service);
 void cmsg_destroy_subscriber_and_transport (cmsg_sub *subscriber);
 
