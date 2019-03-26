@@ -160,7 +160,13 @@ BUILT_SOURCES =  \
 	src/publisher_subscriber/configuration_impl_auto.c \
 	src/publisher_subscriber/configuration_impl_auto.h \
 	src/publisher_subscriber/configuration.pb-c.c \
-	src/publisher_subscriber/configuration.pb-c.h
+	src/publisher_subscriber/configuration.pb-c.h \
+	src/publisher_subscriber/remote_sync_api_auto.c \
+	src/publisher_subscriber/remote_sync_api_auto.h \
+	src/publisher_subscriber/remote_sync_impl_auto.c \
+	src/publisher_subscriber/remote_sync_impl_auto.h \
+	src/publisher_subscriber/remote_sync.pb-c.c \
+	src/publisher_subscriber/remote_sync.pb-c.h
 
 if BUILD_UNITTEST
 BUILT_SOURCES += \
