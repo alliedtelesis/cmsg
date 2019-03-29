@@ -11,6 +11,7 @@
 #include <glib.h>
 #include <glib-unix.h>
 #include "configuration.h"
+#include "data.h"
 
 #define DEBUG_FILE "/tmp/cmsg_pssd_debug.txt"
 
@@ -26,6 +27,7 @@ debug_handler (gpointer user_data)
 
     if (fp != NULL)
     {
+        data_debug_dump (fp);
         fclose (fp);
     }
 
@@ -86,6 +88,7 @@ main (int argc, char **argv)
     /* Avoid exiting upon receiving an unintentional SIGPIPE */
     signal (SIGPIPE, SIG_IGN);
 
+    data_init ();
     configuration_server_init ();
 
     /* Create run file */

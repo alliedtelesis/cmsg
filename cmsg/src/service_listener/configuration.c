@@ -89,7 +89,8 @@ void
 cmsg_sld_configuration_impl_add_server (const void *service,
                                         const cmsg_service_info *recv_msg)
 {
-    if (recv_msg->server_info->type == CMSG_TRANSPORT_INFO_TYPE_NOT_SET)
+    if (recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_UNIX &&
+        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
         /* Ignore everything except TCP and UNIX services for now */
         cmsg_sld_configuration_server_add_serverSend (service);
@@ -111,7 +112,8 @@ void
 cmsg_sld_configuration_impl_remove_server (const void *service,
                                            const cmsg_service_info *recv_msg)
 {
-    if (recv_msg->server_info->type == CMSG_TRANSPORT_INFO_TYPE_NOT_SET)
+    if (recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_UNIX &&
+        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
         /* Ignore everything except TCP and UNIX services for now */
         cmsg_sld_configuration_server_add_serverSend (service);

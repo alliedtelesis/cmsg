@@ -5,6 +5,7 @@
 #include "cmsg_sub.h"
 #include "cmsg_error.h"
 #include "cmsg_sub_service.pb-c.h"
+#include "cmsg_pss_api_private.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
@@ -189,6 +190,8 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
         CMSG_LOG_GEN_ERROR ("[%s] Unable to create client counters.", app_name);
     }
 #endif
+
+    cmsg_pss_subscription_add (subscriber->pub_server, sub_client_transport, method_name);
 
     return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,
                                                &register_entry, NULL, &closure_data);

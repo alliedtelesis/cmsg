@@ -208,6 +208,7 @@ cmsg_sld_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/inclu
 cmsg_pssd_SOURCES = \
 	src/publisher_subscriber/main.c \
 	src/publisher_subscriber/configuration.c \
+	src/publisher_subscriber/data.c \
 	src/publisher_subscriber/remote_sync.c \
 	src/publisher_subscriber/configuration_impl_auto.c \
 	src/publisher_subscriber/configuration.pb-c.c \

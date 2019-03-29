@@ -16,6 +16,7 @@ enum cmsg_transport_info_type
     CMSG_TRANSPORT_INFO_TYPE_NOT_SET = 0;
     CMSG_TRANSPORT_INFO_TYPE_UNIX = 1;
     CMSG_TRANSPORT_INFO_TYPE_TCP = 2;
+    CMSG_TRANSPORT_INFO_TYPE_TIPC = 3;
 }
 
 message cmsg_unix_transport_info
@@ -30,6 +31,16 @@ message cmsg_tcp_transport_info
     optional uint32 port = 3;
 }
 
+message cmsg_tipc_transport_info
+{
+    optional uint32 family = 1;
+    optional uint32 addrtype = 2;
+    optional uint32 addr_name_name_type = 3;
+    optional uint32 addr_name_name_instance = 4;
+    optional uint32 addr_name_domain = 5;
+    optional uint32 scope = 6;
+}
+
 message cmsg_transport_info
 {
     optional cmsg_transport_info_type type = 1;
@@ -37,6 +48,7 @@ message cmsg_transport_info
     oneof data {
         cmsg_unix_transport_info unix_info = 3;
         cmsg_tcp_transport_info tcp_info = 4;
+        cmsg_tipc_transport_info tipc_info = 5;
     }
 }
 

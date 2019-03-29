@@ -694,6 +694,39 @@ cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
 }
 
 /**
+ * Create a 'cmsg_tipc_transport_info' message for the given tipc transport.
+ *
+ * @param transport - The tipc transport to build the message for.
+ *
+ * @returns A pointer to the message on success, NULL on failure.
+ */
+cmsg_tipc_transport_info *
+cmsg_transport_tipc_info_create (cmsg_transport *transport)
+{
+    cmsg_tipc_transport_info *tipc_info = NULL;
+
+    tipc_info = CMSG_MALLOC (sizeof (cmsg_tipc_transport_info));
+    if (!tipc_info)
+    {
+        return NULL;
+    }
+    cmsg_tipc_transport_info_init (tipc_info);
+
+    CMSG_SET_FIELD_VALUE (tipc_info, family, transport->config.socket.sockaddr.tipc.family);
+    CMSG_SET_FIELD_VALUE (tipc_info, addrtype,
+                          transport->config.socket.sockaddr.tipc.addrtype);
+    CMSG_SET_FIELD_VALUE (tipc_info, addr_name_name_type,
+                          transport->config.socket.sockaddr.tipc.addr.name.domain);
+    CMSG_SET_FIELD_VALUE (tipc_info, addr_name_name_instance,
+                          transport->config.socket.sockaddr.tipc.addr.name.name.instance);
+    CMSG_SET_FIELD_VALUE (tipc_info, addr_name_domain,
+                          transport->config.socket.sockaddr.tipc.addr.name.name.type);
+    CMSG_SET_FIELD_VALUE (tipc_info, scope, transport->config.socket.sockaddr.tipc.scope);
+
+    return tipc_info;
+}
+
+/**
  * Create a 'cmsg_tcp_transport_info' message for the given tcp transport.
  *
  * @param transport - The tcp transport to build the message for.
@@ -784,11 +817,14 @@ cmsg_transport_info_create (cmsg_transport *transport)
     cmsg_transport_info *transport_info = NULL;
     cmsg_tcp_transport_info *tcp_info = NULL;
     cmsg_unix_transport_info *unix_info = NULL;
+    cmsg_tipc_transport_info *tipc_info = NULL;
 
     if (transport->type != CMSG_TRANSPORT_RPC_TCP &&
         transport->type != CMSG_TRANSPORT_RPC_UNIX &&
+        transport->type != CMSG_TRANSPORT_RPC_TIPC &&
         transport->type != CMSG_TRANSPORT_ONEWAY_UNIX &&
-        transport->type != CMSG_TRANSPORT_ONEWAY_TCP)
+        transport->type != CMSG_TRANSPORT_ONEWAY_TCP &&
+        transport->type != CMSG_TRANSPORT_ONEWAY_TIPC)
     {
         return NULL;
     }
@@ -836,6 +872,24 @@ cmsg_transport_info_create (cmsg_transport *transport)
             transport_info = NULL;
         }
     }
+    else if (transport->type == CMSG_TRANSPORT_RPC_TIPC ||
+             transport->type == CMSG_TRANSPORT_ONEWAY_TIPC)
+    {
+        tipc_info = cmsg_transport_tipc_info_create (transport);
+        if (tipc_info)
+        {
+            CMSG_SET_FIELD_VALUE (transport_info, type, CMSG_TRANSPORT_INFO_TYPE_TIPC);
+            CMSG_SET_FIELD_VALUE (transport_info, one_way,
+                                  transport->type == CMSG_TRANSPORT_ONEWAY_TIPC);
+            CMSG_SET_FIELD_ONEOF (transport_info, tipc_info, tipc_info,
+                                  data, CMSG_TRANSPORT_INFO_DATA_TIPC_INFO);
+        }
+        else
+        {
+            CMSG_FREE (transport_info);
+            transport_info = NULL;
+        }
+    }
 
     return transport_info;
 }
@@ -857,6 +911,10 @@ cmsg_transport_info_free (cmsg_transport_info *transport_info)
     else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
         CMSG_FREE (transport_info->tcp_info);
+    }
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+    {
+        CMSG_FREE (transport_info->tipc_info);
     }
     CMSG_FREE (transport_info);
 }
@@ -928,4 +986,65 @@ cmsg_transport_info_to_transport (cmsg_transport_info *transport_info)
     }
 
     return transport;
+}
+
+/**
+ * Compares two 'cmsg_transport_info' structures for equality.
+ *
+ * @param transport_info_a - The first structure to compare.
+ * @param transport_info_b - The second structure to compare.
+ *
+ * @returns true if they are equal, false otherwise.
+ */
+bool
+cmsg_transport_info_compare (cmsg_transport_info *transport_info_a,
+                             cmsg_transport_info *transport_info_b)
+{
+    if (transport_info_a->type != transport_info_b->type ||
+        transport_info_a->one_way != transport_info_b->one_way)
+    {
+        return false;
+    }
+
+    if (transport_info_a->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    {
+        cmsg_tcp_transport_info *tcp_info_a = transport_info_a->tcp_info;
+        cmsg_tcp_transport_info *tcp_info_b = transport_info_b->tcp_info;
+
+        if (tcp_info_a->ipv4 == tcp_info_b->ipv4 &&
+            tcp_info_a->port == tcp_info_b->port &&
+            !memcmp (tcp_info_a->addr.data, tcp_info_b->addr.data, tcp_info_a->addr.len))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    if (transport_info_a->type == CMSG_TRANSPORT_INFO_TYPE_UNIX)
+    {
+        cmsg_unix_transport_info *unix_info_a = transport_info_a->unix_info;
+        cmsg_unix_transport_info *unix_info_b = transport_info_b->unix_info;
+
+        return (strcmp (unix_info_a->path, unix_info_b->path) == 0);
+    }
+
+    if (transport_info_a->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+    {
+        cmsg_tipc_transport_info *tipc_info_a = transport_info_a->tipc_info;
+        cmsg_tipc_transport_info *tipc_info_b = transport_info_b->tipc_info;
+
+        if (tipc_info_a->family == tipc_info_b->family &&
+            tipc_info_a->addrtype == tipc_info_b->addrtype &&
+            tipc_info_a->addr_name_name_type == tipc_info_b->addr_name_name_type &&
+            tipc_info_a->addr_name_name_instance == tipc_info_b->addr_name_name_instance &&
+            tipc_info_a->addr_name_domain == tipc_info_b->addr_name_domain &&
+            tipc_info_a->scope == tipc_info_b->scope)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    return false;
 }

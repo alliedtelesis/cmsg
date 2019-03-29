@@ -5,6 +5,7 @@
 #define __CMSG_TRANSPORT_PRIVATE_H_
 
 #include "cmsg_types_auto.h"
+#include "cmsg_transport.h"
 
 /* When connecting the transport specify that the default timeout value should
  * be used with the connect call */
@@ -47,5 +48,7 @@ cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
 cmsg_transport_info *cmsg_transport_info_create (cmsg_transport *transport);
 void cmsg_transport_info_free (cmsg_transport_info *transport_info);
 cmsg_transport *cmsg_transport_info_to_transport (cmsg_transport_info *transport_info);
+bool cmsg_transport_info_compare (cmsg_transport_info *transport_info_a,
+                                  cmsg_transport_info *transport_info_b);
 
 #endif /* __CMSG_TRANSPORT_PRIVATE_H_ */

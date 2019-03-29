@@ -12,6 +12,7 @@
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
 #include "cmsg_composite_client.h"
+#include "setup.h"
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it
@@ -57,6 +58,7 @@ set_up (void)
     signal (SIGPIPE, SIG_IGN);
 
     np_mock (cmsg_service_port_get, sm_mock_cmsg_service_port_get);
+    cmsg_service_listener_mock_functions ();
 
     return 0;
 }

@@ -45,7 +45,7 @@ get_service_entry_or_create (const char *service)
     if (!entry)
     {
         entry = CMSG_CALLOC (1, sizeof (service_data_entry));
-        g_hash_table_insert (hash_table, (char *) service, entry);
+        g_hash_table_insert (hash_table, g_strdup (service), entry);
     }
 
     return entry;
@@ -117,49 +117,6 @@ data_add_server (const cmsg_service_info *server_info)
 
     notify_listeners (server_info, entry, true);
     remote_sync_server_added (server_info);
-}
-
-/**
- * Compares two 'cmsg_transport_info' structures for equality.
- *
- * @param transport_info_a - The first structure to compare.
- * @param transport_info_b - The second structure to compare.
- *
- * @returns true if they are equal, false otherwise.
- */
-static bool
-cmsg_transport_info_compare (cmsg_transport_info *transport_info_a,
-                             cmsg_transport_info *transport_info_b)
-{
-    if (transport_info_a->type != transport_info_b->type ||
-        transport_info_a->one_way != transport_info_b->one_way)
-    {
-        return false;
-    }
-
-    if (transport_info_a->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
-    {
-        cmsg_tcp_transport_info *tcp_info_a = transport_info_a->tcp_info;
-        cmsg_tcp_transport_info *tcp_info_b = transport_info_b->tcp_info;
-
-        if (tcp_info_a->ipv4 == tcp_info_b->ipv4 &&
-            tcp_info_a->port == tcp_info_b->port &&
-            !memcmp (tcp_info_a->addr.data, tcp_info_b->addr.data, tcp_info_a->addr.len))
-        {
-            return true;
-        }
-        return false;
-    }
-
-    if (transport_info_a->type == CMSG_TRANSPORT_INFO_TYPE_UNIX)
-    {
-        cmsg_unix_transport_info *unix_info_a = transport_info_a->unix_info;
-        cmsg_unix_transport_info *unix_info_b = transport_info_b->unix_info;
-
-        return (strcmp (unix_info_a->path, unix_info_b->path) == 0);
-    }
-
-    return false;
 }
 
 /**
@@ -392,7 +349,7 @@ data_get_servers_by_addr (uint32_t addr)
 void
 data_init (void)
 {
-    hash_table = g_hash_table_new (g_str_hash, g_str_equal);
+    hash_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
     if (!hash_table)
     {
         syslog (LOG_ERR, "Failed to initialize hash table");
