@@ -26,6 +26,9 @@ static int32_t _cmsg_pub_queue_process_all_direct (cmsg_pub *publisher);
 static int32_t cmsg_pub_message_processor (int socket, cmsg_server_request *server_request,
                                            cmsg_server *server, uint8_t *buffer_data);
 
+static void cmsg_pub_queue_thread_start (cmsg_pub *publisher);
+static void cmsg_pub_queue_thread_stop (cmsg_pub *publisher);
+
 extern cmsg_server *cmsg_server_create (cmsg_transport *transport,
                                         ProtobufCService *service);
 extern int32_t cmsg_server_counter_create (cmsg_server *server, char *app_name);
@@ -134,6 +137,9 @@ cmsg_pub_new (cmsg_transport *sub_server_transport,
     publisher->self_thread_id = pthread_self ();
 
     cmsg_pub_queue_filter_init (publisher);
+
+    cmsg_pub_queue_enable (publisher);
+    cmsg_pub_queue_thread_start (publisher);
 
     return publisher;
 }
@@ -885,7 +891,7 @@ cmsg_pub_queue_process_thread (void *arg)
     return NULL;
 }
 
-void
+static void
 cmsg_pub_queue_thread_start (cmsg_pub *publisher)
 {
     if (!publisher->queue_thread_running)
@@ -922,7 +928,7 @@ cmsg_pub_queue_disable (cmsg_pub *publisher)
     return cmsg_pub_queue_process_all (publisher);
 }
 
-void
+static void
 cmsg_pub_queue_thread_stop (cmsg_pub *publisher)
 {
     if (publisher->queue_thread_running)

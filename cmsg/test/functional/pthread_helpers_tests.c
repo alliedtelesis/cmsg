@@ -165,7 +165,6 @@ _test_cmsg_pthread_publisher_subscriber (cmsg_pub *pub, cmsg_sub *sub,
     NP_ASSERT_EQUAL (ret, 0);
     ret = pthread_join (*publisher_thread, NULL);
     NP_ASSERT_EQUAL (ret, 0);
-    cmsg_pub_queue_thread_stop (pub);
     cmsg_destroy_publisher_and_transport (pub);
 
     NP_ASSERT_TRUE (notification_received);

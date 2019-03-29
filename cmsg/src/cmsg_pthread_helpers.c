@@ -223,9 +223,6 @@ cmsg_pthread_publisher_init (pthread_t *thread, cmsg_transport *transport,
         return NULL;
     }
 
-    cmsg_pub_queue_enable (pub);
-    cmsg_pub_queue_thread_start (pub);
-
     return pub;
 }
 
@@ -239,9 +236,8 @@ cmsg_pthread_publisher_init (pthread_t *thread, cmsg_transport *transport,
  * @param service_desc - The CMSG service descriptor to publish for.
  *
  * Note that this thread can be cancelled using 'pthread_cancel' and then should
- * be joined using 'pthread_join'. At this stage the function 'cmsg_pub_queue_thread_stop'
- * should be called with the publisher before finally destroying it using
- * 'cmsg_destroy_publisher_and_transport'.
+ * be joined using 'pthread_join'. At this stage the publisher should be destroyed
+ * using 'cmsg_destroy_publisher_and_transport'.
  */
 cmsg_pub *
 cmsg_pthread_unix_publisher_init (pthread_t *thread,
@@ -273,9 +269,8 @@ cmsg_pthread_unix_publisher_init (pthread_t *thread,
  * @param  scope - The TIPC scope to use.
  *
  * Note that this thread can be cancelled using 'pthread_cancel' and then should
- * be joined using 'pthread_join'. At this stage the function 'cmsg_pub_queue_thread_stop'
- * should be called with the publisher before finally destroying it using
- * 'cmsg_destroy_publisher_and_transport'.
+ * be joined using 'pthread_join'. At this stage the publisher should be destroyed
+ * using 'cmsg_destroy_publisher_and_transport'.
  */
 cmsg_pub *
 cmsg_pthread_tipc_publisher_init (pthread_t *thread,

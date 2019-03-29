@@ -106,10 +106,6 @@ uint32_t cmsg_pub_queue_get_length (cmsg_pub *publisher);
 
 int32_t cmsg_pub_queue_process_all (cmsg_pub *publisher);
 
-void cmsg_pub_queue_thread_start (cmsg_pub *publisher);
-
-void cmsg_pub_queue_thread_stop (cmsg_pub *publisher);
-
 //queue filter
 void cmsg_pub_queue_filter_set_all (cmsg_pub *publisher,
                                     cmsg_queue_filter_type filter_type);
