@@ -12,6 +12,7 @@
 #include <glib-unix.h>
 #include "configuration.h"
 #include "data.h"
+#include "remote_sync.h"
 
 #define DEBUG_FILE "/tmp/cmsg_pssd_debug.txt"
 
@@ -27,6 +28,7 @@ debug_handler (gpointer user_data)
 
     if (fp != NULL)
     {
+        remote_sync_debug_dump (fp);
         data_debug_dump (fp);
         fclose (fp);
     }
