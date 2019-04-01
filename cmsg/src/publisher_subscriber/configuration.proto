@@ -12,7 +12,6 @@ message subscription_info
     optional cmsg_transport_info transport_info = 2;
     optional string method_name = 3;
     optional uint32 remote_addr = 4;
-    optional uint32 remote_addr_is_tcp = 5;
 }
 
 service configuration

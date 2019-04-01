@@ -34,17 +34,39 @@ cmsg_service_listener_mock_functions (void)
 }
 
 static bool
-sm_mock_cmsg_pss_subscription_add (cmsg_server *sub_server, cmsg_transport *pub_transport,
-                                   const char *method_name)
+sm_mock_cmsg_pss_subscription_add_local (cmsg_server *sub_server, const char *method_name)
 {
     /* Do nothing. */
     return true;
 }
 
 static bool
-sm_mock_cmsg_pss_subscription_remove (cmsg_server *sub_server,
-                                      cmsg_transport *pub_transport,
-                                      const char *method_name)
+sm_mock_cmsg_pss_subscription_add_remote (cmsg_server *sub_server, const char *method_name,
+                                          struct in_addr remote_addr)
+{
+    /* Do nothing. */
+    return true;
+}
+
+static bool
+sm_mock_cmsg_pss_subscription_remove_local (cmsg_server *sub_server,
+                                            const char *method_name)
+{
+    /* Do nothing. */
+    return true;
+}
+
+static bool
+sm_mock_cmsg_pss_subscription_remove_remote (cmsg_server *sub_server,
+                                             const char *method_name,
+                                             struct in_addr remote_addr)
+{
+    /* Do nothing. */
+    return true;
+}
+
+static bool
+sm_mock_cmsg_pss_remove_subscriber (cmsg_server *sub_server)
 {
     /* Do nothing. */
     return true;
@@ -58,6 +80,11 @@ sm_mock_cmsg_pss_subscription_remove (cmsg_server *sub_server,
 void
 cmsg_pss_mock_functions (void)
 {
-    np_mock (cmsg_pss_subscription_add, sm_mock_cmsg_pss_subscription_add);
-    np_mock (cmsg_pss_subscription_remove, sm_mock_cmsg_pss_subscription_remove);
+    np_mock (cmsg_pss_subscription_add_local, sm_mock_cmsg_pss_subscription_add_local);
+    np_mock (cmsg_pss_subscription_add_remote, sm_mock_cmsg_pss_subscription_add_remote);
+    np_mock (cmsg_pss_subscription_remove_local,
+             sm_mock_cmsg_pss_subscription_remove_local);
+    np_mock (cmsg_pss_subscription_remove_remote,
+             sm_mock_cmsg_pss_subscription_remove_remote);
+    np_mock (cmsg_pss_remove_subscriber, sm_mock_cmsg_pss_remove_subscriber);
 }

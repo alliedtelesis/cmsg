@@ -12,6 +12,10 @@
 #include "cmsg_functional_tests_impl_auto.h"
 #include "setup.h"
 
+extern int32_t cmsg_sub_unsubscribe (cmsg_sub *subscriber,
+                                     cmsg_transport *sub_client_transport,
+                                     char *method_name);
+
 /**
  * This informs the compiler that the function is, in fact, being used even though it
  * doesn't look like it. This is useful for static functions that get found by NovaProva
@@ -200,6 +204,7 @@ test_cmsg_pthread_publisher_subscriber_tipc (void)
     pthread_t publisher_thread;
     cmsg_transport *transport_r = NULL;
     const char *events[] = { "pthread_notification_test", NULL };
+    struct in_addr remote_addr;
 
     pub = cmsg_pthread_tipc_publisher_init (&publisher_thread,
                                             CMSG_DESCRIPTOR (cmsg, test),
@@ -208,7 +213,7 @@ test_cmsg_pthread_publisher_subscriber_tipc (void)
     sub = cmsg_pthread_tipc_subscriber_init (&subscriber_thread,
                                              CMSG_SERVICE (cmsg, test), events,
                                              "cmsg-test-subscriber", "cmsg-test-publisher",
-                                             tipc_instance, tipc_scope);
+                                             tipc_instance, tipc_scope, remote_addr);
     transport_r = cmsg_create_transport_tipc_rpc ("cmsg-test-publisher", tipc_instance,
                                                   tipc_scope);
 

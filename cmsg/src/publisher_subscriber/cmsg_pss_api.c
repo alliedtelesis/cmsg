@@ -57,8 +57,8 @@ cmsg_pss_address_set (struct in_addr addr)
  * @returns true on success, false otherwise.
  */
 static bool
-cmsg_pss_subscription_add_remove (cmsg_server *sub_server, cmsg_transport *pub_transport,
-                                  const char *method_name, bool add)
+cmsg_pss_subscription_add_remove (cmsg_server *sub_server, const char *method_name,
+                                  bool add, bool remote, uint32_t remote_addr)
 {
     cmsg_client *client = NULL;
     int ret;
@@ -75,23 +75,9 @@ cmsg_pss_subscription_add_remove (cmsg_server *sub_server, cmsg_transport *pub_t
                         (char *) cmsg_service_name_get (sub_server->service->descriptor));
     CMSG_SET_FIELD_PTR (&send_msg, method_name, (char *) method_name);
 
-    if (pub_transport->type == CMSG_TRANSPORT_RPC_TCP ||
-        pub_transport->type == CMSG_TRANSPORT_ONEWAY_TCP)
+    if (remote)
     {
-        if (pub_transport->config.socket.family != PF_INET6)
-        {
-            CMSG_SET_FIELD_VALUE (&send_msg, remote_addr,
-                                  pub_transport->config.socket.sockaddr.in.sin_addr.s_addr);
-            CMSG_SET_FIELD_VALUE (&send_msg, remote_addr_is_tcp, true);
-        }
-    }
-    else if (pub_transport->type == CMSG_TRANSPORT_RPC_TIPC ||
-             pub_transport->type == CMSG_TRANSPORT_ONEWAY_TIPC)
-    {
-        CMSG_SET_FIELD_VALUE (&send_msg, remote_addr,
-                              pub_transport->config.socket.sockaddr.tipc.addr.name.
-                              name.instance);
-        CMSG_SET_FIELD_VALUE (&send_msg, remote_addr_is_tcp, false);
+        CMSG_SET_FIELD_VALUE (&send_msg, remote_addr, remote_addr);
     }
 
     client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_pssd, configuration));
@@ -117,37 +103,70 @@ cmsg_pss_subscription_add_remove (cmsg_server *sub_server, cmsg_transport *pub_t
 }
 
 /**
- * Register a subscription with cmsg_pssd.
+ * Register a local subscription with cmsg_pssd.
  *
  * @param sub_server - The CMSG server structure used by the subscriber to receive
  *                     published notifications.
- * @param pub_transport - The transport to connect to the publisher with.
  * @param method_name - The method name to subscribe for.
  *
  * @returns true on success, false otherwise.
  */
 bool
-cmsg_pss_subscription_add (cmsg_server *sub_server, cmsg_transport *pub_transport,
-                           const char *method_name)
+cmsg_pss_subscription_add_local (cmsg_server *sub_server, const char *method_name)
 {
-    return cmsg_pss_subscription_add_remove (sub_server, pub_transport, method_name, true);
+    return cmsg_pss_subscription_add_remove (sub_server, method_name, true, false, 0);
+
 }
 
 /**
- * Unregister a subscription from cmsg_pssd.
+ * Register a remote subscription with cmsg_pssd.
  *
  * @param sub_server - The CMSG server structure used by the subscriber to receive
  *                     published notifications.
- * @param pub_transport - The transport to connect to the publisher with.
+ * @param method_name - The method name to subscribe for.
+ * @param remote_addr - The address of the remote node to subscribe to.
+ *
+ * @returns true on success, false otherwise.
+ */
+bool
+cmsg_pss_subscription_add_remote (cmsg_server *sub_server, const char *method_name,
+                                  struct in_addr remote_addr)
+{
+    return cmsg_pss_subscription_add_remove (sub_server, method_name, true, true,
+                                             remote_addr.s_addr);
+}
+
+/**
+ * Unregister a local subscription from cmsg_pssd.
+ *
+ * @param sub_server - The CMSG server structure used by the subscriber to receive
+ *                     published notifications.
  * @param method_name - The method name to subscribe for.
  *
  * @returns true on success, false otherwise.
  */
 bool
-cmsg_pss_subscription_remove (cmsg_server *sub_server, cmsg_transport *pub_transport,
-                              const char *method_name)
+cmsg_pss_subscription_remove_local (cmsg_server *sub_server, const char *method_name)
 {
-    return cmsg_pss_subscription_add_remove (sub_server, pub_transport, method_name, false);
+    return cmsg_pss_subscription_add_remove (sub_server, method_name, false, false, 0);
+}
+
+/**
+ * Unregister a remote subscription from cmsg_pssd.
+ *
+ * @param sub_server - The CMSG server structure used by the subscriber to receive
+ *                     published notifications.
+ * @param method_name - The method name to subscribe for.
+ * @param remote_addr - The address of the remote node to unsubscribe from.
+ *
+ * @returns true on success, false otherwise.
+ */
+bool
+cmsg_pss_subscription_remove_remote (cmsg_server *sub_server, const char *method_name,
+                                     struct in_addr remote_addr)
+{
+    return cmsg_pss_subscription_add_remove (sub_server, method_name, false, true,
+                                             remote_addr.s_addr);
 }
 
 /**

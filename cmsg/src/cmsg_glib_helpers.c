@@ -142,7 +142,7 @@ cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events)
     {
         transport_r = cmsg_create_transport_unix (service->descriptor,
                                                   CMSG_TRANSPORT_RPC_UNIX);
-        cmsg_sub_subscribe_events (sub, transport_r, events);
+        cmsg_sub_subscribe_events_local (sub, transport_r, events);
         cmsg_transport_destroy (transport_r);
     }
 

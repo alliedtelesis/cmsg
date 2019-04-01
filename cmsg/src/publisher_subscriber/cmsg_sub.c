@@ -191,8 +191,6 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     }
 #endif
 
-    cmsg_pss_subscription_add (subscriber->pub_server, sub_client_transport, method_name);
-
     return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,
                                                &register_entry, NULL, &closure_data);
 
@@ -212,16 +210,25 @@ cmsg_sub_subscribe (cmsg_sub *subscriber,
     return return_value;
 }
 
-/**
- * Subscribe to a list of events using the given subscriber transport
- * @param subscriber subscriber to add events for
- * @param sub_client_transport transport to connect to publisher server
- * @param events Null terminated list of events, eg. { "event1", "event2", NULL }
- * @returns an error code if any subscriptions fail, else CMSG_RET_OK
- */
 int32_t
-cmsg_sub_subscribe_events (cmsg_sub *subscriber,
-                           cmsg_transport *sub_client_transport, const char **events)
+cmsg_sub_subscribe_local (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
+                          const char *method_name)
+{
+    cmsg_pss_subscription_add_local (subscriber->pub_server, method_name);
+    return cmsg_sub_subscribe (subscriber, sub_client_transport, method_name);
+}
+
+int32_t
+cmsg_sub_subscribe_remote (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
+                           const char *method_name, struct in_addr remote_addr)
+{
+    cmsg_pss_subscription_add_remote (subscriber->pub_server, method_name, remote_addr);
+    return cmsg_sub_subscribe (subscriber, sub_client_transport, method_name);
+}
+
+int32_t
+cmsg_sub_subscribe_events_local (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
+                                 const char **events)
 {
     int32_t ret;
     int32_t return_value = CMSG_RET_OK;
@@ -229,7 +236,30 @@ cmsg_sub_subscribe_events (cmsg_sub *subscriber,
 
     while (*event)
     {
-        ret = cmsg_sub_subscribe (subscriber, sub_client_transport, (char *) *event);
+        ret = cmsg_sub_subscribe_local (subscriber, sub_client_transport, (char *) *event);
+        if (ret < 0)
+        {
+            return_value = ret;
+        }
+        event++;
+    }
+
+    return return_value;
+}
+
+int32_t
+cmsg_sub_subscribe_events_remote (cmsg_sub *subscriber,
+                                  cmsg_transport *sub_client_transport, const char **events,
+                                  struct in_addr remote_addr)
+{
+    int32_t ret;
+    int32_t return_value = CMSG_RET_OK;
+    const char **event = events;
+
+    while (*event)
+    {
+        ret = cmsg_sub_subscribe_remote (subscriber, sub_client_transport, (char *) *event,
+                                         remote_addr);
         if (ret < 0)
         {
             return_value = ret;
@@ -242,7 +272,7 @@ cmsg_sub_subscribe_events (cmsg_sub *subscriber,
 
 int32_t
 cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
-                      char *method_name)
+                      const char *method_name)
 {
     cmsg_client *register_client = NULL;
     int32_t return_value = CMSG_RET_ERR;
@@ -257,7 +287,7 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     CMSG_ASSERT_RETURN_VAL (method_name != NULL, CMSG_RET_ERR);
 
     register_entry.add = 0;
-    register_entry.method_name = method_name;
+    register_entry.method_name = (char *) method_name;
     register_entry.transport_type = subscriber->pub_server->_transport->type;
 
     if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_TCP)
@@ -357,32 +387,20 @@ cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport
     return return_value;
 }
 
-/**
- * Unsubscribe from a list of events using the given subscriber transport
- * @param subscriber subscriber to remove events for
- * @param sub_client_transport transport to connect to publisher server
- * @param events Null terminated list of events, eg. { "event1", "event2", NULL }
- * @returns an error code if any unsubscriptions fail, else CMSG_RET_OK
- */
 int32_t
-cmsg_sub_unsubscribe_events (cmsg_sub *subscriber,
-                             cmsg_transport *sub_client_transport, const char **events)
+cmsg_sub_unsubscribe_local (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
+                            const char *method_name)
 {
-    int32_t ret;
-    int32_t return_value = CMSG_RET_OK;
-    const char **event = events;
+    cmsg_pss_subscription_remove_local (subscriber->pub_server, method_name);
+    return cmsg_sub_unsubscribe (subscriber, sub_client_transport, method_name);
+}
 
-    while (*event)
-    {
-        ret = cmsg_sub_unsubscribe (subscriber, sub_client_transport, (char *) *event);
-        if (ret < 0)
-        {
-            return_value = ret;
-        }
-        event++;
-    }
-
-    return return_value;
+int32_t
+cmsg_sub_unsubscribe_remote (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
+                             const char *method_name, struct in_addr remote_addr)
+{
+    cmsg_pss_subscription_remove_remote (subscriber->pub_server, method_name, remote_addr);
+    return cmsg_sub_unsubscribe (subscriber, sub_client_transport, method_name);
 }
 
 cmsg_sub *

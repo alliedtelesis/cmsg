@@ -21,7 +21,6 @@ typedef struct
 typedef struct
 {
     uint32_t addr;
-    bool addr_is_tcp;
     GList *subscribers;
 } host_data_entry;
 
@@ -72,13 +71,7 @@ remote_host_entry_compare (gconstpointer a, gconstpointer b)
     host_data_entry *entry = (host_data_entry *) a;
     const cmsg_pssd_subscription_info *info = (const cmsg_pssd_subscription_info *) b;
 
-    if ((entry->addr_is_tcp && info->remote_addr_is_tcp) ||
-        (!entry->addr_is_tcp && !info->remote_addr_is_tcp))
-    {
-        return (entry->addr == info->remote_addr ? 0 : -1);
-    }
-
-    return -1;
+    return (entry->addr == info->remote_addr ? 0 : -1);
 }
 
 /**
@@ -112,7 +105,6 @@ get_host_entry_or_create (service_data_entry *service_entry,
     {
         entry = CMSG_CALLOC (1, sizeof (host_data_entry));
         entry->addr = info->remote_addr;
-        entry->addr_is_tcp = info->remote_addr_is_tcp;
         service_entry->remote_hosts = g_list_prepend (service_entry->remote_hosts, entry);
     }
 
@@ -364,16 +356,9 @@ data_debug_remote_host_dump (gpointer data, gpointer user_data)
     const host_data_entry *entry = (const host_data_entry *) data;
     char ip[INET6_ADDRSTRLEN] = { };
 
-    if (entry->addr_is_tcp)
-    {
-        inet_ntop (AF_INET, &entry->addr, ip, INET6_ADDRSTRLEN);
-        fprintf (fp, "   remote_host: %s (%s):\n", ip, "tcp");
-    }
-    else
-    {
-        fprintf (fp, "   remote_host: %u (%s):\n", entry->addr, "tipc");
+    inet_ntop (AF_INET, &entry->addr, ip, INET6_ADDRSTRLEN);
+    fprintf (fp, "   remote_host: %s\n", ip);
 
-    }
 
     fprintf (fp, "    subscribers:\n");
     g_list_foreach (entry->subscribers, data_debug_subscriber_dump, fp);

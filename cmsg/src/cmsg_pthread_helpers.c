@@ -138,7 +138,7 @@ cmsg_pthread_unix_subscriber_init (pthread_t *thread, const ProtobufCService *se
     {
         transport_r = cmsg_create_transport_unix (service->descriptor,
                                                   CMSG_TRANSPORT_RPC_UNIX);
-        cmsg_sub_subscribe_events (sub, transport_r, events);
+        cmsg_sub_subscribe_events_local (sub, transport_r, events);
         cmsg_transport_destroy (transport_r);
     }
 
@@ -167,6 +167,7 @@ cmsg_pthread_unix_subscriber_init (pthread_t *thread, const ProtobufCService *se
  * @param publisher_service_name - The service name of the publisher to subscribe to.
  * @param this_node_id - The TIPC node id of this node.
  * @param scope - The TIPC scope to use.
+ * @param remote_addr - The remote address of the node to subscribe to.
  *
  * Note that this thread can be cancelled using 'pthread_cancel' and then should
  * be joined using 'pthread_join'. At this stage the subscriber can then be destroyed
@@ -176,7 +177,7 @@ cmsg_sub *
 cmsg_pthread_tipc_subscriber_init (pthread_t *thread, const ProtobufCService *service,
                                    const char **events, const char *subscriber_service_name,
                                    const char *publisher_service_name,
-                                   int this_node_id, int scope)
+                                   int this_node_id, int scope, struct in_addr remote_addr)
 {
     cmsg_transport *transport_r = NULL;
     cmsg_sub *sub = NULL;
@@ -189,7 +190,7 @@ cmsg_pthread_tipc_subscriber_init (pthread_t *thread, const ProtobufCService *se
     {
         transport_r = cmsg_create_transport_tipc_rpc (publisher_service_name, this_node_id,
                                                       scope);
-        cmsg_sub_subscribe_events (sub, transport_r, events);
+        cmsg_sub_subscribe_events_remote (sub, transport_r, events, remote_addr);
         cmsg_transport_destroy (transport_r);
     }
 
