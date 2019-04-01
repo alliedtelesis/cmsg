@@ -7,6 +7,8 @@
  * Copyright 2019, Allied Telesis Labs New Zealand, Ltd
  */
 
+#include <sys/eventfd.h>
+#include <cmsg/cmsg_pthread_helpers.h>
 #include "configuration_api_auto.h"
 #include "cmsg_sl_config.h"
 #include "cmsg_server_private.h"
@@ -14,26 +16,94 @@
 #include "events_impl_auto.h"
 #include "transport/cmsg_transport_private.h"
 
-typedef struct _function_info_s
+struct _cmsg_sl_info_s
 {
     char *service_name;
-    cmsg_service_listener_event_func func;
-} function_info;
+    cmsg_sl_event_handler_t handler;
+    GAsyncQueue *queue;
+    int eventfd;
+};
+
+typedef struct _cmsg_sl_event
+{
+    bool added;
+    cmsg_transport *transport;
+} cmsg_sl_event;
 
 static cmsg_server *event_server = NULL;
-static GList *function_list = NULL;
+static pthread_t event_server_thread;
+static GList *listener_list = NULL;
+static pthread_mutex_t listener_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /**
- * Look up the function entry from the function list based
- * on the service name.
+ * Get the eventfd descriptor from the 'cmsg_sl_info' structure.
+ *
+ * @param info - The 'cmsg_sl_info' structure to get the eventfd descriptor for.
+ *
+ * @returns The eventfd descriptor.
  */
-static gint
-find_function_entry (gconstpointer a, gconstpointer b)
+int
+cmsg_service_listener_get_event_fd (const cmsg_sl_info *info)
 {
-    const char *service_name = (const char *) a;
-    function_info *info = (function_info *) b;
+    return info->eventfd;
+}
 
-    return strcmp (service_name, info->service_name);
+/**
+ * Process any events on the event queue of the 'cmsg_sl_info' structure.
+ *
+ * @param info - The 'cmsg_sl_info' structure to process events for.
+ */
+void
+cmsg_service_listener_event_queue_process (const cmsg_sl_info *info)
+{
+    cmsg_sl_event *event = NULL;
+    eventfd_t value;
+
+    /* clear notification */
+    TEMP_FAILURE_RETRY (eventfd_read (info->eventfd, &value));
+
+    while ((event = g_async_queue_try_pop (info->queue)))
+    {
+        info->handler (event->transport, event->added);
+        CMSG_FREE (event);
+    }
+}
+
+/**
+ * Notify all listeners for a given service of the event that has occurred.
+ *
+ * @param recv_msg - The received event message from the service listener daemon.
+ * @param added - Whether the service has been added or removed.
+ */
+static void
+notify_listeners (const cmsg_service_info *recv_msg, bool added)
+{
+    GList *list;
+    GList *list_next;
+    const cmsg_sl_info *entry;
+    cmsg_sl_event *event = NULL;
+
+    pthread_mutex_lock (&listener_list_mutex);
+
+    for (list = g_list_first (listener_list); list; list = list_next)
+    {
+        entry = (const cmsg_sl_info *) list->data;
+        list_next = g_list_next (list);
+
+        if (strcmp (entry->service_name, recv_msg->service) == 0)
+        {
+            event = CMSG_MALLOC (sizeof (cmsg_sl_event));
+            if (event)
+            {
+                event->added = added;
+                event->transport = cmsg_transport_info_to_transport (recv_msg->server_info);
+                g_async_queue_push (entry->queue, event);
+                TEMP_FAILURE_RETRY (eventfd_write (entry->eventfd, 1));
+            }
+        }
+    }
+
+    pthread_mutex_unlock (&listener_list_mutex);
 }
 
 /**
@@ -43,15 +113,7 @@ find_function_entry (gconstpointer a, gconstpointer b)
 void
 cmsg_sld_events_impl_server_added (const void *service, const cmsg_service_info *recv_msg)
 {
-    GList *function_list_entry = NULL;
-    function_info *info = NULL;
-
-    function_list_entry = g_list_find_custom (function_list, recv_msg->service,
-                                              find_function_entry);
-    info = function_list_entry->data;
-
-    info->func (recv_msg, true);
-
+    notify_listeners (recv_msg, true);
     cmsg_sld_events_server_server_addedSend (service);
 }
 
@@ -62,15 +124,7 @@ cmsg_sld_events_impl_server_added (const void *service, const cmsg_service_info 
 void
 cmsg_sld_events_impl_server_removed (const void *service, const cmsg_service_info *recv_msg)
 {
-    GList *function_list_entry = NULL;
-    function_info *info = NULL;
-
-    function_list_entry = g_list_find_custom (function_list, recv_msg->service,
-                                              find_function_entry);
-    info = function_list_entry->data;
-
-    info->func (recv_msg, false);
-
+    notify_listeners (recv_msg, false);
     cmsg_sld_events_server_server_removedSend (service);
 }
 
@@ -82,23 +136,35 @@ event_server_init (void)
 {
     cmsg_transport *transport = NULL;
 
-    if (!event_server)
-    {
-        transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
-        transport->config.socket.family = AF_UNIX;
-        transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
-        snprintf (transport->config.socket.sockaddr.un.sun_path,
-                  sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
-                  "/tmp/%s.%u", cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_sld, events)),
-                  getpid ());
+    transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
+    transport->config.socket.family = AF_UNIX;
+    transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
+    snprintf (transport->config.socket.sockaddr.un.sun_path,
+              sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
+              "/tmp/%s.%u", cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_sld, events)),
+              getpid ());
 
-        event_server = cmsg_server_new (transport, CMSG_SERVICE (cmsg_sld, events));
-    }
+    event_server = cmsg_server_new (transport, CMSG_SERVICE (cmsg_sld, events));
+    cmsg_pthread_server_init (&event_server_thread, event_server);
+}
+
+/**
+ * Destroy the server used for receiving events from the service listener.
+ */
+static void
+event_server_deinit (void)
+{
+    pthread_cancel (event_server_thread);
+    pthread_join (event_server_thread, NULL);
+    cmsg_destroy_server_and_transport (event_server);
+    event_server = NULL;
 }
 
 /**
  * Helper function for calling the API to the CMSG service listener
  * to add/remove a listener for a given service.
+ *
+ * Note - Assumes the 'listener_list_mutex' mutex is held.
  *
  * @param service_name - The name of the service to listen/unlisten for.
  * @param listen - true to listen, false to unlisten.
@@ -109,8 +175,6 @@ _cmsg_service_listener_listen (const char *service_name, bool listen)
     cmsg_client *client = NULL;
     cmsg_sld_listener_info send_msg = CMSG_SLD_LISTENER_INFO_INIT;
     cmsg_transport_info *transport_info = NULL;
-
-    event_server_init ();
 
     transport_info = cmsg_transport_info_create (event_server->_transport);
 
@@ -133,40 +197,154 @@ _cmsg_service_listener_listen (const char *service_name, bool listen)
 }
 
 /**
+ * When destroying the event queue there may still be events on there.
+ * Simply free them as required to avoid leaking memory.
+ */
+static void
+_clear_event_queue (gpointer data)
+{
+    cmsg_sl_event *info = (cmsg_sl_event *) data;
+    cmsg_transport_destroy (info->transport);
+    CMSG_FREE (info);
+}
+
+/**
+ * Create and initialise a 'cmsg_sl_info' structure.
+ *
+ * @param service_name - The service name to use.
+ * @param handler - The handler to use.
+ *
+ * @returns A pointer to the initialised structure on success, NULL otherwise.
+ */
+static cmsg_sl_info *
+cmsg_service_listener_info_create (const char *service_name,
+                                   cmsg_sl_event_handler_t handler)
+{
+    cmsg_sl_info *info = NULL;
+
+    info = CMSG_CALLOC (1, sizeof (cmsg_sl_info));
+    if (!info)
+    {
+        return NULL;
+    }
+
+    info->service_name = CMSG_STRDUP (service_name);
+    if (!info->service_name)
+    {
+        CMSG_FREE (info);
+        return NULL;
+    }
+
+    info->eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
+    if (info->eventfd < 0)
+    {
+        CMSG_FREE (info->service_name);
+        CMSG_FREE (info);
+        return NULL;
+    }
+
+    info->queue = g_async_queue_new_full (_clear_event_queue);
+    if (!info->queue)
+    {
+        close (info->eventfd);
+        CMSG_FREE (info->service_name);
+        CMSG_FREE (info);
+        return NULL;
+    }
+
+    info->handler = handler;
+
+    return info;
+}
+
+/**
+ * Destroy a 'cmsg_sl_info' structure and all associated memory.
+ *
+ * @param info - The structure to destroy.
+ */
+static void
+cmsg_service_listener_info_destroy (cmsg_sl_info *info)
+{
+    g_async_queue_unref (info->queue);
+    close (info->eventfd);
+    CMSG_FREE (info->service_name);
+    CMSG_FREE (info);
+}
+
+/**
+ * Get the number of different listeners for the given service name.
+ *
+ * Note - Assumes the 'listener_list_mutex' mutex is held.
+ *
+ * @param service_name - The service name to get the number of listeners for.
+ *
+ * @returns The number of listeners.
+ */
+static uint32_t
+cmsg_service_listener_num_listeners_for_service (const char *service_name)
+{
+    GList *list;
+    GList *list_next;
+    const cmsg_sl_info *entry;
+    uint32_t num_listeners = 0;
+
+    for (list = g_list_first (listener_list); list; list = list_next)
+    {
+        entry = (const cmsg_sl_info *) list->data;
+        list_next = g_list_next (list);
+
+        if (strcmp (entry->service_name, service_name) == 0)
+        {
+            num_listeners++;
+        }
+    }
+
+    return num_listeners;
+}
+
+/**
  * Listen for events for the given service name.
+ *
+ * Note that the supplied handler must call 'cmsg_transport_destroy'
+ * for the 'cmsg_transport' structure passed into the handler by the
+ * CMSG library.
  *
  * @param service_name - The service to listen for.
  * @param func - The function to call when a server is added or removed
  *               for the given service.
  */
-void
-cmsg_service_listener_listen (const char *service_name,
-                              cmsg_service_listener_event_func func)
+const cmsg_sl_info *
+cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t handler)
 {
-    GList *function_list_entry = NULL;
-    function_info *info = NULL;
+    cmsg_sl_info *info = NULL;
 
-    function_list_entry = g_list_find_custom (function_list, service_name,
-                                              find_function_entry);
-    if (function_list_entry)
-    {
-        /* Already listening for this service */
-        return;
-    }
-
-    info = CMSG_CALLOC (1, sizeof (function_info));
+    info = cmsg_service_listener_info_create (service_name, handler);
     if (!info)
     {
-        return;
+        return NULL;
     }
 
-    info->service_name = CMSG_STRDUP (service_name);
-    info->func = func;
+    pthread_mutex_lock (&listener_list_mutex);
 
-    function_list = g_list_append (function_list, info);
+    listener_list = g_list_append (listener_list, info);
 
-    _cmsg_service_listener_listen (service_name, true);
+    /* If this is the first listener then create the server for receiving
+     * notifications from the service listener daemon. */
+    if (g_list_length (listener_list) == 1)
+    {
+        event_server_init ();
+    }
 
+    /* If another listener is already listening for this service then there is no need to
+     * susbcribe to the service listener daemon again for this service. */
+    if (cmsg_service_listener_num_listeners_for_service (service_name) == 1)
+    {
+        _cmsg_service_listener_listen (service_name, true);
+    }
+
+    pthread_mutex_unlock (&listener_list_mutex);
+
+    return info;
 }
 
 /**
@@ -175,40 +353,29 @@ cmsg_service_listener_listen (const char *service_name,
  * @param service_name - The service to unlisten from.
  */
 void
-cmsg_service_listener_unlisten (const char *service_name)
+cmsg_service_listener_unlisten (const cmsg_sl_info *info)
 {
-    GList *function_list_entry = NULL;
-    function_info *info = NULL;
+    pthread_mutex_lock (&listener_list_mutex);
 
-    function_list_entry = g_list_find_custom (function_list, service_name,
-                                              find_function_entry);
-    if (!function_list_entry)
+    listener_list = g_list_remove (listener_list, info);
+
+    /* If another listener is still listening for this service then we cannot
+     * unsusbcribe from the service listener daemon for this service. */
+    if (cmsg_service_listener_num_listeners_for_service (info->service_name) == 0)
     {
-        /* No listener exists for this service */
-        return;
+        _cmsg_service_listener_listen (info->service_name, false);
     }
 
-    info = function_list_entry->data;
-    function_list = g_list_delete_link (function_list, function_list_entry);
-    CMSG_FREE (info->service_name);
-    CMSG_FREE (info);
+    /* If this was the only listener then destroy the server for receiving
+     * notifications from the service listener daemon. */
+    if (g_list_length (listener_list) == 1)
+    {
+        event_server_deinit ();
+    }
 
-    _cmsg_service_listener_listen (service_name, false);
-}
+    pthread_mutex_unlock (&listener_list_mutex);
 
-/**
- * Returns the server that can be used to receive service notifications
- * from the cmsg service listener. It is up to the library user to ensure
- * this server is run using the required threading library.
- *
- * @returns The CMSG server that receives service notifications
- */
-cmsg_server *
-cmsg_service_listener_server_get (void)
-{
-    event_server_init ();
-
-    return event_server;
+    cmsg_service_listener_info_destroy ((cmsg_sl_info *) info);
 }
 
 /**

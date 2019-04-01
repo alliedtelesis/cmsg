@@ -67,6 +67,7 @@ void
 cmsg_sld_configuration_impl_listen (const void *service,
                                     const cmsg_sld_listener_info *recv_msg)
 {
+    data_add_listener (recv_msg);
     cmsg_sld_configuration_server_listenSend (service);
 }
 
@@ -78,6 +79,7 @@ void
 cmsg_sld_configuration_impl_unlisten (const void *service,
                                       const cmsg_sld_listener_info *recv_msg)
 {
+    data_remove_listener (recv_msg);
     cmsg_sld_configuration_server_unlistenSend (service);
 }
 
