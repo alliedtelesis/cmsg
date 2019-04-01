@@ -211,7 +211,18 @@ data_add_subscription (const cmsg_pssd_subscription_info *info)
 void
 data_remove_subscription (const cmsg_pssd_subscription_info *info)
 {
+    /* todo */
+}
 
+/**
+ * Remove all subscriptions from the database for the given subscriber.
+ *
+ * @param sub_transport - The transport information for the subscriber.
+ */
+void
+data_remove_subscriber (const cmsg_transport_info *sub_transport)
+{
+    /* todo */
 }
 
 /**

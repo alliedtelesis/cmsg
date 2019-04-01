@@ -475,11 +475,8 @@ cmsg_destroy_subscriber_and_transport (cmsg_sub *subscriber)
 {
     if (subscriber)
     {
-        if (subscriber->pub_server)
-        {
-            cmsg_destroy_server_and_transport (subscriber->pub_server);
-        }
-
+        cmsg_pss_remove_subscriber (subscriber->pub_server);
+        cmsg_destroy_server_and_transport (subscriber->pub_server);
         CMSG_FREE (subscriber);
     }
 }

@@ -11,5 +11,6 @@ bool cmsg_pss_subscription_add (cmsg_server *sub_server, cmsg_transport *pub_tra
                                 const char *method_name);
 bool cmsg_pss_subscription_remove (cmsg_server *sub_server, cmsg_transport *pub_transport,
                                    const char *method_name);
+bool cmsg_pss_remove_subscriber (cmsg_server *sub_server);
 
 #endif /* __CMSG_PSS_API_PRIVATE_H_ */

@@ -149,3 +149,40 @@ cmsg_pss_subscription_remove (cmsg_server *sub_server, cmsg_transport *pub_trans
 {
     return cmsg_pss_subscription_add_remove (sub_server, pub_transport, method_name, false);
 }
+
+/**
+ * Unregister a subscriber from cmsg_pssd. This will remove all subscriptions for the
+ * given subscriber.
+ *
+ * @param sub_server - The CMSG server structure used by the subscriber to receive
+ *                     published notifications.
+ *
+ * @returns true on success, false otherwise.
+ */
+bool
+cmsg_pss_remove_subscriber (cmsg_server *sub_server)
+{
+    cmsg_client *client = NULL;
+    int ret;
+    cmsg_transport_info *transport_info = NULL;
+
+    transport_info = cmsg_transport_info_create (sub_server->_transport);
+    if (!transport_info)
+    {
+        return false;
+    }
+
+    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_pssd, configuration));
+    if (!client)
+    {
+        cmsg_transport_info_free (transport_info);
+        return false;
+    }
+
+    ret = cmsg_pssd_configuration_api_remove_subscriber (client, transport_info);
+
+    cmsg_destroy_client_and_transport (client);
+    cmsg_transport_info_free (transport_info);
+
+    return (ret == CMSG_RET_OK);
+}

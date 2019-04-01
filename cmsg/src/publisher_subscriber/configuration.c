@@ -52,6 +52,17 @@ cmsg_pssd_configuration_impl_remove_subscription (const void *service,
 }
 
 /**
+ * Unregisters all subscriptions for a given subscriber.
+ */
+void
+cmsg_pssd_configuration_impl_remove_subscriber (const void *service,
+                                                const cmsg_transport_info *recv_msg)
+{
+    data_remove_subscriber (recv_msg);
+    cmsg_pssd_configuration_server_remove_subscriberSend (service);
+}
+
+/**
  * Initialise the configuration functionality.
  */
 void
