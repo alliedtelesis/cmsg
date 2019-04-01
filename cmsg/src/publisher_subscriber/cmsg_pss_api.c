@@ -29,7 +29,7 @@ cmsg_pss_address_set (struct in_addr addr)
     cmsg_uint32 send_msg = CMSG_UINT32_INIT;
     int ret;
 
-    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_pssd, configuration));
+    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_pssd, configuration));
     if (!client)
     {
         return false;
@@ -94,7 +94,7 @@ cmsg_pss_subscription_add_remove (cmsg_server *sub_server, cmsg_transport *pub_t
         CMSG_SET_FIELD_VALUE (&send_msg, remote_addr_is_tcp, false);
     }
 
-    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_pssd, configuration));
+    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_pssd, configuration));
     if (!client)
     {
         cmsg_transport_info_free (transport_info);

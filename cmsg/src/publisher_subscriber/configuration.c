@@ -57,7 +57,16 @@ cmsg_pssd_configuration_impl_remove_subscription (const void *service,
 void
 configuration_server_init (void)
 {
-    info = cmsg_glib_unix_server_init (CMSG_SERVICE (cmsg_pssd, configuration));
+    cmsg_server *server = NULL;
+
+    server = cmsg_create_server_unix_oneway (CMSG_SERVICE (cmsg_pssd, configuration));
+    if (!server)
+    {
+        syslog (LOG_ERR, "Failed to initialize configuration server");
+        return;
+    }
+
+    info = cmsg_glib_server_init (server);
     if (!info)
     {
         syslog (LOG_ERR, "Failed to initialize configuration server");
