@@ -275,7 +275,6 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/client_server_echo_tests.c \
 	test/functional/publisher_subscriber_tests.c \
 	test/functional/client_queuing_tests.c \
-	test/functional/publisher_queuing_tests.c \
 	test/functional/broadcast_client_tests.c \
 	test/functional/server_side_validation.c \
 	test/functional/pthread_helpers_tests.c \
