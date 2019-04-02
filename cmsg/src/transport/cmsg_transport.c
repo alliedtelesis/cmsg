@@ -716,11 +716,11 @@ cmsg_transport_tipc_info_create (cmsg_transport *transport)
     CMSG_SET_FIELD_VALUE (tipc_info, addrtype,
                           transport->config.socket.sockaddr.tipc.addrtype);
     CMSG_SET_FIELD_VALUE (tipc_info, addr_name_name_type,
-                          transport->config.socket.sockaddr.tipc.addr.name.domain);
+                          transport->config.socket.sockaddr.tipc.addr.name.name.type);
     CMSG_SET_FIELD_VALUE (tipc_info, addr_name_name_instance,
                           transport->config.socket.sockaddr.tipc.addr.name.name.instance);
     CMSG_SET_FIELD_VALUE (tipc_info, addr_name_domain,
-                          transport->config.socket.sockaddr.tipc.addr.name.name.type);
+                          transport->config.socket.sockaddr.tipc.addr.name.domain);
     CMSG_SET_FIELD_VALUE (tipc_info, scope, transport->config.socket.sockaddr.tipc.scope);
 
     return tipc_info;
@@ -983,6 +983,27 @@ cmsg_transport_info_to_transport (cmsg_transport_info *transport_info)
         }
 
         cmsg_transport_ipfree_bind_enable (transport, true);
+    }
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+    {
+        if (transport_info->one_way)
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_TIPC);
+        }
+        else
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TIPC);
+        }
+
+        transport->config.socket.family = AF_TIPC;
+        transport->config.socket.sockaddr.tipc.family = AF_TIPC;
+        transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
+        transport->config.socket.sockaddr.tipc.addr.name.domain = 0;
+        transport->config.socket.sockaddr.tipc.addr.name.name.type =
+            transport_info->tipc_info->addr_name_name_type;
+        transport->config.socket.sockaddr.tipc.addr.name.name.instance =
+            transport_info->tipc_info->addr_name_name_instance;
+        transport->config.socket.sockaddr.tipc.scope = transport_info->tipc_info->scope;
     }
 
     return transport;

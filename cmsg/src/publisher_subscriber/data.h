@@ -12,8 +12,9 @@
 
 void data_init (void);
 void data_debug_dump (FILE *fp);
-void data_add_subscription (const cmsg_pssd_subscription_info *info);
+bool data_add_subscription (const cmsg_pssd_subscription_info *info, bool sync);
 void data_remove_subscription (const cmsg_pssd_subscription_info *info);
 void data_remove_subscriber (const cmsg_transport_info *sub_transport);
+void data_check_remote_entries (void);
 
 #endif /* __DATA_H_ */

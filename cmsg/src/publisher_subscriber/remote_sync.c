@@ -12,6 +12,7 @@
 #include "remote_sync_api_auto.h"
 #include "remote_sync_impl_auto.h"
 #include "remote_sync.h"
+#include "data.h"
 #include <cmsg/cmsg_sl.h>
 
 static cmsg_server *server = NULL;
@@ -125,7 +126,37 @@ remote_sync_address_set (struct in_addr addr)
         }
 
         remote_sync_sl_init ();
+        data_check_remote_entries ();
     }
+}
+
+/**
+ * Check whether the remote sync address has been set yet.
+ *
+ * @returns true if it has been set, false otherwise.
+ */
+bool
+remote_sync_address_is_set (void)
+{
+    return server != NULL;
+}
+
+/**
+ * Get the IPv4 address used by the remote sync server on this node.
+ *
+ * @returns the IPv4 address (or zero if the address has not been set yet).
+ */
+uint32_t
+remote_sync_get_local_ip (void)
+{
+    uint32_t addr = 0;
+
+    if (server)
+    {
+        addr = server->_transport->config.socket.sockaddr.in.sin_addr.s_addr;;
+    }
+
+    return addr;
 }
 
 /**

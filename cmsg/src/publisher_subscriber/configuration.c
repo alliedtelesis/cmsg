@@ -11,6 +11,7 @@
 #include "remote_sync.h"
 #include "data.h"
 
+static cmsg_server *server = NULL;
 static cmsg_server_accept_thread_info *info = NULL;
 
 /**
@@ -35,7 +36,11 @@ void
 cmsg_pssd_configuration_impl_add_subscription (const void *service,
                                                const cmsg_pssd_subscription_info *recv_msg)
 {
-    data_add_subscription (recv_msg);
+    if (data_add_subscription (recv_msg, true))
+    {
+        /* The memory of the message was stolen so do not free the message. */
+        cmsg_server_app_owns_current_msg_set (server);
+    }
     cmsg_pssd_configuration_server_add_subscriptionSend (service);
 }
 
@@ -68,8 +73,6 @@ cmsg_pssd_configuration_impl_remove_subscriber (const void *service,
 void
 configuration_server_init (void)
 {
-    cmsg_server *server = NULL;
-
     server = cmsg_create_server_unix_oneway (CMSG_SERVICE (cmsg_pssd, configuration));
     if (!server)
     {

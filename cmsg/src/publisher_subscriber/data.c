@@ -10,27 +10,22 @@
 #include <arpa/inet.h>
 #include <cmsg/cmsg_private.h>
 #include "data.h"
+#include "remote_sync.h"
 #include "transport/cmsg_transport_private.h"
 
 typedef struct
 {
-    cmsg_transport_info *transport;
+    char *method_name;
+    GList *transports;
+} method_data_entry;
+
+typedef struct
+{
     GList *methods;
-} subscriber_data_entry;
-
-typedef struct
-{
-    uint32_t addr;
-    GList *subscribers;
-} host_data_entry;
-
-typedef struct
-{
-    host_data_entry local_host;
-    GList *remote_hosts;
 } service_data_entry;
 
-static GHashTable *hash_table = NULL;
+static GHashTable *local_subscriptions_table = NULL;
+static GList *remote_subscriptions_list = NULL;
 
 /**
  * Gets the 'service_data_entry' structure for the given service name
@@ -45,11 +40,11 @@ get_service_entry_or_create (const char *service)
 {
     service_data_entry *entry = NULL;
 
-    entry = (service_data_entry *) g_hash_table_lookup (hash_table, service);
+    entry = (service_data_entry *) g_hash_table_lookup (local_subscriptions_table, service);
     if (!entry)
     {
         entry = CMSG_CALLOC (1, sizeof (service_data_entry));
-        g_hash_table_insert (hash_table, g_strdup (service), entry);
+        g_hash_table_insert (local_subscriptions_table, g_strdup (service), entry);
     }
 
     return entry;
@@ -57,142 +52,94 @@ get_service_entry_or_create (const char *service)
 
 /**
  * Helper function for use with 'g_list_find_custom'. Specifically compares a
- * 'host_data_entry' structure with a 'cmsg_pssd_subscription_info' message
- * to see if they refer to the same remote host.
+ * 'method_data_entry' structure with a method name string to see if they match.
  *
- * @param a - The 'host_data_entry' structure to use in the comparison.
- * @param b - The 'cmsg_pssd_subscription_info' message to use in the comparison.
+ * @param a - The 'method_data_entry' structure to use in the comparison.
+ * @param b - The method name string to use in the comparison.
  *
- * @returns 0 if they refer to the same remote host, -1 otherwise.
+ * @returns 0 if they match, -1 otherwise.
  */
 static gint
-remote_host_entry_compare (gconstpointer a, gconstpointer b)
+method_entry_compare (gconstpointer a, gconstpointer b)
 {
-    host_data_entry *entry = (host_data_entry *) a;
-    const cmsg_pssd_subscription_info *info = (const cmsg_pssd_subscription_info *) b;
+    method_data_entry *entry = (method_data_entry *) a;
+    const char *method_name = (const char *) b;
 
-    return (entry->addr == info->remote_addr ? 0 : -1);
+    return strcmp (entry->method_name, method_name);
 }
 
 /**
- * Gets the 'host_data_entry' structure for the given 'cmsg_pssd_subscription_info'
- * message or creates one if it doesn't already exist.
+ * Gets the 'method_data_entry' structure for the given method name
+ * or creates one if it doesn't already exist.
  *
- * @param service_entry - The 'service_data_entry' to get the host data entry from.
- * @param info - The 'cmsg_pssd_subscription_info' to get the host data entry for.
+ * @param service_entry - The service entry to get the method entry from.
+ * @param method - The name of the method to get the entry for.
  *
- * @returns A pointer to the related 'host_data_entry' structure.
+ * @returns A pointer to the related 'method_data_entry' structure.
  */
-static host_data_entry *
-get_host_entry_or_create (service_data_entry *service_entry,
-                          const cmsg_pssd_subscription_info *info)
+static method_data_entry *
+get_method_entry_or_create (service_data_entry *service_entry, const char *method)
 {
+    method_data_entry *entry = NULL;
     GList *list_entry = NULL;
-    host_data_entry *entry = NULL;
 
-    if (!CMSG_IS_FIELD_PRESENT (info, remote_addr))
-    {
-        return &service_entry->local_host;
-    }
-
-    list_entry = g_list_find_custom (service_entry->remote_hosts, info,
-                                     remote_host_entry_compare);
+    list_entry = g_list_find_custom (service_entry->methods, method, method_entry_compare);
     if (list_entry)
     {
-        entry = (host_data_entry *) list_entry->data;
+        entry = (method_data_entry *) list_entry->data;
     }
     else
     {
-        entry = CMSG_CALLOC (1, sizeof (host_data_entry));
-        entry->addr = info->remote_addr;
-        service_entry->remote_hosts = g_list_prepend (service_entry->remote_hosts, entry);
+        entry = CMSG_CALLOC (1, sizeof (method_data_entry));
+        entry->method_name = CMSG_STRDUP (method);
+        service_entry->methods = g_list_prepend (service_entry->methods, entry);
     }
 
     return entry;
 }
 
 /**
- * Helper function for use with 'g_list_find_custom'. Specifically compares a
- * 'subscriber_data_entry' structure with a 'cmsg_transport_info' message to
- * see if they refer to the same subscriber.
- *
- * @param a - The 'subscriber_data_entry' structure to use in the comparison.
- * @param b - The 'cmsg_transport_info' message to use in the comparison.
- *
- * @returns 0 if they refer to the same subscriber, -1 otherwise.
- */
-static gint
-subscriber_entry_compare (gconstpointer a, gconstpointer b)
-{
-    bool ret;
-
-    subscriber_data_entry *entry = (subscriber_data_entry *) a;
-    cmsg_transport_info *transport_info = (cmsg_transport_info *) b;
-
-    ret = cmsg_transport_info_compare (entry->transport, transport_info);
-
-    return (ret ? 0 : -1);
-}
-
-/**
- * Gets the 'subscriber_data_entry' structure for the given 'cmsg_transport_info'
- * message or creates one if it doesn't already exist.
- *
- * @param host_entry - The 'host_data_entry' to get the subscriber data entry from.
- * @param transport_info - The 'cmsg_transport_info' to get the subscriber data entry for.
- *
- * @returns A pointer to the related 'subscriber_data_entry' structure.
- */
-static subscriber_data_entry *
-get_subscriber_entry_or_create (host_data_entry *host_entry,
-                                cmsg_transport_info *transport_info)
-{
-    GList *list_entry = NULL;
-    subscriber_data_entry *entry = NULL;
-
-    list_entry = g_list_find_custom (host_entry->subscribers, transport_info,
-                                     subscriber_entry_compare);
-    if (list_entry)
-    {
-        entry = (subscriber_data_entry *) list_entry->data;
-    }
-    else
-    {
-        entry = CMSG_CALLOC (1, sizeof (subscriber_data_entry));
-        entry->transport = transport_info;
-        host_entry->subscribers = g_list_prepend (host_entry->subscribers, entry);
-    }
-
-    return entry;
-}
-
-/**
- * Add a new subscription to the database.
+ * Add a new subscription to the database. Note that this function may steal
+ * the memory of the passed in 'cmsg_pssd_subscription_info' message (see the
+ * return value for more information).
  *
  * @param info - The information about the subscription being added.
+ * @param sync - If the subscription is remote set true to sync this subscription
+ *               to the associated remote node, false to not sync.
  *
- * Note that this function steals the memory of the 'transport_info' field
- * inside the 'cmsg_pssd_subscription_info' message passed in. The field will
- * be NULL once this function returns.
+ * @returns true if the memory of the passed in 'cmsg_pssd_subscription_info'
+ *          message is now stolen (the caller should not free the memory).
+ *          false if the memory was not stolen (the caller is still responsible
+ *          for the memory).
  */
-void
-data_add_subscription (const cmsg_pssd_subscription_info *info)
+bool
+data_add_subscription (const cmsg_pssd_subscription_info *info, bool sync)
 {
     service_data_entry *service_entry = NULL;
-    host_data_entry *host_entry = NULL;
-    subscriber_data_entry *subscriber_entry = NULL;
-    cmsg_transport_info *transport_info = NULL;
+    method_data_entry *method_entry = NULL;
+    cmsg_transport *transport = NULL;
 
-    /* Steal the memory of the transport info from the passed in message. */
-    transport_info = (cmsg_transport_info *) info->transport_info;
-    ((cmsg_pssd_subscription_info *) info)->transport_info = NULL;
+    if (CMSG_IS_FIELD_PRESENT (info, remote_addr))
+    {
+        if (!remote_sync_address_is_set () ||
+            remote_sync_get_local_ip () != info->remote_addr)
+        {
+            remote_subscriptions_list = g_list_prepend (remote_subscriptions_list,
+                                                        (void *) info);
+            if (sync)
+            {
+                /* todo: sync it */
+            }
+            return true;
+        }
+    }
 
     service_entry = get_service_entry_or_create (info->service);
-    host_entry = get_host_entry_or_create (service_entry, info);
-    subscriber_entry = get_subscriber_entry_or_create (host_entry, transport_info);
+    method_entry = get_method_entry_or_create (service_entry, info->method_name);
+    transport = cmsg_transport_info_to_transport (info->transport_info);
+    method_entry->transports = g_list_prepend (method_entry->transports, transport);
 
-    subscriber_entry->methods = g_list_prepend (subscriber_entry->methods,
-                                                strdup (info->method_name));
+    return false;
 }
 
 /**
@@ -218,13 +165,48 @@ data_remove_subscriber (const cmsg_transport_info *sub_transport)
 }
 
 /**
+ * Helper function called for each remote subscription that has been subscribed
+ * to from a subscriber running locally. If the remote subscription is in fact local
+ * then it will be converted to a local subscription.
+ *
+ * @param data - The 'cmsg_pssd_subscription_info' structure for a remote subscription.
+ * @param user_data - NULL.
+ */
+static void
+_data_check_remote_entries (gpointer data, gpointer user_data)
+{
+    cmsg_pssd_subscription_info *entry = (cmsg_pssd_subscription_info *) data;
+
+    if (!data_add_subscription (entry, false))
+    {
+        /* The subscription is now local so we need to free the original message. */
+        CMSG_FREE_RECV_MSG (entry);
+    }
+}
+
+/**
+ * Check all existing remote subscriptions and check whether they are in fact local
+ * subscriptions.
+ */
+void
+data_check_remote_entries (void)
+{
+    GList *list = remote_subscriptions_list;
+
+    remote_subscriptions_list = NULL;
+    g_list_foreach (list, _data_check_remote_entries, NULL);
+    g_list_free (list);
+}
+
+/**
  * Initialise the data layer.
  */
 void
 data_init (void)
 {
-    hash_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-    if (!hash_table)
+    local_subscriptions_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+                                                       NULL);
+    if (!local_subscriptions_table)
     {
         syslog (LOG_ERR, "Failed to initialize hash table");
         return;
@@ -232,171 +214,151 @@ data_init (void)
 }
 
 /**
- * Print the information about a UNIX transport.
- *
- * @param fp - The file to print to.
- * @param transport_info - The 'cmsg_transport_info' structure for the transport.
- * @param oneway_str - String to print for the oneway/rpc nature of the transport.
- */
-static void
-data_debug_unix_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
-                             const char *oneway_str)
-{
-
-    fprintf (fp, "     (unix, %s) path = %s\n", oneway_str,
-             transport_info->unix_info->path);
-}
-
-/**
  * Print the information about a TCP transport.
  *
  * @param fp - The file to print to.
- * @param transport_info - The 'cmsg_transport_info' structure for the transport.
- * @param oneway_str - String to print for the oneway/rpc nature of the transport.
+ * @param transport - The 'cmsg_transport' structure for the transport.
  */
 static void
-data_debug_tcp_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
-                            const char *oneway_str)
+tcp_transport_dump (FILE *fp, const cmsg_transport *transport)
 {
-    cmsg_tcp_transport_info *tcp_info = transport_info->tcp_info;
     char ip[INET6_ADDRSTRLEN] = { };
     uint16_t port;
 
-    port = tcp_info->port;
-
-    if (tcp_info->ipv4)
+    if (transport->config.socket.family != PF_INET6)
     {
-        inet_ntop (AF_INET, tcp_info->addr.data, ip, INET6_ADDRSTRLEN);
+        port = transport->config.socket.sockaddr.in.sin_port;
+        inet_ntop (AF_INET, &transport->config.socket.sockaddr.in.sin_addr.s_addr,
+                   ip, INET6_ADDRSTRLEN);
     }
     else
     {
-        inet_ntop (AF_INET6, tcp_info->addr.data, ip, INET6_ADDRSTRLEN);
+        port = transport->config.socket.sockaddr.in6.sin6_port;
+        inet_ntop (AF_INET6, &transport->config.socket.sockaddr.in6.sin6_addr.s6_addr,
+                   ip, INET6_ADDRSTRLEN);
     }
 
-    fprintf (fp, "     (tcp, %s) %s:%u\n", oneway_str, ip, port);
+    fprintf (fp, "     (tcp) %s:%u\n", ip, port);
 }
 
 /**
- * Print the information about a TIPC transport.
- *
- * @param fp - The file to print to.
- * @param transport_info - The 'cmsg_transport_info' structure for the transport.
- * @param oneway_str - String to print for the oneway/rpc nature of the transport.
- */
-static void
-data_debug_tipc_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
-                             const char *oneway_str)
-{
-    cmsg_tipc_transport_info *tipc_info = transport_info->tipc_info;
-
-    fprintf (fp, "     (tipc, %s) instance:%u\n", oneway_str,
-             tipc_info->addr_name_name_instance);
-}
-
-/**
- * Helper function called for each method that has been subscribed for. Simply prints
- * the method name to the given file.
- *
- * @param data - The method name to print.
- * @param user_data - The file to print to.
- */
-static void
-data_debug_method_dump (gpointer data, gpointer user_data)
-{
-    FILE *fp = (FILE *) user_data;
-    const char *method_name = (const char *) data;
-
-    fprintf (fp, "       %s\n", method_name);
-}
-
-/**
- * Helper function called for each subscriber. Prints the transport details of the
- * subscriber and lists all the methods it is subscribed for.
+ * Helper function called for each transport subscribed to a method.
+ * Prints the transport details of the transport.
  *
  * @param data - The 'subscriber_data_entry' structure for the subscriber.
  * @param user_data - The file to print to.
  */
 static void
-data_debug_subscriber_dump (gpointer data, gpointer user_data)
+transports_dump (gpointer data, gpointer user_data)
 {
     FILE *fp = (FILE *) user_data;
-    const subscriber_data_entry *entry = (const subscriber_data_entry *) data;
-    const cmsg_transport_info *transport_info = entry->transport;
-    const char *oneway_str = (transport_info->one_way ? "one-way" : "rpc");
+    const cmsg_transport *transport = (const cmsg_transport *) data;
 
-    if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_UNIX)
+    if (transport->type == CMSG_TRANSPORT_ONEWAY_UNIX ||
+        transport->type == CMSG_TRANSPORT_RPC_UNIX)
     {
-        data_debug_unix_server_dump (fp, transport_info, oneway_str);
+        fprintf (fp, "     (unix) path = %s\n",
+                 transport->config.socket.sockaddr.un.sun_path);
     }
-    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    else if (transport->type == CMSG_TRANSPORT_ONEWAY_TCP ||
+             transport->type == CMSG_TRANSPORT_RPC_TCP)
     {
-        data_debug_tcp_server_dump (fp, transport_info, oneway_str);
+        tcp_transport_dump (fp, transport);
     }
-    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+    else if (transport->type == CMSG_TRANSPORT_ONEWAY_TIPC ||
+             transport->type == CMSG_TRANSPORT_RPC_TIPC)
     {
-        data_debug_tipc_server_dump (fp, transport_info, oneway_str);
+        fprintf (fp, "     (tipc) instance:%u\n",
+                 transport->config.socket.sockaddr.tipc.addr.name.name.instance);
     }
-
-    fprintf (fp, "      methods:\n");
-    g_list_foreach (entry->methods, data_debug_method_dump, fp);
 }
 
 /**
- * Helper function called for each remote host that has been subscribed to from
- * any subscriber running locally. Prints the address of the remote host and then
- * lists all subscribers that are subscribed to a service running on that host.
+ * Helper function called for each method that has been subscribed to from
+ * a service running locally.
  *
- * @param data - The 'cmsg_service_info' structure for the server.
+ * @param data - The 'method_data_entry' structure for a method.
  * @param user_data - The file to print to.
  */
 static void
-data_debug_remote_host_dump (gpointer data, gpointer user_data)
+methods_data_dump (gpointer data, gpointer user_data)
 {
     FILE *fp = (FILE *) user_data;
-    const host_data_entry *entry = (const host_data_entry *) data;
-    char ip[INET6_ADDRSTRLEN] = { };
+    const method_data_entry *entry = (const method_data_entry *) data;
 
-    inet_ntop (AF_INET, &entry->addr, ip, INET6_ADDRSTRLEN);
-    fprintf (fp, "   remote_host: %s\n", ip);
-
-
+    fprintf (fp, "   %s:\n", entry->method_name);
     fprintf (fp, "    subscribers:\n");
-    g_list_foreach (entry->subscribers, data_debug_subscriber_dump, fp);
-}
-
-/**
- * Prints the subscribers for the services running locally.
- *
- * @param entry - The 'host_data_entry' structure for the local service.
- * @param fp - The file to print to.
- */
-static void
-data_debug_local_host_dump (const host_data_entry *entry, FILE *fp)
-{
-    fprintf (fp, "   local host:\n");
-    fprintf (fp, "    subscribers:\n");
-    g_list_foreach (entry->subscribers, data_debug_subscriber_dump, fp);
+    g_list_foreach (entry->transports, transports_dump, fp);
 }
 
 /**
  * Helper function called for each entry in the hash table. Prints the
- * information about each individual service.
+ * information about each local service that is subscribed for.
  *
  * @param key - The key from the hash table (service name)
  * @param value - The value associated with the key (service_data_entry structure)
  * @param user_data - The file to print to.
  */
 static void
-_data_debug_dump (gpointer key, gpointer value, gpointer user_data)
+local_subscriptions_dump (gpointer key, gpointer value, gpointer user_data)
 {
     FILE *fp = (FILE *) user_data;
     service_data_entry *entry = (service_data_entry *) value;
 
     fprintf (fp, " service: %s\n", (char *) key);
-    fprintf (fp, "  hosts:\n");
-    data_debug_local_host_dump (&entry->local_host, fp);
+    fprintf (fp, "  methods:\n");
+    g_list_foreach (entry->methods, methods_data_dump, fp);
+}
 
-    g_list_foreach (entry->remote_hosts, data_debug_remote_host_dump, fp);
+/**
+ * Dump the information about the transport used for a remote subscription.
+ *
+ * @param transport_info - The 'cmsg_transport_info' message for the transport.
+ * @param fp - The file to print to.
+ */
+static void
+transport_info_dump (cmsg_transport_info *transport_info, FILE *fp)
+{
+    cmsg_tipc_transport_info *tipc_info = NULL;
+    cmsg_tcp_transport_info *tcp_info = NULL;
+    char ip[INET6_ADDRSTRLEN] = { };
+
+    if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    {
+        tcp_info = transport_info->tcp_info;
+        inet_ntop (AF_INET, tcp_info->addr.data, ip, INET6_ADDRSTRLEN);
+
+        fprintf (fp, " transport: (tcp) %s:%u\n", ip, tcp_info->port);
+    }
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+    {
+        tipc_info = transport_info->tipc_info;
+        fprintf (fp, " transport: (tipc) instance:%u\n",
+                 tipc_info->addr_name_name_instance);
+    }
+}
+
+/**
+ * Helper function called for each remote subscription that has been subscribed
+ * to from a subscriber running locally.
+ *
+ * @param data - The 'cmsg_pssd_subscription_info' structure for a remote subscription.
+ * @param user_data - The file to print to.
+ */
+static void
+remote_subscription_dump (gpointer data, gpointer user_data)
+{
+    FILE *fp = (FILE *) user_data;
+    const cmsg_pssd_subscription_info *entry = (const cmsg_pssd_subscription_info *) data;
+    char ip[INET6_ADDRSTRLEN] = { };
+
+    inet_ntop (AF_INET, &entry->remote_addr, ip, INET6_ADDRSTRLEN);
+
+    fprintf (fp, " service: %s\n", entry->service);
+    fprintf (fp, " method name: %s\n", entry->method_name);
+    fprintf (fp, " remote address: %s\n", ip);
+    transport_info_dump (entry->transport_info, fp);
+    fprintf (fp, "\n");
 }
 
 /**
@@ -407,6 +369,9 @@ _data_debug_dump (gpointer key, gpointer value, gpointer user_data)
 void
 data_debug_dump (FILE *fp)
 {
-    fprintf (fp, "Services:\n");
-    g_hash_table_foreach (hash_table, _data_debug_dump, fp);
+    fprintf (fp, "Local subscriptions:\n");
+    g_hash_table_foreach (local_subscriptions_table, local_subscriptions_dump, fp);
+    fprintf (fp, "\n");
+    fprintf (fp, "Remote subscriptions:\n");
+    g_list_foreach (remote_subscriptions_list, remote_subscription_dump, fp);
 }
