@@ -29,19 +29,20 @@ static GList *remote_subscriptions_list = NULL;
 
 /**
  * Gets the 'service_data_entry' structure for the given service name
- * or creates one if it doesn't already exist.
+ * or potentially create one if it doesn't already exist.
  *
  * @param service - The name of the service.
+ * @param create - Whether to create an entry if one didn't already exist or not.
  *
  * @returns A pointer to the related 'service_data_entry' structure.
  */
 static service_data_entry *
-get_service_entry_or_create (const char *service)
+get_service_entry_or_create (const char *service, bool create)
 {
     service_data_entry *entry = NULL;
 
     entry = (service_data_entry *) g_hash_table_lookup (local_subscriptions_table, service);
-    if (!entry)
+    if (!entry && create)
     {
         entry = CMSG_CALLOC (1, sizeof (service_data_entry));
         g_hash_table_insert (local_subscriptions_table, g_strdup (service), entry);
@@ -70,15 +71,17 @@ method_entry_compare (gconstpointer a, gconstpointer b)
 
 /**
  * Gets the 'method_data_entry' structure for the given method name
- * or creates one if it doesn't already exist.
+ * or potentially create one if it doesn't already exist.
  *
  * @param service_entry - The service entry to get the method entry from.
  * @param method - The name of the method to get the entry for.
+ * @param create - Whether to create an entry if one didn't already exist or not.
  *
  * @returns A pointer to the related 'method_data_entry' structure.
  */
 static method_data_entry *
-get_method_entry_or_create (service_data_entry *service_entry, const char *method)
+get_method_entry_or_create (service_data_entry *service_entry, const char *method,
+                            bool create)
 {
     method_data_entry *entry = NULL;
     GList *list_entry = NULL;
@@ -88,7 +91,7 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
     {
         entry = (method_data_entry *) list_entry->data;
     }
-    else
+    else if (create)
     {
         entry = CMSG_CALLOC (1, sizeof (method_data_entry));
         entry->method_name = CMSG_STRDUP (method);
@@ -134,12 +137,133 @@ data_add_subscription (const cmsg_pssd_subscription_info *info, bool sync)
         }
     }
 
-    service_entry = get_service_entry_or_create (info->service);
-    method_entry = get_method_entry_or_create (service_entry, info->method_name);
+    service_entry = get_service_entry_or_create (info->service, true);
+    method_entry = get_method_entry_or_create (service_entry, info->method_name, true);
     transport = cmsg_transport_info_to_transport (info->transport_info);
     method_entry->transports = g_list_prepend (method_entry->transports, transport);
 
     return false;
+}
+
+/**
+ * Return 0 if two 'cmsg_pssd_subscription_info' messages are the same,
+ * otherwise return -1.
+ */
+static gint
+remote_subscription_compare (gconstpointer a, gconstpointer b)
+{
+    const cmsg_pssd_subscription_info *info_a = (const cmsg_pssd_subscription_info *) a;
+    const cmsg_pssd_subscription_info *info_b = (const cmsg_pssd_subscription_info *) b;
+
+    if (strcmp (info_a->service, info_b->service))
+    {
+        return -1;
+    }
+
+    if (strcmp (info_a->method_name, info_b->method_name))
+    {
+        return -1;
+    }
+
+    if (info_a->remote_addr != info_b->remote_addr)
+    {
+        return -1;
+    }
+
+    if (!cmsg_transport_info_compare (info_a->transport_info, info_b->transport_info))
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * Remove a remote subscription from the database if it exists.
+ *
+ * @param info - The information about the subscription being removed.
+ */
+static void
+data_remove_remote_subscription (const cmsg_pssd_subscription_info *info)
+{
+    GList *list_entry = NULL;
+
+    list_entry = g_list_find_custom (remote_subscriptions_list, info,
+                                     remote_subscription_compare);
+    if (list_entry)
+    {
+        remote_subscriptions_list = g_list_remove (remote_subscriptions_list,
+                                                   list_entry->data);
+        /* todo: sync it */
+        CMSG_FREE_RECV_MSG (list_entry->data);
+    }
+}
+
+/**
+ * Return 0 if two transports are the same, otherwise return -1.
+ */
+static gint
+cmsg_subscription_transport_compare (gconstpointer a, gconstpointer b)
+{
+    const cmsg_transport *one = (const cmsg_transport *) a;
+    const cmsg_transport *two = (const cmsg_transport *) b;
+
+    if (cmsg_transport_compare (one, two))
+    {
+        return 0;
+    }
+
+    return -1;
+}
+
+/**
+ * Remove a local subscription from the database if it exists. If a subscription
+ * is removed then the database is pruned accordingly to remove any empty service/
+ * method entries.
+ *
+ * @param info - The information about the subscription being removed.
+ */
+static void
+data_remove_local_subscription (const cmsg_pssd_subscription_info *info)
+{
+    service_data_entry *service_entry = NULL;
+    method_data_entry *method_entry = NULL;
+    cmsg_transport *transport = NULL;
+    GList *list_entry = NULL;
+    bool destroy_method_entry = false;
+    bool destroy_service_entry = false;
+
+    service_entry = get_service_entry_or_create (info->service, false);
+    if (service_entry)
+    {
+        method_entry = get_method_entry_or_create (service_entry, info->method_name, false);
+        if (method_entry)
+        {
+            transport = cmsg_transport_info_to_transport (info->transport_info);
+            list_entry = g_list_find_custom (method_entry->transports, transport,
+                                             cmsg_subscription_transport_compare);
+            if (list_entry)
+            {
+                cmsg_transport_destroy (list_entry->data);
+                method_entry->transports = g_list_remove (method_entry->transports,
+                                                          list_entry->data);
+                destroy_method_entry = (g_list_length (method_entry->transports) == 0);
+            }
+            cmsg_transport_destroy (transport);
+        }
+        if (destroy_method_entry)
+        {
+            service_entry->methods = g_list_remove (service_entry->methods, method_entry);
+            CMSG_FREE (method_entry->method_name);
+            CMSG_FREE (method_entry);
+            destroy_service_entry = (g_list_length (service_entry->methods) == 0);
+        }
+    }
+    if (destroy_service_entry)
+    {
+        g_hash_table_remove (local_subscriptions_table, info->service);
+        CMSG_FREE (service_entry);
+    }
 }
 
 /**
@@ -150,7 +274,17 @@ data_add_subscription (const cmsg_pssd_subscription_info *info, bool sync)
 void
 data_remove_subscription (const cmsg_pssd_subscription_info *info)
 {
-    /* todo */
+    if (CMSG_IS_FIELD_PRESENT (info, remote_addr))
+    {
+        if (!remote_sync_address_is_set () ||
+            remote_sync_get_local_ip () != info->remote_addr)
+        {
+            data_remove_remote_subscription (info);
+            return;
+        }
+    }
+
+    data_remove_local_subscription (info);
 }
 
 /**

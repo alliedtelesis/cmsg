@@ -638,7 +638,7 @@ cmsg_transport_socket_close (cmsg_transport *transport)
 }
 
 bool
-cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
+cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
 {
     if (one->type == two->type)
     {
