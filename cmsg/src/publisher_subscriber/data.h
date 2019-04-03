@@ -16,5 +16,6 @@ bool data_add_subscription (const cmsg_subscription_info *info, bool sync);
 void data_remove_subscription (const cmsg_subscription_info *info);
 void data_remove_subscriber (const cmsg_transport_info *sub_transport);
 void data_check_remote_entries (void);
+GList *data_get_remote_subscriptions (void);
 
 #endif /* __DATA_H_ */

@@ -19,6 +19,10 @@ static cmsg_server *server = NULL;
 static cmsg_server_accept_thread_info *info = NULL;
 static GList *client_list = NULL;
 
+/**
+ * Tell the daemon about all subscriptions from a remote host for services running
+ * on this host.
+ */
 void
 cmsg_pssd_remote_sync_impl_bulk_sync (const void *service,
                                       const cmsg_pssd_bulk_sync_data *recv_msg)
@@ -27,6 +31,10 @@ cmsg_pssd_remote_sync_impl_bulk_sync (const void *service,
     cmsg_pssd_remote_sync_server_bulk_syncSend (service);
 }
 
+/**
+ * Tell the daemon about a subscription for a service running on this host that has
+ * been added on a remote host.
+ */
 void
 cmsg_pssd_remote_sync_impl_add_subscription (const void *service,
                                              const cmsg_subscription_info *recv_msg)
@@ -35,6 +43,10 @@ cmsg_pssd_remote_sync_impl_add_subscription (const void *service,
     cmsg_pssd_remote_sync_server_add_subscriptionSend (service);
 }
 
+/**
+ * Tell the daemon about a subscription for a service running on this host that has
+ * been removed on a remote host.
+ */
 void
 cmsg_pssd_remote_sync_impl_remove_subscription (const void *service,
                                                 const cmsg_subscription_info *recv_msg)
@@ -43,18 +55,119 @@ cmsg_pssd_remote_sync_impl_remove_subscription (const void *service,
     cmsg_pssd_remote_sync_server_remove_subscriptionSend (service);
 }
 
+/**
+ * Helper function called for each client in the GList. Finds the client that
+ * matches the input IP address.
+ *
+ * @param a - A client from the list.
+ * @param b - Pointer to the address to compare against.
+ *
+ * @returns 0 if the client matches, -1 otherwise.
+ */
+static gint
+remote_sync_find_client_by_address (gconstpointer a, gconstpointer b)
+{
+    cmsg_client *client = (cmsg_client *) a;
+    uint32_t *addr = (uint32_t *) b;
+
+    if (client->_transport->config.socket.sockaddr.in.sin_addr.s_addr == *addr)
+    {
+        return 0;
+    }
+
+    return -1;
+}
+
+/**
+ * Helper function for calling the remote sync API to add or remove a subscription
+ * from a remote host.
+ *
+ * @param subscriber_info - The message containing the subscriber information.
+ * @param added - Whether the subscriber is being added or removed.
+ */
+static void
+remote_sync_subscription_added_removed (const cmsg_subscription_info *subscriber_info,
+                                        bool added)
+{
+    cmsg_client *client = NULL;
+    GList *link = NULL;
+
+    link = g_list_find_custom (client_list, &subscriber_info->remote_addr,
+                               remote_sync_find_client_by_address);
+    if (link)
+    {
+        client = (cmsg_client *) link->data;
+
+        if (added)
+        {
+            cmsg_pssd_remote_sync_api_add_subscription (client, subscriber_info);
+        }
+        else
+        {
+            cmsg_pssd_remote_sync_api_remove_subscription (client, subscriber_info);
+        }
+    }
+}
+
+/**
+ * Notify a remote host that a subscription for a service on that host has been added.
+ *
+ * @param subscriber_info - Information about the subscription that has been added.
+ */
 void
 remote_sync_subscription_added (const cmsg_subscription_info *subscriber_info)
 {
-    /* todo */
+    remote_sync_subscription_added_removed (subscriber_info, true);
 }
 
+/**
+ * Notify a remote host that a subscription for a service on that host has been removed.
+ *
+ * @param subscriber_info - Information about the subscription that has been removed.
+ */
 void
 remote_sync_subscription_removed (const cmsg_subscription_info *subscriber_info)
 {
-    /* todo */
+    remote_sync_subscription_added_removed (subscriber_info, false);
 }
 
+/**
+ * Send all subscriptions on this node that are for a remote host that has just joined.
+ *
+ * @param client - The client to the remote host that has just joined.
+ */
+static void
+remote_sync_bulk_sync_subscriptions (cmsg_client *client)
+{
+    cmsg_pssd_bulk_sync_data send_msg = CMSG_PSSD_BULK_SYNC_DATA_INIT;
+    GList *list = NULL;
+    GList *list_next = NULL;
+    const cmsg_subscription_info *info = NULL;
+    uint32_t remote_addr = client->_transport->config.socket.sockaddr.in.sin_addr.s_addr;
+
+    for (list = g_list_first (data_get_remote_subscriptions ()); list; list = list_next)
+    {
+        info = (const cmsg_subscription_info *) list->data;
+        if (info->remote_addr == remote_addr)
+        {
+            CMSG_REPEATED_APPEND (&send_msg, data, info);
+        }
+        list_next = g_list_next (list);
+    }
+
+    cmsg_pssd_remote_sync_api_bulk_sync (client, &send_msg);
+    CMSG_REPEATED_FREE (send_msg.data);
+}
+
+/**
+ * Helper function called for each client in the GList. Finds the client that
+ * matches the input transport.
+ *
+ * @param a - A client from the list.
+ * @param b - Pointer to the transport to compare against.
+ *
+ * @returns 0 if the client matches, -1 otherwise.
+ */
 static gint
 remote_sync_find_client_by_transport (gconstpointer a, gconstpointer b)
 {
@@ -69,6 +182,15 @@ remote_sync_find_client_by_transport (gconstpointer a, gconstpointer b)
     return -1;
 }
 
+/**
+ * Logic to run when a server for the "cmsg_pssd, remote_sync" service starts or
+ * stops running on either a local or remote node. In this case we only care about
+ * remote host events.
+ *
+ * @param transport - The transport information about the server that has either started
+ *                    or stopped.
+ * @param added - true if the server has started running, false otherwise.
+ */
 static void
 remote_sync_sl_event_handler (cmsg_transport *transport, bool added)
 {
@@ -86,7 +208,7 @@ remote_sync_sl_event_handler (cmsg_transport *transport, bool added)
     {
         client = cmsg_client_new (transport, CMSG_DESCRIPTOR (cmsg_pssd, remote_sync));
         client_list = g_list_append (client_list, client);
-        /* todo: Sync required subscriptions to that host */
+        remote_sync_bulk_sync_subscriptions (client);
     }
     else
     {

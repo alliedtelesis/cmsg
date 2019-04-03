@@ -476,6 +476,12 @@ data_check_remote_entries (void)
     g_list_free (list);
 }
 
+GList *
+data_get_remote_subscriptions (void)
+{
+    return remote_subscriptions_list;
+}
+
 /**
  * Initialise the data layer.
  */
