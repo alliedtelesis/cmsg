@@ -44,6 +44,8 @@ static int32_t cmsg_client_queue_input (cmsg_client *client, uint32_t method_ind
                                         const ProtobufCMessage *input, bool *did_queue);
 
 static void _cmsg_client_destroy (cmsg_client *client);
+static int32_t _cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer,
+                                        uint32_t buffer_len);
 
 static void cmsg_client_close_wrapper (cmsg_transport *transport);
 
@@ -104,6 +106,7 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
     cmsg_client_invoke_init (client, transport);
 
     client->client_destroy = _cmsg_client_destroy;
+    client->send_bytes = _cmsg_client_send_bytes;
 
     client->self.object_type = CMSG_OBJ_TYPE_CLIENT;
     client->self.object = client;
@@ -1228,6 +1231,45 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
     return CMSG_RET_OK;
 }
 
+/**
+ * Send a buffer of bytes on the client. Note that sending anything other than
+ * a well formed cmsg packet will be dropped by the server being sent to.
+ *
+ * @param client - The client to send on.
+ * @param buffer - The buffer of bytes to send.
+ * @param buffer_len - The length of the buffer being sent.
+ *
+ * @returns CMSG_RET_OK on success, related error code on failure.
+ */
+static int32_t
+_cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len)
+{
+    int ret = CMSG_RET_ERR;
+
+    CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
+
+    pthread_mutex_lock (&client->send_mutex);
+    ret = _cmsg_client_buffer_send (client, buffer, buffer_len);
+    pthread_mutex_unlock (&client->send_mutex);
+
+    return ret;
+}
+
+/**
+ * Send a buffer of bytes on a client. Note that sending anything other than
+ * a well formed cmsg packet will be dropped by the server being sent to.
+ *
+ * @param client - The client to send on.
+ * @param buffer - The buffer of bytes to send.
+ * @param buffer_len - The length of the buffer being sent.
+ *
+ * @returns CMSG_RET_OK on success, related error code on failure.
+ */
+int32_t
+cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len)
+{
+    return client->send_bytes (client, buffer, buffer_len);
+}
 
 int32_t
 cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,

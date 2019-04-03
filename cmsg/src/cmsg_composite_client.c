@@ -200,6 +200,52 @@ cmsg_composite_client_destroy (cmsg_client *client)
     CMSG_FREE (client);
 }
 
+/**
+ * Send a buffer of bytes on a composite client. Note that sending anything other than
+ * a well formed cmsg packet will be dropped by the server being sent to.
+ *
+ * @param client - The client to send on.
+ * @param buffer - The buffer of bytes to send.
+ * @param buffer_len - The length of the buffer being sent.
+ *
+ * @returns CMSG_RET_OK on success, related error code on failure.
+ */
+static int32_t
+cmsg_composite_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len)
+{
+    GList *l;
+    cmsg_composite_client *composite_client = (cmsg_composite_client *) client;
+    cmsg_client *child;
+    int ret;
+    int overall_result = CMSG_RET_OK;
+
+    if (composite_client->child_clients == NULL)
+    {
+        return CMSG_RET_OK;
+    }
+
+    pthread_mutex_lock (&composite_client->child_mutex);
+
+    for (l = composite_client->child_clients; l != NULL; l = l->next)
+    {
+        child = (cmsg_client *) l->data;
+
+        ret = child->send_bytes (child, buffer, buffer_len);
+        if (ret != CMSG_RET_OK)
+        {
+            /* Don't let any other error overwrite a previous CMSG_RET_ERR */
+            if (overall_result != CMSG_RET_ERR)
+            {
+                overall_result = ret;
+            }
+        }
+    }
+
+    pthread_mutex_unlock (&composite_client->child_mutex);
+
+    return overall_result;
+}
+
 bool
 cmsg_composite_client_init (cmsg_composite_client *comp_client,
                             const ProtobufCServiceDescriptor *descriptor)
@@ -215,6 +261,7 @@ cmsg_composite_client_init (cmsg_composite_client *comp_client,
     comp_client->base_client.self.object_type = CMSG_OBJ_TYPE_COMPOSITE_CLIENT;
 
     comp_client->base_client.client_destroy = cmsg_composite_client_destroy;
+    comp_client->base_client.send_bytes = cmsg_composite_client_send_bytes;
 
     comp_client->child_clients = NULL;
 
