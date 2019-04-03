@@ -101,6 +101,25 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
     return entry;
 }
 
+
+/**
+ * Add a local subscription to the database.
+ *
+ * @param info - The information about the subscription being added.
+ */
+void
+data_add_local_subscription (const cmsg_subscription_info *info)
+{
+    service_data_entry *service_entry = NULL;
+    method_data_entry *method_entry = NULL;
+    cmsg_transport *transport = NULL;
+
+    service_entry = get_service_entry_or_create (info->service, true);
+    method_entry = get_method_entry_or_create (service_entry, info->method_name, true);
+    transport = cmsg_transport_info_to_transport (info->transport_info);
+    method_entry->transports = g_list_prepend (method_entry->transports, transport);
+}
+
 /**
  * Add a new subscription to the database. Note that this function may steal
  * the memory of the passed in 'cmsg_subscription_info' message (see the
@@ -118,10 +137,6 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
 bool
 data_add_subscription (const cmsg_subscription_info *info)
 {
-    service_data_entry *service_entry = NULL;
-    method_data_entry *method_entry = NULL;
-    cmsg_transport *transport = NULL;
-
     if (CMSG_IS_FIELD_PRESENT (info, remote_addr))
     {
         if (remote_sync_get_local_ip () == info->remote_addr)
@@ -136,11 +151,7 @@ data_add_subscription (const cmsg_subscription_info *info)
         return true;
     }
 
-    service_entry = get_service_entry_or_create (info->service, true);
-    method_entry = get_method_entry_or_create (service_entry, info->method_name, true);
-    transport = cmsg_transport_info_to_transport (info->transport_info);
-    method_entry->transports = g_list_prepend (method_entry->transports, transport);
-
+    data_add_local_subscription (info);
     return false;
 }
 
@@ -248,7 +259,7 @@ data_remove_transport_from_method (method_data_entry *method_entry,
  *
  * @param info - The information about the subscription being removed.
  */
-static void
+void
 data_remove_local_subscription (const cmsg_subscription_info *info)
 {
     service_data_entry *service_entry = NULL;

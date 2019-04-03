@@ -27,7 +27,14 @@ void
 cmsg_pssd_remote_sync_impl_bulk_sync (const void *service,
                                       const cmsg_pssd_bulk_sync_data *recv_msg)
 {
-    /* todo */
+    int i;
+    cmsg_subscription_info *info;
+
+    CMSG_REPEATED_FOREACH (recv_msg, data, info, i)
+    {
+        data_add_local_subscription (info);
+    }
+
     cmsg_pssd_remote_sync_server_bulk_syncSend (service);
 }
 
@@ -39,7 +46,7 @@ void
 cmsg_pssd_remote_sync_impl_add_subscription (const void *service,
                                              const cmsg_subscription_info *recv_msg)
 {
-    /* todo */
+    data_add_local_subscription (recv_msg);
     cmsg_pssd_remote_sync_server_add_subscriptionSend (service);
 }
 
@@ -51,7 +58,7 @@ void
 cmsg_pssd_remote_sync_impl_remove_subscription (const void *service,
                                                 const cmsg_subscription_info *recv_msg)
 {
-    /* todo */
+    data_remove_local_subscription (recv_msg);
     cmsg_pssd_remote_sync_server_remove_subscriptionSend (service);
 }
 

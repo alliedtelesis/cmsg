@@ -17,5 +17,7 @@ void data_remove_subscription (const cmsg_subscription_info *info);
 void data_remove_subscriber (const cmsg_transport_info *sub_transport);
 void data_check_remote_entries (void);
 GList *data_get_remote_subscriptions (void);
+void data_add_local_subscription (const cmsg_subscription_info *info);
+void data_remove_local_subscription (const cmsg_subscription_info *info);
 
 #endif /* __DATA_H_ */
