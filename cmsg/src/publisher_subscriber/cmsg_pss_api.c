@@ -63,7 +63,7 @@ cmsg_pss_subscription_add_remove (cmsg_server *sub_server, const char *method_na
     cmsg_client *client = NULL;
     int ret;
     cmsg_transport_info *transport_info = NULL;
-    cmsg_pssd_subscription_info send_msg = CMSG_PSSD_SUBSCRIPTION_INFO_INIT;
+    cmsg_subscription_info send_msg = CMSG_SUBSCRIPTION_INFO_INIT;
 
     transport_info = cmsg_transport_info_create (sub_server->_transport);
     if (!transport_info)

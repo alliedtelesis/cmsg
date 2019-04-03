@@ -103,20 +103,20 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
 
 /**
  * Add a new subscription to the database. Note that this function may steal
- * the memory of the passed in 'cmsg_pssd_subscription_info' message (see the
+ * the memory of the passed in 'cmsg_subscription_info' message (see the
  * return value for more information).
  *
  * @param info - The information about the subscription being added.
  * @param sync - If the subscription is remote set true to sync this subscription
  *               to the associated remote node, false to not sync.
  *
- * @returns true if the memory of the passed in 'cmsg_pssd_subscription_info'
+ * @returns true if the memory of the passed in 'cmsg_subscription_info'
  *          message is now stolen (the caller should not free the memory).
  *          false if the memory was not stolen (the caller is still responsible
  *          for the memory).
  */
 bool
-data_add_subscription (const cmsg_pssd_subscription_info *info, bool sync)
+data_add_subscription (const cmsg_subscription_info *info, bool sync)
 {
     service_data_entry *service_entry = NULL;
     method_data_entry *method_entry = NULL;
@@ -134,7 +134,7 @@ data_add_subscription (const cmsg_pssd_subscription_info *info, bool sync)
                                                     (void *) info);
         if (sync)
         {
-            /* todo: sync it */
+            remote_sync_subscription_added (info);
         }
         return true;
     }
@@ -148,14 +148,14 @@ data_add_subscription (const cmsg_pssd_subscription_info *info, bool sync)
 }
 
 /**
- * Return 0 if two 'cmsg_pssd_subscription_info' messages are the same,
+ * Return 0 if two 'cmsg_subscription_info' messages are the same,
  * otherwise return -1.
  */
 static gint
 remote_subscription_compare (gconstpointer a, gconstpointer b)
 {
-    const cmsg_pssd_subscription_info *info_a = (const cmsg_pssd_subscription_info *) a;
-    const cmsg_pssd_subscription_info *info_b = (const cmsg_pssd_subscription_info *) b;
+    const cmsg_subscription_info *info_a = (const cmsg_subscription_info *) a;
+    const cmsg_subscription_info *info_b = (const cmsg_subscription_info *) b;
 
     if (strcmp (info_a->service, info_b->service))
     {
@@ -186,7 +186,7 @@ remote_subscription_compare (gconstpointer a, gconstpointer b)
  * @param info - The information about the subscription being removed.
  */
 static void
-data_remove_remote_subscription (const cmsg_pssd_subscription_info *info)
+data_remove_remote_subscription (const cmsg_subscription_info *info)
 {
     GList *list_entry = NULL;
 
@@ -196,7 +196,7 @@ data_remove_remote_subscription (const cmsg_pssd_subscription_info *info)
     {
         remote_subscriptions_list = g_list_remove (remote_subscriptions_list,
                                                    list_entry->data);
-        /* todo: sync it */
+        remote_sync_subscription_removed (info);
         CMSG_FREE_RECV_MSG (list_entry->data);
     }
 }
@@ -252,7 +252,7 @@ data_remove_transport_from_method (method_data_entry *method_entry,
  * @param info - The information about the subscription being removed.
  */
 static void
-data_remove_local_subscription (const cmsg_pssd_subscription_info *info)
+data_remove_local_subscription (const cmsg_subscription_info *info)
 {
     service_data_entry *service_entry = NULL;
     method_data_entry *method_entry = NULL;
@@ -289,7 +289,7 @@ data_remove_local_subscription (const cmsg_pssd_subscription_info *info)
  * @param info - The information about the subscription being removed.
  */
 void
-data_remove_subscription (const cmsg_pssd_subscription_info *info)
+data_remove_subscription (const cmsg_subscription_info *info)
 {
     if (CMSG_IS_FIELD_PRESENT (info, remote_addr))
     {
@@ -311,11 +311,11 @@ data_remove_remote_entries_for_subscriber (const cmsg_transport_info *sub_transp
     GList *list = NULL;
     GList *list_next = NULL;
     GList *removal_list = NULL;
-    const cmsg_pssd_subscription_info *info = NULL;
+    const cmsg_subscription_info *info = NULL;
 
     for (list = g_list_first (remote_subscriptions_list); list; list = list_next)
     {
-        info = (const cmsg_pssd_subscription_info *) list->data;
+        info = (const cmsg_subscription_info *) list->data;
         if (cmsg_transport_info_compare (info->transport_info, sub_transport))
         {
             removal_list = g_list_append (removal_list, (void *) info);
@@ -327,7 +327,7 @@ data_remove_remote_entries_for_subscriber (const cmsg_transport_info *sub_transp
     {
         remote_subscriptions_list = g_list_remove (remote_subscriptions_list, list->data);
 
-        /* todo: sync it */
+        remote_sync_subscription_removed (list->data);
         CMSG_FREE_RECV_MSG (list->data);
         list_next = g_list_next (list);
     }
@@ -446,13 +446,13 @@ data_remove_subscriber (const cmsg_transport_info *sub_transport)
  * to from a subscriber running locally. If the remote subscription is in fact for
  * the local address then an error will be logged to warn the library user.
  *
- * @param data - The 'cmsg_pssd_subscription_info' structure for a remote subscription.
+ * @param data - The 'cmsg_subscription_info' structure for a remote subscription.
  * @param user_data - NULL.
  */
 static void
 _data_check_remote_entries (gpointer data, gpointer user_data)
 {
-    cmsg_pssd_subscription_info *info = (cmsg_pssd_subscription_info *) data;
+    cmsg_subscription_info *info = (cmsg_subscription_info *) data;
 
     if (CMSG_IS_FIELD_PRESENT (info, remote_addr) &&
         remote_sync_get_local_ip () == info->remote_addr)
@@ -620,14 +620,14 @@ transport_info_dump (cmsg_transport_info *transport_info, FILE *fp)
  * Helper function called for each remote subscription that has been subscribed
  * to from a subscriber running locally.
  *
- * @param data - The 'cmsg_pssd_subscription_info' structure for a remote subscription.
+ * @param data - The 'cmsg_subscription_info' structure for a remote subscription.
  * @param user_data - The file to print to.
  */
 static void
 remote_subscription_dump (gpointer data, gpointer user_data)
 {
     FILE *fp = (FILE *) user_data;
-    const cmsg_pssd_subscription_info *entry = (const cmsg_pssd_subscription_info *) data;
+    const cmsg_subscription_info *entry = (const cmsg_subscription_info *) data;
     char ip[INET6_ADDRSTRLEN] = { };
 
     inet_ntop (AF_INET, &entry->remote_addr, ip, INET6_ADDRSTRLEN);

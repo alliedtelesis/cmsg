@@ -34,7 +34,7 @@ cmsg_pssd_configuration_impl_address_set (const void *service, const cmsg_uint32
  */
 void
 cmsg_pssd_configuration_impl_add_subscription (const void *service,
-                                               const cmsg_pssd_subscription_info *recv_msg)
+                                               const cmsg_subscription_info *recv_msg)
 {
     if (data_add_subscription (recv_msg, true))
     {
@@ -49,8 +49,7 @@ cmsg_pssd_configuration_impl_add_subscription (const void *service,
  */
 void
 cmsg_pssd_configuration_impl_remove_subscription (const void *service,
-                                                  const cmsg_pssd_subscription_info
-                                                  *recv_msg)
+                                                  const cmsg_subscription_info *recv_msg)
 {
     data_remove_subscription (recv_msg);
     cmsg_pssd_configuration_server_remove_subscriptionSend (service);

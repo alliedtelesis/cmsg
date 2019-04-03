@@ -57,3 +57,11 @@ message cmsg_service_info
     optional string service = 1;
     optional cmsg_transport_info server_info = 2;
 }
+
+message cmsg_subscription_info
+{
+    optional string service = 1;
+    optional cmsg_transport_info transport_info = 2;
+    optional string method_name = 3;
+    optional uint32 remote_addr = 4;
+}

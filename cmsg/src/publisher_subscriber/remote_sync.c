@@ -19,6 +19,42 @@ static cmsg_server *server = NULL;
 static cmsg_server_accept_thread_info *info = NULL;
 static GList *client_list = NULL;
 
+void
+cmsg_pssd_remote_sync_impl_bulk_sync (const void *service,
+                                      const cmsg_pssd_bulk_sync_data *recv_msg)
+{
+    /* todo */
+    cmsg_pssd_remote_sync_server_bulk_syncSend (service);
+}
+
+void
+cmsg_pssd_remote_sync_impl_add_subscription (const void *service,
+                                             const cmsg_subscription_info *recv_msg)
+{
+    /* todo */
+    cmsg_pssd_remote_sync_server_add_subscriptionSend (service);
+}
+
+void
+cmsg_pssd_remote_sync_impl_remove_subscription (const void *service,
+                                                const cmsg_subscription_info *recv_msg)
+{
+    /* todo */
+    cmsg_pssd_remote_sync_server_remove_subscriptionSend (service);
+}
+
+void
+remote_sync_subscription_added (const cmsg_subscription_info *subscriber_info)
+{
+    /* todo */
+}
+
+void
+remote_sync_subscription_removed (const cmsg_subscription_info *subscriber_info)
+{
+    /* todo */
+}
+
 static gint
 remote_sync_find_client_by_transport (gconstpointer a, gconstpointer b)
 {
