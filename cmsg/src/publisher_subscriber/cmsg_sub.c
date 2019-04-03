@@ -403,6 +403,52 @@ cmsg_sub_unsubscribe_remote (cmsg_sub *subscriber, cmsg_transport *sub_client_tr
     return cmsg_sub_unsubscribe (subscriber, sub_client_transport, method_name);
 }
 
+int32_t
+cmsg_sub_unsubscribe_events_local (cmsg_sub *subscriber,
+                                   cmsg_transport *sub_client_transport,
+                                   const char **events)
+{
+    int32_t ret;
+    int32_t return_value = CMSG_RET_OK;
+    const char **event = events;
+
+    while (*event)
+    {
+        ret = cmsg_sub_unsubscribe_local (subscriber, sub_client_transport,
+                                          (char *) *event);
+        if (ret < 0)
+        {
+            return_value = ret;
+        }
+        event++;
+    }
+
+    return return_value;
+}
+
+int32_t
+cmsg_sub_unsubscribe_events_remote (cmsg_sub *subscriber,
+                                    cmsg_transport *sub_client_transport,
+                                    const char **events, struct in_addr remote_addr)
+{
+    int32_t ret;
+    int32_t return_value = CMSG_RET_OK;
+    const char **event = events;
+
+    while (*event)
+    {
+        ret = cmsg_sub_unsubscribe_remote (subscriber, sub_client_transport,
+                                           (char *) *event, remote_addr);
+        if (ret < 0)
+        {
+            return_value = ret;
+        }
+        event++;
+    }
+
+    return return_value;
+}
+
 cmsg_sub *
 cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int scope,
                                     const ProtobufCService *service)

@@ -55,6 +55,13 @@ int32_t cmsg_sub_unsubscribe_local (cmsg_sub *subscriber,
 int32_t cmsg_sub_unsubscribe_remote (cmsg_sub *subscriber,
                                      cmsg_transport *sub_client_transport,
                                      const char *method_name, struct in_addr remote_addr);
+int32_t cmsg_sub_unsubscribe_events_local (cmsg_sub *subscriber,
+                                           cmsg_transport *sub_client_transport,
+                                           const char **events);
+int32_t cmsg_sub_unsubscribe_events_remote (cmsg_sub *subscriber,
+                                            cmsg_transport *sub_client_transport,
+                                            const char **events,
+                                            struct in_addr remote_addr);
 
 cmsg_sub *cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id,
                                               int scope, const ProtobufCService *service);
