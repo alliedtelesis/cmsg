@@ -36,7 +36,7 @@ void
 cmsg_pssd_configuration_impl_add_subscription (const void *service,
                                                const cmsg_subscription_info *recv_msg)
 {
-    if (data_add_subscription (recv_msg, true))
+    if (data_add_subscription (recv_msg))
     {
         /* The memory of the message was stolen so do not free the message. */
         cmsg_server_app_owns_current_msg_set (server);

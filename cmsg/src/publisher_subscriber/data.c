@@ -116,7 +116,7 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
  *          for the memory).
  */
 bool
-data_add_subscription (const cmsg_subscription_info *info, bool sync)
+data_add_subscription (const cmsg_subscription_info *info)
 {
     service_data_entry *service_entry = NULL;
     method_data_entry *method_entry = NULL;
@@ -132,10 +132,7 @@ data_add_subscription (const cmsg_subscription_info *info, bool sync)
 
         remote_subscriptions_list = g_list_prepend (remote_subscriptions_list,
                                                     (void *) info);
-        if (sync)
-        {
-            remote_sync_subscription_added (info);
-        }
+        remote_sync_subscription_added (info);
         return true;
     }
 
