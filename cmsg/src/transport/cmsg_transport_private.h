@@ -47,8 +47,9 @@ cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
 
 cmsg_transport_info *cmsg_transport_info_create (cmsg_transport *transport);
 void cmsg_transport_info_free (cmsg_transport_info *transport_info);
-cmsg_transport *cmsg_transport_info_to_transport (cmsg_transport_info *transport_info);
-bool cmsg_transport_info_compare (cmsg_transport_info *transport_info_a,
-                                  cmsg_transport_info *transport_info_b);
+cmsg_transport *cmsg_transport_info_to_transport (const cmsg_transport_info
+                                                  *transport_info);
+bool cmsg_transport_info_compare (const cmsg_transport_info *transport_info_a,
+                                  const cmsg_transport_info *transport_info_b);
 
 #endif /* __CMSG_TRANSPORT_PRIVATE_H_ */

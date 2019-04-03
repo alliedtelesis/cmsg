@@ -217,6 +217,32 @@ cmsg_subscription_transport_compare (gconstpointer a, gconstpointer b)
 }
 
 /**
+ * Remove a transport from the list of transports on a given method entry.
+ *
+ * @param method_entry - The method entry to remove the transport from.
+ * @param transport_info - A 'cmsg_transport_info' structure specifying
+ *                         the transport to remove.
+ */
+static void
+data_remove_transport_from_method (method_data_entry *method_entry,
+                                   const cmsg_transport_info *transport_info)
+{
+    cmsg_transport *transport = NULL;
+    GList *list_entry = NULL;
+
+    transport = cmsg_transport_info_to_transport (transport_info);
+    list_entry = g_list_find_custom (method_entry->transports, transport,
+                                     cmsg_subscription_transport_compare);
+    if (list_entry)
+    {
+        cmsg_transport_destroy (list_entry->data);
+        method_entry->transports = g_list_remove (method_entry->transports,
+                                                  list_entry->data);
+    }
+    cmsg_transport_destroy (transport);
+}
+
+/**
  * Remove a local subscription from the database if it exists. If a subscription
  * is removed then the database is pruned accordingly to remove any empty service/
  * method entries.
@@ -228,8 +254,6 @@ data_remove_local_subscription (const cmsg_pssd_subscription_info *info)
 {
     service_data_entry *service_entry = NULL;
     method_data_entry *method_entry = NULL;
-    cmsg_transport *transport = NULL;
-    GList *list_entry = NULL;
     bool destroy_method_entry = false;
     bool destroy_service_entry = false;
 
@@ -239,17 +263,8 @@ data_remove_local_subscription (const cmsg_pssd_subscription_info *info)
         method_entry = get_method_entry_or_create (service_entry, info->method_name, false);
         if (method_entry)
         {
-            transport = cmsg_transport_info_to_transport (info->transport_info);
-            list_entry = g_list_find_custom (method_entry->transports, transport,
-                                             cmsg_subscription_transport_compare);
-            if (list_entry)
-            {
-                cmsg_transport_destroy (list_entry->data);
-                method_entry->transports = g_list_remove (method_entry->transports,
-                                                          list_entry->data);
-                destroy_method_entry = (g_list_length (method_entry->transports) == 0);
-            }
-            cmsg_transport_destroy (transport);
+            data_remove_transport_from_method (method_entry, info->transport_info);
+            destroy_method_entry = (g_list_length (method_entry->transports) == 0);
         }
         if (destroy_method_entry)
         {
@@ -288,6 +303,132 @@ data_remove_subscription (const cmsg_pssd_subscription_info *info)
 }
 
 /**
+ * Remove all remote subscription entries for the given subscriber.
+ *
+ * @param sub_transport - The transport information for the subscriber.
+ */
+static void
+data_remove_remote_entries_for_subscriber (const cmsg_transport_info *sub_transport)
+{
+    GList *list = NULL;
+    GList *list_next = NULL;
+    GList *removal_list = NULL;
+    const cmsg_pssd_subscription_info *info = NULL;
+
+    for (list = g_list_first (remote_subscriptions_list); list; list = list_next)
+    {
+        info = (const cmsg_pssd_subscription_info *) list->data;
+        if (cmsg_transport_info_compare (info->transport_info, sub_transport))
+        {
+            removal_list = g_list_append (removal_list, (void *) info);
+        }
+        list_next = g_list_next (list);
+    }
+
+    for (list = g_list_first (removal_list); list; list = list_next)
+    {
+        remote_subscriptions_list = g_list_remove (remote_subscriptions_list, list->data);
+
+        /* todo: sync it */
+        CMSG_FREE_RECV_MSG (list->data);
+        list_next = g_list_next (list);
+    }
+    g_list_free (removal_list);
+}
+
+/**
+ * Helper function called for each method to potentially remove a specific
+ * subscriber that is subscribed to it.
+ *
+ * @param data - The 'method_data_entry' structure for a method.
+ * @param user_data - The transport information for the subscriber.
+ */
+static void
+data_remove_subscriber_from_method (gpointer data, gpointer user_data)
+{
+    const cmsg_transport_info *sub_transport = (const cmsg_transport_info *) user_data;
+    method_data_entry *entry = (method_data_entry *) data;
+
+    data_remove_transport_from_method (entry, sub_transport);
+}
+
+/**
+ * Helper function called for each method. Updates the GList to include this
+ * method if the transport list is empty.
+ *
+ * @param data - The 'method_data_entry' structure for a method.
+ * @param user_data - Pointer to the GList to update.
+ */
+static void
+data_find_methods_without_transports (gpointer data, gpointer user_data)
+{
+    GList **removal_list = (GList **) user_data;
+    method_data_entry *entry = (method_data_entry *) data;
+
+    if (g_list_length (entry->transports) == 0)
+    {
+        *removal_list = g_list_prepend (*removal_list, entry);
+    }
+}
+
+/**
+ * Helper function called for each entry in the hash table. Removes
+ * entries for the given subscriber..
+ *
+ * @param key - The key from the hash table (service name)
+ * @param value - The value associated with the key (service_data_entry structure)
+ * @param user_data - The transport information for the subscriber.
+ */
+static void
+data_remove_local_entries_for_subscriber (gpointer key, gpointer value, gpointer user_data)
+{
+    cmsg_transport_info *sub_transport = (cmsg_transport_info *) user_data;
+    service_data_entry *entry = (service_data_entry *) value;
+    GList *list = NULL;
+    GList *list_next = NULL;
+    GList *removal_list = NULL;
+    method_data_entry *method_entry = NULL;
+
+    g_list_foreach (entry->methods, data_remove_subscriber_from_method, sub_transport);
+    /* Manually prune empty entries */
+    g_list_foreach (entry->methods, data_find_methods_without_transports, &removal_list);
+    for (list = g_list_first (removal_list); list; list = list_next)
+    {
+        method_entry = (method_data_entry *) list->data;
+        entry->methods = g_list_remove (entry->methods, method_entry);
+        CMSG_FREE (method_entry->method_name);
+        CMSG_FREE (method_entry);
+        list_next = g_list_next (list);
+    }
+    g_list_free (removal_list);
+}
+
+/**
+ * Helper function called for each entry in the hash table. Returns TRUE
+ * if the service entry has an empty method list, meaning the entry should
+ * be removed from the hash table.
+ *
+ * @param key - The key from the hash table (service name)
+ * @param value - The value associated with the key (service_data_entry structure)
+ * @param user_data - NULL.
+ *
+ * @returns TRUE if the entry should be removed from the hash table, FALSE otherwise.
+ */
+gboolean
+data_remove_empty_services (gpointer key, gpointer value, gpointer user_data)
+{
+    service_data_entry *entry = (service_data_entry *) value;
+
+    if (g_list_length (entry->methods) == 0)
+    {
+        CMSG_FREE (entry);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/**
  * Remove all subscriptions from the database for the given subscriber.
  *
  * @param sub_transport - The transport information for the subscriber.
@@ -295,7 +436,11 @@ data_remove_subscription (const cmsg_pssd_subscription_info *info)
 void
 data_remove_subscriber (const cmsg_transport_info *sub_transport)
 {
-    /* todo */
+    data_remove_remote_entries_for_subscriber (sub_transport);
+    g_hash_table_foreach (local_subscriptions_table,
+                          data_remove_local_entries_for_subscriber, (void *) sub_transport);
+    g_hash_table_foreach_remove (local_subscriptions_table, data_remove_empty_services,
+                                 NULL);
 }
 
 /**

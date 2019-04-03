@@ -929,7 +929,7 @@ cmsg_transport_info_free (cmsg_transport_info *transport_info)
  * @returns A pointer to the transport on success, NULL on failure.
  */
 cmsg_transport *
-cmsg_transport_info_to_transport (cmsg_transport_info *transport_info)
+cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
 {
     cmsg_transport *transport = NULL;
 
@@ -1018,8 +1018,8 @@ cmsg_transport_info_to_transport (cmsg_transport_info *transport_info)
  * @returns true if they are equal, false otherwise.
  */
 bool
-cmsg_transport_info_compare (cmsg_transport_info *transport_info_a,
-                             cmsg_transport_info *transport_info_b)
+cmsg_transport_info_compare (const cmsg_transport_info *transport_info_a,
+                             const cmsg_transport_info *transport_info_b)
 {
     if (transport_info_a->type != transport_info_b->type ||
         transport_info_a->one_way != transport_info_b->one_way)
