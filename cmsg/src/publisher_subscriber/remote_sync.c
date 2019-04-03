@@ -131,17 +131,6 @@ remote_sync_address_set (struct in_addr addr)
 }
 
 /**
- * Check whether the remote sync address has been set yet.
- *
- * @returns true if it has been set, false otherwise.
- */
-bool
-remote_sync_address_is_set (void)
-{
-    return server != NULL;
-}
-
-/**
  * Get the IPv4 address used by the remote sync server on this node.
  *
  * @returns the IPv4 address (or zero if the address has not been set yet).

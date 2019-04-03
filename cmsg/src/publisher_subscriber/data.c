@@ -124,17 +124,19 @@ data_add_subscription (const cmsg_pssd_subscription_info *info, bool sync)
 
     if (CMSG_IS_FIELD_PRESENT (info, remote_addr))
     {
-        if (!remote_sync_address_is_set () ||
-            remote_sync_get_local_ip () != info->remote_addr)
+        if (remote_sync_get_local_ip () == info->remote_addr)
         {
-            remote_subscriptions_list = g_list_prepend (remote_subscriptions_list,
-                                                        (void *) info);
-            if (sync)
-            {
-                /* todo: sync it */
-            }
-            return true;
+            syslog (LOG_ERR, "Incorrect subscription API used for %s service (method: %s)",
+                    info->service, info->method_name);
         }
+
+        remote_subscriptions_list = g_list_prepend (remote_subscriptions_list,
+                                                    (void *) info);
+        if (sync)
+        {
+            /* todo: sync it */
+        }
+        return true;
     }
 
     service_entry = get_service_entry_or_create (info->service, true);
@@ -291,12 +293,8 @@ data_remove_subscription (const cmsg_pssd_subscription_info *info)
 {
     if (CMSG_IS_FIELD_PRESENT (info, remote_addr))
     {
-        if (!remote_sync_address_is_set () ||
-            remote_sync_get_local_ip () != info->remote_addr)
-        {
-            data_remove_remote_subscription (info);
-            return;
-        }
+        data_remove_remote_subscription (info);
+        return;
     }
 
     data_remove_local_subscription (info);
@@ -445,8 +443,8 @@ data_remove_subscriber (const cmsg_transport_info *sub_transport)
 
 /**
  * Helper function called for each remote subscription that has been subscribed
- * to from a subscriber running locally. If the remote subscription is in fact local
- * then it will be converted to a local subscription.
+ * to from a subscriber running locally. If the remote subscription is in fact for
+ * the local address then an error will be logged to warn the library user.
  *
  * @param data - The 'cmsg_pssd_subscription_info' structure for a remote subscription.
  * @param user_data - NULL.
@@ -454,18 +452,19 @@ data_remove_subscriber (const cmsg_transport_info *sub_transport)
 static void
 _data_check_remote_entries (gpointer data, gpointer user_data)
 {
-    cmsg_pssd_subscription_info *entry = (cmsg_pssd_subscription_info *) data;
+    cmsg_pssd_subscription_info *info = (cmsg_pssd_subscription_info *) data;
 
-    if (!data_add_subscription (entry, false))
+    if (CMSG_IS_FIELD_PRESENT (info, remote_addr) &&
+        remote_sync_get_local_ip () == info->remote_addr)
     {
-        /* The subscription is now local so we need to free the original message. */
-        CMSG_FREE_RECV_MSG (entry);
+        syslog (LOG_ERR, "Incorrect subscription API used for %s service (method: %s)",
+                info->service, info->method_name);
     }
 }
 
 /**
  * Check all existing remote subscriptions and check whether they are in fact local
- * subscriptions.
+ * subscriptions and log an error appropriately.
  */
 void
 data_check_remote_entries (void)
