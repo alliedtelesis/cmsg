@@ -12,11 +12,13 @@
 #include "data.h"
 #include "remote_sync.h"
 #include "transport/cmsg_transport_private.h"
+#include <cmsg/cmsg_composite_client.h>
+#include "cmsg_client_private.h"
 
 typedef struct
 {
     char *method_name;
-    GList *transports;
+    cmsg_client *comp_client;
 } method_data_entry;
 
 typedef struct
@@ -26,6 +28,17 @@ typedef struct
 
 static GHashTable *local_subscriptions_table = NULL;
 static GList *remote_subscriptions_list = NULL;
+
+static const ProtobufCServiceDescriptor cmsg_pssd_pub_descriptor = {
+    PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC,
+    "cmsg_pssd.pub",
+    "pub",
+    "cmsg_pssd_pub",
+    "cmsg_pssd",
+    0,
+    NULL,
+    NULL,
+};
 
 /**
  * Gets the 'service_data_entry' structure for the given service name
@@ -95,6 +108,7 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
     {
         entry = CMSG_CALLOC (1, sizeof (method_data_entry));
         entry->method_name = CMSG_STRDUP (method);
+        entry->comp_client = cmsg_composite_client_new (&cmsg_pssd_pub_descriptor);
         service_entry->methods = g_list_prepend (service_entry->methods, entry);
     }
 
@@ -113,11 +127,14 @@ data_add_local_subscription (const cmsg_subscription_info *info)
     service_data_entry *service_entry = NULL;
     method_data_entry *method_entry = NULL;
     cmsg_transport *transport = NULL;
+    cmsg_client *client = NULL;
 
     service_entry = get_service_entry_or_create (info->service, true);
     method_entry = get_method_entry_or_create (service_entry, info->method_name, true);
     transport = cmsg_transport_info_to_transport (info->transport_info);
-    method_entry->transports = g_list_prepend (method_entry->transports, transport);
+
+    client = cmsg_client_create (transport, &cmsg_pssd_pub_descriptor);
+    cmsg_composite_client_add_child (method_entry->comp_client, client);
 }
 
 /**
@@ -210,15 +227,22 @@ data_remove_remote_subscription (const cmsg_subscription_info *info)
 }
 
 /**
- * Return 0 if two transports are the same, otherwise return -1.
+ * Helper function called for a list of cmsg clients. Compares each client
+ * with the given transport.
+ *
+ * @param a - The client.
+ * @param b - The transport.
+ *
+ * @returns 0 if the given transport matches the transport of the client.
+ *          -1 otherwise.
  */
 static gint
-cmsg_subscription_transport_compare (gconstpointer a, gconstpointer b)
+cmsg_subscription_client_compare (gconstpointer a, gconstpointer b)
 {
-    const cmsg_transport *one = (const cmsg_transport *) a;
-    const cmsg_transport *two = (const cmsg_transport *) b;
+    const cmsg_client *client = (const cmsg_client *) a;
+    const cmsg_transport *transport = (const cmsg_transport *) b;
 
-    if (cmsg_transport_compare (one, two))
+    if (cmsg_transport_compare (client->_transport, transport))
     {
         return 0;
     }
@@ -227,27 +251,29 @@ cmsg_subscription_transport_compare (gconstpointer a, gconstpointer b)
 }
 
 /**
- * Remove a transport from the list of transports on a given method entry.
+ * Remove a client from the composite client on a given method entry.
  *
- * @param method_entry - The method entry to remove the transport from.
+ * @param method_entry - The method entry to remove the client from.
  * @param transport_info - A 'cmsg_transport_info' structure specifying
- *                         the transport to remove.
+ *                         the client to remove.
  */
 static void
-data_remove_transport_from_method (method_data_entry *method_entry,
-                                   const cmsg_transport_info *transport_info)
+data_remove_client_from_method (method_data_entry *method_entry,
+                                const cmsg_transport_info *transport_info)
 {
     cmsg_transport *transport = NULL;
     GList *list_entry = NULL;
+    GList *client_list = cmsg_composite_client_get_children (method_entry->comp_client);
+    cmsg_client *child_client = NULL;
 
     transport = cmsg_transport_info_to_transport (transport_info);
-    list_entry = g_list_find_custom (method_entry->transports, transport,
-                                     cmsg_subscription_transport_compare);
+    list_entry = g_list_find_custom (client_list, transport,
+                                     cmsg_subscription_client_compare);
     if (list_entry)
     {
-        cmsg_transport_destroy (list_entry->data);
-        method_entry->transports = g_list_remove (method_entry->transports,
-                                                  list_entry->data);
+        child_client = (cmsg_client *) list_entry->data;
+        cmsg_composite_client_delete_child (method_entry->comp_client, child_client);
+        cmsg_destroy_client_and_transport (child_client);
     }
     cmsg_transport_destroy (transport);
 }
@@ -266,6 +292,7 @@ data_remove_local_subscription (const cmsg_subscription_info *info)
     method_data_entry *method_entry = NULL;
     bool destroy_method_entry = false;
     bool destroy_service_entry = false;
+    uint32_t num_clients = 0;
 
     service_entry = get_service_entry_or_create (info->service, false);
     if (service_entry)
@@ -273,13 +300,15 @@ data_remove_local_subscription (const cmsg_subscription_info *info)
         method_entry = get_method_entry_or_create (service_entry, info->method_name, false);
         if (method_entry)
         {
-            data_remove_transport_from_method (method_entry, info->transport_info);
-            destroy_method_entry = (g_list_length (method_entry->transports) == 0);
+            data_remove_client_from_method (method_entry, info->transport_info);
+            num_clients = cmsg_composite_client_num_children (method_entry->comp_client);
+            destroy_method_entry = (num_clients == 0);
         }
         if (destroy_method_entry)
         {
             service_entry->methods = g_list_remove (service_entry->methods, method_entry);
             CMSG_FREE (method_entry->method_name);
+            cmsg_client_destroy (method_entry->comp_client);
             CMSG_FREE (method_entry);
             destroy_service_entry = (g_list_length (service_entry->methods) == 0);
         }
@@ -355,23 +384,25 @@ data_remove_subscriber_from_method (gpointer data, gpointer user_data)
     const cmsg_transport_info *sub_transport = (const cmsg_transport_info *) user_data;
     method_data_entry *entry = (method_data_entry *) data;
 
-    data_remove_transport_from_method (entry, sub_transport);
+    data_remove_client_from_method (entry, sub_transport);
 }
 
 /**
  * Helper function called for each method. Updates the GList to include this
- * method if the transport list is empty.
+ * method if the composite client is empty.
  *
  * @param data - The 'method_data_entry' structure for a method.
  * @param user_data - Pointer to the GList to update.
  */
 static void
-data_find_methods_without_transports (gpointer data, gpointer user_data)
+data_find_methods_without_clients (gpointer data, gpointer user_data)
 {
     GList **removal_list = (GList **) user_data;
     method_data_entry *entry = (method_data_entry *) data;
+    uint32_t num_clients = 0;
 
-    if (g_list_length (entry->transports) == 0)
+    num_clients = cmsg_composite_client_num_children (entry->comp_client);
+    if (num_clients == 0)
     {
         *removal_list = g_list_prepend (*removal_list, entry);
     }
@@ -397,7 +428,7 @@ data_remove_local_entries_for_subscriber (gpointer key, gpointer value, gpointer
 
     g_list_foreach (entry->methods, data_remove_subscriber_from_method, sub_transport);
     /* Manually prune empty entries */
-    g_list_foreach (entry->methods, data_find_methods_without_transports, &removal_list);
+    g_list_foreach (entry->methods, data_find_methods_without_clients, &removal_list);
     for (list = g_list_first (removal_list); list; list = list_next)
     {
         method_entry = (method_data_entry *) list->data;
@@ -534,17 +565,18 @@ tcp_transport_dump (FILE *fp, const cmsg_transport *transport)
 }
 
 /**
- * Helper function called for each transport subscribed to a method.
- * Prints the transport details of the transport.
+ * Helper function called for each client subscribed to a method.
+ * Prints the transport details of the client.
  *
  * @param data - The 'subscriber_data_entry' structure for the subscriber.
  * @param user_data - The file to print to.
  */
 static void
-transports_dump (gpointer data, gpointer user_data)
+clients_dump (gpointer data, gpointer user_data)
 {
     FILE *fp = (FILE *) user_data;
-    const cmsg_transport *transport = (const cmsg_transport *) data;
+    const cmsg_client *client = (const cmsg_client *) data;
+    const cmsg_transport *transport = client->_transport;
 
     if (transport->type == CMSG_TRANSPORT_ONEWAY_UNIX ||
         transport->type == CMSG_TRANSPORT_RPC_UNIX)
@@ -577,10 +609,13 @@ methods_data_dump (gpointer data, gpointer user_data)
 {
     FILE *fp = (FILE *) user_data;
     const method_data_entry *entry = (const method_data_entry *) data;
+    GList *clients_list = NULL;
+
+    clients_list = cmsg_composite_client_get_children (entry->comp_client);
 
     fprintf (fp, "   %s:\n", entry->method_name);
     fprintf (fp, "    subscribers:\n");
-    g_list_foreach (entry->transports, transports_dump, fp);
+    g_list_foreach (clients_list, clients_dump, fp);
 }
 
 /**
