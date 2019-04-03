@@ -6,13 +6,12 @@
 #include "cmsg_error.h"
 #include "cmsg_sub_service.pb-c.h"
 #include "cmsg_pss_api_private.h"
+#include "cmsg_client_private.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
 #endif
 
-extern cmsg_client *cmsg_client_create (cmsg_transport *transport,
-                                        const ProtobufCServiceDescriptor *descriptor);
 extern int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
 
 

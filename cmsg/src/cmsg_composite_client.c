@@ -18,9 +18,8 @@
 #include "cmsg_error.h"
 #include "cmsg_composite_client.h"
 #include "cmsg_composite_client_private.h"
+#include "cmsg_client_private.h"
 
-extern cmsg_client *cmsg_client_create (cmsg_transport *transport,
-                                        const ProtobufCServiceDescriptor *descriptor);
 extern bool cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
                               const ProtobufCServiceDescriptor *descriptor);
 extern void cmsg_client_deinit (cmsg_client *client);
