@@ -1,23 +1,21 @@
-/*
- * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+/**
+ * cmsg_sub.c
+ *
+ * Implements the CMSG subscriber which can be used to subscribe for published
+ * messages from a CMSG publisher.
+ *
+ * Copyright 2019, Allied Telesis Labs New Zealand, Ltd
  */
-#include "cmsg_private.h"
+
 #include "cmsg_sub.h"
-#include "cmsg_error.h"
+#include "cmsg_sub_private.h"
 #include "cmsg_pss_api_private.h"
-#include "cmsg_client_private.h"
+#include "cmsg_error.h"
 
-#ifdef HAVE_COUNTERD
-#include "cntrd_app_defines.h"
-#endif
-
-extern int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
-
-
-cmsg_sub *
+static cmsg_subscriber *
 cmsg_sub_new (cmsg_transport *pub_server_transport, const ProtobufCService *pub_service)
 {
-    cmsg_sub *subscriber = (cmsg_sub *) CMSG_CALLOC (1, sizeof (cmsg_sub));
+    cmsg_subscriber *subscriber = (cmsg_subscriber *) CMSG_CALLOC (1, sizeof (*subscriber));
     if (!subscriber)
     {
         CMSG_LOG_GEN_ERROR ("[%s%s] Unable to allocate memory for subscriber.",
@@ -37,9 +35,15 @@ cmsg_sub_new (cmsg_transport *pub_server_transport, const ProtobufCService *pub_
     return subscriber;
 }
 
+cmsg_server *
+cmsg_sub_server_get (cmsg_subscriber *subscriber)
+{
+    return subscriber->pub_server;
+}
+
 
 int
-cmsg_sub_get_server_socket (cmsg_sub *subscriber)
+cmsg_sub_get_server_socket (cmsg_subscriber *subscriber)
 {
     CMSG_ASSERT_RETURN_VAL (subscriber != NULL, -1);
 
@@ -48,15 +52,15 @@ cmsg_sub_get_server_socket (cmsg_sub *subscriber)
 
 
 int32_t
-cmsg_sub_server_receive_poll (cmsg_sub *sub, int32_t timeout_ms, fd_set *master_fdset,
-                              int *fdmax)
+cmsg_sub_server_receive_poll (cmsg_subscriber *sub, int32_t timeout_ms,
+                              fd_set *master_fdset, int *fdmax)
 {
     return cmsg_server_receive_poll (sub->pub_server, timeout_ms, master_fdset, fdmax);
 }
 
 
 int32_t
-cmsg_sub_server_receive (cmsg_sub *subscriber, int32_t server_socket)
+cmsg_sub_server_receive (cmsg_subscriber *subscriber, int32_t server_socket)
 {
     CMSG_DEBUG (CMSG_INFO, "[SUB]\n");
 
@@ -67,7 +71,7 @@ cmsg_sub_server_receive (cmsg_sub *subscriber, int32_t server_socket)
 
 
 int32_t
-cmsg_sub_server_accept (cmsg_sub *subscriber, int32_t listen_socket)
+cmsg_sub_server_accept (cmsg_subscriber *subscriber, int32_t listen_socket)
 {
     CMSG_ASSERT_RETURN_VAL (subscriber != NULL, -1);
 
@@ -81,7 +85,7 @@ cmsg_sub_server_accept (cmsg_sub *subscriber, int32_t listen_socket)
  * cmsg_sub_server_accept() (e.g. by using liboop socket utility functions).
  */
 void
-cmsg_sub_server_accept_callback (cmsg_sub *subscriber, int32_t sock)
+cmsg_sub_server_accept_callback (cmsg_subscriber *subscriber, int32_t sock)
 {
     if (subscriber != NULL)
     {
@@ -90,24 +94,22 @@ cmsg_sub_server_accept_callback (cmsg_sub *subscriber, int32_t sock)
 }
 
 int32_t
-cmsg_sub_subscribe_local (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
-                          const char *method_name)
+cmsg_sub_subscribe_local (cmsg_subscriber *subscriber, const char *method_name)
 {
     cmsg_pss_subscription_add_local (subscriber->pub_server, method_name);
     return CMSG_RET_OK;
 }
 
 int32_t
-cmsg_sub_subscribe_remote (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
-                           const char *method_name, struct in_addr remote_addr)
+cmsg_sub_subscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
+                           struct in_addr remote_addr)
 {
     cmsg_pss_subscription_add_remote (subscriber->pub_server, method_name, remote_addr);
     return CMSG_RET_OK;
 }
 
 int32_t
-cmsg_sub_subscribe_events_local (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
-                                 const char **events)
+cmsg_sub_subscribe_events_local (cmsg_subscriber *subscriber, const char **events)
 {
     int32_t ret;
     int32_t return_value = CMSG_RET_OK;
@@ -115,7 +117,7 @@ cmsg_sub_subscribe_events_local (cmsg_sub *subscriber, cmsg_transport *sub_clien
 
     while (*event)
     {
-        ret = cmsg_sub_subscribe_local (subscriber, sub_client_transport, (char *) *event);
+        ret = cmsg_sub_subscribe_local (subscriber, (char *) *event);
         if (ret < 0)
         {
             return_value = ret;
@@ -127,8 +129,7 @@ cmsg_sub_subscribe_events_local (cmsg_sub *subscriber, cmsg_transport *sub_clien
 }
 
 int32_t
-cmsg_sub_subscribe_events_remote (cmsg_sub *subscriber,
-                                  cmsg_transport *sub_client_transport, const char **events,
+cmsg_sub_subscribe_events_remote (cmsg_subscriber *subscriber, const char **events,
                                   struct in_addr remote_addr)
 {
     int32_t ret;
@@ -137,8 +138,7 @@ cmsg_sub_subscribe_events_remote (cmsg_sub *subscriber,
 
     while (*event)
     {
-        ret = cmsg_sub_subscribe_remote (subscriber, sub_client_transport, (char *) *event,
-                                         remote_addr);
+        ret = cmsg_sub_subscribe_remote (subscriber, (char *) *event, remote_addr);
         if (ret < 0)
         {
             return_value = ret;
@@ -150,25 +150,22 @@ cmsg_sub_subscribe_events_remote (cmsg_sub *subscriber,
 }
 
 int32_t
-cmsg_sub_unsubscribe_local (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
-                            const char *method_name)
+cmsg_sub_unsubscribe_local (cmsg_subscriber *subscriber, const char *method_name)
 {
     cmsg_pss_subscription_remove_local (subscriber->pub_server, method_name);
     return CMSG_RET_OK;
 }
 
 int32_t
-cmsg_sub_unsubscribe_remote (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
-                             const char *method_name, struct in_addr remote_addr)
+cmsg_sub_unsubscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
+                             struct in_addr remote_addr)
 {
     cmsg_pss_subscription_remove_remote (subscriber->pub_server, method_name, remote_addr);
     return CMSG_RET_OK;
 }
 
 int32_t
-cmsg_sub_unsubscribe_events_local (cmsg_sub *subscriber,
-                                   cmsg_transport *sub_client_transport,
-                                   const char **events)
+cmsg_sub_unsubscribe_events_local (cmsg_subscriber *subscriber, const char **events)
 {
     int32_t ret;
     int32_t return_value = CMSG_RET_OK;
@@ -176,8 +173,7 @@ cmsg_sub_unsubscribe_events_local (cmsg_sub *subscriber,
 
     while (*event)
     {
-        ret = cmsg_sub_unsubscribe_local (subscriber, sub_client_transport,
-                                          (char *) *event);
+        ret = cmsg_sub_unsubscribe_local (subscriber, (char *) *event);
         if (ret < 0)
         {
             return_value = ret;
@@ -189,9 +185,8 @@ cmsg_sub_unsubscribe_events_local (cmsg_sub *subscriber,
 }
 
 int32_t
-cmsg_sub_unsubscribe_events_remote (cmsg_sub *subscriber,
-                                    cmsg_transport *sub_client_transport,
-                                    const char **events, struct in_addr remote_addr)
+cmsg_sub_unsubscribe_events_remote (cmsg_subscriber *subscriber, const char **events,
+                                    struct in_addr remote_addr)
 {
     int32_t ret;
     int32_t return_value = CMSG_RET_OK;
@@ -199,8 +194,7 @@ cmsg_sub_unsubscribe_events_remote (cmsg_sub *subscriber,
 
     while (*event)
     {
-        ret = cmsg_sub_unsubscribe_remote (subscriber, sub_client_transport,
-                                           (char *) *event, remote_addr);
+        ret = cmsg_sub_unsubscribe_remote (subscriber, (char *) *event, remote_addr);
         if (ret < 0)
         {
             return_value = ret;
@@ -211,12 +205,12 @@ cmsg_sub_unsubscribe_events_remote (cmsg_sub *subscriber,
     return return_value;
 }
 
-cmsg_sub *
-cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int scope,
-                                    const ProtobufCService *service)
+cmsg_subscriber *
+cmsg_subscriber_create_tipc (const char *server_name, int member_id, int scope,
+                             const ProtobufCService *service)
 {
     cmsg_transport *transport = NULL;
-    cmsg_sub *subscriber = NULL;
+    cmsg_subscriber *subscriber = NULL;
 
     CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
@@ -240,12 +234,12 @@ cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id, int 
     return subscriber;
 }
 
-cmsg_sub *
-cmsg_create_subscriber_tcp (const char *server_name, struct in_addr addr,
+cmsg_subscriber *
+cmsg_subscriber_create_tcp (const char *server_name, struct in_addr addr,
                             const ProtobufCService *service)
 {
     cmsg_transport *transport = NULL;
-    cmsg_sub *subscriber = NULL;
+    cmsg_subscriber *subscriber = NULL;
 
     CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
@@ -270,10 +264,10 @@ cmsg_create_subscriber_tcp (const char *server_name, struct in_addr addr,
     return subscriber;
 }
 
-cmsg_sub *
-cmsg_create_subscriber_unix_oneway (const ProtobufCService *service)
+cmsg_subscriber *
+cmsg_subscriber_create_unix (const ProtobufCService *service)
 {
-    cmsg_sub *subscriber = NULL;
+    cmsg_subscriber *subscriber = NULL;
     cmsg_transport *transport = NULL;
 
     /* Create the subscriber transport */
@@ -297,7 +291,7 @@ cmsg_create_subscriber_unix_oneway (const ProtobufCService *service)
 }
 
 void
-cmsg_destroy_subscriber_and_transport (cmsg_sub *subscriber)
+cmsg_subscriber_destroy (cmsg_subscriber *subscriber)
 {
     if (subscriber)
     {

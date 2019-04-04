@@ -11,6 +11,7 @@
 #include <sys/eventfd.h>
 #include "cmsg_glib_helpers.h"
 #include "cmsg_error.h"
+#include "publisher_subscriber/cmsg_sub_private.h"
 
 /**
  * Callback function to read an accepted socket on a CMSG server.
@@ -102,12 +103,12 @@ cmsg_glib_server_init (cmsg_server *server)
  * @param sub to deinit and destroy
  */
 void
-cmsg_glib_subscriber_deinit (cmsg_sub *sub)
+cmsg_glib_subscriber_deinit (cmsg_subscriber *sub)
 {
     cmsg_server_accept_thread_info *info = sub->pub_server_thread_info;
 
     cmsg_server_accept_thread_deinit (info);
-    cmsg_destroy_subscriber_and_transport (sub);
+    cmsg_subscriber_destroy (sub);
 }
 
 /**
@@ -116,14 +117,13 @@ cmsg_glib_subscriber_deinit (cmsg_sub *sub)
  * @param events - Array of strings of events to subscribe to. Last entry must be NULL.
  * @returns 'atl_cmsg_server_info' handle that can be used to deinit.
  */
-cmsg_sub *
+cmsg_subscriber *
 cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events)
 {
-    cmsg_sub *sub = NULL;
-    cmsg_transport *transport_r = NULL;
+    cmsg_subscriber *sub = NULL;
     cmsg_server_accept_thread_info *info;
 
-    sub = cmsg_create_subscriber_unix_oneway (service);
+    sub = cmsg_subscriber_create_unix (service);
     if (!sub)
     {
         return NULL;
@@ -132,7 +132,7 @@ cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events)
     info = cmsg_glib_server_init (sub->pub_server);
     if (!info)
     {
-        cmsg_destroy_subscriber_and_transport (sub);
+        cmsg_subscriber_destroy (sub);
         return NULL;
     }
     sub->pub_server_thread_info = info;
@@ -140,10 +140,7 @@ cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events)
     /* Subscribe to relevant events */
     if (events)
     {
-        transport_r = cmsg_create_transport_unix (service->descriptor,
-                                                  CMSG_TRANSPORT_RPC_UNIX);
-        cmsg_sub_subscribe_events_local (sub, transport_r, events);
-        cmsg_transport_destroy (transport_r);
+        cmsg_sub_subscribe_events_local (sub, events);
     }
 
     return sub;

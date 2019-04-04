@@ -17,8 +17,9 @@ cmsg_tipc_mesh_conn *cmsg_glib_tipc_mesh_init (ProtobufCService *service,
                                                int this_node_id, int min_node_id,
                                                int max_node_id,
                                                cmsg_mesh_local_type type, bool oneway);
-cmsg_sub *cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events);
-void cmsg_glib_subscriber_deinit (cmsg_sub *sub);
+cmsg_subscriber *cmsg_glib_unix_subscriber_init (ProtobufCService *service,
+                                                 const char **events);
+void cmsg_glib_subscriber_deinit (cmsg_subscriber *sub);
 void cmsg_glib_bcast_client_processing_start (cmsg_client *broadcast_client);
 
 #endif /* __CMSG_GLIB_HELPERS_H_ */

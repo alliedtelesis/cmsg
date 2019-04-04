@@ -113,7 +113,7 @@ create_publisher_and_send (void)
 static void
 create_subscriber_and_test (cmsg_transport_type type)
 {
-    cmsg_sub *sub = NULL;
+    cmsg_subscriber *sub = NULL;
     int ret = 0;
     struct in_addr addr;
 
@@ -121,15 +121,15 @@ create_subscriber_and_test (cmsg_transport_type type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
         addr.s_addr = htonl (INADDR_LOOPBACK);
-        sub = cmsg_create_subscriber_tcp ("cmsg-test-subscriber", addr,
+        sub = cmsg_subscriber_create_tcp ("cmsg-test-subscriber", addr,
                                           CMSG_SERVICE (cmsg, test));
         break;
     case CMSG_TRANSPORT_RPC_TIPC:
-        sub = cmsg_create_subscriber_tipc_oneway ("cmsg-test-subscriber", tipc_instance,
-                                                  tipc_scope, CMSG_SERVICE (cmsg, test));
+        sub = cmsg_subscriber_create_tipc ("cmsg-test-subscriber", tipc_instance,
+                                           tipc_scope, CMSG_SERVICE (cmsg, test));
         break;
     case CMSG_TRANSPORT_RPC_UNIX:
-        sub = cmsg_create_subscriber_unix_oneway (CMSG_SERVICE (cmsg, test));
+        sub = cmsg_subscriber_create_unix (CMSG_SERVICE (cmsg, test));
         break;
     default:
         NP_FAIL;
@@ -137,7 +137,7 @@ create_subscriber_and_test (cmsg_transport_type type)
 
     NP_ASSERT_NOT_NULL (sub);
 
-    ret = cmsg_sub_subscribe_local (sub, NULL, "simple_notification_test");
+    ret = cmsg_sub_subscribe_local (sub, "simple_notification_test");
     NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
 
     int fd = cmsg_sub_get_server_socket (sub);
@@ -163,7 +163,7 @@ create_subscriber_and_test (cmsg_transport_type type)
         }
     }
 
-    cmsg_destroy_subscriber_and_transport (sub);
+    cmsg_subscriber_destroy (sub);
 }
 
 /**

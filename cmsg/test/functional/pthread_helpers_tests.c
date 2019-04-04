@@ -12,10 +12,6 @@
 #include "cmsg_functional_tests_impl_auto.h"
 #include "setup.h"
 
-extern int32_t cmsg_sub_unsubscribe (cmsg_sub *subscriber,
-                                     cmsg_transport *sub_client_transport,
-                                     char *method_name);
-
 /**
  * This informs the compiler that the function is, in fact, being used even though it
  * doesn't look like it. This is useful for static functions that get found by NovaProva
@@ -23,33 +19,11 @@ extern int32_t cmsg_sub_unsubscribe (cmsg_sub *subscriber,
  */
 #define USED __attribute__ ((used))
 
-static const uint16_t tipc_publisher_port = 18888;
-static const uint16_t tipc_subscriber_port = 18889;
-static const uint16_t tipc_instance = 1;
-static const uint16_t tipc_scope = TIPC_NODE_SCOPE;
-
 static bool notification_received;
 
 #define NUM_CLIENT_THREADS 32
 #define NUM_SENT_MESSAGES 20
 static uint32_t client_threads = 0;
-
-static int
-sm_mock_cmsg_service_port_get (const char *name, const char *proto)
-{
-    if ((strcmp (name, "cmsg-test-publisher") == 0) && (strcmp (proto, "tipc") == 0))
-    {
-        return tipc_publisher_port;
-    }
-    if ((strcmp (name, "cmsg-test-subscriber") == 0) && (strcmp (proto, "tipc") == 0))
-    {
-        return tipc_subscriber_port;
-    }
-
-    NP_FAIL;
-
-    return 0;
-}
 
 /**
  * Common functionality to run before each test case.
@@ -57,8 +31,6 @@ sm_mock_cmsg_service_port_get (const char *name, const char *proto)
 static int USED
 set_up (void)
 {
-    np_mock (cmsg_service_port_get, sm_mock_cmsg_service_port_get);
-
     /* Ignore SIGPIPE signal if it occurs */
     signal (SIGPIPE, SIG_IGN);
 
@@ -159,7 +131,7 @@ client_thread_run (void *value)
 }
 
 /**
- * Test the operation of a CMSG server running in multi-threaded mode.
+ * Test the operation of a CMSG server running in multi-threaded mode."cmsg-test-subscriber"
  * Specifically create NUM_CLIENT_THREADS threads, where each thread
  * will create a client and connect to the server before sending
  * NUM_SENT_MESSAGES messages and testing the received message is as

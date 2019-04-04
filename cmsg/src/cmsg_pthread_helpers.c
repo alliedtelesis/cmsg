@@ -9,6 +9,7 @@
 
 #include <sys/eventfd.h>
 #include "cmsg_pthread_helpers.h"
+#include "publisher_subscriber/cmsg_sub_private.h"
 
 typedef struct _cmsg_pthread_server_info
 {
@@ -122,30 +123,26 @@ cmsg_pthread_server_init (pthread_t *thread, cmsg_server *server)
  *
  * Note that this thread can be cancelled using 'pthread_cancel' and then should
  * be joined using 'pthread_join'. At this stage the subscriber can then be destroyed
- * using 'cmsg_destroy_subscriber_and_transport'.
+ * using 'cmsg_subscriber_destroy'.
  */
-cmsg_sub *
+cmsg_subscriber *
 cmsg_pthread_unix_subscriber_init (pthread_t *thread, const ProtobufCService *service,
                                    const char **events)
 {
-    cmsg_transport *transport_r = NULL;
-    cmsg_sub *sub = NULL;
+    cmsg_subscriber *sub = NULL;
 
-    sub = cmsg_create_subscriber_unix_oneway (service);
+    sub = cmsg_subscriber_create_unix (service);
 
     /* Subscribe to events */
     if (events)
     {
-        transport_r = cmsg_create_transport_unix (service->descriptor,
-                                                  CMSG_TRANSPORT_RPC_UNIX);
-        cmsg_sub_subscribe_events_local (sub, transport_r, events);
-        cmsg_transport_destroy (transport_r);
+        cmsg_sub_subscribe_events_local (sub, events);
     }
 
     if (!cmsg_pthread_server_init (thread, sub->pub_server))
     {
         syslog (LOG_ERR, "Failed to start subscriber processing thread");
-        cmsg_destroy_subscriber_and_transport (sub);
+        cmsg_subscriber_destroy (sub);
         return NULL;
     }
 
@@ -171,33 +168,29 @@ cmsg_pthread_unix_subscriber_init (pthread_t *thread, const ProtobufCService *se
  *
  * Note that this thread can be cancelled using 'pthread_cancel' and then should
  * be joined using 'pthread_join'. At this stage the subscriber can then be destroyed
- * using 'cmsg_destroy_subscriber_and_transport'.
+ * using 'cmsg_subscriber_destroy'.
  */
-cmsg_sub *
+cmsg_subscriber *
 cmsg_pthread_tipc_subscriber_init (pthread_t *thread, const ProtobufCService *service,
                                    const char **events, const char *subscriber_service_name,
                                    const char *publisher_service_name,
                                    int this_node_id, int scope, struct in_addr remote_addr)
 {
-    cmsg_transport *transport_r = NULL;
-    cmsg_sub *sub = NULL;
+    cmsg_subscriber *sub = NULL;
 
-    sub = cmsg_create_subscriber_tipc_oneway (subscriber_service_name, this_node_id,
-                                              scope, service);
+    sub = cmsg_subscriber_create_tipc (subscriber_service_name, this_node_id,
+                                       scope, service);
 
     /* Subscribe to events */
     if (events)
     {
-        transport_r = cmsg_create_transport_tipc_rpc (publisher_service_name, this_node_id,
-                                                      scope);
-        cmsg_sub_subscribe_events_remote (sub, transport_r, events, remote_addr);
-        cmsg_transport_destroy (transport_r);
+        cmsg_sub_subscribe_events_remote (sub, events, remote_addr);
     }
 
     if (!cmsg_pthread_server_init (thread, sub->pub_server))
     {
         syslog (LOG_ERR, "Failed to start subscriber processing thread");
-        cmsg_destroy_subscriber_and_transport (sub);
+        cmsg_subscriber_destroy (sub);
         return NULL;
     }
 
