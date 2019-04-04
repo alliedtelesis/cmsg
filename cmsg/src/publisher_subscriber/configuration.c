@@ -67,6 +67,18 @@ cmsg_pssd_configuration_impl_remove_subscriber (const void *service,
 }
 
 /**
+ * Publishes a CMSG packet for a specific service and method to all subscribers.
+ */
+void
+cmsg_pssd_configuration_impl_publish (const void *service,
+                                      const cmsg_pssd_publish_data *recv_msg)
+{
+    data_publish_message (recv_msg->service, recv_msg->method_name, recv_msg->packet.data,
+                          recv_msg->packet.len);
+    cmsg_pssd_configuration_server_publishSend (service);
+}
+
+/**
  * Initialise the configuration functionality.
  */
 void

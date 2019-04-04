@@ -515,10 +515,41 @@ data_check_remote_entries (void)
     g_list_free (list);
 }
 
+/**
+ * Get the list of remote subscriptions.
+ *
+ * @returns Pointer to the GList storing the remote subscriptions.
+ */
 GList *
 data_get_remote_subscriptions (void)
 {
     return remote_subscriptions_list;
+}
+
+/**
+ * Publish a message for the given service and method name.
+ *
+ * @param service - The service to publish for.
+ * @param method_name - The specific method that is publishing.
+ * @param packet - The CMSG packet to send to all subscribers.
+ * @param packet_len - The length of the CMSG packet to send.
+ */
+void
+data_publish_message (const char *service, const char *method_name, uint8_t *packet,
+                      uint32_t packet_len)
+{
+    service_data_entry *service_entry = NULL;
+    method_data_entry *method_entry = NULL;
+
+    service_entry = get_service_entry_or_create (service, false);
+    if (service_entry)
+    {
+        method_entry = get_method_entry_or_create (service_entry, method_name, false);
+        if (method_entry)
+        {
+            cmsg_client_send_bytes (method_entry->comp_client, packet, packet_len);
+        }
+    }
 }
 
 /**

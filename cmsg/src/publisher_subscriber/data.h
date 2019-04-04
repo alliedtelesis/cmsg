@@ -19,5 +19,7 @@ void data_check_remote_entries (void);
 GList *data_get_remote_subscriptions (void);
 void data_add_local_subscription (const cmsg_subscription_info *info);
 void data_remove_local_subscription (const cmsg_subscription_info *info);
+void data_publish_message (const char *service, const char *method_name, uint8_t *packet,
+                           uint32_t packet_len);
 
 #endif /* __DATA_H_ */
