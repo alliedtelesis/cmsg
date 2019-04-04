@@ -84,6 +84,5 @@ service test
     rpc server_side_validation_test_sub_messages (message_with_sub_message_validation) returns (ant_result) {
         option (auto_validation) = true;
     }
-    rpc pthread_notification_test (uint32_msg) returns (dummy);
     rpc server_multi_threading_test (uint32_msg) returns (uint32_msg);
 }

@@ -237,7 +237,7 @@ cmsg_unit_tests_SOURCES = \
 	test/unit/cmsg_unit_tests_impl_auto.h \
 	test/unit/cmsg_unit_tests.pb-c.c \
 	test/unit/cmsg_unit_tests.pb-c.h \
-	test/unit/cmsg_pub_unit_tests.c \
+	test/unit/cmsg_transport_unit_tests.c \
 	test/unit/cmsg_composite_client_unit_tests.c \
 	test/unit/cmsg_unit_tests.c
 cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
