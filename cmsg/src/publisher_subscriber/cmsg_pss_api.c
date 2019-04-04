@@ -205,3 +205,46 @@ cmsg_pss_remove_subscriber (cmsg_server *sub_server)
 
     return (ret == CMSG_RET_OK);
 }
+
+/**
+ * Create the client that can be used by a cmsg publisher to send messages
+ * for publishing by cmsg_pssd.
+ *
+ * This client must be freed by the caller using 'cmsg_destroy_client_and_transport'.
+ *
+ * @returns A pointer to a client that can be used to send messages to cmsg_pssd on success,
+ *          NULL otherwise.
+ */
+cmsg_client *
+cmsg_pss_create_publisher_client (void)
+{
+    return cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_pssd, configuration));
+}
+
+/**
+ * Send a packet to cmsg_pssd so that it can be sent to all interested subscribers.
+ *
+ * @param client - The client connected to cmsg_pssd (previously returned by a call to
+ *                 'cmsg_pss_create_publisher_client')
+ * @param service - The service the packet is for.
+ * @param method - The method the packet is for.
+ * @param packet - The packet to send.
+ * @param packet_len - The length of the packet.
+ *
+ * @returns true if the packet was successfully sent to cmsg_pssd, false otherwise.
+ */
+bool
+cmsg_pss_publish_message (cmsg_client *client, const char *service, const char *method,
+                          uint8_t *packet, uint32_t packet_len)
+{
+    int ret;
+    cmsg_pssd_publish_data send_msg = CMSG_PSSD_PUBLISH_DATA_INIT;
+
+    CMSG_SET_FIELD_PTR (&send_msg, service, (char *) service);
+    CMSG_SET_FIELD_PTR (&send_msg, method_name, (char *) method);
+    CMSG_SET_FIELD_BYTES (&send_msg, packet, packet, packet_len);
+
+    ret = cmsg_pssd_configuration_api_publish (client, &send_msg);
+
+    return (ret == CMSG_RET_OK);
+}

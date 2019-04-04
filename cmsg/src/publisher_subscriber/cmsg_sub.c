@@ -4,7 +4,6 @@
 #include "cmsg_private.h"
 #include "cmsg_sub.h"
 #include "cmsg_error.h"
-#include "cmsg_sub_service.pb-c.h"
 #include "cmsg_pss_api_private.h"
 #include "cmsg_client_private.h"
 
@@ -90,131 +89,12 @@ cmsg_sub_server_accept_callback (cmsg_sub *subscriber, int32_t sock)
     }
 }
 
-
-int32_t
-cmsg_sub_subscribe (cmsg_sub *subscriber,
-                    cmsg_transport *sub_client_transport, const char *method_name)
-{
-    CMSG_ASSERT_RETURN_VAL (subscriber != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (subscriber->pub_server != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (subscriber->pub_server->_transport != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (sub_client_transport != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (method_name != NULL, CMSG_RET_ERR);
-
-    cmsg_client *register_client = NULL;
-    int32_t return_value = CMSG_RET_ERR;
-    cmsg_client_closure_data closure_data = { NULL, NULL };
-    cmsg_sub_entry_transport_info register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_INIT;
-    cmsg_sub_entry_response *response = NULL;
-
-    register_entry.add = 1;
-    register_entry.method_name = (char *) method_name;
-    register_entry.transport_type = subscriber->pub_server->_transport->type;
-
-    if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_TCP)
-    {
-        register_entry.has_in_sin_addr_s_addr = 1;
-        register_entry.has_in_sin_port = 1;
-
-        register_entry.in_sin_addr_s_addr =
-            subscriber->pub_server->_transport->config.socket.sockaddr.in.sin_addr.s_addr;
-        register_entry.in_sin_port =
-            subscriber->pub_server->_transport->config.socket.sockaddr.in.sin_port;
-    }
-    else if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_TIPC)
-    {
-        register_entry.has_tipc_family = 1;
-        register_entry.has_tipc_addrtype = 1;
-        register_entry.has_tipc_addr_name_domain = 1;
-        register_entry.has_tipc_addr_name_name_instance = 1;
-        register_entry.has_tipc_addr_name_name_type = 1;
-        register_entry.has_tipc_scope = 1;
-
-        register_entry.tipc_family =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.family;
-        register_entry.tipc_addrtype =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addrtype;
-        register_entry.tipc_addr_name_domain =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.
-            name.domain;
-        register_entry.tipc_addr_name_name_instance =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
-            name.instance;
-        register_entry.tipc_addr_name_name_type =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
-            name.type;
-        register_entry.tipc_scope =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
-    }
-    else if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_UNIX)
-    {
-        register_entry.un_sun_path =
-            subscriber->pub_server->_transport->config.socket.sockaddr.un.sun_path;
-    }
-    else
-    {
-        CMSG_LOG_GEN_ERROR
-            ("[%s%s] Transport type incorrect for cmsg_sub_subscribe: type(%d).",
-             subscriber->pub_server->service->descriptor->name,
-             subscriber->pub_server->_transport->tport_id,
-             subscriber->pub_server->_transport->type);
-
-        return CMSG_RET_ERR;
-    }
-
-    register_client = cmsg_client_create (sub_client_transport,
-                                          &cmsg_sub_service_descriptor);
-
-    if (!register_client)
-    {
-        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create register client for subscriber.",
-                            subscriber->pub_server->service->descriptor->name,
-                            sub_client_transport->tport_id);
-        CMSG_FREE (register_client);
-        return CMSG_RET_ERR;
-    }
-
-#ifdef HAVE_COUNTERD
-    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
-
-    /* Append "_sub" suffix to the counter app_name for subscriber */
-    snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s_sub",
-              CMSG_COUNTER_APP_NAME_PREFIX,
-              subscriber->pub_server->service->descriptor->name,
-              cmsg_transport_counter_app_tport_id (sub_client_transport));
-
-    /* Initialise counters */
-    if (cmsg_client_counter_create (register_client, app_name) != CMSG_RET_OK)
-    {
-        CMSG_LOG_GEN_ERROR ("[%s] Unable to create client counters.", app_name);
-    }
-#endif
-
-    return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,
-                                               &register_entry, NULL, &closure_data);
-
-    if (closure_data.message)
-    {
-        response = closure_data.message;
-        if (response->return_value == CMSG_RET_ERR)
-        {
-            return_value = CMSG_RET_ERR;
-        }
-
-        protobuf_c_message_free_unpacked (closure_data.message, closure_data.allocator);
-    }
-
-    cmsg_client_destroy (register_client);
-
-    return return_value;
-}
-
 int32_t
 cmsg_sub_subscribe_local (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
                           const char *method_name)
 {
     cmsg_pss_subscription_add_local (subscriber->pub_server, method_name);
-    return cmsg_sub_subscribe (subscriber, sub_client_transport, method_name);
+    return CMSG_RET_OK;
 }
 
 int32_t
@@ -222,7 +102,7 @@ cmsg_sub_subscribe_remote (cmsg_sub *subscriber, cmsg_transport *sub_client_tran
                            const char *method_name, struct in_addr remote_addr)
 {
     cmsg_pss_subscription_add_remote (subscriber->pub_server, method_name, remote_addr);
-    return cmsg_sub_subscribe (subscriber, sub_client_transport, method_name);
+    return CMSG_RET_OK;
 }
 
 int32_t
@@ -270,128 +150,11 @@ cmsg_sub_subscribe_events_remote (cmsg_sub *subscriber,
 }
 
 int32_t
-cmsg_sub_unsubscribe (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
-                      const char *method_name)
-{
-    cmsg_client *register_client = NULL;
-    int32_t return_value = CMSG_RET_ERR;
-    cmsg_client_closure_data closure_data = { NULL, NULL };
-    cmsg_sub_entry_transport_info register_entry = CMSG_SUB_ENTRY_TRANSPORT_INFO_INIT;
-    cmsg_sub_entry_response *response = NULL;
-
-    CMSG_ASSERT_RETURN_VAL (subscriber != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (subscriber->pub_server != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (subscriber->pub_server->_transport != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (sub_client_transport != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (method_name != NULL, CMSG_RET_ERR);
-
-    register_entry.add = 0;
-    register_entry.method_name = (char *) method_name;
-    register_entry.transport_type = subscriber->pub_server->_transport->type;
-
-    if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_TCP)
-    {
-        register_entry.has_in_sin_addr_s_addr = 1;
-        register_entry.has_in_sin_port = 1;
-
-        register_entry.in_sin_addr_s_addr =
-            subscriber->pub_server->_transport->config.socket.sockaddr.in.sin_addr.s_addr;
-        register_entry.in_sin_port =
-            subscriber->pub_server->_transport->config.socket.sockaddr.in.sin_port;
-    }
-    else if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_TIPC)
-    {
-        register_entry.has_tipc_family = 1;
-        register_entry.has_tipc_addrtype = 1;
-        register_entry.has_tipc_addr_name_domain = 1;
-        register_entry.has_tipc_addr_name_name_instance = 1;
-        register_entry.has_tipc_addr_name_name_type = 1;
-        register_entry.has_tipc_scope = 1;
-
-        register_entry.tipc_family =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.family;
-        register_entry.tipc_addrtype =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addrtype;
-        register_entry.tipc_addr_name_domain =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.
-            name.domain;
-        register_entry.tipc_addr_name_name_instance =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
-            name.instance;
-        register_entry.tipc_addr_name_name_type =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.addr.name.
-            name.type;
-        register_entry.tipc_scope =
-            subscriber->pub_server->_transport->config.socket.sockaddr.tipc.scope;
-    }
-    else if (register_entry.transport_type == CMSG_TRANSPORT_ONEWAY_UNIX)
-    {
-        register_entry.un_sun_path =
-            subscriber->pub_server->_transport->config.socket.sockaddr.un.sun_path;
-    }
-    else
-    {
-        CMSG_LOG_GEN_ERROR
-            ("[%s.%s] Transport type incorrect for cmsg_sub_unsubscribe: type(%d).",
-             subscriber->pub_server->service->descriptor->name,
-             subscriber->pub_server->_transport->tport_id,
-             subscriber->pub_server->_transport->type);
-
-        return CMSG_RET_ERR;
-    }
-
-    register_client = cmsg_client_create (sub_client_transport,
-                                          &cmsg_sub_service_descriptor);
-    if (!register_client)
-    {
-        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create register client for subscriber.",
-                            subscriber->pub_server->service->descriptor->name,
-                            sub_client_transport->tport_id);
-        CMSG_FREE (register_client);
-        return CMSG_RET_ERR;
-    }
-
-#ifdef HAVE_COUNTERD
-    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
-
-    /* Append "_sub" suffix to the counter app_name for subscriber */
-    snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s_sub",
-              CMSG_COUNTER_APP_NAME_PREFIX,
-              subscriber->pub_server->service->descriptor->name,
-              cmsg_transport_counter_app_tport_id (sub_client_transport));
-
-    /* Initialise counters */
-    if (cmsg_client_counter_create (register_client, app_name) != CMSG_RET_OK)
-    {
-        CMSG_LOG_GEN_ERROR ("[%s] Unable to create client counters.", app_name);
-    }
-#endif
-
-    return_value = cmsg_sub_service_subscribe ((ProtobufCService *) register_client,
-                                               &register_entry, NULL, &closure_data);
-
-    if (closure_data.message)
-    {
-        response = closure_data.message;
-        if (response->return_value == CMSG_RET_ERR)
-        {
-            return_value = CMSG_RET_ERR;
-        }
-
-        protobuf_c_message_free_unpacked (closure_data.message, closure_data.allocator);
-    }
-
-    cmsg_client_destroy (register_client);
-
-    return return_value;
-}
-
-int32_t
 cmsg_sub_unsubscribe_local (cmsg_sub *subscriber, cmsg_transport *sub_client_transport,
                             const char *method_name)
 {
     cmsg_pss_subscription_remove_local (subscriber->pub_server, method_name);
-    return cmsg_sub_unsubscribe (subscriber, sub_client_transport, method_name);
+    return CMSG_RET_OK;
 }
 
 int32_t
@@ -399,7 +162,7 @@ cmsg_sub_unsubscribe_remote (cmsg_sub *subscriber, cmsg_transport *sub_client_tr
                              const char *method_name, struct in_addr remote_addr)
 {
     cmsg_pss_subscription_remove_remote (subscriber->pub_server, method_name, remote_addr);
-    return cmsg_sub_unsubscribe (subscriber, sub_client_transport, method_name);
+    return CMSG_RET_OK;
 }
 
 int32_t

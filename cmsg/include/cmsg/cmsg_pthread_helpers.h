@@ -32,12 +32,6 @@ cmsg_sub *cmsg_pthread_tipc_subscriber_init (pthread_t *thread,
                                              const char *publisher_service_name,
                                              int this_node_id, int scope,
                                              struct in_addr remote_addr);
-cmsg_pub *cmsg_pthread_unix_publisher_init (pthread_t *thread,
-                                            const ProtobufCServiceDescriptor *service_desc);
-cmsg_pub *cmsg_pthread_tipc_publisher_init (pthread_t *thread,
-                                            const ProtobufCServiceDescriptor *service_desc,
-                                            const char *publisher_service_name,
-                                            int this_node_id, int scope);
 
 cmsg_pthread_multithreaded_server_info *cmsg_pthread_multithreaded_server_init (cmsg_server
                                                                                 *server,
