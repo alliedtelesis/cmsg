@@ -69,6 +69,7 @@ cmsg_service_listener_event_queue_process (const cmsg_sl_info *info)
     while ((event = g_async_queue_try_pop (info->queue)))
     {
         ret = info->handler (event->transport, event->added, info->user_data);
+        cmsg_transport_destroy (event->transport);
         CMSG_FREE (event);
     }
 
@@ -312,10 +313,6 @@ cmsg_service_listener_num_listeners_for_service (const char *service_name)
 
 /**
  * Listen for events for the given service name.
- *
- * Note that the supplied handler must call 'cmsg_transport_destroy'
- * for the 'cmsg_transport' structure passed into the handler by the
- * CMSG library.
  *
  * @param service_name - The service to listen for.
  * @param func - The function to call when a server is added or removed

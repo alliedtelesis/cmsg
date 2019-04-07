@@ -201,4 +201,6 @@ bool cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *tw
 cmsg_transport *cmsg_create_transport_tcp_ipv4 (const char *service_name,
                                                 struct in_addr *addr, bool oneway);
 
+cmsg_transport *cmsg_transport_copy (const cmsg_transport *transport);
+
 #endif /* __CMSG_TRANSPORT_H_ */

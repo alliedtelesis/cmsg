@@ -1069,3 +1069,24 @@ cmsg_transport_info_compare (const cmsg_transport_info *transport_info_a,
 
     return false;
 }
+
+/**
+ * Returns a copy of the given cmsg transport.
+ *
+ * @param transport - The cmsg transport to return a copy of.
+ *
+ * @returns A pointer to the copied transport on success, NULL otherwise.
+ */
+cmsg_transport *
+cmsg_transport_copy (const cmsg_transport *transport)
+{
+    cmsg_transport *transport_copy = NULL;
+
+    transport_copy = (cmsg_transport *) CMSG_CALLOC (1, sizeof (cmsg_transport));
+    if (transport_copy)
+    {
+        memcpy (transport_copy, transport, sizeof (cmsg_transport));
+    }
+
+    return transport_copy;
+}

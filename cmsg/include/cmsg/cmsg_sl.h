@@ -9,7 +9,7 @@
 
 typedef struct _cmsg_sl_info_s cmsg_sl_info;
 
-typedef bool (*cmsg_sl_event_handler_t) (cmsg_transport *transport, bool added,
+typedef bool (*cmsg_sl_event_handler_t) (const cmsg_transport *transport, bool added,
                                          void *user_data);
 
 const cmsg_sl_info *cmsg_service_listener_listen (const char *service_name,

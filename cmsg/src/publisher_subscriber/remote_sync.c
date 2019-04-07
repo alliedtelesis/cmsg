@@ -202,21 +202,22 @@ remote_sync_find_client_by_transport (gconstpointer a, gconstpointer b)
  * @returns true always (so that the service listening keeps running).
  */
 static bool
-remote_sync_sl_event_handler (cmsg_transport *transport, bool added, void *user_data)
+remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void *user_data)
 {
     cmsg_client *client = NULL;
     GList *link = NULL;
+    cmsg_transport *new_transport = NULL;
 
     /* Do nothing for the server running locally. */
     if (cmsg_transport_compare (server->_transport, transport))
     {
-        cmsg_transport_destroy (transport);
         return true;
     }
 
     if (added)
     {
-        client = cmsg_client_new (transport, CMSG_DESCRIPTOR (cmsg_pssd, remote_sync));
+        new_transport = cmsg_transport_copy (transport);
+        client = cmsg_client_new (new_transport, CMSG_DESCRIPTOR (cmsg_pssd, remote_sync));
         client_list = g_list_append (client_list, client);
         remote_sync_bulk_sync_subscriptions (client);
     }
@@ -227,7 +228,6 @@ remote_sync_sl_event_handler (cmsg_transport *transport, bool added, void *user_
                                    remote_sync_find_client_by_transport);
         cmsg_destroy_client_and_transport ((cmsg_client *) link->data);
         client_list = g_list_delete_link (client_list, link);
-        cmsg_transport_destroy (transport);
     }
 
     return true;
