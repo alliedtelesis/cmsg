@@ -12,6 +12,7 @@
 #include "cmsg_glib_helpers.h"
 #include "cmsg_error.h"
 #include "publisher_subscriber/cmsg_sub_private.h"
+#include "cmsg_sl.h"
 
 /**
  * Callback function to read an accepted socket on a CMSG server.
@@ -237,4 +238,46 @@ cmsg_glib_bcast_client_processing_start (cmsg_client *broadcast_client)
     GIOChannel *event_channel = g_io_channel_unix_new (event_fd);
     g_io_add_watch (event_channel, G_IO_IN, cmsg_glib_broadcast_event_process,
                     broadcast_client);
+}
+
+/**
+ * Callback function that can be used to process events generated from the CMSG
+ * service listener functionality.
+ */
+static gboolean
+cmsg_glib_sl_event_process (GIOChannel *source, GIOCondition condition, gpointer data)
+{
+    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+    gboolean ret = G_SOURCE_CONTINUE;
+
+    if (!cmsg_service_listener_event_queue_process (info))
+    {
+        cmsg_service_listener_unlisten (info);
+        ret = G_SOURCE_REMOVE;
+    }
+
+    return ret;
+}
+
+/**
+ * Begin listening for events for the given service.
+ *
+ * @param service_name - The service to listen for.
+ * @param func - The function to call when a server is added or removed
+ *               for the given service.
+ * @param user_data - Pointer to user supplied data that will be passed into the
+ *                    supplied handler function.
+ */
+void
+cmsg_glib_service_listener_listen (const char *service_name,
+                                   cmsg_sl_event_handler_t handler, void *user_data)
+{
+    int event_fd;
+    GIOChannel *event_channel = NULL;
+    const cmsg_sl_info *info = NULL;
+
+    info = cmsg_service_listener_listen (service_name, handler, user_data);
+    event_fd = cmsg_service_listener_get_event_fd (info);
+    event_channel = g_io_channel_unix_new (event_fd);
+    g_io_add_watch (event_channel, G_IO_IN, cmsg_glib_sl_event_process, (void *) info);
 }

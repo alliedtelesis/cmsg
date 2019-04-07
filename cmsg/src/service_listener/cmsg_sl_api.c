@@ -20,6 +20,7 @@ struct _cmsg_sl_info_s
 {
     char *service_name;
     cmsg_sl_event_handler_t handler;
+    void *user_data;
     GAsyncQueue *queue;
     int eventfd;
 };
@@ -52,21 +53,26 @@ cmsg_service_listener_get_event_fd (const cmsg_sl_info *info)
  * Process any events on the event queue of the 'cmsg_sl_info' structure.
  *
  * @param info - The 'cmsg_sl_info' structure to process events for.
+ *
+ * @returns true if the service listening should keep running, false otherwise.
  */
-void
+bool
 cmsg_service_listener_event_queue_process (const cmsg_sl_info *info)
 {
     cmsg_sl_event *event = NULL;
     eventfd_t value;
+    bool ret = true;
 
     /* clear notification */
     TEMP_FAILURE_RETRY (eventfd_read (info->eventfd, &value));
 
     while ((event = g_async_queue_try_pop (info->queue)))
     {
-        info->handler (event->transport, event->added);
+        ret = info->handler (event->transport, event->added, info->user_data);
         CMSG_FREE (event);
     }
+
+    return ret;
 }
 
 /**
@@ -213,12 +219,13 @@ _clear_event_queue (gpointer data)
  *
  * @param service_name - The service name to use.
  * @param handler - The handler to use.
+ * @param user_data - The user data to pass into the handler.
  *
  * @returns A pointer to the initialised structure on success, NULL otherwise.
  */
 static cmsg_sl_info *
 cmsg_service_listener_info_create (const char *service_name,
-                                   cmsg_sl_event_handler_t handler)
+                                   cmsg_sl_event_handler_t handler, void *user_data)
 {
     cmsg_sl_info *info = NULL;
 
@@ -253,6 +260,7 @@ cmsg_service_listener_info_create (const char *service_name,
     }
 
     info->handler = handler;
+    info->user_data = user_data;
 
     return info;
 }
@@ -312,13 +320,18 @@ cmsg_service_listener_num_listeners_for_service (const char *service_name)
  * @param service_name - The service to listen for.
  * @param func - The function to call when a server is added or removed
  *               for the given service.
+ * @param user_data - Pointer to user supplied data that will be passed into the
+ *                    supplied handler function.
+ *
+ * @returns A pointer to the 'cmsg_sl_info' structure for the given service.
  */
 const cmsg_sl_info *
-cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t handler)
+cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t handler,
+                              void *user_data)
 {
     cmsg_sl_info *info = NULL;
 
-    info = cmsg_service_listener_info_create (service_name, handler);
+    info = cmsg_service_listener_info_create (service_name, handler, user_data);
     if (!info)
     {
         return NULL;

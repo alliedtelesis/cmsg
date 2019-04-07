@@ -197,9 +197,12 @@ remote_sync_find_client_by_transport (gconstpointer a, gconstpointer b)
  * @param transport - The transport information about the server that has either started
  *                    or stopped.
  * @param added - true if the server has started running, false otherwise.
+ * @param user_data - unused.
+ *
+ * @returns true always (so that the service listening keeps running).
  */
-static void
-remote_sync_sl_event_handler (cmsg_transport *transport, bool added)
+static bool
+remote_sync_sl_event_handler (cmsg_transport *transport, bool added, void *user_data)
 {
     cmsg_client *client = NULL;
     GList *link = NULL;
@@ -208,7 +211,7 @@ remote_sync_sl_event_handler (cmsg_transport *transport, bool added)
     if (cmsg_transport_compare (server->_transport, transport))
     {
         cmsg_transport_destroy (transport);
-        return;
+        return true;
     }
 
     if (added)
@@ -226,20 +229,8 @@ remote_sync_sl_event_handler (cmsg_transport *transport, bool added)
         client_list = g_list_delete_link (client_list, link);
         cmsg_transport_destroy (transport);
     }
-}
 
-/**
- * Callback function that fires when an event is generated from the CMSG
- * service listener functionality.
- */
-static int
-remote_sync_sl_event_process (GIOChannel *source, GIOCondition condition, gpointer data)
-{
-    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
-
-    cmsg_service_listener_event_queue_process (info);
-
-    return TRUE;
+    return true;
 }
 
 /**
@@ -249,18 +240,10 @@ remote_sync_sl_event_process (GIOChannel *source, GIOCondition condition, gpoint
 static void
 remote_sync_sl_init (void)
 {
-    int event_fd;
-    GIOChannel *event_channel = NULL;
-    const cmsg_sl_info *info = NULL;
-    const char *service_name = NULL;;
+    const char *service_name = NULL;
 
     service_name = cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_pssd, remote_sync));
-
-    info = cmsg_service_listener_listen (service_name, remote_sync_sl_event_handler);
-
-    event_fd = cmsg_service_listener_get_event_fd (info);
-    event_channel = g_io_channel_unix_new (event_fd);
-    g_io_add_watch (event_channel, G_IO_IN, remote_sync_sl_event_process, (void *) info);
+    cmsg_glib_service_listener_listen (service_name, remote_sync_sl_event_handler, NULL);
 }
 
 /**

@@ -103,24 +103,25 @@ libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS) -include $(top_builddir)/config
 libcmsg_la_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 libcmsg_ladir       = $(includedir)/cmsg
 libcmsg_la_HEADERS  = \
-	include/cmsg/cmsg.h \
-	include/cmsg/cmsg_private.h \
-	include/cmsg/cmsg_error.h \
+	include/cmsg/cmsg_broadcast_client.h \
 	include/cmsg/cmsg_client.h \
 	include/cmsg/cmsg_composite_client.h \
 	include/cmsg/cmsg_debug.h \
+	include/cmsg/cmsg_error.h \
+	include/cmsg/cmsg_glib_helpers.h \
+	include/cmsg/cmsg_mesh.h \
+	include/cmsg/cmsg_private.h \
+	include/cmsg/cmsg_pss_config.h \
+	include/cmsg/cmsg_pthread_helpers.h \
 	include/cmsg/cmsg_pub.h \
 	include/cmsg/cmsg_queue.h \
 	include/cmsg/cmsg_server.h \
+	include/cmsg/cmsg_sl_config.h \
+	include/cmsg/cmsg_sl.h \
 	include/cmsg/cmsg_sub.h \
 	include/cmsg/cmsg_transport.h \
-	include/cmsg/cmsg_broadcast_client.h \
-	include/cmsg/cmsg_mesh.h \
-	include/cmsg/cmsg_glib_helpers.h \
 	include/cmsg/cmsg_validation.h \
-	include/cmsg/cmsg_pthread_helpers.h \
-	include/cmsg/cmsg_sl_config.h \
-	include/cmsg/cmsg_pss_config.h
+	include/cmsg/cmsg.h
 
 BUILT_SOURCES =  \
 	src/cmsg_api_auto.c \
