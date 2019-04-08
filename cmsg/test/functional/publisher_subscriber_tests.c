@@ -20,7 +20,7 @@
 #define USED __attribute__ ((used))
 
 /* In microseconds. */
-#define CMSG_PSSD_WAIT_TIME (500 * 1000)
+#define CMSG_PSD_WAIT_TIME (500 * 1000)
 
 static const uint16_t subscriber_port = 18889;
 
@@ -57,9 +57,9 @@ set_up (void)
 
     subscriber_run = true;
 
-    /* cmsg_pssd is required for these tests. */
-    system ("cmsg_pssd &");
-    usleep (CMSG_PSSD_WAIT_TIME);
+    /* cmsg_psd is required for these tests. */
+    system ("cmsg_psd &");
+    usleep (CMSG_PSD_WAIT_TIME);
 
     return 0;
 }
@@ -70,8 +70,8 @@ set_up (void)
 static int USED
 tear_down (void)
 {
-    system ("pkill cmsg_pssd");
-    usleep (CMSG_PSSD_WAIT_TIME);
+    system ("pkill cmsg_psd");
+    usleep (CMSG_PSD_WAIT_TIME);
 
     return 0;
 }

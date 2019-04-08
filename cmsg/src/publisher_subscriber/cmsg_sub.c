@@ -9,7 +9,7 @@
 
 #include "cmsg_sub.h"
 #include "cmsg_sub_private.h"
-#include "cmsg_pss_api_private.h"
+#include "cmsg_ps_api_private.h"
 #include "cmsg_error.h"
 
 static cmsg_subscriber *
@@ -96,7 +96,7 @@ cmsg_sub_server_accept_callback (cmsg_subscriber *subscriber, int32_t sock)
 int32_t
 cmsg_sub_subscribe_local (cmsg_subscriber *subscriber, const char *method_name)
 {
-    cmsg_pss_subscription_add_local (subscriber->pub_server, method_name);
+    cmsg_ps_subscription_add_local (subscriber->pub_server, method_name);
     return CMSG_RET_OK;
 }
 
@@ -104,7 +104,7 @@ int32_t
 cmsg_sub_subscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
                            struct in_addr remote_addr)
 {
-    cmsg_pss_subscription_add_remote (subscriber->pub_server, method_name, remote_addr);
+    cmsg_ps_subscription_add_remote (subscriber->pub_server, method_name, remote_addr);
     return CMSG_RET_OK;
 }
 
@@ -152,7 +152,7 @@ cmsg_sub_subscribe_events_remote (cmsg_subscriber *subscriber, const char **even
 int32_t
 cmsg_sub_unsubscribe_local (cmsg_subscriber *subscriber, const char *method_name)
 {
-    cmsg_pss_subscription_remove_local (subscriber->pub_server, method_name);
+    cmsg_ps_subscription_remove_local (subscriber->pub_server, method_name);
     return CMSG_RET_OK;
 }
 
@@ -160,7 +160,7 @@ int32_t
 cmsg_sub_unsubscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
                              struct in_addr remote_addr)
 {
-    cmsg_pss_subscription_remove_remote (subscriber->pub_server, method_name, remote_addr);
+    cmsg_ps_subscription_remove_remote (subscriber->pub_server, method_name, remote_addr);
     return CMSG_RET_OK;
 }
 
@@ -295,7 +295,7 @@ cmsg_subscriber_destroy (cmsg_subscriber *subscriber)
 {
     if (subscriber)
     {
-        cmsg_pss_remove_subscriber (subscriber->pub_server);
+        cmsg_ps_remove_subscriber (subscriber->pub_server);
         cmsg_destroy_server_and_transport (subscriber->pub_server);
         CMSG_FREE (subscriber);
     }

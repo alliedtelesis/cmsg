@@ -29,12 +29,12 @@ typedef struct
 static GHashTable *local_subscriptions_table = NULL;
 static GList *remote_subscriptions_list = NULL;
 
-static const ProtobufCServiceDescriptor cmsg_pssd_pub_descriptor = {
+static const ProtobufCServiceDescriptor cmsg_psd_pub_descriptor = {
     PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC,
-    "cmsg_pssd.pub",
+    "cmsg_psd.pub",
     "pub",
-    "cmsg_pssd_pub",
-    "cmsg_pssd",
+    "cmsg_psd_pub",
+    "cmsg_psd",
     0,
     NULL,
     NULL,
@@ -108,7 +108,7 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
     {
         entry = CMSG_CALLOC (1, sizeof (method_data_entry));
         entry->method_name = CMSG_STRDUP (method);
-        entry->comp_client = cmsg_composite_client_new (&cmsg_pssd_pub_descriptor);
+        entry->comp_client = cmsg_composite_client_new (&cmsg_psd_pub_descriptor);
         service_entry->methods = g_list_prepend (service_entry->methods, entry);
     }
 
@@ -133,7 +133,7 @@ data_add_local_subscription (const cmsg_subscription_info *info)
     method_entry = get_method_entry_or_create (service_entry, info->method_name, true);
     transport = cmsg_transport_info_to_transport (info->transport_info);
 
-    client = cmsg_client_create (transport, &cmsg_pssd_pub_descriptor);
+    client = cmsg_client_create (transport, &cmsg_psd_pub_descriptor);
     cmsg_composite_client_add_child (method_entry->comp_client, client);
 }
 

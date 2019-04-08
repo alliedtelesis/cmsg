@@ -24,8 +24,8 @@ static GList *client_list = NULL;
  * on this host.
  */
 void
-cmsg_pssd_remote_sync_impl_bulk_sync (const void *service,
-                                      const cmsg_pssd_bulk_sync_data *recv_msg)
+cmsg_psd_remote_sync_impl_bulk_sync (const void *service,
+                                     const cmsg_psd_bulk_sync_data *recv_msg)
 {
     int i;
     cmsg_subscription_info *info;
@@ -35,7 +35,7 @@ cmsg_pssd_remote_sync_impl_bulk_sync (const void *service,
         data_add_local_subscription (info);
     }
 
-    cmsg_pssd_remote_sync_server_bulk_syncSend (service);
+    cmsg_psd_remote_sync_server_bulk_syncSend (service);
 }
 
 /**
@@ -43,11 +43,11 @@ cmsg_pssd_remote_sync_impl_bulk_sync (const void *service,
  * been added on a remote host.
  */
 void
-cmsg_pssd_remote_sync_impl_add_subscription (const void *service,
-                                             const cmsg_subscription_info *recv_msg)
+cmsg_psd_remote_sync_impl_add_subscription (const void *service,
+                                            const cmsg_subscription_info *recv_msg)
 {
     data_add_local_subscription (recv_msg);
-    cmsg_pssd_remote_sync_server_add_subscriptionSend (service);
+    cmsg_psd_remote_sync_server_add_subscriptionSend (service);
 }
 
 /**
@@ -55,11 +55,11 @@ cmsg_pssd_remote_sync_impl_add_subscription (const void *service,
  * been removed on a remote host.
  */
 void
-cmsg_pssd_remote_sync_impl_remove_subscription (const void *service,
-                                                const cmsg_subscription_info *recv_msg)
+cmsg_psd_remote_sync_impl_remove_subscription (const void *service,
+                                               const cmsg_subscription_info *recv_msg)
 {
     data_remove_local_subscription (recv_msg);
-    cmsg_pssd_remote_sync_server_remove_subscriptionSend (service);
+    cmsg_psd_remote_sync_server_remove_subscriptionSend (service);
 }
 
 /**
@@ -107,11 +107,11 @@ remote_sync_subscription_added_removed (const cmsg_subscription_info *subscriber
 
         if (added)
         {
-            cmsg_pssd_remote_sync_api_add_subscription (client, subscriber_info);
+            cmsg_psd_remote_sync_api_add_subscription (client, subscriber_info);
         }
         else
         {
-            cmsg_pssd_remote_sync_api_remove_subscription (client, subscriber_info);
+            cmsg_psd_remote_sync_api_remove_subscription (client, subscriber_info);
         }
     }
 }
@@ -146,7 +146,7 @@ remote_sync_subscription_removed (const cmsg_subscription_info *subscriber_info)
 static void
 remote_sync_bulk_sync_subscriptions (cmsg_client *client)
 {
-    cmsg_pssd_bulk_sync_data send_msg = CMSG_PSSD_BULK_SYNC_DATA_INIT;
+    cmsg_psd_bulk_sync_data send_msg = CMSG_PSD_BULK_SYNC_DATA_INIT;
     GList *list = NULL;
     GList *list_next = NULL;
     const cmsg_subscription_info *info = NULL;
@@ -162,7 +162,7 @@ remote_sync_bulk_sync_subscriptions (cmsg_client *client)
         list_next = g_list_next (list);
     }
 
-    cmsg_pssd_remote_sync_api_bulk_sync (client, &send_msg);
+    cmsg_psd_remote_sync_api_bulk_sync (client, &send_msg);
     CMSG_REPEATED_FREE (send_msg.data);
 }
 
@@ -190,7 +190,7 @@ remote_sync_find_client_by_transport (gconstpointer a, gconstpointer b)
 }
 
 /**
- * Logic to run when a server for the "cmsg_pssd, remote_sync" service starts or
+ * Logic to run when a server for the "cmsg_psd, remote_sync" service starts or
  * stops running on either a local or remote node. In this case we only care about
  * remote host events.
  *
@@ -217,7 +217,7 @@ remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void 
     if (added)
     {
         new_transport = cmsg_transport_copy (transport);
-        client = cmsg_client_new (new_transport, CMSG_DESCRIPTOR (cmsg_pssd, remote_sync));
+        client = cmsg_client_new (new_transport, CMSG_DESCRIPTOR (cmsg_psd, remote_sync));
         client_list = g_list_append (client_list, client);
         remote_sync_bulk_sync_subscriptions (client);
     }
@@ -242,7 +242,7 @@ remote_sync_sl_init (void)
 {
     const char *service_name = NULL;
 
-    service_name = cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_pssd, remote_sync));
+    service_name = cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_psd, remote_sync));
     cmsg_glib_service_listener_listen (service_name, remote_sync_sl_event_handler, NULL);
 }
 
@@ -257,8 +257,8 @@ remote_sync_address_set (struct in_addr addr)
 {
     if (!server)
     {
-        server = cmsg_create_server_tcp_ipv4_oneway ("cmsg_pssd_sync", &addr,
-                                                     CMSG_SERVICE (cmsg_pssd, remote_sync));
+        server = cmsg_create_server_tcp_ipv4_oneway ("cmsg_psd_sync", &addr,
+                                                     CMSG_SERVICE (cmsg_psd, remote_sync));
         if (!server)
         {
             syslog (LOG_ERR, "Failed to initialize remote sync server");

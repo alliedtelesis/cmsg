@@ -8,6 +8,6 @@
 #define __SETUP_H_
 
 void cmsg_service_listener_mock_functions (void);
-void cmsg_pss_mock_functions (void);
+void cmsg_ps_mock_functions (void);
 
 #endif /* __SETUP_H_ */

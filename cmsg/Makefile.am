@@ -1,5 +1,5 @@
 lib_LTLIBRARIES = libcmsg.la
-bin_PROGRAMS = cmsg cmsg_sld cmsg_pssd
+bin_PROGRAMS = cmsg cmsg_sld cmsg_psd
 
 pkgconfiglibdir = $(libdir)/pkgconfig
 pkgconfiglib_DATA = cmsg.pc
@@ -89,7 +89,7 @@ libcmsg_la_SOURCES = \
 	src/service_listener/configuration.pb-c.c \
 	src/service_listener/events_impl_auto.c \
 	src/service_listener/events.pb-c.c \
-	src/publisher_subscriber/cmsg_pss_api.c \
+	src/publisher_subscriber/cmsg_ps_api.c \
 	src/publisher_subscriber/configuration_api_auto.c \
 	src/publisher_subscriber/configuration.pb-c.c
 
@@ -111,7 +111,7 @@ libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg_glib_helpers.h \
 	include/cmsg/cmsg_mesh.h \
 	include/cmsg/cmsg_private.h \
-	include/cmsg/cmsg_pss_config.h \
+	include/cmsg/cmsg_ps_config.h \
 	include/cmsg/cmsg_pthread_helpers.h \
 	include/cmsg/cmsg_pub.h \
 	include/cmsg/cmsg_queue.h \
@@ -198,7 +198,7 @@ cmsg_sld_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c
 cmsg_sld_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
 cmsg_sld_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 
-cmsg_pssd_SOURCES = \
+cmsg_psd_SOURCES = \
 	src/publisher_subscriber/main.c \
 	src/publisher_subscriber/configuration.c \
 	src/publisher_subscriber/data.c \
@@ -208,9 +208,9 @@ cmsg_pssd_SOURCES = \
 	src/publisher_subscriber/remote_sync_api_auto.c \
 	src/publisher_subscriber/remote_sync_impl_auto.c \
 	src/publisher_subscriber/remote_sync.pb-c.c
-cmsg_pssd_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c
-cmsg_pssd_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
-cmsg_pssd_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
+cmsg_psd_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c
+cmsg_psd_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
+cmsg_psd_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 
 if BUILD_UNITTEST
 test/unit/cmsg_unit_tests_api_auto.c \

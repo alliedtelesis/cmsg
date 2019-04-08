@@ -14,7 +14,7 @@
 #include "data.h"
 #include "remote_sync.h"
 
-#define DEBUG_FILE "/tmp/cmsg_pssd_debug.txt"
+#define DEBUG_FILE "/tmp/cmsg_psd_debug.txt"
 
 /**
  * Handles SIGUSR1 indicating that the daemon should dump the current
@@ -52,7 +52,7 @@ shutdown_handler (gpointer user_data)
 static void
 help (void)
 {
-    printf ("Usage: cmsg_pssd [-r <runfile>]\n"
+    printf ("Usage: cmsg_psd [-r <runfile>]\n"
             "  -r   use <runfile>\n");
 }
 /* *INDENT-ON* */

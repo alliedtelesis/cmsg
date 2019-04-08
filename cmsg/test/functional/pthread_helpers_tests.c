@@ -37,7 +37,7 @@ set_up (void)
     notification_received = false;
 
     cmsg_service_listener_mock_functions ();
-    cmsg_pss_mock_functions ();
+    cmsg_ps_mock_functions ();
 
     return 0;
 }

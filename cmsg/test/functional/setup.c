@@ -6,7 +6,7 @@
 
 #include <np.h>
 #include "service_listener/cmsg_sl_api_private.h"
-#include "publisher_subscriber/cmsg_pss_api_private.h"
+#include "publisher_subscriber/cmsg_ps_api_private.h"
 
 static void
 sm_mock_cmsg_service_listener_add_server (cmsg_server *server)
@@ -34,39 +34,38 @@ cmsg_service_listener_mock_functions (void)
 }
 
 static bool
-sm_mock_cmsg_pss_subscription_add_local (cmsg_server *sub_server, const char *method_name)
+sm_mock_cmsg_ps_subscription_add_local (cmsg_server *sub_server, const char *method_name)
 {
     /* Do nothing. */
     return true;
 }
 
 static bool
-sm_mock_cmsg_pss_subscription_add_remote (cmsg_server *sub_server, const char *method_name,
-                                          struct in_addr remote_addr)
+sm_mock_cmsg_ps_subscription_add_remote (cmsg_server *sub_server, const char *method_name,
+                                         struct in_addr remote_addr)
 {
     /* Do nothing. */
     return true;
 }
 
 static bool
-sm_mock_cmsg_pss_subscription_remove_local (cmsg_server *sub_server,
-                                            const char *method_name)
+sm_mock_cmsg_ps_subscription_remove_local (cmsg_server *sub_server, const char *method_name)
 {
     /* Do nothing. */
     return true;
 }
 
 static bool
-sm_mock_cmsg_pss_subscription_remove_remote (cmsg_server *sub_server,
-                                             const char *method_name,
-                                             struct in_addr remote_addr)
+sm_mock_cmsg_ps_subscription_remove_remote (cmsg_server *sub_server,
+                                            const char *method_name,
+                                            struct in_addr remote_addr)
 {
     /* Do nothing. */
     return true;
 }
 
 static bool
-sm_mock_cmsg_pss_remove_subscriber (cmsg_server *sub_server)
+sm_mock_cmsg_ps_remove_subscriber (cmsg_server *sub_server)
 {
     /* Do nothing. */
     return true;
@@ -78,13 +77,12 @@ sm_mock_cmsg_pss_remove_subscriber (cmsg_server *sub_server)
  * the tests don't fail on syslog messages.
  */
 void
-cmsg_pss_mock_functions (void)
+cmsg_ps_mock_functions (void)
 {
-    np_mock (cmsg_pss_subscription_add_local, sm_mock_cmsg_pss_subscription_add_local);
-    np_mock (cmsg_pss_subscription_add_remote, sm_mock_cmsg_pss_subscription_add_remote);
-    np_mock (cmsg_pss_subscription_remove_local,
-             sm_mock_cmsg_pss_subscription_remove_local);
-    np_mock (cmsg_pss_subscription_remove_remote,
-             sm_mock_cmsg_pss_subscription_remove_remote);
-    np_mock (cmsg_pss_remove_subscriber, sm_mock_cmsg_pss_remove_subscriber);
+    np_mock (cmsg_ps_subscription_add_local, sm_mock_cmsg_ps_subscription_add_local);
+    np_mock (cmsg_ps_subscription_add_remote, sm_mock_cmsg_ps_subscription_add_remote);
+    np_mock (cmsg_ps_subscription_remove_local, sm_mock_cmsg_ps_subscription_remove_local);
+    np_mock (cmsg_ps_subscription_remove_remote,
+             sm_mock_cmsg_ps_subscription_remove_remote);
+    np_mock (cmsg_ps_remove_subscriber, sm_mock_cmsg_ps_remove_subscriber);
 }

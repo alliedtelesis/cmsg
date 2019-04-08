@@ -19,63 +19,63 @@ static cmsg_server_accept_thread_info *info = NULL;
  * for syncing to remote hosts.
  */
 void
-cmsg_pssd_configuration_impl_address_set (const void *service, const cmsg_uint32 *recv_msg)
+cmsg_psd_configuration_impl_address_set (const void *service, const cmsg_uint32 *recv_msg)
 {
     struct in_addr addr = { };
 
     addr.s_addr = recv_msg->value;
 
     remote_sync_address_set (addr);
-    cmsg_pssd_configuration_server_address_setSend (service);
+    cmsg_psd_configuration_server_address_setSend (service);
 }
 
 /**
  * Registers a new subscription.
  */
 void
-cmsg_pssd_configuration_impl_add_subscription (const void *service,
-                                               const cmsg_subscription_info *recv_msg)
+cmsg_psd_configuration_impl_add_subscription (const void *service,
+                                              const cmsg_subscription_info *recv_msg)
 {
     if (data_add_subscription (recv_msg))
     {
         /* The memory of the message was stolen so do not free the message. */
         cmsg_server_app_owns_current_msg_set (server);
     }
-    cmsg_pssd_configuration_server_add_subscriptionSend (service);
+    cmsg_psd_configuration_server_add_subscriptionSend (service);
 }
 
 /**
  * Unregisters an existing subscription.
  */
 void
-cmsg_pssd_configuration_impl_remove_subscription (const void *service,
-                                                  const cmsg_subscription_info *recv_msg)
+cmsg_psd_configuration_impl_remove_subscription (const void *service,
+                                                 const cmsg_subscription_info *recv_msg)
 {
     data_remove_subscription (recv_msg);
-    cmsg_pssd_configuration_server_remove_subscriptionSend (service);
+    cmsg_psd_configuration_server_remove_subscriptionSend (service);
 }
 
 /**
  * Unregisters all subscriptions for a given subscriber.
  */
 void
-cmsg_pssd_configuration_impl_remove_subscriber (const void *service,
-                                                const cmsg_transport_info *recv_msg)
+cmsg_psd_configuration_impl_remove_subscriber (const void *service,
+                                               const cmsg_transport_info *recv_msg)
 {
     data_remove_subscriber (recv_msg);
-    cmsg_pssd_configuration_server_remove_subscriberSend (service);
+    cmsg_psd_configuration_server_remove_subscriberSend (service);
 }
 
 /**
  * Publishes a CMSG packet for a specific service and method to all subscribers.
  */
 void
-cmsg_pssd_configuration_impl_publish (const void *service,
-                                      const cmsg_pssd_publish_data *recv_msg)
+cmsg_psd_configuration_impl_publish (const void *service,
+                                     const cmsg_psd_publish_data *recv_msg)
 {
     data_publish_message (recv_msg->service, recv_msg->method_name, recv_msg->packet.data,
                           recv_msg->packet.len);
-    cmsg_pssd_configuration_server_publishSend (service);
+    cmsg_psd_configuration_server_publishSend (service);
 }
 
 /**
@@ -84,7 +84,7 @@ cmsg_pssd_configuration_impl_publish (const void *service,
 void
 configuration_server_init (void)
 {
-    server = cmsg_create_server_unix_oneway (CMSG_SERVICE (cmsg_pssd, configuration));
+    server = cmsg_create_server_unix_oneway (CMSG_SERVICE (cmsg_psd, configuration));
     if (!server)
     {
         syslog (LOG_ERR, "Failed to initialize configuration server");

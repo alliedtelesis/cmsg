@@ -8,7 +8,7 @@
  */
 
 #include "cmsg_pub.h"
-#include "cmsg_pss_api_private.h"
+#include "cmsg_ps_api_private.h"
 #include "cmsg_error.h"
 
 struct cmsg_publisher
@@ -27,7 +27,7 @@ struct cmsg_publisher
 
 /**
  * Invoke function for the cmsg publisher. Simply creates the cmsg packet
- * for the given message and sends this to cmsg_pssd to be published to all
+ * for the given message and sends this to cmsg_psd to be published to all
  * subscribers.
  */
 static int32_t
@@ -58,8 +58,8 @@ cmsg_pub_invoke (ProtobufCService *service,
     }
 
     service_name = cmsg_service_name_get (service->descriptor);
-    ret = cmsg_pss_publish_message (publisher->client, service_name, method_name,
-                                    packet, total_message_size);
+    ret = cmsg_ps_publish_message (publisher->client, service_name, method_name,
+                                   packet, total_message_size);
     CMSG_FREE (packet);
 
     return (ret ? CMSG_RET_OK : CMSG_RET_ERR);
@@ -94,7 +94,7 @@ cmsg_publisher_create (const ProtobufCServiceDescriptor *service)
     publisher->descriptor = service;
     publisher->invoke = &cmsg_pub_invoke;
 
-    publisher->client = cmsg_pss_create_publisher_client ();
+    publisher->client = cmsg_ps_create_publisher_client ();
 
     return publisher;
 }
