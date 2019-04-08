@@ -35,6 +35,7 @@ static cmsg_server *event_server = NULL;
 static pthread_t event_server_thread;
 static GList *listener_list = NULL;
 static pthread_mutex_t listener_list_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t add_remove_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /**
  * Get the eventfd descriptor from the 'cmsg_sl_info' structure.
@@ -334,6 +335,7 @@ cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t 
         return NULL;
     }
 
+    pthread_mutex_lock (&add_remove_mutex);
     pthread_mutex_lock (&listener_list_mutex);
 
     listener_list = g_list_append (listener_list, info);
@@ -353,6 +355,7 @@ cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t 
     }
 
     pthread_mutex_unlock (&listener_list_mutex);
+    pthread_mutex_unlock (&add_remove_mutex);
 
     return info;
 }
@@ -365,6 +368,7 @@ cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t 
 void
 cmsg_service_listener_unlisten (const cmsg_sl_info *info)
 {
+    pthread_mutex_lock (&add_remove_mutex);
     pthread_mutex_lock (&listener_list_mutex);
 
     listener_list = g_list_remove (listener_list, info);
@@ -378,12 +382,21 @@ cmsg_service_listener_unlisten (const cmsg_sl_info *info)
 
     /* If this was the only listener then destroy the server for receiving
      * notifications from the service listener daemon. */
-    if (g_list_length (listener_list) == 1)
+    if (g_list_length (listener_list) == 0)
     {
+        /* Release the list mutex as the server thread may be blocked waiting
+         * to take it. If the lock is not release then the server thread cannot
+         * be cancelled and subsequently joined. */
+        pthread_mutex_unlock (&listener_list_mutex);
         event_server_deinit ();
+        pthread_mutex_unlock (&add_remove_mutex);
+    }
+    else
+    {
+        pthread_mutex_unlock (&listener_list_mutex);
+        pthread_mutex_unlock (&add_remove_mutex);
     }
 
-    pthread_mutex_unlock (&listener_list_mutex);
 
     cmsg_service_listener_info_destroy ((cmsg_sl_info *) info);
 }
