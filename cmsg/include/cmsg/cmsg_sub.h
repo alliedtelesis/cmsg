@@ -39,9 +39,6 @@ int32_t cmsg_sub_unsubscribe_events_local (cmsg_subscriber *subscriber,
 int32_t cmsg_sub_unsubscribe_events_remote (cmsg_subscriber *subscriber,
                                             const char **events,
                                             struct in_addr remote_addr);
-
-cmsg_subscriber *cmsg_subscriber_create_tipc (const char *server_name, int member_id,
-                                              int scope, const ProtobufCService *service);
 cmsg_subscriber *cmsg_subscriber_create_tcp (const char *server_name, struct in_addr addr,
                                              const ProtobufCService *service);
 cmsg_subscriber *cmsg_subscriber_create_unix (const ProtobufCService *service);

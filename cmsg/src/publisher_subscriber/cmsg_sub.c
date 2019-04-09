@@ -206,35 +206,6 @@ cmsg_sub_unsubscribe_events_remote (cmsg_subscriber *subscriber, const char **ev
 }
 
 cmsg_subscriber *
-cmsg_subscriber_create_tipc (const char *server_name, int member_id, int scope,
-                             const ProtobufCService *service)
-{
-    cmsg_transport *transport = NULL;
-    cmsg_subscriber *subscriber = NULL;
-
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
-
-    transport = cmsg_create_transport_tipc (server_name, member_id, scope,
-                                            CMSG_TRANSPORT_ONEWAY_TIPC);
-    if (transport == NULL)
-    {
-        return NULL;
-    }
-
-    subscriber = cmsg_sub_new (transport, service);
-    if (subscriber == NULL)
-    {
-        cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("[%s%s] No TIPC subscriber to %d",
-                            service->descriptor->name, transport->tport_id, member_id);
-        return NULL;
-    }
-
-    return subscriber;
-}
-
-cmsg_subscriber *
 cmsg_subscriber_create_tcp (const char *server_name, struct in_addr addr,
                             const ProtobufCService *service)
 {

@@ -25,14 +25,6 @@ bool cmsg_pthread_server_init (pthread_t *thread, cmsg_server *server);
 cmsg_subscriber *cmsg_pthread_unix_subscriber_init (pthread_t *thread,
                                                     const ProtobufCService *service,
                                                     const char **events);
-cmsg_subscriber *cmsg_pthread_tipc_subscriber_init (pthread_t *thread,
-                                                    const ProtobufCService *service,
-                                                    const char **events,
-                                                    const char *subscriber_service_name,
-                                                    const char *publisher_service_name,
-                                                    int this_node_id, int scope,
-                                                    struct in_addr remote_addr);
-
 cmsg_pthread_multithreaded_server_info *cmsg_pthread_multithreaded_server_init (cmsg_server
                                                                                 *server,
                                                                                 uint32_t

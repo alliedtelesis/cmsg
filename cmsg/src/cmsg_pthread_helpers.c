@@ -150,54 +150,6 @@ cmsg_pthread_unix_subscriber_init (pthread_t *thread, const ProtobufCService *se
 }
 
 /**
- * Creates a cmsg subscriber using a tipc transport, subscribes to the input list of
- * events and finally begins processing the received events in a new thread.
- *
- * @param thread - Pointer to a pthread_t variable to create the thread.
- * @param service - The CMSG service to subscribe to.
- * @param events - An array of strings containing the events to subscribe to. This
- *                 array should be NULL terminated, i.e. { "event1", "event2", NULL }.
- * @param subscriber_service_name - The service name of the subscriber. Note that it is
- *                                  important that if there are multiple subscribers on the
- *                                  same node then they need to use different port numbers,
- *                                  and hence different subscriber service names.
- * @param publisher_service_name - The service name of the publisher to subscribe to.
- * @param this_node_id - The TIPC node id of this node.
- * @param scope - The TIPC scope to use.
- * @param remote_addr - The remote address of the node to subscribe to.
- *
- * Note that this thread can be cancelled using 'pthread_cancel' and then should
- * be joined using 'pthread_join'. At this stage the subscriber can then be destroyed
- * using 'cmsg_subscriber_destroy'.
- */
-cmsg_subscriber *
-cmsg_pthread_tipc_subscriber_init (pthread_t *thread, const ProtobufCService *service,
-                                   const char **events, const char *subscriber_service_name,
-                                   const char *publisher_service_name,
-                                   int this_node_id, int scope, struct in_addr remote_addr)
-{
-    cmsg_subscriber *sub = NULL;
-
-    sub = cmsg_subscriber_create_tipc (subscriber_service_name, this_node_id,
-                                       scope, service);
-
-    /* Subscribe to events */
-    if (events)
-    {
-        cmsg_sub_subscribe_events_remote (sub, events, remote_addr);
-    }
-
-    if (!cmsg_pthread_server_init (thread, sub->pub_server))
-    {
-        syslog (LOG_ERR, "Failed to start subscriber processing thread");
-        cmsg_subscriber_destroy (sub);
-        return NULL;
-    }
-
-    return sub;
-}
-
-/**
  * When processing the server in the multi-threaded mode of operation when one of
  * the receive threads or the accept thread exits we need to decrement the counter
  * storing the number of threads in use. Furthermore, if the server has been marked

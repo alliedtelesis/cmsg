@@ -124,10 +124,6 @@ create_subscriber_and_test (cmsg_transport_type type)
         sub = cmsg_subscriber_create_tcp ("cmsg-test-subscriber", addr,
                                           CMSG_SERVICE (cmsg, test));
         break;
-    case CMSG_TRANSPORT_RPC_TIPC:
-        sub = cmsg_subscriber_create_tipc ("cmsg-test-subscriber", tipc_instance,
-                                           tipc_scope, CMSG_SERVICE (cmsg, test));
-        break;
     case CMSG_TRANSPORT_RPC_UNIX:
         sub = cmsg_subscriber_create_unix (CMSG_SERVICE (cmsg, test));
         break;
