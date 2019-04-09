@@ -207,6 +207,7 @@ remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void 
     cmsg_client *client = NULL;
     GList *link = NULL;
     cmsg_transport *new_transport = NULL;
+    uint32_t remote_addr;
 
     /* Do nothing for the server running locally. */
     if (cmsg_transport_compare (server->_transport, transport))
@@ -223,7 +224,8 @@ remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void 
     }
     else
     {
-        /* todo: Remove subscriptions from that host */
+        remote_addr = transport->config.socket.sockaddr.in.sin_addr.s_addr;
+        data_remove_local_subscriptions_for_addr (remote_addr);
         link = g_list_find_custom (client_list, transport,
                                    remote_sync_find_client_by_transport);
         cmsg_destroy_client_and_transport ((cmsg_client *) link->data);

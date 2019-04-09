@@ -409,25 +409,18 @@ data_find_methods_without_clients (gpointer data, gpointer user_data)
 }
 
 /**
- * Helper function called for each entry in the hash table. Removes
- * entries for the given subscriber..
+ * Prune any empty method entries from the given service data entry.
  *
- * @param key - The key from the hash table (service name)
- * @param value - The value associated with the key (service_data_entry structure)
- * @param user_data - The transport information for the subscriber.
+ * @param entry - The service data entry to prune empty method entries from.
  */
 static void
-data_remove_local_entries_for_subscriber (gpointer key, gpointer value, gpointer user_data)
+data_prune_empty_methods (service_data_entry *entry)
 {
-    cmsg_transport_info *sub_transport = (cmsg_transport_info *) user_data;
-    service_data_entry *entry = (service_data_entry *) value;
     GList *list = NULL;
     GList *list_next = NULL;
     GList *removal_list = NULL;
     method_data_entry *method_entry = NULL;
 
-    g_list_foreach (entry->methods, data_remove_subscriber_from_method, sub_transport);
-    /* Manually prune empty entries */
     g_list_foreach (entry->methods, data_find_methods_without_clients, &removal_list);
     for (list = g_list_first (removal_list); list; list = list_next)
     {
@@ -441,6 +434,23 @@ data_remove_local_entries_for_subscriber (gpointer key, gpointer value, gpointer
 }
 
 /**
+ * Helper function called for each entry in the hash table. Removes
+ * entries for the given subscriber.
+ *
+ * @param key - The key from the hash table (service name)
+ * @param value - The value associated with the key (service_data_entry structure)
+ * @param user_data - The transport information for the subscriber.
+ */
+static void
+data_remove_local_entries_for_subscriber (gpointer key, gpointer value, gpointer user_data)
+{
+    service_data_entry *entry = (service_data_entry *) value;
+
+    g_list_foreach (entry->methods, data_remove_subscriber_from_method, user_data);
+    data_prune_empty_methods (entry);
+}
+
+/**
  * Helper function called for each entry in the hash table. Returns TRUE
  * if the service entry has an empty method list, meaning the entry should
  * be removed from the hash table.
@@ -451,7 +461,7 @@ data_remove_local_entries_for_subscriber (gpointer key, gpointer value, gpointer
  *
  * @returns TRUE if the entry should be removed from the hash table, FALSE otherwise.
  */
-gboolean
+static gboolean
 data_remove_empty_services (gpointer key, gpointer value, gpointer user_data)
 {
     service_data_entry *entry = (service_data_entry *) value;
@@ -476,6 +486,85 @@ data_remove_subscriber (const cmsg_transport_info *sub_transport)
     data_remove_remote_entries_for_subscriber (sub_transport);
     g_hash_table_foreach (local_subscriptions_table,
                           data_remove_local_entries_for_subscriber, (void *) sub_transport);
+    g_hash_table_foreach_remove (local_subscriptions_table, data_remove_empty_services,
+                                 NULL);
+}
+
+/**
+ * Remove any client from the composite client on a given method entry
+ * if it has the address of the given remote host.
+ *
+ * @param method_entry - The method entry to remove the client from.
+ * @param addr - The address specifying any client to remove.
+ */
+static void
+data_remove_clients_with_addr_from_method (method_data_entry *method_entry, uint32_t addr)
+{
+    GList *list = NULL;
+    GList *list_next = NULL;
+    GList *removal_list = NULL;
+    GList *client_list = cmsg_composite_client_get_children (method_entry->comp_client);
+    cmsg_client *child_client = NULL;
+
+    for (list = g_list_first (client_list); list; list = list_next)
+    {
+        child_client = (cmsg_client *) list->data;
+        if (child_client->_transport->config.socket.sockaddr.in.sin_addr.s_addr == addr)
+        {
+            removal_list = g_list_append (removal_list, (void *) child_client);
+        }
+        list_next = g_list_next (list);
+    }
+
+    for (list = g_list_first (removal_list); list; list = list_next)
+    {
+        child_client = (cmsg_client *) list->data;
+        cmsg_composite_client_delete_child (method_entry->comp_client, child_client);
+        cmsg_destroy_client_and_transport (child_client);
+        list_next = g_list_next (list);
+    }
+    g_list_free (removal_list);
+}
+
+/**
+ * Helper function called for each method to potentially remove any
+ * subscriber on a remote host that is subscribed to it.
+ *
+ * @param data - The 'method_data_entry' structure for a method.
+ * @param user_data - The address of the remote host.
+ */
+static void
+data_remove_subscribers_with_addr_from_method (gpointer data, gpointer user_data)
+{
+    uint32_t *addr = (uint32_t *) user_data;
+    method_data_entry *entry = (method_data_entry *) data;
+
+    data_remove_clients_with_addr_from_method (entry, *addr);
+}
+
+/**
+ * Helper function called for each entry in the hash table. Removes entries
+ * for any subscriber which is on a remote host with the given address.
+ *
+ * @param key - The key from the hash table (service name)
+ * @param value - The value associated with the key (service_data_entry structure)
+ * @param user_data - The address of the remote host.
+ */
+static void
+data_remove_local_entries_for_addr (gpointer key, gpointer value, gpointer user_data)
+{
+    service_data_entry *entry = (service_data_entry *) value;
+
+    g_list_foreach (entry->methods, data_remove_subscribers_with_addr_from_method,
+                    user_data);
+    data_prune_empty_methods (entry);
+}
+
+void
+data_remove_local_subscriptions_for_addr (uint32_t addr)
+{
+    g_hash_table_foreach (local_subscriptions_table,
+                          data_remove_local_entries_for_addr, (void *) &addr);
     g_hash_table_foreach_remove (local_subscriptions_table, data_remove_empty_services,
                                  NULL);
 }
