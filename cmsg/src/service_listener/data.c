@@ -14,6 +14,12 @@
 #include "remote_sync.h"
 #include "transport/cmsg_transport_private.h"
 
+typedef struct _listener_data
+{
+    cmsg_client *client;
+    uint32_t id;
+} listener_data;
+
 typedef struct _service_data_entry_s
 {
     GList *servers;
@@ -67,36 +73,43 @@ notify_listeners (const cmsg_service_info *server_info, service_data_entry *entr
     GList *list_next = NULL;
     cmsg_client *client = NULL;
     GList *removal_list = NULL;
+    listener_data *listener_info = NULL;
     int ret;
+    cmsg_sld_server_event send_msg = CMSG_SLD_SERVER_EVENT_INIT;
 
     for (list = g_list_first (entry->listeners); list; list = list_next)
     {
-        client = (cmsg_client *) list->data;
+        listener_info = (listener_data *) list->data;
+        client = listener_info->client;
         list_next = g_list_next (list);
+
+        CMSG_SET_FIELD_PTR (&send_msg, service_info, (void *) server_info);
+        CMSG_SET_FIELD_VALUE (&send_msg, id, listener_info->id);
 
         if (added)
         {
-            ret = cmsg_sld_events_api_server_added (client, server_info);
+            ret = cmsg_sld_events_api_server_added (client, &send_msg);
         }
         else
         {
-            ret = cmsg_sld_events_api_server_added (client, server_info);
+            ret = cmsg_sld_events_api_server_removed (client, &send_msg);
         }
 
         if (ret != CMSG_RET_OK)
         {
-            removal_list = g_list_append (removal_list, client);
+            removal_list = g_list_append (removal_list, listener_info);
         }
     }
 
     /* Remove any clients that we failed to send events to */
     for (list = g_list_first (removal_list); list; list = list_next)
     {
-        client = (cmsg_client *) list->data;
+        listener_info = (listener_data *) list->data;
         list_next = g_list_next (list);
 
-        entry->listeners = g_list_remove (entry->listeners, client);
-        cmsg_destroy_client_and_transport (client);
+        entry->listeners = g_list_remove (entry->listeners, listener_info);
+        cmsg_destroy_client_and_transport (listener_info->client);
+        CMSG_FREE (listener_info);
     }
     g_list_free (removal_list);
 }
@@ -232,21 +245,32 @@ data_add_listener (const cmsg_sld_listener_info *info)
     GList *list_next = NULL;
     cmsg_service_info *server_info = NULL;
     cmsg_client *client = NULL;
+    listener_data *listener_info = NULL;
+    cmsg_sld_server_event send_msg = CMSG_SLD_SERVER_EVENT_INIT;
 
     entry = get_service_entry_or_create (info->service);
     transport = cmsg_transport_info_to_transport (info->transport_info);
     client = cmsg_client_new (transport, CMSG_DESCRIPTOR (cmsg_sld, events));
-    entry->listeners = g_list_append (entry->listeners, client);
+
+    listener_info = CMSG_CALLOC (1, sizeof (listener_data));
+    listener_info->client = client;
+    listener_info->id = info->id;
+
+    entry->listeners = g_list_append (entry->listeners, listener_info);
 
     for (list = g_list_first (entry->servers); list; list = list_next)
     {
         server_info = (cmsg_service_info *) list->data;
         list_next = g_list_next (list);
 
-        if (cmsg_sld_events_api_server_added (client, server_info) != CMSG_RET_OK)
+        CMSG_SET_FIELD_PTR (&send_msg, service_info, server_info);
+        CMSG_SET_FIELD_VALUE (&send_msg, id, listener_info->id);
+
+        if (cmsg_sld_events_api_server_added (client, &send_msg) != CMSG_RET_OK)
         {
-            entry->listeners = g_list_remove (entry->listeners, client);
-            cmsg_destroy_client_and_transport (client);
+            entry->listeners = g_list_remove (entry->listeners, listener_info);
+            cmsg_destroy_client_and_transport (listener_info->client);
+            CMSG_FREE (listener_info);
             break;
         }
     }
@@ -264,16 +288,16 @@ data_remove_listener (const cmsg_sld_listener_info *info)
     service_data_entry *entry = NULL;
     GList *list = NULL;
     GList *list_next = NULL;
-    cmsg_client *client = NULL;
     entry = get_service_entry_or_create (info->service);
     cmsg_transport_info *transport_info = NULL;
+    listener_data *listener_info = NULL;
 
     for (list = g_list_first (entry->listeners); list; list = list_next)
     {
-        client = (cmsg_client *) list->data;
+        listener_info = (listener_data *) list->data;
         list_next = g_list_next (list);
 
-        transport_info = cmsg_transport_info_create (client->_transport);
+        transport_info = cmsg_transport_info_create (listener_info->client->_transport);
 
         if (cmsg_transport_info_compare (info->transport_info, transport_info))
         {
@@ -281,8 +305,9 @@ data_remove_listener (const cmsg_sld_listener_info *info)
         }
     }
 
-    entry->listeners = g_list_remove (entry->listeners, client);
-    cmsg_destroy_client_and_transport (client);
+    entry->listeners = g_list_remove (entry->listeners, listener_info);
+    cmsg_destroy_client_and_transport (listener_info->client);
+    CMSG_FREE (listener_info);
 }
 
 /**
@@ -368,9 +393,11 @@ static void
 data_debug_listener_dump (gpointer data, gpointer user_data)
 {
     FILE *fp = (FILE *) user_data;
-    const cmsg_client *client = (const cmsg_client *) data;
+    const listener_data *listener_info = (const listener_data *) data;
+    const cmsg_client *client = listener_info->client;
 
-    fprintf (fp, "   %s\n", client->_transport->config.socket.sockaddr.un.sun_path);
+    fprintf (fp, "   %s (ID: %u)\n", client->_transport->config.socket.sockaddr.un.sun_path,
+             listener_info->id);
 }
 
 /**

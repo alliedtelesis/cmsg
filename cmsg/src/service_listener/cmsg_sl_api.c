@@ -20,6 +20,7 @@ struct _cmsg_sl_info_s
 {
     char *service_name;
     cmsg_sl_event_handler_t handler;
+    uint32_t id;
     void *user_data;
     GAsyncQueue *queue;
     int eventfd;
@@ -78,18 +79,19 @@ cmsg_service_listener_event_queue_process (const cmsg_sl_info *info)
 }
 
 /**
- * Notify all listeners for a given service of the event that has occurred.
+ * Notify the listener of a given service of the event that has occurred.
  *
  * @param recv_msg - The received event message from the service listener daemon.
  * @param added - Whether the service has been added or removed.
  */
 static void
-notify_listeners (const cmsg_service_info *recv_msg, bool added)
+notify_listener (const cmsg_sld_server_event *recv_msg, bool added)
 {
     GList *list;
     GList *list_next;
     const cmsg_sl_info *entry;
     cmsg_sl_event *event = NULL;
+    const cmsg_transport_info *transport_info = NULL;
 
     pthread_mutex_lock (&listener_list_mutex);
 
@@ -98,13 +100,15 @@ notify_listeners (const cmsg_service_info *recv_msg, bool added)
         entry = (const cmsg_sl_info *) list->data;
         list_next = g_list_next (list);
 
-        if (strcmp (entry->service_name, recv_msg->service) == 0)
+        if (entry->id == recv_msg->id)
         {
             event = CMSG_MALLOC (sizeof (cmsg_sl_event));
             if (event)
             {
+                transport_info = recv_msg->service_info->server_info;
+
                 event->added = added;
-                event->transport = cmsg_transport_info_to_transport (recv_msg->server_info);
+                event->transport = cmsg_transport_info_to_transport (transport_info);
                 g_async_queue_push (entry->queue, event);
                 TEMP_FAILURE_RETRY (eventfd_write (entry->eventfd, 1));
             }
@@ -119,9 +123,10 @@ notify_listeners (const cmsg_service_info *recv_msg, bool added)
  * a specific service has been added.
  */
 void
-cmsg_sld_events_impl_server_added (const void *service, const cmsg_service_info *recv_msg)
+cmsg_sld_events_impl_server_added (const void *service,
+                                   const cmsg_sld_server_event *recv_msg)
 {
-    notify_listeners (recv_msg, true);
+    notify_listener (recv_msg, true);
     cmsg_sld_events_server_server_addedSend (service);
 }
 
@@ -130,9 +135,10 @@ cmsg_sld_events_impl_server_added (const void *service, const cmsg_service_info 
  * a specific service has been removed.
  */
 void
-cmsg_sld_events_impl_server_removed (const void *service, const cmsg_service_info *recv_msg)
+cmsg_sld_events_impl_server_removed (const void *service,
+                                     const cmsg_sld_server_event *recv_msg)
 {
-    notify_listeners (recv_msg, false);
+    notify_listener (recv_msg, false);
     cmsg_sld_events_server_server_removedSend (service);
 }
 
@@ -176,9 +182,10 @@ event_server_deinit (void)
  *
  * @param service_name - The name of the service to listen/unlisten for.
  * @param listen - true to listen, false to unlisten.
+ * @param id - The numerical ID of the listener.
  */
 static void
-_cmsg_service_listener_listen (const char *service_name, bool listen)
+_cmsg_service_listener_listen (const char *service_name, bool listen, uint32_t id)
 {
     cmsg_client *client = NULL;
     cmsg_sld_listener_info send_msg = CMSG_SLD_LISTENER_INFO_INIT;
@@ -188,6 +195,7 @@ _cmsg_service_listener_listen (const char *service_name, bool listen)
 
     CMSG_SET_FIELD_PTR (&send_msg, service, (char *) service_name);
     CMSG_SET_FIELD_PTR (&send_msg, transport_info, transport_info);
+    CMSG_SET_FIELD_VALUE (&send_msg, id, id);
 
     client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
 
@@ -230,6 +238,7 @@ cmsg_service_listener_info_create (const char *service_name,
                                    cmsg_sl_event_handler_t handler, void *user_data)
 {
     cmsg_sl_info *info = NULL;
+    static uint32_t id = 0;
 
     info = CMSG_CALLOC (1, sizeof (cmsg_sl_info));
     if (!info)
@@ -263,6 +272,7 @@ cmsg_service_listener_info_create (const char *service_name,
 
     info->handler = handler;
     info->user_data = user_data;
+    info->id = id++;
 
     return info;
 }
@@ -282,37 +292,6 @@ cmsg_service_listener_info_destroy (cmsg_sl_info *info)
 }
 
 /**
- * Get the number of different listeners for the given service name.
- *
- * Note - Assumes the 'listener_list_mutex' mutex is held.
- *
- * @param service_name - The service name to get the number of listeners for.
- *
- * @returns The number of listeners.
- */
-static uint32_t
-cmsg_service_listener_num_listeners_for_service (const char *service_name)
-{
-    GList *list;
-    GList *list_next;
-    const cmsg_sl_info *entry;
-    uint32_t num_listeners = 0;
-
-    for (list = g_list_first (listener_list); list; list = list_next)
-    {
-        entry = (const cmsg_sl_info *) list->data;
-        list_next = g_list_next (list);
-
-        if (strcmp (entry->service_name, service_name) == 0)
-        {
-            num_listeners++;
-        }
-    }
-
-    return num_listeners;
-}
-
-/**
  * Listen for events for the given service name.
  *
  * @param service_name - The service to listen for.
@@ -329,13 +308,15 @@ cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t 
 {
     cmsg_sl_info *info = NULL;
 
+    pthread_mutex_lock (&add_remove_mutex);
+
     info = cmsg_service_listener_info_create (service_name, handler, user_data);
     if (!info)
     {
+        pthread_mutex_unlock (&add_remove_mutex);
         return NULL;
     }
 
-    pthread_mutex_lock (&add_remove_mutex);
     pthread_mutex_lock (&listener_list_mutex);
 
     listener_list = g_list_append (listener_list, info);
@@ -347,12 +328,7 @@ cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t 
         event_server_init ();
     }
 
-    /* If another listener is already listening for this service then there is no need to
-     * susbcribe to the service listener daemon again for this service. */
-    if (cmsg_service_listener_num_listeners_for_service (service_name) == 1)
-    {
-        _cmsg_service_listener_listen (service_name, true);
-    }
+    _cmsg_service_listener_listen (service_name, true, info->id);
 
     pthread_mutex_unlock (&listener_list_mutex);
     pthread_mutex_unlock (&add_remove_mutex);
@@ -373,12 +349,7 @@ cmsg_service_listener_unlisten (const cmsg_sl_info *info)
 
     listener_list = g_list_remove (listener_list, info);
 
-    /* If another listener is still listening for this service then we cannot
-     * unsusbcribe from the service listener daemon for this service. */
-    if (cmsg_service_listener_num_listeners_for_service (info->service_name) == 0)
-    {
-        _cmsg_service_listener_listen (info->service_name, false);
-    }
+    _cmsg_service_listener_listen (info->service_name, false, info->id);
 
     /* If this was the only listener then destroy the server for receiving
      * notifications from the service listener daemon. */

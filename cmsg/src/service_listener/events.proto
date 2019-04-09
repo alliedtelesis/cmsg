@@ -6,8 +6,14 @@ package cmsg_sld;
 
 import "cmsg.proto";
 
+message server_event
+{
+    optional cmsg_service_info service_info = 1;
+    optional uint32 id = 2;
+}
+
 service events
 {
-    rpc server_added (cmsg_service_info) returns (dummy);
-    rpc server_removed (cmsg_service_info) returns (dummy);
+    rpc server_added (server_event) returns (dummy);
+    rpc server_removed (server_event) returns (dummy);
 }
