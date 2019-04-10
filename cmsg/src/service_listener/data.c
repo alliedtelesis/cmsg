@@ -13,18 +13,7 @@
 #include "events_api_auto.h"
 #include "remote_sync.h"
 #include "transport/cmsg_transport_private.h"
-
-typedef struct _listener_data
-{
-    cmsg_client *client;
-    uint32_t id;
-} listener_data;
-
-typedef struct _service_data_entry_s
-{
-    GList *servers;
-    GList *listeners;
-} service_data_entry;
+#include "data.h"
 
 typedef struct _service_lookup_data
 {
@@ -32,23 +21,69 @@ typedef struct _service_lookup_data
     uint32_t addr;
 } service_lookup_data;
 
-static GHashTable *hash_table = NULL;
+GHashTable *hash_table = NULL;
+
+/**
+ * Called for each entry in the servers list of a service entry.
+ * Simply frees all memory used by the server entry.
+ *
+ * @param data - The entry to free.
+ */
+static void
+service_entry_free_servers (gpointer data)
+{
+    cmsg_service_info *info = (cmsg_service_info *) data;
+    CMSG_FREE_RECV_MSG (info);
+}
+
+/**
+ * Called for each entry in the listeners list of a service entry.
+ * Simply frees all memory used by the listener_data entry.
+ *
+ * @param data - The listener_data entry to free.
+ */
+static void
+service_entry_free_listeners (gpointer data)
+{
+    listener_data *listener_info = (listener_data *) data;
+
+    cmsg_destroy_client_and_transport (listener_info->client);
+    CMSG_FREE (listener_info);
+}
+
+/**
+ * Frees all memory used by the given service entry.
+ *
+ * @param data - The service entry to free.
+ */
+static void
+service_entry_free (gpointer data)
+{
+    service_data_entry *entry = (service_data_entry *) data;
+
+    g_list_free_full (entry->servers, service_entry_free_servers);
+    entry->servers = NULL;
+    g_list_free_full (entry->listeners, service_entry_free_listeners);
+    entry->listeners = NULL;
+    CMSG_FREE (entry);
+}
 
 /**
  * Gets the 'service_data_entry' structure for the given service name
- * or creates one if it doesn't already exist.
+ * or potentially creates one if it doesn't already exist.
  *
  * @param service - The name of the service.
+ * @param create - Whether to create an entry if one didn't already exist or not.
  *
  * @returns A pointer to the related 'service_data_entry' structure.
  */
-static service_data_entry *
-get_service_entry_or_create (const char *service)
+service_data_entry *
+get_service_entry_or_create (const char *service, bool create)
 {
     service_data_entry *entry = NULL;
 
     entry = (service_data_entry *) g_hash_table_lookup (hash_table, service);
-    if (!entry)
+    if (!entry && create)
     {
         entry = CMSG_CALLOC (1, sizeof (service_data_entry));
         g_hash_table_insert (hash_table, g_strdup (service), entry);
@@ -125,7 +160,13 @@ data_add_server (const cmsg_service_info *server_info)
 {
     service_data_entry *entry = NULL;
 
-    entry = get_service_entry_or_create (server_info->service);
+    /* Remove the server in case it already exists. This should only
+     * occur if the server was previously removed without notifying the
+     * service listener daemon (i.e. process crash). This ensures listeners
+     * will get the server removed notification before it is added again. */
+    data_remove_server (server_info);
+
+    entry = get_service_entry_or_create (server_info->service, true);
     entry->servers = g_list_append (entry->servers, (gpointer) server_info);
 
     notify_listeners (server_info, entry, true);
@@ -150,6 +191,15 @@ find_server (gconstpointer a, gconstpointer b)
     return (ret ? 0 : -1);
 }
 
+static void
+data_remove_service_data_entry_if_empty (service_data_entry *entry, const char *key)
+{
+    if (!entry->servers && !entry->listeners)
+    {
+        g_hash_table_remove (hash_table, key);
+    }
+}
+
 /**
  * Remove a server from the database of servers running for services.
  *
@@ -161,14 +211,21 @@ data_remove_server (const cmsg_service_info *server_info)
     service_data_entry *entry = NULL;
     GList *list_entry = NULL;
 
-    entry = (service_data_entry *) g_hash_table_lookup (hash_table, server_info->service);
+    entry = get_service_entry_or_create (server_info->service, false);
+    if (entry)
+    {
+        list_entry = g_list_find_custom (entry->servers, server_info, find_server);
+        if (list_entry)
+        {
+            CMSG_FREE_RECV_MSG (list_entry->data);
+            entry->servers = g_list_delete_link (entry->servers, list_entry);
 
-    list_entry = g_list_find_custom (entry->servers, server_info, find_server);
-    CMSG_FREE_RECV_MSG (list_entry->data);
-    entry->servers = g_list_delete_link (entry->servers, list_entry);
+            notify_listeners (server_info, entry, false);
+            remote_sync_server_removed (server_info);
 
-    notify_listeners (server_info, entry, false);
-    remote_sync_server_removed (server_info);
+            data_remove_service_data_entry_if_empty (entry, server_info->service);
+        }
+    }
 }
 
 /**
@@ -214,6 +271,7 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
         entry->servers = g_list_remove (entry->servers, service_info);
         notify_listeners (service_info, entry, false);
         remote_sync_server_removed (service_info);
+        data_remove_service_data_entry_if_empty (entry, key);
         CMSG_FREE_RECV_MSG (service_info);
     }
     g_list_free (removal_list);
@@ -248,7 +306,7 @@ data_add_listener (const cmsg_sld_listener_info *info)
     listener_data *listener_info = NULL;
     cmsg_sld_server_event send_msg = CMSG_SLD_SERVER_EVENT_INIT;
 
-    entry = get_service_entry_or_create (info->service);
+    entry = get_service_entry_or_create (info->service, true);
     transport = cmsg_transport_info_to_transport (info->transport_info);
     client = cmsg_client_new (transport, CMSG_DESCRIPTOR (cmsg_sld, events));
 
@@ -288,9 +346,14 @@ data_remove_listener (const cmsg_sld_listener_info *info)
     service_data_entry *entry = NULL;
     GList *list = NULL;
     GList *list_next = NULL;
-    entry = get_service_entry_or_create (info->service);
     cmsg_transport_info *transport_info = NULL;
     listener_data *listener_info = NULL;
+
+    entry = get_service_entry_or_create (info->service, false);
+    if (!entry)
+    {
+        return;
+    }
 
     for (list = g_list_first (entry->listeners); list; list = list_next)
     {
@@ -301,13 +364,20 @@ data_remove_listener (const cmsg_sld_listener_info *info)
 
         if (cmsg_transport_info_compare (info->transport_info, transport_info))
         {
+            cmsg_transport_info_free (transport_info);
             break;
         }
+        cmsg_transport_info_free (transport_info);
+        listener_info = NULL;
     }
 
-    entry->listeners = g_list_remove (entry->listeners, listener_info);
-    cmsg_destroy_client_and_transport (listener_info->client);
-    CMSG_FREE (listener_info);
+    if (listener_info)
+    {
+        entry->listeners = g_list_remove (entry->listeners, listener_info);
+        cmsg_destroy_client_and_transport (listener_info->client);
+        CMSG_FREE (listener_info);
+        data_remove_service_data_entry_if_empty (entry, info->service);
+    }
 }
 
 /**
@@ -374,11 +444,26 @@ data_get_servers_by_addr (uint32_t addr)
 void
 data_init (void)
 {
-    hash_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+    hash_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+                                        service_entry_free);
     if (!hash_table)
     {
         syslog (LOG_ERR, "Failed to initialize hash table");
         return;
+    }
+}
+
+/**
+ * Deinitialise the data layer.
+ */
+void
+data_deinit (void)
+{
+    if (hash_table)
+    {
+        g_hash_table_remove_all (hash_table);
+        g_hash_table_unref (hash_table);
+        hash_table = NULL;
     }
 }
 

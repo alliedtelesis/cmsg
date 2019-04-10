@@ -300,7 +300,8 @@ cmsg_service_listener_unit_tests_SOURCES = \
 	src/service_listener/events_api_auto.c \
 	src/service_listener/events.pb-c.c \
 	src/service_listener/test/remote_sync_unit_tests.c \
-	src/service_listener/test/configuration_unit_tests.c
+	src/service_listener/test/configuration_unit_tests.c \
+	src/service_listener/test/data_unit_tests.c
 cmsg_service_listener_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
 cmsg_service_listener_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 cmsg_service_listener_unit_tests_LDFLAGS = -static
