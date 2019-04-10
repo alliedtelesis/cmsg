@@ -163,15 +163,6 @@ create_subscriber_and_test (cmsg_transport_type type)
 }
 
 /**
- * Run the publisher <-> subscriber test case with a TIPC transport.
- */
-void
-test_publisher_subscriber_tipc (void)
-{
-    create_subscriber_and_test (CMSG_TRANSPORT_RPC_TIPC);
-}
-
-/**
  * Run the publisher <-> subscriber test case with a TCP transport.
  */
 void
