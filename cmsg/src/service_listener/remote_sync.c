@@ -15,9 +15,9 @@
 #include "remote_sync.h"
 #include "data.h"
 
-static cmsg_server *server = NULL;
-static cmsg_server_accept_thread_info *info = NULL;
-static cmsg_client *comp_client = NULL;
+cmsg_server_accept_thread_info *server_info = NULL;
+uint32_t local_ip_addr = 0;
+cmsg_client *comp_client = NULL;
 
 /**
  * Tell the service listener daemon about all servers running on a remote host.
@@ -53,7 +53,7 @@ cmsg_sld_remote_sync_impl_add_server (const void *service,
                                       const cmsg_service_info *recv_msg)
 {
     /* We hold onto the message to store in the data hash table */
-    cmsg_server_app_owns_current_msg_set (server);
+    cmsg_server_app_owns_current_msg_set (server_info->server);
 
     data_add_server (recv_msg);
     cmsg_sld_remote_sync_server_add_serverSend (service);
@@ -72,30 +72,15 @@ cmsg_sld_remote_sync_impl_remove_server (const void *service,
 }
 
 /**
- * Get the IP address of the remote sync server running locally.
- *
- * @returns The IPv4 address of the server.
- */
-static uint32_t
-remote_sync_get_local_ip (void)
-{
-    uint32_t addr = 0;
-
-    if (server)
-    {
-        addr = server->_transport->config.socket.sockaddr.in.sin_addr.s_addr;
-    }
-
-    return addr;
-}
-
-/**
  * Helper function to notify remote hosts when a server is added or removed.
  *
  * @param server_info - The 'cmsg_service_info' message describing the server.
  * @param added - Whether the server has been added or removed.
+ *
+ * @returns true if we sent the server information to the remote hosts,
+ *          false otherwise.
  */
-static void
+static bool
 remote_sync_server_added_removed (const cmsg_service_info *server_info, bool added)
 {
     uint32_t addr;
@@ -108,15 +93,15 @@ remote_sync_server_added_removed (const cmsg_service_info *server_info, bool add
     if (!comp_client || transport_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP ||
         !transport_info->tcp_info->ipv4)
     {
-        return;
+        return false;
     }
 
     /* Only sync TCP servers that use the same IP address as the address that
      * we sync to remote nodes using. */
     memcpy (&addr, transport_info->tcp_info->addr.data, sizeof (uint32_t));
-    if (addr != remote_sync_get_local_ip ())
+    if (addr != local_ip_addr)
     {
-        return;
+        return false;
     }
 
     if (added)
@@ -127,24 +112,26 @@ remote_sync_server_added_removed (const cmsg_service_info *server_info, bool add
     {
         cmsg_sld_remote_sync_api_remove_server (comp_client, server_info);
     }
+
+    return true;
 }
 
 /**
  * Notify all remote hosts of the server that has been added locally.
  */
-void
+bool
 remote_sync_server_added (const cmsg_service_info *server_info)
 {
-    remote_sync_server_added_removed (server_info, true);
+    return remote_sync_server_added_removed (server_info, true);
 }
 
 /**
  * Notify all remote hosts of the server that has been removed locally.
  */
-void
+bool
 remote_sync_server_removed (const cmsg_service_info *server_info)
 {
-    remote_sync_server_added_removed (server_info, false);
+    return remote_sync_server_added_removed (server_info, false);
 }
 
 /**
@@ -156,22 +143,12 @@ remote_sync_server_removed (const cmsg_service_info *server_info)
 void
 remote_sync_address_set (struct in_addr addr)
 {
-    if (!server)
+    if (!server_info)
     {
-        server = cmsg_create_server_tcp_ipv4_oneway ("cmsg_sld_sync", &addr,
-                                                     CMSG_SERVICE (cmsg_sld, remote_sync));
-        if (!server)
-        {
-            syslog (LOG_ERR, "Failed to initialize remote sync server");
-            return;
-        }
-
-        info = cmsg_glib_server_init (server);
-        if (!info)
-        {
-            syslog (LOG_ERR, "Failed to initialize remote sync server");
-            cmsg_destroy_server_and_transport (server);
-        }
+        server_info = cmsg_glib_tcp_server_init_oneway ("cmsg_sld_sync", &addr,
+                                                        CMSG_SERVICE (cmsg_sld,
+                                                                      remote_sync));
+        local_ip_addr = addr.s_addr;
     }
 }
 
@@ -202,7 +179,7 @@ remote_sync_bulk_sync_services (cmsg_client *client)
     cmsg_sld_bulk_sync_data send_msg = CMSG_SLD_BULK_SYNC_DATA_INIT;
     GList *services_list = NULL;
 
-    services_list = data_get_servers_by_addr (remote_sync_get_local_ip ());
+    services_list = data_get_servers_by_addr (local_ip_addr);
     g_list_foreach (services_list, fill_bulk_sync_msg, &send_msg);
 
     cmsg_sld_remote_sync_api_bulk_sync (client, &send_msg);
@@ -250,6 +227,12 @@ remote_sync_delete_host (struct in_addr addr)
     child_client = cmsg_composite_client_lookup_by_tcp_ipv4_addr (comp_client, addr.s_addr);
     cmsg_composite_client_delete_child (comp_client, child_client);
     cmsg_destroy_client_and_transport (child_client);
+
+    if (cmsg_composite_client_num_children (comp_client) == 0)
+    {
+        cmsg_client_destroy (comp_client);
+        comp_client = NULL;
+    }
 }
 
 /**
@@ -299,9 +282,9 @@ remote_sync_debug_dump (FILE *fp)
 
     fprintf (fp, "Hosts:\n");
     fprintf (fp, " local: ");
-    if (server)
+    if (server_info)
     {
-        remote_sync_debug_print_transport_ip (fp, server->_transport);
+        remote_sync_debug_print_transport_ip (fp, server_info->server->_transport);
     }
     else
     {

@@ -180,6 +180,42 @@ cmsg_glib_unix_server_init (ProtobufCService *service)
 }
 
 /**
+ * Create and start processing a TCP transport based CMSG server for the given
+ * CMSG service.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param service - The CMSG service.
+ *
+ * @returns Pointer to a 'cmsg_server_accept_thread_info' structure.
+ *          NULL on failure.
+ */
+cmsg_server_accept_thread_info *
+cmsg_glib_tcp_server_init_oneway (const char *service_name, struct in_addr *addr,
+                                  ProtobufCService *service)
+{
+    cmsg_server *server = NULL;
+    cmsg_server_accept_thread_info *info = NULL;
+
+    server = cmsg_create_server_tcp_ipv4_oneway (service_name, addr, service);
+    if (!server)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
+                            cmsg_service_name_get (service->descriptor));
+        return NULL;
+    }
+
+    info = cmsg_glib_server_init (server);
+    if (!info)
+    {
+        cmsg_destroy_server_and_transport (server);
+    }
+
+    return info;
+}
+
+/**
  * Create and initialise a CMSG mesh connection. This function automatically
  * starts the processing of the server that is part of the mesh connection.
  *

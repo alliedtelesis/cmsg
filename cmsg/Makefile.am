@@ -277,4 +277,31 @@ cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLA
 cmsg_functional_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg -I$(top_builddir) -I$(top_srcdir)/cmsg/src
 cmsg_functional_tests_LDFLAGS = -static
 cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
+
+test/unit/cmsg_unit_tests_api_auto.c \
+test/unit/cmsg_unit_tests_api_auto.h \
+test/unit/cmsg_unit_tests_impl_auto.c \
+test/unit/cmsg_unit_tests_impl_auto.h \
+test/unit/cmsg_unit_tests_types_auto.h \
+test/unit/cmsg_unit_tests.pb-c.c \
+test/unit/cmsg_unit_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/unit/cmsg_unit_tests.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/unit --c_out=$(top_srcdir)/cmsg/test/unit $(top_srcdir)/cmsg/test/unit/cmsg_unit_tests.proto
+
+bin_PROGRAMS += cmsg_service_listener_unit_tests
+cmsg_service_listener_unit_tests_SOURCES = \
+	src/service_listener/configuration.c \
+	src/service_listener/remote_sync.c \
+	src/service_listener/data.c \
+	src/service_listener/configuration_impl_auto.c \
+	src/service_listener/configuration.pb-c.c \
+	src/service_listener/remote_sync_api_auto.c \
+	src/service_listener/remote_sync_impl_auto.c \
+	src/service_listener/remote_sync.pb-c.c \
+	src/service_listener/events_api_auto.c \
+	src/service_listener/events.pb-c.c \
+	src/service_listener/test/remote_sync_unit_tests.c
+cmsg_service_listener_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
+cmsg_service_listener_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
+cmsg_service_listener_unit_tests_LDFLAGS = -static
+cmsg_service_listener_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
 endif # BUILD_UNITTEST
