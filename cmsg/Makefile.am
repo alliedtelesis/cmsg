@@ -208,7 +208,7 @@ cmsg_psd_SOURCES = \
 	src/publisher_subscriber/remote_sync_api_auto.c \
 	src/publisher_subscriber/remote_sync_impl_auto.c \
 	src/publisher_subscriber/remote_sync.pb-c.c
-cmsg_psd_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c
+cmsg_psd_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c $(HEALTHCHECK_LIBS)
 cmsg_psd_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
 cmsg_psd_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 
