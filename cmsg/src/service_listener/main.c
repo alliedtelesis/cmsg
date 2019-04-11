@@ -10,11 +10,42 @@
 #include <stdlib.h>
 #include <glib.h>
 #include <glib-unix.h>
+#include <healthcheck.h>
 #include "configuration.h"
 #include "data.h"
 #include "remote_sync.h"
 
 #define DEBUG_FILE "/tmp/cmsg_sld_debug.txt"
+
+/**
+ * Called when we receive data on our healthcheck socket
+ */
+static gboolean
+cmsg_sld_healthcheck_read (GIOChannel *source, GIOCondition condition, gpointer data)
+{
+    healthcheck_reply ();
+    return TRUE;
+}
+
+/**
+ * Registers for healthchecking by appmond.
+ */
+static gboolean
+cmsg_sld_healthcheck_init (void *unused)
+{
+    int select_fd;
+
+    if (healthcheck_init (&select_fd))
+    {
+        GIOChannel *healthcheck_channel = g_io_channel_unix_new (select_fd);
+        g_io_add_watch (healthcheck_channel, G_IO_IN, cmsg_sld_healthcheck_read, NULL);
+
+        healthcheck_start ();
+        return FALSE;
+    }
+
+    return TRUE;
+}
 
 /**
  * Handles SIGUSR1 indicating that the daemon should dump the current
@@ -89,6 +120,9 @@ main (int argc, char **argv)
 
     /* Avoid exiting upon receiving an unintentional SIGPIPE */
     signal (SIGPIPE, SIG_IGN);
+
+    /* register for healthchecking */
+    g_timeout_add_seconds (1, cmsg_sld_healthcheck_init, NULL);
 
     data_init ();
     configuration_server_init ();
