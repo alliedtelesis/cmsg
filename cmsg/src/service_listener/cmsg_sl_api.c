@@ -73,6 +73,11 @@ cmsg_service_listener_event_queue_process (const cmsg_sl_info *info)
         ret = info->handler (event->transport, event->added, info->user_data);
         cmsg_transport_destroy (event->transport);
         CMSG_FREE (event);
+
+        if (!ret)
+        {
+            break;
+        }
     }
 
     return ret;

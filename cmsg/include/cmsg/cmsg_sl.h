@@ -7,6 +7,9 @@
 #ifndef __CMSG_SL_H_
 #define __CMSG_SL_H_
 
+#include <stdbool.h>
+#include <cmsg/cmsg_transport.h>
+
 typedef struct _cmsg_sl_info_s cmsg_sl_info;
 
 typedef bool (*cmsg_sl_event_handler_t) (const cmsg_transport *transport, bool added,
