@@ -15,9 +15,9 @@
 #include "data.h"
 #include <cmsg/cmsg_sl.h>
 
-static cmsg_server *server = NULL;
-static cmsg_server_accept_thread_info *info = NULL;
-static GList *client_list = NULL;
+cmsg_server_accept_thread_info *remote_sync_server_info = NULL;
+GList *remote_sync_client_list = NULL;
+static uint32_t remote_sync_local_ip_addr = 0;
 
 /**
  * Tell the daemon about all subscriptions from a remote host for services running
@@ -99,7 +99,7 @@ remote_sync_subscription_added_removed (const cmsg_subscription_info *subscriber
     cmsg_client *client = NULL;
     GList *link = NULL;
 
-    link = g_list_find_custom (client_list, &subscriber_info->remote_addr,
+    link = g_list_find_custom (remote_sync_client_list, &subscriber_info->remote_addr,
                                remote_sync_find_client_by_address);
     if (link)
     {
@@ -143,7 +143,7 @@ remote_sync_subscription_removed (const cmsg_subscription_info *subscriber_info)
  *
  * @param client - The client to the remote host that has just joined.
  */
-static void
+void
 remote_sync_bulk_sync_subscriptions (cmsg_client *client)
 {
     cmsg_psd_bulk_sync_data send_msg = CMSG_PSD_BULK_SYNC_DATA_INIT;
@@ -201,7 +201,7 @@ remote_sync_find_client_by_transport (gconstpointer a, gconstpointer b)
  *
  * @returns true always (so that the service listening keeps running).
  */
-static bool
+bool
 remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void *user_data)
 {
     cmsg_client *client = NULL;
@@ -210,7 +210,7 @@ remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void 
     uint32_t remote_addr;
 
     /* Do nothing for the server running locally. */
-    if (cmsg_transport_compare (server->_transport, transport))
+    if (cmsg_transport_compare (remote_sync_server_info->server->_transport, transport))
     {
         return true;
     }
@@ -219,17 +219,20 @@ remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void 
     {
         new_transport = cmsg_transport_copy (transport);
         client = cmsg_client_new (new_transport, CMSG_DESCRIPTOR (cmsg_psd, remote_sync));
-        client_list = g_list_append (client_list, client);
+        remote_sync_client_list = g_list_append (remote_sync_client_list, client);
         remote_sync_bulk_sync_subscriptions (client);
     }
     else
     {
         remote_addr = transport->config.socket.sockaddr.in.sin_addr.s_addr;
         data_remove_local_subscriptions_for_addr (remote_addr);
-        link = g_list_find_custom (client_list, transport,
+        link = g_list_find_custom (remote_sync_client_list, transport,
                                    remote_sync_find_client_by_transport);
-        cmsg_destroy_client_and_transport ((cmsg_client *) link->data);
-        client_list = g_list_delete_link (client_list, link);
+        if (link)
+        {
+            cmsg_destroy_client_and_transport ((cmsg_client *) link->data);
+            remote_sync_client_list = g_list_delete_link (remote_sync_client_list, link);
+        }
     }
 
     return true;
@@ -257,23 +260,12 @@ remote_sync_sl_init (void)
 void
 remote_sync_address_set (struct in_addr addr)
 {
-    if (!server)
+    if (!remote_sync_server_info)
     {
-        server = cmsg_create_server_tcp_ipv4_oneway ("cmsg_psd_sync", &addr,
-                                                     CMSG_SERVICE (cmsg_psd, remote_sync));
-        if (!server)
-        {
-            syslog (LOG_ERR, "Failed to initialize remote sync server");
-            return;
-        }
-
-        info = cmsg_glib_server_init (server);
-        if (!info)
-        {
-            syslog (LOG_ERR, "Failed to initialize remote sync server");
-            cmsg_destroy_server_and_transport (server);
-            return;
-        }
+        remote_sync_server_info = cmsg_glib_tcp_server_init_oneway ("cmsg_psd_sync", &addr,
+                                                                    CMSG_SERVICE (cmsg_psd,
+                                                                                  remote_sync));
+        remote_sync_local_ip_addr = addr.s_addr;
 
         remote_sync_sl_init ();
         data_check_remote_entries ();
@@ -288,14 +280,7 @@ remote_sync_address_set (struct in_addr addr)
 uint32_t
 remote_sync_get_local_ip (void)
 {
-    uint32_t addr = 0;
-
-    if (server)
-    {
-        addr = server->_transport->config.socket.sockaddr.in.sin_addr.s_addr;;
-    }
-
-    return addr;
+    return remote_sync_local_ip_addr;
 }
 
 /**
@@ -343,9 +328,10 @@ remote_sync_debug_dump (FILE *fp)
 {
     fprintf (fp, "Hosts:\n");
     fprintf (fp, " local: ");
-    if (server)
+    if (remote_sync_server_info)
     {
-        remote_sync_debug_print_transport_ip (fp, server->_transport);
+        remote_sync_debug_print_transport_ip (fp,
+                                              remote_sync_server_info->server->_transport);
     }
     else
     {
@@ -354,7 +340,7 @@ remote_sync_debug_dump (FILE *fp)
     fprintf (fp, "\n");
 
     fprintf (fp, " remote: ");
-    g_list_foreach (client_list, data_debug_server_dump, fp);
+    g_list_foreach (remote_sync_client_list, data_debug_server_dump, fp);
 
     fprintf (fp, "\n");
 }

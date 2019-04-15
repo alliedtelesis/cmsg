@@ -307,4 +307,20 @@ cmsg_service_listener_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOV
 cmsg_service_listener_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 cmsg_service_listener_unit_tests_LDFLAGS = -static
 cmsg_service_listener_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
+
+bin_PROGRAMS += cmsg_publisher_subscriber_unit_tests
+cmsg_publisher_subscriber_unit_tests_SOURCES = \
+	src/publisher_subscriber/configuration.c \
+	src/publisher_subscriber/remote_sync.c \
+	src/publisher_subscriber/data.c \
+	src/publisher_subscriber/configuration_impl_auto.c \
+	src/publisher_subscriber/configuration.pb-c.c \
+	src/publisher_subscriber/remote_sync_api_auto.c \
+	src/publisher_subscriber/remote_sync_impl_auto.c \
+	src/publisher_subscriber/remote_sync.pb-c.c \
+	src/publisher_subscriber/test/remote_sync_unit_tests.c
+cmsg_publisher_subscriber_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
+cmsg_publisher_subscriber_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
+cmsg_publisher_subscriber_unit_tests_LDFLAGS = -static
+cmsg_publisher_subscriber_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
 endif # BUILD_UNITTEST

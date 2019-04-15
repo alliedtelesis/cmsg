@@ -484,10 +484,14 @@ void
 data_remove_subscriber (const cmsg_transport_info *sub_transport)
 {
     data_remove_remote_entries_for_subscriber (sub_transport);
-    g_hash_table_foreach (local_subscriptions_table,
-                          data_remove_local_entries_for_subscriber, (void *) sub_transport);
-    g_hash_table_foreach_remove (local_subscriptions_table, data_remove_empty_services,
-                                 NULL);
+    if (local_subscriptions_table)
+    {
+        g_hash_table_foreach (local_subscriptions_table,
+                              data_remove_local_entries_for_subscriber,
+                              (void *) sub_transport);
+        g_hash_table_foreach_remove (local_subscriptions_table, data_remove_empty_services,
+                                     NULL);
+    }
 }
 
 /**
@@ -563,10 +567,13 @@ data_remove_local_entries_for_addr (gpointer key, gpointer value, gpointer user_
 void
 data_remove_local_subscriptions_for_addr (uint32_t addr)
 {
-    g_hash_table_foreach (local_subscriptions_table,
-                          data_remove_local_entries_for_addr, (void *) &addr);
-    g_hash_table_foreach_remove (local_subscriptions_table, data_remove_empty_services,
-                                 NULL);
+    if (local_subscriptions_table)
+    {
+        g_hash_table_foreach (local_subscriptions_table,
+                              data_remove_local_entries_for_addr, (void *) &addr);
+        g_hash_table_foreach_remove (local_subscriptions_table, data_remove_empty_services,
+                                     NULL);
+    }
 }
 
 /**
