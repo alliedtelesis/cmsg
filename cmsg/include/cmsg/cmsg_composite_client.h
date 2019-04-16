@@ -18,5 +18,6 @@ cmsg_client *cmsg_composite_client_lookup_by_tcp_ipv4_addr (cmsg_client *_compos
                                                             uint32_t addr);
 int cmsg_composite_client_num_children (cmsg_client *_composite_client);
 GList *cmsg_composite_client_get_children (cmsg_client *_composite_client);
+void cmsg_composite_client_free_all_children (cmsg_client *_composite_client);
 
 #endif /* __CMSG_COMPOSITE_CLIENT_H_ */

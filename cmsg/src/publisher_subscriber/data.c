@@ -26,7 +26,7 @@ typedef struct
     GList *methods;
 } service_data_entry;
 
-static GHashTable *local_subscriptions_table = NULL;
+GHashTable *local_subscriptions_table = NULL;
 static GList *remote_subscriptions_list = NULL;
 
 static const ProtobufCServiceDescriptor cmsg_psd_pub_descriptor = {
@@ -39,6 +39,38 @@ static const ProtobufCServiceDescriptor cmsg_psd_pub_descriptor = {
     NULL,
     NULL,
 };
+
+/**
+ * Called for each entry in the methods list of a service entry.
+ * Simply frees all memory used by the method entry.
+ *
+ * @param data - The entry to free.
+ */
+static void
+service_entry_free_methods (gpointer data)
+{
+    method_data_entry *entry = (method_data_entry *) data;
+
+    cmsg_composite_client_free_all_children (entry->comp_client);
+    cmsg_client_destroy (entry->comp_client);
+    CMSG_FREE (entry->method_name);
+    CMSG_FREE (entry);
+}
+
+/**
+ * Frees all memory used by the given service entry.
+ *
+ * @param data - The service entry to free.
+ */
+static void
+service_entry_free (gpointer data)
+{
+    service_data_entry *entry = (service_data_entry *) data;
+
+    g_list_free_full (entry->methods, service_entry_free_methods);
+    entry->methods = NULL;
+    CMSG_FREE (entry);
+}
 
 /**
  * Gets the 'service_data_entry' structure for the given service name
@@ -219,10 +251,10 @@ data_remove_remote_subscription (const cmsg_subscription_info *info)
                                      remote_subscription_compare);
     if (list_entry)
     {
+        CMSG_FREE_RECV_MSG (list_entry->data);
         remote_subscriptions_list = g_list_remove (remote_subscriptions_list,
                                                    list_entry->data);
         remote_sync_subscription_removed (info);
-        CMSG_FREE_RECV_MSG (list_entry->data);
     }
 }
 
@@ -316,7 +348,6 @@ data_remove_local_subscription (const cmsg_subscription_info *info)
     if (destroy_service_entry)
     {
         g_hash_table_remove (local_subscriptions_table, info->service);
-        CMSG_FREE (service_entry);
     }
 }
 
@@ -426,6 +457,7 @@ data_prune_empty_methods (service_data_entry *entry)
     {
         method_entry = (method_data_entry *) list->data;
         entry->methods = g_list_remove (entry->methods, method_entry);
+        cmsg_client_destroy (method_entry->comp_client);
         CMSG_FREE (method_entry->method_name);
         CMSG_FREE (method_entry);
         list_next = g_list_next (list);
@@ -468,7 +500,6 @@ data_remove_empty_services (gpointer key, gpointer value, gpointer user_data)
 
     if (g_list_length (entry->methods) == 0)
     {
-        CMSG_FREE (entry);
         return TRUE;
     }
 
@@ -589,8 +620,7 @@ _data_check_remote_entries (gpointer data, gpointer user_data)
 {
     cmsg_subscription_info *info = (cmsg_subscription_info *) data;
 
-    if (CMSG_IS_FIELD_PRESENT (info, remote_addr) &&
-        remote_sync_get_local_ip () == info->remote_addr)
+    if (remote_sync_get_local_ip () == info->remote_addr)
     {
         syslog (LOG_ERR, "Incorrect subscription API used for %s service (method: %s)",
                 info->service, info->method_name);
@@ -604,11 +634,7 @@ _data_check_remote_entries (gpointer data, gpointer user_data)
 void
 data_check_remote_entries (void)
 {
-    GList *list = remote_subscriptions_list;
-
-    remote_subscriptions_list = NULL;
-    g_list_foreach (list, _data_check_remote_entries, NULL);
-    g_list_free (list);
+    g_list_foreach (remote_subscriptions_list, _data_check_remote_entries, NULL);
 }
 
 /**
@@ -655,12 +681,37 @@ void
 data_init (void)
 {
     local_subscriptions_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
-                                                       NULL);
+                                                       service_entry_free);
     if (!local_subscriptions_table)
     {
         syslog (LOG_ERR, "Failed to initialize hash table");
         return;
     }
+}
+
+/**
+ * Deinitialise the data layer.
+ */
+void
+data_deinit (void)
+{
+    GList *list = NULL;
+    GList *list_next = NULL;
+
+    if (local_subscriptions_table)
+    {
+        g_hash_table_remove_all (local_subscriptions_table);
+        g_hash_table_unref (local_subscriptions_table);
+        local_subscriptions_table = NULL;
+    }
+
+    for (list = g_list_first (remote_subscriptions_list); list; list = list_next)
+    {
+        CMSG_FREE_RECV_MSG (list->data);
+        list_next = g_list_next (list);
+    }
+    g_list_free (remote_subscriptions_list);
+    remote_subscriptions_list = NULL;
 }
 
 /**

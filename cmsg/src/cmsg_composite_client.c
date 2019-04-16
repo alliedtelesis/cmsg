@@ -37,6 +37,16 @@ do                                                                   \
     }                                                                \
 } while (0)
 
+#define CMSG_COMPOSITE_CLIENT_TYPE_CHECK_VOID_RETURN(CLIENT)         \
+do                                                                   \
+{                                                                    \
+    if ((CLIENT).self.object_type != CMSG_OBJ_TYPE_COMPOSITE_CLIENT) \
+    {                                                                \
+        CMSG_LOG_GEN_ERROR (CMSG_COMPOSITE_CLIENT_TYPE_CHECK_ERROR); \
+        return;                                                      \
+    }                                                                \
+} while (0)
+
 /**
  * Send message to a group of clients. If any one message fails, an error is returned.
  * The caller must free any received data, which there may be some of even if an error
@@ -392,4 +402,27 @@ cmsg_composite_client_get_children (cmsg_client *_composite_client)
     CMSG_COMPOSITE_CLIENT_TYPE_CHECK (composite_client->base_client, NULL);
 
     return composite_client->child_clients;
+}
+
+void
+cmsg_composite_client_free_all_children (cmsg_client *_composite_client)
+{
+    cmsg_composite_client *composite_client = (cmsg_composite_client *) _composite_client;
+    GList *l;
+    cmsg_client *child;
+
+    CMSG_COMPOSITE_CLIENT_TYPE_CHECK_VOID_RETURN (composite_client->base_client);
+
+    pthread_mutex_lock (&composite_client->child_mutex);
+
+    for (l = composite_client->child_clients; l != NULL; l = l->next)
+    {
+        child = (cmsg_client *) l->data;
+        cmsg_destroy_client_and_transport (child);
+    }
+
+    g_list_free (composite_client->child_clients);
+    composite_client->child_clients = NULL;
+
+    pthread_mutex_unlock (&composite_client->child_mutex);
 }
