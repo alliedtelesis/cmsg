@@ -358,8 +358,7 @@ _cmsg_client_connect (cmsg_client *client, int timeout)
         // count the connection attempt
         CMSG_COUNTER_INC (client, cntr_connect_attempts);
 
-        ret = client->_transport->tport_funcs.connect (client->_transport, timeout);
-
+        ret = cmsg_transport_connect (client->_transport, timeout);
         if (ret < 0)
         {
             // count the connection failure

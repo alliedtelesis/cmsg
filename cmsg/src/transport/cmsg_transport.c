@@ -636,6 +636,16 @@ cmsg_transport_socket_close (cmsg_transport *transport)
     }
 }
 
+int
+cmsg_transport_connect (cmsg_transport *transport, int timeout)
+{
+    int ret;
+
+    ret = transport->tport_funcs.connect (transport, timeout);
+
+    return ret;
+}
+
 bool
 cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
 {
