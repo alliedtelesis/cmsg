@@ -315,6 +315,7 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->is_congested = cmsg_transport_tcp_is_congested;
     tport_funcs->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
     tport_funcs->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
+    tport_funcs->destroy = NULL;
 }
 
 

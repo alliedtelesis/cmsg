@@ -226,4 +226,5 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
         cmsg_transport_tipc_broadcast_send_can_block_enable;
     transport->tport_funcs.ipfree_bind_enable =
         cmsg_transport_tipc_broadcast_ipfree_bind_enable;
+    transport->tport_funcs.destroy = NULL;
 }

@@ -218,6 +218,7 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
     transport->tport_funcs.send_can_block_enable =
         cmsg_transport_unix_send_can_block_enable;
     transport->tport_funcs.ipfree_bind_enable = NULL;
+    transport->tport_funcs.destroy = NULL;
 }
 
 void

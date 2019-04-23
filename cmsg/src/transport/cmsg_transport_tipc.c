@@ -274,6 +274,7 @@ _cmsg_transport_tipc_init_common (cmsg_transport *transport)
     transport->tport_funcs.send_can_block_enable =
         cmsg_transport_tipc_send_can_block_enable;
     transport->tport_funcs.ipfree_bind_enable = cmsg_transport_tipc_ipfree_bind_enable;
+    transport->tport_funcs.destroy = NULL;
 }
 
 void

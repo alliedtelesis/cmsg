@@ -51,6 +51,7 @@ typedef int (*get_socket_f) (cmsg_transport *transport);
 typedef bool (*is_congested_f) (cmsg_transport *transport);
 typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
 typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
+typedef void (*destroy_f) (cmsg_transport *transport);
 
 typedef struct _cmsg_tport_functions_s
 {
@@ -67,6 +68,7 @@ typedef struct _cmsg_tport_functions_s
     is_congested_f is_congested;                // Check whether transport is congested
     send_can_block_enable_f send_can_block_enable;
     ipfree_bind_enable_f ipfree_bind_enable;    // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
+    destroy_f destroy;                          // Called when the transport is to be destroyed
 } cmsg_tport_functions;
 
 typedef struct _cmsg_udt_info_s
@@ -139,7 +141,7 @@ struct _cmsg_transport_s
 
 cmsg_transport *cmsg_transport_new (cmsg_transport_type type);
 
-int32_t cmsg_transport_destroy (cmsg_transport *transport);
+void cmsg_transport_destroy (cmsg_transport *transport);
 
 int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
                                               uint32_t send_can_block);

@@ -213,6 +213,15 @@ cmsg_transport_udt_ipfree_bind_enable (cmsg_transport *transport,
     return -1;
 }
 
+static void
+cmsg_transport_udt_destroy (cmsg_transport *transport)
+{
+    if (transport->udt_info.functions.destroy)
+    {
+        transport->udt_info.functions.destroy (transport);
+    }
+}
+
 
 /**
  * Initialise the function pointers that userdefined transport type
@@ -241,6 +250,7 @@ cmsg_transport_udt_init (cmsg_transport *transport)
     transport->tport_funcs.is_congested = cmsg_transport_udt_is_congested;
     transport->tport_funcs.send_can_block_enable = cmsg_transport_udt_send_can_block_enable;
     transport->tport_funcs.ipfree_bind_enable = cmsg_transport_udt_ipfree_bind_enable;
+    transport->tport_funcs.destroy = cmsg_transport_udt_destroy;
 }
 
 void

@@ -178,17 +178,16 @@ cmsg_transport_new (cmsg_transport_type type)
     return transport;
 }
 
-int32_t
+void
 cmsg_transport_destroy (cmsg_transport *transport)
 {
     if (transport)
     {
+        if (transport->tport_funcs.destroy)
+        {
+            transport->tport_funcs.destroy (transport);
+        }
         CMSG_FREE (transport);
-        return 0;
-    }
-    else
-    {
-        return 1;
     }
 }
 
