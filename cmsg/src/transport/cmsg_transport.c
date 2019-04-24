@@ -217,6 +217,8 @@ cmsg_transport_new (cmsg_transport_type type)
     transport->type = type;
     transport->connect_timeout = CONNECT_TIMEOUT_DEFAULT;
     transport->send_timeout = SEND_TIMEOUT_DEFAULT;
+    transport->receive_timeout = RECV_TIMEOUT_DEFAULT;
+    transport->receive_peek_timeout = RECV_HEADER_PEEK_TIMEOUT_DEFAULT;
 
     switch (type)
     {
@@ -452,17 +454,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     cmsg_server_request server_request;
     int socket = transport->socket;
     cmsg_status_code ret;
-    time_t receive_timeout;
-
-    /* Use the client receive timeout if set. Otherwise use the default. */
-    if (transport->receive_timeout != 0)
-    {
-        receive_timeout = transport->receive_timeout;
-    }
-    else
-    {
-        receive_timeout = MAX_CLIENT_PEEK_LOOP;
-    }
+    time_t receive_timeout = transport->receive_peek_timeout;
 
     *messagePtPt = NULL;
 
@@ -663,12 +655,13 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
     int32_t ret = CMSG_RET_ERR;
     cmsg_status_code peek_status;
     cmsg_header header_received;
+    time_t receive_timeout = transport->receive_peek_timeout;
 
     CMSG_ASSERT_RETURN_VAL (transport != NULL, CMSG_RET_ERR);
 
     peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
                                                   transport,
-                                                  server_socket, MAX_SERVER_PEEK_LOOP,
+                                                  server_socket, receive_timeout,
                                                   &header_received);
     if (peek_status == CMSG_STATUS_CODE_SUCCESS)
     {
@@ -732,6 +725,7 @@ cmsg_transport_connect (cmsg_transport *transport)
     if (ret == CMSG_RET_OK)
     {
         transport->tport_funcs.apply_send_timeout (transport);
+        transport->tport_funcs.apply_recv_timeout (transport);
     }
 
     return ret;
@@ -754,6 +748,14 @@ cmsg_transport_set_send_timeout (cmsg_transport *transport, uint32_t timeout)
 }
 
 int32_t
+cmsg_transport_set_recv_peek_timeout (cmsg_transport *transport, uint32_t timeout)
+{
+    transport->receive_peek_timeout = timeout;
+
+    return 0;
+}
+
+int32_t
 cmsg_transport_apply_send_timeout (cmsg_transport *transport)
 {
     struct timeval tv;
@@ -768,6 +770,28 @@ cmsg_transport_apply_send_timeout (cmsg_transport *transport)
         if (setsockopt (sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof (tv)) < 0)
         {
             CMSG_DEBUG (CMSG_INFO, "Failed to set send timeout (errno=%d)\n", errno);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+int32_t
+cmsg_transport_apply_recv_timeout (cmsg_transport *transport)
+{
+    struct timeval tv;
+    int sockfd;
+
+    sockfd = transport->socket;
+    if (sockfd != -1)
+    {
+        tv.tv_sec = transport->receive_timeout;
+        tv.tv_usec = 0;
+
+        if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof (tv)) < 0)
+        {
+            CMSG_DEBUG (CMSG_INFO, "Failed to set recv timeout (errno=%d)\n", errno);
             return -1;
         }
     }

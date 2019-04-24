@@ -221,6 +221,7 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
     transport->tport_funcs.ipfree_bind_enable = NULL;
     transport->tport_funcs.destroy = NULL;
     transport->tport_funcs.apply_send_timeout = cmsg_transport_apply_send_timeout;
+    transport->tport_funcs.apply_recv_timeout = cmsg_transport_apply_recv_timeout;
 }
 
 void

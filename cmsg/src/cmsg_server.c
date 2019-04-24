@@ -14,6 +14,12 @@
 #include "cntrd_app_api.h"
 #endif
 
+/* This value controls how long a server waits to peek the header of a
+ * CMSG packet in seconds. This value is kept small as there is no reason
+ * outside of error conditions why peeking the header on a server should
+ * take a long time. */
+#define SERVER_RECV_HEADER_PEEK_TIMEOUT 10
+
 static cmsg_server *_cmsg_create_server_tipc (const char *server_name, int member_id,
                                               int scope, ProtobufCService *descriptor,
                                               cmsg_transport_type transport_type);
@@ -81,6 +87,9 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
         cmsg_transport_write_id (transport, service->descriptor->name);
 
         server->_transport = transport;
+        cmsg_transport_set_recv_peek_timeout (server->_transport,
+                                              SERVER_RECV_HEADER_PEEK_TIMEOUT);
+
         server->service = service;
         server->message_processor = cmsg_server_message_processor;
 

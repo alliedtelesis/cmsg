@@ -12,6 +12,11 @@
 #endif
 #include <fcntl.h>
 
+/* This value controls how long a client waits to peek the header of a response
+ * packet sent from the server in seconds. This value defaults to 100 seconds as
+ * the server may take a long time to respond to the API call. */
+#define CLIENT_RECV_HEADER_PEEK_TIMEOUT 100
+
 static int32_t _cmsg_client_buffer_send_retry_once (cmsg_client *client,
                                                     uint8_t *queue_buffer,
                                                     uint32_t queue_buffer_size,
@@ -28,8 +33,6 @@ static cmsg_client *_cmsg_create_client_tipc (const char *server, int member_id,
                                               int scope,
                                               const ProtobufCServiceDescriptor *descriptor,
                                               cmsg_transport_type transport_type);
-
-static int _cmsg_client_apply_receive_timeout (int sockfd, uint32_t timeout);
 
 int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
 
@@ -94,6 +97,8 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
         client->base_service.destroy = NULL;
         client->_transport = transport;
         cmsg_transport_write_id (transport, descriptor->name);
+        cmsg_transport_set_recv_peek_timeout (client->_transport,
+                                              CLIENT_RECV_HEADER_PEEK_TIMEOUT);
     }
 
     //for compatibility with current generated code
@@ -153,7 +158,6 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
         cmsg_client_queue_filter_init (client);
     }
 
-    client->receive_timeout = 0;
     client->suppress_errors = false;
 
     return true;
@@ -339,7 +343,6 @@ static int32_t
 _cmsg_client_connect (cmsg_client *client)
 {
     int32_t ret = 0;
-    int sock;
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
@@ -364,18 +367,6 @@ _cmsg_client_connect (cmsg_client *client)
         else
         {
             client->state = CMSG_CLIENT_STATE_CONNECTED;
-            sock = client->_transport->socket;
-
-            if (client->receive_timeout > 0)
-            {
-                // Set receive timeout on the socket if needed
-                if (_cmsg_client_apply_receive_timeout (sock, client->receive_timeout) < 0)
-                {
-                    CMSG_DEBUG (CMSG_INFO,
-                                "[CLIENT] failed to set receive timeout (errno=%d)\n",
-                                errno);
-                }
-            }
         }
     }
 
@@ -426,28 +417,6 @@ cmsg_client_set_connect_timeout (cmsg_client *client, uint32_t timeout)
 }
 
 /**
- * Apply receive timeout to a socket
- * @param sockfd    socket file descriptor
- * @param timeout   timeout in seconds
- * @returns 0 on success or -1 on failure
- */
-static int
-_cmsg_client_apply_receive_timeout (int sockfd, uint32_t timeout)
-{
-    struct timeval tv;
-
-    tv.tv_sec = timeout;
-    tv.tv_usec = 0;
-
-    if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof (tv)) < 0)
-    {
-        return -1;
-    }
-
-    return 0;
-}
-
-/**
  * Configure receive timeout for a cmsg client. This timeout will be applied immediately
  * to the client if it's already connected. Otherwise it will be applied when connected.
  * @param timeout   Timeout in seconds
@@ -458,21 +427,7 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
 {
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
-    client->receive_timeout = timeout;
-
-    /* If the client is already connected, then apply the new timeout immediately */
-    if (client->state == CMSG_CLIENT_STATE_CONNECTED)
-    {
-        _cmsg_client_apply_receive_timeout (client->_transport->socket,
-                                            client->receive_timeout);
-    }
-
-    /* Store the timeout in the transport so client receive can timeout properly */
-    if (client->_transport)
-    {
-        client->_transport->receive_timeout = timeout;
-    }
-    return 0;
+    return cmsg_transport_set_recv_peek_timeout (client->_transport, timeout);
 }
 
 int32_t

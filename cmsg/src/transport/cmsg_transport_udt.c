@@ -233,6 +233,17 @@ cmsg_transport_udt_apply_send_timeout (cmsg_transport *transport)
     return -1;
 }
 
+static int32_t
+cmsg_transport_udt_apply_recv_timeout (cmsg_transport *transport)
+{
+    if (transport->udt_info.functions.apply_recv_timeout)
+    {
+        return transport->udt_info.functions.apply_recv_timeout (transport);
+    }
+
+    return -1;
+}
+
 /**
  * Initialise the function pointers that userdefined transport type
  * will use.
@@ -262,6 +273,7 @@ cmsg_transport_udt_init (cmsg_transport *transport)
     transport->tport_funcs.ipfree_bind_enable = cmsg_transport_udt_ipfree_bind_enable;
     transport->tport_funcs.destroy = cmsg_transport_udt_destroy;
     transport->tport_funcs.apply_send_timeout = cmsg_transport_udt_apply_send_timeout;
+    transport->tport_funcs.apply_recv_timeout = cmsg_transport_udt_apply_recv_timeout;
 }
 
 void

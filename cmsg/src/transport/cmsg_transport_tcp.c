@@ -317,6 +317,7 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
     tport_funcs->destroy = NULL;
     tport_funcs->apply_send_timeout = cmsg_transport_apply_send_timeout;
+    tport_funcs->apply_recv_timeout = cmsg_transport_apply_recv_timeout;
 }
 
 

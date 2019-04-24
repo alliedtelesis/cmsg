@@ -83,9 +83,6 @@ typedef struct _cmsg_client_s
     uint32_t queue_process_count;
     pthread_t self_thread_id;
 
-    // timeout
-    uint32_t receive_timeout;
-
     // logging - whether to downgrade errors to debug
     cmsg_bool_t suppress_errors;
 
