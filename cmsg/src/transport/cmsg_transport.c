@@ -636,12 +636,12 @@ cmsg_transport_socket_close (cmsg_transport *transport)
     }
 }
 
-int
-cmsg_transport_connect (cmsg_transport *transport, int timeout)
+int32_t
+cmsg_transport_connect (cmsg_transport *transport)
 {
     int ret;
 
-    ret = transport->tport_funcs.connect (transport, timeout);
+    ret = transport->tport_funcs.connect (transport, CONNECT_TIMEOUT_DEFAULT);
 
     return ret;
 }

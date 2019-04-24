@@ -335,12 +335,11 @@ cmsg_client_response_receive (cmsg_client *client, ProtobufCMessage **message)
  * Connect the transport, unless it is already connected.
  *
  * @param client - The client to connect.
- * @param timeout - The timeout value to use.
  *
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-_cmsg_client_connect (cmsg_client *client, int timeout)
+_cmsg_client_connect (cmsg_client *client)
 {
     int32_t ret = 0;
     int sock;
@@ -358,7 +357,7 @@ _cmsg_client_connect (cmsg_client *client, int timeout)
         // count the connection attempt
         CMSG_COUNTER_INC (client, cntr_connect_attempts);
 
-        ret = cmsg_transport_connect (client->_transport, timeout);
+        ret = cmsg_transport_connect (client->_transport);
         if (ret < 0)
         {
             // count the connection failure
@@ -398,8 +397,7 @@ _cmsg_client_connect (cmsg_client *client, int timeout)
 
 
 /**
- * Connect the transport using the default timeout value,
- * unless it's already connected.
+ * Connect the transport of the client, unless it's already connected.
  *
  * @param client - The client to connect.
  *
@@ -408,24 +406,8 @@ _cmsg_client_connect (cmsg_client *client, int timeout)
 int32_t
 cmsg_client_connect (cmsg_client *client)
 {
-    return _cmsg_client_connect (client, CONNECT_TIMEOUT_DEFAULT);
+    return _cmsg_client_connect (client);
 }
-
-/**
- * Connect the transport with a non-default timeout value,
- * unless it's already connected.
- *
- * @param client - The client to connect.
- * @param timeout - The timeout value to use.
- *
- * Returns 0 on success or a negative integer on failure.
- */
-int32_t
-cmsg_client_connect_with_timeout (cmsg_client *client, int timeout)
-{
-    return _cmsg_client_connect (client, timeout);
-}
-
 
 /**
  * Configure send timeout for a cmsg client. This timeout will be applied immediately

@@ -45,7 +45,7 @@ cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
                                                  time_t seconds_to_wait,
                                                  cmsg_header *header_received);
 
-int cmsg_transport_connect (cmsg_transport *transport, int timeout);
+int32_t cmsg_transport_connect (cmsg_transport *transport);
 
 cmsg_transport_info *cmsg_transport_info_create (cmsg_transport *transport);
 void cmsg_transport_info_free (cmsg_transport_info *transport_info);
