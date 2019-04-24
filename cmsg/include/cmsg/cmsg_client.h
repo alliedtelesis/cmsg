@@ -84,7 +84,6 @@ typedef struct _cmsg_client_s
     pthread_t self_thread_id;
 
     // timeout
-    uint32_t send_timeout;
     uint32_t receive_timeout;
 
     // logging - whether to downgrade errors to debug

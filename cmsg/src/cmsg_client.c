@@ -29,8 +29,6 @@ static cmsg_client *_cmsg_create_client_tipc (const char *server, int member_id,
                                               const ProtobufCServiceDescriptor *descriptor,
                                               cmsg_transport_type transport_type);
 
-static int _cmsg_client_apply_send_timeout (int sock, uint32_t timeout);
-
 static int _cmsg_client_apply_receive_timeout (int sockfd, uint32_t timeout);
 
 int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
@@ -155,7 +153,6 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
         cmsg_client_queue_filter_init (client);
     }
 
-    client->send_timeout = 0;
     client->receive_timeout = 0;
     client->suppress_errors = false;
 
@@ -369,16 +366,6 @@ _cmsg_client_connect (cmsg_client *client)
             client->state = CMSG_CLIENT_STATE_CONNECTED;
             sock = client->_transport->socket;
 
-            if (client->send_timeout > 0)
-            {
-                // Set send timeout on the socket if needed
-                if (_cmsg_client_apply_send_timeout (sock, client->send_timeout) < 0)
-                {
-                    CMSG_DEBUG (CMSG_INFO,
-                                "[CLIENT] failed to set send timeout (errno=%d)\n", errno);
-                }
-            }
-
             if (client->receive_timeout > 0)
             {
                 // Set receive timeout on the socket if needed
@@ -420,15 +407,7 @@ cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout)
 {
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
-    client->send_timeout = timeout;
-
-    /* If the client is already connected, then apply the new timeout immediately */
-    if (client->state == CMSG_CLIENT_STATE_CONNECTED)
-    {
-        _cmsg_client_apply_send_timeout (client->_transport->socket, client->send_timeout);
-    }
-
-    return 0;
+    return cmsg_transport_set_send_timeout (client->_transport, timeout);
 }
 
 /**
@@ -444,28 +423,6 @@ cmsg_client_set_connect_timeout (cmsg_client *client, uint32_t timeout)
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
     return cmsg_transport_set_connect_timeout (client->_transport, timeout);
-}
-
-/**
- * Apply send timeout to a socket
- * @param sockfd    socket file descriptor
- * @param timeout   timeout in seconds
- * @returns 0 on success or -1 on failure
- */
-static int
-_cmsg_client_apply_send_timeout (int sockfd, uint32_t timeout)
-{
-    struct timeval tv;
-
-    tv.tv_sec = timeout;
-    tv.tv_usec = 0;
-
-    if (setsockopt (sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof (tv)) < 0)
-    {
-        return -1;
-    }
-
-    return 0;
 }
 
 /**

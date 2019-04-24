@@ -222,6 +222,16 @@ cmsg_transport_udt_destroy (cmsg_transport *transport)
     }
 }
 
+static int32_t
+cmsg_transport_udt_apply_send_timeout (cmsg_transport *transport)
+{
+    if (transport->udt_info.functions.apply_send_timeout)
+    {
+        return transport->udt_info.functions.apply_send_timeout (transport);
+    }
+
+    return -1;
+}
 
 /**
  * Initialise the function pointers that userdefined transport type
@@ -251,6 +261,7 @@ cmsg_transport_udt_init (cmsg_transport *transport)
     transport->tport_funcs.send_can_block_enable = cmsg_transport_udt_send_can_block_enable;
     transport->tport_funcs.ipfree_bind_enable = cmsg_transport_udt_ipfree_bind_enable;
     transport->tport_funcs.destroy = cmsg_transport_udt_destroy;
+    transport->tport_funcs.apply_send_timeout = cmsg_transport_udt_apply_send_timeout;
 }
 
 void

@@ -227,4 +227,5 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->tport_funcs.ipfree_bind_enable =
         cmsg_transport_tipc_broadcast_ipfree_bind_enable;
     transport->tport_funcs.destroy = NULL;
+    transport->tport_funcs.apply_send_timeout = cmsg_transport_apply_send_timeout;
 }

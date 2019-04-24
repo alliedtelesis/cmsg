@@ -216,6 +216,7 @@ cmsg_transport_new (cmsg_transport_type type)
 
     transport->type = type;
     transport->connect_timeout = CONNECT_TIMEOUT_DEFAULT;
+    transport->send_timeout = SEND_TIMEOUT_DEFAULT;
 
     switch (type)
     {
@@ -728,6 +729,10 @@ cmsg_transport_connect (cmsg_transport *transport)
     int ret;
 
     ret = transport->tport_funcs.connect (transport);
+    if (ret == CMSG_RET_OK)
+    {
+        transport->tport_funcs.apply_send_timeout (transport);
+    }
 
     return ret;
 }
@@ -736,6 +741,36 @@ int32_t
 cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout)
 {
     transport->connect_timeout = timeout;
+
+    return 0;
+}
+
+int32_t
+cmsg_transport_set_send_timeout (cmsg_transport *transport, uint32_t timeout)
+{
+    transport->send_timeout = timeout;
+
+    return transport->tport_funcs.apply_send_timeout (transport);
+}
+
+int32_t
+cmsg_transport_apply_send_timeout (cmsg_transport *transport)
+{
+    struct timeval tv;
+    int sockfd;
+
+    sockfd = transport->socket;
+    if (sockfd != -1)
+    {
+        tv.tv_sec = transport->send_timeout;
+        tv.tv_usec = 0;
+
+        if (setsockopt (sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof (tv)) < 0)
+        {
+            CMSG_DEBUG (CMSG_INFO, "Failed to set send timeout (errno=%d)\n", errno);
+            return -1;
+        }
+    }
 
     return 0;
 }

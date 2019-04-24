@@ -220,6 +220,7 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
         cmsg_transport_unix_send_can_block_enable;
     transport->tport_funcs.ipfree_bind_enable = NULL;
     transport->tport_funcs.destroy = NULL;
+    transport->tport_funcs.apply_send_timeout = cmsg_transport_apply_send_timeout;
 }
 
 void
