@@ -724,11 +724,29 @@ cmsg_transport_connect (cmsg_transport *transport)
     ret = transport->tport_funcs.connect (transport);
     if (ret == CMSG_RET_OK)
     {
-        transport->tport_funcs.apply_send_timeout (transport);
-        transport->tport_funcs.apply_recv_timeout (transport);
+        transport->tport_funcs.apply_send_timeout (transport, transport->socket);
+        transport->tport_funcs.apply_recv_timeout (transport, transport->socket);
     }
 
     return ret;
+}
+
+int32_t
+cmsg_transport_accept (cmsg_transport *transport)
+{
+    int sock = -1;
+
+    if (transport->tport_funcs.server_accept)
+    {
+        sock = transport->tport_funcs.server_accept (transport);
+        if (sock != -1)
+        {
+            transport->tport_funcs.apply_send_timeout (transport, sock);
+            transport->tport_funcs.apply_recv_timeout (transport, sock);
+        }
+    }
+
+    return sock;
 }
 
 int32_t
@@ -744,7 +762,7 @@ cmsg_transport_set_send_timeout (cmsg_transport *transport, uint32_t timeout)
 {
     transport->send_timeout = timeout;
 
-    return transport->tport_funcs.apply_send_timeout (transport);
+    return transport->tport_funcs.apply_send_timeout (transport, transport->socket);
 }
 
 int32_t
@@ -756,12 +774,10 @@ cmsg_transport_set_recv_peek_timeout (cmsg_transport *transport, uint32_t timeou
 }
 
 int32_t
-cmsg_transport_apply_send_timeout (cmsg_transport *transport)
+cmsg_transport_apply_send_timeout (cmsg_transport *transport, int sockfd)
 {
     struct timeval tv;
-    int sockfd;
 
-    sockfd = transport->socket;
     if (sockfd != -1)
     {
         tv.tv_sec = transport->send_timeout;
@@ -778,12 +794,10 @@ cmsg_transport_apply_send_timeout (cmsg_transport *transport)
 }
 
 int32_t
-cmsg_transport_apply_recv_timeout (cmsg_transport *transport)
+cmsg_transport_apply_recv_timeout (cmsg_transport *transport, int sockfd)
 {
     struct timeval tv;
-    int sockfd;
 
-    sockfd = transport->socket;
     if (sockfd != -1)
     {
         tv.tv_sec = transport->receive_timeout;

@@ -50,11 +50,12 @@ cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
                                                  cmsg_header *header_received);
 
 int32_t cmsg_transport_connect (cmsg_transport *transport);
+int32_t cmsg_transport_accept (cmsg_transport *transport);
 int32_t cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout);
 int32_t cmsg_transport_set_send_timeout (cmsg_transport *transport, uint32_t timeout);
 int32_t cmsg_transport_set_recv_peek_timeout (cmsg_transport *transport, uint32_t timeout);
-int32_t cmsg_transport_apply_send_timeout (cmsg_transport *transport);
-int32_t cmsg_transport_apply_recv_timeout (cmsg_transport *transport);
+int32_t cmsg_transport_apply_send_timeout (cmsg_transport *transport, int sockfd);
+int32_t cmsg_transport_apply_recv_timeout (cmsg_transport *transport, int sockfd);
 
 cmsg_transport_info *cmsg_transport_info_create (cmsg_transport *transport);
 void cmsg_transport_info_free (cmsg_transport_info *transport_info);

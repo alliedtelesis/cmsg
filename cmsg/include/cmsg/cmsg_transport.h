@@ -39,7 +39,7 @@ typedef int (*server_listen_f) (cmsg_transport *transport);
 typedef int (*server_recv_f) (int socket, cmsg_transport *transport,
                               uint8_t **recv_buffer,
                               cmsg_header *processed_header, int *nbytes);
-typedef int (*server_accept_f) (int32_t socket, cmsg_transport *transport);
+typedef int (*server_accept_f) (cmsg_transport *transport);
 typedef cmsg_status_code (*client_recv_f) (cmsg_transport *transport,
                                            const ProtobufCServiceDescriptor *descriptor,
                                            ProtobufCMessage **messagePtPt);
@@ -50,8 +50,8 @@ typedef void (*socket_close_f) (cmsg_transport *transport);
 typedef int (*get_socket_f) (cmsg_transport *transport);
 typedef bool (*is_congested_f) (cmsg_transport *transport);
 typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
-typedef int32_t (*apply_send_timeout_f) (cmsg_transport *transport);
-typedef int32_t (*apply_recv_timeout_f) (cmsg_transport *transport);
+typedef int32_t (*apply_send_timeout_f) (cmsg_transport *transport, int sockfd);
+typedef int32_t (*apply_recv_timeout_f) (cmsg_transport *transport, int sockfd);
 typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
 typedef void (*destroy_f) (cmsg_transport *transport);
 

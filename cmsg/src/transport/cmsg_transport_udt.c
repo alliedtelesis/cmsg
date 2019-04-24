@@ -58,11 +58,11 @@ cmsg_transport_udt_server_recv (int32_t server_socket, cmsg_transport *transport
 
 
 int32_t
-cmsg_transport_udt_server_accept (int32_t listen_socket, cmsg_transport *transport)
+cmsg_transport_udt_server_accept (cmsg_transport *transport)
 {
     if (transport->udt_info.functions.server_accept)
     {
-        return transport->udt_info.functions.server_accept (listen_socket, transport);
+        return transport->udt_info.functions.server_accept (transport);
     }
 
     return -1;
@@ -223,22 +223,22 @@ cmsg_transport_udt_destroy (cmsg_transport *transport)
 }
 
 static int32_t
-cmsg_transport_udt_apply_send_timeout (cmsg_transport *transport)
+cmsg_transport_udt_apply_send_timeout (cmsg_transport *transport, int sockfd)
 {
     if (transport->udt_info.functions.apply_send_timeout)
     {
-        return transport->udt_info.functions.apply_send_timeout (transport);
+        return transport->udt_info.functions.apply_send_timeout (transport, sockfd);
     }
 
     return -1;
 }
 
 static int32_t
-cmsg_transport_udt_apply_recv_timeout (cmsg_transport *transport)
+cmsg_transport_udt_apply_recv_timeout (cmsg_transport *transport, int sockfd)
 {
     if (transport->udt_info.functions.apply_recv_timeout)
     {
-        return transport->udt_info.functions.apply_recv_timeout (transport);
+        return transport->udt_info.functions.apply_recv_timeout (transport, sockfd);
     }
 
     return -1;

@@ -181,11 +181,12 @@ cmsg_transport_tipc_recv (cmsg_transport *transport, int sock, void *buff, int l
 
 
 static int32_t
-cmsg_transport_tipc_server_accept (int32_t listen_socket, cmsg_transport *transport)
+cmsg_transport_tipc_server_accept (cmsg_transport *transport)
 {
     uint32_t client_len;
     cmsg_transport client_transport;
     int sock;
+    int listen_socket = transport->socket;
 
     if (listen_socket < 0)
     {

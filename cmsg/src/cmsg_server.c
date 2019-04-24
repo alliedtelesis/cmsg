@@ -873,14 +873,10 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 
     CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
 
-    if (server->_transport->tport_funcs.server_accept != NULL)
-    {
-        sock =
-            server->_transport->tport_funcs.server_accept (listen_socket,
-                                                           server->_transport);
-        // count the accepted connection
-        CMSG_COUNTER_INC (server, cntr_connections_accepted);
-    }
+    sock = cmsg_transport_accept (server->_transport);
+
+    // count the accepted connection
+    CMSG_COUNTER_INC (server, cntr_connections_accepted);
 
     return sock;
 }
