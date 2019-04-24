@@ -41,7 +41,7 @@ cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
         addr_len = sizeof (transport->config.socket.sockaddr.in);
     }
 
-    if (connect (transport->socket, addr, addr_len) < 0)
+    if (connect_nb (transport->socket, addr, addr_len, timeout) < 0)
     {
         if (errno == EINPROGRESS)
         {

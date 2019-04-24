@@ -9,7 +9,7 @@
 
 /* When connecting the transport specify that the default timeout value should
  * be used with the connect call */
-#define CONNECT_TIMEOUT_DEFAULT -1
+#define CONNECT_TIMEOUT_DEFAULT 0   /* Block indefinitely */
 
 /* This value is used to limit the timeout for client message peek to 100s */
 #define MAX_CLIENT_PEEK_LOOP (100)
@@ -35,6 +35,8 @@ void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
 void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
 void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
 void cmsg_transport_udt_init (cmsg_transport *transport);
+
+int connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int timeout);
 
 cmsg_status_code cmsg_transport_client_recv (cmsg_transport *transport,
                                              const ProtobufCServiceDescriptor *descriptor,

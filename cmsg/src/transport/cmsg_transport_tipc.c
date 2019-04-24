@@ -36,7 +36,7 @@ cmsg_transport_tipc_connect (cmsg_transport *transport, int timeout)
 
     if (timeout != CONNECT_TIMEOUT_DEFAULT)
     {
-        int tipc_timeout = timeout;
+        int tipc_timeout = timeout * 1000;  /* Timeout must be specified in milliseconds */
         setsockopt (transport->socket, SOL_TIPC,
                     TIPC_CONN_TIMEOUT, &tipc_timeout, sizeof (int));
     }

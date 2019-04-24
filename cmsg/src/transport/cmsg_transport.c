@@ -6,6 +6,91 @@
 #include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+/**
+ * An abstraction of the 'connect' system call that allows a timeout
+ * value to be used. Adapted from "Unix Network Programming".
+ *
+ * @param sockfd - The socket to connect.
+ * @param addr - The address to connect to.
+ * @param addrlen - The size of the 'addr' argument.
+ * @param timeout - The timeout value in seconds (or zero to use the default
+ *                  timeout value for the socket type).
+ */
+int
+connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int timeout)
+{
+    int flags;
+    int n;
+    int error;
+    socklen_t len;
+    fd_set rset;
+    fd_set wset;
+    struct timeval tval;
+
+    error = 0;
+    len = sizeof (error);
+
+    flags = fcntl (sockfd, F_GETFL, 0);
+    fcntl (sockfd, F_SETFL, flags | O_NONBLOCK);
+
+    n = connect (sockfd, addr, addrlen);
+    if (n < 0)
+    {
+        if (errno != EINPROGRESS)
+        {
+            fcntl (sockfd, F_SETFL, flags);
+            return -1;
+        }
+    }
+
+    if (n == 0)
+    {
+        /* connect completed immediately */
+        fcntl (sockfd, F_SETFL, flags);
+        return 0;
+    }
+
+    FD_ZERO (&rset);
+    FD_SET (sockfd, &rset);
+    wset = rset;
+    tval.tv_sec = timeout;
+    tval.tv_usec = 0;
+
+    n = select (sockfd + 1, &rset, &wset, NULL, timeout ? &tval : NULL);
+    if (n == 0)
+    {
+        fcntl (sockfd, F_SETFL, flags);
+        errno = ETIMEDOUT;
+        return -1;
+    }
+
+    if (FD_ISSET (sockfd, &rset) || FD_ISSET (sockfd, &wset))
+    {
+        if (getsockopt (sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
+        {
+            fcntl (sockfd, F_SETFL, flags);
+            return -1;
+        }
+    }
+    else
+    {
+        fcntl (sockfd, F_SETFL, flags);
+        return -1;
+    }
+
+    fcntl (sockfd, F_SETFL, flags);
+
+    if (error)
+    {
+        errno = error;
+        return -1;
+    }
+
+    return 0;
+}
 
 /**
  * Get the transport ID to use in the CMSG counters application
