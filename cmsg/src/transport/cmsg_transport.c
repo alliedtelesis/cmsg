@@ -732,6 +732,14 @@ cmsg_transport_connect (cmsg_transport *transport)
     return ret;
 }
 
+int32_t
+cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout)
+{
+    transport->connect_timeout = timeout;
+
+    return 0;
+}
+
 bool
 cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
 {
