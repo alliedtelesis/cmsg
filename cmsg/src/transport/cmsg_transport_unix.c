@@ -192,16 +192,6 @@ cmsg_transport_unix_is_congested (cmsg_transport *transport)
     return false;
 }
 
-
-int32_t
-cmsg_transport_unix_send_can_block_enable (cmsg_transport *transport,
-                                           uint32_t send_can_block)
-{
-    transport->send_can_block = send_can_block;
-    return 0;
-}
-
-
 static void
 _cmsg_transport_unix_init_common (cmsg_transport *transport)
 {
@@ -217,8 +207,6 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
     transport->tport_funcs.socket_close = cmsg_transport_socket_close;
     transport->tport_funcs.get_socket = cmsg_transport_get_socket;
     transport->tport_funcs.is_congested = cmsg_transport_unix_is_congested;
-    transport->tport_funcs.send_can_block_enable =
-        cmsg_transport_unix_send_can_block_enable;
     transport->tport_funcs.ipfree_bind_enable = NULL;
     transport->tport_funcs.destroy = NULL;
     transport->tport_funcs.apply_send_timeout = cmsg_transport_apply_send_timeout;

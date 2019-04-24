@@ -283,16 +283,6 @@ cmsg_transport_tcp_is_congested (cmsg_transport *transport)
     return false;
 }
 
-
-int32_t
-cmsg_transport_tcp_send_can_block_enable (cmsg_transport *transport,
-                                          uint32_t send_can_block)
-{
-    transport->send_can_block = send_can_block;
-    return 0;
-}
-
-
 int32_t
 cmsg_transport_tcp_ipfree_bind_enable (cmsg_transport *transport,
                                        cmsg_bool_t use_ipfree_bind)
@@ -314,7 +304,6 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->socket_close = cmsg_transport_socket_close;
     tport_funcs->get_socket = cmsg_transport_get_socket;
     tport_funcs->is_congested = cmsg_transport_tcp_is_congested;
-    tport_funcs->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
     tport_funcs->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
     tport_funcs->destroy = NULL;
     tport_funcs->apply_send_timeout = cmsg_transport_apply_send_timeout;

@@ -51,8 +51,6 @@ setup_udt_tcp_transport_functions (cmsg_transport *udt_transport)
 
     udt_transport->udt_info.functions.is_congested =
         udt_transport->udt_info.base.is_congested;
-    udt_transport->udt_info.functions.send_can_block_enable =
-        udt_transport->udt_info.base.send_can_block_enable;
     udt_transport->udt_info.functions.ipfree_bind_enable =
         udt_transport->udt_info.base.ipfree_bind_enable;
 

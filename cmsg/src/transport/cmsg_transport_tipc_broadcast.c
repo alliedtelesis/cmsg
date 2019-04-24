@@ -179,15 +179,6 @@ cmsg_transport_tipc_broadcast_is_congested (cmsg_transport *transport)
 
 
 int32_t
-cmsg_transport_tipc_broadcast_send_can_block_enable (cmsg_transport *transport,
-                                                     uint32_t send_can_block)
-{
-    // Don't support send blocking
-    return -1;
-}
-
-
-int32_t
 cmsg_transport_tipc_broadcast_ipfree_bind_enable (cmsg_transport *transport,
                                                   cmsg_bool_t use_ipfree_bind)
 {
@@ -222,8 +213,6 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->tport_funcs.get_socket = cmsg_transport_get_socket;
 
     transport->tport_funcs.is_congested = cmsg_transport_tipc_broadcast_is_congested;
-    transport->tport_funcs.send_can_block_enable =
-        cmsg_transport_tipc_broadcast_send_can_block_enable;
     transport->tport_funcs.ipfree_bind_enable =
         cmsg_transport_tipc_broadcast_ipfree_bind_enable;
     transport->tport_funcs.destroy = NULL;

@@ -624,17 +624,6 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 
-
-/**
- * Configure the transport to allow blocking if send cannot send it straight away
- *
- */
-int32_t
-cmsg_transport_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
-{
-    return transport->tport_funcs.send_can_block_enable (transport, send_can_block);
-}
-
 /**
  * Configure the transport to allow listening socket to bind on non-existent, non-local
  * IPv6 addresses. This is specifically added to resolve IPv6 DAD race conditions.
