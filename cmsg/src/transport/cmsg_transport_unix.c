@@ -37,8 +37,7 @@ cmsg_transport_unix_connect (cmsg_transport *transport)
     addr = (struct sockaddr_un *) &transport->config.socket.sockaddr.un;
     addrlen = sizeof (transport->config.socket.sockaddr.un);
 
-    if (connect_nb (transport->socket, (struct sockaddr *) addr, addrlen,
-                    transport->connect_timeout) < 0)
+    if (connect (transport->socket, (struct sockaddr *) addr, addrlen) < 0)
     {
         ret = -errno;
         CMSG_LOG_TRANSPORT_ERROR (transport,

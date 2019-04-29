@@ -741,6 +741,13 @@ cmsg_transport_accept (cmsg_transport *transport)
 int32_t
 cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout)
 {
+    if (transport->type == CMSG_TRANSPORT_RPC_UNIX ||
+        transport->type == CMSG_TRANSPORT_ONEWAY_UNIX)
+    {
+        /* Setting a connect timeout for unix transports is not supported. */
+        return -1;
+    }
+
     transport->connect_timeout = timeout;
 
     return 0;
