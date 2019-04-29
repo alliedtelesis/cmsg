@@ -109,7 +109,7 @@ typedef enum _cmsg_transport_type_e
 
 typedef void (*cmsg_tipc_topology_callback) (struct tipc_event *event, void *user_cb_data);
 
-#define CMSG_MAX_TPORT_ID_LEN 64
+#define CMSG_MAX_TPORT_ID_LEN 128
 
 struct _cmsg_transport_s
 {
