@@ -14,7 +14,7 @@
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
+cmsg_transport_tcp_connect (cmsg_transport *transport)
 {
     int ret;
     struct sockaddr *addr;
@@ -41,7 +41,7 @@ cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
         addr_len = sizeof (transport->config.socket.sockaddr.in);
     }
 
-    if (connect_nb (transport->socket, addr, addr_len, timeout) < 0)
+    if (connect_nb (transport->socket, addr, addr_len, transport->connect_timeout) < 0)
     {
         if (errno == EINPROGRESS)
         {

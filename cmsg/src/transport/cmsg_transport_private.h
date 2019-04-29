@@ -7,9 +7,8 @@
 #include "cmsg_types_auto.h"
 #include "cmsg_transport.h"
 
-/* When connecting the transport specify that the default timeout value should
- * be used with the connect call */
-#define CONNECT_TIMEOUT_DEFAULT 0   /* Block indefinitely */
+/* The default connect timeout value in seconds */
+#define CONNECT_TIMEOUT_DEFAULT 5
 
 /* This value is used to limit the timeout for client message peek to 100s */
 #define MAX_CLIENT_PEEK_LOOP (100)

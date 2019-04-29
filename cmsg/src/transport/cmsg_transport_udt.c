@@ -158,13 +158,13 @@ cmsg_transport_udt_recv_wrapper (cmsg_transport *transport, int sock, void *buff
  * the client connection to connected.
  */
 static int32_t
-cmsg_transport_udt_connect (cmsg_transport *transport, int timeout)
+cmsg_transport_udt_connect (cmsg_transport *transport)
 {
     int32_t ret = 0;
 
     if (transport->udt_info.functions.connect)
     {
-        ret = transport->udt_info.functions.connect (transport, timeout);
+        ret = transport->udt_info.functions.connect (transport);
     }
 
     return ret;

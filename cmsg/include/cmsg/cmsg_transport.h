@@ -34,7 +34,7 @@ typedef int (*udt_connect_f) (cmsg_transport *transport);
 typedef int (*udt_send_f) (void *udt_data, void *buff, int length, int flag);
 typedef int (*cmsg_recv_func) (cmsg_transport *transport, int sock, void *buff, int len,
                                int flags);
-typedef int (*client_connect_f) (cmsg_transport *transport, int timeout);
+typedef int (*client_connect_f) (cmsg_transport *transport);
 typedef int (*server_listen_f) (cmsg_transport *transport);
 typedef int (*server_recv_f) (int socket, cmsg_transport *transport,
                               uint8_t **recv_buffer,
@@ -122,6 +122,9 @@ struct _cmsg_transport_s
 
     // receive timeout in seconds
     uint32_t receive_timeout;
+
+    // connect timeout in seconds
+    uint32_t connect_timeout;
 
     // sets IP_FREEBIND in socket options
     cmsg_bool_t use_ipfree_bind;

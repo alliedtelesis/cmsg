@@ -17,9 +17,10 @@ cmsg_transport_tipc_client_send (cmsg_transport *transport, void *buff, int leng
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-cmsg_transport_tipc_connect (cmsg_transport *transport, int timeout)
+cmsg_transport_tipc_connect (cmsg_transport *transport)
 {
     int ret;
+    int tipc_timeout = transport->connect_timeout * 1000;   /* Timeout must be specified in milliseconds */
 
     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] cmsg_transport_tipc_connect\n");
 
@@ -34,12 +35,8 @@ cmsg_transport_tipc_connect (cmsg_transport *transport, int timeout)
         return ret;
     }
 
-    if (timeout != CONNECT_TIMEOUT_DEFAULT)
-    {
-        int tipc_timeout = timeout * 1000;  /* Timeout must be specified in milliseconds */
-        setsockopt (transport->socket, SOL_TIPC,
-                    TIPC_CONN_TIMEOUT, &tipc_timeout, sizeof (int));
-    }
+    setsockopt (transport->socket, SOL_TIPC,
+                TIPC_CONN_TIMEOUT, &tipc_timeout, sizeof (int));
 
     ret = connect (transport->socket,
                    (struct sockaddr *) &transport->config.socket.sockaddr.tipc,

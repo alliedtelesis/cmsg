@@ -215,6 +215,7 @@ cmsg_transport_new (cmsg_transport_type type)
     memset (transport, 0, sizeof (cmsg_transport));
 
     transport->type = type;
+    transport->connect_timeout = CONNECT_TIMEOUT_DEFAULT;
 
     switch (type)
     {
@@ -726,7 +727,7 @@ cmsg_transport_connect (cmsg_transport *transport)
 {
     int ret;
 
-    ret = transport->tport_funcs.connect (transport, CONNECT_TIMEOUT_DEFAULT);
+    ret = transport->tport_funcs.connect (transport);
 
     return ret;
 }
