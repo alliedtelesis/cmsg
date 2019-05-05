@@ -106,9 +106,17 @@ cmsg_glib_server_init (cmsg_server *server)
 void
 cmsg_glib_subscriber_deinit (cmsg_subscriber *sub)
 {
-    cmsg_server_accept_thread_info *info = sub->pub_server_thread_info;
+    if (sub->unix_server_thread_info)
+    {
+        cmsg_server_accept_thread_deinit (sub->unix_server_thread_info);
+        sub->unix_server_thread_info = NULL;
+    }
+    if (sub->tcp_server_thread_info)
+    {
+        cmsg_server_accept_thread_deinit (sub->tcp_server_thread_info);
+        sub->tcp_server_thread_info = NULL;
+    }
 
-    cmsg_server_accept_thread_deinit (info);
     cmsg_subscriber_destroy (sub);
 }
 
@@ -116,7 +124,7 @@ cmsg_glib_subscriber_deinit (cmsg_subscriber *sub)
  * Start a unix subscriber and subscribe for events.
  * @param service - service to subscribe to.
  * @param events - Array of strings of events to subscribe to. Last entry must be NULL.
- * @returns 'atl_cmsg_server_info' handle that can be used to deinit.
+ * @returns A pointer to the subscriber on success, NULL on failure.
  */
 cmsg_subscriber *
 cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events)
@@ -130,19 +138,59 @@ cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events)
         return NULL;
     }
 
-    info = cmsg_glib_server_init (sub->pub_server);
+    info = cmsg_glib_server_init (cmsg_sub_unix_server_get (sub));
     if (!info)
     {
         cmsg_subscriber_destroy (sub);
         return NULL;
     }
-    sub->pub_server_thread_info = info;
+    sub->unix_server_thread_info = info;
 
     /* Subscribe to relevant events */
     if (events)
     {
         cmsg_sub_subscribe_events_local (sub, events);
     }
+
+    return sub;
+}
+
+/**
+ * Start a tcp subscriber. Subscriptions are left for the caller to do.
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to use (in network byte order).
+ * @param service - The service to subscribe to.
+ * @returns A pointer to the subscriber on success, NULL on failure.
+ */
+cmsg_subscriber *
+cmsg_glib_tcp_subscriber_init (const char *service_name, struct in_addr addr,
+                               const ProtobufCService *service)
+{
+    cmsg_subscriber *sub = NULL;
+    cmsg_server_accept_thread_info *info;
+
+    sub = cmsg_subscriber_create_tcp (service_name, addr, service);
+    if (!sub)
+    {
+        return NULL;
+    }
+
+    info = cmsg_glib_server_init (cmsg_sub_unix_server_get (sub));
+    if (!info)
+    {
+        cmsg_subscriber_destroy (sub);
+        return NULL;
+    }
+    sub->unix_server_thread_info = info;
+
+    info = cmsg_glib_server_init (cmsg_sub_tcp_server_get (sub));
+    if (!info)
+    {
+        cmsg_subscriber_destroy (sub);
+        return NULL;
+    }
+    sub->tcp_server_thread_info = info;
 
     return sub;
 }

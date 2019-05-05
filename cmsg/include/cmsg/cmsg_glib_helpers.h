@@ -24,6 +24,9 @@ cmsg_tipc_mesh_conn *cmsg_glib_tipc_mesh_init (ProtobufCService *service,
                                                bool oneway);
 cmsg_subscriber *cmsg_glib_unix_subscriber_init (ProtobufCService *service,
                                                  const char **events);
+cmsg_subscriber *cmsg_glib_tcp_subscriber_init (const char *service_name,
+                                                struct in_addr addr,
+                                                const ProtobufCService *service);
 void cmsg_glib_subscriber_deinit (cmsg_subscriber *sub);
 void cmsg_glib_bcast_client_processing_start (cmsg_client *broadcast_client);
 void cmsg_glib_service_listener_listen (const char *service_name,

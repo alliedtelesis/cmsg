@@ -116,6 +116,8 @@ create_subscriber_and_test (cmsg_transport_type type)
     cmsg_subscriber *sub = NULL;
     int ret = 0;
     struct in_addr addr;
+    int fd = -1;
+    cmsg_server *sub_server = NULL;;
 
     switch (type)
     {
@@ -123,9 +125,13 @@ create_subscriber_and_test (cmsg_transport_type type)
         addr.s_addr = htonl (INADDR_LOOPBACK);
         sub = cmsg_subscriber_create_tcp ("cmsg-test-subscriber", addr,
                                           CMSG_SERVICE (cmsg, test));
+        fd = cmsg_sub_tcp_server_socket_get (sub);
+        sub_server = cmsg_sub_tcp_server_get (sub);
         break;
     case CMSG_TRANSPORT_RPC_UNIX:
         sub = cmsg_subscriber_create_unix (CMSG_SERVICE (cmsg, test));
+        fd = cmsg_sub_unix_server_socket_get (sub);
+        sub_server = cmsg_sub_unix_server_get (sub);
         break;
     default:
         NP_FAIL;
@@ -136,7 +142,6 @@ create_subscriber_and_test (cmsg_transport_type type)
     ret = cmsg_sub_subscribe_local (sub, "simple_notification_test");
     NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
 
-    int fd = cmsg_sub_get_server_socket (sub);
     int fd_max = fd + 1;
 
     fd_set readfds;
@@ -147,7 +152,7 @@ create_subscriber_and_test (cmsg_transport_type type)
 
     while (subscriber_run)
     {
-        cmsg_sub_server_receive_poll (sub, 1000, &readfds, &fd_max);
+        cmsg_server_receive_poll (sub_server, 1000, &readfds, &fd_max);
     }
 
     // Close accepted sockets before destroying subscriber

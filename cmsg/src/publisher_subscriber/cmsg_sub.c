@@ -13,90 +13,83 @@
 #include "cmsg_error.h"
 
 static cmsg_subscriber *
-cmsg_sub_new (cmsg_transport *pub_server_transport, const ProtobufCService *pub_service)
+cmsg_sub_new (cmsg_transport *tcp_transport, const ProtobufCService *pub_service)
 {
+    cmsg_transport *unix_transport = NULL;
+
     cmsg_subscriber *subscriber = (cmsg_subscriber *) CMSG_CALLOC (1, sizeof (*subscriber));
     if (!subscriber)
     {
-        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to allocate memory for subscriber.",
-                            pub_service->descriptor->name, pub_server_transport->tport_id);
+        CMSG_LOG_GEN_ERROR ("[%s] Unable to allocate memory for subscriber.",
+                            pub_service->descriptor->name);
         return NULL;
     }
 
-    subscriber->pub_server = cmsg_server_new (pub_server_transport, pub_service);
-    if (!subscriber->pub_server)
+    /* Create the subscriber transport */
+    unix_transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
+    unix_transport->config.socket.family = AF_UNIX;
+    unix_transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
+    snprintf (unix_transport->config.socket.sockaddr.un.sun_path,
+              sizeof (unix_transport->config.socket.sockaddr.un.sun_path) - 1,
+              "/tmp/%s.%u", pub_service->descriptor->name, getpid ());
+
+    subscriber->unix_server = cmsg_server_new (unix_transport, pub_service);
+    if (!subscriber->unix_server)
     {
-        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create pub_server.",
-                            pub_service->descriptor->name, pub_server_transport->tport_id);
+        CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create subscriber unix server.",
+                            pub_service->descriptor->name, unix_transport->tport_id);
         CMSG_FREE (subscriber);
         return NULL;
+    }
+
+    if (tcp_transport)
+    {
+        subscriber->tcp_server = cmsg_server_new (tcp_transport, pub_service);
+        if (!subscriber->tcp_server)
+        {
+            CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create subscriber tcp server.",
+                                pub_service->descriptor->name, tcp_transport->tport_id);
+            cmsg_destroy_server_and_transport (subscriber->unix_server);
+            CMSG_FREE (subscriber);
+            return NULL;
+        }
     }
 
     return subscriber;
 }
 
 cmsg_server *
-cmsg_sub_server_get (cmsg_subscriber *subscriber)
+cmsg_sub_unix_server_get (cmsg_subscriber *subscriber)
 {
-    return subscriber->pub_server;
+    return subscriber->unix_server;
 }
-
 
 int
-cmsg_sub_get_server_socket (cmsg_subscriber *subscriber)
+cmsg_sub_unix_server_socket_get (cmsg_subscriber *subscriber)
 {
     CMSG_ASSERT_RETURN_VAL (subscriber != NULL, -1);
 
-    return (cmsg_server_get_socket (subscriber->pub_server));
+    return (cmsg_server_get_socket (subscriber->unix_server));
 }
 
-
-int32_t
-cmsg_sub_server_receive_poll (cmsg_subscriber *sub, int32_t timeout_ms,
-                              fd_set *master_fdset, int *fdmax)
+cmsg_server *
+cmsg_sub_tcp_server_get (cmsg_subscriber *subscriber)
 {
-    return cmsg_server_receive_poll (sub->pub_server, timeout_ms, master_fdset, fdmax);
+    return subscriber->tcp_server;
 }
 
-
-int32_t
-cmsg_sub_server_receive (cmsg_subscriber *subscriber, int32_t server_socket)
-{
-    CMSG_DEBUG (CMSG_INFO, "[SUB]\n");
-
-    CMSG_ASSERT_RETURN_VAL (subscriber != NULL, CMSG_RET_ERR);
-
-    return cmsg_server_receive (subscriber->pub_server, server_socket);
-}
-
-
-int32_t
-cmsg_sub_server_accept (cmsg_subscriber *subscriber, int32_t listen_socket)
+int
+cmsg_sub_tcp_server_socket_get (cmsg_subscriber *subscriber)
 {
     CMSG_ASSERT_RETURN_VAL (subscriber != NULL, -1);
 
-    return cmsg_server_accept (subscriber->pub_server, listen_socket);
-}
-
-
-/**
- * Callback function for CMSG subscriber when a new socket is accepted.
- * This function is for applications that accept sockets by other than CMSG API,
- * cmsg_sub_server_accept() (e.g. by using liboop socket utility functions).
- */
-void
-cmsg_sub_server_accept_callback (cmsg_subscriber *subscriber, int32_t sock)
-{
-    if (subscriber != NULL)
-    {
-        cmsg_server_accept_callback (subscriber->pub_server, sock);
-    }
+    return (cmsg_server_get_socket (subscriber->tcp_server));
 }
 
 int32_t
 cmsg_sub_subscribe_local (cmsg_subscriber *subscriber, const char *method_name)
 {
-    cmsg_ps_subscription_add_local (subscriber->pub_server, method_name);
+    cmsg_ps_subscription_add_local (subscriber->unix_server, method_name);
     return CMSG_RET_OK;
 }
 
@@ -104,7 +97,7 @@ int32_t
 cmsg_sub_subscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
                            struct in_addr remote_addr)
 {
-    cmsg_ps_subscription_add_remote (subscriber->pub_server, method_name, remote_addr);
+    cmsg_ps_subscription_add_remote (subscriber->tcp_server, method_name, remote_addr);
     return CMSG_RET_OK;
 }
 
@@ -152,7 +145,7 @@ cmsg_sub_subscribe_events_remote (cmsg_subscriber *subscriber, const char **even
 int32_t
 cmsg_sub_unsubscribe_local (cmsg_subscriber *subscriber, const char *method_name)
 {
-    cmsg_ps_subscription_remove_local (subscriber->pub_server, method_name);
+    cmsg_ps_subscription_remove_local (subscriber->unix_server, method_name);
     return CMSG_RET_OK;
 }
 
@@ -160,7 +153,7 @@ int32_t
 cmsg_sub_unsubscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
                              struct in_addr remote_addr)
 {
-    cmsg_ps_subscription_remove_remote (subscriber->pub_server, method_name, remote_addr);
+    cmsg_ps_subscription_remove_remote (subscriber->tcp_server, method_name, remote_addr);
     return CMSG_RET_OK;
 }
 
@@ -239,20 +232,10 @@ cmsg_subscriber *
 cmsg_subscriber_create_unix (const ProtobufCService *service)
 {
     cmsg_subscriber *subscriber = NULL;
-    cmsg_transport *transport = NULL;
 
-    /* Create the subscriber transport */
-    transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
-    transport->config.socket.family = AF_UNIX;
-    transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
-    snprintf (transport->config.socket.sockaddr.un.sun_path,
-              sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
-              "/tmp/%s.%u", service->descriptor->name, getpid ());
-
-    subscriber = cmsg_sub_new (transport, service);
+    subscriber = cmsg_sub_new (NULL, service);
     if (!subscriber)
     {
-        cmsg_transport_destroy (transport);
         CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG subscriber for %s",
                             cmsg_service_name_get (service->descriptor));
         return NULL;
@@ -266,8 +249,17 @@ cmsg_subscriber_destroy (cmsg_subscriber *subscriber)
 {
     if (subscriber)
     {
-        cmsg_ps_remove_subscriber (subscriber->pub_server);
-        cmsg_destroy_server_and_transport (subscriber->pub_server);
+        if (subscriber->unix_server)
+        {
+            cmsg_ps_remove_subscriber (subscriber->unix_server);
+            cmsg_destroy_server_and_transport (subscriber->unix_server);
+        }
+        if (subscriber->tcp_server)
+        {
+            cmsg_ps_remove_subscriber (subscriber->tcp_server);
+            cmsg_destroy_server_and_transport (subscriber->tcp_server);
+        }
+
         CMSG_FREE (subscriber);
     }
 }

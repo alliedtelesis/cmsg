@@ -139,7 +139,7 @@ cmsg_pthread_unix_subscriber_init (pthread_t *thread, const ProtobufCService *se
         cmsg_sub_subscribe_events_local (sub, events);
     }
 
-    if (!cmsg_pthread_server_init (thread, sub->pub_server))
+    if (!cmsg_pthread_server_init (thread, cmsg_sub_unix_server_get (sub)))
     {
         syslog (LOG_ERR, "Failed to start subscriber processing thread");
         cmsg_subscriber_destroy (sub);

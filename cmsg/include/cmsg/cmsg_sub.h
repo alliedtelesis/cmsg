@@ -15,15 +15,10 @@
 
 typedef struct cmsg_subscriber cmsg_subscriber;
 
-int cmsg_sub_get_server_socket (cmsg_subscriber *subscriber);
-
-int32_t cmsg_sub_server_receive_poll (cmsg_subscriber *sub, int32_t timeout_ms,
-                                      fd_set *master_fdset, int *fdmax);
-
-cmsg_server *cmsg_sub_server_get (cmsg_subscriber *subscriber);
-int32_t cmsg_sub_server_receive (cmsg_subscriber *subscriber, int32_t server_socket);
-int32_t cmsg_sub_server_accept (cmsg_subscriber *subscriber, int32_t listen_socket);
-void cmsg_sub_server_accept_callback (cmsg_subscriber *subscriber, int32_t sock);
+cmsg_server *cmsg_sub_unix_server_get (cmsg_subscriber *subscriber);
+int cmsg_sub_unix_server_socket_get (cmsg_subscriber *subscriber);
+cmsg_server *cmsg_sub_tcp_server_get (cmsg_subscriber *subscriber);
+int cmsg_sub_tcp_server_socket_get (cmsg_subscriber *subscriber);
 
 int32_t cmsg_sub_subscribe_local (cmsg_subscriber *subscriber, const char *method_name);
 int32_t cmsg_sub_subscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
