@@ -15,7 +15,7 @@ typedef struct _cmsg_pthread_server_info
 {
     fd_set readfds;
     int fd_max;
-    cmsg_server_accept_thread_info *accept_thread_info;
+    cmsg_server *server;
 } cmsg_pthread_server_info;
 
 typedef struct _cmsg_pthread_multithreaded_server_recv_info
@@ -35,10 +35,9 @@ static void
 pthread_server_cancelled (cmsg_pthread_server_info *pthread_info)
 {
     int fd;
-    int accept_sd_eventfd = pthread_info->accept_thread_info->accept_sd_eventfd;
+    int accept_sd_eventfd = pthread_info->server->accept_thread_info->accept_sd_eventfd;
 
-    cmsg_server_accept_thread_deinit (pthread_info->accept_thread_info);
-    pthread_info->accept_thread_info = NULL;
+    cmsg_server_accept_thread_deinit (pthread_info->server);
 
     for (fd = 0; fd <= pthread_info->fd_max; fd++)
     {
@@ -66,16 +65,18 @@ pthread_server_run (void *_server)
 
     pthread_cleanup_push ((void (*)(void *)) pthread_server_cancelled, &pthread_info);
 
-    pthread_info.accept_thread_info = cmsg_server_accept_thread_init (server);
+    cmsg_server_accept_thread_init (server);
 
-    fd = pthread_info.accept_thread_info->accept_sd_eventfd;
+    pthread_info.server = server;
+
+    fd = server->accept_thread_info->accept_sd_eventfd;
     pthread_info.fd_max = fd;
     FD_SET (fd, &pthread_info.readfds);
 
     while (true)
     {
-        cmsg_server_thread_receive_poll (pthread_info.accept_thread_info, -1,
-                                         &pthread_info.readfds, &pthread_info.fd_max);
+        cmsg_server_thread_receive_poll (server, -1, &pthread_info.readfds,
+                                         &pthread_info.fd_max);
     }
 
     pthread_cleanup_pop (1);

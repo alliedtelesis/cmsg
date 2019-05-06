@@ -234,6 +234,11 @@ cmsg_server_destroy (cmsg_server *server)
         server->_transport->tport_funcs.socket_close (server->_transport);
     }
 
+    if (server->accept_thread_info)
+    {
+        cmsg_server_accept_thread_deinit (server);
+    }
+
     CMSG_FREE (server);
 }
 
@@ -402,8 +407,7 @@ cmsg_server_list_remove_server (cmsg_server_list *server_list, cmsg_server *serv
  * Timeout is specified in 'timeout_ms' (0: return immediately,
  * negative number: no timeout).
  *
- * @param info - The 'cmsg_server_accept_thread_info' structure containing
- *               the CMSG server and it's connection thread.
+ * @param server - The CMSG server to poll.
  * @param timeout_ms - The timeout to use with select.
  *                     (0: return immediately, negative number: no timeout).
  * @param master_fdset - An fd_set containing all of the sockets being polled.
@@ -412,8 +416,8 @@ cmsg_server_list_remove_server (cmsg_server_list *server_list, cmsg_server *serv
  * @returns On success returns 0, failure returns -1.
  */
 int32_t
-cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
-                                 int32_t timeout_ms, fd_set *master_fdset, int *fdmax)
+cmsg_server_thread_receive_poll (cmsg_server *server, int32_t timeout_ms,
+                                 fd_set *master_fdset, int *fdmax)
 {
     int ret = 0;
     fd_set read_fds = *master_fdset;
@@ -424,9 +428,11 @@ cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
     int accept_event_fd;
     eventfd_t value;
     int *newfd_ptr = NULL;
+    cmsg_server_accept_thread_info *info;
 
-    CMSG_ASSERT_RETURN_VAL (info->server != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
 
+    info = server->accept_thread_info;
     accept_event_fd = info->accept_sd_eventfd;
 
     /* Explicitly set where the thread can be cancelled to avoid leaking
@@ -442,10 +448,10 @@ cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
             return CMSG_RET_OK;
         }
 
-        CMSG_LOG_SERVER_ERROR (info->server,
+        CMSG_LOG_SERVER_ERROR (server,
                                "An error occurred with receive poll (timeout %dms): %s.",
                                timeout_ms, strerror (errno));
-        CMSG_COUNTER_INC (info->server, cntr_poll_errors);
+        CMSG_COUNTER_INC (server, cntr_poll_errors);
         return CMSG_RET_ERR;
     }
     else if (ret == 0)
@@ -473,7 +479,7 @@ cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
             else
             {
                 // there is something happening on the socket so receive it.
-                if (cmsg_server_receive (info->server, fd) < 0)
+                if (cmsg_server_receive (server, fd) < 0)
                 {
                     // only close the socket if we have errored
                     shutdown (fd, SHUT_RDWR);
@@ -1932,10 +1938,10 @@ cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner
  * client user to read from.
  */
 static void *
-cmsg_server_accept_thread (void *_info)
+cmsg_server_accept_thread (void *_server)
 {
-    cmsg_server_accept_thread_info *info = (cmsg_server_accept_thread_info *) _info;
-    cmsg_server *server = info->server;
+    cmsg_server *server = (cmsg_server *) _server;
+    cmsg_server_accept_thread_info *info = server->accept_thread_info;
     int listen_socket = cmsg_server_get_socket (server);
     int newfd = -1;
     fd_set read_fds;
@@ -1983,10 +1989,9 @@ _clear_accept_sd_queue (gpointer data)
  *
  * @param server - The server to accept connections for.
  *
- * @return Pointer to a cmsg_server_accept_thread_info struct on success,
- *         NULL on failure.
+ * @return CMSG_RET_OK on success, CMSG_RET_ERR on failure.
  */
-cmsg_server_accept_thread_info *
+int32_t
 cmsg_server_accept_thread_init (cmsg_server *server)
 {
     cmsg_server_accept_thread_info *info = NULL;
@@ -1994,53 +1999,57 @@ cmsg_server_accept_thread_init (cmsg_server *server)
     info = CMSG_CALLOC (1, sizeof (cmsg_server_accept_thread_info));
     if (info == NULL)
     {
-        return NULL;
+        return CMSG_RET_ERR;
     }
 
     info->accept_sd_eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
     if (info->accept_sd_eventfd < 0)
     {
-        return NULL;
+        CMSG_FREE (info);
+        return CMSG_RET_ERR;
     }
 
     info->accept_sd_queue = g_async_queue_new_full (_clear_accept_sd_queue);
     if (!info->accept_sd_queue)
     {
         close (info->accept_sd_eventfd);
-        return NULL;
+        CMSG_FREE (info);
+        return CMSG_RET_ERR;
     }
 
-    info->server = server;
+    server->accept_thread_info = info;
 
     if (pthread_create (&info->server_accept_thread, NULL,
-                        cmsg_server_accept_thread, info) != 0)
+                        cmsg_server_accept_thread, server) != 0)
     {
         close (info->accept_sd_eventfd);
         g_async_queue_unref (info->accept_sd_queue);
-        return NULL;
+        CMSG_FREE (info);
+        server->accept_thread_info = NULL;
+        return CMSG_RET_ERR;
     }
 
     cmsg_pthread_setname (info->server_accept_thread,
                           server->service->descriptor->short_name, CMSG_ACCEPT_PREFIX);
-    return info;
+    return CMSG_RET_OK;
 }
 
 /**
  * Shutdown the server accept thread.
  *
- * @param info - The cmsg_server_accept_thread_info struct returned from
- *               the related cmsg_server_accept_thread_init call.
+ * @param server - The CMSG server to shutdown the accept thread for.
  */
 void
-cmsg_server_accept_thread_deinit (cmsg_server_accept_thread_info *info)
+cmsg_server_accept_thread_deinit (cmsg_server *server)
 {
-    if (info)
+    if (server && server->accept_thread_info)
     {
-        pthread_cancel (info->server_accept_thread);
-        pthread_join (info->server_accept_thread, NULL);
-        close (info->accept_sd_eventfd);
-        g_async_queue_unref (info->accept_sd_queue);
-        CMSG_FREE (info);
+        pthread_cancel (server->accept_thread_info->server_accept_thread);
+        pthread_join (server->accept_thread_info->server_accept_thread, NULL);
+        close (server->accept_thread_info->accept_sd_eventfd);
+        g_async_queue_unref (server->accept_thread_info->accept_sd_queue);
+        CMSG_FREE (server->accept_thread_info);
+        server->accept_thread_info = NULL;
     }
 }
 

@@ -10,13 +10,12 @@
 #include <cmsg/cmsg_sub.h>
 #include <cmsg/cmsg_sl.h>
 
-void cmsg_glib_server_processing_start (cmsg_server_accept_thread_info *info);
-cmsg_server_accept_thread_info *cmsg_glib_server_init (cmsg_server *server);
-cmsg_server_accept_thread_info *cmsg_glib_unix_server_init (ProtobufCService *service);
-cmsg_server_accept_thread_info *cmsg_glib_tcp_server_init_oneway (const char *service_name,
-                                                                  struct in_addr *addr,
-                                                                  ProtobufCService
-                                                                  *service);
+void cmsg_glib_server_processing_start (cmsg_server *server);
+int32_t cmsg_glib_server_init (cmsg_server *server);
+cmsg_server *cmsg_glib_unix_server_init (ProtobufCService *service);
+cmsg_server *cmsg_glib_tcp_server_init_oneway (const char *service_name,
+                                               struct in_addr *addr,
+                                               ProtobufCService *service);
 cmsg_tipc_mesh_conn *cmsg_glib_tipc_mesh_init (ProtobufCService *service,
                                                const char *service_entry_name,
                                                int this_node_id, int min_node_id,

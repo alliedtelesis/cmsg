@@ -18,18 +18,17 @@
  */
 #define USED __attribute__ ((used))
 
-extern cmsg_server_accept_thread_info *server_info;
+extern cmsg_server *remote_sync_server;
 extern uint32_t local_ip_addr;
 extern cmsg_client *comp_client;
 
-static cmsg_server_accept_thread_info *server_info_test_ptr =
-    (cmsg_server_accept_thread_info *) 0x15876;
+static cmsg_server *server_test_ptr = (cmsg_server *) 0x15876;
 static cmsg_client *remote_client = NULL;
 
 static int USED
 set_up (void)
 {
-    server_info = NULL;
+    remote_sync_server = NULL;
     local_ip_addr = 0;
     comp_client = NULL;
 
@@ -38,15 +37,15 @@ set_up (void)
     return 0;
 }
 
-static cmsg_server_accept_thread_info *
+static cmsg_server *
 sm_mock_cmsg_glib_tcp_server_init_oneway_ptr_return (const char *service_name,
                                                      struct in_addr *addr,
                                                      ProtobufCService *service)
 {
-    return server_info_test_ptr;
+    return server_test_ptr;
 }
 
-static cmsg_server_accept_thread_info *
+static cmsg_server *
 sm_mock_cmsg_glib_tcp_server_init_oneway_fail (const char *service_name,
                                                struct in_addr *addr,
                                                ProtobufCService *service)
@@ -104,7 +103,7 @@ test_remote_sync_address_set (void)
 
     remote_sync_address_set (addr);
 
-    NP_ASSERT_PTR_EQUAL (server_info, server_info_test_ptr);
+    NP_ASSERT_PTR_EQUAL (remote_sync_server, server_test_ptr);
     NP_ASSERT_EQUAL (test_addr, local_ip_addr);
 }
 
@@ -124,7 +123,7 @@ test_remote_sync_address_set_called_twice (void)
     np_mock (cmsg_glib_tcp_server_init_oneway,
              sm_mock_cmsg_glib_tcp_server_init_oneway_fail);
 
-    NP_ASSERT_PTR_EQUAL (server_info, server_info_test_ptr);
+    NP_ASSERT_PTR_EQUAL (remote_sync_server, server_test_ptr);
     NP_ASSERT_EQUAL (test_addr, local_ip_addr);
 }
 

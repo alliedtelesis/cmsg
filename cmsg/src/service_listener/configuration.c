@@ -13,7 +13,6 @@
 #include "data.h"
 
 static cmsg_server *server = NULL;
-static cmsg_server_accept_thread_info *info = NULL;
 
 /**
  * Configures the IP address of the CMSG server running in the service listener
@@ -153,8 +152,7 @@ configuration_server_init (void)
         return;
     }
 
-    info = cmsg_glib_server_init (server);
-    if (!info)
+    if (cmsg_glib_server_init (server) != CMSG_RET_OK)
     {
         syslog (LOG_ERR, "Failed to initialize configuration server");
         cmsg_destroy_server_and_transport (server);

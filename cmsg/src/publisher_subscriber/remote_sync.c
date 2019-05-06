@@ -15,7 +15,7 @@
 #include "data.h"
 #include <cmsg/cmsg_sl.h>
 
-cmsg_server_accept_thread_info *remote_sync_server_info = NULL;
+cmsg_server *remote_sync_server = NULL;
 GList *remote_sync_client_list = NULL;
 static uint32_t remote_sync_local_ip_addr = 0;
 
@@ -210,7 +210,7 @@ remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void 
     uint32_t remote_addr;
 
     /* Do nothing for the server running locally. */
-    if (cmsg_transport_compare (remote_sync_server_info->server->_transport, transport))
+    if (cmsg_transport_compare (remote_sync_server->_transport, transport))
     {
         return true;
     }
@@ -260,11 +260,11 @@ remote_sync_sl_init (void)
 void
 remote_sync_address_set (struct in_addr addr)
 {
-    if (!remote_sync_server_info)
+    if (!remote_sync_server)
     {
-        remote_sync_server_info = cmsg_glib_tcp_server_init_oneway ("cmsg_psd_sync", &addr,
-                                                                    CMSG_SERVICE (cmsg_psd,
-                                                                                  remote_sync));
+        remote_sync_server = cmsg_glib_tcp_server_init_oneway ("cmsg_psd_sync", &addr,
+                                                               CMSG_SERVICE (cmsg_psd,
+                                                                             remote_sync));
         remote_sync_local_ip_addr = addr.s_addr;
 
         remote_sync_sl_init ();
@@ -328,10 +328,9 @@ remote_sync_debug_dump (FILE *fp)
 {
     fprintf (fp, "Hosts:\n");
     fprintf (fp, " local: ");
-    if (remote_sync_server_info)
+    if (remote_sync_server)
     {
-        remote_sync_debug_print_transport_ip (fp,
-                                              remote_sync_server_info->server->_transport);
+        remote_sync_debug_print_transport_ip (fp, remote_sync_server->_transport);
     }
     else
     {

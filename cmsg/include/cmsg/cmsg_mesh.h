@@ -11,7 +11,6 @@
 typedef struct _cmsg_tipc_mesh_conn
 {
     cmsg_server *server;
-    cmsg_server_accept_thread_info *server_thread_info;
     cmsg_client *broadcast_client;
     cmsg_client *loopback_client;
 } cmsg_tipc_mesh_conn;

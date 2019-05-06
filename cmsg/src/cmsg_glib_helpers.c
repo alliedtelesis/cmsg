@@ -21,9 +21,9 @@ static int
 cmsg_glib_server_read (GIOChannel *source, GIOCondition condition, gpointer data)
 {
     int sd = g_io_channel_unix_get_fd (source);
-    cmsg_server_accept_thread_info *info = (cmsg_server_accept_thread_info *) data;
+    cmsg_server *server = (cmsg_server *) data;
 
-    if (cmsg_server_receive (info->server, sd) < 0)
+    if (cmsg_server_receive (server, sd) < 0)
     {
         g_io_channel_shutdown (source, TRUE, NULL);
         g_io_channel_unref (source);
@@ -41,10 +41,11 @@ cmsg_glib_server_read (GIOChannel *source, GIOCondition condition, gpointer data
 static int
 cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer data)
 {
-    cmsg_server_accept_thread_info *info = (cmsg_server_accept_thread_info *) data;
+    cmsg_server *server = (cmsg_server *) data;
     eventfd_t value;
     int *newfd_ptr = NULL;
     GIOChannel *read_channel = NULL;
+    cmsg_server_accept_thread_info *info = server->accept_thread_info;
 
     /* clear notification */
     TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
@@ -52,7 +53,7 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
     while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
     {
         read_channel = g_io_channel_unix_new (*newfd_ptr);
-        g_io_add_watch (read_channel, G_IO_IN, cmsg_glib_server_read, info);
+        g_io_add_watch (read_channel, G_IO_IN, cmsg_glib_server_read, server);
         CMSG_FREE (newfd_ptr);
     }
 
@@ -62,39 +63,39 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
 /**
  * Start the processing of the accepted connections for a CMSG server.
  *
- * @param info - The 'cmsg_server_accept_thread_info' structure holding the
- *               information about the CMSG server listening in a separate thread.
+ * @param server - The CMSG server to start processing.
  */
 void
-cmsg_glib_server_processing_start (cmsg_server_accept_thread_info *info)
+cmsg_glib_server_processing_start (cmsg_server *server)
 {
+    cmsg_server_accept_thread_info *info = server->accept_thread_info;
+
     GIOChannel *accept_channel = g_io_channel_unix_new (info->accept_sd_eventfd);
-    g_io_add_watch (accept_channel, G_IO_IN, cmsg_glib_server_accepted, info);
+    g_io_add_watch (accept_channel, G_IO_IN, cmsg_glib_server_accepted, server);
 }
 
 /**
- * init and start processing for the given CMSG server.
+ * Init and start processing for the given CMSG server.
  *
- * @param server Created server to manage with an accept thread and glib.
+ * @param server - The server to manage with an accept thread and glib.
  *
- * @returns Pointer to a 'cmsg_server_accept_thread_info' structure.
- *          NULL on failure.
+ * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
  */
-cmsg_server_accept_thread_info *
+int32_t
 cmsg_glib_server_init (cmsg_server *server)
 {
-    cmsg_server_accept_thread_info *info = NULL;
+    int32_t ret;
 
-    info = cmsg_server_accept_thread_init (server);
-    if (!info)
+    ret = cmsg_server_accept_thread_init (server);
+    if (ret != CMSG_RET_OK)
     {
         CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server accept thread for %s",
                             cmsg_service_name_get (server->service->descriptor));
-        return NULL;
+        return ret;
     }
 
-    cmsg_glib_server_processing_start (info);
-    return info;
+    cmsg_glib_server_processing_start (server);
+    return CMSG_RET_OK;
 }
 
 /**
@@ -106,17 +107,8 @@ cmsg_glib_server_init (cmsg_server *server)
 void
 cmsg_glib_subscriber_deinit (cmsg_subscriber *sub)
 {
-    if (sub->unix_server_thread_info)
-    {
-        cmsg_server_accept_thread_deinit (sub->unix_server_thread_info);
-        sub->unix_server_thread_info = NULL;
-    }
-    if (sub->tcp_server_thread_info)
-    {
-        cmsg_server_accept_thread_deinit (sub->tcp_server_thread_info);
-        sub->tcp_server_thread_info = NULL;
-    }
-
+    cmsg_server_accept_thread_deinit (sub->unix_server);
+    cmsg_server_accept_thread_deinit (sub->tcp_server);
     cmsg_subscriber_destroy (sub);
 }
 
@@ -130,7 +122,7 @@ cmsg_subscriber *
 cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events)
 {
     cmsg_subscriber *sub = NULL;
-    cmsg_server_accept_thread_info *info;
+    int32_t ret;
 
     sub = cmsg_subscriber_create_unix (service);
     if (!sub)
@@ -138,13 +130,12 @@ cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events)
         return NULL;
     }
 
-    info = cmsg_glib_server_init (cmsg_sub_unix_server_get (sub));
-    if (!info)
+    ret = cmsg_glib_server_init (cmsg_sub_unix_server_get (sub));
+    if (ret != CMSG_RET_OK)
     {
         cmsg_subscriber_destroy (sub);
         return NULL;
     }
-    sub->unix_server_thread_info = info;
 
     /* Subscribe to relevant events */
     if (events)
@@ -168,7 +159,7 @@ cmsg_glib_tcp_subscriber_init (const char *service_name, struct in_addr addr,
                                const ProtobufCService *service)
 {
     cmsg_subscriber *sub = NULL;
-    cmsg_server_accept_thread_info *info;
+    int32_t ret;
 
     sub = cmsg_subscriber_create_tcp (service_name, addr, service);
     if (!sub)
@@ -176,21 +167,19 @@ cmsg_glib_tcp_subscriber_init (const char *service_name, struct in_addr addr,
         return NULL;
     }
 
-    info = cmsg_glib_server_init (cmsg_sub_unix_server_get (sub));
-    if (!info)
+    ret = cmsg_glib_server_init (cmsg_sub_unix_server_get (sub));
+    if (ret != CMSG_RET_OK)
     {
         cmsg_subscriber_destroy (sub);
         return NULL;
     }
-    sub->unix_server_thread_info = info;
 
-    info = cmsg_glib_server_init (cmsg_sub_tcp_server_get (sub));
-    if (!info)
+    ret = cmsg_glib_server_init (cmsg_sub_tcp_server_get (sub));
+    if (ret != CMSG_RET_OK)
     {
         cmsg_subscriber_destroy (sub);
         return NULL;
     }
-    sub->tcp_server_thread_info = info;
 
     return sub;
 }
@@ -204,11 +193,10 @@ cmsg_glib_tcp_subscriber_init (const char *service_name, struct in_addr addr,
  * @returns Pointer to a 'cmsg_server_accept_thread_info' structure.
  *          NULL on failure.
  */
-cmsg_server_accept_thread_info *
+cmsg_server *
 cmsg_glib_unix_server_init (ProtobufCService *service)
 {
     cmsg_server *server = NULL;
-    cmsg_server_accept_thread_info *info = NULL;
 
     server = cmsg_create_server_unix_rpc (service);
     if (!server)
@@ -218,13 +206,13 @@ cmsg_glib_unix_server_init (ProtobufCService *service)
         return NULL;
     }
 
-    info = cmsg_glib_server_init (server);
-    if (!info)
+    if (cmsg_glib_server_init (server) != CMSG_RET_OK)
     {
         cmsg_destroy_server_and_transport (server);
+        server = NULL;
     }
 
-    return info;
+    return server;
 }
 
 /**
@@ -236,15 +224,15 @@ cmsg_glib_unix_server_init (ProtobufCService *service)
  * @param addr - The IPv4 address to listen on (in network byte order).
  * @param service - The CMSG service.
  *
- * @returns Pointer to a 'cmsg_server_accept_thread_info' structure.
+ * @returns Pointer to a 'cmsg_server' structure.
  *          NULL on failure.
  */
-cmsg_server_accept_thread_info *
+cmsg_server *
 cmsg_glib_tcp_server_init_oneway (const char *service_name, struct in_addr *addr,
                                   ProtobufCService *service)
 {
     cmsg_server *server = NULL;
-    cmsg_server_accept_thread_info *info = NULL;
+    int32_t ret;
 
     server = cmsg_create_server_tcp_ipv4_oneway (service_name, addr, service);
     if (!server)
@@ -254,13 +242,14 @@ cmsg_glib_tcp_server_init_oneway (const char *service_name, struct in_addr *addr
         return NULL;
     }
 
-    info = cmsg_glib_server_init (server);
-    if (!info)
+    ret = cmsg_glib_server_init (server);
+    if (ret != CMSG_RET_OK)
     {
         cmsg_destroy_server_and_transport (server);
+        server = NULL;
     }
 
-    return info;
+    return server;
 }
 
 /**
@@ -289,7 +278,7 @@ cmsg_glib_tipc_mesh_init (ProtobufCService *service, const char *service_entry_n
         return NULL;
     }
 
-    cmsg_glib_server_processing_start (mesh->server_thread_info);
+    cmsg_glib_server_processing_start (mesh->server);
 
     return mesh;
 }

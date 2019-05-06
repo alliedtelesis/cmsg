@@ -20,11 +20,10 @@
  */
 #define USED __attribute__ ((used))
 
-extern cmsg_server_accept_thread_info *remote_sync_server_info;
+extern cmsg_server *remote_sync_server;
 extern GList *remote_sync_client_list;
 
-static cmsg_server_accept_thread_info *server_info_test_ptr =
-    (cmsg_server_accept_thread_info *) 0x15876;
+static cmsg_server *server_test_ptr = (cmsg_server *) 0x15876;
 
 static const ProtobufCServiceDescriptor test_descriptor = {
     PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC,
@@ -58,15 +57,15 @@ set_up (void)
     return 0;
 }
 
-static cmsg_server_accept_thread_info *
+static cmsg_server *
 sm_mock_cmsg_glib_tcp_server_init_oneway_ptr_return (const char *service_name,
                                                      struct in_addr *addr,
                                                      ProtobufCService *service)
 {
-    return server_info_test_ptr;
+    return server_test_ptr;
 }
 
-static cmsg_server_accept_thread_info *
+static cmsg_server *
 sm_mock_cmsg_glib_tcp_server_init_oneway_fail (const char *service_name,
                                                struct in_addr *addr,
                                                ProtobufCService *service)
@@ -145,7 +144,7 @@ test_remote_sync_address_set (void)
 
     remote_sync_address_set (addr);
 
-    NP_ASSERT_PTR_EQUAL (remote_sync_server_info, server_info_test_ptr);
+    NP_ASSERT_PTR_EQUAL (remote_sync_server, server_test_ptr);
     NP_ASSERT_EQUAL (test_addr, remote_sync_get_local_ip ());
 }
 
@@ -166,7 +165,7 @@ test_remote_sync_address_set_called_twice (void)
     np_mock (cmsg_glib_tcp_server_init_oneway,
              sm_mock_cmsg_glib_tcp_server_init_oneway_fail);
 
-    NP_ASSERT_PTR_EQUAL (remote_sync_server_info, server_info_test_ptr);
+    NP_ASSERT_PTR_EQUAL (remote_sync_server, server_test_ptr);
     NP_ASSERT_EQUAL (test_addr, remote_sync_get_local_ip ());
 }
 
@@ -197,15 +196,10 @@ test_remote_sync_sl_event_handler (void)
     cmsg_transport *test_transport_1 = NULL;
     cmsg_transport *test_transport_2 = NULL;
     cmsg_transport *server_transport = NULL;
-    cmsg_server *test_server = NULL;
-    cmsg_server_accept_thread_info test_server_info = { };
     cmsg_client *client = NULL;
 
     server_transport = create_tcp_transport (1234);
-    test_server = cmsg_server_create (server_transport, &test_service);
-
-    test_server_info.server = test_server;
-    remote_sync_server_info = &test_server_info;
+    remote_sync_server = cmsg_server_create (server_transport, &test_service);
 
     test_transport_1 = create_tcp_transport (1111);
     test_transport_2 = create_tcp_transport (2222);
@@ -229,7 +223,8 @@ test_remote_sync_sl_event_handler (void)
 
     np_mock (cmsg_service_listener_remove_server,
              sm_mock_cmsg_service_listener_remove_server);
-    cmsg_destroy_server_and_transport (test_server);
+    cmsg_destroy_server_and_transport (remote_sync_server);
+    remote_sync_server = NULL;
     cmsg_transport_destroy (test_transport_1);
     cmsg_transport_destroy (test_transport_2);
 }
@@ -240,14 +235,9 @@ test_remote_sync_sl_event_handler_unknown_transport (void)
     cmsg_transport *test_transport_1 = NULL;
     cmsg_transport *test_transport_2 = NULL;
     cmsg_transport *server_transport = NULL;
-    cmsg_server *test_server = NULL;
-    cmsg_server_accept_thread_info test_server_info = { };
 
     server_transport = create_tcp_transport (1234);
-    test_server = cmsg_server_create (server_transport, &test_service);
-
-    test_server_info.server = test_server;
-    remote_sync_server_info = &test_server_info;
+    remote_sync_server = cmsg_server_create (server_transport, &test_service);
 
     test_transport_1 = create_tcp_transport (1111);
     test_transport_2 = create_tcp_transport (2222);
@@ -266,7 +256,8 @@ test_remote_sync_sl_event_handler_unknown_transport (void)
 
     np_mock (cmsg_service_listener_remove_server,
              sm_mock_cmsg_service_listener_remove_server);
-    cmsg_destroy_server_and_transport (test_server);
+    cmsg_destroy_server_and_transport (remote_sync_server);
+    remote_sync_server = NULL;
     cmsg_transport_destroy (test_transport_1);
     cmsg_transport_destroy (test_transport_2);
 }
@@ -275,21 +266,17 @@ void
 test_remote_sync_sl_event_handler_local_server (void)
 {
     cmsg_transport *server_transport = NULL;
-    cmsg_server *test_server = NULL;
-    cmsg_server_accept_thread_info test_server_info = { };
 
     server_transport = create_tcp_transport (1234);
-    test_server = cmsg_server_create (server_transport, &test_service);
-
-    test_server_info.server = test_server;
-    remote_sync_server_info = &test_server_info;
+    remote_sync_server = cmsg_server_create (server_transport, &test_service);
 
     remote_sync_sl_event_handler (server_transport, true, NULL);
     NP_ASSERT_EQUAL (g_list_length (remote_sync_client_list), 0);
 
     np_mock (cmsg_service_listener_remove_server,
              sm_mock_cmsg_service_listener_remove_server);
-    cmsg_destroy_server_and_transport (test_server);
+    cmsg_destroy_server_and_transport (remote_sync_server);
+    remote_sync_server = NULL;
 }
 
 void
@@ -359,14 +346,9 @@ test_remote_sync_subscription_added_remote_host_no_match (void)
     cmsg_subscription_info sub_info = CMSG_SUBSCRIPTION_INFO_INIT;
     cmsg_transport *test_transport = NULL;
     cmsg_transport *server_transport = NULL;
-    cmsg_server *test_server = NULL;
-    cmsg_server_accept_thread_info test_server_info = { };
 
     server_transport = create_tcp_transport (1234);
-    test_server = cmsg_server_create (server_transport, &test_service);
-
-    test_server_info.server = test_server;
-    remote_sync_server_info = &test_server_info;
+    remote_sync_server = cmsg_server_create (server_transport, &test_service);
 
     test_transport = create_tcp_transport (1111);
 
@@ -383,7 +365,8 @@ test_remote_sync_subscription_added_remote_host_no_match (void)
 
     np_mock (cmsg_service_listener_remove_server,
              sm_mock_cmsg_service_listener_remove_server);
-    cmsg_destroy_server_and_transport (test_server);
+    cmsg_destroy_server_and_transport (remote_sync_server);
+    remote_sync_server = NULL;
     cmsg_transport_destroy (test_transport);
 }
 
@@ -393,14 +376,9 @@ test_remote_sync_subscription_removed_remote_host_no_match (void)
     cmsg_subscription_info sub_info = CMSG_SUBSCRIPTION_INFO_INIT;
     cmsg_transport *test_transport = NULL;
     cmsg_transport *server_transport = NULL;
-    cmsg_server *test_server = NULL;
-    cmsg_server_accept_thread_info test_server_info = { };
 
     server_transport = create_tcp_transport (1234);
-    test_server = cmsg_server_create (server_transport, &test_service);
-
-    test_server_info.server = test_server;
-    remote_sync_server_info = &test_server_info;
+    remote_sync_server = cmsg_server_create (server_transport, &test_service);
 
     test_transport = create_tcp_transport (1111);
 
@@ -417,7 +395,8 @@ test_remote_sync_subscription_removed_remote_host_no_match (void)
 
     np_mock (cmsg_service_listener_remove_server,
              sm_mock_cmsg_service_listener_remove_server);
-    cmsg_destroy_server_and_transport (test_server);
+    cmsg_destroy_server_and_transport (remote_sync_server);
+    remote_sync_server = NULL;
     cmsg_transport_destroy (test_transport);
 }
 
@@ -427,14 +406,9 @@ test_remote_sync_subscription_added_remote_host_match (void)
     cmsg_subscription_info sub_info = CMSG_SUBSCRIPTION_INFO_INIT;
     cmsg_transport *test_transport = NULL;
     cmsg_transport *server_transport = NULL;
-    cmsg_server *test_server = NULL;
-    cmsg_server_accept_thread_info test_server_info = { };
 
     server_transport = create_tcp_transport (1234);
-    test_server = cmsg_server_create (server_transport, &test_service);
-
-    test_server_info.server = test_server;
-    remote_sync_server_info = &test_server_info;
+    remote_sync_server = cmsg_server_create (server_transport, &test_service);
 
     test_transport = create_tcp_transport (1111);
 
@@ -451,7 +425,8 @@ test_remote_sync_subscription_added_remote_host_match (void)
 
     np_mock (cmsg_service_listener_remove_server,
              sm_mock_cmsg_service_listener_remove_server);
-    cmsg_destroy_server_and_transport (test_server);
+    cmsg_destroy_server_and_transport (remote_sync_server);
+    remote_sync_server = NULL;
     cmsg_transport_destroy (test_transport);
 }
 
@@ -461,14 +436,9 @@ test_remote_sync_subscription_removed_remote_host_match (void)
     cmsg_subscription_info sub_info = CMSG_SUBSCRIPTION_INFO_INIT;
     cmsg_transport *test_transport = NULL;
     cmsg_transport *server_transport = NULL;
-    cmsg_server *test_server = NULL;
-    cmsg_server_accept_thread_info test_server_info = { };
 
     server_transport = create_tcp_transport (1234);
-    test_server = cmsg_server_create (server_transport, &test_service);
-
-    test_server_info.server = test_server;
-    remote_sync_server_info = &test_server_info;
+    remote_sync_server = cmsg_server_create (server_transport, &test_service);
 
     test_transport = create_tcp_transport (1111);
 
@@ -485,6 +455,7 @@ test_remote_sync_subscription_removed_remote_host_match (void)
 
     np_mock (cmsg_service_listener_remove_server,
              sm_mock_cmsg_service_listener_remove_server);
-    cmsg_destroy_server_and_transport (test_server);
+    cmsg_destroy_server_and_transport (remote_sync_server);
+    remote_sync_server = NULL;
     cmsg_transport_destroy (test_transport);
 }

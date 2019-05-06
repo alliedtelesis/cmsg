@@ -238,15 +238,17 @@ test_broadcast_client__client_can_send_to_broadcast_client (void)
     struct timeval tv = { 5, 0 };
     int recv_fd = -1;
     int ret = -1;
-    cmsg_server_accept_thread_info *info = NULL;
     eventfd_t value;
     int *newfd_ptr = NULL;
+    cmsg_server_accept_thread_info *info;
 
     server = cmsg_create_server_tipc_rpc ("cmsg-test", TEST_CLIENT_TIPC_ID,
                                           TIPC_CLUSTER_SCOPE, CMSG_SERVICE (cmsg, test));
 
-    info = cmsg_server_accept_thread_init (server);
-    NP_ASSERT_NOT_NULL (info);
+    ret = cmsg_server_accept_thread_init (server);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+
+    info = server->accept_thread_info;
 
     pthread_create (&client_thread, NULL, &client_test_thread_run, NULL);
 
@@ -278,6 +280,5 @@ test_broadcast_client__client_can_send_to_broadcast_client (void)
     NP_ASSERT_TRUE (impl_function_hit);
 
     pthread_join (client_thread, NULL);
-    cmsg_server_accept_thread_deinit (info);
     cmsg_destroy_server_and_transport (server);
 }
