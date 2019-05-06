@@ -20,9 +20,9 @@ static struct in_addr local_addr;
  *
  * @param addr - The address to configure.
  *
- * @returns true on success, false on error.
+ * @returns CMSG_RET_OK on success, related error code on failure.
  */
-bool
+int32_t
 cmsg_ps_address_set (struct in_addr addr)
 {
     cmsg_client *client = NULL;
@@ -32,7 +32,7 @@ cmsg_ps_address_set (struct in_addr addr)
     client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_psd, configuration));
     if (!client)
     {
-        return false;
+        return CMSG_RET_ERR;
     }
 
     CMSG_SET_FIELD_VALUE (&send_msg, value, addr.s_addr);
@@ -41,7 +41,7 @@ cmsg_ps_address_set (struct in_addr addr)
     ret = cmsg_psd_configuration_api_address_set (client, &send_msg);
     cmsg_destroy_client_and_transport (client);
 
-    return (ret == CMSG_RET_OK);
+    return ret;
 }
 
 /**
@@ -54,9 +54,9 @@ cmsg_ps_address_set (struct in_addr addr)
  * @param method_name - The method name to subscribe for.
  * @param add - Whether we are adding the subscription or removing it.
  *
- * @returns true on success, false otherwise.
+ * @returns CMSG_RET_OK on success, related error code on failure.
  */
-static bool
+static int32_t
 cmsg_ps_subscription_add_remove (cmsg_server *sub_server, const char *method_name,
                                  bool add, bool remote, uint32_t remote_addr)
 {
@@ -68,7 +68,7 @@ cmsg_ps_subscription_add_remove (cmsg_server *sub_server, const char *method_nam
     transport_info = cmsg_transport_info_create (sub_server->_transport);
     if (!transport_info)
     {
-        return false;
+        return CMSG_RET_ERR;
     }
     CMSG_SET_FIELD_PTR (&send_msg, transport_info, transport_info);
     CMSG_SET_FIELD_PTR (&send_msg, service,
@@ -84,7 +84,7 @@ cmsg_ps_subscription_add_remove (cmsg_server *sub_server, const char *method_nam
     if (!client)
     {
         cmsg_transport_info_free (transport_info);
-        return false;
+        return CMSG_RET_ERR;
     }
 
     if (add)
@@ -99,7 +99,7 @@ cmsg_ps_subscription_add_remove (cmsg_server *sub_server, const char *method_nam
     cmsg_destroy_client_and_transport (client);
     cmsg_transport_info_free (transport_info);
 
-    return (ret == CMSG_RET_OK);
+    return ret;
 }
 
 /**
@@ -109,9 +109,9 @@ cmsg_ps_subscription_add_remove (cmsg_server *sub_server, const char *method_nam
  *                     published notifications.
  * @param method_name - The method name to subscribe for.
  *
- * @returns true on success, false otherwise.
+ * @returns CMSG_RET_OK on success, related error code on failure.
  */
-bool
+int32_t
 cmsg_ps_subscription_add_local (cmsg_server *sub_server, const char *method_name)
 {
     return cmsg_ps_subscription_add_remove (sub_server, method_name, true, false, 0);
@@ -126,9 +126,9 @@ cmsg_ps_subscription_add_local (cmsg_server *sub_server, const char *method_name
  * @param method_name - The method name to subscribe for.
  * @param remote_addr - The address of the remote node to subscribe to.
  *
- * @returns true on success, false otherwise.
+ * @returns CMSG_RET_OK on success, related error code on failure.
  */
-bool
+int32_t
 cmsg_ps_subscription_add_remote (cmsg_server *sub_server, const char *method_name,
                                  struct in_addr remote_addr)
 {
@@ -143,9 +143,9 @@ cmsg_ps_subscription_add_remote (cmsg_server *sub_server, const char *method_nam
  *                     published notifications.
  * @param method_name - The method name to subscribe for.
  *
- * @returns true on success, false otherwise.
+ * @returns CMSG_RET_OK on success, related error code on failure.
  */
-bool
+int32_t
 cmsg_ps_subscription_remove_local (cmsg_server *sub_server, const char *method_name)
 {
     return cmsg_ps_subscription_add_remove (sub_server, method_name, false, false, 0);
@@ -159,9 +159,9 @@ cmsg_ps_subscription_remove_local (cmsg_server *sub_server, const char *method_n
  * @param method_name - The method name to subscribe for.
  * @param remote_addr - The address of the remote node to unsubscribe from.
  *
- * @returns true on success, false otherwise.
+ * @returns CMSG_RET_OK on success, related error code on failure.
  */
-bool
+int32_t
 cmsg_ps_subscription_remove_remote (cmsg_server *sub_server, const char *method_name,
                                     struct in_addr remote_addr)
 {
@@ -176,9 +176,9 @@ cmsg_ps_subscription_remove_remote (cmsg_server *sub_server, const char *method_
  * @param sub_server - The CMSG server structure used by the subscriber to receive
  *                     published notifications.
  *
- * @returns true on success, false otherwise.
+ * @returns CMSG_RET_OK on success, related error code on failure.
  */
-bool
+int32_t
 cmsg_ps_remove_subscriber (cmsg_server *sub_server)
 {
     cmsg_client *client = NULL;
@@ -188,14 +188,14 @@ cmsg_ps_remove_subscriber (cmsg_server *sub_server)
     transport_info = cmsg_transport_info_create (sub_server->_transport);
     if (!transport_info)
     {
-        return false;
+        return CMSG_RET_ERR;
     }
 
     client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_psd, configuration));
     if (!client)
     {
         cmsg_transport_info_free (transport_info);
-        return false;
+        return CMSG_RET_ERR;
     }
 
     ret = cmsg_psd_configuration_api_remove_subscriber (client, transport_info);
@@ -203,7 +203,7 @@ cmsg_ps_remove_subscriber (cmsg_server *sub_server)
     cmsg_destroy_client_and_transport (client);
     cmsg_transport_info_free (transport_info);
 
-    return (ret == CMSG_RET_OK);
+    return ret;
 }
 
 /**
@@ -231,20 +231,18 @@ cmsg_ps_create_publisher_client (void)
  * @param packet - The packet to send.
  * @param packet_len - The length of the packet.
  *
- * @returns true if the packet was successfully sent to cmsg_psd, false otherwise.
+ * @returns CMSG_RET_OK if the packet was successfully sent to cmsg_psd,
+ *          related error code on failure.
  */
-bool
+int32_t
 cmsg_ps_publish_message (cmsg_client *client, const char *service, const char *method,
                          uint8_t *packet, uint32_t packet_len)
 {
-    int ret;
     cmsg_psd_publish_data send_msg = CMSG_PSD_PUBLISH_DATA_INIT;
 
     CMSG_SET_FIELD_PTR (&send_msg, service, (char *) service);
     CMSG_SET_FIELD_PTR (&send_msg, method_name, (char *) method);
     CMSG_SET_FIELD_BYTES (&send_msg, packet, packet, packet_len);
 
-    ret = cmsg_psd_configuration_api_publish (client, &send_msg);
-
-    return (ret == CMSG_RET_OK);
+    return cmsg_psd_configuration_api_publish (client, &send_msg);
 }

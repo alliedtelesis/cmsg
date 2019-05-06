@@ -10,6 +10,6 @@
 #include <stdbool.h>
 #include <netinet/in.h>
 
-bool cmsg_ps_address_set (struct in_addr addr);
+int32_t cmsg_ps_address_set (struct in_addr addr);
 
 #endif /* __CMSG_PS_CONFIG_H_ */

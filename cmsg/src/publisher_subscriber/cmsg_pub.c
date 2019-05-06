@@ -36,8 +36,8 @@ cmsg_pub_invoke (ProtobufCService *service,
                  const ProtobufCMessage *input,
                  ProtobufCClosure closure, void *closure_data)
 {
-    bool ret;
-    int result;
+    int32_t ret;
+    int32_t result;
     cmsg_publisher *publisher = (cmsg_publisher *) service;
     const char *method_name;
     uint8_t *packet = NULL;
@@ -62,7 +62,7 @@ cmsg_pub_invoke (ProtobufCService *service,
                                    packet, total_message_size);
     CMSG_FREE (packet);
 
-    return (ret ? CMSG_RET_OK : CMSG_RET_ERR);
+    return ret;
 }
 
 /**

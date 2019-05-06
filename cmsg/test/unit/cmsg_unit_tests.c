@@ -33,8 +33,8 @@ test_cmsg_dump_msg_to_file (void)
     CMSG_SET_FIELD_REPEATED (&dump_msg, uint32_array, uint32_array, ARRAY_SIZE);
     CMSG_SET_FIELD_PTR (&dump_msg, internal_message, &internal_dump_msg);
 
-    NP_ASSERT_TRUE (cmsg_dump_msg_to_file ((struct ProtobufCMessage *) &dump_msg,
-                                           TEST_FILE_NAME));
+    NP_ASSERT_EQUAL (cmsg_dump_msg_to_file ((struct ProtobufCMessage *) &dump_msg,
+                                            TEST_FILE_NAME), CMSG_RET_OK);
 
     read_data_msg =
         (cmsg_dump_msg *) cmsg_get_msg_from_file (CMSG_MSG_DESCRIPTOR (cmsg_dump_msg),

@@ -383,9 +383,9 @@ cmsg_service_listener_unlisten (const cmsg_sl_info *info)
  *
  * @param addr - The address to configure.
  *
- * @returns true on success, false on error.
+ * @returns CMSG_RET_OK on success, related error code on failure.
  */
-bool
+int32_t
 cmsg_service_listener_address_set (struct in_addr addr)
 {
     cmsg_client *client = NULL;
@@ -395,7 +395,7 @@ cmsg_service_listener_address_set (struct in_addr addr)
     client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
     if (!client)
     {
-        return false;
+        return CMSG_RET_ERR;
     }
 
     CMSG_SET_FIELD_VALUE (&send_msg, value, addr.s_addr);
@@ -403,7 +403,7 @@ cmsg_service_listener_address_set (struct in_addr addr)
     ret = cmsg_sld_configuration_api_address_set (client, &send_msg);
     cmsg_destroy_client_and_transport (client);
 
-    return (ret == CMSG_RET_OK);
+    return ret;
 }
 
 /**
@@ -413,9 +413,9 @@ cmsg_service_listener_address_set (struct in_addr addr)
  *
  * @param addr - The address of the remote node.
  *
- * @returns true on success, false on error.
+ * @returns CMSG_RET_OK on success, related error code on failure.
  */
-bool
+int32_t
 cmsg_service_listener_add_host (struct in_addr addr)
 {
     cmsg_client *client = NULL;
@@ -425,7 +425,7 @@ cmsg_service_listener_add_host (struct in_addr addr)
     client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
     if (!client)
     {
-        return false;
+        return CMSG_RET_ERR;
     }
 
     CMSG_SET_FIELD_VALUE (&send_msg, value, addr.s_addr);
@@ -433,7 +433,7 @@ cmsg_service_listener_add_host (struct in_addr addr)
     ret = cmsg_sld_configuration_api_add_host (client, &send_msg);
     cmsg_destroy_client_and_transport (client);
 
-    return (ret == CMSG_RET_OK);
+    return ret;
 }
 
 /**
@@ -443,9 +443,9 @@ cmsg_service_listener_add_host (struct in_addr addr)
  *
  * @param addr - The address of the remote node.
  *
- * @returns true on success, false on error.
+ * @returns CMSG_RET_OK on success, related error code on failure.
  */
-bool
+int32_t
 cmsg_service_listener_delete_host (struct in_addr addr)
 {
     cmsg_client *client = NULL;
@@ -455,7 +455,7 @@ cmsg_service_listener_delete_host (struct in_addr addr)
     client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
     if (!client)
     {
-        return false;
+        return CMSG_RET_ERR;
     }
 
     CMSG_SET_FIELD_VALUE (&send_msg, value, addr.s_addr);
@@ -463,7 +463,7 @@ cmsg_service_listener_delete_host (struct in_addr addr)
     ret = cmsg_sld_configuration_api_delete_host (client, &send_msg);
     cmsg_destroy_client_and_transport (client);
 
-    return (ret == CMSG_RET_OK);
+    return ret;
 }
 
 /**

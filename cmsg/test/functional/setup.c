@@ -33,42 +33,42 @@ cmsg_service_listener_mock_functions (void)
              sm_mock_cmsg_service_listener_remove_server);
 }
 
-static bool
+static int32_t
 sm_mock_cmsg_ps_subscription_add_local (cmsg_server *sub_server, const char *method_name)
 {
     /* Do nothing. */
-    return true;
+    return CMSG_RET_OK;
 }
 
-static bool
+static int32_t
 sm_mock_cmsg_ps_subscription_add_remote (cmsg_server *sub_server, const char *method_name,
                                          struct in_addr remote_addr)
 {
     /* Do nothing. */
-    return true;
+    return CMSG_RET_OK;
 }
 
-static bool
+static int32_t
 sm_mock_cmsg_ps_subscription_remove_local (cmsg_server *sub_server, const char *method_name)
 {
     /* Do nothing. */
-    return true;
+    return CMSG_RET_OK;
 }
 
-static bool
+static int32_t
 sm_mock_cmsg_ps_subscription_remove_remote (cmsg_server *sub_server,
                                             const char *method_name,
                                             struct in_addr remote_addr)
 {
     /* Do nothing. */
-    return true;
+    return CMSG_RET_OK;
 }
 
-static bool
+static int32_t
 sm_mock_cmsg_ps_remove_subscriber (cmsg_server *sub_server)
 {
     /* Do nothing. */
-    return true;
+    return CMSG_RET_OK;
 }
 
 /**

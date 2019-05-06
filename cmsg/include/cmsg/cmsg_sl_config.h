@@ -10,8 +10,8 @@
 #include <stdbool.h>
 #include <netinet/in.h>
 
-bool cmsg_service_listener_address_set (struct in_addr addr);
-bool cmsg_service_listener_add_host (struct in_addr addr);
-bool cmsg_service_listener_delete_host (struct in_addr addr);
+int32_t cmsg_service_listener_address_set (struct in_addr addr);
+int32_t cmsg_service_listener_add_host (struct in_addr addr);
+int32_t cmsg_service_listener_delete_host (struct in_addr addr);
 
 #endif /* __CMSG_SL_CONFIG_H_ */

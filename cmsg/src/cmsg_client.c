@@ -86,7 +86,7 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
     }
 }
 
-bool
+int32_t
 cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
                   const ProtobufCServiceDescriptor *descriptor)
 {
@@ -121,7 +121,7 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
     if (pthread_mutex_init (&client->queue_mutex, NULL) != 0)
     {
         CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_mutex.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
     client->queue = g_queue_new ();
@@ -130,25 +130,25 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
     if (pthread_cond_init (&client->queue_process_cond, NULL) != 0)
     {
         CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_cond.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
     if (pthread_mutex_init (&client->queue_process_mutex, NULL) != 0)
     {
         CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_mutex.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
     if (pthread_mutex_init (&client->invoke_mutex, NULL) != 0)
     {
         CMSG_LOG_CLIENT_ERROR (client, "Init failed for invoke_mutex.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
     if (pthread_mutex_init (&client->send_mutex, NULL) != 0)
     {
         CMSG_LOG_GEN_ERROR ("Init failed for send_mutex.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
     client->self_thread_id = pthread_self ();
@@ -160,7 +160,7 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
 
     client->suppress_errors = false;
 
-    return true;
+    return CMSG_RET_OK;
 }
 
 /*
@@ -178,7 +178,7 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
 
     if (client)
     {
-        if (!cmsg_client_init (client, transport, descriptor))
+        if (cmsg_client_init (client, transport, descriptor) != CMSG_RET_OK)
         {
             CMSG_FREE (client);
             return NULL;

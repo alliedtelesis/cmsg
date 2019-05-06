@@ -89,16 +89,15 @@ cmsg_sub_tcp_server_socket_get (cmsg_subscriber *subscriber)
 int32_t
 cmsg_sub_subscribe_local (cmsg_subscriber *subscriber, const char *method_name)
 {
-    cmsg_ps_subscription_add_local (subscriber->unix_server, method_name);
-    return CMSG_RET_OK;
+    return cmsg_ps_subscription_add_local (subscriber->unix_server, method_name);
 }
 
 int32_t
 cmsg_sub_subscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
                            struct in_addr remote_addr)
 {
-    cmsg_ps_subscription_add_remote (subscriber->tcp_server, method_name, remote_addr);
-    return CMSG_RET_OK;
+    return cmsg_ps_subscription_add_remote (subscriber->tcp_server, method_name,
+                                            remote_addr);
 }
 
 int32_t
@@ -145,16 +144,15 @@ cmsg_sub_subscribe_events_remote (cmsg_subscriber *subscriber, const char **even
 int32_t
 cmsg_sub_unsubscribe_local (cmsg_subscriber *subscriber, const char *method_name)
 {
-    cmsg_ps_subscription_remove_local (subscriber->unix_server, method_name);
-    return CMSG_RET_OK;
+    return cmsg_ps_subscription_remove_local (subscriber->unix_server, method_name);
 }
 
 int32_t
 cmsg_sub_unsubscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
                              struct in_addr remote_addr)
 {
-    cmsg_ps_subscription_remove_remote (subscriber->tcp_server, method_name, remote_addr);
-    return CMSG_RET_OK;
+    return cmsg_ps_subscription_remove_remote (subscriber->tcp_server, method_name,
+                                               remote_addr);
 }
 
 int32_t

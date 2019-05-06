@@ -753,9 +753,9 @@ cmsg_pack_msg (const ProtobufCMessage *msg, uint32_t *packed_data_size)
  * @param msg - The protobuf message to serialise and dump to a file.
  * @param file_name - The name/path of the file to dump the message to.
  *
- * @returns true on success, false otherwise.
+ * @returns CMSG_RET_OK on success, CMSG_RET_ERR otherwise.
  */
-bool
+int32_t
 cmsg_dump_msg_to_file (const ProtobufCMessage *msg, const char *file_name)
 {
     FILE *fp;
@@ -763,12 +763,12 @@ cmsg_dump_msg_to_file (const ProtobufCMessage *msg, const char *file_name)
     uint32_t packed_data_len = 0;
     size_t len;
     char *tmp_file_name = NULL;
-    bool ret = false;
+    int32_t ret = CMSG_RET_ERR;
 
     if (CMSG_ASPRINTF (&tmp_file_name, "%s.tmp", file_name) < 0)
     {
         CMSG_LOG_GEN_ERROR ("Failed to allocate temporary file name string.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
     fp = fopen (tmp_file_name, "w");
@@ -776,7 +776,7 @@ cmsg_dump_msg_to_file (const ProtobufCMessage *msg, const char *file_name)
     {
         CMSG_LOG_GEN_ERROR ("Failed to open temporary file.");
         free (tmp_file_name);
-        return false;
+        return CMSG_RET_ERR;
     }
 
     packed_data = cmsg_pack_msg (msg, &packed_data_len);
@@ -785,7 +785,7 @@ cmsg_dump_msg_to_file (const ProtobufCMessage *msg, const char *file_name)
         len = fwrite (packed_data, sizeof (*packed_data), packed_data_len, fp);
         if (len == packed_data_len)
         {
-            ret = true;
+            ret = CMSG_RET_OK;
         }
         else
         {

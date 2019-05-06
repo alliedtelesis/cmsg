@@ -20,8 +20,8 @@
 #include "cmsg_composite_client_private.h"
 #include "cmsg_client_private.h"
 
-extern bool cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
-                              const ProtobufCServiceDescriptor *descriptor);
+extern int32_t cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
+                                 const ProtobufCServiceDescriptor *descriptor);
 extern void cmsg_client_deinit (cmsg_client *client);
 
 #define CMSG_COMPOSITE_CLIENT_TYPE_CHECK_ERROR \
@@ -256,13 +256,13 @@ cmsg_composite_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t
     return overall_result;
 }
 
-bool
+int32_t
 cmsg_composite_client_init (cmsg_composite_client *comp_client,
                             const ProtobufCServiceDescriptor *descriptor)
 {
-    if (!cmsg_client_init (&comp_client->base_client, NULL, descriptor))
+    if (cmsg_client_init (&comp_client->base_client, NULL, descriptor) != CMSG_RET_OK)
     {
-        return false;
+        return CMSG_RET_ERR;
     }
 
     // Override the client->invoke with the composite-specific version
@@ -278,10 +278,10 @@ cmsg_composite_client_init (cmsg_composite_client *comp_client,
     if (pthread_mutex_init (&comp_client->child_mutex, NULL) != 0)
     {
         CMSG_LOG_GEN_ERROR ("Init failed for child_mutex.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
-    return true;
+    return CMSG_RET_OK;
 }
 
 
@@ -299,7 +299,7 @@ cmsg_composite_client_new (const ProtobufCServiceDescriptor *descriptor)
 
     if (comp_client)
     {
-        if (!cmsg_composite_client_init (comp_client, descriptor))
+        if (cmsg_composite_client_init (comp_client, descriptor) != CMSG_RET_OK)
         {
             CMSG_FREE (comp_client);
             return NULL;
