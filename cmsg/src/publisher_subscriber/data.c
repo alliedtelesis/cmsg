@@ -827,13 +827,15 @@ transport_info_dump (cmsg_transport_info *transport_info, FILE *fp)
     cmsg_tipc_transport_info *tipc_info = NULL;
     cmsg_tcp_transport_info *tcp_info = NULL;
     char ip[INET6_ADDRSTRLEN] = { };
+    uint16_t port;
 
     if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
         tcp_info = transport_info->tcp_info;
         inet_ntop (AF_INET, tcp_info->addr.data, ip, INET6_ADDRSTRLEN);
+        port = (uint16_t) *tcp_info->port.data;
 
-        fprintf (fp, " transport: (tcp) %s:%u\n", ip, ntohs (tcp_info->port));
+        fprintf (fp, " transport: (tcp) %s:%u\n", ip, ntohs (port));
     }
     else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
     {

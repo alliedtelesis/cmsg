@@ -27,8 +27,14 @@ message cmsg_unix_transport_info
 message cmsg_tcp_transport_info
 {
     optional bool ipv4 = 1;
+
+    // The address is always stored in network byte order so to send in this
+    // byte order we must send the data as bytes.
     optional bytes addr = 2;
-    optional uint32 port = 3;
+
+    // The port number is always stored in network byte order so to send in this
+    // byte order we must send the data as bytes.
+    optional bytes port = 3;
 }
 
 message cmsg_tipc_transport_info

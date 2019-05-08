@@ -515,7 +515,7 @@ data_debug_tcp_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
     char ip[INET6_ADDRSTRLEN] = { };
     uint16_t port;
 
-    port = ntohs (tcp_info->port);
+    port = (uint16_t) *tcp_info->port.data;
 
     if (tcp_info->ipv4)
     {
@@ -526,7 +526,7 @@ data_debug_tcp_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
         inet_ntop (AF_INET6, tcp_info->addr.data, ip, INET6_ADDRSTRLEN);
     }
 
-    fprintf (fp, "   (tcp, %s) %s:%u\n", oneway_str, ip, port);
+    fprintf (fp, "   (tcp, %s) %s:%u\n", oneway_str, ip, ntohs (port));
 }
 
 /**

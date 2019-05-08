@@ -910,8 +910,9 @@ cmsg_transport_tcp_info_create (cmsg_transport *transport)
     cmsg_tcp_transport_info *tcp_info = NULL;
     bool ipv4;
     uint32_t addr_len;
-    uint16_t port;
     uint8_t *addr = NULL;
+    uint32_t port_len;
+    uint8_t *port = NULL;
 
     tcp_info = CMSG_MALLOC (sizeof (cmsg_tcp_transport_info));
     if (!tcp_info)
@@ -921,25 +922,28 @@ cmsg_transport_tcp_info_create (cmsg_transport *transport)
 
     cmsg_tcp_transport_info_init (tcp_info);
 
+    port_len = sizeof (uint16_t);
+    port = CMSG_MALLOC (port_len);
+
     ipv4 = (transport->config.socket.family != PF_INET6);
     if (ipv4)
     {
         addr_len = sizeof (transport->config.socket.sockaddr.in.sin_addr.s_addr);
         addr = CMSG_MALLOC (addr_len);
         memcpy (addr, &transport->config.socket.sockaddr.in.sin_addr.s_addr, addr_len);
-        port = transport->config.socket.sockaddr.in.sin_port;
+        memcpy (port, &transport->config.socket.sockaddr.in.sin_port, port_len);
     }
     else
     {
         addr_len = sizeof (transport->config.socket.sockaddr.in6.sin6_addr.s6_addr);
         addr = CMSG_MALLOC (addr_len);
         memcpy (addr, &transport->config.socket.sockaddr.in6.sin6_addr.s6_addr, addr_len);
-        port = transport->config.socket.sockaddr.in6.sin6_port;
+        memcpy (port, &transport->config.socket.sockaddr.in6.sin6_port, port_len);
     }
 
     CMSG_SET_FIELD_VALUE (tcp_info, ipv4, ipv4);
     CMSG_SET_FIELD_BYTES (tcp_info, addr, addr, addr_len);
-    CMSG_SET_FIELD_VALUE (tcp_info, port, port);
+    CMSG_SET_FIELD_BYTES (tcp_info, port, port, port_len);
 
     return tcp_info;
 }
@@ -1083,6 +1087,7 @@ cmsg_transport_info_free (cmsg_transport_info *transport_info)
     }
     else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
+        CMSG_FREE (transport_info->tcp_info->port.data);
         CMSG_FREE (transport_info->tcp_info->addr.data);
         CMSG_FREE (transport_info->tcp_info);
     }
@@ -1126,7 +1131,8 @@ cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
     }
     else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
-        uint16_t port = transport_info->tcp_info->port;
+        uint8_t *port = transport_info->tcp_info->port.data;
+        uint32_t port_len = transport_info->tcp_info->port.len;
         uint8_t *addr = transport_info->tcp_info->addr.data;
         uint32_t addr_len = transport_info->tcp_info->addr.len;
 
@@ -1144,14 +1150,14 @@ cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
             transport->config.socket.family = PF_INET;
             transport->config.socket.sockaddr.generic.sa_family = PF_INET;
             transport->config.socket.sockaddr.in.sin_family = AF_INET;
-            transport->config.socket.sockaddr.in.sin_port = port;
+            memcpy (&transport->config.socket.sockaddr.in.sin_port, port, port_len);
             memcpy (&transport->config.socket.sockaddr.in.sin_addr.s_addr, addr, addr_len);
         }
         else
         {
             transport->config.socket.family = PF_INET6;
             transport->config.socket.sockaddr.generic.sa_family = PF_INET6;
-            transport->config.socket.sockaddr.in6.sin6_port = port;
+            memcpy (&transport->config.socket.sockaddr.in6.sin6_port, port, port_len);
             memcpy (&transport->config.socket.sockaddr.in6.sin6_addr.s6_addr, addr,
                     addr_len);
         }
@@ -1207,7 +1213,7 @@ cmsg_transport_info_compare (const cmsg_transport_info *transport_info_a,
         cmsg_tcp_transport_info *tcp_info_b = transport_info_b->tcp_info;
 
         if (tcp_info_a->ipv4 == tcp_info_b->ipv4 &&
-            tcp_info_a->port == tcp_info_b->port &&
+            !memcmp (tcp_info_a->port.data, tcp_info_b->port.data, tcp_info_a->port.len) &&
             !memcmp (tcp_info_a->addr.data, tcp_info_b->addr.data, tcp_info_a->addr.len))
         {
             return true;
