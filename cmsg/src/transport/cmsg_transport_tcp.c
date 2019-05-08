@@ -418,7 +418,7 @@ cmsg_create_transport_tcp (cmsg_socket *config, cmsg_transport_type transport_ty
 cmsg_transport *
 cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr, bool oneway)
 {
-    uint32_t port = 0;
+    uint16_t port = 0;
     cmsg_transport *transport = NULL;
     char ip_addr[INET_ADDRSTRLEN] = { };
     cmsg_transport_type transport_type;
@@ -426,7 +426,7 @@ cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr, 
     transport_type = (oneway == true ? CMSG_TRANSPORT_ONEWAY_TCP : CMSG_TRANSPORT_RPC_TCP);
 
     port = cmsg_service_port_get (service_name, "tcp");
-    if (port <= 0)
+    if (port == 0)
     {
         inet_ntop (AF_INET, addr, ip_addr, INET_ADDRSTRLEN);
         CMSG_LOG_GEN_ERROR ("Unknown TCP service. Server:%s, IP:%s", service_name, ip_addr);

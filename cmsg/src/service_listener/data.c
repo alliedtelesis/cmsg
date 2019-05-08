@@ -515,7 +515,7 @@ data_debug_tcp_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
     char ip[INET6_ADDRSTRLEN] = { };
     uint16_t port;
 
-    port = tcp_info->port;
+    port = ntohs (tcp_info->port);
 
     if (tcp_info->ipv4)
     {

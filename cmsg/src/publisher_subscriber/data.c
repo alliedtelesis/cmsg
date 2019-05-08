@@ -728,13 +728,13 @@ tcp_transport_dump (FILE *fp, const cmsg_transport *transport)
 
     if (transport->config.socket.family != PF_INET6)
     {
-        port = transport->config.socket.sockaddr.in.sin_port;
+        port = ntohs (transport->config.socket.sockaddr.in.sin_port);
         inet_ntop (AF_INET, &transport->config.socket.sockaddr.in.sin_addr.s_addr,
                    ip, INET6_ADDRSTRLEN);
     }
     else
     {
-        port = transport->config.socket.sockaddr.in6.sin6_port;
+        port = ntohs (transport->config.socket.sockaddr.in6.sin6_port);
         inet_ntop (AF_INET6, &transport->config.socket.sockaddr.in6.sin6_addr.s6_addr,
                    ip, INET6_ADDRSTRLEN);
     }
@@ -833,7 +833,7 @@ transport_info_dump (cmsg_transport_info *transport_info, FILE *fp)
         tcp_info = transport_info->tcp_info;
         inet_ntop (AF_INET, tcp_info->addr.data, ip, INET6_ADDRSTRLEN);
 
-        fprintf (fp, " transport: (tcp) %s:%u\n", ip, tcp_info->port);
+        fprintf (fp, " transport: (tcp) %s:%u\n", ip, ntohs (tcp_info->port));
     }
     else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
     {

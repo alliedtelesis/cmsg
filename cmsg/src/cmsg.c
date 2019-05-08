@@ -272,12 +272,13 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
     return CMSG_RET_OK;
 }
 
-int
+uint16_t
 cmsg_service_port_get (const char *name, const char *proto)
 {
     struct servent *result;
     struct servent result_buf;
-    int port, ret;
+    uint16_t port;
+    int ret;
 
     const int buf_size = 1024;
     char buf[buf_size];
