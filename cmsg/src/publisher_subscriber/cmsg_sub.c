@@ -33,8 +33,8 @@ cmsg_sub_new (cmsg_transport *tcp_transport, const ProtobufCService *pub_service
               sizeof (unix_transport->config.socket.sockaddr.un.sun_path) - 1,
               "/tmp/%s.%u", pub_service->descriptor->name, getpid ());
 
-    subscriber->unix_server = cmsg_server_new (unix_transport, pub_service);
-    if (!subscriber->unix_server)
+    subscriber->local_server = cmsg_server_new (unix_transport, pub_service);
+    if (!subscriber->local_server)
     {
         CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create subscriber unix server.",
                             pub_service->descriptor->name, unix_transport->tport_id);
@@ -44,12 +44,12 @@ cmsg_sub_new (cmsg_transport *tcp_transport, const ProtobufCService *pub_service
 
     if (tcp_transport)
     {
-        subscriber->tcp_server = cmsg_server_new (tcp_transport, pub_service);
-        if (!subscriber->tcp_server)
+        subscriber->remote_server = cmsg_server_new (tcp_transport, pub_service);
+        if (!subscriber->remote_server)
         {
             CMSG_LOG_GEN_ERROR ("[%s%s] Unable to create subscriber tcp server.",
                                 pub_service->descriptor->name, tcp_transport->tport_id);
-            cmsg_destroy_server_and_transport (subscriber->unix_server);
+            cmsg_destroy_server_and_transport (subscriber->local_server);
             CMSG_FREE (subscriber);
             return NULL;
         }
@@ -61,7 +61,7 @@ cmsg_sub_new (cmsg_transport *tcp_transport, const ProtobufCService *pub_service
 cmsg_server *
 cmsg_sub_unix_server_get (cmsg_subscriber *subscriber)
 {
-    return subscriber->unix_server;
+    return subscriber->local_server;
 }
 
 int
@@ -69,13 +69,13 @@ cmsg_sub_unix_server_socket_get (cmsg_subscriber *subscriber)
 {
     CMSG_ASSERT_RETURN_VAL (subscriber != NULL, -1);
 
-    return (cmsg_server_get_socket (subscriber->unix_server));
+    return (cmsg_server_get_socket (subscriber->local_server));
 }
 
 cmsg_server *
 cmsg_sub_tcp_server_get (cmsg_subscriber *subscriber)
 {
-    return subscriber->tcp_server;
+    return subscriber->remote_server;
 }
 
 int
@@ -83,20 +83,20 @@ cmsg_sub_tcp_server_socket_get (cmsg_subscriber *subscriber)
 {
     CMSG_ASSERT_RETURN_VAL (subscriber != NULL, -1);
 
-    return (cmsg_server_get_socket (subscriber->tcp_server));
+    return (cmsg_server_get_socket (subscriber->remote_server));
 }
 
 int32_t
 cmsg_sub_subscribe_local (cmsg_subscriber *subscriber, const char *method_name)
 {
-    return cmsg_ps_subscription_add_local (subscriber->unix_server, method_name);
+    return cmsg_ps_subscription_add_local (subscriber->local_server, method_name);
 }
 
 int32_t
 cmsg_sub_subscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
                            struct in_addr remote_addr)
 {
-    return cmsg_ps_subscription_add_remote (subscriber->tcp_server, method_name,
+    return cmsg_ps_subscription_add_remote (subscriber->remote_server, method_name,
                                             remote_addr);
 }
 
@@ -144,14 +144,14 @@ cmsg_sub_subscribe_events_remote (cmsg_subscriber *subscriber, const char **even
 int32_t
 cmsg_sub_unsubscribe_local (cmsg_subscriber *subscriber, const char *method_name)
 {
-    return cmsg_ps_subscription_remove_local (subscriber->unix_server, method_name);
+    return cmsg_ps_subscription_remove_local (subscriber->local_server, method_name);
 }
 
 int32_t
 cmsg_sub_unsubscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
                              struct in_addr remote_addr)
 {
-    return cmsg_ps_subscription_remove_remote (subscriber->tcp_server, method_name,
+    return cmsg_ps_subscription_remove_remote (subscriber->remote_server, method_name,
                                                remote_addr);
 }
 
@@ -247,15 +247,15 @@ cmsg_subscriber_destroy (cmsg_subscriber *subscriber)
 {
     if (subscriber)
     {
-        if (subscriber->unix_server)
+        if (subscriber->local_server)
         {
-            cmsg_ps_remove_subscriber (subscriber->unix_server);
-            cmsg_destroy_server_and_transport (subscriber->unix_server);
+            cmsg_ps_remove_subscriber (subscriber->local_server);
+            cmsg_destroy_server_and_transport (subscriber->local_server);
         }
-        if (subscriber->tcp_server)
+        if (subscriber->remote_server)
         {
-            cmsg_ps_remove_subscriber (subscriber->tcp_server);
-            cmsg_destroy_server_and_transport (subscriber->tcp_server);
+            cmsg_ps_remove_subscriber (subscriber->remote_server);
+            cmsg_destroy_server_and_transport (subscriber->remote_server);
         }
 
         CMSG_FREE (subscriber);

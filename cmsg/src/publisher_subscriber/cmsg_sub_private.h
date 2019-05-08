@@ -11,8 +11,8 @@
 
 struct cmsg_subscriber
 {
-    cmsg_server *unix_server;
-    cmsg_server *tcp_server;
+    cmsg_server *local_server;  /* The unix server used for local subscriptions */
+    cmsg_server *remote_server; /* The tcp server used for remote subscriptions */
 };
 
 #endif /* __CMSG_SUB_PRIVATE_H_ */
