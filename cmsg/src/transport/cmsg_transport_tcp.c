@@ -445,7 +445,7 @@ cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr, 
     transport->config.socket.family = PF_INET;
     transport->config.socket.sockaddr.generic.sa_family = PF_INET;
     transport->config.socket.sockaddr.in.sin_family = AF_INET;
-    transport->config.socket.sockaddr.in.sin_port = port;
+    transport->config.socket.sockaddr.in.sin_port = htons (port);
     transport->config.socket.sockaddr.in.sin_addr.s_addr = addr->s_addr;
 
     cmsg_transport_ipfree_bind_enable (transport, true);
