@@ -833,7 +833,7 @@ transport_info_dump (cmsg_transport_info *transport_info, FILE *fp)
     {
         tcp_info = transport_info->tcp_info;
         inet_ntop (AF_INET, tcp_info->addr.data, ip, INET6_ADDRSTRLEN);
-        port = (uint16_t) *tcp_info->port.data;
+        memcpy (&port, tcp_info->port.data, sizeof (port));
 
         fprintf (fp, " transport: (tcp) %s:%u\n", ip, ntohs (port));
     }
