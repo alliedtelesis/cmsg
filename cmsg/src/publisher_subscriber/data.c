@@ -767,12 +767,6 @@ clients_dump (gpointer data, gpointer user_data)
     {
         tcp_transport_dump (fp, transport);
     }
-    else if (transport->type == CMSG_TRANSPORT_ONEWAY_TIPC ||
-             transport->type == CMSG_TRANSPORT_RPC_TIPC)
-    {
-        fprintf (fp, "     (tipc) instance:%u\n",
-                 transport->config.socket.sockaddr.tipc.addr.name.name.instance);
-    }
 }
 
 /**
@@ -824,7 +818,6 @@ local_subscriptions_dump (gpointer key, gpointer value, gpointer user_data)
 static void
 transport_info_dump (cmsg_transport_info *transport_info, FILE *fp)
 {
-    cmsg_tipc_transport_info *tipc_info = NULL;
     cmsg_tcp_transport_info *tcp_info = NULL;
     char ip[INET6_ADDRSTRLEN] = { };
     uint16_t port;
@@ -836,12 +829,6 @@ transport_info_dump (cmsg_transport_info *transport_info, FILE *fp)
         memcpy (&port, tcp_info->port.data, sizeof (port));
 
         fprintf (fp, " transport: (tcp) %s:%u\n", ip, ntohs (port));
-    }
-    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
-    {
-        tipc_info = transport_info->tipc_info;
-        fprintf (fp, " transport: (tipc) instance:%u\n",
-                 tipc_info->addr_name_name_instance);
     }
 }
 
