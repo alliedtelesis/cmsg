@@ -107,9 +107,12 @@ cmsg_glib_server_init (cmsg_server *server)
 void
 cmsg_glib_subscriber_deinit (cmsg_subscriber *sub)
 {
-    cmsg_server_accept_thread_deinit (sub->local_server);
-    cmsg_server_accept_thread_deinit (sub->remote_server);
-    cmsg_subscriber_destroy (sub);
+    if (sub)
+    {
+        cmsg_server_accept_thread_deinit (sub->local_server);
+        cmsg_server_accept_thread_deinit (sub->remote_server);
+        cmsg_subscriber_destroy (sub);
+    }
 }
 
 /**
