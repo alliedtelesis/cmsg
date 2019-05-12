@@ -235,8 +235,11 @@ data_remove_server (const cmsg_service_info *server_info)
  * @param key - The key from the hash table (service name)
  * @param value - The value associated with the key (service_data_entry structure)
  * @param user_data - The address to match against.
+ *
+ * @returns TRUE if the service data entry is now empty and should be removed from the
+ *          hash table, FALSE otherwise.
  */
-static void
+static gboolean
 _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
 {
     uint32_t *addr = (uint32_t *) user_data;
@@ -271,10 +274,16 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
         entry->servers = g_list_remove (entry->servers, service_info);
         notify_listeners (service_info, entry, false);
         remote_sync_server_removed (service_info);
-        data_remove_service_data_entry_if_empty (entry, key);
         CMSG_FREE_RECV_MSG (service_info);
     }
     g_list_free (removal_list);
+
+    if (entry->servers || entry->listeners)
+    {
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
 /**
@@ -285,7 +294,7 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
 void
 data_remove_servers_by_addr (struct in_addr addr)
 {
-    g_hash_table_foreach (hash_table, _delete_server_by_addr, &addr.s_addr);
+    g_hash_table_foreach_remove (hash_table, _delete_server_by_addr, &addr.s_addr);
 }
 
 /**
