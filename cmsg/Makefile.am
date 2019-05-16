@@ -272,6 +272,7 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/server_side_validation.c \
 	test/functional/pthread_helpers_tests.c \
 	test/functional/cmsg_service_listener_tests.c \
+	test/functional/supported_service_tests.c \
 	test/functional/setup.c
 
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h

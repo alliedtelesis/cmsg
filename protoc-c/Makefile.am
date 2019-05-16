@@ -8,11 +8,17 @@ validation.pb.cc \
 validation.pb.h: $(PROTOC_PATH)$(EXEEXT) validation.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/protoc-c/validation.proto
 
+supported_service.pb.cc \
+supported_service.pb.h: $(PROTOC_PATH)$(EXEEXT) supported_service.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/protoc-c/supported_service.proto
+
 protoc_cmsg_SOURCES = \
 	http.pb.cc \
 	http.pb.h \
 	validation.pb.cc \
 	validation.pb.h \
+	supported_service.pb.cc \
+	supported_service.pb.h \
 	c_atl_generator.cc \
 	c_atl_generator.h \
 	c_bytes_field.cc \
@@ -46,7 +52,8 @@ protoc_cmsg_SOURCES = \
 protoc_cmsgdir       = $(includedir)/cmsg
 protoc_cmsg_HEADERS  = \
 	http.proto \
-	validation.proto
+	validation.proto \
+	supported_service.proto
 
 protoc_cmsg_CXXFLAGS = \
 	-Werror \
@@ -62,5 +69,5 @@ protoc_cmsg_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
 	-I$(top_srcdir)
 
-BUILT_SOURCES = http.pb.cc http.pb.h validation.pb.cc validation.pb.h
+BUILT_SOURCES = http.pb.cc http.pb.h validation.pb.cc validation.pb.h supported_service.pb.cc supported_service.pb.h
 CLEANFILES = $(BUILT_SOURCES)
