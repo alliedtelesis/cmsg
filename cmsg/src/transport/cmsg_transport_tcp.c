@@ -14,7 +14,7 @@
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
+cmsg_transport_tcp_connect (cmsg_transport *transport)
 {
     int ret;
     struct sockaddr *addr;
@@ -41,7 +41,7 @@ cmsg_transport_tcp_connect (cmsg_transport *transport, int timeout)
         addr_len = sizeof (transport->config.socket.sockaddr.in);
     }
 
-    if (connect (transport->socket, addr, addr_len) < 0)
+    if (connect_nb (transport->socket, addr, addr_len, transport->connect_timeout) < 0)
     {
         if (errno == EINPROGRESS)
         {
@@ -221,12 +221,13 @@ cmsg_transport_tcp_recv (cmsg_transport *transport, int sock, void *buff, int le
 
 
 static int32_t
-cmsg_transport_tcp_server_accept (int32_t listen_socket, cmsg_transport *transport)
+cmsg_transport_tcp_server_accept (cmsg_transport *transport)
 {
     uint32_t client_len;
     cmsg_transport client_transport;
     int sock;
     struct sockaddr *addr;
+    int listen_socket = transport->socket;
 
     if (listen_socket < 0)
     {
@@ -282,16 +283,6 @@ cmsg_transport_tcp_is_congested (cmsg_transport *transport)
     return false;
 }
 
-
-int32_t
-cmsg_transport_tcp_send_can_block_enable (cmsg_transport *transport,
-                                          uint32_t send_can_block)
-{
-    transport->send_can_block = send_can_block;
-    return 0;
-}
-
-
 int32_t
 cmsg_transport_tcp_ipfree_bind_enable (cmsg_transport *transport,
                                        cmsg_bool_t use_ipfree_bind)
@@ -313,8 +304,10 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->socket_close = cmsg_transport_socket_close;
     tport_funcs->get_socket = cmsg_transport_get_socket;
     tport_funcs->is_congested = cmsg_transport_tcp_is_congested;
-    tport_funcs->send_can_block_enable = cmsg_transport_tcp_send_can_block_enable;
     tport_funcs->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
+    tport_funcs->destroy = NULL;
+    tport_funcs->apply_send_timeout = cmsg_transport_apply_send_timeout;
+    tport_funcs->apply_recv_timeout = cmsg_transport_apply_recv_timeout;
 }
 
 
@@ -419,13 +412,13 @@ cmsg_create_transport_tcp (cmsg_socket *config, cmsg_transport_type transport_ty
  *
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
- * @param addr - The IPv4 address to use.
+ * @param addr - The IPv4 address to use (in network byte order).
  * @param oneway - Whether to make a one-way transport, or a two-way (RPC) transport.
  */
 cmsg_transport *
 cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr, bool oneway)
 {
-    uint32_t port = 0;
+    uint16_t port = 0;
     cmsg_transport *transport = NULL;
     char ip_addr[INET_ADDRSTRLEN] = { };
     cmsg_transport_type transport_type;
@@ -433,7 +426,7 @@ cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr, 
     transport_type = (oneway == true ? CMSG_TRANSPORT_ONEWAY_TCP : CMSG_TRANSPORT_RPC_TCP);
 
     port = cmsg_service_port_get (service_name, "tcp");
-    if (port <= 0)
+    if (port == 0)
     {
         inet_ntop (AF_INET, addr, ip_addr, INET_ADDRSTRLEN);
         CMSG_LOG_GEN_ERROR ("Unknown TCP service. Server:%s, IP:%s", service_name, ip_addr);
@@ -453,7 +446,7 @@ cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr, 
     transport->config.socket.sockaddr.generic.sa_family = PF_INET;
     transport->config.socket.sockaddr.in.sin_family = AF_INET;
     transport->config.socket.sockaddr.in.sin_port = htons (port);
-    transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (addr->s_addr);
+    transport->config.socket.sockaddr.in.sin_addr.s_addr = addr->s_addr;
 
     cmsg_transport_ipfree_bind_enable (transport, true);
 

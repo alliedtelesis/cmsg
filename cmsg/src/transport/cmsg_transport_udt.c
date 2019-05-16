@@ -58,11 +58,11 @@ cmsg_transport_udt_server_recv (int32_t server_socket, cmsg_transport *transport
 
 
 int32_t
-cmsg_transport_udt_server_accept (int32_t listen_socket, cmsg_transport *transport)
+cmsg_transport_udt_server_accept (cmsg_transport *transport)
 {
     if (transport->udt_info.functions.server_accept)
     {
-        return transport->udt_info.functions.server_accept (listen_socket, transport);
+        return transport->udt_info.functions.server_accept (transport);
     }
 
     return -1;
@@ -158,13 +158,13 @@ cmsg_transport_udt_recv_wrapper (cmsg_transport *transport, int sock, void *buff
  * the client connection to connected.
  */
 static int32_t
-cmsg_transport_udt_connect (cmsg_transport *transport, int timeout)
+cmsg_transport_udt_connect (cmsg_transport *transport)
 {
     int32_t ret = 0;
 
     if (transport->udt_info.functions.connect)
     {
-        ret = transport->udt_info.functions.connect (transport, timeout);
+        ret = transport->udt_info.functions.connect (transport);
     }
 
     return ret;
@@ -185,21 +185,6 @@ cmsg_transport_udt_is_congested (cmsg_transport *transport)
     return false;
 }
 
-
-int32_t
-cmsg_transport_udt_send_can_block_enable (cmsg_transport *transport,
-                                          uint32_t send_can_block)
-{
-    if (transport->udt_info.functions.send_can_block_enable)
-    {
-        return transport->udt_info.functions.send_can_block_enable (transport,
-                                                                    send_can_block);
-    }
-
-    return -1;
-}
-
-
 int32_t
 cmsg_transport_udt_ipfree_bind_enable (cmsg_transport *transport,
                                        cmsg_bool_t use_ipfree_bind)
@@ -213,6 +198,36 @@ cmsg_transport_udt_ipfree_bind_enable (cmsg_transport *transport,
     return -1;
 }
 
+static void
+cmsg_transport_udt_destroy (cmsg_transport *transport)
+{
+    if (transport->udt_info.functions.destroy)
+    {
+        transport->udt_info.functions.destroy (transport);
+    }
+}
+
+static int32_t
+cmsg_transport_udt_apply_send_timeout (cmsg_transport *transport, int sockfd)
+{
+    if (transport->udt_info.functions.apply_send_timeout)
+    {
+        return transport->udt_info.functions.apply_send_timeout (transport, sockfd);
+    }
+
+    return -1;
+}
+
+static int32_t
+cmsg_transport_udt_apply_recv_timeout (cmsg_transport *transport, int sockfd)
+{
+    if (transport->udt_info.functions.apply_recv_timeout)
+    {
+        return transport->udt_info.functions.apply_recv_timeout (transport, sockfd);
+    }
+
+    return -1;
+}
 
 /**
  * Initialise the function pointers that userdefined transport type
@@ -239,8 +254,10 @@ cmsg_transport_udt_init (cmsg_transport *transport)
     transport->tport_funcs.get_socket = cmsg_transport_udt_get_socket;
 
     transport->tport_funcs.is_congested = cmsg_transport_udt_is_congested;
-    transport->tport_funcs.send_can_block_enable = cmsg_transport_udt_send_can_block_enable;
     transport->tport_funcs.ipfree_bind_enable = cmsg_transport_udt_ipfree_bind_enable;
+    transport->tport_funcs.destroy = cmsg_transport_udt_destroy;
+    transport->tport_funcs.apply_send_timeout = cmsg_transport_udt_apply_send_timeout;
+    transport->tport_funcs.apply_recv_timeout = cmsg_transport_udt_apply_recv_timeout;
 }
 
 void

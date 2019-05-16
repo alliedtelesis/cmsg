@@ -1,0 +1,19 @@
+/*
+ * Copyright 2019, Allied Telesis Labs New Zealand, Ltd
+ */
+
+package cmsg_psd;
+
+import "cmsg.proto";
+
+message bulk_sync_data
+{
+    repeated cmsg_subscription_info data = 1;
+}
+
+service remote_sync
+{
+    rpc bulk_sync (bulk_sync_data) returns (dummy);
+    rpc add_subscription (cmsg_subscription_info) returns (dummy);
+    rpc remove_subscription (cmsg_subscription_info) returns (dummy);
+}

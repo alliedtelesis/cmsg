@@ -10,6 +10,7 @@
 #include <cmsg_sub.h>
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
+#include "setup.h"
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it
@@ -18,33 +19,22 @@
  */
 #define USED __attribute__ ((used))
 
-static const uint16_t tcp_publisher_port = 18888;
-static const uint16_t tcp_subscriber_port = 18889;
+/* In microseconds. */
+#define CMSG_PSD_WAIT_TIME (500 * 1000)
 
-static const uint16_t tipc_publisher_port = 18888;
-static const uint16_t tipc_subscriber_port = 18889;
+static const uint16_t subscriber_port = 18889;
+
 static const uint16_t tipc_instance = 1;
 static const uint16_t tipc_scope = TIPC_NODE_SCOPE;
-
-static const char *unix_sub_path = "/tmp/unix_sub_path";
-
-static cmsg_pub *publisher = NULL;
-static bool publisher_thread_run = true;
-static bool publisher_ready = false;
-static pthread_t publisher_thread;
 
 static bool subscriber_run = true;
 
 static int
 sm_mock_cmsg_service_port_get (const char *name, const char *proto)
 {
-    if ((strcmp (name, "cmsg-test-publisher") == 0) && (strcmp (proto, "tipc") == 0))
+    if (strcmp (name, "cmsg-test-subscriber") == 0)
     {
-        return tipc_publisher_port;
-    }
-    if ((strcmp (name, "cmsg-test-subscriber") == 0) && (strcmp (proto, "tipc") == 0))
-    {
-        return tipc_subscriber_port;
+        return subscriber_port;
     }
 
     NP_FAIL;
@@ -58,20 +48,18 @@ sm_mock_cmsg_service_port_get (const char *name, const char *proto)
 static int USED
 set_up (void)
 {
-    publisher_ready = false;
-    publisher_thread_run = true;
-    subscriber_run = true;
-
     np_mock (cmsg_service_port_get, sm_mock_cmsg_service_port_get);
-
-    /* Sometimes the publisher fails to connect to the subscriber on the first
-     * try however retries and eventually can send the notification to the subscriber.
-     * A debug syslog is logged however and this causes the test to fail. For now simply
-     * ignore all syslog. */
-    np_syslog_ignore (".*");
 
     /* Ignore SIGPIPE signal if it occurs */
     signal (SIGPIPE, SIG_IGN);
+
+    cmsg_service_listener_mock_functions ();
+
+    subscriber_run = true;
+
+    /* cmsg_psd is required for these tests. */
+    system ("cmsg_psd &");
+    usleep (CMSG_PSD_WAIT_TIME);
 
     return 0;
 }
@@ -82,7 +70,8 @@ set_up (void)
 static int USED
 tear_down (void)
 {
-    NP_ASSERT_NULL (publisher);
+    system ("pkill cmsg_psd");
+    usleep (CMSG_PSD_WAIT_TIME);
 
     return 0;
 }
@@ -99,129 +88,20 @@ cmsg_test_impl_simple_notification_test (const void *service,
 }
 
 /**
- * Publisher processing function that should be run in a new thread.
- * Creates a publisher of given type and then begins polling the server
- * for any subscription requests. Once a subscriber has subscribed to the
- * publisher send a notification before waiting for the subscriber to
- * unsubscribe. The polling is then stopped and the publisher is
- * destroyed before the thread exits.
- *
- * @param arg - Enum value of the transport type of the publisher to
- *              create cast to a pointer
+ * Create the publisher and publish the test notification.
  */
-static void *
-publisher_thread_process (void *arg)
+static void
+create_publisher_and_send (void)
 {
-    cmsg_transport_type transport_type = (uintptr_t) arg;
-    cmsg_transport *publisher_transport = NULL;
-
-    switch (transport_type)
-    {
-    case CMSG_TRANSPORT_RPC_TCP:
-        publisher_transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
-        publisher_transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_ANY);
-        publisher_transport->config.socket.sockaddr.in.sin_port =
-            htons ((unsigned short) tcp_publisher_port);
-
-        publisher = cmsg_pub_new (publisher_transport, CMSG_DESCRIPTOR (cmsg, test));
-        break;
-    case CMSG_TRANSPORT_RPC_TIPC:
-        publisher =
-            cmsg_create_publisher_tipc_rpc ("cmsg-test-publisher", tipc_instance,
-                                            tipc_scope, CMSG_DESCRIPTOR (cmsg, test));
-        break;
-    case CMSG_TRANSPORT_RPC_UNIX:
-        publisher_transport = cmsg_create_transport_unix (CMSG_DESCRIPTOR (cmsg, test),
-                                                          CMSG_TRANSPORT_RPC_UNIX);
-        publisher = cmsg_pub_new (publisher_transport, CMSG_DESCRIPTOR (cmsg, test));
-        break;
-    default:
-        NP_FAIL;
-    }
-
-    NP_ASSERT_NOT_NULL (publisher);
-    int fd = cmsg_pub_get_server_socket (publisher);
-    int fd_max = fd + 1;
+    cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
+    cmsg_publisher *publisher = cmsg_publisher_create (CMSG_DESCRIPTOR (cmsg, test));
     int ret;
-    bool seen_subsriber = false;
 
-    fd_set readfds;
-    FD_ZERO (&readfds);
-    FD_SET (fd, &readfds);
+    CMSG_SET_FIELD_VALUE (&send_msg, value, 10);
 
-    publisher_ready = true;
-
-    while (publisher_thread_run)
-    {
-        cmsg_publisher_receive_poll (publisher, 1000, &readfds, &fd_max);
-
-        if (publisher->subscriber_count > 0)
-        {
-            cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
-            CMSG_SET_FIELD_VALUE (&send_msg, value, 10);
-
-            ret =
-                cmsg_test_api_simple_notification_test ((cmsg_client *) publisher,
-                                                        &send_msg);
-            NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
-
-            seen_subsriber = true;
-        }
-        else if (publisher->subscriber_count == 0 && seen_subsriber)
-        {
-            break;
-        }
-    }
-
-    // Close accepted sockets before destroying publisher
-    for (fd = 0; fd <= fd_max; fd++)
-    {
-        if (FD_ISSET (fd, &readfds))
-        {
-            close (fd);
-        }
-    }
-
-    cmsg_destroy_publisher_and_transport (publisher);
-
-    publisher = NULL;
-
-    return 0;
-}
-
-/**
- * Create the publisher used to process subscriptions and send notifications
- * in a new thread. Once the new thread is created the function
- * waits until the new thread signals that it is ready for processing.
- *
- * @param type - Transport type of the publisher to create
- */
-static void
-create_publisher_and_wait (cmsg_transport_type type)
-{
-    int ret = 0;
-    uintptr_t cast_type = 0;
-
-    cast_type = (uintptr_t) type;
-    ret =
-        pthread_create (&publisher_thread, NULL, &publisher_thread_process,
-                        (void *) cast_type);
-
-    NP_ASSERT_EQUAL (ret, 0);
-
-    while (!publisher_ready)
-    {
-        usleep (100000);
-    }
-}
-
-/**
- * Wait for the publisher running in a separate thread to exit.
- */
-static void
-wait_for_publisher_to_exit (void)
-{
-    pthread_join (publisher_thread, NULL);
+    ret = cmsg_test_api_simple_notification_test ((cmsg_client *) publisher, &send_msg);
+    NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
+    cmsg_publisher_destroy (publisher);
 }
 
 /**
@@ -233,72 +113,44 @@ wait_for_publisher_to_exit (void)
 static void
 create_subscriber_and_test (cmsg_transport_type type)
 {
-    cmsg_transport *pub_transport = NULL;
-    cmsg_transport *sub_transport = NULL;
-    cmsg_sub *subscriber = NULL;
+    cmsg_subscriber *sub = NULL;
     int ret = 0;
+    struct in_addr addr;
+    int fd = -1;
+    cmsg_server *sub_server = NULL;;
 
     switch (type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
-        pub_transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
-        NP_ASSERT_NOT_NULL (pub_transport);
-        pub_transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
-        pub_transport->config.socket.sockaddr.in.sin_port =
-            htons ((unsigned short) tcp_publisher_port);
-
-        sub_transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_TCP);
-        NP_ASSERT_NOT_NULL (sub_transport);
-        sub_transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
-        sub_transport->config.socket.sockaddr.in.sin_port =
-            htons ((unsigned short) tcp_subscriber_port);
-
-        subscriber = cmsg_sub_new (sub_transport, CMSG_SERVICE (cmsg, test));
-        NP_ASSERT_NOT_NULL (subscriber);
-        break;
-    case CMSG_TRANSPORT_RPC_TIPC:
-        subscriber =
-            cmsg_create_subscriber_tipc_oneway ("cmsg-test-subscriber", tipc_instance,
-                                                tipc_scope, CMSG_SERVICE (cmsg, test));
-        NP_ASSERT_NOT_NULL (subscriber);
-
-        pub_transport =
-            cmsg_create_transport_tipc_rpc ("cmsg-test-publisher", tipc_instance,
-                                            tipc_scope);
-        NP_ASSERT_NOT_NULL (pub_transport);
+        addr.s_addr = htonl (INADDR_LOOPBACK);
+        sub = cmsg_subscriber_create_tcp ("cmsg-test-subscriber", addr,
+                                          CMSG_SERVICE (cmsg, test));
         break;
     case CMSG_TRANSPORT_RPC_UNIX:
-        pub_transport = cmsg_create_transport_unix (CMSG_DESCRIPTOR (cmsg, test),
-                                                    CMSG_TRANSPORT_RPC_UNIX);
-        NP_ASSERT_NOT_NULL (pub_transport);
-
-        sub_transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
-        NP_ASSERT_NOT_NULL (sub_transport);
-        sub_transport->config.socket.family = AF_UNIX;
-        sub_transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
-        strncpy (sub_transport->config.socket.sockaddr.un.sun_path, unix_sub_path,
-                 sizeof (sub_transport->config.socket.sockaddr.un.sun_path) - 1);
-
-        subscriber = cmsg_sub_new (sub_transport, CMSG_SERVICE (cmsg, test));
-        NP_ASSERT_NOT_NULL (subscriber);
+        sub = cmsg_subscriber_create_unix (CMSG_SERVICE (cmsg, test));
         break;
     default:
         NP_FAIL;
     }
 
-    ret = cmsg_sub_subscribe (subscriber, pub_transport, "simple_notification_test");
+    NP_ASSERT_NOT_NULL (sub);
+
+    ret = cmsg_sub_subscribe_local (sub, "simple_notification_test");
     NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
 
-    int fd = cmsg_sub_get_server_socket (subscriber);
+    fd = cmsg_sub_unix_server_socket_get (sub);
+    sub_server = cmsg_sub_unix_server_get (sub);
     int fd_max = fd + 1;
 
     fd_set readfds;
     FD_ZERO (&readfds);
     FD_SET (fd, &readfds);
 
+    create_publisher_and_send ();
+
     while (subscriber_run)
     {
-        cmsg_sub_server_receive_poll (subscriber, 1000, &readfds, &fd_max);
+        cmsg_server_receive_poll (sub_server, 1000, &readfds, &fd_max);
     }
 
     // Close accepted sockets before destroying subscriber
@@ -310,30 +162,7 @@ create_subscriber_and_test (cmsg_transport_type type)
         }
     }
 
-    cmsg_sub_unsubscribe (subscriber, pub_transport, "simple_notification_test");
-
-    cmsg_destroy_subscriber_and_transport (subscriber);
-    close (pub_transport->socket);
-    cmsg_transport_destroy (pub_transport);
-}
-
-static void
-run_publisher_subscriber_tests (cmsg_transport_type type)
-{
-    create_publisher_and_wait (type);
-
-    create_subscriber_and_test (type);
-
-    wait_for_publisher_to_exit ();
-}
-
-/**
- * Run the publisher <-> subscriber test case with a TIPC transport.
- */
-void
-test_publisher_subscriber_tipc (void)
-{
-    run_publisher_subscriber_tests (CMSG_TRANSPORT_RPC_TIPC);
+    cmsg_subscriber_destroy (sub);
 }
 
 /**
@@ -342,7 +171,7 @@ test_publisher_subscriber_tipc (void)
 void
 test_publisher_subscriber_tcp (void)
 {
-    run_publisher_subscriber_tests (CMSG_TRANSPORT_RPC_TCP);
+    create_subscriber_and_test (CMSG_TRANSPORT_RPC_TCP);
 }
 
 /**
@@ -351,5 +180,5 @@ test_publisher_subscriber_tcp (void)
 void
 test_publisher_subscriber_unix (void)
 {
-    run_publisher_subscriber_tests (CMSG_TRANSPORT_RPC_UNIX);
+    create_subscriber_and_test (CMSG_TRANSPORT_RPC_UNIX);
 }

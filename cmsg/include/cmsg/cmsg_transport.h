@@ -34,12 +34,12 @@ typedef int (*udt_connect_f) (cmsg_transport *transport);
 typedef int (*udt_send_f) (void *udt_data, void *buff, int length, int flag);
 typedef int (*cmsg_recv_func) (cmsg_transport *transport, int sock, void *buff, int len,
                                int flags);
-typedef int (*client_connect_f) (cmsg_transport *transport, int timeout);
+typedef int (*client_connect_f) (cmsg_transport *transport);
 typedef int (*server_listen_f) (cmsg_transport *transport);
 typedef int (*server_recv_f) (int socket, cmsg_transport *transport,
                               uint8_t **recv_buffer,
                               cmsg_header *processed_header, int *nbytes);
-typedef int (*server_accept_f) (int32_t socket, cmsg_transport *transport);
+typedef int (*server_accept_f) (cmsg_transport *transport);
 typedef cmsg_status_code (*client_recv_f) (cmsg_transport *transport,
                                            const ProtobufCServiceDescriptor *descriptor,
                                            ProtobufCMessage **messagePtPt);
@@ -49,8 +49,10 @@ typedef int (*server_send_f) (int socket, cmsg_transport *transport, void *buff,
 typedef void (*socket_close_f) (cmsg_transport *transport);
 typedef int (*get_socket_f) (cmsg_transport *transport);
 typedef bool (*is_congested_f) (cmsg_transport *transport);
-typedef int32_t (*send_can_block_enable_f) (cmsg_transport *transport, uint32_t enable);
+typedef int32_t (*apply_send_timeout_f) (cmsg_transport *transport, int sockfd);
+typedef int32_t (*apply_recv_timeout_f) (cmsg_transport *transport, int sockfd);
 typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
+typedef void (*destroy_f) (cmsg_transport *transport);
 
 typedef struct _cmsg_tport_functions_s
 {
@@ -65,8 +67,10 @@ typedef struct _cmsg_tport_functions_s
     socket_close_f socket_close;                // close socket function
     get_socket_f get_socket;                    // gets the socket used by the transport
     is_congested_f is_congested;                // Check whether transport is congested
-    send_can_block_enable_f send_can_block_enable;
+    apply_send_timeout_f apply_send_timeout;
+    apply_recv_timeout_f apply_recv_timeout;
     ipfree_bind_enable_f ipfree_bind_enable;    // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
+    destroy_f destroy;                          // Called when the transport is to be destroyed
 } cmsg_tport_functions;
 
 typedef struct _cmsg_udt_info_s
@@ -115,11 +119,17 @@ struct _cmsg_transport_s
     cmsg_udt_info udt_info;
     char tport_id[CMSG_MAX_TPORT_ID_LEN + 1];
 
-    // send to block if message cannot be sent
-    uint32_t send_can_block;
+    // send timeout in seconds
+    uint32_t send_timeout;
 
     // receive timeout in seconds
     uint32_t receive_timeout;
+
+    // connect timeout in seconds
+    uint32_t connect_timeout;
+
+    // maximum time to wait peeking for a received header
+    uint32_t receive_peek_timeout;
 
     // sets IP_FREEBIND in socket options
     cmsg_bool_t use_ipfree_bind;
@@ -139,10 +149,7 @@ struct _cmsg_transport_s
 
 cmsg_transport *cmsg_transport_new (cmsg_transport_type type);
 
-int32_t cmsg_transport_destroy (cmsg_transport *transport);
-
-int32_t cmsg_transport_send_can_block_enable (cmsg_transport *transport,
-                                              uint32_t send_can_block);
+void cmsg_transport_destroy (cmsg_transport *transport);
 
 int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
                                            cmsg_bool_t ipfree_bind_enable);
@@ -196,9 +203,11 @@ const char *cmsg_transport_counter_app_tport_id (cmsg_transport *transport);
 
 void cmsg_transport_udt_tcp_base_init (cmsg_transport *transport, bool oneway);
 
-bool cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two);
+bool cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two);
 
 cmsg_transport *cmsg_create_transport_tcp_ipv4 (const char *service_name,
                                                 struct in_addr *addr, bool oneway);
+
+cmsg_transport *cmsg_transport_copy (const cmsg_transport *transport);
 
 #endif /* __CMSG_TRANSPORT_H_ */

@@ -4,15 +4,20 @@
 #ifndef __CMSG_TRANSPORT_PRIVATE_H_
 #define __CMSG_TRANSPORT_PRIVATE_H_
 
-/* When connecting the transport specify that the default timeout value should
- * be used with the connect call */
-#define CONNECT_TIMEOUT_DEFAULT -1
+#include "cmsg_types_auto.h"
+#include "cmsg_transport.h"
 
-/* This value is used to limit the timeout for client message peek to 100s */
-#define MAX_CLIENT_PEEK_LOOP (100)
+/* The default connect timeout value in seconds */
+#define CONNECT_TIMEOUT_DEFAULT 5
 
-/* This value is used to limit the timeout for server message peek to 10s */
-#define MAX_SERVER_PEEK_LOOP (10)
+/* The default send timeout value in seconds */
+#define SEND_TIMEOUT_DEFAULT 5
+
+/* The default recv timeout value in seconds */
+#define RECV_TIMEOUT_DEFAULT 5
+
+/* The default timeout value for peeking for the header of a received message in seconds */
+#define RECV_HEADER_PEEK_TIMEOUT_DEFAULT 10
 
 /* For transport related errors */
 #define CMSG_LOG_TRANSPORT_ERROR(transport, msg, ...) \
@@ -33,6 +38,8 @@ void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
 void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
 void cmsg_transport_udt_init (cmsg_transport *transport);
 
+int connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int timeout);
+
 cmsg_status_code cmsg_transport_client_recv (cmsg_transport *transport,
                                              const ProtobufCServiceDescriptor *descriptor,
                                              ProtobufCMessage **messagePtPt);
@@ -41,5 +48,20 @@ cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
                                                  cmsg_transport *transport, int32_t socket,
                                                  time_t seconds_to_wait,
                                                  cmsg_header *header_received);
+
+int32_t cmsg_transport_connect (cmsg_transport *transport);
+int32_t cmsg_transport_accept (cmsg_transport *transport);
+int32_t cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout);
+int32_t cmsg_transport_set_send_timeout (cmsg_transport *transport, uint32_t timeout);
+int32_t cmsg_transport_set_recv_peek_timeout (cmsg_transport *transport, uint32_t timeout);
+int32_t cmsg_transport_apply_send_timeout (cmsg_transport *transport, int sockfd);
+int32_t cmsg_transport_apply_recv_timeout (cmsg_transport *transport, int sockfd);
+
+cmsg_transport_info *cmsg_transport_info_create (cmsg_transport *transport);
+void cmsg_transport_info_free (cmsg_transport_info *transport_info);
+cmsg_transport *cmsg_transport_info_to_transport (const cmsg_transport_info
+                                                  *transport_info);
+bool cmsg_transport_info_compare (const cmsg_transport_info *transport_info_a,
+                                  const cmsg_transport_info *transport_info_b);
 
 #endif /* __CMSG_TRANSPORT_PRIVATE_H_ */

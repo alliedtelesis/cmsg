@@ -32,13 +32,15 @@ static cmsg_broadcast_client *
 cmsg_broadcast_client_create (const ProtobufCServiceDescriptor *descriptor)
 {
     cmsg_broadcast_client *broadcast_client = NULL;
+    int ret;
 
     broadcast_client =
         (cmsg_broadcast_client *) CMSG_CALLOC (1, sizeof (cmsg_broadcast_client));
 
     if (broadcast_client)
     {
-        if (!cmsg_composite_client_init (&broadcast_client->base_client, descriptor))
+        ret = cmsg_composite_client_init (&broadcast_client->base_client, descriptor);
+        if (ret != CMSG_RET_OK)
         {
             CMSG_FREE (broadcast_client);
             return NULL;
@@ -91,28 +93,28 @@ cmsg_broadcast_client_deinit_events (cmsg_broadcast_client *broadcast_client)
  * @param broadcast_client - The broadcast client to initialise event handling for.
  * @param event_handler - The function to call for each event that occurs.
  *
- * @returns true if initialisation is successful, false otherwise.
+ * @returns CMSG_RET_OK if initialisation is successful, CMSG_RET_ERR otherwise.
  */
-static bool
+static int32_t
 cmsg_broadcast_client_init_events (cmsg_broadcast_client *broadcast_client,
                                    cmsg_broadcast_event_handler_t event_handler)
 {
     broadcast_client->event_queue.eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
     if (broadcast_client->event_queue.eventfd < 0)
     {
-        return false;
+        return CMSG_RET_ERR;
     }
 
     broadcast_client->event_queue.queue = g_async_queue_new_full (_clear_event_queue);
     if (!broadcast_client->event_queue.queue)
     {
         close (broadcast_client->event_queue.eventfd);
-        return false;
+        return CMSG_RET_ERR;
     }
 
     broadcast_client->event_queue.handler = event_handler;
 
-    return true;
+    return CMSG_RET_OK;
 }
 
 /**
@@ -140,7 +142,7 @@ cmsg_broadcast_client_new (const ProtobufCServiceDescriptor *descriptor,
                            uint32_t upper_node_id, bool connect_to_self, bool oneway,
                            cmsg_broadcast_event_handler_t event_handler)
 {
-    int ret = CMSG_RET_OK;
+    int ret;
     cmsg_broadcast_client *broadcast_client = NULL;
 
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
@@ -161,7 +163,8 @@ cmsg_broadcast_client_new (const ProtobufCServiceDescriptor *descriptor,
 
     if (event_handler)
     {
-        if (!cmsg_broadcast_client_init_events (broadcast_client, event_handler))
+        ret = cmsg_broadcast_client_init_events (broadcast_client, event_handler);
+        if (ret != CMSG_RET_OK)
         {
             cmsg_composite_client_deinit (&broadcast_client->base_client);
             CMSG_FREE (broadcast_client);

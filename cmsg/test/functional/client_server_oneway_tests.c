@@ -9,6 +9,7 @@
 #include <cmsg_server.h>
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
+#include "setup.h"
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it
@@ -50,8 +51,6 @@ setup_udt_tcp_transport_functions (cmsg_transport *udt_transport)
 
     udt_transport->udt_info.functions.is_congested =
         udt_transport->udt_info.base.is_congested;
-    udt_transport->udt_info.functions.send_can_block_enable =
-        udt_transport->udt_info.base.send_can_block_enable;
     udt_transport->udt_info.functions.ipfree_bind_enable =
         udt_transport->udt_info.base.ipfree_bind_enable;
 
@@ -85,6 +84,8 @@ set_up (void)
 
     /* Ignore SIGPIPE signal if it occurs */
     signal (SIGPIPE, SIG_IGN);
+
+    cmsg_service_listener_mock_functions ();
 
     return 0;
 }
