@@ -8,6 +8,7 @@
  */
 
 #include "configuration_api_auto.h"
+#include "publish_api_auto.h"
 #include "cmsg_ps_config.h"
 #include "cmsg_ps_api_private.h"
 #include "transport/cmsg_transport_private.h"
@@ -29,7 +30,7 @@ cmsg_ps_address_set (struct in_addr addr)
     cmsg_uint32 send_msg = CMSG_UINT32_INIT;
     int ret;
 
-    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
     if (!client)
     {
         return CMSG_RET_ERR;
@@ -80,7 +81,7 @@ cmsg_ps_subscription_add_remove (cmsg_server *sub_server, const char *method_nam
         CMSG_SET_FIELD_VALUE (&send_msg, remote_addr, remote_addr);
     }
 
-    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
     if (!client)
     {
         cmsg_transport_info_free (transport_info);
@@ -191,7 +192,7 @@ cmsg_ps_remove_subscriber (cmsg_server *sub_server)
         return CMSG_RET_ERR;
     }
 
-    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
     if (!client)
     {
         cmsg_transport_info_free (transport_info);
@@ -218,7 +219,7 @@ cmsg_ps_remove_subscriber (cmsg_server *sub_server)
 cmsg_client *
 cmsg_ps_create_publisher_client (void)
 {
-    return cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    return cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_psd, publish));
 }
 
 /**
@@ -244,5 +245,5 @@ cmsg_ps_publish_message (cmsg_client *client, const char *service, const char *m
     CMSG_SET_FIELD_PTR (&send_msg, method_name, (char *) method);
     CMSG_SET_FIELD_BYTES (&send_msg, packet, packet, packet_len);
 
-    return cmsg_psd_configuration_api_publish (client, &send_msg);
+    return cmsg_psd_publish_api_send_data (client, &send_msg);
 }

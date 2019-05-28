@@ -6,18 +6,10 @@ package cmsg_psd;
 
 import "cmsg.proto";
 
-message publish_data
-{
-    optional string service = 1;
-    optional string method_name = 2;
-    optional bytes packet = 3;
-}
-
 service configuration
 {
     rpc address_set (cmsg_uint32) returns (dummy);
     rpc add_subscription (cmsg_subscription_info) returns (dummy);
     rpc remove_subscription (cmsg_subscription_info) returns (dummy);
     rpc remove_subscriber (cmsg_transport_info) returns (dummy);
-    rpc publish (publish_data) returns (dummy);
 }

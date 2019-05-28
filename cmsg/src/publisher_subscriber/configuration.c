@@ -66,31 +66,16 @@ cmsg_psd_configuration_impl_remove_subscriber (const void *service,
 }
 
 /**
- * Publishes a CMSG packet for a specific service and method to all subscribers.
- */
-void
-cmsg_psd_configuration_impl_publish (const void *service,
-                                     const cmsg_psd_publish_data *recv_msg)
-{
-    data_publish_message (recv_msg->service, recv_msg->method_name, recv_msg->packet.data,
-                          recv_msg->packet.len);
-    cmsg_psd_configuration_server_publishSend (service);
-}
-
-/**
  * Initialise the configuration functionality.
  */
 void
 configuration_server_init (void)
 {
-    server = cmsg_create_server_unix_oneway (CMSG_SERVICE (cmsg_psd, configuration));
+    /* The server must be synchronous (i.e. RPC/two-way communication) as subscribers
+     * expect that once they subscribe they should receive all events that are then
+     * published. */
+    server = cmsg_glib_unix_server_init (CMSG_SERVICE (cmsg_psd, configuration));
     if (!server)
-    {
-        syslog (LOG_ERR, "Failed to initialize configuration server");
-        return;
-    }
-
-    if (cmsg_glib_server_init (server) != CMSG_RET_OK)
     {
         syslog (LOG_ERR, "Failed to initialize configuration server");
     }
