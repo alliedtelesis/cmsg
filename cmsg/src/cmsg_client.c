@@ -12,6 +12,11 @@
 #endif
 #include <fcntl.h>
 
+/* This value controls how long a client waits to peek the header of a response
+ * packet sent from the server in seconds. This value defaults to 100 seconds as
+ * the server may take a long time to respond to the API call. */
+#define CLIENT_RECV_HEADER_PEEK_TIMEOUT 100
+
 static int32_t _cmsg_client_buffer_send_retry_once (cmsg_client *client,
                                                     uint8_t *queue_buffer,
                                                     uint32_t queue_buffer_size,
@@ -29,10 +34,6 @@ static cmsg_client *_cmsg_create_client_tipc (const char *server, int member_id,
                                               const ProtobufCServiceDescriptor *descriptor,
                                               cmsg_transport_type transport_type);
 
-static int _cmsg_client_apply_send_timeout (int sock, uint32_t timeout);
-
-static int _cmsg_client_apply_receive_timeout (int sockfd, uint32_t timeout);
-
 int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
 
 static int32_t cmsg_client_invoke (ProtobufCService *service,
@@ -44,6 +45,8 @@ static int32_t cmsg_client_queue_input (cmsg_client *client, uint32_t method_ind
                                         const ProtobufCMessage *input, bool *did_queue);
 
 static void _cmsg_client_destroy (cmsg_client *client);
+static int32_t _cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer,
+                                        uint32_t buffer_len);
 
 static void cmsg_client_close_wrapper (cmsg_transport *transport);
 
@@ -83,7 +86,7 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
     }
 }
 
-bool
+int32_t
 cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
                   const ProtobufCServiceDescriptor *descriptor)
 {
@@ -94,6 +97,8 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
         client->base_service.destroy = NULL;
         client->_transport = transport;
         cmsg_transport_write_id (transport, descriptor->name);
+        cmsg_transport_set_recv_peek_timeout (client->_transport,
+                                              CLIENT_RECV_HEADER_PEEK_TIMEOUT);
     }
 
     //for compatibility with current generated code
@@ -104,6 +109,7 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
     cmsg_client_invoke_init (client, transport);
 
     client->client_destroy = _cmsg_client_destroy;
+    client->send_bytes = _cmsg_client_send_bytes;
 
     client->self.object_type = CMSG_OBJ_TYPE_CLIENT;
     client->self.object = client;
@@ -115,7 +121,7 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
     if (pthread_mutex_init (&client->queue_mutex, NULL) != 0)
     {
         CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_mutex.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
     client->queue = g_queue_new ();
@@ -124,25 +130,25 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
     if (pthread_cond_init (&client->queue_process_cond, NULL) != 0)
     {
         CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_cond.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
     if (pthread_mutex_init (&client->queue_process_mutex, NULL) != 0)
     {
         CMSG_LOG_CLIENT_ERROR (client, "Init failed for queue_process_mutex.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
     if (pthread_mutex_init (&client->invoke_mutex, NULL) != 0)
     {
         CMSG_LOG_CLIENT_ERROR (client, "Init failed for invoke_mutex.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
     if (pthread_mutex_init (&client->send_mutex, NULL) != 0)
     {
         CMSG_LOG_GEN_ERROR ("Init failed for send_mutex.");
-        return false;
+        return CMSG_RET_ERR;
     }
 
     client->self_thread_id = pthread_self ();
@@ -152,11 +158,9 @@ cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
         cmsg_client_queue_filter_init (client);
     }
 
-    client->send_timeout = 0;
-    client->receive_timeout = 0;
     client->suppress_errors = false;
 
-    return true;
+    return CMSG_RET_OK;
 }
 
 /*
@@ -174,7 +178,7 @@ cmsg_client_create (cmsg_transport *transport, const ProtobufCServiceDescriptor 
 
     if (client)
     {
-        if (!cmsg_client_init (client, transport, descriptor))
+        if (cmsg_client_init (client, transport, descriptor) != CMSG_RET_OK)
         {
             CMSG_FREE (client);
             return NULL;
@@ -332,15 +336,13 @@ cmsg_client_response_receive (cmsg_client *client, ProtobufCMessage **message)
  * Connect the transport, unless it is already connected.
  *
  * @param client - The client to connect.
- * @param timeout - The timeout value to use.
  *
  * Returns 0 on success or a negative integer on failure.
  */
 static int32_t
-_cmsg_client_connect (cmsg_client *client, int timeout)
+_cmsg_client_connect (cmsg_client *client)
 {
     int32_t ret = 0;
-    int sock;
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
@@ -355,8 +357,7 @@ _cmsg_client_connect (cmsg_client *client, int timeout)
         // count the connection attempt
         CMSG_COUNTER_INC (client, cntr_connect_attempts);
 
-        ret = client->_transport->tport_funcs.connect (client->_transport, timeout);
-
+        ret = cmsg_transport_connect (client->_transport);
         if (ret < 0)
         {
             // count the connection failure
@@ -366,28 +367,6 @@ _cmsg_client_connect (cmsg_client *client, int timeout)
         else
         {
             client->state = CMSG_CLIENT_STATE_CONNECTED;
-            sock = client->_transport->socket;
-
-            if (client->send_timeout > 0)
-            {
-                // Set send timeout on the socket if needed
-                if (_cmsg_client_apply_send_timeout (sock, client->send_timeout) < 0)
-                {
-                    CMSG_DEBUG (CMSG_INFO,
-                                "[CLIENT] failed to set send timeout (errno=%d)\n", errno);
-                }
-            }
-
-            if (client->receive_timeout > 0)
-            {
-                // Set receive timeout on the socket if needed
-                if (_cmsg_client_apply_receive_timeout (sock, client->receive_timeout) < 0)
-                {
-                    CMSG_DEBUG (CMSG_INFO,
-                                "[CLIENT] failed to set receive timeout (errno=%d)\n",
-                                errno);
-                }
-            }
         }
     }
 
@@ -396,8 +375,7 @@ _cmsg_client_connect (cmsg_client *client, int timeout)
 
 
 /**
- * Connect the transport using the default timeout value,
- * unless it's already connected.
+ * Connect the transport of the client, unless it's already connected.
  *
  * @param client - The client to connect.
  *
@@ -406,24 +384,8 @@ _cmsg_client_connect (cmsg_client *client, int timeout)
 int32_t
 cmsg_client_connect (cmsg_client *client)
 {
-    return _cmsg_client_connect (client, CONNECT_TIMEOUT_DEFAULT);
+    return _cmsg_client_connect (client);
 }
-
-/**
- * Connect the transport with a non-default timeout value,
- * unless it's already connected.
- *
- * @param client - The client to connect.
- * @param timeout - The timeout value to use.
- *
- * Returns 0 on success or a negative integer on failure.
- */
-int32_t
-cmsg_client_connect_with_timeout (cmsg_client *client, int timeout)
-{
-    return _cmsg_client_connect (client, timeout);
-}
-
 
 /**
  * Configure send timeout for a cmsg client. This timeout will be applied immediately
@@ -436,60 +398,22 @@ cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout)
 {
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
-    client->send_timeout = timeout;
-
-    /* If the client is already connected, then apply the new timeout immediately */
-    if (client->state == CMSG_CLIENT_STATE_CONNECTED)
-    {
-        _cmsg_client_apply_send_timeout (client->_transport->socket, client->send_timeout);
-    }
-
-    return 0;
-}
-
-
-/**
- * Apply send timeout to a socket
- * @param sockfd    socket file descriptor
- * @param timeout   timeout in seconds
- * @returns 0 on success or -1 on failure
- */
-static int
-_cmsg_client_apply_send_timeout (int sockfd, uint32_t timeout)
-{
-    struct timeval tv;
-
-    tv.tv_sec = timeout;
-    tv.tv_usec = 0;
-
-    if (setsockopt (sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof (tv)) < 0)
-    {
-        return -1;
-    }
-
-    return 0;
+    return cmsg_transport_set_send_timeout (client->_transport, timeout);
 }
 
 /**
- * Apply receive timeout to a socket
- * @param sockfd    socket file descriptor
- * @param timeout   timeout in seconds
+ * Configure the connect timeout for a cmsg client.
+ *
+ * @param timeout - The timeout value in seconds.
+ *
  * @returns 0 on success or -1 on failure
  */
-static int
-_cmsg_client_apply_receive_timeout (int sockfd, uint32_t timeout)
+int
+cmsg_client_set_connect_timeout (cmsg_client *client, uint32_t timeout)
 {
-    struct timeval tv;
+    CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
-    tv.tv_sec = timeout;
-    tv.tv_usec = 0;
-
-    if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof (tv)) < 0)
-    {
-        return -1;
-    }
-
-    return 0;
+    return cmsg_transport_set_connect_timeout (client->_transport, timeout);
 }
 
 /**
@@ -503,21 +427,7 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
 {
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
-    client->receive_timeout = timeout;
-
-    /* If the client is already connected, then apply the new timeout immediately */
-    if (client->state == CMSG_CLIENT_STATE_CONNECTED)
-    {
-        _cmsg_client_apply_receive_timeout (client->_transport->socket,
-                                            client->receive_timeout);
-    }
-
-    /* Store the timeout in the transport so client receive can timeout properly */
-    if (client->_transport)
-    {
-        client->_transport->receive_timeout = timeout;
-    }
-    return 0;
+    return cmsg_transport_set_recv_peek_timeout (client->_transport, timeout);
 }
 
 int32_t
@@ -1228,6 +1138,45 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
     return CMSG_RET_OK;
 }
 
+/**
+ * Send a buffer of bytes on the client. Note that sending anything other than
+ * a well formed cmsg packet will be dropped by the server being sent to.
+ *
+ * @param client - The client to send on.
+ * @param buffer - The buffer of bytes to send.
+ * @param buffer_len - The length of the buffer being sent.
+ *
+ * @returns CMSG_RET_OK on success, related error code on failure.
+ */
+static int32_t
+_cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len)
+{
+    int ret = CMSG_RET_ERR;
+
+    CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
+
+    pthread_mutex_lock (&client->send_mutex);
+    ret = _cmsg_client_buffer_send (client, buffer, buffer_len);
+    pthread_mutex_unlock (&client->send_mutex);
+
+    return ret;
+}
+
+/**
+ * Send a buffer of bytes on a client. Note that sending anything other than
+ * a well formed cmsg packet will be dropped by the server being sent to.
+ *
+ * @param client - The client to send on.
+ * @param buffer - The buffer of bytes to send.
+ * @param buffer_len - The length of the buffer being sent.
+ *
+ * @returns CMSG_RET_OK on success, related error code on failure.
+ */
+int32_t
+cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len)
+{
+    return client->send_bytes (client, buffer, buffer_len);
+}
 
 int32_t
 cmsg_client_buffer_send_retry (cmsg_client *client, uint8_t *queue_buffer,
@@ -1571,7 +1520,7 @@ cmsg_destroy_client_and_transport (cmsg_client *client)
  *
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
- * @param addr - The IPv4 address to connect to.
+ * @param addr - The IPv4 address to connect to (in network byte order).
  * @param descriptor - The CMSG service descriptor for the service.
  * @param oneway - Whether to make a one-way client, or a two-way (RPC) client.
  */
@@ -1604,7 +1553,7 @@ _cmsg_create_client_tcp_ipv4 (const char *service_name, struct in_addr *addr,
  *
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
- * @param addr - The IPv4 address to connect to.
+ * @param addr - The IPv4 address to connect to (in network byte order).
  * @param descriptor - The CMSG service descriptor for the service.
  */
 cmsg_client *
@@ -1623,7 +1572,7 @@ cmsg_create_client_tcp_ipv4_rpc (const char *service_name, struct in_addr *addr,
  *
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
- * @param addr - The IPv4 address to connect to.
+ * @param addr - The IPv4 address to connect to (in network byte order).
  * @param descriptor - The CMSG service descriptor for the service.
  */
 cmsg_client *

@@ -6,6 +6,7 @@
 
 import "validation.proto";
 import "ant_result.proto";
+import "supported_service.proto";
 
 package cmsg;
 
@@ -74,9 +75,6 @@ service test
     rpc simple_client_queue_test_1 (uint32_msg) returns (dummy);
     rpc simple_client_queue_test_2 (uint32_msg) returns (dummy);
     rpc simple_client_queue_test_3 (uint32_msg) returns (dummy);
-    rpc simple_pub_queue_test_1 (uint32_msg) returns (dummy);
-    rpc simple_pub_queue_test_2 (uint32_msg) returns (dummy);
-    rpc simple_pub_queue_test_3 (uint32_msg) returns (dummy);
     rpc broadcast_client_test (uint32_msg) returns (uint32_msg);
     rpc server_side_validation_test_integers (message_with_integer_validation) returns (ant_result) {
         option (auto_validation) = true;
@@ -87,6 +85,22 @@ service test
     rpc server_side_validation_test_sub_messages (message_with_sub_message_validation) returns (ant_result) {
         option (auto_validation) = true;
     }
-    rpc pthread_notification_test (uint32_msg) returns (dummy);
     rpc server_multi_threading_test (uint32_msg) returns (uint32_msg);
+}
+
+message message_with_ant_result
+{
+    optional ant_result _error_info = 1;
+    optional bool blah = 2;
+}
+
+service supported_service_test
+{
+    option (service_support_check) = {
+        file_path: "/tmp/test"
+        message: "This service is not supported."
+    };
+
+    rpc ss_test_direct (bool_msg) returns (ant_result);
+    rpc ss_test_nested (bool_msg) returns (message_with_ant_result);
 }

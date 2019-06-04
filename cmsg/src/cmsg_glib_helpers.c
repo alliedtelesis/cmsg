@@ -11,6 +11,8 @@
 #include <sys/eventfd.h>
 #include "cmsg_glib_helpers.h"
 #include "cmsg_error.h"
+#include "publisher_subscriber/cmsg_sub_private.h"
+#include "cmsg_sl.h"
 
 /**
  * Callback function to read an accepted socket on a CMSG server.
@@ -19,9 +21,9 @@ static int
 cmsg_glib_server_read (GIOChannel *source, GIOCondition condition, gpointer data)
 {
     int sd = g_io_channel_unix_get_fd (source);
-    cmsg_server_accept_thread_info *info = (cmsg_server_accept_thread_info *) data;
+    cmsg_server *server = (cmsg_server *) data;
 
-    if (cmsg_server_receive (info->server, sd) < 0)
+    if (cmsg_server_receive (server, sd) < 0)
     {
         g_io_channel_shutdown (source, TRUE, NULL);
         g_io_channel_unref (source);
@@ -39,10 +41,11 @@ cmsg_glib_server_read (GIOChannel *source, GIOCondition condition, gpointer data
 static int
 cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer data)
 {
-    cmsg_server_accept_thread_info *info = (cmsg_server_accept_thread_info *) data;
+    cmsg_server *server = (cmsg_server *) data;
     eventfd_t value;
     int *newfd_ptr = NULL;
     GIOChannel *read_channel = NULL;
+    cmsg_server_accept_thread_info *info = server->accept_thread_info;
 
     /* clear notification */
     TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
@@ -50,7 +53,7 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
     while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
     {
         read_channel = g_io_channel_unix_new (*newfd_ptr);
-        g_io_add_watch (read_channel, G_IO_IN, cmsg_glib_server_read, info);
+        g_io_add_watch (read_channel, G_IO_IN, cmsg_glib_server_read, server);
         CMSG_FREE (newfd_ptr);
     }
 
@@ -60,110 +63,39 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
 /**
  * Start the processing of the accepted connections for a CMSG server.
  *
- * @param info - The 'cmsg_server_accept_thread_info' structure holding the
- *               information about the CMSG server listening in a separate thread.
+ * @param server - The CMSG server to start processing.
  */
 void
-cmsg_glib_server_processing_start (cmsg_server_accept_thread_info *info)
+cmsg_glib_server_processing_start (cmsg_server *server)
 {
+    cmsg_server_accept_thread_info *info = server->accept_thread_info;
+
     GIOChannel *accept_channel = g_io_channel_unix_new (info->accept_sd_eventfd);
-    g_io_add_watch (accept_channel, G_IO_IN, cmsg_glib_server_accepted, info);
+    g_io_add_watch (accept_channel, G_IO_IN, cmsg_glib_server_accepted, server);
 }
 
 /**
- * init and start processing for the given CMSG server.
+ * Init and start processing for the given CMSG server.
  *
- * @param server Created server to manage with an accept thread and glib.
+ * @param server - The server to manage with an accept thread and glib.
  *
- * @returns Pointer to a 'cmsg_server_accept_thread_info' structure.
- *          NULL on failure.
+ * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
  */
-cmsg_server_accept_thread_info *
+int32_t
 cmsg_glib_server_init (cmsg_server *server)
 {
-    cmsg_server_accept_thread_info *info = NULL;
+    int32_t ret;
 
-    info = cmsg_server_accept_thread_init (server);
-    if (!info)
+    ret = cmsg_server_accept_thread_init (server);
+    if (ret != CMSG_RET_OK)
     {
         CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server accept thread for %s",
                             cmsg_service_name_get (server->service->descriptor));
-        return NULL;
+        return ret;
     }
 
-    cmsg_glib_server_processing_start (info);
-    return info;
-}
-
-/**
- * init and start processing a cmsg publisher for the given service with the given transport
- *
- * @param service service to start the publisher for
- * @param transport transport to use for the publisher
- *
- * @returns Pointer to the publisher structure.
- *          NULL on failure.
- */
-static cmsg_pub *
-cmsg_glib_publisher_init (const ProtobufCServiceDescriptor *service,
-                          cmsg_transport *transport)
-{
-    cmsg_pub *publisher;
-    cmsg_server_accept_thread_info *info;
-
-    publisher = cmsg_pub_new (transport, service);
-    if (!publisher)
-    {
-        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG publisher for %s",
-                            cmsg_service_name_get (service));
-        return NULL;
-    }
-
-    cmsg_pub_queue_enable (publisher);
-    cmsg_pub_queue_thread_start (publisher);
-
-    info = cmsg_glib_server_init (publisher->sub_server);
-
-    if (!info)
-    {
-        cmsg_pub_destroy (publisher);
-        return NULL;
-    }
-    publisher->sub_server_thread_info = info;
-
-    return publisher;
-}
-
-/**
- * Create and start processing a UNIX transport based CMSG publisher for the given
- * CMSG service.
- *
- * @param descriptor - The protobuf-c service descriptor the server is to implement.
- *
- * @returns Pointer to the publisher structure.
- *          NULL on failure.
- */
-cmsg_pub *
-cmsg_glib_unix_publisher_init (const ProtobufCServiceDescriptor *descriptor)
-{
-    cmsg_transport *transport;
-    cmsg_pub *publisher;
-
-    transport = cmsg_create_transport_unix (descriptor, CMSG_TRANSPORT_RPC_UNIX);
-    if (!transport)
-    {
-        CMSG_LOG_GEN_ERROR ("Failed to create CMSG transport for %s",
-                            cmsg_service_name_get (descriptor));
-        return NULL;
-    }
-
-    publisher = cmsg_glib_publisher_init (descriptor, transport);
-    if (!publisher)
-    {
-        cmsg_transport_destroy (transport);
-    }
-
-    return publisher;
+    cmsg_glib_server_processing_start (server);
+    return CMSG_RET_OK;
 }
 
 /**
@@ -173,88 +105,86 @@ cmsg_glib_unix_publisher_init (const ProtobufCServiceDescriptor *descriptor)
  * @param sub to deinit and destroy
  */
 void
-cmsg_glib_subscriber_deinit (cmsg_sub *sub)
+cmsg_glib_subscriber_deinit (cmsg_subscriber *sub)
 {
-    cmsg_server_accept_thread_info *info = sub->pub_server_thread_info;
-
-    cmsg_server_accept_thread_deinit (info);
-    cmsg_destroy_subscriber_and_transport (sub);
+    if (sub)
+    {
+        cmsg_server_accept_thread_deinit (sub->local_server);
+        cmsg_server_accept_thread_deinit (sub->remote_server);
+        cmsg_subscriber_destroy (sub);
+    }
 }
 
 /**
  * Start a unix subscriber and subscribe for events.
  * @param service - service to subscribe to.
  * @param events - Array of strings of events to subscribe to. Last entry must be NULL.
- * @returns 'atl_cmsg_server_info' handle that can be used to deinit.
+ * @returns A pointer to the subscriber on success, NULL on failure.
  */
-cmsg_sub *
+cmsg_subscriber *
 cmsg_glib_unix_subscriber_init (ProtobufCService *service, const char **events)
 {
-    cmsg_sub *sub = NULL;
-    cmsg_transport *transport_r = NULL;
-    cmsg_server_accept_thread_info *info;
+    cmsg_subscriber *sub = NULL;
+    int32_t ret;
 
-    sub = cmsg_create_subscriber_unix_oneway (service);
+    sub = cmsg_subscriber_create_unix (service);
     if (!sub)
     {
         return NULL;
     }
 
-    info = cmsg_glib_server_init (sub->pub_server);
-    if (!info)
+    ret = cmsg_glib_server_init (cmsg_sub_unix_server_get (sub));
+    if (ret != CMSG_RET_OK)
     {
-        cmsg_destroy_subscriber_and_transport (sub);
+        cmsg_subscriber_destroy (sub);
         return NULL;
     }
-    sub->pub_server_thread_info = info;
 
     /* Subscribe to relevant events */
     if (events)
     {
-        transport_r = cmsg_create_transport_unix (service->descriptor,
-                                                  CMSG_TRANSPORT_RPC_UNIX);
-        cmsg_sub_subscribe_events (sub, transport_r, events);
-        cmsg_transport_destroy (transport_r);
+        cmsg_sub_subscribe_events_local (sub, events);
     }
 
     return sub;
 }
 
 /**
- * Create and start processing a tipc transport based CMSG publisher for the given
- * CMSG service.
- *
- * @param service_entry_name - The name of the publisher service in the services file
- * @param this_node_id local node ID.
- * @param scope - tipc scope.
- * @param descriptor - The protobuf-c service descriptor the server is to implement.
- *
- * @returns Pointer to the publisher structure.
- *          NULL on failure.
+ * Start a tcp subscriber. Subscriptions are left for the caller to do.
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to use (in network byte order).
+ * @param service - The service to subscribe to.
+ * @returns A pointer to the subscriber on success, NULL on failure.
  */
-cmsg_pub *
-cmsg_glib_tipc_publisher_init (const char *service_entry_name, int this_node_id,
-                               int scope, const ProtobufCServiceDescriptor *descriptor)
+cmsg_subscriber *
+cmsg_glib_tcp_subscriber_init (const char *service_name, struct in_addr addr,
+                               const ProtobufCService *service)
 {
-    cmsg_transport *transport;
-    cmsg_pub *publisher;
+    cmsg_subscriber *sub = NULL;
+    int32_t ret;
 
-    transport = cmsg_create_transport_tipc (service_entry_name, this_node_id, scope,
-                                            CMSG_TRANSPORT_RPC_TIPC);
-    if (!transport)
+    sub = cmsg_subscriber_create_tcp (service_name, addr, service);
+    if (!sub)
     {
-        CMSG_LOG_GEN_ERROR ("Failed to create CMSG transport for %s",
-                            cmsg_service_name_get (descriptor));
         return NULL;
     }
 
-    publisher = cmsg_glib_publisher_init (descriptor, transport);
-    if (!publisher)
+    ret = cmsg_glib_server_init (cmsg_sub_unix_server_get (sub));
+    if (ret != CMSG_RET_OK)
     {
-        cmsg_transport_destroy (transport);
+        cmsg_subscriber_destroy (sub);
+        return NULL;
     }
 
-    return publisher;
+    ret = cmsg_glib_server_init (cmsg_sub_tcp_server_get (sub));
+    if (ret != CMSG_RET_OK)
+    {
+        cmsg_subscriber_destroy (sub);
+        return NULL;
+    }
+
+    return sub;
 }
 
 /**
@@ -266,11 +196,10 @@ cmsg_glib_tipc_publisher_init (const char *service_entry_name, int this_node_id,
  * @returns Pointer to a 'cmsg_server_accept_thread_info' structure.
  *          NULL on failure.
  */
-cmsg_server_accept_thread_info *
+cmsg_server *
 cmsg_glib_unix_server_init (ProtobufCService *service)
 {
     cmsg_server *server = NULL;
-    cmsg_server_accept_thread_info *info = NULL;
 
     server = cmsg_create_server_unix_rpc (service);
     if (!server)
@@ -280,13 +209,50 @@ cmsg_glib_unix_server_init (ProtobufCService *service)
         return NULL;
     }
 
-    info = cmsg_glib_server_init (server);
-    if (!info)
+    if (cmsg_glib_server_init (server) != CMSG_RET_OK)
     {
         cmsg_destroy_server_and_transport (server);
+        server = NULL;
     }
 
-    return info;
+    return server;
+}
+
+/**
+ * Create and start processing a TCP transport based CMSG server for the given
+ * CMSG service.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param service - The CMSG service.
+ *
+ * @returns Pointer to a 'cmsg_server' structure.
+ *          NULL on failure.
+ */
+cmsg_server *
+cmsg_glib_tcp_server_init_oneway (const char *service_name, struct in_addr *addr,
+                                  ProtobufCService *service)
+{
+    cmsg_server *server = NULL;
+    int32_t ret;
+
+    server = cmsg_create_server_tcp_ipv4_oneway (service_name, addr, service);
+    if (!server)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
+                            cmsg_service_name_get (service->descriptor));
+        return NULL;
+    }
+
+    ret = cmsg_glib_server_init (server);
+    if (ret != CMSG_RET_OK)
+    {
+        cmsg_destroy_server_and_transport (server);
+        server = NULL;
+    }
+
+    return server;
 }
 
 /**
@@ -315,7 +281,7 @@ cmsg_glib_tipc_mesh_init (ProtobufCService *service, const char *service_entry_n
         return NULL;
     }
 
-    cmsg_glib_server_processing_start (mesh->server_thread_info);
+    cmsg_glib_server_processing_start (mesh->server);
 
     return mesh;
 }
@@ -348,4 +314,46 @@ cmsg_glib_bcast_client_processing_start (cmsg_client *broadcast_client)
     GIOChannel *event_channel = g_io_channel_unix_new (event_fd);
     g_io_add_watch (event_channel, G_IO_IN, cmsg_glib_broadcast_event_process,
                     broadcast_client);
+}
+
+/**
+ * Callback function that can be used to process events generated from the CMSG
+ * service listener functionality.
+ */
+static gboolean
+cmsg_glib_sl_event_process (GIOChannel *source, GIOCondition condition, gpointer data)
+{
+    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+    gboolean ret = G_SOURCE_CONTINUE;
+
+    if (!cmsg_service_listener_event_queue_process (info))
+    {
+        cmsg_service_listener_unlisten (info);
+        ret = G_SOURCE_REMOVE;
+    }
+
+    return ret;
+}
+
+/**
+ * Begin listening for events for the given service.
+ *
+ * @param service_name - The service to listen for.
+ * @param func - The function to call when a server is added or removed
+ *               for the given service.
+ * @param user_data - Pointer to user supplied data that will be passed into the
+ *                    supplied handler function.
+ */
+void
+cmsg_glib_service_listener_listen (const char *service_name,
+                                   cmsg_sl_event_handler_t handler, void *user_data)
+{
+    int event_fd;
+    GIOChannel *event_channel = NULL;
+    const cmsg_sl_info *info = NULL;
+
+    info = cmsg_service_listener_listen (service_name, handler, user_data);
+    event_fd = cmsg_service_listener_get_event_fd (info);
+    event_channel = g_io_channel_unix_new (event_fd);
+    g_io_add_watch (event_channel, G_IO_IN, cmsg_glib_sl_event_process, (void *) info);
 }

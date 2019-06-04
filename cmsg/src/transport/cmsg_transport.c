@@ -6,6 +6,91 @@
 #include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+/**
+ * An abstraction of the 'connect' system call that allows a timeout
+ * value to be used. Adapted from "Unix Network Programming".
+ *
+ * @param sockfd - The socket to connect.
+ * @param addr - The address to connect to.
+ * @param addrlen - The size of the 'addr' argument.
+ * @param timeout - The timeout value in seconds (or zero to use the default
+ *                  timeout value for the socket type).
+ */
+int
+connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int timeout)
+{
+    int flags;
+    int n;
+    int error;
+    socklen_t len;
+    fd_set rset;
+    fd_set wset;
+    struct timeval tval;
+
+    error = 0;
+    len = sizeof (error);
+
+    flags = fcntl (sockfd, F_GETFL, 0);
+    fcntl (sockfd, F_SETFL, flags | O_NONBLOCK);
+
+    n = connect (sockfd, addr, addrlen);
+    if (n < 0)
+    {
+        if (errno != EINPROGRESS)
+        {
+            fcntl (sockfd, F_SETFL, flags);
+            return -1;
+        }
+    }
+
+    if (n == 0)
+    {
+        /* connect completed immediately */
+        fcntl (sockfd, F_SETFL, flags);
+        return 0;
+    }
+
+    FD_ZERO (&rset);
+    FD_SET (sockfd, &rset);
+    wset = rset;
+    tval.tv_sec = timeout;
+    tval.tv_usec = 0;
+
+    n = select (sockfd + 1, &rset, &wset, NULL, timeout ? &tval : NULL);
+    if (n == 0)
+    {
+        fcntl (sockfd, F_SETFL, flags);
+        errno = ETIMEDOUT;
+        return -1;
+    }
+
+    if (FD_ISSET (sockfd, &rset) || FD_ISSET (sockfd, &wset))
+    {
+        if (getsockopt (sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
+        {
+            fcntl (sockfd, F_SETFL, flags);
+            return -1;
+        }
+    }
+    else
+    {
+        fcntl (sockfd, F_SETFL, flags);
+        return -1;
+    }
+
+    fcntl (sockfd, F_SETFL, flags);
+
+    if (error)
+    {
+        errno = error;
+        return -1;
+    }
+
+    return 0;
+}
 
 /**
  * Get the transport ID to use in the CMSG counters application
@@ -58,7 +143,6 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
         {
             char ip[INET6_ADDRSTRLEN] = { };
             uint16_t port;
-            const char *fmt;
             if (tport->config.socket.family == PF_INET6)
             {
                 port = ntohs (tport->config.socket.sockaddr.in6.sin6_port);
@@ -66,7 +150,8 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
                            &(tport->config.socket.sockaddr.in6.sin6_addr), ip,
                            INET6_ADDRSTRLEN);
                 // ipv6 addresses are enclosed in [] in URLs due to ambiguity of :s.
-                fmt = ".tcp[[%s]:%d]";
+                snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tcp[[%s]:%u]", ip,
+                          port);
             }
             else
             {
@@ -74,9 +159,8 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
                 inet_ntop (tport->config.socket.sockaddr.generic.sa_family,
                            &(tport->config.socket.sockaddr.in.sin_addr), ip,
                            INET6_ADDRSTRLEN);
-                fmt = ".tcp[%s:%d]";
+                snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tcp[%s:%u]", ip, port);
             }
-            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, fmt, ip, port);
             break;
         }
     case CMSG_TRANSPORT_RPC_TIPC:
@@ -130,6 +214,10 @@ cmsg_transport_new (cmsg_transport_type type)
     memset (transport, 0, sizeof (cmsg_transport));
 
     transport->type = type;
+    transport->connect_timeout = CONNECT_TIMEOUT_DEFAULT;
+    transport->send_timeout = SEND_TIMEOUT_DEFAULT;
+    transport->receive_timeout = RECV_TIMEOUT_DEFAULT;
+    transport->receive_peek_timeout = RECV_HEADER_PEEK_TIMEOUT_DEFAULT;
 
     switch (type)
     {
@@ -178,17 +266,16 @@ cmsg_transport_new (cmsg_transport_type type)
     return transport;
 }
 
-int32_t
+void
 cmsg_transport_destroy (cmsg_transport *transport)
 {
     if (transport)
     {
+        if (transport->tport_funcs.destroy)
+        {
+            transport->tport_funcs.destroy (transport);
+        }
         CMSG_FREE (transport);
-        return 0;
-    }
-    else
-    {
-        return 1;
     }
 }
 
@@ -366,17 +453,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     cmsg_server_request server_request;
     int socket = transport->socket;
     cmsg_status_code ret;
-    time_t receive_timeout;
-
-    /* Use the client receive timeout if set. Otherwise use the default. */
-    if (transport->receive_timeout != 0)
-    {
-        receive_timeout = transport->receive_timeout;
-    }
-    else
-    {
-        receive_timeout = MAX_CLIENT_PEEK_LOOP;
-    }
+    time_t receive_timeout = transport->receive_peek_timeout;
 
     *messagePtPt = NULL;
 
@@ -546,17 +623,6 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 
-
-/**
- * Configure the transport to allow blocking if send cannot send it straight away
- *
- */
-int32_t
-cmsg_transport_send_can_block_enable (cmsg_transport *transport, uint32_t send_can_block)
-{
-    return transport->tport_funcs.send_can_block_enable (transport, send_can_block);
-}
-
 /**
  * Configure the transport to allow listening socket to bind on non-existent, non-local
  * IPv6 addresses. This is specifically added to resolve IPv6 DAD race conditions.
@@ -577,12 +643,13 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
     int32_t ret = CMSG_RET_ERR;
     cmsg_status_code peek_status;
     cmsg_header header_received;
+    time_t receive_timeout = transport->receive_peek_timeout;
 
     CMSG_ASSERT_RETURN_VAL (transport != NULL, CMSG_RET_ERR);
 
     peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
                                                   transport,
-                                                  server_socket, MAX_SERVER_PEEK_LOOP,
+                                                  server_socket, receive_timeout,
                                                   &header_received);
     if (peek_status == CMSG_STATUS_CODE_SUCCESS)
     {
@@ -637,8 +704,112 @@ cmsg_transport_socket_close (cmsg_transport *transport)
     }
 }
 
+int32_t
+cmsg_transport_connect (cmsg_transport *transport)
+{
+    int ret;
+
+    ret = transport->tport_funcs.connect (transport);
+    if (ret == CMSG_RET_OK)
+    {
+        transport->tport_funcs.apply_send_timeout (transport, transport->socket);
+        transport->tport_funcs.apply_recv_timeout (transport, transport->socket);
+    }
+
+    return ret;
+}
+
+int32_t
+cmsg_transport_accept (cmsg_transport *transport)
+{
+    int sock = -1;
+
+    if (transport->tport_funcs.server_accept)
+    {
+        sock = transport->tport_funcs.server_accept (transport);
+        if (sock != -1)
+        {
+            transport->tport_funcs.apply_send_timeout (transport, sock);
+            transport->tport_funcs.apply_recv_timeout (transport, sock);
+        }
+    }
+
+    return sock;
+}
+
+int32_t
+cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout)
+{
+    if (transport->type == CMSG_TRANSPORT_RPC_UNIX ||
+        transport->type == CMSG_TRANSPORT_ONEWAY_UNIX)
+    {
+        /* Setting a connect timeout for unix transports is not supported. */
+        return -1;
+    }
+
+    transport->connect_timeout = timeout;
+
+    return 0;
+}
+
+int32_t
+cmsg_transport_set_send_timeout (cmsg_transport *transport, uint32_t timeout)
+{
+    transport->send_timeout = timeout;
+
+    return transport->tport_funcs.apply_send_timeout (transport, transport->socket);
+}
+
+int32_t
+cmsg_transport_set_recv_peek_timeout (cmsg_transport *transport, uint32_t timeout)
+{
+    transport->receive_peek_timeout = timeout;
+
+    return 0;
+}
+
+int32_t
+cmsg_transport_apply_send_timeout (cmsg_transport *transport, int sockfd)
+{
+    struct timeval tv;
+
+    if (sockfd != -1)
+    {
+        tv.tv_sec = transport->send_timeout;
+        tv.tv_usec = 0;
+
+        if (setsockopt (sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof (tv)) < 0)
+        {
+            CMSG_DEBUG (CMSG_INFO, "Failed to set send timeout (errno=%d)\n", errno);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+int32_t
+cmsg_transport_apply_recv_timeout (cmsg_transport *transport, int sockfd)
+{
+    struct timeval tv;
+
+    if (sockfd != -1)
+    {
+        tv.tv_sec = transport->receive_timeout;
+        tv.tv_usec = 0;
+
+        if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof (tv)) < 0)
+        {
+            CMSG_DEBUG (CMSG_INFO, "Failed to set recv timeout (errno=%d)\n", errno);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 bool
-cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
+cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
 {
     if (one->type == two->type)
     {
@@ -691,4 +862,411 @@ cmsg_transport_compare (cmsg_transport *one, cmsg_transport *two)
     }
 
     return false;
+}
+
+/**
+ * Create a 'cmsg_tipc_transport_info' message for the given tipc transport.
+ *
+ * @param transport - The tipc transport to build the message for.
+ *
+ * @returns A pointer to the message on success, NULL on failure.
+ */
+cmsg_tipc_transport_info *
+cmsg_transport_tipc_info_create (cmsg_transport *transport)
+{
+    cmsg_tipc_transport_info *tipc_info = NULL;
+
+    tipc_info = CMSG_MALLOC (sizeof (cmsg_tipc_transport_info));
+    if (!tipc_info)
+    {
+        return NULL;
+    }
+    cmsg_tipc_transport_info_init (tipc_info);
+
+    CMSG_SET_FIELD_VALUE (tipc_info, family, transport->config.socket.sockaddr.tipc.family);
+    CMSG_SET_FIELD_VALUE (tipc_info, addrtype,
+                          transport->config.socket.sockaddr.tipc.addrtype);
+    CMSG_SET_FIELD_VALUE (tipc_info, addr_name_name_type,
+                          transport->config.socket.sockaddr.tipc.addr.name.name.type);
+    CMSG_SET_FIELD_VALUE (tipc_info, addr_name_name_instance,
+                          transport->config.socket.sockaddr.tipc.addr.name.name.instance);
+    CMSG_SET_FIELD_VALUE (tipc_info, addr_name_domain,
+                          transport->config.socket.sockaddr.tipc.addr.name.domain);
+    CMSG_SET_FIELD_VALUE (tipc_info, scope, transport->config.socket.sockaddr.tipc.scope);
+
+    return tipc_info;
+}
+
+/**
+ * Create a 'cmsg_tcp_transport_info' message for the given tcp transport.
+ *
+ * @param transport - The tcp transport to build the message for.
+ *
+ * @returns A pointer to the message on success, NULL on failure.
+ */
+cmsg_tcp_transport_info *
+cmsg_transport_tcp_info_create (cmsg_transport *transport)
+{
+    cmsg_tcp_transport_info *tcp_info = NULL;
+    bool ipv4;
+    uint32_t addr_len;
+    uint8_t *addr = NULL;
+    uint32_t port_len;
+    uint8_t *port = NULL;
+
+    tcp_info = CMSG_MALLOC (sizeof (cmsg_tcp_transport_info));
+    if (!tcp_info)
+    {
+        return NULL;
+    }
+
+    cmsg_tcp_transport_info_init (tcp_info);
+
+    port_len = sizeof (uint16_t);
+    port = CMSG_MALLOC (port_len);
+
+    ipv4 = (transport->config.socket.family != PF_INET6);
+    if (ipv4)
+    {
+        addr_len = sizeof (transport->config.socket.sockaddr.in.sin_addr.s_addr);
+        addr = CMSG_MALLOC (addr_len);
+        memcpy (addr, &transport->config.socket.sockaddr.in.sin_addr.s_addr, addr_len);
+        memcpy (port, &transport->config.socket.sockaddr.in.sin_port, port_len);
+    }
+    else
+    {
+        addr_len = sizeof (transport->config.socket.sockaddr.in6.sin6_addr.s6_addr);
+        addr = CMSG_MALLOC (addr_len);
+        memcpy (addr, &transport->config.socket.sockaddr.in6.sin6_addr.s6_addr, addr_len);
+        memcpy (port, &transport->config.socket.sockaddr.in6.sin6_port, port_len);
+    }
+
+    CMSG_SET_FIELD_VALUE (tcp_info, ipv4, ipv4);
+    CMSG_SET_FIELD_BYTES (tcp_info, addr, addr, addr_len);
+    CMSG_SET_FIELD_BYTES (tcp_info, port, port, port_len);
+
+    return tcp_info;
+}
+
+/**
+ * Create a 'cmsg_unix_transport_info' message for the given unix transport.
+ *
+ * @param transport - The unix transport to build the message for.
+ *
+ * @returns A pointer to the message on success, NULL on failure.
+ */
+cmsg_unix_transport_info *
+cmsg_transport_unix_info_create (cmsg_transport *transport)
+{
+    cmsg_unix_transport_info *unix_info = NULL;
+    char *unix_path = NULL;
+
+    unix_path = CMSG_STRDUP (transport->config.socket.sockaddr.un.sun_path);
+    if (!unix_path)
+    {
+        return NULL;
+    }
+
+    unix_info = CMSG_MALLOC (sizeof (cmsg_unix_transport_info));
+    if (!unix_info)
+    {
+        CMSG_FREE (unix_path);
+        return NULL;
+    }
+    cmsg_unix_transport_info_init (unix_info);
+
+    CMSG_SET_FIELD_PTR (unix_info, path, unix_path);
+
+    return unix_info;
+}
+
+/**
+ * Create a 'cmsg_transport_info' message for the given transport.
+ *
+ * @param transport - The transport to build the message for.
+ *
+ * @returns A pointer to the message on success, NULL on failure.
+ *          This message should be freed using 'cmsg_transport_info_free'.
+ */
+cmsg_transport_info *
+cmsg_transport_info_create (cmsg_transport *transport)
+{
+    cmsg_transport_info *transport_info = NULL;
+    cmsg_tcp_transport_info *tcp_info = NULL;
+    cmsg_unix_transport_info *unix_info = NULL;
+    cmsg_tipc_transport_info *tipc_info = NULL;
+
+    if (transport->type != CMSG_TRANSPORT_RPC_TCP &&
+        transport->type != CMSG_TRANSPORT_RPC_UNIX &&
+        transport->type != CMSG_TRANSPORT_RPC_TIPC &&
+        transport->type != CMSG_TRANSPORT_ONEWAY_UNIX &&
+        transport->type != CMSG_TRANSPORT_ONEWAY_TCP &&
+        transport->type != CMSG_TRANSPORT_ONEWAY_TIPC)
+    {
+        return NULL;
+    }
+
+    transport_info = CMSG_MALLOC (sizeof (cmsg_transport_info));
+    if (!transport_info)
+    {
+        return NULL;
+    }
+    cmsg_transport_info_init (transport_info);
+
+    if (transport->type == CMSG_TRANSPORT_RPC_TCP ||
+        transport->type == CMSG_TRANSPORT_ONEWAY_TCP)
+    {
+        tcp_info = cmsg_transport_tcp_info_create (transport);
+        if (tcp_info)
+        {
+            CMSG_SET_FIELD_VALUE (transport_info, type, CMSG_TRANSPORT_INFO_TYPE_TCP);
+            CMSG_SET_FIELD_VALUE (transport_info, one_way,
+                                  transport->type == CMSG_TRANSPORT_ONEWAY_TCP);
+            CMSG_SET_FIELD_ONEOF (transport_info, tcp_info, tcp_info,
+                                  data, CMSG_TRANSPORT_INFO_DATA_TCP_INFO);
+        }
+        else
+        {
+            CMSG_FREE (transport_info);
+            transport_info = NULL;
+        }
+    }
+    else if (transport->type == CMSG_TRANSPORT_RPC_UNIX ||
+             transport->type == CMSG_TRANSPORT_ONEWAY_UNIX)
+    {
+        unix_info = cmsg_transport_unix_info_create (transport);
+        if (unix_info)
+        {
+            CMSG_SET_FIELD_VALUE (transport_info, type, CMSG_TRANSPORT_INFO_TYPE_UNIX);
+            CMSG_SET_FIELD_VALUE (transport_info, one_way,
+                                  transport->type == CMSG_TRANSPORT_ONEWAY_UNIX);
+            CMSG_SET_FIELD_ONEOF (transport_info, unix_info, unix_info,
+                                  data, CMSG_TRANSPORT_INFO_DATA_UNIX_INFO);
+        }
+        else
+        {
+            CMSG_FREE (transport_info);
+            transport_info = NULL;
+        }
+    }
+    else if (transport->type == CMSG_TRANSPORT_RPC_TIPC ||
+             transport->type == CMSG_TRANSPORT_ONEWAY_TIPC)
+    {
+        tipc_info = cmsg_transport_tipc_info_create (transport);
+        if (tipc_info)
+        {
+            CMSG_SET_FIELD_VALUE (transport_info, type, CMSG_TRANSPORT_INFO_TYPE_TIPC);
+            CMSG_SET_FIELD_VALUE (transport_info, one_way,
+                                  transport->type == CMSG_TRANSPORT_ONEWAY_TIPC);
+            CMSG_SET_FIELD_ONEOF (transport_info, tipc_info, tipc_info,
+                                  data, CMSG_TRANSPORT_INFO_DATA_TIPC_INFO);
+        }
+        else
+        {
+            CMSG_FREE (transport_info);
+            transport_info = NULL;
+        }
+    }
+
+    return transport_info;
+}
+
+/**
+ * Free a 'cmsg_transport_info' message created by a call to
+ * 'cmsg_transport_info_create'.
+ *
+ * @param info - The message to free.
+ */
+void
+cmsg_transport_info_free (cmsg_transport_info *transport_info)
+{
+    if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_UNIX)
+    {
+        CMSG_FREE (transport_info->unix_info->path);
+        CMSG_FREE (transport_info->unix_info);
+    }
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    {
+        CMSG_FREE (transport_info->tcp_info->port.data);
+        CMSG_FREE (transport_info->tcp_info->addr.data);
+        CMSG_FREE (transport_info->tcp_info);
+    }
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+    {
+        CMSG_FREE (transport_info->tipc_info);
+    }
+    CMSG_FREE (transport_info);
+}
+
+/**
+ * Create a 'cmsg_transport' structure based on the input 'cmsg_transport_info'
+ * message.
+ *
+ * @param transport_info - The 'cmsg_transport_info' message to build the transport
+ *                         for.
+ *
+ * @returns A pointer to the transport on success, NULL on failure.
+ */
+cmsg_transport *
+cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
+{
+    cmsg_transport *transport = NULL;
+
+    if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_UNIX)
+    {
+        if (transport_info->one_way)
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_UNIX);
+        }
+        else
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_UNIX);
+        }
+
+        transport->config.socket.family = AF_UNIX;
+        transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
+        snprintf (transport->config.socket.sockaddr.un.sun_path,
+                  sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
+                  transport_info->unix_info->path);
+    }
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    {
+        uint8_t *port = transport_info->tcp_info->port.data;
+        uint32_t port_len = transport_info->tcp_info->port.len;
+        uint8_t *addr = transport_info->tcp_info->addr.data;
+        uint32_t addr_len = transport_info->tcp_info->addr.len;
+
+        if (transport_info->one_way)
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_TCP);
+        }
+        else
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
+        }
+
+        if (transport_info->tcp_info->ipv4)
+        {
+            transport->config.socket.family = PF_INET;
+            transport->config.socket.sockaddr.generic.sa_family = PF_INET;
+            transport->config.socket.sockaddr.in.sin_family = AF_INET;
+            memcpy (&transport->config.socket.sockaddr.in.sin_port, port, port_len);
+            memcpy (&transport->config.socket.sockaddr.in.sin_addr.s_addr, addr, addr_len);
+        }
+        else
+        {
+            transport->config.socket.family = PF_INET6;
+            transport->config.socket.sockaddr.generic.sa_family = PF_INET6;
+            memcpy (&transport->config.socket.sockaddr.in6.sin6_port, port, port_len);
+            memcpy (&transport->config.socket.sockaddr.in6.sin6_addr.s6_addr, addr,
+                    addr_len);
+        }
+
+        cmsg_transport_ipfree_bind_enable (transport, true);
+    }
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+    {
+        if (transport_info->one_way)
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_TIPC);
+        }
+        else
+        {
+            transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TIPC);
+        }
+
+        transport->config.socket.family = AF_TIPC;
+        transport->config.socket.sockaddr.tipc.family = AF_TIPC;
+        transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
+        transport->config.socket.sockaddr.tipc.addr.name.domain = 0;
+        transport->config.socket.sockaddr.tipc.addr.name.name.type =
+            transport_info->tipc_info->addr_name_name_type;
+        transport->config.socket.sockaddr.tipc.addr.name.name.instance =
+            transport_info->tipc_info->addr_name_name_instance;
+        transport->config.socket.sockaddr.tipc.scope = transport_info->tipc_info->scope;
+    }
+
+    return transport;
+}
+
+/**
+ * Compares two 'cmsg_transport_info' structures for equality.
+ *
+ * @param transport_info_a - The first structure to compare.
+ * @param transport_info_b - The second structure to compare.
+ *
+ * @returns true if they are equal, false otherwise.
+ */
+bool
+cmsg_transport_info_compare (const cmsg_transport_info *transport_info_a,
+                             const cmsg_transport_info *transport_info_b)
+{
+    if (transport_info_a->type != transport_info_b->type ||
+        transport_info_a->one_way != transport_info_b->one_way)
+    {
+        return false;
+    }
+
+    if (transport_info_a->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    {
+        cmsg_tcp_transport_info *tcp_info_a = transport_info_a->tcp_info;
+        cmsg_tcp_transport_info *tcp_info_b = transport_info_b->tcp_info;
+
+        if (tcp_info_a->ipv4 == tcp_info_b->ipv4 &&
+            !memcmp (tcp_info_a->port.data, tcp_info_b->port.data, tcp_info_a->port.len) &&
+            !memcmp (tcp_info_a->addr.data, tcp_info_b->addr.data, tcp_info_a->addr.len))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    if (transport_info_a->type == CMSG_TRANSPORT_INFO_TYPE_UNIX)
+    {
+        cmsg_unix_transport_info *unix_info_a = transport_info_a->unix_info;
+        cmsg_unix_transport_info *unix_info_b = transport_info_b->unix_info;
+
+        return (strcmp (unix_info_a->path, unix_info_b->path) == 0);
+    }
+
+    if (transport_info_a->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+    {
+        cmsg_tipc_transport_info *tipc_info_a = transport_info_a->tipc_info;
+        cmsg_tipc_transport_info *tipc_info_b = transport_info_b->tipc_info;
+
+        if (tipc_info_a->family == tipc_info_b->family &&
+            tipc_info_a->addrtype == tipc_info_b->addrtype &&
+            tipc_info_a->addr_name_name_type == tipc_info_b->addr_name_name_type &&
+            tipc_info_a->addr_name_name_instance == tipc_info_b->addr_name_name_instance &&
+            tipc_info_a->addr_name_domain == tipc_info_b->addr_name_domain &&
+            tipc_info_a->scope == tipc_info_b->scope)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    return false;
+}
+
+/**
+ * Returns a copy of the given cmsg transport.
+ *
+ * @param transport - The cmsg transport to return a copy of.
+ *
+ * @returns A pointer to the copied transport on success, NULL otherwise.
+ */
+cmsg_transport *
+cmsg_transport_copy (const cmsg_transport *transport)
+{
+    cmsg_transport *transport_copy = NULL;
+
+    transport_copy = (cmsg_transport *) CMSG_CALLOC (1, sizeof (cmsg_transport));
+    if (transport_copy)
+    {
+        memcpy (transport_copy, transport, sizeof (cmsg_transport));
+    }
+
+    return transport_copy;
 }

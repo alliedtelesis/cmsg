@@ -1,0 +1,15 @@
+/*
+ * Copyright 2019, Allied Telesis Labs New Zealand, Ltd
+ */
+
+package cmsg_psd;
+
+import "cmsg.proto";
+
+service configuration
+{
+    rpc address_set (cmsg_uint32) returns (dummy);
+    rpc add_subscription (cmsg_subscription_info) returns (dummy);
+    rpc remove_subscription (cmsg_subscription_info) returns (dummy);
+    rpc remove_subscriber (cmsg_transport_info) returns (dummy);
+}

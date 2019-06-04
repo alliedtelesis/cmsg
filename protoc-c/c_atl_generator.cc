@@ -24,6 +24,7 @@
 #include <protoc-c/c_helpers.h>
 #include <google/protobuf/io/printer.h>
 #include "validation.pb.h"
+#include "supported_service.pb.h"
 
 namespace google {
 namespace protobuf {
@@ -312,6 +313,47 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print("return CMSG_RET_ERR;\n");
     printer->Outdent();
     printer->Print("}\n");
+
+    //
+    // If the service is using the 'service_support_check' option then check
+    // that the service is supported.
+    //
+    if (descriptor_->options().HasExtension(service_support_check))
+    {
+        ServiceSupportInfo info = descriptor_->options().GetExtension(service_support_check);
+        vars_["file_path"] = info.file_path();
+
+        printer->Print("\n");
+        printer->Print("/* Service support check */\n");
+        printer->Print(vars_, "if (access (\"$file_path$\", F_OK) == -1)\n");
+        printer->Print("{\n");
+        printer->Indent();
+
+        printer->Print(vars_, "ant_result *ant_result_msg = CMSG_MALLOC (sizeof (ant_result));\n");
+        printer->Print("ant_result_init (ant_result_msg);\n");
+        printer->Print("CMSG_SET_FIELD_VALUE (ant_result_msg, code, ANT_CODE_UNIMPLEMENTED);\n");
+        if (info.has_message())
+        {
+            vars_["message"] = info.message();
+            printer->Print(vars_, "CMSG_SET_FIELD_PTR (ant_result_msg, message, CMSG_STRDUP (\"$message$\"));\n");
+        }
+
+        if (strcmp (method->output_type()->full_name().c_str(), "ant_result") == 0)
+        {
+            printer->Print("_recv_msg[0] = ant_result_msg;\n");
+        }
+        else
+        {
+            printer->Print(vars_, "$output_typename$ *send_msg = CMSG_MALLOC (sizeof ($output_typename$));\n");
+            printer->Print(vars_, "$output_typename$_init (send_msg);\n");
+            printer->Print("CMSG_SET_FIELD_PTR (send_msg, _error_info, ant_result_msg);\n");
+            printer->Print("_recv_msg[0] = send_msg;\n");
+        }
+
+        printer->Print("return CMSG_RET_OK;\n");
+        printer->Outdent();
+        printer->Print("}\n");
+    }
 
     //
     // finally, test that the recv msg pointer is NULL.

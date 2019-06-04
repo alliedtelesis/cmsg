@@ -9,6 +9,7 @@
 #include <cmsg_server.h>
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
+#include "setup.h"
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it
@@ -111,6 +112,8 @@ set_up (void)
 
     /* Ignore SIGPIPE signal if it occurs */
     signal (SIGPIPE, SIG_IGN);
+
+    cmsg_service_listener_mock_functions ();
 
     create_server_and_wait ();
     test_client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg, test));

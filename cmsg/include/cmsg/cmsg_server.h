@@ -38,6 +38,20 @@ typedef int32_t (*server_message_processor_f) (int socket,
                                                cmsg_server_request *server_request,
                                                cmsg_server *server, uint8_t *buffer_data);
 
+typedef struct _cmsg_server_accept_thread_info
+{
+    /* Thread used to accept any incoming connection attempts. */
+    pthread_t server_accept_thread;
+
+    /* Queue to store new accepted connection sockets. This is used to
+     * pass the new socket descriptors back to the server user. */
+    GAsyncQueue *accept_sd_queue;
+
+    /* An eventfd object to notify the server user that there is a new
+     * socket descriptor on the accept_sd_queue.  */
+    int accept_sd_eventfd;
+} cmsg_server_accept_thread_info;
+
 typedef struct _cmsg_server_s
 {
     const ProtobufCService *service;
@@ -85,6 +99,8 @@ typedef struct _cmsg_server_s
     // flag to tell error-level log to be suppressed to debug-level
     cmsg_bool_t suppress_errors;
 
+    cmsg_server_accept_thread_info *accept_thread_info;
+
     //counter information
     void *cntr_session;
     // counterd counters
@@ -111,23 +127,6 @@ typedef struct _cmsg_server_list_s
     pthread_mutex_t server_mutex;   // Used to protect list access.
 } cmsg_server_list;
 
-typedef struct _cmsg_server_accept_thread_info
-{
-    /* The server to accept connections for. */
-    cmsg_server *server;
-
-    /* Thread used to accept any incoming connection attempts. */
-    pthread_t server_accept_thread;
-
-    /* Queue to store new accepted connection sockets. This is used to
-     * pass the new socket descriptors back to the server user. */
-    GAsyncQueue *accept_sd_queue;
-
-    /* An eventfd object to notify the server user that there is a new
-     * socket descriptor on the accept_sd_queue.  */
-    int accept_sd_eventfd;
-} cmsg_server_accept_thread_info;
-
 cmsg_server *cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service);
 
 void cmsg_server_destroy (cmsg_server *server);
@@ -137,7 +136,7 @@ int cmsg_server_get_socket (cmsg_server *server);
 int32_t cmsg_server_receive_poll (cmsg_server *server,
                                   int32_t timeout_ms, fd_set *master_fdset, int *fdmax);
 
-int32_t cmsg_server_thread_receive_poll (cmsg_server_accept_thread_info *info,
+int32_t cmsg_server_thread_receive_poll (cmsg_server *server,
                                          int32_t timeout_ms, fd_set *master_fdset,
                                          int *fdmax);
 
@@ -219,8 +218,8 @@ cmsg_server *cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *
 void cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
                                 uint32_t method_index);
 
-cmsg_server_accept_thread_info *cmsg_server_accept_thread_init (cmsg_server *server);
-void cmsg_server_accept_thread_deinit (cmsg_server_accept_thread_info *info);
+int32_t cmsg_server_accept_thread_init (cmsg_server *server);
+void cmsg_server_accept_thread_deinit (cmsg_server *server);
 
 void cmsg_server_suppress_error (cmsg_server *server, cmsg_bool_t enable);
 

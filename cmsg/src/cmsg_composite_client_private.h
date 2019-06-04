@@ -18,8 +18,8 @@ typedef struct _cmsg_composite_client_s
     pthread_mutex_t child_mutex;
 } cmsg_composite_client;
 
-bool cmsg_composite_client_init (cmsg_composite_client *comp_client,
-                                 const ProtobufCServiceDescriptor *descriptor);
+int32_t cmsg_composite_client_init (cmsg_composite_client *comp_client,
+                                    const ProtobufCServiceDescriptor *descriptor);
 void cmsg_composite_client_deinit (cmsg_composite_client *comp_client);
 
 #endif /* __CMSG_COMPOSITE_CLIENT_PRIVATE_H_ */

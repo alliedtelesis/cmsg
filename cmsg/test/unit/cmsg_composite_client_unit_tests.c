@@ -246,30 +246,6 @@ test_cmsg_composite_client_add_client__loopback_is_last (void)
 }
 
 void
-test_cmsg_composite_client_child_add__unsupported_transport (void)
-{
-    int ret;
-    cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);
-    cmsg_client *child_1 =
-        cmsg_create_client_tipc_rpc ("test", 1, 1, &dummy_service_descriptor);
-    cmsg_client *child_2 = cmsg_create_client_unix (&dummy_service_descriptor);
-
-    np_syslog_ignore (".*");
-
-    ret = cmsg_composite_client_add_child (comp_client, child_1);
-    NP_ASSERT_EQUAL (ret, 0);
-    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 1);
-
-    ret = cmsg_composite_client_add_child (comp_client, child_2);
-    NP_ASSERT_EQUAL (ret, -1);
-    NP_ASSERT_EQUAL (cmsg_composite_client_num_children (comp_client), 1);
-
-    cmsg_client_destroy (comp_client);
-    cmsg_destroy_client_and_transport (child_1);
-    cmsg_destroy_client_and_transport (child_2);
-}
-
-void
 test_cmsg_composite_client_lookup_by_tipc_id (void)
 {
     cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);

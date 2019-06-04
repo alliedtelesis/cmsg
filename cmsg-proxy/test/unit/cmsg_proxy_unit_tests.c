@@ -1567,22 +1567,314 @@ test_cmsg_proxy_field_is_hidden (void)
 /**
  * Function Tested: cmsg_proxy_json_value_to_object()
  *
- * Test that a non-valid boolean value does not get converted to
- * a json object.
+ * Test that if we try to convert a field of a type not supported by this function, that
+ * an error message is logged. Also ensure that no output is returned.
+ * N.B. passing a NULL value results in a JSON_NULL object being returned, so wouldn't
+ *      log a message.
  */
 void
-test_cmsg_proxy_json_value_to_object__invalid_boolean (void)
+test_cmsg_proxy_json_value_to_object__log_unsupported (void)
 {
     json_t *output_json = NULL;
     ProtobufCFieldDescriptor field_descriptor = { };
 
-    field_descriptor.type = PROTOBUF_C_TYPE_BOOL;
+    np_syslog_match ("Attempting to convert an unsupported type in cmsg proxy", 0);
+
     field_descriptor.label = PROTOBUF_C_LABEL_OPTIONAL;
     field_descriptor.name = "test";
 
+    field_descriptor.type = PROTOBUF_C_TYPE_FLOAT;
     output_json = cmsg_proxy_json_value_to_object (&field_descriptor, "blah");
-
     NP_ASSERT_NULL (output_json);
+    NP_ASSERT_EQUAL (np_syslog_count (0), 1);
+
+    field_descriptor.type = PROTOBUF_C_TYPE_DOUBLE;
+    output_json = cmsg_proxy_json_value_to_object (&field_descriptor, "blah");
+    NP_ASSERT_NULL (output_json);
+    NP_ASSERT_EQUAL (np_syslog_count (0), 2);
+
+    field_descriptor.type = PROTOBUF_C_TYPE_BYTES;
+    output_json = cmsg_proxy_json_value_to_object (&field_descriptor, "blah");
+    NP_ASSERT_NULL (output_json);
+    NP_ASSERT_EQUAL (np_syslog_count (0), 3);
+
+    field_descriptor.type = PROTOBUF_C_TYPE_MESSAGE;
+    output_json = cmsg_proxy_json_value_to_object (&field_descriptor, "blah");
+    NP_ASSERT_NULL (output_json);
+    NP_ASSERT_EQUAL (np_syslog_count (0), 4);
+}
+
+/**
+ * Checks that calling cmsg_proxy_json_value_to_object for a field with type 'type'
+ * with string 'value' gives a field with the json type 'expected_json_type'
+ * @param type type of protobuf field for conversion
+ * @param value string to attempt to convert
+ * @param expected_json_type expected type of the resulting converted field.
+ */
+static void
+cmsg_proxy_json_value_to_object__type_check (ProtobufCType type, const char *value,
+                                             json_type expected_json_type)
+{
+    ProtobufCFieldDescriptor field_descriptor = { };
+    json_t *output_json = NULL;
+    json_t *tmp_object = NULL;
+
+    field_descriptor.label = PROTOBUF_C_LABEL_OPTIONAL;
+    field_descriptor.name = "test";
+    field_descriptor.type = type;
+
+    output_json = cmsg_proxy_json_value_to_object (&field_descriptor, value);
+    NP_ASSERT_NOT_NULL (output_json);
+    NP_ASSERT_EQUAL (json_typeof (output_json), JSON_OBJECT);
+    tmp_object = json_object_get (output_json, field_descriptor.name);
+    NP_ASSERT_NOT_NULL (tmp_object);
+    NP_ASSERT_EQUAL (json_typeof (tmp_object), expected_json_type);
+    json_decref (output_json);
+}
+
+/**
+ * Function Tested: cmsg_proxy_json_value_to_object()
+ *
+ * Test that all supported protobuf types for cmsg_proxy_json_value_to_object are converted
+ * to the correct json type if a valid value is given.
+ */
+void
+test_cmsg_proxy_json_value_to_object__good_conversion_correct_type (void)
+{
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_INT32, "1", JSON_INTEGER);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_SINT32, "1", JSON_INTEGER);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_SFIXED32, "1",
+                                                 JSON_INTEGER);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_UINT32, "1", JSON_INTEGER);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_FIXED32, "1",
+                                                 JSON_INTEGER);
+
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_UINT64, "1", JSON_STRING);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_INT64, "1", JSON_STRING);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_SINT64, "1", JSON_STRING);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_SFIXED64, "1",
+                                                 JSON_STRING);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_FIXED64, "1", JSON_STRING);
+
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_ENUM, "a", JSON_STRING);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_STRING, "a", JSON_STRING);
+
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_BOOL, "false", JSON_FALSE);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_BOOL, "true", JSON_TRUE);
+}
+
+/**
+ * Function Tested: cmsg_proxy_json_value_to_object()
+ *
+ * Test that a null value gets translated to a json-null object, regardless of type.
+ * Doing this allows json2protobuf to throw an error.
+ */
+void
+test_cmsg_proxy_json_value_to_object__null_value (void)
+{
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_STRING, NULL, JSON_NULL);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_ENUM, NULL, JSON_NULL);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_UINT32, NULL, JSON_NULL);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_UINT64, NULL, JSON_NULL);
+    cmsg_proxy_json_value_to_object__type_check (PROTOBUF_C_TYPE_BOOL, NULL, JSON_NULL);
+}
+
+/**
+ * Checks that calling cmsg_proxy_json_value_to_object for a repeated field with type 'type'
+ * with string 'value' gives a field with the json type 'expected_json_type' inside an array
+ * @param type type of protobuf field for conversion
+ * @param value string to attempt to convert
+ * @param expected_json_type expected type of the resulting converted field.
+ */
+static void
+cmsg_proxy_json_value_to_object__array_check (ProtobufCType type, const char *value,
+                                              json_type expected_json_type)
+{
+    ProtobufCFieldDescriptor field_descriptor = { };
+    json_t *output_json = NULL;
+    json_t *tmp_array = NULL;
+    json_t *tmp_object = NULL;
+
+    field_descriptor.label = PROTOBUF_C_LABEL_REPEATED;
+    field_descriptor.name = "test";
+    field_descriptor.type = type;
+
+    output_json = cmsg_proxy_json_value_to_object (&field_descriptor, value);
+    NP_ASSERT_NOT_NULL (output_json);
+    tmp_array = json_object_get (output_json, field_descriptor.name);
+    NP_ASSERT_NOT_NULL (tmp_array);
+    NP_ASSERT_EQUAL (json_typeof (tmp_array), JSON_ARRAY);
+    NP_ASSERT_EQUAL (json_array_size (tmp_array), 1);
+    tmp_object = json_array_get (tmp_array, 0);
+    NP_ASSERT_NOT_NULL (tmp_object);
+    NP_ASSERT_EQUAL (json_typeof (tmp_object), expected_json_type);
+    json_decref (output_json);
+}
+
+/**
+ * Function Tested: cmsg_proxy_json_value_to_object()
+ *
+ * Test that all supported protobuf types for cmsg_proxy_json_value_to_object are converted
+ * to the correct json type if a valid value is given.
+ */
+void
+test_cmsg_proxy_json_value_to_object__good_conversion_correct_type_repeated_field (void)
+{
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_INT32, "1", JSON_INTEGER);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_SINT32, "1",
+                                                  JSON_INTEGER);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_SFIXED32, "1",
+                                                  JSON_INTEGER);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_UINT32, "1",
+                                                  JSON_INTEGER);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_FIXED32, "1",
+                                                  JSON_INTEGER);
+
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_UINT64, "1", JSON_STRING);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_INT64, "1", JSON_STRING);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_SINT64, "1", JSON_STRING);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_SFIXED64, "1",
+                                                  JSON_STRING);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_FIXED64, "1",
+                                                  JSON_STRING);
+
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_ENUM, "a", JSON_STRING);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_STRING, "a", JSON_STRING);
+
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_BOOL, "false",
+                                                  JSON_FALSE);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_BOOL, "true", JSON_TRUE);
+}
+
+/**
+ * Function Tested: cmsg_proxy_json_value_to_object()
+ *
+ * Test that a null value gets translated to a json-null object in an array, regardless of
+ * type, when being put into a repeated field.
+ * Doing this allows json2protobuf to throw an error.
+ */
+void
+test_cmsg_proxy_json_value_to_object__null_value_repeated_field (void)
+{
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_STRING, NULL, JSON_NULL);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_ENUM, NULL, JSON_NULL);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_UINT32, NULL, JSON_NULL);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_UINT64, NULL, JSON_NULL);
+    cmsg_proxy_json_value_to_object__array_check (PROTOBUF_C_TYPE_BOOL, NULL, JSON_NULL);
+}
+
+/**
+ * Helper for test_cmsg_proxy_json_value_to_object__good_conversion_number
+ *
+ * Test that 32 bit values are converted to json number.
+ * N.B. All 32 bit field types have value converted to signed json number. json2protobuf
+ *      will do range and sign checking
+ * @param value string to convert to a number
+ * @param expected_value expected result of conversion
+ */
+static void
+json_value_to_object_good_conversion_number (const char *value, json_int_t expected_value)
+{
+    json_t *output_json = NULL;
+    json_t *tmp_object = NULL;
+    ProtobufCFieldDescriptor field_descriptor = { };
+
+    field_descriptor.label = PROTOBUF_C_LABEL_OPTIONAL;
+    field_descriptor.name = "test";
+    field_descriptor.type = PROTOBUF_C_TYPE_UINT32;
+
+    output_json = cmsg_proxy_json_value_to_object (&field_descriptor, value);
+    NP_ASSERT_NOT_NULL (output_json);
+    tmp_object = json_object_get (output_json, field_descriptor.name);
+    NP_ASSERT_NOT_NULL (tmp_object);
+    NP_ASSERT (json_is_integer (tmp_object));
+    NP_ASSERT_EQUAL (json_integer_value (tmp_object), expected_value);
+    json_decref (output_json);
+}
+
+/**
+ * Function Tested: cmsg_proxy_json_value_to_number()
+ *
+ * Test that 32 bit values are converted to json number.
+ * N.B. All 32 bit field types have value converted to signed json number. json2protobuf
+ *      will do range and sign checking
+ */
+void
+test_cmsg_proxy_json_value_to_object__good_conversion_number (void)
+{
+    json_value_to_object_good_conversion_number ("123", 123);
+    json_value_to_object_good_conversion_number ("-123", -123);
+
+    json_value_to_object_good_conversion_number ("2147483647", INT32_MAX);
+    json_value_to_object_good_conversion_number ("-2147483648", INT32_MIN);
+
+    json_value_to_object_good_conversion_number ("0", 0);
+    json_value_to_object_good_conversion_number ("4294967295", UINT32_MAX);
+
+    // Ensure that we don't do octal conversion
+    json_value_to_object_good_conversion_number ("-0123", -123);
+    json_value_to_object_good_conversion_number ("0123", 123);
+}
+
+/**
+ * Test that a (non-null) string value that can't be converted to the type specified in the
+ * field descriptor is stored as a string in the returned json object from
+ * cmsg_proxy_json_value_to_object
+ * @param type - protobuf type of the field that we want to convert to.
+ * @param value - non-null string that can't be converted to the passed in type
+ */
+static void
+json_value_to_object_bad_conversion_test (ProtobufCType type, const char *value)
+{
+    json_t *output_json = NULL;
+    json_t *tmp_object = NULL;
+    ProtobufCFieldDescriptor field_descriptor = { };
+
+    field_descriptor.label = PROTOBUF_C_LABEL_OPTIONAL;
+    field_descriptor.name = "test";
+    field_descriptor.type = type;
+
+    output_json = cmsg_proxy_json_value_to_object (&field_descriptor, value);
+    NP_ASSERT_NOT_NULL (output_json);
+    tmp_object = json_object_get (output_json, field_descriptor.name);
+    NP_ASSERT_NOT_NULL (tmp_object);
+    NP_ASSERT (json_is_string (tmp_object));
+    NP_ASSERT_STR_EQUAL (json_string_value (tmp_object), value);
+    json_decref (output_json);
+}
+
+/**
+ * Function Tested: cmsg_proxy_json_value_to_object()
+ *
+ * Test that an unconvertible value is converted as a string type for
+ * 32 bit integers
+ */
+void
+test_cmsg_proxy_json_value_to_object__bad_conversion_int (void)
+{
+    json_value_to_object_bad_conversion_test (PROTOBUF_C_TYPE_UINT32, "blah");
+    json_value_to_object_bad_conversion_test (PROTOBUF_C_TYPE_UINT32, "123blah");
+    json_value_to_object_bad_conversion_test (PROTOBUF_C_TYPE_UINT32, "0x3456 ");
+
+    // json standard does not support hexadecimal
+    json_value_to_object_bad_conversion_test (PROTOBUF_C_TYPE_UINT32, "0x3456");
+    json_value_to_object_bad_conversion_test (PROTOBUF_C_TYPE_UINT32, "-0x3456");
+}
+
+/**
+ * Function Tested: cmsg_proxy_json_value_to_object()
+ *
+ * Test that an unconvertible value is converted as a string type for
+ * boolean fields
+ */
+void
+test_cmsg_proxy_json_value_to_object__bad_conversion_bool (void)
+{
+    json_value_to_object_bad_conversion_test (PROTOBUF_C_TYPE_BOOL, "0");
+    json_value_to_object_bad_conversion_test (PROTOBUF_C_TYPE_BOOL, "1");
+    json_value_to_object_bad_conversion_test (PROTOBUF_C_TYPE_BOOL, "TRUE");
+    json_value_to_object_bad_conversion_test (PROTOBUF_C_TYPE_BOOL, "FALSE");
+    json_value_to_object_bad_conversion_test (PROTOBUF_C_TYPE_BOOL, "truedasfdsa");
 }
 
 /**

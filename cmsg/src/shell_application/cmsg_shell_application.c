@@ -590,7 +590,7 @@ call_api (program_args *args, pbc_descriptors *descriptors,
     }
     else if (no_input_arg)
     {
-        cmsg_ret = descriptors->api_ptr (client, &output_proto_message);
+        cmsg_ret = descriptors->api_ptr (client, output_proto_message);
     }
     else if (no_output_arg)
     {

@@ -1,56 +1,42 @@
-/*
- * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
+/**
+ * cmsg_sub.h
+ *
+ * Header file for the CMSG subscriber functionality.
+ *
+ * Copyright 2019, Allied Telesis Labs New Zealand, Ltd
  */
+
 #ifndef __CMSG_SUB_H_
 #define __CMSG_SUB_H_
 
-#include "cmsg.h"
-#include "cmsg_private.h"   // to be removed when this file is split private/public
-#include "cmsg_client.h"
-#include "cmsg_server.h"
+#include <cmsg/cmsg.h>
+#include <netinet/in.h>
+#include <cmsg/cmsg_server.h>
 
-typedef struct _cmsg_sub_s
-{
-    //this is a hack to get around a check when a client method is called
-    //to not change the order of the first two
-    const ProtobufCServiceDescriptor *descriptor;
-    int32_t (*invoke) (ProtobufCService *service,
-                       uint32_t method_index,
-                       const ProtobufCMessage *input,
-                       ProtobufCClosure closure, void *closure_data);
+typedef struct cmsg_subscriber cmsg_subscriber;
 
-    cmsg_server *pub_server;    //receiving messages
-    cmsg_server_accept_thread_info *pub_server_thread_info;
+cmsg_server *cmsg_sub_unix_server_get (cmsg_subscriber *subscriber);
+int cmsg_sub_unix_server_socket_get (cmsg_subscriber *subscriber);
+cmsg_server *cmsg_sub_tcp_server_get (cmsg_subscriber *subscriber);
+int cmsg_sub_tcp_server_socket_get (cmsg_subscriber *subscriber);
 
-} cmsg_sub;
-
-
-cmsg_sub *cmsg_sub_new (cmsg_transport *pub_server_transport,
-                        const ProtobufCService *pub_service);
-
-int cmsg_sub_get_server_socket (cmsg_sub *subscriber);
-
-int32_t cmsg_sub_server_receive_poll (cmsg_sub *sub, int32_t timeout_ms,
-                                      fd_set *master_fdset, int *fdmax);
-
-int32_t cmsg_sub_server_receive (cmsg_sub *subscriber, int32_t server_socket);
-int32_t cmsg_sub_server_accept (cmsg_sub *subscriber, int32_t listen_socket);
-void cmsg_sub_server_accept_callback (cmsg_sub *subscriber, int32_t sock);
-
-int32_t cmsg_sub_subscribe (cmsg_sub *subscriber,
-                            cmsg_transport *sub_client_transport, const char *method_name);
-int32_t cmsg_sub_subscribe_events (cmsg_sub *subscriber,
-                                   cmsg_transport *sub_client_transport,
-                                   const char **events);
-int32_t cmsg_sub_unsubscribe (cmsg_sub *subscriber,
-                              cmsg_transport *sub_client_transport, char *method_name);
-int32_t cmsg_sub_unsubscribe_events (cmsg_sub *subscriber,
-                                     cmsg_transport *sub_client_transport,
-                                     const char **events);
-
-cmsg_sub *cmsg_create_subscriber_tipc_oneway (const char *server_name, int member_id,
-                                              int scope, const ProtobufCService *service);
-cmsg_sub *cmsg_create_subscriber_unix_oneway (const ProtobufCService *service);
-void cmsg_destroy_subscriber_and_transport (cmsg_sub *subscriber);
+int32_t cmsg_sub_subscribe_local (cmsg_subscriber *subscriber, const char *method_name);
+int32_t cmsg_sub_subscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
+                                   struct in_addr remote_addr);
+int32_t cmsg_sub_subscribe_events_local (cmsg_subscriber *subscriber, const char **events);
+int32_t cmsg_sub_subscribe_events_remote (cmsg_subscriber *subscriber, const char **events,
+                                          struct in_addr remote_addr);
+int32_t cmsg_sub_unsubscribe_local (cmsg_subscriber *subscriber, const char *method_name);
+int32_t cmsg_sub_unsubscribe_remote (cmsg_subscriber *subscriber, const char *method_name,
+                                     struct in_addr remote_addr);
+int32_t cmsg_sub_unsubscribe_events_local (cmsg_subscriber *subscriber,
+                                           const char **events);
+int32_t cmsg_sub_unsubscribe_events_remote (cmsg_subscriber *subscriber,
+                                            const char **events,
+                                            struct in_addr remote_addr);
+cmsg_subscriber *cmsg_subscriber_create_tcp (const char *server_name, struct in_addr addr,
+                                             const ProtobufCService *service);
+cmsg_subscriber *cmsg_subscriber_create_unix (const ProtobufCService *service);
+void cmsg_subscriber_destroy (cmsg_subscriber *subscriber);
 
 #endif /* __CMSG_SUB_H_ */

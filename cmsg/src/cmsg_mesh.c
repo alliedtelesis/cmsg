@@ -15,7 +15,6 @@ cmsg_tipc_mesh_connection_init (ProtobufCService *service, const char *service_e
     cmsg_client *bcast_client = NULL;
     cmsg_client *loopback_client = NULL;
     cmsg_server *server = NULL;
-    cmsg_server_accept_thread_info *server_thread_info = NULL;
     bool connect_to_self = (type == CMSG_MESH_LOCAL_TIPC);
     bool create_loopback = (type == CMSG_MESH_LOCAL_LOOPBACK);
     int ret = -1;
@@ -81,8 +80,7 @@ cmsg_tipc_mesh_connection_init (ProtobufCService *service, const char *service_e
     }
     mesh_info->server = server;
 
-    server_thread_info = cmsg_server_accept_thread_init (mesh_info->server);
-    if (server_thread_info == NULL)
+    if (cmsg_server_accept_thread_init (mesh_info->server) != CMSG_RET_OK)
     {
         cmsg_destroy_server_and_transport (mesh_info->server);
         cmsg_destroy_client_and_transport (mesh_info->loopback_client);
@@ -90,7 +88,6 @@ cmsg_tipc_mesh_connection_init (ProtobufCService *service, const char *service_e
         CMSG_FREE (mesh_info);
         return NULL;
     }
-    mesh_info->server_thread_info = server_thread_info;
 
     return mesh_info;
 }

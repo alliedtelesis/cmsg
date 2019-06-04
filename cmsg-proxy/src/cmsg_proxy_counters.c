@@ -17,8 +17,11 @@ GHashTable *proxy_session_counter_table = NULL;
 static void
 _proxy_session_counter_deinit_all (void)
 {
-    g_hash_table_destroy (proxy_session_counter_table);
-    proxy_session_counter_table = NULL;
+    if (proxy_session_counter_table)
+    {
+        g_hash_table_destroy (proxy_session_counter_table);
+        proxy_session_counter_table = NULL;
+    }
 }
 
 /**

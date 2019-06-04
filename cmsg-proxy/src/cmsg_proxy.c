@@ -116,14 +116,43 @@ G_STATIC_ASSERT (LLONG_MAX > UINT32_MAX);
 G_STATIC_ASSERT (sizeof (json_int_t) == sizeof (long long));
 
 /**
+ * Helper for cmsg_proxy_json_value_to_object
+ * Create an object containing a json field with the name in the field descriptor and the
+ * string in value. If the field is repeated, it will be an array with one entry.
+ * This does not need to be a string type protobuf field. The assumption is that we want
+ * json2protobuf to handle or return an error for whatever the string is.
+ * @param field_descriptor field to create a string entry for
+ * @param value value to put in the field.
+ * @returns json object.
+ */
+static json_t *
+cmsg_proxy_json_value_handle_as_string (const ProtobufCFieldDescriptor *field_descriptor,
+                                        const char *value)
+{
+    char *fmt = NULL;
+
+    fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[s?]}" : "{ss?}";
+
+    return json_pack (fmt, field_descriptor->name, value);
+}
+
+/**
  * Convert a single JSON value (i.e. not a JSON object or array) into
  * a JSON object using the input protobuf-c field name as the key.
  *
  * @param field_descriptor - Protobuf-c field descriptor to get the key name from
  * @param value - The value to put into the JSON object
  *
- * @returns - Pointer to the converted JSON object or NULL if the
- *            conversion fails or is not supported.
+ * @returns - A NULL value will return an object with the field set with a JSON_NULL type.
+ *            This will result in an error return by json2protobuf as the type does not
+ *            match the type required for the field.
+ *          - If the value is not NULL, and the field descriptor type is supported for
+ *            conversion, a conversion will be attempted and a json object with a field of
+ *            the correct type will be created. If the conversion is unsuccessful, a json
+ *            string field will be created with the contents of value. This object is
+ *            returned.
+ *          - If the value is not NULL and the conversion is not supported, NULL will be
+ *            returned and an error message will be logged.
  */
 json_t *
 cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descriptor,
@@ -133,6 +162,13 @@ cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descripto
     char *endptr = NULL;
     json_int_t llvalue;
     json_t *new_object = NULL;
+
+    // Pack and return a null object, so that we get an error from json2protobuf
+    if (!value)
+    {
+        fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[n]}" : "{sn}";
+        return json_pack (fmt, field_descriptor->name);
+    }
 
     switch (field_descriptor->type)
     {
@@ -146,25 +182,26 @@ cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descripto
          * This will work for all 32 bit values as sizeof (long long) > 32 bits. (confirmed
          * by static asserts above)
          */
-        llvalue = strtoll (value, &endptr, 0);
+        llvalue = strtoll (value, &endptr, 10);
         if (endptr && *endptr == '\0')
         {
             fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[I]}" : "{sI}";
             new_object = json_pack (fmt, field_descriptor->name, llvalue);
             break;
         }
-        /* fall through (storing as string) */
+
+        /* fall back to storing as string */
+        new_object = cmsg_proxy_json_value_handle_as_string (field_descriptor, value);
+        break;
     case PROTOBUF_C_TYPE_UINT64:
     case PROTOBUF_C_TYPE_INT64:
     case PROTOBUF_C_TYPE_SINT64:
     case PROTOBUF_C_TYPE_SFIXED64:
     case PROTOBUF_C_TYPE_FIXED64:
-        /* 64 bit values are stored as strings in json */
+        /* 64 bit values are always stored as strings in json */
     case PROTOBUF_C_TYPE_ENUM:
     case PROTOBUF_C_TYPE_STRING:
-        fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[s?]}" : "{ss?}";
-
-        new_object = json_pack (fmt, field_descriptor->name, value);
+        new_object = cmsg_proxy_json_value_handle_as_string (field_descriptor, value);
         break;
     case PROTOBUF_C_TYPE_BOOL:
         if (strcmp (value, "false") == 0 || strcmp (value, "true") == 0)
@@ -172,14 +209,19 @@ cmsg_proxy_json_value_to_object (const ProtobufCFieldDescriptor *field_descripto
             fmt = field_descriptor->label == PROTOBUF_C_LABEL_REPEATED ? "{s[b]}" : "{sb}";
             new_object = json_pack (fmt, field_descriptor->name, strcmp (value, "false"));
         }
+        else
+        {
+            /* fall back to storing as string so that we return an error */
+            new_object = cmsg_proxy_json_value_handle_as_string (field_descriptor, value);
+        }
         break;
-
-    /* Not (currently) supported */
     case PROTOBUF_C_TYPE_FLOAT:
     case PROTOBUF_C_TYPE_DOUBLE:
     case PROTOBUF_C_TYPE_BYTES:
     case PROTOBUF_C_TYPE_MESSAGE:
+        /* Not (currently) supported */
     default:
+        syslog (LOG_ERR, "Attempting to convert an unsupported type in cmsg proxy");
         break;
     }
 
