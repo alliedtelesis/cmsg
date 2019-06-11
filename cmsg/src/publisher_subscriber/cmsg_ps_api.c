@@ -12,6 +12,7 @@
 #include "cmsg_ps_config.h"
 #include "cmsg_ps_api_private.h"
 #include "transport/cmsg_transport_private.h"
+#include "update_impl_auto.h"
 
 static struct in_addr local_addr;
 
@@ -223,6 +224,33 @@ cmsg_ps_create_publisher_client (void)
 }
 
 /**
+ * Create the server that can be used by a cmsg publisher to receive subscription
+ * update messages from cmsg_psd.
+ *
+ * This server must be freed by the caller using 'cmsg_destroy_server_and_transport'.
+ *
+ * @returns A pointer to a server that can be used to receive subscription update
+ *          messages from cmsg_psd on success,
+ *          NULL otherwise.
+ */
+cmsg_server *
+cmsg_ps_create_publisher_update_server (void)
+{
+    cmsg_transport *transport = NULL;
+    static uint32_t id = 1; /* Required for multiple publishers in one process */
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_UNIX);
+    transport->config.socket.family = AF_UNIX;
+    transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
+    snprintf (transport->config.socket.sockaddr.un.sun_path,
+              sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
+              "/tmp/%s.%u.%u", cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_psd, update)),
+              getpid (), id++);
+
+    return cmsg_server_new (transport, CMSG_SERVICE (cmsg_psd, update));
+}
+
+/**
  * Send a packet to cmsg_psd so that it can be sent to all interested subscribers.
  *
  * @param client - The client connected to cmsg_psd (previously returned by a call to
@@ -252,6 +280,7 @@ cmsg_ps_publish_message (cmsg_client *client, const char *service, const char *m
  * Register a publisher with cmsg_psd.
  *
  * @param service - The service name the publisher is publishing events for.
+ * @param server - The server the publisher is using to listen for updates from cmsg_psd.
  * @param methods - Pointer to return a GList of the methods that currently
  *                  have subscriptions for the service the publisher is
  *                  publishing for.
@@ -259,7 +288,7 @@ cmsg_ps_publish_message (cmsg_client *client, const char *service, const char *m
  * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
  */
 int32_t
-cmsg_ps_register_publisher (const char *service, GList **methods)
+cmsg_ps_register_publisher (const char *service, cmsg_server *server, GList **methods)
 {
     cmsg_client *client = NULL;
     cmsg_service_info send_msg = CMSG_SERVICE_INFO_INIT;
@@ -268,17 +297,27 @@ cmsg_ps_register_publisher (const char *service, GList **methods)
     GList *method_list = NULL;
     int i;
     char *method = NULL;
+    cmsg_transport_info *transport_info = NULL;
 
-    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
-    if (!client)
+    transport_info = cmsg_transport_info_create (server->_transport);
+    if (!transport_info)
     {
         return CMSG_RET_ERR;
     }
 
+    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    if (!client)
+    {
+        cmsg_transport_info_free (transport_info);
+        return CMSG_RET_ERR;
+    }
+
     CMSG_SET_FIELD_PTR (&send_msg, service, (char *) service);
+    CMSG_SET_FIELD_PTR (&send_msg, server_info, transport_info);
 
     ret = cmsg_psd_configuration_api_add_publisher (client, &send_msg, &recv_msg);
     cmsg_destroy_client_and_transport (client);
+    cmsg_transport_info_free (transport_info);
 
     if (ret != CMSG_RET_OK)
     {
@@ -293,4 +332,43 @@ cmsg_ps_register_publisher (const char *service, GList **methods)
 
     *methods = method_list;
     return CMSG_RET_OK;
+}
+
+/**
+ * Unregister a publisher from cmsg_psd.
+ *
+ * @param service - The service name the publisher is publishing events for.
+ * @param server - The server the publisher is using to listen for updates from cmsg_psd.
+ *
+ * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
+ */
+int32_t
+cmsg_ps_unregister_publisher (const char *service, cmsg_server *server)
+{
+    cmsg_client *client = NULL;
+    cmsg_service_info send_msg = CMSG_SERVICE_INFO_INIT;
+    int ret;
+    cmsg_transport_info *transport_info = NULL;
+
+    transport_info = cmsg_transport_info_create (server->_transport);
+    if (!transport_info)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    if (!client)
+    {
+        cmsg_transport_info_free (transport_info);
+        return CMSG_RET_ERR;
+    }
+
+    CMSG_SET_FIELD_PTR (&send_msg, service, (char *) service);
+    CMSG_SET_FIELD_PTR (&send_msg, server_info, transport_info);
+
+    ret = cmsg_psd_configuration_api_remove_publisher (client, &send_msg);
+    cmsg_destroy_client_and_transport (client);
+    cmsg_transport_info_free (transport_info);
+
+    return ret;
 }

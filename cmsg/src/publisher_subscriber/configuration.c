@@ -77,6 +77,8 @@ cmsg_psd_configuration_impl_add_publisher (const void *service,
     const char **methods = NULL;
     uint32_t n_methods = 0;
 
+    data_add_publisher (recv_msg->service, recv_msg->server_info);
+
     methods = data_get_methods_for_service (recv_msg->service, &n_methods);
 
     CMSG_SET_FIELD_REPEATED (&send_msg, methods, (char **) methods, n_methods);
@@ -92,6 +94,8 @@ void
 cmsg_psd_configuration_impl_remove_publisher (const void *service,
                                               const cmsg_service_info *recv_msg)
 {
+    data_remove_publisher (recv_msg->service, recv_msg->server_info);
+
     cmsg_psd_configuration_server_remove_publisherSend (service);
 }
 

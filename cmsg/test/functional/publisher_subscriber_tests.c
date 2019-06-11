@@ -12,6 +12,7 @@
 #include "cmsg_functional_tests_impl_auto.h"
 #include "setup.h"
 #include "publisher_subscriber/cmsg_ps_api_private.h"
+#include "publisher_subscriber/cmsg_pub_private.h"
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it
@@ -115,13 +116,14 @@ create_publisher_and_send (void)
 }
 
 /**
- * Create the subsriber of the given type and then run the
- * functional tests.
+ * Create the subscriber of the given type, then subscribe for the
+ * required events. Finally create the publisher, send the events and
+ * check that they were received.
  *
  * @param type - Transport type of the subscriber to create
  */
 static void
-create_subscriber_and_test (cmsg_transport_type type)
+create_sub_before_pub_and_test (cmsg_transport_type type)
 {
     cmsg_subscriber *sub = NULL;
     int ret = 0;
@@ -181,7 +183,7 @@ create_subscriber_and_test (cmsg_transport_type type)
 void
 test_publisher_subscriber_tcp (void)
 {
-    create_subscriber_and_test (CMSG_TRANSPORT_RPC_TCP);
+    create_sub_before_pub_and_test (CMSG_TRANSPORT_RPC_TCP);
 }
 
 /**
@@ -190,7 +192,7 @@ test_publisher_subscriber_tcp (void)
 void
 test_publisher_subscriber_unix (void)
 {
-    create_subscriber_and_test (CMSG_TRANSPORT_RPC_UNIX);
+    create_sub_before_pub_and_test (CMSG_TRANSPORT_RPC_UNIX);
 }
 
 /**
@@ -202,4 +204,30 @@ test_publisher_with_no_subscribers (void)
 {
     np_mock (cmsg_ps_publish_message, sm_mock_cmsg_ps_publish_message_fail);
     create_publisher_and_send ();
+}
+
+/**
+ * Test that a publisher is correctly updated when a subscriber is added
+ * for a method after the publisher has already been created.
+ */
+void
+test_publisher_receives_subscription_updates (void)
+{
+    cmsg_publisher *publisher = NULL;
+    cmsg_subscriber *sub = NULL;
+
+    publisher = cmsg_publisher_create (CMSG_DESCRIPTOR (cmsg, test));
+    NP_ASSERT_EQUAL (g_list_length (publisher->subscribed_methods), 0);
+
+    sub = cmsg_subscriber_create_unix (CMSG_SERVICE (cmsg, test));
+    cmsg_sub_subscribe_local (sub, "simple_notification_test");
+
+    NP_ASSERT_EQUAL (g_list_length (publisher->subscribed_methods), 1);
+
+    cmsg_subscriber_destroy (sub);
+
+    NP_ASSERT_EQUAL (g_list_length (publisher->subscribed_methods), 0);
+
+    cmsg_publisher_destroy (publisher);
+
 }

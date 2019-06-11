@@ -14,16 +14,18 @@
 #include "transport/cmsg_transport_private.h"
 #include <cmsg/cmsg_composite_client.h>
 #include "cmsg_client_private.h"
+#include "update_api_auto.h"
 
 typedef struct
 {
     char *method_name;
-    cmsg_client *comp_client;
+    cmsg_client *comp_client;   /* Client to subscribers of this method */
 } method_data_entry;
 
 typedef struct
 {
     GList *methods;
+    cmsg_client *comp_client;   /* Client to publishers of this service */
 } service_data_entry;
 
 GHashTable *local_subscriptions_table = NULL;
@@ -69,6 +71,8 @@ service_entry_free (gpointer data)
 
     g_list_free_full (entry->methods, service_entry_free_methods);
     entry->methods = NULL;
+    cmsg_composite_client_free_all_children (entry->comp_client);
+    cmsg_client_destroy (entry->comp_client);
     CMSG_FREE (entry);
 }
 
@@ -90,10 +94,30 @@ get_service_entry_or_create (const char *service, bool create)
     if (!entry && create)
     {
         entry = CMSG_CALLOC (1, sizeof (service_data_entry));
+        entry->comp_client = cmsg_composite_client_new (CMSG_DESCRIPTOR (cmsg_psd, update));
         g_hash_table_insert (local_subscriptions_table, g_strdup (service), entry);
     }
 
     return entry;
+}
+
+/**
+ * Update the publishers registered for this service with the method change.
+ *
+ * @param comp_client - The composite client connected to the publishers.
+ * @param method_name - The name of the method that has changed.
+ * @param added - True if the method is being added, false if it is being removed.
+ */
+static void
+update_publishers_with_method (cmsg_client *comp_client, const char *method_name,
+                               bool added)
+{
+    cmsg_psd_subscription_update send_msg = CMSG_PSD_SUBSCRIPTION_UPDATE_INIT;
+
+    CMSG_SET_FIELD_PTR (&send_msg, method_name, (char *) method_name);
+    CMSG_SET_FIELD_VALUE (&send_msg, added, added);
+
+    cmsg_psd_update_api_subscription_change (comp_client, &send_msg);
 }
 
 /**
@@ -142,6 +166,8 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
         entry->method_name = CMSG_STRDUP (method);
         entry->comp_client = cmsg_composite_client_new (&cmsg_psd_pub_descriptor);
         service_entry->methods = g_list_prepend (service_entry->methods, entry);
+
+        update_publishers_with_method (service_entry->comp_client, method, true);
     }
 
     return entry;
@@ -269,7 +295,7 @@ data_remove_remote_subscription (const cmsg_subscription_info *info)
  *          -1 otherwise.
  */
 static gint
-cmsg_subscription_client_compare (gconstpointer a, gconstpointer b)
+cmsg_client_transport_compare (gconstpointer a, gconstpointer b)
 {
     const cmsg_client *client = (const cmsg_client *) a;
     const cmsg_transport *transport = (const cmsg_transport *) b;
@@ -299,8 +325,7 @@ data_remove_client_from_method (method_data_entry *method_entry,
     cmsg_client *child_client = NULL;
 
     transport = cmsg_transport_info_to_transport (transport_info);
-    list_entry = g_list_find_custom (client_list, transport,
-                                     cmsg_subscription_client_compare);
+    list_entry = g_list_find_custom (client_list, transport, cmsg_client_transport_compare);
     if (list_entry)
     {
         child_client = (cmsg_client *) list_entry->data;
@@ -338,6 +363,8 @@ data_remove_local_subscription (const cmsg_subscription_info *info)
         }
         if (destroy_method_entry)
         {
+            update_publishers_with_method (service_entry->comp_client,
+                                           method_entry->method_name, false);
             service_entry->methods = g_list_remove (service_entry->methods, method_entry);
             CMSG_FREE (method_entry->method_name);
             cmsg_client_destroy (method_entry->comp_client);
@@ -442,21 +469,25 @@ data_find_methods_without_clients (gpointer data, gpointer user_data)
 /**
  * Prune any empty method entries from the given service data entry.
  *
- * @param entry - The service data entry to prune empty method entries from.
+ * @param service_entry - The service data entry to prune empty method entries from.
  */
 static void
-data_prune_empty_methods (service_data_entry *entry)
+data_prune_empty_methods (service_data_entry *service_entry)
 {
     GList *list = NULL;
     GList *list_next = NULL;
     GList *removal_list = NULL;
     method_data_entry *method_entry = NULL;
 
-    g_list_foreach (entry->methods, data_find_methods_without_clients, &removal_list);
+    g_list_foreach (service_entry->methods, data_find_methods_without_clients,
+                    &removal_list);
     for (list = g_list_first (removal_list); list; list = list_next)
     {
         method_entry = (method_data_entry *) list->data;
-        entry->methods = g_list_remove (entry->methods, method_entry);
+
+        update_publishers_with_method (service_entry->comp_client,
+                                       method_entry->method_name, false);
+        service_entry->methods = g_list_remove (service_entry->methods, method_entry);
         cmsg_client_destroy (method_entry->comp_client);
         CMSG_FREE (method_entry->method_name);
         CMSG_FREE (method_entry);
@@ -484,8 +515,8 @@ data_remove_local_entries_for_subscriber (gpointer key, gpointer value, gpointer
 
 /**
  * Helper function called for each entry in the hash table. Returns TRUE
- * if the service entry has an empty method list, meaning the entry should
- * be removed from the hash table.
+ * if the service entry is empty, meaning the entry should be removed from
+ * the hash table.
  *
  * @param key - The key from the hash table (service name)
  * @param value - The value associated with the key (service_data_entry structure)
@@ -498,7 +529,8 @@ data_remove_empty_services (gpointer key, gpointer value, gpointer user_data)
 {
     service_data_entry *entry = (service_data_entry *) value;
 
-    if (g_list_length (entry->methods) == 0)
+    if (g_list_length (entry->methods) == 0 &&
+        cmsg_composite_client_num_children (entry->comp_client) == 0)
     {
         return TRUE;
     }
@@ -717,6 +749,54 @@ data_get_methods_for_service (const char *service, uint32_t *n_methods)
     }
 
     return methods;
+}
+
+/**
+ * Add a client to the publisher's update server to the composite client
+ * for the given service.
+ */
+void
+data_add_publisher (const char *service, cmsg_transport_info *transport_info)
+{
+    service_data_entry *service_entry = NULL;
+    cmsg_transport *transport = NULL;
+    cmsg_client *client = NULL;
+
+    service_entry = get_service_entry_or_create (service, true);
+    transport = cmsg_transport_info_to_transport (transport_info);
+    client = cmsg_client_create (transport, CMSG_DESCRIPTOR (cmsg_psd, update));
+    cmsg_composite_client_add_child (service_entry->comp_client, client);
+}
+
+/**
+ * Remove the client to the publisher's update server from the composite client
+ * for the given service.
+ */
+void
+data_remove_publisher (const char *service, cmsg_transport_info *transport_info)
+{
+    service_data_entry *service_entry = NULL;
+    cmsg_transport *transport = NULL;
+    GList *list_entry = NULL;
+    GList *client_list = NULL;
+    cmsg_client *child_client = NULL;
+
+    service_entry = get_service_entry_or_create (service, false);
+    if (!service_entry)
+    {
+        return;
+    }
+
+    client_list = cmsg_composite_client_get_children (service_entry->comp_client);
+    transport = cmsg_transport_info_to_transport (transport_info);
+    list_entry = g_list_find_custom (client_list, transport, cmsg_client_transport_compare);
+    if (list_entry)
+    {
+        child_client = (cmsg_client *) list_entry->data;
+        cmsg_composite_client_delete_child (service_entry->comp_client, child_client);
+        cmsg_destroy_client_and_transport (child_client);
+    }
+    cmsg_transport_destroy (transport);
 }
 
 /**

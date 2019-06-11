@@ -1,0 +1,18 @@
+/*
+ * Copyright 2019, Allied Telesis Labs New Zealand, Ltd
+ */
+
+package cmsg_psd;
+
+import "cmsg.proto";
+
+message subscription_update
+{
+    optional string method_name = 1;
+    optional bool added = 2;
+}
+
+service update
+{
+    rpc subscription_change (subscription_update) returns (dummy);
+}
