@@ -12,4 +12,6 @@ service configuration
     rpc add_subscription (cmsg_subscription_info) returns (dummy);
     rpc remove_subscription (cmsg_subscription_info) returns (dummy);
     rpc remove_subscriber (cmsg_transport_info) returns (dummy);
+    rpc add_publisher (cmsg_service_info) returns (cmsg_subscription_methods);
+    rpc remove_publisher (cmsg_service_info) returns (dummy);
 }

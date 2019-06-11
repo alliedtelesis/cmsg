@@ -24,5 +24,6 @@ void data_remove_local_subscription (const cmsg_subscription_info *info);
 void data_remove_local_subscriptions_for_addr (uint32_t addr);
 void data_publish_message (const char *service, const char *method_name, uint8_t *packet,
                            uint32_t packet_len);
+const char **data_get_methods_for_service (const char *service, uint32_t *n_methods);
 
 #endif /* __DATA_H_ */

@@ -66,6 +66,37 @@ cmsg_psd_configuration_impl_remove_subscriber (const void *service,
 }
 
 /**
+ * Registers a new publisher with cmsg_psd and returns the methods that currently
+ * have subscriptions for the service the publisher is publishing for.
+ */
+void
+cmsg_psd_configuration_impl_add_publisher (const void *service,
+                                           const cmsg_service_info *recv_msg)
+{
+    cmsg_subscription_methods send_msg = CMSG_SUBSCRIPTION_METHODS_INIT;
+    const char **methods = NULL;
+    uint32_t n_methods = 0;
+
+    methods = data_get_methods_for_service (recv_msg->service, &n_methods);
+
+    CMSG_SET_FIELD_REPEATED (&send_msg, methods, (char **) methods, n_methods);
+
+    cmsg_psd_configuration_server_add_publisherSend (service, &send_msg);
+    CMSG_FREE (methods);
+}
+
+/**
+ * Unregisters a publisher from cmsg_psd.
+ */
+void
+cmsg_psd_configuration_impl_remove_publisher (const void *service,
+                                              const cmsg_service_info *recv_msg)
+{
+    cmsg_psd_configuration_server_remove_publisherSend (service);
+}
+
+
+/**
  * Initialise the configuration functionality.
  */
 void

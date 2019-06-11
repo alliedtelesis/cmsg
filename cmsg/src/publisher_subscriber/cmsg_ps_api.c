@@ -247,3 +247,50 @@ cmsg_ps_publish_message (cmsg_client *client, const char *service, const char *m
 
     return cmsg_psd_publish_api_send_data (client, &send_msg);
 }
+
+/**
+ * Register a publisher with cmsg_psd.
+ *
+ * @param service - The service name the publisher is publishing events for.
+ * @param methods - Pointer to return a GList of the methods that currently
+ *                  have subscriptions for the service the publisher is
+ *                  publishing for.
+ *
+ * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
+ */
+int32_t
+cmsg_ps_register_publisher (const char *service, GList **methods)
+{
+    cmsg_client *client = NULL;
+    cmsg_service_info send_msg = CMSG_SERVICE_INFO_INIT;
+    cmsg_subscription_methods *recv_msg = NULL;
+    int ret;
+    GList *method_list = NULL;
+    int i;
+    char *method = NULL;
+
+    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    if (!client)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    CMSG_SET_FIELD_PTR (&send_msg, service, (char *) service);
+
+    ret = cmsg_psd_configuration_api_add_publisher (client, &send_msg, &recv_msg);
+    cmsg_destroy_client_and_transport (client);
+
+    if (ret != CMSG_RET_OK)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    CMSG_REPEATED_FOREACH (recv_msg, methods, method, i)
+    {
+        method_list = g_list_append (method_list, CMSG_STRDUP (method));
+    }
+    CMSG_FREE_RECV_MSG (recv_msg);
+
+    *methods = method_list;
+    return CMSG_RET_OK;
+}

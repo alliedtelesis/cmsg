@@ -675,6 +675,51 @@ data_publish_message (const char *service, const char *method_name, uint8_t *pac
 }
 
 /**
+ * Returns an array of the method names that currently have subscriptions for
+ * the given service name.
+ *
+ * @param service - The name of the service to get the methods for.
+ * @param n_methods - Pointer to store the number of entries in the returned array.
+ *
+ * @returns A pointer to an array of the subscribed methods. This pointer should be
+ *          freed using CMSG_FREE.
+ */
+const char **
+data_get_methods_for_service (const char *service, uint32_t *n_methods)
+{
+    service_data_entry *service_entry = NULL;
+    GList *list = NULL;
+    GList *list_next = NULL;
+    method_data_entry *method_entry = NULL;
+    const char **methods = NULL;
+    int i = 0;
+
+    service_entry = get_service_entry_or_create (service, false);
+    if (!service_entry)
+    {
+        *n_methods = 0;
+        return NULL;
+    }
+
+    *n_methods = g_list_length (service_entry->methods);
+    if (*n_methods == 0)
+    {
+        return NULL;
+    }
+
+    methods = CMSG_CALLOC (*n_methods, sizeof (char *));
+    for (list = g_list_first (service_entry->methods); list; list = list_next)
+    {
+        method_entry = (method_data_entry *) list->data;
+        methods[i] = method_entry->method_name;
+        i++;
+        list_next = g_list_next (list);
+    }
+
+    return methods;
+}
+
+/**
  * Initialise the data layer.
  */
 void

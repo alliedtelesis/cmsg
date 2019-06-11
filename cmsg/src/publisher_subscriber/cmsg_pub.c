@@ -23,6 +23,7 @@ struct cmsg_publisher
     cmsg_client *client;
     cmsg_object self;
     cmsg_object parent;
+    GList *subscribed_methods;
 };
 
 /**
@@ -50,6 +51,13 @@ cmsg_pub_invoke (ProtobufCService *service,
 
     method_name = service->descriptor->methods[method_index].name;
 
+    /* If there are no subscribers for this method then simply return */
+    if (!g_list_find_custom (publisher->subscribed_methods, method_name,
+                             (GCompareFunc) strcmp))
+    {
+        return CMSG_RET_OK;
+    }
+
     result = cmsg_client_create_packet (publisher->client, method_name, input,
                                         &packet, &total_message_size);
     if (result != CMSG_RET_OK)
@@ -75,18 +83,23 @@ cmsg_pub_invoke (ProtobufCService *service,
 cmsg_publisher *
 cmsg_publisher_create (const ProtobufCServiceDescriptor *service)
 {
+    const char *service_name = NULL;
+    GList *methods = NULL;
+
     CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    service_name = cmsg_service_name_get (service);
 
     cmsg_publisher *publisher = (cmsg_publisher *) CMSG_CALLOC (1, sizeof (*publisher));
     if (!publisher)
     {
-        CMSG_LOG_GEN_ERROR ("[%s] Unable to create publisher.", service->name);
+        CMSG_LOG_GEN_ERROR ("[%s] Unable to create publisher.", service_name);
         return NULL;
     }
 
     publisher->self.object_type = CMSG_OBJ_TYPE_PUB;
     publisher->self.object = publisher;
-    strncpy (publisher->self.obj_id, service->name, CMSG_MAX_OBJ_ID_LEN);
+    strncpy (publisher->self.obj_id, service_name, CMSG_MAX_OBJ_ID_LEN);
 
     publisher->parent.object_type = CMSG_OBJ_TYPE_NONE;
     publisher->parent.object = NULL;
@@ -96,7 +109,25 @@ cmsg_publisher_create (const ProtobufCServiceDescriptor *service)
 
     publisher->client = cmsg_ps_create_publisher_client ();
 
+    if (cmsg_ps_register_publisher (service_name, &methods) != CMSG_RET_OK)
+    {
+        CMSG_LOG_GEN_ERROR ("[%s] Unable to create publisher.", service_name);
+        cmsg_publisher_destroy (publisher);
+        return NULL;
+    }
+
+    publisher->subscribed_methods = methods;
+
     return publisher;
+}
+
+/**
+ * Wrapper around CMSG_FREE that allows it to be called with 'g_list_free_full'.
+ */
+static void
+cmsg_publisher_method_free (gpointer data)
+{
+    CMSG_FREE (data);
 }
 
 /**
@@ -109,5 +140,6 @@ cmsg_publisher_destroy (cmsg_publisher *publisher)
 {
     CMSG_ASSERT_RETURN_VOID (publisher != NULL);
     cmsg_destroy_client_and_transport (publisher->client);
+    g_list_free_full (publisher->subscribed_methods, cmsg_publisher_method_free);
     CMSG_FREE (publisher);
 }

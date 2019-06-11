@@ -23,5 +23,6 @@ int32_t cmsg_ps_remove_subscriber (cmsg_server *sub_server);
 cmsg_client *cmsg_ps_create_publisher_client (void);
 int32_t cmsg_ps_publish_message (cmsg_client *client, const char *service,
                                  const char *method, uint8_t *packet, uint32_t packet_len);
+int32_t cmsg_ps_register_publisher (const char *service, GList **methods);
 
 #endif /* __CMSG_PS_API_PRIVATE_H_ */

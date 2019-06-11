@@ -362,3 +362,35 @@ test_data_remove_local_subscriptions_for_addr (void)
     data_remove_local_subscriptions_for_addr (2222);
     NP_ASSERT_EQUAL (g_hash_table_size (local_subscriptions_table), 1);
 }
+
+void
+test_data_get_methods_for_service (void)
+{
+    cmsg_subscription_info *sub_info = NULL;
+    const char *method_name_1 = "test_method_1";
+    const char *method_name_2 = "test_method_2";
+    const char **method_list = NULL;
+    uint32_t n_methods = 0;
+
+    sub_info = CMSG_MALLOC (sizeof (*sub_info));
+    cmsg_subscription_info_init (sub_info);
+
+    CMSG_SET_FIELD_PTR (sub_info, service, CMSG_STRDUP ("test"));
+    CMSG_SET_FIELD_PTR (sub_info, method_name, (char *) method_name_1);
+    CMSG_SET_FIELD_PTR (sub_info, transport_info, create_unix_transport_info ());
+
+    data_add_subscription (sub_info);
+
+    CMSG_SET_FIELD_PTR (sub_info, method_name, (char *) method_name_2);
+    data_add_subscription (sub_info);
+
+    cmsg_transport_info_free (sub_info->transport_info);
+    CMSG_FREE (sub_info->service);
+    CMSG_FREE (sub_info);
+
+    method_list = data_get_methods_for_service ("test", &n_methods);
+    NP_ASSERT_EQUAL (n_methods, 2);
+    NP_ASSERT_STR_EQUAL (method_list[0], method_name_2);
+    NP_ASSERT_STR_EQUAL (method_list[1], method_name_1);
+    CMSG_FREE (method_list);
+}
