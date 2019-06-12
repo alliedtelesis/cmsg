@@ -211,6 +211,18 @@ cmsg_composite_client_destroy (cmsg_client *client)
 }
 
 /**
+ * Destroys a composite client and all of the child clients it contains.
+ *
+ * @param _composite_client - The composite client to destroy.
+ */
+void
+cmsg_composite_client_destroy_full (cmsg_client *_composite_client)
+{
+    cmsg_composite_client_free_all_children (_composite_client);
+    cmsg_composite_client_destroy (_composite_client);
+}
+
+/**
  * Send a buffer of bytes on a composite client. Note that sending anything other than
  * a well formed cmsg packet will be dropped by the server being sent to.
  *

@@ -217,16 +217,16 @@ test_publisher_receives_subscription_updates (void)
     cmsg_subscriber *sub = NULL;
 
     publisher = cmsg_publisher_create (CMSG_DESCRIPTOR (cmsg, test));
-    NP_ASSERT_EQUAL (g_list_length (publisher->subscribed_methods), 0);
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
 
     sub = cmsg_subscriber_create_unix (CMSG_SERVICE (cmsg, test));
     cmsg_sub_subscribe_local (sub, "simple_notification_test");
 
-    NP_ASSERT_EQUAL (g_list_length (publisher->subscribed_methods), 1);
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 1);
 
     cmsg_subscriber_destroy (sub);
 
-    NP_ASSERT_EQUAL (g_list_length (publisher->subscribed_methods), 0);
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
 
     cmsg_publisher_destroy (publisher);
 

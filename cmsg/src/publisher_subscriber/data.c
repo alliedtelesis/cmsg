@@ -18,15 +18,16 @@
 
 typedef struct
 {
-    char *method_name;
-    cmsg_client *comp_client;   /* Client to subscribers of this method */
-} method_data_entry;
-
-typedef struct
-{
     GList *methods;
     cmsg_client *comp_client;   /* Client to publishers of this service */
 } service_data_entry;
+
+typedef struct
+{
+    char *method_name;
+    cmsg_client *comp_client;   /* Client to subscribers of this method */
+    service_data_entry *service_entry;
+} method_data_entry;
 
 GHashTable *local_subscriptions_table = NULL;
 static GList *remote_subscriptions_list = NULL;
@@ -102,19 +103,22 @@ get_service_entry_or_create (const char *service, bool create)
 }
 
 /**
- * Update the publishers registered for this service with the method change.
+ * Update the publishers registered for this service with the method
+ * subscription change.
  *
  * @param comp_client - The composite client connected to the publishers.
  * @param method_name - The name of the method that has changed.
- * @param added - True if the method is being added, false if it is being removed.
+ * @param transport_info - The transport information of the subscriber
+ * @param added - True if the method added a subscriber, false if it removed one.
  */
 static void
-update_publishers_with_method (cmsg_client *comp_client, const char *method_name,
-                               bool added)
+update_publishers_with_method_change (cmsg_client *comp_client, const char *method_name,
+                                      const cmsg_transport_info *transport_info, bool added)
 {
     cmsg_psd_subscription_update send_msg = CMSG_PSD_SUBSCRIPTION_UPDATE_INIT;
 
     CMSG_SET_FIELD_PTR (&send_msg, method_name, (char *) method_name);
+    CMSG_SET_FIELD_PTR (&send_msg, transport, (cmsg_transport_info *) transport_info);
     CMSG_SET_FIELD_VALUE (&send_msg, added, added);
 
     cmsg_psd_update_api_subscription_change (comp_client, &send_msg);
@@ -163,11 +167,10 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
     else if (create)
     {
         entry = CMSG_CALLOC (1, sizeof (method_data_entry));
+        entry->service_entry = service_entry;
         entry->method_name = CMSG_STRDUP (method);
         entry->comp_client = cmsg_composite_client_new (&cmsg_psd_pub_descriptor);
         service_entry->methods = g_list_prepend (service_entry->methods, entry);
-
-        update_publishers_with_method (service_entry->comp_client, method, true);
     }
 
     return entry;
@@ -193,6 +196,8 @@ data_add_local_subscription (const cmsg_subscription_info *info)
 
     client = cmsg_client_create (transport, &cmsg_psd_pub_descriptor);
     cmsg_composite_client_add_child (method_entry->comp_client, client);
+    update_publishers_with_method_change (service_entry->comp_client, info->method_name,
+                                          info->transport_info, true);
 }
 
 /**
@@ -331,6 +336,9 @@ data_remove_client_from_method (method_data_entry *method_entry,
         child_client = (cmsg_client *) list_entry->data;
         cmsg_composite_client_delete_child (method_entry->comp_client, child_client);
         cmsg_destroy_client_and_transport (child_client);
+        update_publishers_with_method_change (method_entry->service_entry->comp_client,
+                                              method_entry->method_name, transport_info,
+                                              false);
     }
     cmsg_transport_destroy (transport);
 }
@@ -363,8 +371,6 @@ data_remove_local_subscription (const cmsg_subscription_info *info)
         }
         if (destroy_method_entry)
         {
-            update_publishers_with_method (service_entry->comp_client,
-                                           method_entry->method_name, false);
             service_entry->methods = g_list_remove (service_entry->methods, method_entry);
             CMSG_FREE (method_entry->method_name);
             cmsg_client_destroy (method_entry->comp_client);
@@ -485,8 +491,6 @@ data_prune_empty_methods (service_data_entry *service_entry)
     {
         method_entry = (method_data_entry *) list->data;
 
-        update_publishers_with_method (service_entry->comp_client,
-                                       method_entry->method_name, false);
         service_entry->methods = g_list_remove (service_entry->methods, method_entry);
         cmsg_client_destroy (method_entry->comp_client);
         CMSG_FREE (method_entry->method_name);
@@ -572,6 +576,7 @@ data_remove_clients_with_addr_from_method (method_data_entry *method_entry, uint
     GList *removal_list = NULL;
     GList *client_list = cmsg_composite_client_get_children (method_entry->comp_client);
     cmsg_client *child_client = NULL;
+    cmsg_transport_info *transport_info = NULL;
 
     for (list = g_list_first (client_list); list; list = list_next)
     {
@@ -587,7 +592,13 @@ data_remove_clients_with_addr_from_method (method_data_entry *method_entry, uint
     {
         child_client = (cmsg_client *) list->data;
         cmsg_composite_client_delete_child (method_entry->comp_client, child_client);
+
+        transport_info = cmsg_transport_info_create (child_client->_transport);
         cmsg_destroy_client_and_transport (child_client);
+        update_publishers_with_method_change (method_entry->service_entry->comp_client,
+                                              method_entry->method_name, transport_info,
+                                              false);
+        cmsg_transport_info_free (transport_info);
         list_next = g_list_next (list);
     }
     g_list_free (removal_list);
@@ -707,48 +718,96 @@ data_publish_message (const char *service, const char *method_name, uint8_t *pac
 }
 
 /**
- * Returns an array of the method names that currently have subscriptions for
- * the given service name.
+ * Fill a 'cmsg_transport_info' message and append it to the passed in
+ * 'cmsg_subscription_method_entry' message.
  *
- * @param service - The name of the service to get the methods for.
- * @param n_methods - Pointer to store the number of entries in the returned array.
- *
- * @returns A pointer to an array of the subscribed methods. This pointer should be
- *          freed using CMSG_FREE.
+ * @param data - The client to fill a 'cmsg_transport_info' message for.
+ * @param user_data - The 'cmsg_subscription_method_entry' message to append to.
  */
-const char **
-data_get_methods_for_service (const char *service, uint32_t *n_methods)
+static void
+data_fill_subscriber_transport_info (gpointer data, gpointer user_data)
+{
+    cmsg_client *client = (cmsg_client *) data;
+    cmsg_subscription_method_entry *msg = (cmsg_subscription_method_entry *) user_data;
+    cmsg_transport_info *transport_info = NULL;
+
+    transport_info = cmsg_transport_info_create (client->_transport);
+    CMSG_REPEATED_APPEND (msg, transports, transport_info);
+}
+
+/**
+ * Fill a 'cmsg_subscription_method_entry' message and append it to the passed in
+ * 'cmsg_subscription_methods' message.
+ *
+ * @param data - The method entry to fill a 'cmsg_subscription_method_entry'
+ *               message for.
+ * @param user_data - The 'cmsg_subscription_methods' message to append to.
+ */
+static void
+data_fill_method_info (gpointer data, gpointer user_data)
+{
+    method_data_entry *method_entry = (method_data_entry *) data;
+    cmsg_subscription_methods *msg = (cmsg_subscription_methods *) user_data;
+    cmsg_subscription_method_entry *method_msg = NULL;
+    GList *client_list = NULL;
+
+    method_msg = CMSG_CALLOC (1, sizeof (*method_msg));
+    cmsg_subscription_method_entry_init (method_msg);
+
+    CMSG_SET_FIELD_PTR (method_msg, method_name, method_entry->method_name);
+
+    client_list = cmsg_composite_client_get_children (method_entry->comp_client);
+    g_list_foreach (client_list, data_fill_subscriber_transport_info, method_msg);
+
+    CMSG_REPEATED_APPEND (msg, methods, method_msg);
+}
+
+/**
+ * Fill the passed in 'cmsg_subscription_methods' message for the
+ * given service.
+ *
+ * @param service - The name of the service to fill the message for.
+ * @param msg - The 'cmsg_subscription_methods' message to fill. The dynamic memory
+ *              allocated in this message should be freed by the caller using
+ *              'data_get_subscription_info_for_service_free'.
+ */
+void
+data_get_subscription_info_for_service (const char *service, cmsg_subscription_methods *msg)
 {
     service_data_entry *service_entry = NULL;
-    GList *list = NULL;
-    GList *list_next = NULL;
-    method_data_entry *method_entry = NULL;
-    const char **methods = NULL;
-    int i = 0;
 
     service_entry = get_service_entry_or_create (service, false);
     if (!service_entry)
     {
-        *n_methods = 0;
-        return NULL;
+        return;
     }
 
-    *n_methods = g_list_length (service_entry->methods);
-    if (*n_methods == 0)
+    g_list_foreach (service_entry->methods, data_fill_method_info, msg);
+}
+
+/**
+ * Free the dynamic memory allocated in a call to 'data_get_subscription_info_for_service'.
+ *
+ * @param msg - The 'cmsg_subscription_methods' message used to call
+ *              'data_get_subscription_info_for_service'.
+ */
+void
+data_get_subscription_info_for_service_free (cmsg_subscription_methods *msg)
+{
+    cmsg_subscription_method_entry *entry = NULL;
+    cmsg_transport_info *transport = NULL;
+    int i, j;
+
+    CMSG_REPEATED_FOREACH (msg, methods, entry, i)
     {
-        return NULL;
+        CMSG_REPEATED_FOREACH (entry, transports, transport, j)
+        {
+            cmsg_transport_info_free (transport);
+        }
+        CMSG_REPEATED_FREE (entry->transports);
+        CMSG_FREE (entry);
     }
-
-    methods = CMSG_CALLOC (*n_methods, sizeof (char *));
-    for (list = g_list_first (service_entry->methods); list; list = list_next)
-    {
-        method_entry = (method_data_entry *) list->data;
-        methods[i] = method_entry->method_name;
-        i++;
-        list_next = g_list_next (list);
-    }
-
-    return methods;
+    CMSG_REPEATED_FREE (msg->methods);
 }
 
 /**

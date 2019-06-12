@@ -281,22 +281,19 @@ cmsg_ps_publish_message (cmsg_client *client, const char *service, const char *m
  *
  * @param service - The service name the publisher is publishing events for.
  * @param server - The server the publisher is using to listen for updates from cmsg_psd.
- * @param methods - Pointer to return a GList of the methods that currently
- *                  have subscriptions for the service the publisher is
- *                  publishing for.
+ * @param subscribed_methods - Pointer to a 'cmsg_subscription_methods' message that stores
+ *                             the subscriber information returned from cmsg_psd. This should
+ *                             be freed using CMSG_FREE_RECV_MSG by the caller.
  *
  * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
  */
 int32_t
-cmsg_ps_register_publisher (const char *service, cmsg_server *server, GList **methods)
+cmsg_ps_register_publisher (const char *service, cmsg_server *server,
+                            cmsg_subscription_methods **subscribed_methods)
 {
     cmsg_client *client = NULL;
     cmsg_service_info send_msg = CMSG_SERVICE_INFO_INIT;
-    cmsg_subscription_methods *recv_msg = NULL;
     int ret;
-    GList *method_list = NULL;
-    int i;
-    char *method = NULL;
     cmsg_transport_info *transport_info = NULL;
 
     transport_info = cmsg_transport_info_create (server->_transport);
@@ -315,23 +312,12 @@ cmsg_ps_register_publisher (const char *service, cmsg_server *server, GList **me
     CMSG_SET_FIELD_PTR (&send_msg, service, (char *) service);
     CMSG_SET_FIELD_PTR (&send_msg, server_info, transport_info);
 
-    ret = cmsg_psd_configuration_api_add_publisher (client, &send_msg, &recv_msg);
+    *subscribed_methods = NULL;
+    ret = cmsg_psd_configuration_api_add_publisher (client, &send_msg, subscribed_methods);
     cmsg_destroy_client_and_transport (client);
     cmsg_transport_info_free (transport_info);
 
-    if (ret != CMSG_RET_OK)
-    {
-        return CMSG_RET_ERR;
-    }
-
-    CMSG_REPEATED_FOREACH (recv_msg, methods, method, i)
-    {
-        method_list = g_list_append (method_list, CMSG_STRDUP (method));
-    }
-    CMSG_FREE_RECV_MSG (recv_msg);
-
-    *methods = method_list;
-    return CMSG_RET_OK;
+    return ret;
 }
 
 /**

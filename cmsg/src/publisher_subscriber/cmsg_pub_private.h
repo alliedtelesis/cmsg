@@ -10,6 +10,12 @@
 #include "cmsg_server.h"
 #include "cmsg_client.h"
 
+typedef struct
+{
+    char *method_name;
+    cmsg_client *comp_client;   /* Client to subscribers of this method */
+} subscribed_method_entry;
+
 struct cmsg_publisher
 {
     //this is a hack to get around a check when a client method is called
@@ -23,7 +29,7 @@ struct cmsg_publisher
     cmsg_object self;
     cmsg_object parent;
 
-    GList *subscribed_methods;
+    GHashTable *subscribed_methods;
     pthread_mutex_t subscribed_methods_mutex;
 
     cmsg_server *update_server;

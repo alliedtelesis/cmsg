@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include "cmsg_server.h"
 #include "cmsg_client.h"
+#include "cmsg_types_auto.h"
 
 int32_t cmsg_ps_subscription_add_local (cmsg_server *sub_server, const char *method_name);
 int32_t cmsg_ps_subscription_add_remote (cmsg_server *sub_server, const char *method_name,
@@ -25,7 +26,7 @@ cmsg_server *cmsg_ps_create_publisher_update_server (void);
 int32_t cmsg_ps_publish_message (cmsg_client *client, const char *service,
                                  const char *method, uint8_t *packet, uint32_t packet_len);
 int32_t cmsg_ps_register_publisher (const char *service, cmsg_server *server,
-                                    GList **methods);
+                                    cmsg_subscription_methods **subscribed_methods);
 int32_t cmsg_ps_unregister_publisher (const char *service, cmsg_server *server);
 
 #endif /* __CMSG_PS_API_PRIVATE_H_ */
