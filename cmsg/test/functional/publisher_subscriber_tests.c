@@ -44,15 +44,6 @@ sm_mock_cmsg_service_port_get (const char *name, const char *proto)
     return 0;
 }
 
-static int32_t
-sm_mock_cmsg_ps_publish_message_fail (cmsg_client *client, const char *service,
-                                      const char *method, uint8_t *packet,
-                                      uint32_t packet_len)
-{
-    NP_FAIL;
-    return 0;
-}
-
 /**
  * Common functionality to run before each test case.
  */
@@ -193,17 +184,6 @@ void
 test_publisher_subscriber_unix (void)
 {
     create_sub_before_pub_and_test (CMSG_TRANSPORT_RPC_UNIX);
-}
-
-/**
- * Test that a publisher returns early without sending the message
- * it when there is no subscribers for the method.
- */
-void
-test_publisher_with_no_subscribers (void)
-{
-    np_mock (cmsg_ps_publish_message, sm_mock_cmsg_ps_publish_message_fail);
-    create_publisher_and_send ();
 }
 
 /**

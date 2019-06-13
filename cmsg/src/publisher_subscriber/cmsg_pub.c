@@ -17,6 +17,13 @@
 #include "cmsg_composite_client.h"
 #include "cmsg_client_private.h"
 
+typedef struct
+{
+    char *method_name;
+    uint32_t packet_len;
+    uint8_t *packet;
+} cmsg_pub_queue_entry;
+
 static const ProtobufCServiceDescriptor cmsg_psd_pub_descriptor = {
     PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC,
     "cmsg_psd.pub",
@@ -57,6 +64,59 @@ cmsg_publisher_get_client_for_method (cmsg_publisher *publisher, const char *met
 }
 
 /**
+ * Queue a CMSG packet on the send queue of the publisher so that it
+ * can be sent by the send thread.
+ *
+ * @param publisher - The publisher to queue the packet for.
+ * @param packet - The packet to queue.
+ * @param packet_len - The length of the packet.
+ * @param method_name - The name of the method the packet is for.
+ *
+ * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
+ */
+static int32_t
+cmsg_publisher_queue_packet (cmsg_publisher *publisher, uint8_t *packet,
+                             uint32_t packet_len, const char *method_name)
+{
+    cmsg_pub_queue_entry *queue_entry = NULL;
+
+    queue_entry = (cmsg_pub_queue_entry *) CMSG_CALLOC (1, sizeof (*queue_entry));
+    if (!queue_entry)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    queue_entry->packet = packet;
+    queue_entry->packet_len = packet_len;
+    queue_entry->method_name = CMSG_STRDUP (method_name);
+
+    if (!queue_entry->method_name)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    pthread_mutex_lock (&publisher->send_queue_mutex);
+    g_queue_push_head (publisher->send_queue, queue_entry);
+    pthread_cond_signal (&publisher->send_queue_process_cond);
+    pthread_mutex_unlock (&publisher->send_queue_mutex);
+
+    return CMSG_RET_OK;
+}
+
+/**
+ * Free the memory used by a 'cmsg_pub_queue_entry' structure.
+ *
+ * @param queue_entry - The queue entry to free.
+ */
+static void
+cmsg_publisher_queue_entry_free (cmsg_pub_queue_entry *queue_entry)
+{
+    CMSG_FREE (queue_entry->packet);
+    CMSG_FREE (queue_entry->method_name);
+    CMSG_FREE (queue_entry);
+}
+
+/**
  * Invoke function for the cmsg publisher. Simply creates the cmsg packet
  * for the given message and sends this to cmsg_psd to be published to all
  * subscribers.
@@ -68,13 +128,11 @@ cmsg_pub_invoke (ProtobufCService *service,
                  ProtobufCClosure closure, void *closure_data)
 {
     int32_t ret;
-    int32_t result;
     cmsg_publisher *publisher = (cmsg_publisher *) service;
     const char *method_name;
     uint8_t *packet = NULL;
     uint32_t total_message_size = 0;
-    const char *service_name = NULL;
-    bool method_has_subscribers;
+    cmsg_client *subscribers_client = NULL;
 
     CMSG_ASSERT_RETURN_VAL (service != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (service->descriptor != NULL, CMSG_RET_ERR);
@@ -84,30 +142,34 @@ cmsg_pub_invoke (ProtobufCService *service,
 
     pthread_mutex_lock (&publisher->subscribed_methods_mutex);
 
-    method_has_subscribers = (cmsg_publisher_get_client_for_method (publisher, method_name,
-                                                                    false) != NULL);
-
-    pthread_mutex_unlock (&publisher->subscribed_methods_mutex);
+    subscribers_client = cmsg_publisher_get_client_for_method (publisher, method_name,
+                                                               false);
 
     /* If there are no subscribers for this method then simply return */
-    if (!method_has_subscribers)
+    if (!subscribers_client)
     {
+        pthread_mutex_unlock (&publisher->subscribed_methods_mutex);
         return CMSG_RET_OK;
     }
 
-    result = cmsg_client_create_packet (publisher->client, method_name, input,
-                                        &packet, &total_message_size);
-    if (result != CMSG_RET_OK)
+    ret = cmsg_client_create_packet (subscribers_client, method_name, input,
+                                     &packet, &total_message_size);
+
+    pthread_mutex_unlock (&publisher->subscribed_methods_mutex);
+
+    if (ret != CMSG_RET_OK)
     {
         return CMSG_RET_ERR;
     }
 
-    service_name = cmsg_service_name_get (service->descriptor);
-    ret = cmsg_ps_publish_message (publisher->client, service_name, method_name,
-                                   packet, total_message_size);
-    CMSG_FREE (packet);
+    ret = cmsg_publisher_queue_packet (publisher, packet, total_message_size, method_name);
+    if (ret != CMSG_RET_OK)
+    {
+        CMSG_FREE (packet);
+        return CMSG_RET_ERR;
+    }
 
-    return ret;
+    return CMSG_RET_OK;
 }
 
 /**
@@ -240,6 +302,102 @@ cmsg_publisher_init_subscribers (cmsg_publisher *publisher)
 }
 
 /**
+ * Process all messages that are currently on the send queue and
+ * send them to the subscribers.
+ *
+ * @param publisher - The publisher to process queued messages for.
+ */
+static void
+cmsg_publisher_process_send_queue (cmsg_publisher *publisher)
+{
+    cmsg_pub_queue_entry *queue_entry = NULL;
+    cmsg_client *client = NULL;
+
+    pthread_mutex_lock (&publisher->send_queue_mutex);
+    queue_entry = (cmsg_pub_queue_entry *) g_queue_pop_tail (publisher->send_queue);
+    pthread_mutex_unlock (&publisher->send_queue_mutex);
+
+    while (queue_entry)
+    {
+        pthread_mutex_lock (&publisher->subscribed_methods_mutex);
+        client = cmsg_publisher_get_client_for_method (publisher, queue_entry->method_name,
+                                                       false);
+
+        if (client)
+        {
+            cmsg_client_send_bytes (client, queue_entry->packet, queue_entry->packet_len);
+        }
+
+        pthread_mutex_unlock (&publisher->subscribed_methods_mutex);
+
+        cmsg_publisher_queue_entry_free (queue_entry);
+
+        pthread_mutex_lock (&publisher->send_queue_mutex);
+        queue_entry = (cmsg_pub_queue_entry *) g_queue_pop_tail (publisher->send_queue);
+        pthread_mutex_unlock (&publisher->send_queue_mutex);
+    }
+}
+
+/**
+ * The thread used to send the published messages to the subscribers.
+ */
+static void *
+cmsg_publisher_send_thread (void *arg)
+{
+    cmsg_publisher *publisher = arg;
+    while (1)
+    {
+        pthread_mutex_lock (&publisher->send_queue_mutex);
+
+        /* Ensure mutex is unlocked if the thread is are cancelled */
+        pthread_cleanup_push ((void (*)(void *)) pthread_mutex_unlock,
+                              &publisher->send_queue_mutex);
+
+        while (g_queue_get_length (publisher->send_queue) == 0)
+        {
+            pthread_cond_wait (&publisher->send_queue_process_cond,
+                               &publisher->send_queue_mutex);
+        }
+
+        /* Unlock mutex */
+        pthread_cleanup_pop (1);
+
+        cmsg_publisher_process_send_queue (publisher);
+    }
+
+    return NULL;
+}
+
+/**
+ * Initialise the pthread structures used by a CMSG publisher. These are done
+ * separately as there is no way to represent an unitialised value for these
+ * types (so care must be taken in the deinitialisation).
+ */
+static int32_t
+cmsg_publisher_init_pthread_structures (cmsg_publisher *publisher)
+{
+    if (pthread_mutex_init (&publisher->subscribed_methods_mutex, NULL) != 0)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    if (pthread_mutex_init (&publisher->send_queue_mutex, NULL) != 0)
+    {
+        pthread_mutex_destroy (&publisher->subscribed_methods_mutex);
+        return CMSG_RET_ERR;
+    }
+
+    if (pthread_cond_init (&publisher->send_queue_process_cond, NULL) != 0)
+    {
+        pthread_mutex_destroy (&publisher->subscribed_methods_mutex);
+        pthread_mutex_destroy (&publisher->send_queue_mutex);
+        return CMSG_RET_ERR;
+    }
+
+    return CMSG_RET_OK;
+}
+
+/**
  * Create a cmsg publisher for the given service.
  *
  * @param service - The service to create the publisher for.
@@ -263,13 +421,6 @@ cmsg_publisher_create (const ProtobufCServiceDescriptor *service)
         return NULL;
     }
 
-    if (pthread_mutex_init (&publisher->subscribed_methods_mutex, NULL) != 0)
-    {
-        CMSG_LOG_GEN_ERROR ("[%s] Unable to create publisher.", service_name);
-        CMSG_FREE (publisher);
-        return NULL;
-    }
-
     publisher->self.object_type = CMSG_OBJ_TYPE_PUB;
     publisher->self.object = publisher;
     strncpy (publisher->self.obj_id, service_name, CMSG_MAX_OBJ_ID_LEN);
@@ -280,19 +431,18 @@ cmsg_publisher_create (const ProtobufCServiceDescriptor *service)
     publisher->descriptor = service;
     publisher->invoke = &cmsg_pub_invoke;
 
+    if (cmsg_publisher_init_pthread_structures (publisher) != CMSG_RET_OK)
+    {
+        CMSG_LOG_GEN_ERROR ("[%s] Unable to create publisher.", service_name);
+        CMSG_FREE (publisher);
+        return NULL;
+    }
+
     hash_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
                                         (GDestroyNotify)
                                         cmsg_composite_client_destroy_full);
     publisher->subscribed_methods = hash_table;
     if (!publisher->subscribed_methods)
-    {
-        CMSG_LOG_GEN_ERROR ("[%s] Unable to create publisher.", service_name);
-        cmsg_publisher_destroy (publisher);
-        return NULL;
-    }
-
-    publisher->client = cmsg_ps_create_publisher_client ();
-    if (!publisher->client)
     {
         CMSG_LOG_GEN_ERROR ("[%s] Unable to create publisher.", service_name);
         cmsg_publisher_destroy (publisher);
@@ -319,6 +469,24 @@ cmsg_publisher_create (const ProtobufCServiceDescriptor *service)
 
     publisher->update_thread_running = true;
 
+    publisher->send_queue = g_queue_new ();
+    if (!publisher->send_queue)
+    {
+        CMSG_LOG_GEN_ERROR ("[%s] Unable to create publisher.", service_name);
+        cmsg_publisher_destroy (publisher);
+        return NULL;
+    }
+
+    if (pthread_create (&publisher->send_thread, NULL, cmsg_publisher_send_thread,
+                        publisher) != 0)
+    {
+        CMSG_LOG_GEN_ERROR ("[%s] Unable to create publisher.", service_name);
+        cmsg_publisher_destroy (publisher);
+        return NULL;
+    }
+
+    publisher->send_thread_running = true;
+
     if (cmsg_publisher_init_subscribers (publisher) != CMSG_RET_OK)
     {
         CMSG_LOG_GEN_ERROR ("[%s] Unable to create publisher.", service_name);
@@ -342,6 +510,13 @@ cmsg_publisher_destroy (cmsg_publisher *publisher)
     cmsg_ps_unregister_publisher (cmsg_service_name_get (publisher->descriptor),
                                   publisher->update_server);
 
+    if (publisher->send_thread_running)
+    {
+        pthread_cancel (publisher->send_thread);
+        pthread_join (publisher->send_thread, NULL);
+        publisher->send_thread_running = false;
+    }
+
     if (publisher->update_thread_running)
     {
         pthread_cancel (publisher->update_thread);
@@ -356,9 +531,13 @@ cmsg_publisher_destroy (cmsg_publisher *publisher)
         publisher->subscribed_methods = NULL;
     }
 
-    cmsg_destroy_client_and_transport (publisher->client);
     cmsg_destroy_server_and_transport (publisher->update_server);
     pthread_mutex_destroy (&publisher->subscribed_methods_mutex);
+    pthread_mutex_destroy (&publisher->send_queue_mutex);
+    pthread_cond_destroy (&publisher->send_queue_process_cond);
+    g_queue_free_full (publisher->send_queue,
+                       (GDestroyNotify) cmsg_publisher_queue_entry_free);
+
     CMSG_FREE (publisher);
 }
 

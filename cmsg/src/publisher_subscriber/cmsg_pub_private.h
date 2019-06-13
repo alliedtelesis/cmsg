@@ -25,12 +25,17 @@ struct cmsg_publisher
                        uint32_t method_index,
                        const ProtobufCMessage *input,
                        ProtobufCClosure closure, void *closure_data);
-    cmsg_client *client;
     cmsg_object self;
     cmsg_object parent;
 
     GHashTable *subscribed_methods;
     pthread_mutex_t subscribed_methods_mutex;
+
+    pthread_mutex_t send_queue_mutex;
+    GQueue *send_queue;
+    pthread_cond_t send_queue_process_cond;
+    pthread_t send_thread;
+    bool send_thread_running;
 
     cmsg_server *update_server;
     pthread_t update_thread;

@@ -8,7 +8,6 @@
  */
 
 #include "configuration_api_auto.h"
-#include "publish_api_auto.h"
 #include "cmsg_ps_config.h"
 #include "cmsg_ps_api_private.h"
 #include "transport/cmsg_transport_private.h"
@@ -209,21 +208,6 @@ cmsg_ps_remove_subscriber (cmsg_server *sub_server)
 }
 
 /**
- * Create the client that can be used by a cmsg publisher to send messages
- * for publishing by cmsg_psd.
- *
- * This client must be freed by the caller using 'cmsg_destroy_client_and_transport'.
- *
- * @returns A pointer to a client that can be used to send messages to cmsg_psd on success,
- *          NULL otherwise.
- */
-cmsg_client *
-cmsg_ps_create_publisher_client (void)
-{
-    return cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_psd, publish));
-}
-
-/**
  * Create the server that can be used by a cmsg publisher to receive subscription
  * update messages from cmsg_psd.
  *
@@ -248,32 +232,6 @@ cmsg_ps_create_publisher_update_server (void)
               getpid (), id++);
 
     return cmsg_server_new (transport, CMSG_SERVICE (cmsg_psd, update));
-}
-
-/**
- * Send a packet to cmsg_psd so that it can be sent to all interested subscribers.
- *
- * @param client - The client connected to cmsg_psd (previously returned by a call to
- *                 'cmsg_ps_create_publisher_client')
- * @param service - The service the packet is for.
- * @param method - The method the packet is for.
- * @param packet - The packet to send.
- * @param packet_len - The length of the packet.
- *
- * @returns CMSG_RET_OK if the packet was successfully sent to cmsg_psd,
- *          related error code on failure.
- */
-int32_t
-cmsg_ps_publish_message (cmsg_client *client, const char *service, const char *method,
-                         uint8_t *packet, uint32_t packet_len)
-{
-    cmsg_psd_publish_data send_msg = CMSG_PSD_PUBLISH_DATA_INIT;
-
-    CMSG_SET_FIELD_PTR (&send_msg, service, (char *) service);
-    CMSG_SET_FIELD_PTR (&send_msg, method_name, (char *) method);
-    CMSG_SET_FIELD_BYTES (&send_msg, packet, packet, packet_len);
-
-    return cmsg_psd_publish_api_send_data (client, &send_msg);
 }
 
 /**
