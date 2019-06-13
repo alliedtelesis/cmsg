@@ -63,5 +63,6 @@ cmsg_transport *cmsg_transport_info_to_transport (const cmsg_transport_info
                                                   *transport_info);
 bool cmsg_transport_info_compare (const cmsg_transport_info *transport_info_a,
                                   const cmsg_transport_info *transport_info_b);
+cmsg_transport_info *cmsg_transport_info_copy (const cmsg_transport_info *transport_info);
 
 #endif /* __CMSG_TRANSPORT_PRIVATE_H_ */

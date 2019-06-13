@@ -1270,3 +1270,27 @@ cmsg_transport_copy (const cmsg_transport *transport)
 
     return transport_copy;
 }
+
+/**
+ * Returns a copy of the given 'cmsg_transport_info' message.
+ *
+ * @param transport_info - The  'cmsg_transport_info' message to return a copy of.
+ *
+ * @returns A pointer to the copied message on success, NULL otherwise.
+ */
+cmsg_transport_info *
+cmsg_transport_info_copy (const cmsg_transport_info *transport_info)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_transport_info *copied_info = NULL;
+
+    /* Manually deep copying the message here would be more efficient however
+     * it is much simpler to just convert to a transport and then convert back
+     * to a new 'cmsg_transport_info' message. */
+
+    transport = cmsg_transport_info_to_transport (transport_info);
+    copied_info = cmsg_transport_info_create (transport);
+    cmsg_transport_destroy (transport);
+
+    return copied_info;
+}
