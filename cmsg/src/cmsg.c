@@ -833,7 +833,6 @@ cmsg_get_msg_from_file (const ProtobufCMessageDescriptor *desc, const char *file
 
     if (stat (file_name, &file_info) != 0)
     {
-        CMSG_LOG_GEN_ERROR ("File %s does not exist", file_name);
         return NULL;
     }
 
