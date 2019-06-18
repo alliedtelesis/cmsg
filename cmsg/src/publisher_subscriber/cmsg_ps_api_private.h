@@ -24,6 +24,6 @@ int32_t cmsg_ps_remove_subscriber (cmsg_server *sub_server);
 cmsg_server *cmsg_ps_create_publisher_update_server (void);
 int32_t cmsg_ps_register_publisher (const char *service, cmsg_server *server,
                                     cmsg_subscription_methods **subscribed_methods);
-int32_t cmsg_ps_unregister_publisher (const char *service, cmsg_server *server);
+int32_t cmsg_ps_deregister_publisher (const char *service, cmsg_server *server);
 
 #endif /* __CMSG_PS_API_PRIVATE_H_ */

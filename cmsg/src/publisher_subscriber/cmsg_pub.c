@@ -508,7 +508,7 @@ cmsg_publisher_destroy (cmsg_publisher *publisher)
 {
     CMSG_ASSERT_RETURN_VOID (publisher != NULL);
 
-    cmsg_ps_unregister_publisher (cmsg_service_name_get (publisher->descriptor),
+    cmsg_ps_deregister_publisher (cmsg_service_name_get (publisher->descriptor),
                                   publisher->update_server);
 
     if (publisher->send_thread_running)

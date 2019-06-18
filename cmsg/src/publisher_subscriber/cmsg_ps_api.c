@@ -46,7 +46,7 @@ cmsg_ps_address_set (struct in_addr addr)
 }
 
 /**
- * Helper function for calling the required API to cmsg_psd to register/unregister
+ * Helper function for calling the required API to cmsg_psd to register/deregister
  * the subscription.
  *
  * @param sub_server - The CMSG server structure used by the subscriber to receive
@@ -287,7 +287,7 @@ cmsg_ps_register_publisher (const char *service, cmsg_server *server,
  * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
  */
 int32_t
-cmsg_ps_unregister_publisher (const char *service, cmsg_server *server)
+cmsg_ps_deregister_publisher (const char *service, cmsg_server *server)
 {
     cmsg_client *client = NULL;
     cmsg_service_info send_msg = CMSG_SERVICE_INFO_INIT;
