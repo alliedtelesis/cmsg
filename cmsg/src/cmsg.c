@@ -397,7 +397,7 @@ cmsg_realloc (void *ptr, size_t size, const char *filename, int line)
 }
 
 void
-cmsg_free (void *ptr, const char *filename, int line)
+_cmsg_free (void *ptr, const char *filename, int line)
 {
     if (ptr == NULL)
     {
@@ -410,6 +410,12 @@ cmsg_free (void *ptr, const char *filename, int line)
     }
 
     free (ptr);
+}
+
+void
+cmsg_free (void *ptr)
+{
+    CMSG_FREE (ptr);
 }
 
 void
@@ -437,7 +443,7 @@ cmsg_msg_alloc (size_t struct_size, const char *file, int line)
 void
 cmsg_msg_free (void *msg_array, const char *file, int line)
 {
-    cmsg_free (msg_array, file, line);
+    _cmsg_free (msg_array, file, line);
 }
 
 /**
@@ -494,7 +500,7 @@ cmsg_msg_array_alloc (size_t struct_size, uint32_t num_structs, const char *file
 void
 cmsg_msg_array_free (void *msg_array, const char *file, int line)
 {
-    cmsg_free (msg_array, file, line);
+    _cmsg_free (msg_array, file, line);
 }
 
 /**
@@ -656,7 +662,7 @@ cmsg_update_recv_msg_string_field (char **field, const char *new_val,
                                    const char *file, int line)
 {
     char *strp = NULL;
-    cmsg_free (*field, file, line);
+    _cmsg_free (*field, file, line);
 
     if (new_val)
     {

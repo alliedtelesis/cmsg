@@ -84,7 +84,7 @@ get_service_entry_or_create (const char *service, bool create)
     {
         entry = CMSG_CALLOC (1, sizeof (service_data_entry));
         entry->comp_client = cmsg_composite_client_new (CMSG_DESCRIPTOR (cmsg_psd, update));
-        g_hash_table_insert (local_subscriptions_table, g_strdup (service), entry);
+        g_hash_table_insert (local_subscriptions_table, CMSG_STRDUP (service), entry);
     }
 
     return entry;
@@ -815,7 +815,7 @@ data_remove_publisher (const char *service, cmsg_transport_info *transport_info)
 void
 data_init (void)
 {
-    local_subscriptions_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+    local_subscriptions_table = g_hash_table_new_full (g_str_hash, g_str_equal, cmsg_free,
                                                        service_entry_free);
     if (!local_subscriptions_table)
     {

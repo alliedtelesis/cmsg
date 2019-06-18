@@ -57,7 +57,8 @@ cmsg_publisher_get_client_for_method (cmsg_publisher *publisher, const char *met
     if (!client && create)
     {
         client = cmsg_composite_client_new (&cmsg_psd_pub_descriptor);
-        g_hash_table_insert (publisher->subscribed_methods, g_strdup (method_name), client);
+        g_hash_table_insert (publisher->subscribed_methods, CMSG_STRDUP (method_name),
+                             client);
     }
 
     return client;
@@ -438,7 +439,7 @@ cmsg_publisher_create (const ProtobufCServiceDescriptor *service)
         return NULL;
     }
 
-    hash_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+    hash_table = g_hash_table_new_full (g_str_hash, g_str_equal, cmsg_free,
                                         (GDestroyNotify)
                                         cmsg_composite_client_destroy_full);
     publisher->subscribed_methods = hash_table;

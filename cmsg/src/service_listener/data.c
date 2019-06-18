@@ -86,7 +86,7 @@ get_service_entry_or_create (const char *service, bool create)
     if (!entry && create)
     {
         entry = CMSG_CALLOC (1, sizeof (service_data_entry));
-        g_hash_table_insert (hash_table, g_strdup (service), entry);
+        g_hash_table_insert (hash_table, CMSG_STRDUP (service), entry);
     }
 
     return entry;
@@ -453,7 +453,7 @@ data_get_servers_by_addr (uint32_t addr)
 void
 data_init (void)
 {
-    hash_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+    hash_table = g_hash_table_new_full (g_str_hash, g_str_equal, cmsg_free,
                                         service_entry_free);
     if (!hash_table)
     {
