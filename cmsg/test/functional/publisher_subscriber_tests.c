@@ -90,20 +90,18 @@ cmsg_test_impl_simple_notification_test (const void *service,
 }
 
 /**
- * Create the publisher and publish the test notification.
+ * Publish the test notification.
  */
 static void
-create_publisher_and_send (void)
+publish_message (cmsg_publisher *publisher)
 {
     cmsg_uint32_msg send_msg = CMSG_UINT32_MSG_INIT;
-    cmsg_publisher *publisher = cmsg_publisher_create (CMSG_DESCRIPTOR (cmsg, test));
     int ret;
 
     CMSG_SET_FIELD_VALUE (&send_msg, value, 10);
 
     ret = cmsg_test_api_simple_notification_test ((cmsg_client *) publisher, &send_msg);
     NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
-    cmsg_publisher_destroy (publisher);
 }
 
 /**
@@ -120,7 +118,8 @@ create_sub_before_pub_and_test (cmsg_transport_type type)
     int ret = 0;
     struct in_addr addr;
     int fd = -1;
-    cmsg_server *sub_server = NULL;;
+    cmsg_server *sub_server = NULL;
+    cmsg_publisher *publisher = NULL;
 
     switch (type)
     {
@@ -149,7 +148,10 @@ create_sub_before_pub_and_test (cmsg_transport_type type)
     FD_ZERO (&readfds);
     FD_SET (fd, &readfds);
 
-    create_publisher_and_send ();
+    publisher = cmsg_publisher_create (CMSG_DESCRIPTOR (cmsg, test));
+    NP_ASSERT_NOT_NULL (publisher);
+
+    publish_message (publisher);
 
     while (subscriber_run)
     {
@@ -166,6 +168,7 @@ create_sub_before_pub_and_test (cmsg_transport_type type)
     }
 
     cmsg_subscriber_destroy (sub);
+    cmsg_publisher_destroy (publisher);
 }
 
 /**
