@@ -322,6 +322,7 @@ data_remove_transport_from_method (method_data_entry *method_entry,
             entry_to_remove = list->data;
             break;
         }
+        list_next = g_list_next (list);
     }
 
     if (entry_to_remove)
