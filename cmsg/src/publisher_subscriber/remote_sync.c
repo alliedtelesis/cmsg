@@ -148,18 +148,17 @@ remote_sync_bulk_sync_subscriptions (cmsg_client *client)
 {
     cmsg_psd_bulk_sync_data send_msg = CMSG_PSD_BULK_SYNC_DATA_INIT;
     GList *list = NULL;
-    GList *list_next = NULL;
     const cmsg_subscription_info *info = NULL;
     uint32_t remote_addr = client->_transport->config.socket.sockaddr.in.sin_addr.s_addr;
 
-    for (list = g_list_first (data_get_remote_subscriptions ()); list; list = list_next)
+    for (list = g_list_first (data_get_remote_subscriptions ()); list;
+         list = g_list_next (list))
     {
         info = (const cmsg_subscription_info *) list->data;
         if (info->remote_addr == remote_addr)
         {
             CMSG_REPEATED_APPEND (&send_msg, data, info);
         }
-        list_next = g_list_next (list);
     }
 
     cmsg_psd_remote_sync_api_bulk_sync (client, &send_msg);

@@ -312,17 +312,15 @@ data_remove_transport_from_method (method_data_entry *method_entry,
                                    const cmsg_transport_info *transport_info)
 {
     GList *list = NULL;
-    GList *list_next = NULL;
     cmsg_transport_info *entry_to_remove = NULL;
 
-    for (list = g_list_first (method_entry->transports); list; list = list_next)
+    for (list = g_list_first (method_entry->transports); list; list = g_list_next (list))
     {
         if (cmsg_transport_info_compare (list->data, transport_info))
         {
             entry_to_remove = list->data;
             break;
         }
-        list_next = g_list_next (list);
     }
 
     if (entry_to_remove)
@@ -400,27 +398,24 @@ static void
 data_remove_remote_entries_for_subscriber (const cmsg_transport_info *sub_transport)
 {
     GList *list = NULL;
-    GList *list_next = NULL;
     GList *removal_list = NULL;
     const cmsg_subscription_info *info = NULL;
 
-    for (list = g_list_first (remote_subscriptions_list); list; list = list_next)
+    for (list = g_list_first (remote_subscriptions_list); list; list = g_list_next (list))
     {
         info = (const cmsg_subscription_info *) list->data;
         if (cmsg_transport_info_compare (info->transport_info, sub_transport))
         {
             removal_list = g_list_append (removal_list, (void *) info);
         }
-        list_next = g_list_next (list);
     }
 
-    for (list = g_list_first (removal_list); list; list = list_next)
+    for (list = g_list_first (removal_list); list; list = g_list_next (list))
     {
         remote_subscriptions_list = g_list_remove (remote_subscriptions_list, list->data);
 
         remote_sync_subscription_removed (list->data);
         CMSG_FREE_RECV_MSG (list->data);
-        list_next = g_list_next (list);
     }
     g_list_free (removal_list);
 }
@@ -469,20 +464,18 @@ static void
 data_prune_empty_methods (service_data_entry *service_entry)
 {
     GList *list = NULL;
-    GList *list_next = NULL;
     GList *removal_list = NULL;
     method_data_entry *method_entry = NULL;
 
     g_list_foreach (service_entry->methods, data_find_methods_without_transports,
                     &removal_list);
-    for (list = g_list_first (removal_list); list; list = list_next)
+    for (list = g_list_first (removal_list); list; list = g_list_next (list))
     {
         method_entry = (method_data_entry *) list->data;
 
         service_entry->methods = g_list_remove (service_entry->methods, method_entry);
         CMSG_FREE (method_entry->method_name);
         CMSG_FREE (method_entry);
-        list_next = g_list_next (list);
     }
     g_list_free (removal_list);
 }
@@ -559,12 +552,11 @@ static void
 data_remove_clients_with_addr_from_method (method_data_entry *method_entry, uint32_t addr)
 {
     GList *list = NULL;
-    GList *list_next = NULL;
     GList *removal_list = NULL;
     cmsg_transport_info *transport_info = NULL;
     cmsg_transport *transport = NULL;
 
-    for (list = g_list_first (method_entry->transports); list; list = list_next)
+    for (list = g_list_first (method_entry->transports); list; list = g_list_next (list))
     {
         transport_info = (cmsg_transport_info *) list->data;
         if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
@@ -576,16 +568,14 @@ data_remove_clients_with_addr_from_method (method_data_entry *method_entry, uint
             }
             cmsg_transport_destroy (transport);
         }
-        list_next = g_list_next (list);
     }
 
-    for (list = g_list_first (removal_list); list; list = list_next)
+    for (list = g_list_first (removal_list); list; list = g_list_next (list))
     {
         method_entry->transports = g_list_remove (method_entry->transports, list->data);
         update_publishers_with_method_change (method_entry->service_entry->comp_client,
                                               method_entry->method_name, list->data, false);
         cmsg_transport_info_free (list->data);
-        list_next = g_list_next (list);
     }
     g_list_free (removal_list);
 }
@@ -832,7 +822,6 @@ void
 data_deinit (void)
 {
     GList *list = NULL;
-    GList *list_next = NULL;
 
     if (local_subscriptions_table)
     {
@@ -841,10 +830,9 @@ data_deinit (void)
         local_subscriptions_table = NULL;
     }
 
-    for (list = g_list_first (remote_subscriptions_list); list; list = list_next)
+    for (list = g_list_first (remote_subscriptions_list); list; list = g_list_next (list))
     {
         CMSG_FREE_RECV_MSG (list->data);
-        list_next = g_list_next (list);
     }
     g_list_free (remote_subscriptions_list);
     remote_subscriptions_list = NULL;

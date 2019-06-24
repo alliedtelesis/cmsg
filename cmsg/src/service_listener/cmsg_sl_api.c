@@ -93,17 +93,15 @@ static void
 notify_listener (const cmsg_sld_server_event *recv_msg, bool added)
 {
     GList *list;
-    GList *list_next;
     const cmsg_sl_info *entry;
     cmsg_sl_event *event = NULL;
     const cmsg_transport_info *transport_info = NULL;
 
     pthread_mutex_lock (&listener_list_mutex);
 
-    for (list = g_list_first (listener_list); list; list = list_next)
+    for (list = g_list_first (listener_list); list; list = g_list_next (list))
     {
         entry = (const cmsg_sl_info *) list->data;
-        list_next = g_list_next (list);
 
         if (entry->id == recv_msg->id)
         {

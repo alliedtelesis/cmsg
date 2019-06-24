@@ -105,18 +105,16 @@ notify_listeners (const cmsg_service_info *server_info, service_data_entry *entr
                   bool added)
 {
     GList *list = NULL;
-    GList *list_next = NULL;
     cmsg_client *client = NULL;
     GList *removal_list = NULL;
     listener_data *listener_info = NULL;
     int ret;
     cmsg_sld_server_event send_msg = CMSG_SLD_SERVER_EVENT_INIT;
 
-    for (list = g_list_first (entry->listeners); list; list = list_next)
+    for (list = g_list_first (entry->listeners); list; list = g_list_next (list))
     {
         listener_info = (listener_data *) list->data;
         client = listener_info->client;
-        list_next = g_list_next (list);
 
         CMSG_SET_FIELD_PTR (&send_msg, service_info, (void *) server_info);
         CMSG_SET_FIELD_VALUE (&send_msg, id, listener_info->id);
@@ -137,10 +135,9 @@ notify_listeners (const cmsg_service_info *server_info, service_data_entry *entr
     }
 
     /* Remove any clients that we failed to send events to */
-    for (list = g_list_first (removal_list); list; list = list_next)
+    for (list = g_list_first (removal_list); list; list = g_list_next (list))
     {
         listener_info = (listener_data *) list->data;
-        list_next = g_list_next (list);
 
         entry->listeners = g_list_remove (entry->listeners, listener_info);
         cmsg_destroy_client_and_transport (listener_info->client);
@@ -245,11 +242,10 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
     uint32_t *addr = (uint32_t *) user_data;
     service_data_entry *entry = (service_data_entry *) value;
     GList *list = NULL;
-    GList *list_next = NULL;
     cmsg_service_info *service_info = NULL;
     GList *removal_list = NULL;
 
-    for (list = g_list_first (entry->servers); list; list = list_next)
+    for (list = g_list_first (entry->servers); list; list = g_list_next (list))
     {
         service_info = (cmsg_service_info *) list->data;
 
@@ -262,14 +258,11 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
                 removal_list = g_list_append (removal_list, service_info);
             }
         }
-
-        list_next = g_list_next (list);
     }
 
-    for (list = g_list_first (removal_list); list; list = list_next)
+    for (list = g_list_first (removal_list); list; list = g_list_next (list))
     {
         service_info = (cmsg_service_info *) list->data;
-        list_next = g_list_next (list);
 
         entry->servers = g_list_remove (entry->servers, service_info);
         notify_listeners (service_info, entry, false);
@@ -309,7 +302,6 @@ data_add_listener (const cmsg_sld_listener_info *info)
     service_data_entry *entry = NULL;
     cmsg_transport *transport = NULL;
     GList *list = NULL;
-    GList *list_next = NULL;
     cmsg_service_info *server_info = NULL;
     cmsg_client *client = NULL;
     listener_data *listener_info = NULL;
@@ -325,10 +317,9 @@ data_add_listener (const cmsg_sld_listener_info *info)
 
     entry->listeners = g_list_append (entry->listeners, listener_info);
 
-    for (list = g_list_first (entry->servers); list; list = list_next)
+    for (list = g_list_first (entry->servers); list; list = g_list_next (list))
     {
         server_info = (cmsg_service_info *) list->data;
-        list_next = g_list_next (list);
 
         CMSG_SET_FIELD_PTR (&send_msg, service_info, server_info);
         CMSG_SET_FIELD_VALUE (&send_msg, id, listener_info->id);
@@ -354,7 +345,6 @@ data_remove_listener (const cmsg_sld_listener_info *info)
 {
     service_data_entry *entry = NULL;
     GList *list = NULL;
-    GList *list_next = NULL;
     cmsg_transport_info *transport_info = NULL;
     listener_data *listener_info = NULL;
 
@@ -364,10 +354,9 @@ data_remove_listener (const cmsg_sld_listener_info *info)
         return;
     }
 
-    for (list = g_list_first (entry->listeners); list; list = list_next)
+    for (list = g_list_first (entry->listeners); list; list = g_list_next (list))
     {
         listener_info = (listener_data *) list->data;
-        list_next = g_list_next (list);
 
         transport_info = cmsg_transport_info_create (listener_info->client->_transport);
 
@@ -405,10 +394,9 @@ _get_servers_by_addr (gpointer key, gpointer value, gpointer user_data)
     service_lookup_data *lookup_data = (service_lookup_data *) user_data;
     service_data_entry *entry = (service_data_entry *) value;
     GList *list = NULL;
-    GList *list_next = NULL;
     cmsg_service_info *service_info = NULL;
 
-    for (list = g_list_first (entry->servers); list; list = list_next)
+    for (list = g_list_first (entry->servers); list; list = g_list_next (list))
     {
         service_info = (cmsg_service_info *) list->data;
 
@@ -421,8 +409,6 @@ _get_servers_by_addr (gpointer key, gpointer value, gpointer user_data)
                 lookup_data->list = g_list_append (lookup_data->list, service_info);
             }
         }
-
-        list_next = g_list_next (list);
     }
 }
 
