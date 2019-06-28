@@ -259,12 +259,13 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
 #define CMSG_ASPRINTF(strp,fmt,...) cmsg_asprintf (__FILE__,  __LINE__, (strp),\
                                                    (fmt), ##__VA_ARGS__)
 #define CMSG_STRDUP(strp) cmsg_strdup ((strp), __FILE__,  __LINE__)
-#define CMSG_FREE(ptr)              cmsg_free ((ptr),  __FILE__,  __LINE__)
+#define CMSG_FREE(ptr)              _cmsg_free ((ptr),  __FILE__,  __LINE__)
 void *cmsg_malloc (size_t size, const char *filename, int line);
 void *cmsg_calloc (size_t nmemb, size_t size, const char *filename, int line);
 int cmsg_asprintf (const char *filename, int line, char **strp, const char *fmt, ...);
 char *cmsg_strdup (const char *strp, const char *filename, int line);
-void cmsg_free (void *ptr, const char *filename, int line);
+void _cmsg_free (void *ptr, const char *filename, int line);
+void cmsg_free (void *ptr);
 void cmsg_malloc_init (int mtype);
 
 #ifdef HAVE_COUNTERD

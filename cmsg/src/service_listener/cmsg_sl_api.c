@@ -93,17 +93,15 @@ static void
 notify_listener (const cmsg_sld_server_event *recv_msg, bool added)
 {
     GList *list;
-    GList *list_next;
     const cmsg_sl_info *entry;
     cmsg_sl_event *event = NULL;
     const cmsg_transport_info *transport_info = NULL;
 
     pthread_mutex_lock (&listener_list_mutex);
 
-    for (list = g_list_first (listener_list); list; list = list_next)
+    for (list = g_list_first (listener_list); list; list = g_list_next (list))
     {
         entry = (const cmsg_sl_info *) list->data;
-        list_next = g_list_next (list);
 
         if (entry->id == recv_msg->id)
         {
@@ -508,4 +506,77 @@ cmsg_service_listener_remove_server (cmsg_server *server)
         cmsg_destroy_client_and_transport (client);
         cmsg_server_service_info_free (send_msg);
     }
+}
+
+/**
+ * Callback of cmsg_service_listener_wait_for_server that waits until a server is added.
+ */
+static bool
+cmsg_server_listener_wait_cb (const cmsg_transport *transport, bool added, void *user_data)
+{
+    bool *ret = user_data;
+
+    *ret = false;
+
+    if (transport->type == CMSG_TRANSPORT_RPC_UNIX ||
+        transport->type == CMSG_TRANSPORT_ONEWAY_UNIX)
+    {
+        *ret = true;
+    }
+
+    return true;
+}
+
+/**
+ * Blocks until the requested server has been started.
+ * Will exit early if a timeout has been specified.
+ * This is only supported for UNIX and TCP transport types.
+ *
+ * @param service_name - The server name to wait for.
+ * @param seconds - How many seconds to wait for the notification.
+ *                  Special values are 0 for a poll and -1 for indefinitely.
+ * @returns true if the server has started otherwise false.
+ */
+bool
+cmsg_service_listener_wait_for_unix_server (const char *service_name, long seconds)
+{
+    const cmsg_sl_info *info;
+    bool ret = false;
+    fd_set fds;
+    int select_rc;
+    struct timeval timeout;
+    struct timeval *_timeout = &timeout;
+
+    info = cmsg_service_listener_listen (service_name, cmsg_server_listener_wait_cb, &ret);
+    if (!info)
+    {
+        return false;
+    }
+
+    if (seconds == -1)
+    {
+        _timeout = NULL;
+    }
+    else
+    {
+        timeout.tv_sec = seconds;
+        timeout.tv_usec = 0;
+    }
+
+    FD_ZERO (&fds);
+    FD_SET (info->eventfd, &fds);
+
+    select_rc = TEMP_FAILURE_RETRY (select (info->eventfd + 1, &fds, NULL, NULL, _timeout));
+    if (select_rc == 0 || select_rc == -1)
+    {
+        /* Timed out or failed. */
+        cmsg_service_listener_unlisten (info);
+        return false;
+    }
+
+    cmsg_service_listener_event_queue_process (info);
+
+    cmsg_service_listener_unlisten (info);
+
+    return ret;
 }

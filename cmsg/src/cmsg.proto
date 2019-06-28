@@ -71,3 +71,14 @@ message cmsg_subscription_info
     optional string method_name = 3;
     optional uint32 remote_addr = 4;
 }
+
+message cmsg_subscription_method_entry
+{
+    optional string method_name = 1;
+    repeated cmsg_transport_info transports = 2;
+}
+
+message cmsg_subscription_methods
+{
+    repeated cmsg_subscription_method_entry methods = 1;
+}

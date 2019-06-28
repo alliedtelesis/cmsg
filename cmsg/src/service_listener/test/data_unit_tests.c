@@ -500,9 +500,8 @@ test_data_get_servers_by_addr (void)
     NP_ASSERT_EQUAL (g_list_length (addr_list), 2);
 
     GList *list = NULL;
-    GList *list_next = NULL;
 
-    for (list = g_list_first (addr_list); list; list = list_next)
+    for (list = g_list_first (addr_list); list; list = g_list_next (list))
     {
         if (list->data == service_info_1)
         {
@@ -518,7 +517,6 @@ test_data_get_servers_by_addr (void)
         {
             NP_FAIL;
         }
-        list_next = g_list_next (list);
     }
 
     g_list_free (addr_list);

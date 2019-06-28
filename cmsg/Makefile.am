@@ -58,14 +58,14 @@ src/publisher_subscriber/remote_sync.pb-c.c \
 src/publisher_subscriber/remote_sync.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/publisher_subscriber/remote_sync.proto
 	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/remote_sync.proto
 
-src/publisher_subscriber/publish_api_auto.c \
-src/publisher_subscriber/publish_api_auto.h \
-src/publisher_subscriber/publish_impl_auto.c \
-src/publisher_subscriber/publish_impl_auto.h \
-src/publisher_subscriber/publish_impl_types_auto.h \
-src/publisher_subscriber/publish.pb-c.c \
-src/publisher_subscriber/publish.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/publisher_subscriber/publish.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/publish.proto
+src/publisher_subscriber/update_api_auto.c \
+src/publisher_subscriber/update_api_auto.h \
+src/publisher_subscriber/update_impl_auto.c \
+src/publisher_subscriber/update_impl_auto.h \
+src/publisher_subscriber/update_impl_types_auto.h \
+src/publisher_subscriber/update.pb-c.c \
+src/publisher_subscriber/update.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/publisher_subscriber/update.proto
+	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/update.proto
 
 
 libcmsg_la_SOURCES = \
@@ -102,8 +102,8 @@ libcmsg_la_SOURCES = \
 	src/publisher_subscriber/cmsg_ps_api.c \
 	src/publisher_subscriber/configuration_api_auto.c \
 	src/publisher_subscriber/configuration.pb-c.c \
-	src/publisher_subscriber/publish_api_auto.c \
-	src/publisher_subscriber/publish.pb-c.c
+	src/publisher_subscriber/update_impl_auto.c \
+	src/publisher_subscriber/update.pb-c.c
 
 libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c
 
@@ -172,12 +172,12 @@ BUILT_SOURCES =  \
 	src/publisher_subscriber/remote_sync_impl_auto.h \
 	src/publisher_subscriber/remote_sync.pb-c.c \
 	src/publisher_subscriber/remote_sync.pb-c.h \
-	src/publisher_subscriber/publish_api_auto.c \
-	src/publisher_subscriber/publish_api_auto.h \
-	src/publisher_subscriber/publish_impl_auto.c \
-	src/publisher_subscriber/publish_impl_auto.h \
-	src/publisher_subscriber/publish.pb-c.c \
-	src/publisher_subscriber/publish.pb-c.h
+	src/publisher_subscriber/update_api_auto.c \
+	src/publisher_subscriber/update_api_auto.h \
+	src/publisher_subscriber/update_impl_auto.c \
+	src/publisher_subscriber/update_impl_auto.h \
+	src/publisher_subscriber/update.pb-c.c \
+	src/publisher_subscriber/update.pb-c.h
 
 if BUILD_UNITTEST
 BUILT_SOURCES += \
@@ -221,15 +221,13 @@ cmsg_psd_SOURCES = \
 	src/publisher_subscriber/configuration.c \
 	src/publisher_subscriber/data.c \
 	src/publisher_subscriber/remote_sync.c \
-	src/publisher_subscriber/publish.c \
 	src/publisher_subscriber/configuration_impl_auto.c \
 	src/publisher_subscriber/configuration.pb-c.c \
 	src/publisher_subscriber/remote_sync_api_auto.c \
 	src/publisher_subscriber/remote_sync_impl_auto.c \
 	src/publisher_subscriber/remote_sync.pb-c.c \
-	src/publisher_subscriber/publish_api_auto.c \
-	src/publisher_subscriber/publish_impl_auto.c \
-	src/publisher_subscriber/publish.pb-c.c
+	src/publisher_subscriber/update_api_auto.c \
+	src/publisher_subscriber/update.pb-c.c
 cmsg_psd_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c $(HEALTHCHECK_LIBS)
 cmsg_psd_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
 cmsg_psd_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
@@ -341,6 +339,8 @@ cmsg_publisher_subscriber_unit_tests_SOURCES = \
 	src/publisher_subscriber/remote_sync_api_auto.c \
 	src/publisher_subscriber/remote_sync_impl_auto.c \
 	src/publisher_subscriber/remote_sync.pb-c.c \
+	src/publisher_subscriber/update_api_auto.c \
+	src/publisher_subscriber/update.pb-c.c \
 	src/publisher_subscriber/test/remote_sync_unit_tests.c \
 	src/publisher_subscriber/test/configuration_unit_tests.c \
 	src/publisher_subscriber/test/data_unit_tests.c

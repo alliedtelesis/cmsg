@@ -14,7 +14,6 @@
 #include "configuration.h"
 #include "data.h"
 #include "remote_sync.h"
-#include "publish.h"
 
 #define DEBUG_FILE "/tmp/cmsg_psd_debug.txt"
 
@@ -127,7 +126,6 @@ main (int argc, char **argv)
 
     data_init ();
     configuration_server_init ();
-    publish_server_init ();
 
     /* Create run file */
     if (run_file)
