@@ -291,7 +291,7 @@ cmsg_transport_destroy (cmsg_transport *transport)
  *
  * @returns CMSG_STATUS_CODE_SUCCESS on success, the related cmsg_status_code otherwise.
  */
-cmsg_status_code
+static cmsg_status_code
 cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *transport,
                                 int32_t socket, time_t seconds_to_wait,
                                 cmsg_header *header_received)

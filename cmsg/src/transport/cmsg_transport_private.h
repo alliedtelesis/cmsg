@@ -44,11 +44,6 @@ cmsg_status_code cmsg_transport_client_recv (cmsg_transport *transport,
                                              const ProtobufCServiceDescriptor *descriptor,
                                              ProtobufCMessage **messagePtPt);
 
-cmsg_status_code cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper,
-                                                 cmsg_transport *transport, int32_t socket,
-                                                 time_t seconds_to_wait,
-                                                 cmsg_header *header_received);
-
 int32_t cmsg_transport_connect (cmsg_transport *transport);
 int32_t cmsg_transport_accept (cmsg_transport *transport);
 int32_t cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout);
