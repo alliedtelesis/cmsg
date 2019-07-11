@@ -9,6 +9,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+typedef enum _cmsg_peek_code
+{
+    CMSG_PEEK_CODE_SUCCESS,
+    CMSG_PEEK_CODE_CONNECTION_CLOSED,
+    CMSG_PEEK_CODE_CONNECTION_RESET,
+    CMSG_PEEK_CODE_TIMEOUT,
+} cmsg_peek_code;
+
 /**
  * An abstraction of the 'connect' system call that allows a timeout
  * value to be used. Adapted from "Unix Network Programming".
@@ -289,14 +297,14 @@ cmsg_transport_destroy (cmsg_transport *transport)
  * @param seconds_to_wait - The number of seconds to wait before timing out and giving up.
  * @param header_received - Pointer to a header structure to return the peeked header in.
  *
- * @returns CMSG_STATUS_CODE_SUCCESS on success, the related cmsg_status_code otherwise.
+ * @returns CMSG_PEEK_CODE_SUCCESS on success, the related cmsg_peek_code otherwise.
  */
-static cmsg_status_code
+static cmsg_peek_code
 cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *transport,
                                 int32_t socket, time_t seconds_to_wait,
                                 cmsg_header *header_received)
 {
-    cmsg_status_code ret = CMSG_STATUS_CODE_SUCCESS;
+    cmsg_peek_code ret = CMSG_PEEK_CODE_SUCCESS;
     int nbytes = 0;
     bool timed_out = false;
     time_t seconds_waited = 0;
@@ -318,7 +326,7 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
         {
             if (nbytes == 0)
             {
-                return CMSG_STATUS_CODE_CONNECTION_CLOSED;
+                return CMSG_PEEK_CODE_CONNECTION_CLOSED;
             }
             else if (nbytes == -1)
             {
@@ -327,7 +335,7 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
                     CMSG_DEBUG (CMSG_INFO,
                                 "[TRANSPORT] receive failed %d %s", nbytes,
                                 strerror (errno));
-                    return CMSG_STATUS_CODE_SERVER_CONNRESET;
+                    return CMSG_PEEK_CODE_CONNECTION_RESET;
                 }
                 else if (errno == EINTR)
                 {
@@ -372,7 +380,7 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
                                   "Receive timed out socket %d nbytes was %d last error %s",
                                   socket, nbytes, strerror (errno));
 
-        ret = CMSG_STATUS_CODE_SERVICE_FAILED;
+        ret = CMSG_PEEK_CODE_TIMEOUT;
     }
     else if (seconds_waited >= seconds_to_wait / 2)
     {
@@ -434,6 +442,37 @@ _cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket,
     return CMSG_RET_OK;
 }
 
+/**
+ * Convert a cmsg_peek_code value to a cmsg_status_code value.
+ *
+ * @param peek_code - The peek code to convert.
+ *
+ * @returns The converted status code.
+ */
+static cmsg_status_code
+cmsg_transport_peek_to_status_code (cmsg_peek_code peek_code)
+{
+    cmsg_status_code status_code;
+
+    switch (peek_code)
+    {
+    case CMSG_PEEK_CODE_CONNECTION_CLOSED:
+        status_code = CMSG_STATUS_CODE_CONNECTION_CLOSED;
+        break;
+    case CMSG_PEEK_CODE_CONNECTION_RESET:
+        status_code = CMSG_STATUS_CODE_SERVER_CONNRESET;
+        break;
+    case CMSG_PEEK_CODE_TIMEOUT:
+        status_code = CMSG_STATUS_CODE_SERVICE_FAILED;
+        break;
+    case CMSG_PEEK_CODE_SUCCESS:
+    default:
+        status_code = CMSG_STATUS_CODE_SUCCESS;
+        break;
+    }
+
+    return status_code;
+}
 
 /* Receive message from a client and process it */
 cmsg_status_code
@@ -452,21 +491,20 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     uint32_t extra_header_size;
     cmsg_server_request server_request;
     int socket = transport->socket;
-    cmsg_status_code ret;
+    cmsg_peek_code ret;
     time_t receive_timeout = transport->receive_peek_timeout;
 
     *messagePtPt = NULL;
 
     ret = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper, transport,
                                           socket, receive_timeout, &header_received);
-    if (ret != CMSG_STATUS_CODE_SUCCESS)
+    if (ret != CMSG_PEEK_CODE_SUCCESS)
     {
-        return ret;
+        return cmsg_transport_peek_to_status_code (ret);
     }
 
     nbytes = transport->tport_funcs.recv_wrapper (transport, socket, &header_received,
                                                   sizeof (cmsg_header), MSG_WAITALL);
-
 
     if (nbytes == sizeof (cmsg_header))
     {
@@ -641,7 +679,7 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
                             int *nbytes)
 {
     int32_t ret = CMSG_RET_ERR;
-    cmsg_status_code peek_status;
+    cmsg_peek_code peek_status;
     cmsg_header header_received;
     time_t receive_timeout = transport->receive_peek_timeout;
 
@@ -651,13 +689,13 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
                                                   transport,
                                                   server_socket, receive_timeout,
                                                   &header_received);
-    if (peek_status == CMSG_STATUS_CODE_SUCCESS)
+    if (peek_status == CMSG_PEEK_CODE_SUCCESS)
     {
         ret = _cmsg_transport_server_recv (transport->tport_funcs.recv_wrapper,
                                            server_socket, transport, &header_received,
                                            recv_buffer, processed_header, nbytes);
     }
-    else if (peek_status == CMSG_STATUS_CODE_CONNECTION_CLOSED)
+    else if (peek_status == CMSG_PEEK_CODE_CONNECTION_CLOSED)
     {
         ret = CMSG_RET_CLOSED;
     }
