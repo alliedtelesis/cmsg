@@ -15,6 +15,7 @@ typedef enum _cmsg_peek_code
     CMSG_PEEK_CODE_CONNECTION_CLOSED,
     CMSG_PEEK_CODE_CONNECTION_RESET,
     CMSG_PEEK_CODE_TIMEOUT,
+    CMSG_PEEK_CODE_NO_DATA,
 } cmsg_peek_code;
 
 /**
@@ -294,7 +295,14 @@ cmsg_transport_destroy (cmsg_transport *transport)
  * @param recv_wrapper - The transport specific receive function to use with a socket.
  * @param transport - The transport that is doing the peeking.
  * @param socket - The socket to peek the data off.
- * @param seconds_to_wait - The number of seconds to wait before timing out and giving up.
+ * @param seconds_to_wait - The number of seconds to wait for the full header to be read
+ *                          before timing out and giving up.
+ * @param socket_is_ready - The caller may specify if they expect data to already be available
+ *                          on the socket. If true, the function will return early with
+ *                          CMSG_PEEK_CODE_NO_DATA if the underlying recv call on the socket
+ *                          returns EAGAIN/EWOULDBLOCK. This allows higher layers to catch the
+ *                          case where a poll/select has spuriously reported that there is data
+ *                          on the socket when there is none.
  * @param header_received - Pointer to a header structure to return the peeked header in.
  *
  * @returns CMSG_PEEK_CODE_SUCCESS on success, the related cmsg_peek_code otherwise.
@@ -302,7 +310,7 @@ cmsg_transport_destroy (cmsg_transport *transport)
 static cmsg_peek_code
 cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *transport,
                                 int32_t socket, time_t seconds_to_wait,
-                                cmsg_header *header_received)
+                                bool socket_is_ready, cmsg_header *header_received)
 {
     cmsg_peek_code ret = CMSG_PEEK_CODE_SUCCESS;
     int nbytes = 0;
@@ -346,7 +354,14 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
                 }
                 else if (errno == EAGAIN || errno == EWOULDBLOCK)
                 {
-                    // This is normal, sometimes the data is not ready, just wait and try again.
+                    /* If the caller has specified that there should be data on the socket already
+                     * then we return an error if this is not the case. */
+                    if (socket_is_ready)
+                    {
+                        return CMSG_PEEK_CODE_NO_DATA;
+                    }
+
+                    // The data is not ready, just wait and try again.
                     CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] receive data not ready");
                 }
                 else
@@ -463,6 +478,7 @@ cmsg_transport_peek_to_status_code (cmsg_peek_code peek_code)
         status_code = CMSG_STATUS_CODE_SERVER_CONNRESET;
         break;
     case CMSG_PEEK_CODE_TIMEOUT:
+    case CMSG_PEEK_CODE_NO_DATA:
         status_code = CMSG_STATUS_CODE_SERVICE_FAILED;
         break;
     case CMSG_PEEK_CODE_SUCCESS:
@@ -497,7 +513,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     *messagePtPt = NULL;
 
     ret = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper, transport,
-                                          socket, receive_timeout, &header_received);
+                                          socket, receive_timeout, false, &header_received);
     if (ret != CMSG_PEEK_CODE_SUCCESS)
     {
         return cmsg_transport_peek_to_status_code (ret);
@@ -678,7 +694,7 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
                             uint8_t **recv_buffer, cmsg_header *processed_header,
                             int *nbytes)
 {
-    int32_t ret = CMSG_RET_ERR;
+    int32_t ret;
     cmsg_peek_code peek_status;
     cmsg_header header_received;
     time_t receive_timeout = transport->receive_peek_timeout;
@@ -686,18 +702,29 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
     CMSG_ASSERT_RETURN_VAL (transport != NULL, CMSG_RET_ERR);
 
     peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
-                                                  transport,
-                                                  server_socket, receive_timeout,
-                                                  &header_received);
-    if (peek_status == CMSG_PEEK_CODE_SUCCESS)
+                                                  transport, server_socket,
+                                                  receive_timeout, true, &header_received);
+
+    switch (peek_status)
     {
+    case CMSG_PEEK_CODE_SUCCESS:
         ret = _cmsg_transport_server_recv (transport->tport_funcs.recv_wrapper,
                                            server_socket, transport, &header_received,
                                            recv_buffer, processed_header, nbytes);
-    }
-    else if (peek_status == CMSG_PEEK_CODE_CONNECTION_CLOSED)
-    {
+        break;
+    case CMSG_PEEK_CODE_NO_DATA:
+        /* No data was available on the underlying socket to recv. It is assumed
+         * a poll/select on the server socket at a higher layer has spuriously
+         * reported data being ready when there is none. This is not treated as
+         * an error. */
+        ret = CMSG_RET_OK;
+        break;
+    case CMSG_PEEK_CODE_CONNECTION_CLOSED:
         ret = CMSG_RET_CLOSED;
+        break;
+    default:
+        ret = CMSG_RET_ERR;
+        break;
     }
 
     return ret;
