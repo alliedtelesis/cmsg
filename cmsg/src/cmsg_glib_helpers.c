@@ -27,6 +27,8 @@ cmsg_glib_server_read (GIOChannel *source, GIOCondition condition, gpointer data
     {
         g_io_channel_shutdown (source, TRUE, NULL);
         g_io_channel_unref (source);
+        shutdown (sd, SHUT_RDWR);
+        close (sd);
         return FALSE;
     }
 
