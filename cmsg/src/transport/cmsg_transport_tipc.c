@@ -223,7 +223,7 @@ static int32_t
 cmsg_transport_tipc_client_send (cmsg_transport *transport, void *buff, int length,
                                  int flag)
 {
-    return (send (transport->socket, buff, length, flag));
+    return (cmsg_transport_socket_send (transport->socket, buff, length, flag));
 }
 
 /**
@@ -445,7 +445,7 @@ cmsg_tipc_topology_do_subscription (int sock, const char *server_name, uint32_t 
     subscr.filter = TIPC_SUB_PORTS;     /* all publish/withdraws */
     memcpy (subscr.usr_handle, &callback, sizeof (cmsg_tipc_topology_callback));
 
-    ret = send (sock, &subscr, sub_len, 0);
+    ret = cmsg_transport_socket_send (sock, &subscr, sub_len, 0);
     if (ret < 0 || (uint32_t) ret != sub_len)
     {
         CMSG_LOG_GEN_ERROR

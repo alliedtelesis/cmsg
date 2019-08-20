@@ -271,7 +271,7 @@ cmsg_transport_tcp_client_recv (cmsg_transport *transport,
 static int32_t
 cmsg_transport_tcp_client_send (cmsg_transport *transport, void *buff, int length, int flag)
 {
-    return (send (transport->socket, buff, length, flag));
+    return (cmsg_transport_socket_send (transport->socket, buff, length, flag));
 }
 
 /**

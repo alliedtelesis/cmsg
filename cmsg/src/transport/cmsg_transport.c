@@ -102,6 +102,43 @@ connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int time
 }
 
 /**
+ * An abstraction of the 'send' system call that ensures all of the requested
+ * data is sent, even if the call is interrupted (EINTR). Note that the 'send'
+ * call can be interrupted in two different ways:
+ *  1. The call is interrupted before any data is sent. In this case the call
+ *     returns -1 with EINTR set.
+ *  2. The call is interrupted after at least 1 byte has been sent. In this case
+ *     the call returns the total number of bytes sent before being interrupted.
+ *
+ * This function assumes that the socket is in blocking mode.
+ *
+ * @param sockfd - The blocking socket to send on.
+ * @param buf - The data to send on the socket.
+ * @param len - The number of bytes to send.
+ * @param flags - The flags to use with the send call.
+ */
+ssize_t
+cmsg_transport_socket_send (int sockfd, const void *buf, size_t len, int flags)
+{
+    ssize_t ret;
+    ssize_t sent_bytes = 0;
+    const uint8_t *data = (const uint8_t *) buf;
+
+    while (sent_bytes < len)
+    {
+        ret = TEMP_FAILURE_RETRY (send (sockfd, data + sent_bytes, len - sent_bytes,
+                                        flags));
+        if (ret == -1)
+        {
+            return -1;
+        }
+        sent_bytes += ret;
+    }
+
+    return sent_bytes;
+}
+
+/**
  * Get the transport ID to use in the CMSG counters application
  * name. This simply returns the transport ID of the transport except
  * in the case of unix transports where we always return "unix". This
@@ -734,7 +771,7 @@ int32_t
 cmsg_transport_rpc_server_send (int socket, cmsg_transport *transport, void *buff,
                                 int length, int flag)
 {
-    return (send (socket, buff, length, flag));
+    return (cmsg_transport_socket_send (socket, buff, length, flag));
 }
 
 /**
