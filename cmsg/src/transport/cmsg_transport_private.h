@@ -40,6 +40,7 @@ void cmsg_transport_udt_init (cmsg_transport *transport);
 
 int connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int timeout);
 ssize_t cmsg_transport_socket_send (int sockfd, const void *buf, size_t len, int flags);
+ssize_t cmsg_transport_socket_recv (int sockfd, void *buf, size_t len, int flags);
 
 cmsg_status_code cmsg_transport_client_recv (cmsg_transport *transport,
                                              const ProtobufCServiceDescriptor *descriptor,

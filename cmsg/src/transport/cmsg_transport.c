@@ -139,6 +139,60 @@ cmsg_transport_socket_send (int sockfd, const void *buf, size_t len, int flags)
 }
 
 /**
+ * An abstraction of the 'recv' system call that ensures all of the requested
+ * data is received, even if the call is interrupted (EINTR). Note that the 'recv'
+ * call can be interrupted in two different ways:
+ *  1. The call is interrupted before any data is received. In this case the call
+ *     returns -1 with EINTR set.
+ *  2. The call is interrupted after at least 1 byte has been received. In this case
+ *     the call returns the total number of bytes received before being interrupted.
+ *
+ * This function assumes that the socket is in blocking mode.
+ *
+ * @param sockfd - The blocking socket to receive on.
+ * @param buf - The buffer to receive the data into.
+ * @param len - The number of bytes to receive.
+ * @param flags - The flags to use with the recv call.
+ */
+ssize_t
+cmsg_transport_socket_recv (int sockfd, void *buf, size_t len, int flags)
+{
+    ssize_t ret;
+    ssize_t received_bytes = 0;
+    uint8_t *data = (uint8_t *) buf;
+
+    /* If non-blocking behaviour is requested then we don't try to handle
+     * being interrupted as we assume the caller is expecting to handle
+     * the case where the full length of data is not read. */
+    if (flags & MSG_DONTWAIT)
+    {
+        return recv (sockfd, buf, len, flags);
+    }
+
+    while (received_bytes < len)
+    {
+        ret = TEMP_FAILURE_RETRY (recv (sockfd, data + received_bytes,
+                                        len - received_bytes, flags));
+        if (ret == -1)
+        {
+            return -1;
+        }
+
+        /* If we are peeking the socket and the full message was not
+         * read because we were interrupted then we need to read the
+         * entire length again. */
+        if ((flags & MSG_PEEK) && ret != len)
+        {
+            continue;
+        }
+
+        received_bytes += ret;
+    }
+
+    return received_bytes;
+}
+
+/**
  * Get the transport ID to use in the CMSG counters application
  * name. This simply returns the transport ID of the transport except
  * in the case of unix transports where we always return "unix". This
