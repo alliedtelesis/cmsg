@@ -129,7 +129,7 @@ cmsg_transport_unix_recv (cmsg_transport *transport, int sock, void *buff, int l
      * if the data is not yet available.*/
     select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
 
-    return recv (sock, buff, len, flags);
+    return cmsg_transport_socket_recv (sock, buff, len, flags);
 }
 
 
@@ -178,7 +178,7 @@ static int32_t
 cmsg_transport_unix_client_send (cmsg_transport *transport, void *buff, int length,
                                  int flag)
 {
-    return (send (transport->socket, buff, length, flag));
+    return (cmsg_transport_socket_send (transport->socket, buff, length, flag));
 }
 
 
