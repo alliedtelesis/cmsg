@@ -96,7 +96,7 @@ enum ant_code
 message ant_result
 {
     // Operation error code
-    optional ant_code code = 1;
+    optional ant_code code = 1 [default = ANT_CODE_OK];
 
     // Message describing error
     optional string message = 2;
@@ -126,4 +126,3 @@ message passthrough_response
     optional uint32 status_code = 1;
     optional string response_body = 2;
 }
-
