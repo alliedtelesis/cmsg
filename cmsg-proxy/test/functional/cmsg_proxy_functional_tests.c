@@ -587,7 +587,7 @@ functional_tests_impl_test_body_get (const void *service)
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
     CMSG_SET_FIELD_PTR (&send_msg, _error_info, &error_info);
-    CMSG_SET_FIELD_PTR (&send_msg, _body, expected_body_text);
+    CMSG_SET_FIELD_PTR (&send_msg, _body, (char *) expected_body_text);
 
     functional_tests_server_test_body_getSend (service, &send_msg);
 }
@@ -682,7 +682,7 @@ functional_tests_impl_test_http_file_streaming (const void *service,
     CMSG_SET_FIELD_VALUE (&headers_msg, id, recv_msg->_streaming_id);
     CMSG_SET_FIELD_VALUE (&headers_msg, type, CONTENT_TYPE_FILE);
 
-    CMSG_SET_FIELD_PTR (&file_info_msg, file_name, test_file_name);
+    CMSG_SET_FIELD_PTR (&file_info_msg, file_name, (char *) test_file_name);
     CMSG_SET_FIELD_VALUE (&file_info_msg, file_size, test_file_length);
     CMSG_SET_FIELD_PTR (&headers_msg, file_info, &file_info_msg);
 
