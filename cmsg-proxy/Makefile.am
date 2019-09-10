@@ -151,10 +151,10 @@ cmsg_proxy_unit_tests_SOURCES = \
 	test/unit/cmsg_proxy_unit_tests.pb-c.h \
 	test/unit/cmsg_proxy_mem_unit_tests.c \
 	test/unit/cmsg_proxy_unit_tests.c
-cmsg_proxy_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
+cmsg_proxy_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) $(PTHREAD_CFLAGS) -include $(top_builddir)/config.h
 cmsg_proxy_unit_tests_CPPFLAGS  = -I$(top_srcdir) -I$(top_srcdir)/cmsg-proxy -I$(top_srcdir)/cmsg-proxy/src
 cmsg_proxy_unit_tests_LDFLAGS = -static
-cmsg_proxy_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(GMEM_DIAG_LIBS) \
+cmsg_proxy_unit_tests_LDADD   = $(PTHREAD_LIBS) $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(GMEM_DIAG_LIBS) \
                                 -lcmsg -lprotobuf-c -lprotobuf2json-c \
                                 -ljansson libcmsgproxyconfig.la
 
