@@ -295,10 +295,10 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/supported_service_tests.c \
 	test/functional/setup.c
 
-cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
+cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) $(PTHREAD_CFLAGS) -include $(top_builddir)/config.h
 cmsg_functional_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg -I$(top_builddir) -I$(top_srcdir)/cmsg/src
 cmsg_functional_tests_LDFLAGS = -static
-cmsg_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
+cmsg_functional_tests_LDADD   = $(PTHREAD_LIBS) $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
 
 test/unit/cmsg_unit_tests_api_auto.c \
 test/unit/cmsg_unit_tests_api_auto.h \
