@@ -26,9 +26,6 @@
 
 static const uint16_t subscriber_port = 18889;
 
-static const uint16_t tipc_instance = 1;
-static const uint16_t tipc_scope = TIPC_NODE_SCOPE;
-
 static bool subscriber_run = true;
 
 static int
