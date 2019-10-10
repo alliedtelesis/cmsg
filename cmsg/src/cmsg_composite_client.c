@@ -229,11 +229,13 @@ cmsg_composite_client_destroy_full (cmsg_client *_composite_client)
  * @param client - The client to send on.
  * @param buffer - The buffer of bytes to send.
  * @param buffer_len - The length of the buffer being sent.
+ * @param method_name - The name of the method being invoked.
  *
  * @returns CMSG_RET_OK on success, related error code on failure.
  */
 static int32_t
-cmsg_composite_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len)
+cmsg_composite_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len,
+                                  const char *method_name)
 {
     GList *l;
     cmsg_composite_client *composite_client = (cmsg_composite_client *) client;
@@ -252,7 +254,7 @@ cmsg_composite_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t
     {
         child = (cmsg_client *) l->data;
 
-        ret = child->send_bytes (child, buffer, buffer_len);
+        ret = child->send_bytes (child, buffer, buffer_len, method_name);
         if (ret != CMSG_RET_OK)
         {
             /* Don't let any other error overwrite a previous CMSG_RET_ERR */

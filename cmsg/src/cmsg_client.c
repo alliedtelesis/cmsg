@@ -46,7 +46,7 @@ static int32_t cmsg_client_queue_input (cmsg_client *client, uint32_t method_ind
 
 static void _cmsg_client_destroy (cmsg_client *client);
 static int32_t _cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer,
-                                        uint32_t buffer_len);
+                                        uint32_t buffer_len, const char *method_name);
 
 static void cmsg_client_close_wrapper (cmsg_transport *transport);
 
@@ -1145,18 +1145,20 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
  * @param client - The client to send on.
  * @param buffer - The buffer of bytes to send.
  * @param buffer_len - The length of the buffer being sent.
+ * @param method_name - The name of the method being invoked.
  *
  * @returns CMSG_RET_OK on success, related error code on failure.
  */
 static int32_t
-_cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len)
+_cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len,
+                         const char *method_name)
 {
     int ret = CMSG_RET_ERR;
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
     pthread_mutex_lock (&client->send_mutex);
-    ret = _cmsg_client_buffer_send (client, buffer, buffer_len);
+    ret = _cmsg_client_buffer_send_retry_once (client, buffer, buffer_len, method_name);
     pthread_mutex_unlock (&client->send_mutex);
 
     return ret;
@@ -1169,13 +1171,15 @@ _cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_l
  * @param client - The client to send on.
  * @param buffer - The buffer of bytes to send.
  * @param buffer_len - The length of the buffer being sent.
+ * @param method_name - The name of the method being invoked.
  *
  * @returns CMSG_RET_OK on success, related error code on failure.
  */
 int32_t
-cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len)
+cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len,
+                        const char *method_name)
 {
-    return client->send_bytes (client, buffer, buffer_len);
+    return client->send_bytes (client, buffer, buffer_len, method_name);
 }
 
 int32_t
