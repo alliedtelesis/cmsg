@@ -4,6 +4,7 @@
 #include "cmsg.h"
 #include "cmsg_private.h"
 #include "cmsg_error.h"
+#include "cmsg_protobuf-c.h"
 #include <gmem_diag.h>
 #include <sys/types.h>
 #include <sys/stat.h>

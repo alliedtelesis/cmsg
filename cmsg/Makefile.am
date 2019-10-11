@@ -103,7 +103,8 @@ libcmsg_la_SOURCES = \
 	src/publisher_subscriber/configuration_api_auto.c \
 	src/publisher_subscriber/configuration.pb-c.c \
 	src/publisher_subscriber/update_impl_auto.c \
-	src/publisher_subscriber/update.pb-c.c
+	src/publisher_subscriber/update.pb-c.c \
+	src/cmsg_protobuf-c.c
 
 libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c
 

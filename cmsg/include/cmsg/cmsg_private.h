@@ -72,8 +72,6 @@
 
 #define CMSG_TLV_SIZE(x) ((2 * sizeof (uint32_t)) + (x))
 
-#define IS_METHOD_DEFINED(x)  (x == UNDEFINED_METHOD ? false : true)
-
 typedef enum _cmsg_object_type_e
 {
     CMSG_OBJ_TYPE_NONE,
