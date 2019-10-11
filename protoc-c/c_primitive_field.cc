@@ -100,12 +100,6 @@ void PrimitiveFieldGenerator::GenerateStructMembers(io::Printer* printer) const
     case FieldDescriptor::TYPE_BYTES   :
     case FieldDescriptor::TYPE_GROUP   :
     case FieldDescriptor::TYPE_MESSAGE : GOOGLE_LOG(FATAL) << "not a primitive type"; break;
-#ifdef ATL_CHANGE
-    case FieldDescriptor::TYPE_INT8    : c_type = "int8_t"; break;
-    case FieldDescriptor::TYPE_UINT8   : c_type = "uint8_t"; break;
-    case FieldDescriptor::TYPE_INT16   : c_type = "int16_t"; break;
-    case FieldDescriptor::TYPE_UINT16  : c_type = "uint16_t"; break;
-#endif /* ATL_CHANGE */
 
     // No default because we want the compiler to complain if any new
     // types are added.
@@ -148,16 +142,6 @@ string PrimitiveFieldGenerator::GetDefaultValue() const
       return SimpleDtoa(descriptor_->default_value_double());
     case FieldDescriptor::CPPTYPE_BOOL:
       return descriptor_->default_value_bool() ? "1" : "0";
-#ifdef ATL_CHANGE
-    case FieldDescriptor::CPPTYPE_INT8:
-      return SimpleItoa(descriptor_->default_value_int8());
-    case FieldDescriptor::CPPTYPE_UINT8:
-      return SimpleItoa(descriptor_->default_value_uint8());
-    case FieldDescriptor::CPPTYPE_INT16:
-      return SimpleItoa(descriptor_->default_value_int16());
-    case FieldDescriptor::CPPTYPE_UINT16:
-      return SimpleItoa(descriptor_->default_value_uint16());
-#endif /* ATL_CHANGE */
     default:
       GOOGLE_LOG(DFATAL) << "unexpected CPPTYPE in c_primitive_field";
       return "UNEXPECTED_CPPTYPE";
@@ -207,12 +191,6 @@ void PrimitiveFieldGenerator::GenerateDescriptorInitializer(io::Printer* printer
     WRITE_CASE(DOUBLE)
 
     WRITE_CASE(BOOL)
-#ifdef ATL_CHANGE
-    WRITE_CASE(INT8)
-    WRITE_CASE(UINT8)
-    WRITE_CASE(INT16)
-    WRITE_CASE(UINT16)
-#endif /* ATL_CHANGE */
   #undef WRITE_CASE
 
     case FieldDescriptor::TYPE_ENUM    : 

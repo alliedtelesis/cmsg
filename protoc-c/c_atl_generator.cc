@@ -786,18 +786,6 @@ string AtlCodeGenerator::TypeToString(FieldDescriptor::Type type)
     case FieldDescriptor::TYPE_SINT64:
         description = "int64_t";
         break;
-    case FieldDescriptor::TYPE_INT8:
-        description = "int8_t";
-        break;
-    case FieldDescriptor::TYPE_UINT8:
-        description = "uint8_t";
-        break;
-    case FieldDescriptor::TYPE_INT16:
-        description = "int16_t";
-        break;
-    case FieldDescriptor::TYPE_UINT16:
-        description = "uint16_t";
-        break;
     default:
         break;
         }
