@@ -59,7 +59,8 @@ typedef struct _cmsg_client_s
     pthread_mutex_t invoke_mutex;
 
     void (*client_destroy) (cmsg_client *client);
-    int32_t (*send_bytes) (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len);
+    int32_t (*send_bytes) (cmsg_client *client, uint8_t *buffer, uint32_t buffer_len,
+                           const char *method_name);
 
     ProtobufCService base_service;
     cmsg_transport *_transport;

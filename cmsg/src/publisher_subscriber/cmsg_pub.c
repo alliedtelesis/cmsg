@@ -326,7 +326,8 @@ cmsg_publisher_process_send_queue (cmsg_publisher *publisher)
 
         if (client)
         {
-            cmsg_client_send_bytes (client, queue_entry->packet, queue_entry->packet_len);
+            cmsg_client_send_bytes (client, queue_entry->packet, queue_entry->packet_len,
+                                    queue_entry->method_name);
         }
 
         pthread_mutex_unlock (&publisher->subscribed_methods_mutex);
