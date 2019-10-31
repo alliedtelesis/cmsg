@@ -409,7 +409,6 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
     time_t seconds_waited = 0;
     struct timeval start;
     struct timeval current;
-    int saved_errno = 0;
 
     gettimeofday (&start, NULL);
 
@@ -418,7 +417,6 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
     {
         nbytes = recv_wrapper (transport, socket, header_received,
                                sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
-        saved_errno = errno;
         if (nbytes == (int) sizeof (cmsg_header))
         {
             break;
@@ -451,14 +449,7 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
                      * then we return an error if this is not the case. */
                     if (socket_is_ready)
                     {
-                        /* Confirm there is actually zero data on the socket, rather than
-                         * some amount of bytes less than a full packet header. */
-                        nbytes = recv_wrapper (transport, socket, header_received,
-                                               1, MSG_PEEK | MSG_DONTWAIT);
-                        if (nbytes != 1)
-                        {
-                            return CMSG_PEEK_CODE_NO_DATA;
-                        }
+                        return CMSG_PEEK_CODE_NO_DATA;
                     }
 
                     // The data is not ready, just wait and try again.
@@ -493,7 +484,7 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
         // Report the failure and try to recover
         CMSG_LOG_TRANSPORT_ERROR (transport,
                                   "Receive timed out socket %d nbytes was %d last error %s",
-                                  socket, nbytes, strerror (saved_errno));
+                                  socket, nbytes, strerror (errno));
 
         ret = CMSG_PEEK_CODE_TIMEOUT;
     }
