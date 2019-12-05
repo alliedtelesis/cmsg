@@ -179,20 +179,6 @@ BUILT_SOURCES =  \
 	src/publisher_subscriber/update.pb-c.c \
 	src/publisher_subscriber/update.pb-c.h
 
-if BUILD_UNITTEST
-BUILT_SOURCES += \
-	test/functional/cmsg_functional_tests_api_auto.c \
-	test/functional/cmsg_functional_tests_api_auto.h \
-	test/functional/cmsg_functional_tests_impl_auto.c \
-	test/functional/cmsg_functional_tests_impl_auto.h \
-	test/functional/cmsg_functional_tests_types_auto.h \
-	test/functional/cmsg_functional_tests.pb-c.c \
-	test/functional/cmsg_functional_tests.pb-c.h \
-	test/functional/ant_result_types_auto.h \
-	test/functional/ant_result.pb-c.c \
-	test/functional/ant_result.pb-c.h
-endif
-
 CLEANFILES = $(BUILT_SOURCES)
 
 cmsg_SOURCES = src/shell_application/cmsg_shell_application.c
@@ -233,6 +219,25 @@ cmsg_psd_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS
 cmsg_psd_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 
 if BUILD_UNITTEST
+BUILT_SOURCES += \
+	test/unit/cmsg_unit_tests_api_auto.c \
+	test/unit/cmsg_unit_tests_api_auto.h \
+	test/unit/cmsg_unit_tests_impl_auto.c \
+	test/unit/cmsg_unit_tests_impl_auto.h \
+	test/unit/cmsg_unit_tests_types_auto.h \
+	test/unit/cmsg_unit_tests.pb-c.c \
+	test/unit/cmsg_unit_tests.pb-c.h \
+	test/functional/cmsg_functional_tests_api_auto.c \
+	test/functional/cmsg_functional_tests_api_auto.h \
+	test/functional/cmsg_functional_tests_impl_auto.c \
+	test/functional/cmsg_functional_tests_impl_auto.h \
+	test/functional/cmsg_functional_tests_types_auto.h \
+	test/functional/cmsg_functional_tests.pb-c.c \
+	test/functional/cmsg_functional_tests.pb-c.h \
+	test/functional/ant_result_types_auto.h \
+	test/functional/ant_result.pb-c.c \
+	test/functional/ant_result.pb-c.h
+
 test/unit/cmsg_unit_tests_api_auto.c \
 test/unit/cmsg_unit_tests_api_auto.h \
 test/unit/cmsg_unit_tests_impl_auto.c \
@@ -299,15 +304,6 @@ cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLA
 cmsg_functional_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg -I$(top_builddir) -I$(top_srcdir)/cmsg/src
 cmsg_functional_tests_LDFLAGS = -static
 cmsg_functional_tests_LDADD   = $(PTHREAD_LIBS) $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
-
-test/unit/cmsg_unit_tests_api_auto.c \
-test/unit/cmsg_unit_tests_api_auto.h \
-test/unit/cmsg_unit_tests_impl_auto.c \
-test/unit/cmsg_unit_tests_impl_auto.h \
-test/unit/cmsg_unit_tests_types_auto.h \
-test/unit/cmsg_unit_tests.pb-c.c \
-test/unit/cmsg_unit_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/unit/cmsg_unit_tests.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/unit --c_out=$(top_srcdir)/cmsg/test/unit $(top_srcdir)/cmsg/test/unit/cmsg_unit_tests.proto
 
 bin_PROGRAMS += cmsg_service_listener_unit_tests
 cmsg_service_listener_unit_tests_SOURCES = \
