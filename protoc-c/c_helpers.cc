@@ -114,9 +114,16 @@ string CamelToUpper(const string &name) {
   for (int i = 0; i < len; i++) {
     bool is_upper = isupper(name[i]);
     if (is_upper) {
+#ifdef ATL_CHANGE
+      //if (!was_upper)
+      //  rv += '_';
+      //rv += name[i];
+      rv += name[i];
+#else
       if (!was_upper)
 	rv += '_';
       rv += name[i];
+#endif /* ATL_CHANGE */
     } else {
       rv += toupper(name[i]);
     }
