@@ -152,22 +152,6 @@ bool CGenerator::Generate(const FileDescriptor* file,
 
   FileGenerator file_generator(file, dllexport_decl);
 
-  // Generate header.
-  {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
-      output_directory->Open(basename + ".h"));
-    io::Printer printer(output.get(), '$');
-    file_generator.GenerateHeader(&printer);
-  }
-
-  // Generate cc file.
-  {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
-      output_directory->Open(basename + ".c"));
-    io::Printer printer(output.get(), '$');
-    file_generator.GenerateSource(&printer);
-  }
-
 #ifdef ATL_CHANGE
   // generate the atl types header file
   string types_basename = GetAtlTypesFilename(file->name());

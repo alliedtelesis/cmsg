@@ -36,6 +36,7 @@ AX_PTHREAD([],[unittest_prereq=no])
 
 AC_ARG_VAR(PROTOC_PATH, [  Path to the protoc compiler])
 AC_ARG_VAR(PROTOC_CMSG_PATH, [  Path to the protoc-cmsg compiler])
+AC_ARG_VAR(PROTOC_C_PATH, [  Path to the protoc-c compiler])
 
 BUILD_PROTOC_CMSG=1
 AC_ARG_ENABLE(protoc-cmsg, [  --disable-protoc-cmsg   Suppress build of protoc-cmsg],
@@ -106,6 +107,7 @@ AC_MSG_RESULT([
     cmsg options
         protoc-cmsg:            ${BUILD_PROTOC_CMSG}
         protoc-path:            ${PROTOC_PATH}
+        protoc-c-path:          ${PROTOC_C_PATH}
         protoc-cmsg-path:       ${PROTOC_CMSG_PATH}
         cmsg:                   ${BUILD_CMSG}
         counterd:               ${HAVE_COUNTERD}
