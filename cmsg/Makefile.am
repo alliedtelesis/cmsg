@@ -10,8 +10,9 @@ src/cmsg_impl_auto.c \
 src/cmsg_impl_auto.h \
 src/cmsg_impl_types_auto.h \
 src/cmsg.pb-c.c \
-src/cmsg.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/cmsg.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/cmsg.proto
+src/cmsg.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/cmsg.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/cmsg.proto
 
 src/service_listener/configuration_api_auto.c \
 src/service_listener/configuration_api_auto.h \
@@ -19,8 +20,9 @@ src/service_listener/configuration_impl_auto.c \
 src/service_listener/configuration_impl_auto.h \
 src/service_listener/configuration_impl_types_auto.h \
 src/service_listener/configuration.pb-c.c \
-src/service_listener/configuration.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/service_listener/configuration.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/configuration.proto
+src/service_listener/configuration.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/service_listener/configuration.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/configuration.proto
 
 src/service_listener/remote_sync_api_auto.c \
 src/service_listener/remote_sync_api_auto.h \
@@ -28,8 +30,9 @@ src/service_listener/remote_sync_impl_auto.c \
 src/service_listener/remote_sync_impl_auto.h \
 src/service_listener/remote_sync_impl_types_auto.h \
 src/service_listener/remote_sync.pb-c.c \
-src/service_listener/remote_sync.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/service_listener/remote_sync.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/remote_sync.proto
+src/service_listener/remote_sync.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/service_listener/remote_sync.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/remote_sync.proto
 
 src/service_listener/events_api_auto.c \
 src/service_listener/events_api_auto.h \
@@ -37,8 +40,9 @@ src/service_listener/events_impl_auto.c \
 src/service_listener/events_impl_auto.h \
 src/service_listener/events_impl_types_auto.h \
 src/service_listener/events.pb-c.c \
-src/service_listener/events.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/service_listener/events.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/events.proto
+src/service_listener/events.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/service_listener/events.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/events.proto
 
 src/publisher_subscriber/configuration_api_auto.c \
 src/publisher_subscriber/configuration_api_auto.h \
@@ -46,8 +50,9 @@ src/publisher_subscriber/configuration_impl_auto.c \
 src/publisher_subscriber/configuration_impl_auto.h \
 src/publisher_subscriber/configuration_impl_types_auto.h \
 src/publisher_subscriber/configuration.pb-c.c \
-src/publisher_subscriber/configuration.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/publisher_subscriber/configuration.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/configuration.proto
+src/publisher_subscriber/configuration.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/publisher_subscriber/configuration.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/configuration.proto
 
 src/publisher_subscriber/remote_sync_api_auto.c \
 src/publisher_subscriber/remote_sync_api_auto.h \
@@ -55,8 +60,9 @@ src/publisher_subscriber/remote_sync_impl_auto.c \
 src/publisher_subscriber/remote_sync_impl_auto.h \
 src/publisher_subscriber/remote_sync_impl_types_auto.h \
 src/publisher_subscriber/remote_sync.pb-c.c \
-src/publisher_subscriber/remote_sync.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/publisher_subscriber/remote_sync.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/remote_sync.proto
+src/publisher_subscriber/remote_sync.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/publisher_subscriber/remote_sync.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/remote_sync.proto
 
 src/publisher_subscriber/update_api_auto.c \
 src/publisher_subscriber/update_api_auto.h \
@@ -64,8 +70,9 @@ src/publisher_subscriber/update_impl_auto.c \
 src/publisher_subscriber/update_impl_auto.h \
 src/publisher_subscriber/update_impl_types_auto.h \
 src/publisher_subscriber/update.pb-c.c \
-src/publisher_subscriber/update.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) src/publisher_subscriber/update.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/update.proto
+src/publisher_subscriber/update.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/publisher_subscriber/update.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/update.proto
 
 
 libcmsg_la_SOURCES = \
@@ -245,8 +252,9 @@ test/unit/cmsg_unit_tests_impl_auto.c \
 test/unit/cmsg_unit_tests_impl_auto.h \
 test/unit/cmsg_unit_tests_types_auto.h \
 test/unit/cmsg_unit_tests.pb-c.c \
-test/unit/cmsg_unit_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/unit/cmsg_unit_tests.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/unit --c_out=$(top_srcdir)/cmsg/test/unit $(top_srcdir)/cmsg/test/unit/cmsg_unit_tests.proto
+test/unit/cmsg_unit_tests.pb-c.h: $(PROTOC_PATH)$(EXEEXT) test/unit/cmsg_unit_tests.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/unit \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/test/unit $(top_srcdir)/cmsg/test/unit/cmsg_unit_tests.proto
 
 bin_PROGRAMS += cmsg_unit_tests
 cmsg_unit_tests_SOURCES = \
@@ -270,13 +278,15 @@ test/functional/cmsg_functional_tests_impl_auto.c \
 test/functional/cmsg_functional_tests_impl_auto.h \
 test/functional/cmsg_functional_tests_types_auto.h \
 test/functional/cmsg_functional_tests.pb-c.c \
-test/functional/cmsg_functional_tests.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) test/functional/cmsg_functional_tests.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg/test/functional/cmsg_functional_tests.proto
+test/functional/cmsg_functional_tests.pb-c.h: $(PROTOC_PATH)$(EXEEXT) test/functional/cmsg_functional_tests.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg/test/functional/cmsg_functional_tests.proto
 
 test/functional/ant_result_types_auto.h \
 test/functional/ant_result.pb-c.c \
-test/functional/ant_result.pb-c.h: $(PROTOC_CMSG_PATH)$(EXEEXT) $(top_srcdir)/cmsg-proxy/src/ant_result.proto
-	$(AM_V_GEN)$(PROTOC_CMSG_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg-proxy/src/ant_result.proto
+test/functional/ant_result.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/cmsg-proxy/src/ant_result.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg-proxy/src/ant_result.proto
 
 
 bin_PROGRAMS += cmsg_functional_tests
