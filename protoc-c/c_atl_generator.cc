@@ -275,7 +275,6 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //start filling it in
     printer->Print("{\n");
     printer->Indent();
-    printer->Print("int32_t _return_status = CMSG_RET_ERR;\n");
 
     //
     // must create send message if it is not supplied by the developer
@@ -288,18 +287,8 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
       // change the name of the send message so that we can get the address of it for the send call
       vars_["send_msg_name"] = "&_send_msg";
     }
-    //
-    // only create response msg when response has some fields
-    //
-    if(method->output_type()->field_count() > 0)
-    {
-      printer->Print("cmsg_client_closure_data _closure_data[CMSG_RECV_ARRAY_SIZE] = {{NULL, NULL}};\n");
-    }
-    else
-    {
-      // no fields so set our send message name to NULL
-      vars_["closure_data_name"] = "NULL";
-    }
+
+    printer->Print("cmsg_client_closure_data _closure_data[CMSG_RECV_ARRAY_SIZE] = {{NULL, NULL, CMSG_RET_ERR}};\n");
     printer->Print(vars_, "ProtobufCService *_service = (ProtobufCService *)_client;\n");
 
     //
@@ -385,32 +374,38 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
     vars_["method_lcname"] = CamelToLower(method->name());
 
-    printer->Print(vars_, "_return_status = $lcfullname$_$method_lcname$ (_service, $send_msg_name$, NULL, $closure_data_name$);\n\n");
+    printer->Print(vars_, "$lcfullname$_$method_lcname$ (_service, $send_msg_name$, NULL, $closure_data_name$);\n\n");
 
     printer->Print("\n");
 
     //
     // copy the return values (if any are expected)
     //
+    printer->Print("int i = 0;\n");
+    printer->Print("/* sanity check our returned message pointer */\n");
+    printer->Print("while (_closure_data[i].message != NULL)\n");
+    printer->Print("{\n");
+    printer->Indent();
+
     if (method->output_type()->field_count() > 0)
     {
-      printer->Print("int i = 0;\n");
-      printer->Print("/* sanity check our returned message pointer */\n");
-      printer->Print("while (_closure_data[i].message != NULL)\n");
-      printer->Print("{\n");
-      printer->Indent();
-
       printer->Print("/* Update developer output msg to point to received message from invoke */\n");
-      printer->Print("_recv_msg[i] = _closure_data[i].message;\n");
-      printer->Print("i++;\n");
-      printer->Print("\n");
-      printer->Outdent();
-      printer->Print("}\n"); //while (_closure_data[i].message != NULL)
+      printer->Print(vars_, "_recv_msg[i] = ($output_typename$ *) _closure_data[i].message;\n");
     }
+    else
+    {
+      printer->Print("/* Free the received message since the caller does not expect to receive it */\n");
+      printer->Print("CMSG_FREE_RECV_MSG (_closure_data[i].message);\n");
+    }
+    printer->Print("i++;\n");
+    printer->Print("\n");
+    printer->Outdent();
+    printer->Print("}\n");
+
     //
     // finally return something
     //
-    printer->Print("return _return_status;\n");
+    printer->Print("return _closure_data[0].retval;\n");
     printer->Outdent();
     printer->Print("}\n\n");
 

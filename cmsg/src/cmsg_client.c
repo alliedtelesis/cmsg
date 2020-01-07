@@ -37,10 +37,10 @@ static cmsg_client *_cmsg_create_client_tipc (const char *server, int member_id,
 
 int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
 
-static int32_t cmsg_client_invoke (ProtobufCService *service,
-                                   uint32_t method_index,
-                                   const ProtobufCMessage *input,
-                                   ProtobufCClosure closure, void *closure_data);
+static void cmsg_client_invoke (ProtobufCService *service,
+                                uint32_t method_index,
+                                const ProtobufCMessage *input,
+                                ProtobufCClosure closure, void *_closure_data);
 
 static int32_t cmsg_client_queue_input (cmsg_client *client, uint32_t method_index,
                                         const ProtobufCMessage *input, bool *did_queue);
@@ -433,7 +433,7 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
 
 int32_t
 cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
-                         ProtobufCClosure closure, void *closure_data)
+                         ProtobufCClosure closure, cmsg_client_closure_data *closure_data)
 {
     cmsg_status_code status_code;
     ProtobufCMessage *message_pt;
@@ -514,20 +514,11 @@ cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
         CMSG_COUNTER_INC (client, cntr_unknown_fields);
     }
 
-    if (closure_data)
-    {
-        // free unknown fields from received message as the developer doesn't know about them
-        protobuf_c_message_free_unknown_fields (message_pt, &cmsg_memory_allocator);
+    // free unknown fields from received message as the developer doesn't know about them
+    protobuf_c_message_free_unknown_fields (message_pt, &cmsg_memory_allocator);
 
-        ((cmsg_client_closure_data *) (closure_data))->message = (void *) message_pt;
-        ((cmsg_client_closure_data *) (closure_data))->allocator = &cmsg_memory_allocator;
-    }
-    else
-    {
-        /* only cleanup if the message is not passed back to the
-         * api through the closure_data (above) */
-        protobuf_c_message_free_unpacked (message_pt, &cmsg_memory_allocator);
-    }
+    closure_data->message = message_pt;
+    closure_data->allocator = &cmsg_memory_allocator;
 
     return CMSG_RET_OK;
 }
@@ -540,22 +531,27 @@ cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
  * multiple threads (as part of the invoke call) is handled directly
  * by the queueing functionality.
  */
-static int32_t
+static void
 cmsg_client_invoke (ProtobufCService *service, uint32_t method_index,
                     const ProtobufCMessage *input, ProtobufCClosure closure,
-                    void *closure_data)
+                    void *_closure_data)
 {
     int32_t ret;
     cmsg_client *client = (cmsg_client *) service;
     bool did_queue = false;
+    cmsg_client_closure_data *closure_data = (cmsg_client_closure_data *) _closure_data;
 
-    CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
+    if (client == NULL || input == NULL)
+    {
+        closure_data->retval = CMSG_RET_ERR;
+        return;
+    }
 
     ret = cmsg_client_queue_input (client, method_index, input, &did_queue);
     if (ret != CMSG_RET_OK)
     {
-        return ret;
+        closure_data->retval = ret;
+        return;
     }
 
     if (!did_queue)
@@ -571,7 +567,7 @@ cmsg_client_invoke (ProtobufCService *service, uint32_t method_index,
         pthread_mutex_unlock (&client->invoke_mutex);
     }
 
-    return ret;
+    closure_data->retval = ret;
 }
 
 static int

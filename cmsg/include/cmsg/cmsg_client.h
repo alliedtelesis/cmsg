@@ -32,8 +32,9 @@ typedef enum _cmsg_client_state_e
 
 typedef struct _cmsg_client_closure_data_s
 {
-    void *message;
+    ProtobufCMessage *message;
     ProtobufCAllocator *allocator;
+    int retval;
 } cmsg_client_closure_data;
 
 typedef int (*cmsg_queue_filter_func_t) (cmsg_client *, const char *,
@@ -45,17 +46,18 @@ typedef struct _cmsg_client_s
     //this is a hack to get around a check when a client method is called
     //to not change the order of the first two
     const ProtobufCServiceDescriptor *descriptor;
-    int32_t (*invoke) (ProtobufCService *service,
-                       uint32_t method_index,
-                       const ProtobufCMessage *input,
-                       ProtobufCClosure closure, void *closure_data);
+    void (*invoke) (ProtobufCService *service,
+                    uint32_t method_index,
+                    const ProtobufCMessage *input,
+                    ProtobufCClosure closure, void *closure_data);
 
     // pointers to the private functions used for invoke
     int32_t (*invoke_send) (cmsg_client *client, uint32_t method_index,
                             const ProtobufCMessage *input);
 
     int32_t (*invoke_recv) (cmsg_client *client, uint32_t method_index,
-                            ProtobufCClosure closure, void *closure_data);
+                            ProtobufCClosure closure,
+                            cmsg_client_closure_data *closure_data);
     pthread_mutex_t invoke_mutex;
 
     void (*client_destroy) (cmsg_client *client);
@@ -133,7 +135,8 @@ int32_t cmsg_client_invoke_send (cmsg_client *client, uint32_t method_index,
                                  const ProtobufCMessage *input);
 
 int32_t cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
-                                 ProtobufCClosure closure, void *closure_data);
+                                 ProtobufCClosure closure,
+                                 cmsg_client_closure_data *closure_data);
 
 int32_t cmsg_client_invoke_send_direct (cmsg_client *client, uint32_t method_index,
                                         const ProtobufCMessage *input);
