@@ -91,20 +91,20 @@ class MessageGenerator {
   // Header stuff.
 
   // Generate typedef.
-  void GenerateStructTypedef(io::Printer* printer);
+  void GenerateStructTypedefDefine(io::Printer* printer);
 
   // Generate descriptor prototype
-  void GenerateDescriptorDeclarations(io::Printer* printer);
+  void GenerateDescriptorDeclarationsDefines(io::Printer* printer);
 
   // Generate descriptor prototype
-  void GenerateClosureTypedef(io::Printer* printer);
+  void GenerateClosureTypedefDefine(io::Printer* printer);
 
   // Generate definitions of all nested enums (must come before class
   // definitions because those classes use the enums definitions).
-  void GenerateEnumDefinitions(io::Printer* printer);
+  void GenerateEnumDefinitionsDefine(io::Printer* printer);
 
   // Generate definitions for this class and all its nested types.
-  void GenerateStructDefinition(io::Printer* printer);
+  void GenerateStructDefinitionDefine(io::Printer* printer);
 
 #ifdef ATL_CHANGE
   // Generate _INIT macro for populating this structure
@@ -114,7 +114,7 @@ class MessageGenerator {
   void GenerateStructStaticInitMacro(io::Printer* printer);
 
   // Generate standard helper functions declarations for this message.
-  void GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage);
+  void GenerateHelperFunctionDeclarationsDefine(io::Printer* printer, bool is_submessage);
 
   // Source file stuff.
 
@@ -122,6 +122,9 @@ class MessageGenerator {
   // descriptor.
   void GenerateMessageDescriptor(io::Printer* printer);
   void GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage);
+
+  void GenerateValidationDefinitions(io::Printer* printer, bool is_submessage);
+  void GenerateValidationDeclarations(io::Printer* printer, bool is_submessage);
 
  private:
 

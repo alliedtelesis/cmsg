@@ -71,6 +71,7 @@
 #include <google/protobuf/wire_format.h>
 #include <google/protobuf/descriptor.pb.h>
 #ifdef ATL_CHANGE
+#include <protoc-c/c_helpers_cmsg.h>
 #include "validation.pb.h"
 #endif /* ATL_CHANGE */
 
@@ -112,166 +113,69 @@ MessageGenerator::MessageGenerator(const Descriptor* descriptor,
 MessageGenerator::~MessageGenerator() {}
 
 void MessageGenerator::
-GenerateStructTypedef(io::Printer* printer) {
-  printer->Print("typedef struct _$classname$ $classname$;\n",
+GenerateStructTypedefDefine(io::Printer* printer) {
+    printer->Print("typedef $classname$ $cmsg_classname$;\n",
+                 "cmsg_classname", cmsg::FullNameToC(descriptor_->full_name()),
                  "classname", FullNameToC(descriptor_->full_name()));
 
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
-    nested_generators_[i]->GenerateStructTypedef(printer);
+    nested_generators_[i]->GenerateStructTypedefDefine(printer);
   }
 }
 
 void MessageGenerator::
-GenerateEnumDefinitions(io::Printer* printer) {
+GenerateEnumDefinitionsDefine(io::Printer* printer) {
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
-    nested_generators_[i]->GenerateEnumDefinitions(printer);
+    nested_generators_[i]->GenerateEnumDefinitionsDefine(printer);
   }
 
   for (int i = 0; i < descriptor_->enum_type_count(); i++) {
-    enum_generators_[i]->GenerateDefinition(printer);
+    enum_generators_[i]->GenerateDefinitionDefine(printer);
   }
 }
 
 
 void MessageGenerator::
-GenerateStructDefinition(io::Printer* printer) {
+GenerateStructDefinitionDefine(io::Printer* printer) {
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
-    nested_generators_[i]->GenerateStructDefinition(printer);
+    nested_generators_[i]->GenerateStructDefinitionDefine(printer);
   }
 
   std::map<string, string> vars;
-  vars["classname"] = FullNameToC(descriptor_->full_name());
-  vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
+
+  //
   vars["ucclassname"] = FullNameToUpper(descriptor_->full_name());
-  vars["field_count"] = SimpleItoa(descriptor_->field_count());
-  if (dllexport_decl_.empty()) {
-    vars["dllexport"] = "";
-  } else {
-    vars["dllexport"] = dllexport_decl_ + " ";
-  }
+  vars["cmsg_ucclassname"] = cmsg::FullNameToUpper(descriptor_->full_name());
 
   // Generate the case enums for unions
   for (int i = 0; i < descriptor_->oneof_decl_count(); i++) {
     const OneofDescriptor *oneof = descriptor_->oneof_decl(i);
-    vars["opt_comma"] = ",";
-
+    vars["ucclassname"] = FullNameToUpper(descriptor_->full_name());
     vars["oneofname"] = FullNameToUpper(oneof->name());
     vars["foneofname"] = FullNameToC(oneof->full_name());
+    vars["cmsg_foneofname"] = cmsg::FullNameToC(oneof->full_name());
+    vars["cmsg_oneofname"] = cmsg::FullNameToUpper(oneof->name());
+    vars["cmsg_ucclassname"] = cmsg::FullNameToUpper(descriptor_->full_name());
 
-    printer->Print("typedef enum {\n");
-    printer->Indent();
-#ifdef ATL_CHANGE
-    printer->Print(vars, "$ucclassname$_$oneofname$_NOT_SET = 0,\n");
-#else
-    printer->Print(vars, "$ucclassname$__$oneofname$__NOT_SET = 0,\n");
-#endif
+    printer->Print(vars, "#define $cmsg_foneofname$Case $foneofname$Case\n");
+    printer->Print(vars, "#define $cmsg_ucclassname$_$cmsg_oneofname$_NOT_SET $ucclassname$__$oneofname$__NOT_SET\n");
+
     for (int j = 0; j < oneof->field_count(); j++) {
       const FieldDescriptor *field = oneof->field(j);
       vars["fieldname"] = FullNameToUpper(field->name());
-      vars["fieldnum"] = SimpleItoa(field->number());
-      bool isLast = j == oneof->field_count() - 1;
-      if (isLast) {
-        vars["opt_comma"] = "";
-      }
-#ifdef ATL_CHANGE
-      printer->Print(vars, "$ucclassname$_$oneofname$_$fieldname$ = $fieldnum$$opt_comma$\n");
-#else
-      printer->Print(vars, "$ucclassname$__$oneofname$_$fieldname$ = $fieldnum$$opt_comma$\n");
-#endif
-    }
-#ifdef ATL_CHANGE
-    printer->Print(vars, "  PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE($ucclassname$_$oneofname$)\n");
-#else
-    printer->Print(vars, "  PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE($ucclassname$__$oneofname$)\n");
-#endif
-    printer->Outdent();
-    printer->Print(vars, "} $foneofname$Case;\n\n");
-  }
-
-  SourceLocation msgSourceLoc;
-  descriptor_->GetSourceLocation(&msgSourceLoc);
-  PrintComment (printer, msgSourceLoc.leading_comments);
-
-  printer->Print(vars,
-    "struct $dllexport$ _$classname$\n"
-    "{\n"
-    "  ProtobufCMessage base;\n");
-
-  // Generate fields.
-  printer->Indent();
-  for (int i = 0; i < descriptor_->field_count(); i++) {
-    const FieldDescriptor *field = descriptor_->field(i);
-    if (field->containing_oneof() == NULL) {
-      SourceLocation fieldSourceLoc;
-      field->GetSourceLocation(&fieldSourceLoc);
-
-      PrintComment (printer, fieldSourceLoc.leading_comments);
-      PrintComment (printer, fieldSourceLoc.trailing_comments);
-      field_generators_.get(field).GenerateStructMembers(printer);
+      vars["cmsg_fieldname"] = cmsg::FullNameToUpper(field->name());
+      printer->Print(vars, "#define $cmsg_ucclassname$_$cmsg_oneofname$_$cmsg_fieldname$ $ucclassname$__$oneofname$_$fieldname$\n");
     }
   }
-
-  // Generate unions from oneofs.
-  for (int i = 0; i < descriptor_->oneof_decl_count(); i++) {
-    const OneofDescriptor *oneof = descriptor_->oneof_decl(i);
-    vars["oneofname"] = FullNameToLower(oneof->name());
-    vars["foneofname"] = FullNameToC(oneof->full_name());
-
-    printer->Print(vars, "$foneofname$Case $oneofname$_case;\n");
-
-    printer->Print("union {\n");
-    printer->Indent();
-    for (int j = 0; j < oneof->field_count(); j++) {
-      const FieldDescriptor *field = oneof->field(j);
-      SourceLocation fieldSourceLoc;
-      field->GetSourceLocation(&fieldSourceLoc);
-
-      PrintComment (printer, fieldSourceLoc.leading_comments);
-      PrintComment (printer, fieldSourceLoc.trailing_comments);
-      field_generators_.get(field).GenerateStructMembers(printer);
-    }
-    printer->Outdent();
-    printer->Print(vars, "};\n");
-  }
-  printer->Outdent();
-
-  printer->Print(vars, "};\n");
 
   for (int i = 0; i < descriptor_->field_count(); i++) {
     const FieldDescriptor *field = descriptor_->field(i);
     if (field->has_default_value()) {
-      field_generators_.get(field).GenerateDefaultValueDeclarations(printer);
+      field_generators_.get(field).GenerateDefaultValueDeclarationsDefine(printer);
     }
   }
 
-#ifdef ATL_CHANGE
-  printer->Print(vars, "#define $ucclassname$_INIT \\\n"
-		       " { PROTOBUF_C_MESSAGE_INIT (&$lcclassname$_descriptor) \\\n    ");
-#else
-  printer->Print(vars, "#define $ucclassname$__INIT \\\n"
-		       " { PROTOBUF_C_MESSAGE_INIT (&$lcclassname$__descriptor) \\\n    ");
-#endif /* ATL_CHANGE */
-  for (int i = 0; i < descriptor_->field_count(); i++) {
-    const FieldDescriptor *field = descriptor_->field(i);
-    if (field->containing_oneof() == NULL) {
-      printer->Print(", ");
-      field_generators_.get(field).GenerateStaticInit(printer);
-    }
-  }
-  for (int i = 0; i < descriptor_->oneof_decl_count(); i++) {
-    const OneofDescriptor *oneof = descriptor_->oneof_decl(i);
-    vars["foneofname"] = FullNameToUpper(oneof->full_name());
-    // Initialize the case enum
-#ifdef ATL_CHANGE
-    printer->Print(vars, ", $foneofname$_NOT_SET");
-#else
-    printer->Print(vars, ", $foneofname$__NOT_SET");
-#endif
-    // Initialize the union
-    printer->Print(", {0}");
-  }
-  printer->Print(" }\n\n\n");
-
+  printer->Print(vars, "#define $cmsg_ucclassname$_INIT $ucclassname$__INIT\n");
 }
 
 #ifdef ATL_CHANGE
@@ -435,7 +339,7 @@ generate_fields_validation (const Descriptor *message, io::Printer* printer)
         {
             std::map<string, string> vars;
             const Descriptor *submessage = field->message_type();
-            vars["lcclassname"] = FullNameToLower(submessage->full_name());
+            vars["lcclassname"] = cmsg::FullNameToLower(submessage->full_name());
             vars["fieldname"] = field->name();
 
             printer->Print(vars, "if (message->$fieldname$ && !$lcclassname$_validate (message->$fieldname$ , err_str, err_str_len))\n");
@@ -458,8 +362,8 @@ generate_validation_function (const Descriptor *message, io::Printer* printer)
         return;
     }
 
-    vars["classname"] = FullNameToC(message->full_name());
-    vars["lcclassname"] = FullNameToLower(message->full_name());
+    vars["classname"] = cmsg::FullNameToC(message->full_name());
+    vars["lcclassname"] = cmsg::FullNameToLower(message->full_name());
     printer->Print("\n");
     printer->Print(vars, "bool $lcclassname$_validate (const $classname$ *message, char *err_str, uint32_t err_str_len)\n");
     printer->Print("{\n");
@@ -479,100 +383,61 @@ generate_validation_function (const Descriptor *message, io::Printer* printer)
 #endif /* ATL_CHANGE */
 
 void MessageGenerator::
-GenerateHelperFunctionDeclarations(io::Printer* printer, bool is_submessage)
+GenerateHelperFunctionDeclarationsDefine(io::Printer* printer, bool is_submessage)
 {
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
-    nested_generators_[i]->GenerateHelperFunctionDeclarations(printer, true);
+    nested_generators_[i]->GenerateHelperFunctionDeclarationsDefine(printer, true);
   }
 
   std::map<string, string> vars;
   vars["classname"] = FullNameToC(descriptor_->full_name());
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
-  printer->Print(vars,
-		 "/* $classname$ methods */\n"
-#ifdef ATL_CHANGE
-		 "void   $lcclassname$_init\n"
-#else
-		 "void   $lcclassname$__init\n"
-#endif /* ATL_CHANGE */
-		 "                     ($classname$         *message);\n"
-		);
+  vars["cmsg_classname"] = cmsg::FullNameToC(descriptor_->full_name());
+  vars["cmsg_lcclassname"] = cmsg::FullNameToLower(descriptor_->full_name());
+
+  printer->Print(vars, "/* $cmsg_classname$ methods */\n");
+  printer->Print(vars, "#define $cmsg_lcclassname$_init $lcclassname$__init\n");
+
   if (!is_submessage) {
     printer->Print(vars,
-#ifdef ATL_CHANGE
-		 "size_t $lcclassname$_get_packed_size\n"
-#else
-		 "size_t $lcclassname$__get_packed_size\n"
-#endif /* ATL_CHANGE */
-		 "                     (const $classname$   *message);\n"
-#ifdef ATL_CHANGE
-		 "size_t $lcclassname$_pack\n"
-#else
-		 "size_t $lcclassname$__pack\n"
-#endif /* ATL_CHANGE */
-		 "                     (const $classname$   *message,\n"
-		 "                      uint8_t             *out);\n"
-#ifdef ATL_CHANGE
-		 "size_t $lcclassname$_pack_to_buffer\n"
-#else
-		 "size_t $lcclassname$__pack_to_buffer\n"
-#endif /* ATL_CHANGE */
-		 "                     (const $classname$   *message,\n"
-		 "                      ProtobufCBuffer     *buffer);\n"
-		 "$classname$ *\n"
-#ifdef ATL_CHANGE
-		 "       $lcclassname$_unpack\n"
-#else
-		 "       $lcclassname$__unpack\n"
-#endif /* ATL_CHANGE */
-		 "                     (ProtobufCAllocator  *allocator,\n"
-                 "                      size_t               len,\n"
-                 "                      const uint8_t       *data);\n"
-#ifdef ATL_CHANGE
-		 "void   $lcclassname$_free_unpacked\n"
-#else
-		 "void   $lcclassname$__free_unpacked\n"
-#endif /* ATL_CHANGE */
-		 "                     ($classname$ *message,\n"
-		 "                      ProtobufCAllocator *allocator);\n"
-		);
-#ifdef ATL_CHANGE
+         "#define $cmsg_lcclassname$_get_packed_size $lcclassname$__get_packed_size\n"
+         "#define $cmsg_lcclassname$_pack $lcclassname$__pack\n"
+         "#define $cmsg_lcclassname$_pack_to_buffer $lcclassname$__pack_to_buffer\n"
+         "#define $cmsg_lcclassname$_unpack $lcclassname$__unpack\n"
+         "#define $cmsg_lcclassname$_free_unpacked $lcclassname$__free_unpacked\n"
+    );
+
+    // todo - This should probably be generated by the validation related generator.
     if (message_has_validation (descriptor_))
     {
         printer->Print(vars, "bool $lcclassname$_validate (const $classname$ *message, char *err_str, uint32_t err_str_len);\n");
     }
-#endif /* ATL_CHANGE */
   }
 }
 
 void MessageGenerator::
-GenerateDescriptorDeclarations(io::Printer* printer) {
-#ifdef ATL_CHANGE
-  printer->Print("extern const ProtobufCMessageDescriptor $name$_descriptor;\n",
-#else
-  printer->Print("extern const ProtobufCMessageDescriptor $name$__descriptor;\n",
-#endif /* ATL_CHANGE */
+GenerateDescriptorDeclarationsDefines(io::Printer* printer) {
+  printer->Print("#define $cmsg_name$_descriptor $name$__descriptor\n",
+                 "cmsg_name", cmsg::FullNameToLower(descriptor_->full_name()),
                  "name", FullNameToLower(descriptor_->full_name()));
 
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
-    nested_generators_[i]->GenerateDescriptorDeclarations(printer);
+    nested_generators_[i]->GenerateDescriptorDeclarationsDefines(printer);
   }
 
   for (int i = 0; i < descriptor_->enum_type_count(); i++) {
-    enum_generators_[i]->GenerateDescriptorDeclarations(printer);
+    enum_generators_[i]->GenerateDescriptorDeclarationsDefines(printer);
   }
 }
-void MessageGenerator::GenerateClosureTypedef(io::Printer* printer)
+void MessageGenerator::GenerateClosureTypedefDefine(io::Printer* printer)
 {
   for (int i = 0; i < descriptor_->nested_type_count(); i++) {
-    nested_generators_[i]->GenerateClosureTypedef(printer);
+    nested_generators_[i]->GenerateClosureTypedefDefine(printer);
   }
   std::map<string, string> vars;
   vars["name"] = FullNameToC(descriptor_->full_name());
-  printer->Print(vars,
-                 "typedef void (*$name$_Closure)\n"
-		 "                 (const $name$ *message,\n"
-		 "                  void *closure_data);\n");
+  vars["cmsg_name"] = cmsg::FullNameToC(descriptor_->full_name());
+  printer->Print(vars, "#define $cmsg_name$_Closure $name$_Closure\n");
 }
 
 static int
@@ -693,9 +558,6 @@ GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
 		 "  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);\n"
 		 "}\n"
 		);
-#ifdef ATL_CHANGE
-    generate_validation_function (descriptor_, printer);
-#endif /* ATL_CHANGE */
   }
 }
 
@@ -923,6 +785,37 @@ GenerateMessageDescriptor(io::Printer* printer) {
 #endif /* ATL_CHANGE */
       "  NULL,NULL,NULL    /* reserved[123] */\n"
       "};\n");
+}
+
+void MessageGenerator::
+GenerateValidationDefinitions(io::Printer* printer, bool is_submessage)
+{
+  for (int i = 0; i < descriptor_->nested_type_count(); i++) {
+    nested_generators_[i]->GenerateValidationDefinitions(printer, true);
+  }
+
+  if (!is_submessage) {
+    generate_validation_function (descriptor_, printer);
+  }
+}
+
+void MessageGenerator::
+GenerateValidationDeclarations(io::Printer* printer, bool is_submessage)
+{
+  for (int i = 0; i < descriptor_->nested_type_count(); i++) {
+    nested_generators_[i]->GenerateValidationDeclarations(printer, true);
+  }
+
+  std::map<string, string> vars;
+  vars["classname"] = cmsg::FullNameToC(descriptor_->full_name());
+  vars["lcclassname"] = cmsg::FullNameToLower(descriptor_->full_name());
+
+  if (!is_submessage) {
+    if (message_has_validation (descriptor_))
+    {
+        printer->Print(vars, "bool $lcclassname$_validate (const $classname$ *message, char *err_str, uint32_t err_str_len);\n");
+    }
+  }
 }
 
 }  // namespace c

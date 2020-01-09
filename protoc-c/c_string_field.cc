@@ -66,6 +66,10 @@
 #include <google/protobuf/wire_format.h>
 #include <google/protobuf/descriptor.pb.h>
 
+#ifdef ATL_CHANGE
+#include <protoc-c/c_helpers_cmsg.h>
+#endif /* ATL_CHANGE */
+
 namespace google {
 namespace protobuf {
 namespace compiler {
@@ -108,9 +112,12 @@ void StringFieldGenerator::GenerateStructMembers(io::Printer* printer) const
       break;
   }
 }
-void StringFieldGenerator::GenerateDefaultValueDeclarations(io::Printer* printer) const
+void StringFieldGenerator::GenerateDefaultValueDeclarationsDefine(io::Printer* printer) const
 {
-  printer->Print(variables_, "extern char $default$[];\n");
+  std::map<string, string> vars;
+  vars["default_value_data"] = FullNameToLower(descriptor_->full_name()) + "__default_value_data";
+  vars["cmsg_default_value_data"] = cmsg::FullNameToLower(descriptor_->full_name()) + "_default_value_data";
+  printer->Print(vars, "#define $cmsg_default_value_data$ $default_value_data$\n");
 }
 void StringFieldGenerator::GenerateDefaultValueImplementations(io::Printer* printer) const
 {

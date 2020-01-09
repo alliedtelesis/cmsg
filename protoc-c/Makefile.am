@@ -37,6 +37,8 @@ protoc_gen_cmsg_SOURCES = \
 	c_generator.h \
 	c_helpers.cc \
 	c_helpers.h \
+	c_helpers_cmsg.cc \
+	c_helpers_cmsg.h \
 	c_message.cc \
 	c_message.h \
 	c_message_field.cc \

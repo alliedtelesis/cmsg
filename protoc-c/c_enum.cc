@@ -66,6 +66,9 @@
 #include <protoc-c/c_enum.h>
 #include <protoc-c/c_helpers.h>
 #include <google/protobuf/io/printer.h>
+#ifdef ATL_CHANGE
+#include <protoc-c/c_helpers_cmsg.h>
+#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {
@@ -80,79 +83,28 @@ EnumGenerator::EnumGenerator(const EnumDescriptor* descriptor,
 
 EnumGenerator::~EnumGenerator() {}
 
-void EnumGenerator::GenerateDefinition(io::Printer* printer) {
+void EnumGenerator::GenerateDefinitionDefine(io::Printer* printer) {
   std::map<string, string> vars;
+
   vars["classname"] = FullNameToC(descriptor_->full_name());
-  vars["shortname"] = descriptor_->name();
-  vars["uc_name"] = FullNameToUpper(descriptor_->full_name());
+  vars["cmsg_classname"] = cmsg::FullNameToC(descriptor_->full_name());
+  printer->Print(vars, "typedef $classname$ $cmsg_classname$;\n");
 
-  SourceLocation sourceLoc;
-  descriptor_->GetSourceLocation(&sourceLoc);
-  PrintComment (printer, sourceLoc.leading_comments);
-
-  printer->Print(vars, "typedef enum _$classname$ {\n");
-  printer->Indent();
-
-  const EnumValueDescriptor* min_value = descriptor_->value(0);
-  const EnumValueDescriptor* max_value = descriptor_->value(0);
-
-
-  vars["opt_comma"] = ",";
-#ifdef ATL_CHANGE
-  if (descriptor_->file()->package() != "")
-  {
-    vars["prefix"] = FullNameToUpper(descriptor_->file()->package()) + "_";
-  }
-  else
-  {
-    vars["prefix"] = "";
-  }
-#else
   vars["prefix"] = FullNameToUpper(descriptor_->full_name()) + "__";
-#endif /* ATL_CHANGE */
-
+  vars["cmsg_prefix"] = descriptor_->file()->package() != "" ?
+                        cmsg::FullNameToUpper(descriptor_->file()->package()) + "_" : "";
   for (int i = 0; i < descriptor_->value_count(); i++) {
     vars["name"] = descriptor_->value(i)->name();
-    vars["number"] = SimpleItoa(descriptor_->value(i)->number());
-    if (i + 1 == descriptor_->value_count())
-      vars["opt_comma"] = "";
-
-    SourceLocation valSourceLoc;
-    descriptor_->value(i)->GetSourceLocation(&valSourceLoc);
-
-    PrintComment (printer, valSourceLoc.leading_comments);
-    PrintComment (printer, valSourceLoc.trailing_comments);
-    printer->Print(vars, "$prefix$$name$ = $number$$opt_comma$\n");
-
-    if (descriptor_->value(i)->number() < min_value->number()) {
-      min_value = descriptor_->value(i);
-    }
-    if (descriptor_->value(i)->number() > max_value->number()) {
-      max_value = descriptor_->value(i);
-    }
+    printer->Print(vars, "#define $cmsg_prefix$$name$ $prefix$$name$\n");
   }
-
-  printer->Print(vars, "  PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE($uc_name$)\n");
-  printer->Outdent();
-  printer->Print(vars, "} $classname$;\n");
 }
 
-void EnumGenerator::GenerateDescriptorDeclarations(io::Printer* printer) {
+void EnumGenerator::GenerateDescriptorDeclarationsDefines(io::Printer* printer) {
   std::map<string, string> vars;
-  if (dllexport_decl_.empty()) {
-    vars["dllexport"] = "";
-  } else {
-    vars["dllexport"] = dllexport_decl_ + " ";
-  }
-  vars["classname"] = FullNameToC(descriptor_->full_name());
   vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
+  vars["cmsg_lcclassname"] = cmsg::FullNameToLower(descriptor_->full_name());
 
-  printer->Print(vars,
-#ifdef ATL_CHANGE
-    "extern $dllexport$const ProtobufCEnumDescriptor    $lcclassname$_descriptor;\n");
-#else
-    "extern $dllexport$const ProtobufCEnumDescriptor    $lcclassname$__descriptor;\n");
-#endif
+  printer->Print(vars, "#define $cmsg_lcclassname$_descriptor $lcclassname$__descriptor\n");
 }
 
 struct ValueIndex
@@ -171,7 +123,7 @@ void EnumGenerator::GenerateValueInitializer(io::Printer *printer, int index)
     FileOptions_OptimizeMode_CODE_SIZE;
   vars["enum_value_name"] = vd->name();
 #ifdef ATL_CHANGE
-  vars["c_enum_value_name"] = GetPackageNameUpper(descriptor_->full_name()) + "_" +
+  vars["c_enum_value_name"] = cmsg::GetPackageNameUpper(descriptor_->full_name()) + "_" +
                                                   ToUpper(vd->name());
 #else
   vars["c_enum_value_name"] = FullNameToUpper(descriptor_->full_name()) + "__" + vd->name();

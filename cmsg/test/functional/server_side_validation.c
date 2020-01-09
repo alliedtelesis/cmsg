@@ -9,6 +9,7 @@
 #include <cmsg_server.h>
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
+#include "cmsg_functional_tests_validation_auto.h"
 #include "setup.h"
 
 /**

@@ -293,6 +293,8 @@ test/functional/cmsg_functional_tests_api_auto.h \
 test/functional/cmsg_functional_tests_impl_auto.c \
 test/functional/cmsg_functional_tests_impl_auto.h \
 test/functional/cmsg_functional_tests_types_auto.h \
+test/functional/cmsg_functional_tests_validation_auto.c \
+test/functional/cmsg_functional_tests_validation_auto.h \
 test/functional/cmsg_functional_tests.pb-c.c \
 test/functional/cmsg_functional_tests.pb-c.h: $(PROTOC_PATH)$(EXEEXT) test/functional/cmsg_functional_tests.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c \
@@ -308,15 +310,30 @@ test/functional/ant_result.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/cmsg-pr
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src \
 	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg-proxy/src/ant_result.proto
 
+test/functional/validation.pb-c.c \
+test/functional/validation.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/protoc-c/validation.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/protoc-c/validation.proto
+
+test/functional/supported_service.pb-c.c \
+test/functional/supported_service.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/protoc-c/supported_service.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/protoc-c/supported_service.proto
 
 bin_PROGRAMS += cmsg_functional_tests
 cmsg_functional_tests_SOURCES = \
 	test/functional/ant_result.pb-c.c \
 	test/functional/ant_result.pb-c.h \
+	test/functional/validation.pb-c.c \
+	test/functional/validation.pb-c.h \
+	test/functional/supported_service.pb-c.c \
+	test/functional/supported_service.pb-c.h \
 	test/functional/cmsg_functional_tests_api_auto.c \
 	test/functional/cmsg_functional_tests_api_auto.h \
 	test/functional/cmsg_functional_tests_impl_auto.c \
 	test/functional/cmsg_functional_tests_impl_auto.h \
+	test/functional/cmsg_functional_tests_validation_auto.c \
+	test/functional/cmsg_functional_tests_validation_auto.h \
 	test/functional/cmsg_functional_tests.pb-c.c \
 	test/functional/cmsg_functional_tests.pb-c.h \
 	test/functional/client_server_rpc_tests.c \

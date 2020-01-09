@@ -109,6 +109,8 @@ class FileGenerator {
   void GenerateAtlImplStubs(io::Printer* printer);
   void GenerateAtlHttpProxySource(io::Printer* printer);
   void GenerateAtlHttpProxyHeader(io::Printer* printer);
+  void GenerateAtlValidationSource(io::Printer* printer);
+  void GenerateAtlValidationHeader(io::Printer* printer);
 #endif /* ATL_CHANGE */
 
  private:

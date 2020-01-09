@@ -86,11 +86,11 @@ class ServiceGenerator {
   ~ServiceGenerator();
 
   // Header stuff.
-  void GenerateMainHFile(io::Printer* printer);
-  void GenerateVfuncs(io::Printer* printer);
-  void GenerateInitMacros(io::Printer* printer);
-  void GenerateDescriptorDeclarations(io::Printer* printer);
-  void GenerateCallersDeclarations(io::Printer* printer);
+  void GenerateMainHFileDefines(io::Printer* printer);
+  void GenerateVfuncsDefines(io::Printer* printer);
+  void GenerateInitMacrosDefines(io::Printer* printer);
+  void GenerateDescriptorDeclarationsDefines(io::Printer* printer);
+  void GenerateCallersDeclarationsDefines(io::Printer* printer);
 
   // Source file stuff.
   void GenerateCFile(io::Printer* printer);

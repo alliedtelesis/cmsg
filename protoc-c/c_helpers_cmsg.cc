@@ -65,13 +65,13 @@
 #include <stdio.h>		// for snprintf
 #include <float.h>
 
-#include <protoc-c/c_helpers.h>
+#include <protoc-c/c_helpers_cmsg.h>
 #include <google/protobuf/stubs/common.h>
 
 namespace google {
 namespace protobuf {
 namespace compiler {
-namespace c {
+namespace cmsg {
 
 #if defined(_MSC_VER)
 // FIXME: In the case where the generated string is longer than the buffer,
@@ -114,8 +114,6 @@ string CamelToUpper(const string &name) {
   for (int i = 0; i < len; i++) {
     bool is_upper = isupper(name[i]);
     if (is_upper) {
-      if (!was_upper)
-	rv += '_';
       rv += name[i];
     } else {
       rv += toupper(name[i]);
@@ -131,9 +129,7 @@ string CamelToLower(const string &name) {
   for (int i = 0; i < len; i++) {
     bool is_upper = isupper(name[i]);
     if (is_upper) {
-      if (!was_upper)
-	rv += '_';
-      rv += tolower(name[i]);
+      rv += name[i];
     } else {
       rv += name[i];
     }
@@ -155,7 +151,7 @@ string ToLower(const string &name) {
   string rv = "";
   int len = name.length();
   for (int i = 0; i < len; i++) {
-    rv += tolower(name[i]);
+    rv += name[i];
   }
   return rv;
 }
@@ -167,7 +163,7 @@ string ToCamel(const string &name) {
     if (name[i] == '_') {
       next_is_upper = true;
     } else if (next_is_upper) {
-      rv += toupper (name[i]);
+      rv += name[i];
       next_is_upper = false;
     } else {
       rv += name[i];
@@ -182,8 +178,8 @@ string FullNameToLower(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
-    if (rv != "") rv += "__";
-    rv += CamelToLower(pieces[i]);
+    if (rv != "") rv += "_";
+    rv += pieces[i];
   }
   return rv;
 }
@@ -193,7 +189,7 @@ string FullNameToUpper(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
-    if (rv != "") rv += "__";
+    if (rv != "") rv += "_";
     rv += CamelToUpper(pieces[i]);
   }
   return rv;
@@ -204,8 +200,8 @@ string FullNameToC(const string &full_name) {
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
     if (pieces[i] == "") continue;
-    if (rv != "") rv += "__";
-    rv += ToCamel(pieces[i]);
+    if (rv != "") rv += "_";
+    rv += pieces[i];
   }
   return rv;
 }
@@ -566,7 +562,98 @@ string CEscape(const string& src) {
   return string(dest.get(), len);
 }
 
-}  // namespace c
+string GetAtlFilename(const string &protoname, const string &filetype)
+{
+  //
+  // we want to:
+  //    strip the .proto from the proto filename to get the basename
+  //    add the filetype after the basename
+  return StripProto(protoname) + "_" + filetype;
+}
+
+string GetAtlTypesFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "types_auto");
+}
+
+string GetAtlApiFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "api_auto");
+}
+
+string GetAtlImplFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "impl_auto");
+}
+
+string GetAtlGlobalFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "proto_global");
+}
+
+string GetAtlValidationFilename(const string &protoname)
+{
+  return GetAtlFilename(protoname, "validation_auto");
+}
+
+string GetPackageName(const string &full_name) {
+  vector<string> pieces;
+  SplitStringUsing(full_name, ".", &pieces);
+  string rv = "";
+  //loop through the pieces of the string until we get find
+  //the first one that isn't empty.
+  for (unsigned i = 0; i < pieces.size(); i++) {
+    if (pieces[i] == "")
+    {
+      continue;
+    }
+    else
+    {
+      rv = pieces[i];
+      break;
+    }
+  }
+  // return the first non-empty piece of the name
+  return rv;
+}
+
+string GetPackageNameUpper(const string &full_name) {
+  return ToUpper(GetPackageName(full_name));
+}
+
+// Convert a file name into a valid identifier.
+string MakeHeaderDefineFromFilename(const string &prefix, const string &filename) {
+  string result = prefix;
+  bool last_char_was_hyphen = false;
+
+  for (unsigned i = 0; i < filename.size(); i++) {
+    if (isalnum(filename[i]))
+    {
+      result.push_back(filename[i]);
+      last_char_was_hyphen = false;
+    }
+    else if (filename[i] == '-')
+    {
+      // the char is a hyphen so convert it to an underscore
+      result.push_back('_');
+      last_char_was_hyphen = true;
+    }
+    else
+    {
+      // Not alphanumeric.  To avoid any possibility of name conflicts we
+      // use the hex code for the character.
+      if (last_char_was_hyphen == false)
+        result.push_back('_');
+      char buffer[32];
+      result.append(FastHexToBuffer(static_cast<uint8>(filename[i]), buffer));
+      last_char_was_hyphen = false;
+    }
+  }
+  result += "_INCLUDED";
+  return result;
+}
+
+}  // namespace cmsg
 }  // namespace compiler
 }  // namespace protobuf
 }  // namespace google

@@ -75,6 +75,7 @@
 
 #ifdef ATL_CHANGE
 #include <protobuf-c/protobuf-c.h>
+#include <protoc-c/c_helpers_cmsg.h>
 #else
 #include "protobuf-c.h"
 #endif /* ATL_CHANGE */
@@ -186,75 +187,9 @@ void FileGenerator::GenerateHeader(io::Printer* printer) {
 #endif /* ATL_CHANGE */
 
   for (int i = 0; i < file_->dependency_count(); i++) {
-#ifdef ATL_CHANGE
-    if ((StripProto(file_->dependency(i)->name()) != "http") &&
-        (StripProto(file_->dependency(i)->name()) != "validation") &&
-        (StripProto(file_->dependency(i)->name()) != "supported_service"))
-    {
-        printer->Print(
-          "#include \"$dependency$.pb-c.h\"\n",
-          "dependency", StripProto(file_->dependency(i)->name()));
-    }
-#else
     printer->Print(
       "#include \"$dependency$.pb-c.h\"\n",
       "dependency", StripProto(file_->dependency(i)->name()));
-#endif /* ATL_CHANGE */
-  }
-
-  printer->Print("\n");
-
-  // Generate forward declarations of classes.
-  for (int i = 0; i < file_->message_type_count(); i++) {
-    message_generators_[i]->GenerateStructTypedef(printer);
-  }
-
-  printer->Print("\n");
-
-  // Generate enum definitions.
-  printer->Print("\n/* --- enums --- */\n\n");
-  for (int i = 0; i < file_->message_type_count(); i++) {
-    message_generators_[i]->GenerateEnumDefinitions(printer);
-  }
-  for (int i = 0; i < file_->enum_type_count(); i++) {
-    enum_generators_[i]->GenerateDefinition(printer);
-  }
-
-  // Generate class definitions.
-  printer->Print("\n/* --- messages --- */\n\n");
-  for (int i = 0; i < file_->message_type_count(); i++) {
-    message_generators_[i]->GenerateStructDefinition(printer);
-  }
-
-  for (int i = 0; i < file_->message_type_count(); i++) {
-    message_generators_[i]->GenerateHelperFunctionDeclarations(printer, false);
-  }
-
-  printer->Print("/* --- per-message closures --- */\n\n");
-  for (int i = 0; i < file_->message_type_count(); i++) {
-    message_generators_[i]->GenerateClosureTypedef(printer);
-  }
-
-  // Generate service definitions.
-  printer->Print("\n/* --- services --- */\n\n");
-  for (int i = 0; i < file_->service_count(); i++) {
-    service_generators_[i]->GenerateMainHFile(printer);
-  }
-
-  // Declare extension identifiers.
-  for (int i = 0; i < file_->extension_count(); i++) {
-    extension_generators_[i]->GenerateDeclaration(printer);
-  }
-
-  printer->Print("\n/* --- descriptors --- */\n\n");
-  for (int i = 0; i < file_->enum_type_count(); i++) {
-    enum_generators_[i]->GenerateDescriptorDeclarations(printer);
-  }
-  for (int i = 0; i < file_->message_type_count(); i++) {
-    message_generators_[i]->GenerateDescriptorDeclarations(printer);
-  }
-  for (int i = 0; i < file_->service_count(); i++) {
-    service_generators_[i]->GenerateDescriptorDeclarations(printer);
   }
 
   printer->Print(
@@ -278,9 +213,6 @@ void FileGenerator::GenerateSource(io::Printer* printer) {
     "#define PROTOBUF_C__NO_DEPRECATED\n"
     "#endif\n"
     "\n"
-#ifdef ATL_CHANGE
-    "#include <cmsg/cmsg_validation.h>\n"
-#endif /* ATL_CHANGE */
     "#include \"$basename$.pb-c.h\"\n",
     "filename", file_->name(),
     "basename", StripProto(file_->name()));
@@ -325,7 +257,7 @@ void FileGenerator::GenerateSource(io::Printer* printer) {
 #ifdef ATL_CHANGE
 void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
   string filename_identifier = StripProto(file_->name());
-  string header_define = MakeHeaderDefineFromFilename("PROTOBUF_C_TYPES_", filename_identifier);
+  string header_define = cmsg::MakeHeaderDefineFromFilename("PROTOBUF_C_TYPES_", filename_identifier);
 
   // Generate top of header.
   printer->Print(
@@ -349,12 +281,12 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
       {
         printer->Print(
           "#include \"$dependency$.h\"\n",
-          "dependency", GetAtlTypesFilename(file_->dependency(i)->name()));
+          "dependency", cmsg::GetAtlTypesFilename(file_->dependency(i)->name()));
       }
 #else
     printer->Print(
       "#include \"$dependency$.h\"\n",
-      "dependency", GetAtlTypesFilename(file_->dependency(i)->name()));
+      "dependency", cmsg::GetAtlTypesFilename(file_->dependency(i)->name()));
 #endif /* ATL_CHANGE */
   }
 
@@ -364,8 +296,54 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
   printer->Print("#include \"$pbh$.pb-c.h\"\n", "pbh", filename_identifier);
   printer->Print("\n");
 
+  // Generate forward declarations of classes.
+  for (int i = 0; i < file_->message_type_count(); i++) {
+    message_generators_[i]->GenerateStructTypedefDefine(printer);
+  }
+
+  // Generate enum definitions.
+  printer->Print("\n/* --- enums --- */\n\n");
+  for (int i = 0; i < file_->message_type_count(); i++) {
+    message_generators_[i]->GenerateEnumDefinitionsDefine(printer);
+  }
+  for (int i = 0; i < file_->enum_type_count(); i++) {
+    enum_generators_[i]->GenerateDefinitionDefine(printer);
+  }
+
+  // Generate class definitions.
+  printer->Print("\n/* --- messages --- */\n\n");
+  for (int i = 0; i < file_->message_type_count(); i++) {
+    message_generators_[i]->GenerateStructDefinitionDefine(printer);
+  }
+
+  for (int i = 0; i < file_->message_type_count(); i++) {
+    message_generators_[i]->GenerateHelperFunctionDeclarationsDefine(printer, false);
+  }
+
+  printer->Print("/* --- per-message closures --- */\n\n");
+  for (int i = 0; i < file_->message_type_count(); i++) {
+    message_generators_[i]->GenerateClosureTypedefDefine(printer);
+  }
+
+  // Generate service definitions.
+  printer->Print("\n/* --- services --- */\n\n");
+  for (int i = 0; i < file_->service_count(); i++) {
+    service_generators_[i]->GenerateMainHFileDefines(printer);
+  }
+
+  printer->Print("\n/* --- descriptors --- */\n\n");
+  for (int i = 0; i < file_->enum_type_count(); i++) {
+    enum_generators_[i]->GenerateDescriptorDeclarationsDefines(printer);
+  }
+  for (int i = 0; i < file_->message_type_count(); i++) {
+    message_generators_[i]->GenerateDescriptorDeclarationsDefines(printer);
+  }
+  for (int i = 0; i < file_->service_count(); i++) {
+    service_generators_[i]->GenerateDescriptorDeclarationsDefines(printer);
+  }
+
   // Add global header file for this .proto if the file "<proto>_proto_global.h" exists
-  string proto_global_h = GetAtlGlobalFilename(file_->name()) + ".h";
+  string proto_global_h = cmsg::GetAtlGlobalFilename(file_->name()) + ".h";
   std::ifstream f(proto_global_h.c_str());
   if (f.good()) {
     printer->Print("#include \"$proto_global_h$\"\n", "proto_global_h", proto_global_h);
@@ -375,6 +353,7 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
   }
   f.close();
   printer->Print("\n");
+
   printer->Print(
     "\n"
     "PROTOBUF_C__END_DECLS\n"
@@ -384,7 +363,7 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
 
 void FileGenerator::GenerateAtlApiHeader(io::Printer* printer) {
   string filename_identifier = StripProto(file_->name());
-  string header_define = MakeHeaderDefineFromFilename("PROTOBUF_C_API_", filename_identifier);
+  string header_define = cmsg::MakeHeaderDefineFromFilename("PROTOBUF_C_API_", filename_identifier);
 
   // Generate top of header.
   printer->Print(
@@ -398,7 +377,7 @@ void FileGenerator::GenerateAtlApiHeader(io::Printer* printer) {
     "PROTOBUF_C__BEGIN_DECLS\n"
     "\n",
     "header_define", header_define,
-    "types", GetAtlTypesFilename(file_->name()));
+    "types", cmsg::GetAtlTypesFilename(file_->name()));
 
   //
   // add some includes for the ATL generated code
@@ -439,7 +418,7 @@ void FileGenerator::GenerateAtlApiSource(io::Printer* printer) {
     "#endif\n"
     "\n"
     "#include \"$basename$.h\"\n",
-    "basename", GetAtlApiFilename(file_->name()));
+    "basename", cmsg::GetAtlApiFilename(file_->name()));
 
   // include the cmsg error header so the api can output errors
   printer->Print("#include <cmsg/cmsg_error.h>\n");
@@ -452,7 +431,7 @@ void FileGenerator::GenerateAtlApiSource(io::Printer* printer) {
 
 void FileGenerator::GenerateAtlImplHeader(io::Printer* printer) {
   string filename_identifier = StripProto(file_->name());
-  string header_define = MakeHeaderDefineFromFilename("PROTOBUF_C_IMPL_", filename_identifier);
+  string header_define = cmsg::MakeHeaderDefineFromFilename("PROTOBUF_C_IMPL_", filename_identifier);
 
   // Generate top of header.
   printer->Print(
@@ -466,7 +445,7 @@ void FileGenerator::GenerateAtlImplHeader(io::Printer* printer) {
     "PROTOBUF_C__BEGIN_DECLS\n"
     "\n",
     "header_define", header_define,
-    "types", GetAtlTypesFilename(file_->name()));
+    "types", cmsg::GetAtlTypesFilename(file_->name()));
 
   //
   // add some includes for the ATL generated code
@@ -501,8 +480,10 @@ void FileGenerator::GenerateAtlImplSource(io::Printer* printer) {
     "#define PROTOBUF_C_NO_DEPRECATED\n"
     "#endif\n"
     "\n"
-    "#include \"$basename$.h\"\n",
-    "basename", GetAtlImplFilename(file_->name()));
+    "#include \"$basename$.h\"\n"
+    "#include \"$validation$.h\"\n",
+    "basename", cmsg::GetAtlImplFilename(file_->name()),
+    "validation", cmsg::GetAtlValidationFilename(file_->name()));
 
   for (int i = 0; i < file_->service_count(); i++) {
     atl_code_generators_[i]->GenerateServerCFile(printer);
@@ -541,7 +522,7 @@ void FileGenerator::GenerateAtlHttpProxySource(io::Printer* printer) {
     "basename", basename);
 
   printer->Print("#include \"$api_filename$.h\"\n",
-                 "api_filename", GetAtlApiFilename(file_->name()));
+                 "api_filename", cmsg::GetAtlApiFilename(file_->name()));
 
   // Don't bother generating code if the file has no services
   if (file_->service_count() == 0)
@@ -568,7 +549,7 @@ void FileGenerator::GenerateAtlHttpProxySource(io::Printer* printer) {
 
 void FileGenerator::GenerateAtlHttpProxyHeader(io::Printer* printer) {
     string filename_identifier = StripProto(file_->name());
-    string header_define = MakeHeaderDefineFromFilename("PROTOBUF_C_PROXY_", filename_identifier);
+    string header_define = cmsg::MakeHeaderDefineFromFilename("PROTOBUF_C_PROXY_", filename_identifier);
 
     // Generate top of header.
     printer->Print(
@@ -585,6 +566,65 @@ void FileGenerator::GenerateAtlHttpProxyHeader(io::Printer* printer) {
     if (file_->service_count() != 0)
     {
         atl_code_generators_[0]->GenerateHttpProxyArrayFunctionDefs (printer);
+    }
+
+    printer->Print(
+      "\n"
+      "#endif  /* $header_define$ */\n",
+      "header_define", header_define);
+}
+
+void FileGenerator::GenerateAtlValidationSource(io::Printer* printer) {
+  string basename = StripProto(file_->name());
+
+  printer->Print(
+    "/* Generated by the protocol buffer compiler.  DO NOT EDIT! */\n"
+    "\n"
+    "/* Do not generate deprecated warnings for self */\n"
+    "#ifndef PROTOBUF_C_NO_DEPRECATED\n"
+    "#define PROTOBUF_C_NO_DEPRECATED\n"
+    "#endif\n"
+    "\n"
+    "#include <cmsg/cmsg_validation.h>\n"
+    "#include \"$basename$_validation_auto.h\"\n",
+    "basename", basename);
+
+    for (int i = 0; i < file_->message_type_count(); i++) {
+      message_generators_[i]->GenerateValidationDefinitions(printer, false);
+    }
+}
+
+void FileGenerator::GenerateAtlValidationHeader(io::Printer* printer) {
+    string filename_identifier = StripProto(file_->name());
+    string header_define = cmsg::MakeHeaderDefineFromFilename("PROTOBUF_C_VALIDATION_", filename_identifier);
+
+    // Generate top of header.
+    printer->Print(
+      "/* Generated by the protocol buffer compiler.  DO NOT EDIT! */\n"
+      "\n"
+      "#ifndef $header_define$\n"
+      "#define $header_define$\n"
+      "\n"
+      "\n",
+      "header_define", header_define);
+
+    // Include dependent types header files
+    for (int i = 0; i < file_->dependency_count(); i++) {
+      if ((StripProto(file_->dependency(i)->name()) != "http") &&
+          (StripProto(file_->dependency(i)->name()) != "validation") &&
+          (StripProto(file_->dependency(i)->name()) != "supported_service"))
+        {
+          printer->Print(
+            "#include \"$dependency$.h\"\n",
+            "dependency", cmsg::GetAtlValidationFilename(file_->dependency(i)->name()));
+        }
+    }
+
+    printer->Print("#include \"$types_filename$.h\"\n",
+                   "types_filename", cmsg::GetAtlTypesFilename(file_->name()));
+
+    for (int i = 0; i < file_->message_type_count(); i++) {
+        message_generators_[i]->GenerateValidationDeclarations(printer, false);
     }
 
     printer->Print(

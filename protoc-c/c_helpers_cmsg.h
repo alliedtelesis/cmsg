@@ -60,8 +60,8 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifndef GOOGLE_PROTOBUF_COMPILER_C_HELPERS_H__
-#define GOOGLE_PROTOBUF_COMPILER_C_HELPERS_H__
+#ifndef GOOGLE_PROTOBUF_COMPILER_C_HELPERS_CMSG_H__
+#define GOOGLE_PROTOBUF_COMPILER_C_HELPERS_CMSG_H__
 
 #include <string>
 #include <vector>
@@ -73,14 +73,14 @@
 namespace google {
 namespace protobuf {
 namespace compiler {
-namespace c {
+namespace cmsg {
 
 // Returns the non-nested type name for the given type.  If "qualified" is
 // true, prefix the type with the full namespace.  For example, if you had:
 //   package foo.bar;
 //   message Baz { message Qux {} }
 // Then the qualified ClassName for Qux would be:
-//   Foo__Bar__Baz_Qux
+//   Foo_Bar_Baz_Qux
 // While the non-qualified version would be:
 //   Baz_Qux
 string ClassName(const Descriptor* descriptor, bool qualified);
@@ -98,7 +98,27 @@ string SimpleDtoa(double f);
 void SplitStringUsing(const string &str, const char *delim, std::vector<string> *out);
 string CEscape(const string& src);
 string StringReplace(const string& s, const string& oldsub, const string& newsub, bool replace_all);
+// ----------------------------------------------------------------------
+// HasPrefixString()
+//    Check if a string begins with a given prefix.
+// StripPrefixString()
+//    Given a string and a putative prefix, returns the string minus the
+//    prefix string if the prefix matches, otherwise the original
+//    string.
+// ----------------------------------------------------------------------
+inline bool HasPrefixString(const string& str,
+                            const string& prefix) {
+  return str.size() >= prefix.size() &&
+         str.compare(0, prefix.size(), prefix) == 0;
+}
 
+inline string StripPrefixString(const string& str, const string& prefix) {
+  if (HasPrefixString(str, prefix)) {
+    return str.substr(prefix.size());
+  } else {
+    return str;
+  }
+}
 inline bool HasSuffixString(const string& str, const string& suffix) { return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0; }
 inline string StripSuffixString(const string& str, const string& suffix) { if (HasSuffixString(str, suffix)) { return str.substr(0, str.size() - suffix.size()); } else { return str; } }
 char* FastHexToBuffer(int i, char* buffer);
@@ -168,6 +188,16 @@ string GlobalBuildDescriptorsName(const string& filename);
 // return 'required', 'optional', or 'repeated'
 string GetLabelName(FieldDescriptor::Label label);
 
+string GetAtlFilename(const string &protoname, const string &filetype);
+string GetAtlTypesFilename(const string &protoname);
+string GetAtlApiFilename(const string &protoname);
+string GetAtlImplFilename(const string &protoname);
+string GetAtlValidationFilename(const string &protoname);
+string GetAtlGlobalFilename(const string &protoname);
+string GetPackageName(const string &full_name);
+string GetPackageNameUpper(const string &full_name);
+string MakeHeaderDefineFromFilename(const string &prefix, const string &filename);
+
 // write IntRanges entries for a bunch of sorted values.
 // returns the number of ranges there are to bsearch.
 unsigned WriteIntRanges(io::Printer* printer, int n_values, const int *values, const string &name);
@@ -189,9 +219,9 @@ inline int FieldSyntax(const FieldDescriptor* field) {
 #endif
 }
 
-}  // namespace c
+}  // namespace cmsg
 }  // namespace compiler
 }  // namespace protobuf
 
 }  // namespace google
-#endif  // GOOGLE_PROTOBUF_COMPILER_C_HELPERS_H__
+#endif  // GOOGLE_PROTOBUF_COMPILER_C_HELPERS_CMSG_H__

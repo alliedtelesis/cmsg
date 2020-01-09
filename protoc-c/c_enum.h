@@ -89,9 +89,9 @@ class EnumGenerator {
   // Generate header code defining the enum.  This code should be placed
   // within the enum's package namespace, but NOT within any class, even for
   // nested enums.
-  void GenerateDefinition(io::Printer* printer);
+  void GenerateDefinitionDefine(io::Printer* printer);
 
-  void GenerateDescriptorDeclarations(io::Printer* printer);
+  void GenerateDescriptorDeclarationsDefines(io::Printer* printer);
 
 
   // Source file stuff.

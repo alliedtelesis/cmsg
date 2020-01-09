@@ -71,6 +71,10 @@
 #include <google/protobuf/io/zero_copy_stream.h>
 #include <google/protobuf/descriptor.pb.h>
 
+#ifdef ATL_CHANGE
+#include <protoc-c/c_helpers_cmsg.h>
+#endif /* ATL_CHANGE */
+
 namespace google {
 namespace protobuf {
 namespace compiler {
@@ -154,7 +158,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
 
 #ifdef ATL_CHANGE
   // generate the atl types header file
-  string types_basename = GetAtlTypesFilename(file->name());
+  string types_basename = cmsg::GetAtlTypesFilename(file->name());
 
   {
     scoped_ptr<io::ZeroCopyOutputStream> output(
@@ -164,7 +168,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
   }
 
   // generate the atl api header and source files
-  string api_basename = GetAtlApiFilename(file->name());
+  string api_basename = cmsg::GetAtlApiFilename(file->name());
 
   {
     scoped_ptr<io::ZeroCopyOutputStream> output(
@@ -182,7 +186,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
   }
 
   // now generate the atl impl header and source files
-  string impl_basename = GetAtlImplFilename(file->name());
+  string impl_basename = cmsg::GetAtlImplFilename(file->name());
 
   {
     scoped_ptr<io::ZeroCopyOutputStream> output(
@@ -221,6 +225,22 @@ bool CGenerator::Generate(const FileDescriptor* file,
           output_directory->Open(StripProto(file->name()) + "_proxy_def.h"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlHttpProxyHeader(&printer);
+  }
+
+  // Generate validation source file
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(StripProto(file->name()) + "_validation_auto.c"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlValidationSource(&printer);
+  }
+
+  // Generate validation header file
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(StripProto(file->name()) + "_validation_auto.h"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlValidationHeader(&printer);
   }
 #endif /* ATL_CHANGE */
 
