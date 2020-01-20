@@ -65,7 +65,7 @@
 
 #include <string>
 #include <google/protobuf/stubs/common.h>
-#include <protoc-c/c_field.h>
+#include <google/protobuf/descriptor.h>
 
 namespace google {
 namespace protobuf {
@@ -79,13 +79,10 @@ namespace compiler {
 namespace c {
 
 class EnumGenerator;           // enum.h
-class ExtensionGenerator;      // extension.h
 
 class MessageGenerator {
  public:
-  // See generator.cc for the meaning of dllexport_decl.
-  explicit MessageGenerator(const Descriptor* descriptor,
-                            const string& dllexport_decl);
+  explicit MessageGenerator(const Descriptor* descriptor);
   ~MessageGenerator();
 
   // Header stuff.
@@ -106,36 +103,17 @@ class MessageGenerator {
   // Generate definitions for this class and all its nested types.
   void GenerateStructDefinitionDefine(io::Printer* printer);
 
-#ifdef ATL_CHANGE
-  // Generate _INIT macro for populating this structure
-#else
-  // Generate __INIT macro for populating this structure
-#endif /* ATL_CHANGE */
-  void GenerateStructStaticInitMacro(io::Printer* printer);
-
   // Generate standard helper functions declarations for this message.
   void GenerateHelperFunctionDeclarationsDefine(io::Printer* printer, bool is_submessage);
-
-  // Source file stuff.
-
-  // Generate code that initializes the global variable storing the message's
-  // descriptor.
-  void GenerateMessageDescriptor(io::Printer* printer);
-  void GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage);
 
   void GenerateValidationDefinitions(io::Printer* printer, bool is_submessage);
   void GenerateValidationDeclarations(io::Printer* printer, bool is_submessage);
 
  private:
 
-  string GetDefaultValueC(const FieldDescriptor *fd);
-
   const Descriptor* descriptor_;
-  string dllexport_decl_;
-  FieldGeneratorMap field_generators_;
   scoped_array<scoped_ptr<MessageGenerator> > nested_generators_;
   scoped_array<scoped_ptr<EnumGenerator> > enum_generators_;
-  scoped_array<scoped_ptr<ExtensionGenerator> > extension_generators_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MessageGenerator);
 };

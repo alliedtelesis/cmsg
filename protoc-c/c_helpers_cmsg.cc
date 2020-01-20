@@ -94,19 +94,6 @@ string DotsToColons(const string& name) {
   return StringReplace(name, ".", "::", true);
 }
 
-string SimpleFtoa(float f) {
-  char buf[100];
-  snprintf(buf,sizeof(buf),"%.*g", FLT_DIG, f);
-  buf[sizeof(buf)-1] = 0;		/* should NOT be necessary */
-  return buf;
-}
-string SimpleDtoa(double d) {
-  char buf[100];
-  snprintf(buf,sizeof(buf),"%.*g", DBL_DIG, d);
-  buf[sizeof(buf)-1] = 0;		/* should NOT be necessary */
-  return buf;
-}
-
 string CamelToUpper(const string &name) {
   bool was_upper = true;		// suppress initial _
   string rv = "";
@@ -206,47 +193,9 @@ string FullNameToC(const string &full_name) {
   return rv;
 }
 
-void PrintComment (io::Printer* printer, string comment)
-{
-   if (!comment.empty())
-   {
-      vector<string> comment_lines;
-      SplitStringUsing (comment, "\r\n", &comment_lines);
-      printer->Print ("/*\n");
-      for (int i = 0; i < comment_lines.size(); i++)
-      {
-         if (!comment_lines[i].empty())
-         {
-            /* Make sure we don't inadvertently close the comment block */
-            if (comment_lines[i][0] == '/')
-               comment_lines[i] = ' ' + comment_lines[i];
-
-            /* Or cause other compiler issues. */
-            size_t delim_i;
-            while ((delim_i = comment_lines[i].find("/*")) != string::npos)
-               comment_lines[i][delim_i] = ' ';
-
-            while ((delim_i = comment_lines[i].find("*/")) != string::npos)
-               comment_lines[i][delim_i + 1] = ' ';
-
-            printer->Print (" *$line$\n", "line", comment_lines[i]);
-         }
-      }
-      printer->Print (" */\n");
-   }
-}
-
 string ConvertToSpaces(const string &input) {
   return string(input.size(), ' ');
 }
-
-int compare_name_indices_by_name(const void *a, const void *b)
-{
-  const NameIndex *ni_a = (const NameIndex *) a;
-  const NameIndex *ni_b = (const NameIndex *) b;
-  return strcmp (ni_a->name, ni_b->name);
-}
-
 
 string CEscape(const string& src);
 
@@ -273,37 +222,6 @@ std::set<string> MakeKeywordsMap() {
 
 std::set<string> kKeywords = MakeKeywordsMap();
 
-string ClassName(const Descriptor* descriptor, bool qualified) {
-  // Find "outer", the descriptor of the top-level message in which
-  // "descriptor" is embedded.
-  const Descriptor* outer = descriptor;
-  while (outer->containing_type() != NULL) outer = outer->containing_type();
-
-  const string& outer_name = outer->full_name();
-  string inner_name = descriptor->full_name().substr(outer_name.size());
-
-  if (qualified) {
-    return "::" + DotsToColons(outer_name) + DotsToUnderscores(inner_name);
-  } else {
-    return outer->name() + DotsToUnderscores(inner_name);
-  }
-}
-
-string ClassName(const EnumDescriptor* enum_descriptor, bool qualified) {
-  if (enum_descriptor->containing_type() == NULL) {
-    if (qualified) {
-      return DotsToColons(enum_descriptor->full_name());
-    } else {
-      return enum_descriptor->name();
-    }
-  } else {
-    string result = ClassName(enum_descriptor->containing_type(), qualified);
-    result += '_';
-    result += enum_descriptor->name();
-    return result;
-  }
-}
-
 string FieldName(const FieldDescriptor* field) {
   string result = ToLower(field->name());
   if (kKeywords.count(result) > 0) {
@@ -326,84 +244,6 @@ string StripProto(const string& filename) {
     return StripSuffixString(filename, ".proto");
   }
 }
-
-// Convert a file name into a valid identifier.
-string FilenameIdentifier(const string& filename) {
-  string result;
-  for (unsigned i = 0; i < filename.size(); i++) {
-    if (isalnum(filename[i])) {
-      result.push_back(filename[i]);
-    } else {
-      // Not alphanumeric.  To avoid any possibility of name conflicts we
-      // use the hex code for the character.
-      result.push_back('_');
-      char buffer[32];
-      result.append(FastHexToBuffer(static_cast<uint8>(filename[i]), buffer));
-    }
-  }
-  return result;
-}
-
-// Return the name of the BuildDescriptors() function for a given file.
-string GlobalBuildDescriptorsName(const string& filename) {
-  return "proto_BuildDescriptors_" + FilenameIdentifier(filename);
-}
-
-string GetLabelName(FieldDescriptor::Label label) {
-  switch (label) {
-    case FieldDescriptor::LABEL_OPTIONAL: return "optional";
-    case FieldDescriptor::LABEL_REQUIRED: return "required";
-    case FieldDescriptor::LABEL_REPEATED: return "repeated";
-  }
-  return "bad-label";
-}
-
-unsigned
-WriteIntRanges(io::Printer* printer, int n_values, const int *values, const string &name)
-{
-  std::map<string, string> vars;
-  vars["name"] = name;
-  if (n_values > 0) {
-    int n_ranges = 1;
-    for (int i = 1; i < n_values; i++) {
-      if (values[i-1] + 1 != values[i])
-        n_ranges++;
-    }
-    vars["n_ranges"] = SimpleItoa(n_ranges);
-    printer->Print(vars, "static const ProtobufCIntRange $name$[$n_ranges$ + 1] =\n"
-                         "{\n");
-    int last_range_start = 0;
-    for (int i = 1; i < n_values; i++) {
-      if (values[i-1] + 1 != values[i]) {
-        int count = i - last_range_start;
-	int expected = values[i-1] + 1;
-        vars["start_value"] = SimpleItoa(expected - count);
-        vars["orig_offset"] = SimpleItoa(last_range_start);
-        printer->Print (vars, "  { $start_value$, $orig_offset$ },\n");
-	last_range_start = i;
-      }
-    }
-    // write last real entry
-    {
-      int i = n_values;
-      int count = i - last_range_start;
-      int expected = values[i-1] + 1;
-      vars["start_value"] = SimpleItoa(expected - count);
-      vars["orig_offset"] = SimpleItoa(last_range_start);
-      printer->Print (vars, "  { $start_value$, $orig_offset$ },\n");
-    }
-    // write sentinel entry
-    vars["n_entries"] = SimpleItoa(n_values);
-    printer->Print (vars, "  { 0, $n_entries$ }\n");
-    printer->Print (vars, "};\n");
-    return n_ranges;
-  } else {
-    printer->Print (vars, "#define $name$ NULL\n");
-    return 0;
-  }
-}
-    
-
 
 // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx
 // XXXXXXXXX  this stuff is copied from strutils.cc !!!!   XXXXXXXXXXXXXXXXXXXXXXXXXXXXx

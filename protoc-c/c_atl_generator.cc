@@ -32,8 +32,7 @@ namespace protobuf {
 namespace compiler {
 namespace c {
 
-AtlCodeGenerator::AtlCodeGenerator(const ServiceDescriptor* descriptor,
-                                   const string& dllexport_decl)
+AtlCodeGenerator::AtlCodeGenerator(const ServiceDescriptor* descriptor)
   : descriptor_(descriptor) {
   vars_["name"] = descriptor_->name();
   vars_["fullname"] = descriptor_->full_name();
@@ -42,11 +41,6 @@ AtlCodeGenerator::AtlCodeGenerator(const ServiceDescriptor* descriptor,
   vars_["ucfullname"] = cmsg::FullNameToUpper(descriptor_->full_name());
   vars_["lcfullpadd"] = cmsg::ConvertToSpaces(vars_["lcfullname"]);
   vars_["package"] = descriptor_->file()->package();
-  if (dllexport_decl.empty()) {
-    vars_["dllexport"] = "";
-  } else {
-    vars_["dllexport"] = dllexport_decl + " ";
-  }
 }
 
 AtlCodeGenerator::~AtlCodeGenerator() {}
@@ -688,103 +682,6 @@ void AtlCodeGenerator::GenerateAtlServerImplStubs(io::Printer* printer)
     const MethodDescriptor *method = descriptor_->method(i);
     GenerateAtlServerImplStub(*method, printer);
   }
-}
-
-// This can be useful for debugging message generation.
-void AtlCodeGenerator::PrintMessageFields(io::Printer* printer, const Descriptor *message)
-{
-
-  vars_["message_name"] = message->full_name();
-  printer->Print(vars_, "message: $message_name$\n");
-  printer->Indent();
-  if (message->nested_type_count() > 0)
-  {
-    printer->Print("contains nested types\n");
-  }
-  else
-  {
-    printer->Print("doesn't contain nested types\n");
-  }
-  for (int i = 0; i < message->field_count(); i++) {
-    const FieldDescriptor *field = message->field(i);
-    if (field->type() == FieldDescriptor::TYPE_MESSAGE)
-    {
-      PrintMessageFields(printer, field->message_type());
-    }
-    else
-    {
-      vars_["field_name"] = FieldName(field);
-      vars_["field_type"] = TypeToString(field->type());
-
-      printer->Print(vars_, "type = $field_type$, name = $field_name$\n");
-    }
-  }
-  printer->Outdent();
-}
-
-// This is used by the PrintMessageFields method
-string AtlCodeGenerator::TypeToString(FieldDescriptor::Type type)
-{
-        string description = "";
-        switch (type) {
-    case FieldDescriptor::TYPE_DOUBLE:
-        description = "double";
-        break;
-    case FieldDescriptor::TYPE_FLOAT:
-        description = "float";
-        break;
-    case FieldDescriptor::TYPE_INT64:
-        description = "int64_t";
-        break;
-    case FieldDescriptor::TYPE_UINT64:
-        description = "uint64_t";
-        break;
-    case FieldDescriptor::TYPE_INT32:
-        description = "int32_t";
-        break;
-    case FieldDescriptor::TYPE_FIXED64:
-        description = "uint64_t";
-        break;
-    case FieldDescriptor::TYPE_FIXED32:
-        description = "uint32_t";
-        break;
-    case FieldDescriptor::TYPE_BOOL:
-        description = "protobuf_c_boolean";
-        break;
-    case FieldDescriptor::TYPE_STRING:
-        description = "char *";
-        break;
-    case FieldDescriptor::TYPE_GROUP:
-        description = "";
-        break;
-    case FieldDescriptor::TYPE_MESSAGE:
-        description = "struct";
-        break;
-    case FieldDescriptor::TYPE_BYTES:
-        description = "ProtobufCBinaryData";
-        break;
-    case FieldDescriptor::TYPE_UINT32:
-        description = "uint32_t";
-        break;
-    case FieldDescriptor::TYPE_ENUM:
-        description = "uint32_t";
-        break;
-    case FieldDescriptor::TYPE_SFIXED32:
-        description = "int32_t";
-        break;
-    case FieldDescriptor::TYPE_SFIXED64:
-        description = "int64_t";
-        break;
-    case FieldDescriptor::TYPE_SINT32:
-        description = "int32_t";
-        break;
-    case FieldDescriptor::TYPE_SINT64:
-        description = "int64_t";
-        break;
-    default:
-        break;
-        }
-        return description;
 }
 
 }  // namespace c

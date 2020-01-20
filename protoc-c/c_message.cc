@@ -64,7 +64,6 @@
 #include <map>
 #include <protoc-c/c_message.h>
 #include <protoc-c/c_enum.h>
-#include <protoc-c/c_extension.h>
 #include <protoc-c/c_helpers.h>
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/io/coded_stream.h>
@@ -82,31 +81,21 @@ namespace c {
 
 // ===================================================================
 
-MessageGenerator::MessageGenerator(const Descriptor* descriptor,
-                                   const string& dllexport_decl)
+MessageGenerator::MessageGenerator(const Descriptor* descriptor)
   : descriptor_(descriptor),
-    dllexport_decl_(dllexport_decl),
-    field_generators_(descriptor),
     nested_generators_(new scoped_ptr<MessageGenerator>[
       descriptor->nested_type_count()]),
     enum_generators_(new scoped_ptr<EnumGenerator>[
-      descriptor->enum_type_count()]),
-    extension_generators_(new scoped_ptr<ExtensionGenerator>[
-      descriptor->extension_count()]) {
+      descriptor->enum_type_count()]) {
 
   for (int i = 0; i < descriptor->nested_type_count(); i++) {
     nested_generators_[i].reset(
-      new MessageGenerator(descriptor->nested_type(i), dllexport_decl));
+      new MessageGenerator(descriptor->nested_type(i)));
   }
 
   for (int i = 0; i < descriptor->enum_type_count(); i++) {
     enum_generators_[i].reset(
-      new EnumGenerator(descriptor->enum_type(i), dllexport_decl));
-  }
-
-  for (int i = 0; i < descriptor->extension_count(); i++) {
-    extension_generators_[i].reset(
-      new ExtensionGenerator(descriptor->extension(i), dllexport_decl));
+      new EnumGenerator(descriptor->enum_type(i)));
   }
 }
 
@@ -171,7 +160,12 @@ GenerateStructDefinitionDefine(io::Printer* printer) {
   for (int i = 0; i < descriptor_->field_count(); i++) {
     const FieldDescriptor *field = descriptor_->field(i);
     if (field->has_default_value()) {
-      field_generators_.get(field).GenerateDefaultValueDeclarationsDefine(printer);
+      if (field->type() == FieldDescriptor::TYPE_STRING ||
+          field->type() == FieldDescriptor::TYPE_BYTES) {
+          vars["default_value_data"] = FullNameToLower(field->full_name()) + "__default_value_data";
+          vars["cmsg_default_value_data"] = cmsg::FullNameToLower(field->full_name()) + "_default_value_data";
+          printer->Print(vars, "#define $cmsg_default_value_data$ $default_value_data$\n");
+      }
     }
   }
 
@@ -448,343 +442,6 @@ compare_pfields_by_number (const void *a, const void *b)
   if (pa->number() < pb->number()) return -1;
   if (pa->number() > pb->number()) return +1;
   return 0;
-}
-
-void MessageGenerator::
-GenerateHelperFunctionDefinitions(io::Printer* printer, bool is_submessage)
-{
-  for (int i = 0; i < descriptor_->nested_type_count(); i++) {
-    nested_generators_[i]->GenerateHelperFunctionDefinitions(printer, true);
-  }
-
-  std::map<string, string> vars;
-  vars["classname"] = FullNameToC(descriptor_->full_name());
-  vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
-  vars["ucclassname"] = FullNameToUpper(descriptor_->full_name());
-  printer->Print(vars,
-#ifdef ATL_CHANGE
-		 "void   $lcclassname$_init\n"
-#else
-		 "void   $lcclassname$__init\n"
-#endif /* ATL_CHANGE */
-		 "                     ($classname$         *message)\n"
-		 "{\n"
-#ifdef ATL_CHANGE
-		 "  static const $classname$ init_value = $ucclassname$_INIT;\n"
-#else
-		 "  static const $classname$ init_value = $ucclassname$__INIT;\n"
-#endif /* ATL_CHANGE */
-		 "  *message = init_value;\n"
-		 "}\n");
-  if (!is_submessage) {
-    printer->Print(vars,
-#ifdef ATL_CHANGE
-		 "size_t $lcclassname$_get_packed_size\n"
-#else
-		 "size_t $lcclassname$__get_packed_size\n"
-#endif /* ATL_CHANGE */
-		 "                     (const $classname$ *message)\n"
-		 "{\n"
-#ifdef ATL_CHANGE
-		 "  assert(message->base.descriptor == &$lcclassname$_descriptor);\n"
-#else
-		 "  assert(message->base.descriptor == &$lcclassname$__descriptor);\n"
-#endif /* ATL_CHANGE */
-		 "  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));\n"
-		 "}\n"
-#ifdef ATL_CHANGE
-		 "size_t $lcclassname$_pack\n"
-#else
-		 "size_t $lcclassname$__pack\n"
-#endif /* ATL_CHANGE */
-		 "                     (const $classname$ *message,\n"
-		 "                      uint8_t       *out)\n"
-		 "{\n"
-#ifdef ATL_CHANGE
-		 "  assert(message->base.descriptor == &$lcclassname$_descriptor);\n"
-#else
-		 "  assert(message->base.descriptor == &$lcclassname$__descriptor);\n"
-#endif /* ATL_CHANGE */
-		 "  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);\n"
-		 "}\n"
-#ifdef ATL_CHANGE
-		 "size_t $lcclassname$_pack_to_buffer\n"
-#else
-		 "size_t $lcclassname$__pack_to_buffer\n"
-#endif /* ATL_CHANGE */
-		 "                     (const $classname$ *message,\n"
-		 "                      ProtobufCBuffer *buffer)\n"
-		 "{\n"
-#ifdef ATL_CHANGE
-		 "  assert(message->base.descriptor == &$lcclassname$_descriptor);\n"
-#else
-		 "  assert(message->base.descriptor == &$lcclassname$__descriptor);\n"
-#endif /* ATL_CHANGE */
-		 "  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);\n"
-		 "}\n"
-		 "$classname$ *\n"
-#ifdef ATL_CHANGE
-		 "       $lcclassname$_unpack\n"
-#else
-		 "       $lcclassname$__unpack\n"
-#endif /* ATL_CHANGE */
-		 "                     (ProtobufCAllocator  *allocator,\n"
-		 "                      size_t               len,\n"
-                 "                      const uint8_t       *data)\n"
-		 "{\n"
-		 "  return ($classname$ *)\n"
-#ifdef ATL_CHANGE
-		 "     protobuf_c_message_unpack (&$lcclassname$_descriptor,\n"
-#else
-		 "     protobuf_c_message_unpack (&$lcclassname$__descriptor,\n"
-#endif /* ATL_CHANGE */
-		 "                                allocator, len, data);\n"
-		 "}\n"
-#ifdef ATL_CHANGE
-		 "void   $lcclassname$_free_unpacked\n"
-#else
-		 "void   $lcclassname$__free_unpacked\n"
-#endif /* ATL_CHANGE */
-		 "                     ($classname$ *message,\n"
-		 "                      ProtobufCAllocator *allocator)\n"
-		 "{\n"
-		 "  if(!message)\n"
-		 "    return;\n"
-#ifdef ATL_CHANGE
-		 "  assert(message->base.descriptor == &$lcclassname$_descriptor);\n"
-#else
-		 "  assert(message->base.descriptor == &$lcclassname$__descriptor);\n"
-#endif /* ATL_CHANGE */
-		 "  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);\n"
-		 "}\n"
-		);
-  }
-}
-
-void MessageGenerator::
-GenerateMessageDescriptor(io::Printer* printer) {
-    std::map<string, string> vars;
-    vars["fullname"] = descriptor_->full_name();
-    vars["classname"] = FullNameToC(descriptor_->full_name());
-    vars["lcclassname"] = FullNameToLower(descriptor_->full_name());
-    vars["shortname"] = ToCamel(descriptor_->name());
-    vars["n_fields"] = SimpleItoa(descriptor_->field_count());
-    vars["packagename"] = descriptor_->file()->package();
-
-    bool optimize_code_size = descriptor_->file()->options().has_optimize_for() &&
-        descriptor_->file()->options().optimize_for() ==
-        FileOptions_OptimizeMode_CODE_SIZE;
-
-    for (int i = 0; i < descriptor_->nested_type_count(); i++) {
-      nested_generators_[i]->GenerateMessageDescriptor(printer);
-    }
-
-    for (int i = 0; i < descriptor_->enum_type_count(); i++) {
-      enum_generators_[i]->GenerateEnumDescriptor(printer);
-    }
-
-    for (int i = 0; i < descriptor_->field_count(); i++) {
-      const FieldDescriptor *fd = descriptor_->field(i);
-      if (fd->has_default_value()) {
-	field_generators_.get(fd).GenerateDefaultValueImplementations(printer);
-      }
-    }
-
-    for (int i = 0; i < descriptor_->field_count(); i++) {
-      const FieldDescriptor *fd = descriptor_->field(i);
-      if (fd->has_default_value()) {
-
-	bool already_defined = false;
-	vars["name"] = fd->name();
-	vars["lcname"] = CamelToLower(fd->name());
-	vars["maybe_static"] = "static ";
-	vars["field_dv_ctype_suffix"] = "";
-	vars["default_value"] = field_generators_.get(fd).GetDefaultValue();
-	switch (fd->cpp_type()) {
-	case FieldDescriptor::CPPTYPE_INT32:
-	  vars["field_dv_ctype"] = "int32_t";
-	  break;
-	case FieldDescriptor::CPPTYPE_INT64:
-	  vars["field_dv_ctype"] = "int64_t";
-	  break;
-	case FieldDescriptor::CPPTYPE_UINT32:
-	  vars["field_dv_ctype"] = "uint32_t";
-	  break;
-	case FieldDescriptor::CPPTYPE_UINT64:
-	  vars["field_dv_ctype"] = "uint64_t";
-	  break;
-	case FieldDescriptor::CPPTYPE_FLOAT:
-	  vars["field_dv_ctype"] = "float";
-	  break;
-	case FieldDescriptor::CPPTYPE_DOUBLE:
-	  vars["field_dv_ctype"] = "double";
-	  break;
-	case FieldDescriptor::CPPTYPE_BOOL:
-	  vars["field_dv_ctype"] = "protobuf_c_boolean";
-	  break;
-	  
-	case FieldDescriptor::CPPTYPE_MESSAGE:
-	  // NOTE: not supported by protobuf
-	  vars["maybe_static"] = "";
-	  vars["field_dv_ctype"] = "{ ... }";
-	  GOOGLE_LOG(DFATAL) << "Messages can't have default values!";
-	  break;
-	case FieldDescriptor::CPPTYPE_STRING:
-	  if (fd->type() == FieldDescriptor::TYPE_BYTES)
-	  {
-	    vars["field_dv_ctype"] = "ProtobufCBinaryData";
-	  }
-	  else   /* STRING type */
-	  {
-	    already_defined = true;
-	    vars["maybe_static"] = "";
-	    vars["field_dv_ctype"] = "char";
-	    vars["field_dv_ctype_suffix"] = "[]";
-	  }
-	  break;
-	case FieldDescriptor::CPPTYPE_ENUM:
-	  {
-	    const EnumValueDescriptor *vd = fd->default_value_enum();
-	    vars["field_dv_ctype"] = FullNameToC(vd->type()->full_name());
-	    break;
-	  }
-	default:
-	  GOOGLE_LOG(DFATAL) << "Unknown CPPTYPE";
-	  break;
-	}
-	if (!already_defined)
-#ifdef ATL_CHANGE
-	  printer->Print(vars, "$maybe_static$const $field_dv_ctype$ $lcclassname$_$lcname$_default_value$field_dv_ctype_suffix$ = $default_value$;\n");
-#else
-	  printer->Print(vars, "$maybe_static$const $field_dv_ctype$ $lcclassname$__$lcname$__default_value$field_dv_ctype_suffix$ = $default_value$;\n");
-#endif /* ATL_CHANGE */
-      }
-    }
-
-    if ( descriptor_->field_count() ) {
-  printer->Print(vars,
-#ifdef ATL_CHANGE
-	"static const ProtobufCFieldDescriptor $lcclassname$_field_descriptors[$n_fields$] =\n"
-#else
-	"static const ProtobufCFieldDescriptor $lcclassname$__field_descriptors[$n_fields$] =\n"
-#endif /* ATL_CHANGE */
-	"{\n");
-  printer->Indent();
-  const FieldDescriptor **sorted_fields = new const FieldDescriptor *[descriptor_->field_count()];
-  for (int i = 0; i < descriptor_->field_count(); i++) {
-    sorted_fields[i] = descriptor_->field(i);
-  }
-  qsort (sorted_fields, descriptor_->field_count(),
-       sizeof (const FieldDescriptor *), 
-       compare_pfields_by_number);
-  for (int i = 0; i < descriptor_->field_count(); i++) {
-    const FieldDescriptor *field = sorted_fields[i];
-    field_generators_.get(field).GenerateDescriptorInitializer(printer);
-  }
-  printer->Outdent();
-  printer->Print(vars, "};\n");
-
-  if (!optimize_code_size) {
-    NameIndex *field_indices = new NameIndex [descriptor_->field_count()];
-    for (int i = 0; i < descriptor_->field_count(); i++) {
-      field_indices[i].name = sorted_fields[i]->name().c_str();
-      field_indices[i].index = i;
-    }
-    qsort (field_indices, descriptor_->field_count(), sizeof (NameIndex),
-        compare_name_indices_by_name);
-#ifdef ATL_CHANGE
-    printer->Print(vars, "static const unsigned $lcclassname$_field_indices_by_name[] = {\n");
-#else
-    printer->Print(vars, "static const unsigned $lcclassname$__field_indices_by_name[] = {\n");
-#endif /* ATL_CHANGE */
-    for (int i = 0; i < descriptor_->field_count(); i++) {
-      vars["index"] = SimpleItoa(field_indices[i].index);
-      vars["name"] = field_indices[i].name;
-      printer->Print(vars, "  $index$,   /* field[$index$] = $name$ */\n");
-    }
-    printer->Print("};\n");
-    delete[] field_indices;
-  }
-
-  // create range initializers
-  int *values = new int[descriptor_->field_count()];
-  for (int i = 0; i < descriptor_->field_count(); i++) {
-    values[i] = sorted_fields[i]->number();
-  }
-  int n_ranges = WriteIntRanges(printer,
-				descriptor_->field_count(), values,
-#ifdef ATL_CHANGE
-				vars["lcclassname"] + "_number_ranges");
-#else
-				vars["lcclassname"] + "__number_ranges");
-#endif /* ATL_CHANGE */
-  delete [] values;
-  delete [] sorted_fields;
-
-  vars["n_ranges"] = SimpleItoa(n_ranges);
-    } else {
-      /* MS compiler can't handle arrays with zero size and empty
-       * initialization list. Furthermore it is an extension of GCC only but
-       * not a standard. */
-      vars["n_ranges"] = "0";
-  printer->Print(vars,
-#ifdef ATL_CHANGE
-        "#define $lcclassname$_field_descriptors NULL\n"
-        "#define $lcclassname$_field_indices_by_name NULL\n"
-        "#define $lcclassname$_number_ranges NULL\n");
-#else
-        "#define $lcclassname$__field_descriptors NULL\n"
-        "#define $lcclassname$__field_indices_by_name NULL\n"
-        "#define $lcclassname$__number_ranges NULL\n");
-#endif /* ATL_CHANGE */
-    }
-
-  printer->Print(vars,
-#ifdef ATL_CHANGE
-  "const ProtobufCMessageDescriptor $lcclassname$_descriptor =\n"
-#else
-      "const ProtobufCMessageDescriptor $lcclassname$__descriptor =\n"
-#endif /* ATL_CHANGE */
-      "{\n"
-      "  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,\n");
-  if (optimize_code_size) {
-    printer->Print("  NULL,NULL,NULL,NULL, /* CODE_SIZE */\n");
-  } else {
-    printer->Print(vars,
-        "  \"$fullname$\",\n"
-        "  \"$shortname$\",\n"
-        "  \"$classname$\",\n"
-        "  \"$packagename$\",\n");
-  }
-  printer->Print(vars,
-      "  sizeof($classname$),\n"
-      "  $n_fields$,\n"
-#ifdef ATL_CHANGE
-      "  $lcclassname$_field_descriptors,\n");
-#else
-      "  $lcclassname$__field_descriptors,\n");
-#endif /* ATL_CHANGE */
-  if (optimize_code_size) {
-    printer->Print("  NULL, /* CODE_SIZE */\n");
-  } else {
-    printer->Print(vars,
-#ifdef ATL_CHANGE
-        "  $lcclassname$_field_indices_by_name,\n");
-#else
-        "  $lcclassname$__field_indices_by_name,\n");
-#endif /* ATL_CHANGE */
-  }
-  printer->Print(vars,
-      "  $n_ranges$,"
-#ifdef ATL_CHANGE
-      "  $lcclassname$_number_ranges,\n"
-      "  (ProtobufCMessageInit) $lcclassname$_init,\n"
-#else
-      "  $lcclassname$__number_ranges,\n"
-      "  (ProtobufCMessageInit) $lcclassname$__init,\n"
-#endif /* ATL_CHANGE */
-      "  NULL,NULL,NULL    /* reserved[123] */\n"
-      "};\n");
 }
 
 void MessageGenerator::

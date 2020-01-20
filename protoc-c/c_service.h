@@ -80,9 +80,7 @@ namespace c {
 
 class ServiceGenerator {
  public:
-  // See generator.cc for the meaning of dllexport_decl.
-  explicit ServiceGenerator(const ServiceDescriptor* descriptor,
-                            const string& dllexport_decl);
+  explicit ServiceGenerator(const ServiceDescriptor* descriptor);
   ~ServiceGenerator();
 
   // Header stuff.
@@ -91,12 +89,6 @@ class ServiceGenerator {
   void GenerateInitMacrosDefines(io::Printer* printer);
   void GenerateDescriptorDeclarationsDefines(io::Printer* printer);
   void GenerateCallersDeclarationsDefines(io::Printer* printer);
-
-  // Source file stuff.
-  void GenerateCFile(io::Printer* printer);
-  void GenerateServiceDescriptor(io::Printer* printer);
-  void GenerateInit(io::Printer* printer);
-  void GenerateCallersImplementations(io::Printer* printer);
 
   const ServiceDescriptor* descriptor_;
   std::map<string, string> vars_;
