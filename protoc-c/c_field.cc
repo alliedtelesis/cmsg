@@ -94,15 +94,7 @@ static bool is_packable_type(FieldDescriptor::Type type)
       || type == FieldDescriptor::TYPE_SFIXED32
       || type == FieldDescriptor::TYPE_SFIXED64
       || type == FieldDescriptor::TYPE_SINT32
-#ifdef ATL_CHANGE
-      || type == FieldDescriptor::TYPE_SINT64
-      || type == FieldDescriptor::TYPE_INT8
-      || type == FieldDescriptor::TYPE_UINT8
-      || type == FieldDescriptor::TYPE_INT16
-      || type == FieldDescriptor::TYPE_UINT16;
-#else
       || type == FieldDescriptor::TYPE_SINT64;
-#endif /* ATL_CHANGE */
     //TYPE_BYTES
     //TYPE_STRING
     //TYPE_GROUP

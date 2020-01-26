@@ -176,16 +176,13 @@ void ServiceGenerator::GenerateCallersDeclarations(io::Printer* printer)
 #endif /* ATL_CHANGE */
     printer->Print(vars_,
 #ifdef ATL_CHANGE
-                   "int32_t $lcfullname$_$method$(ProtobufCService *service,\n"
-                   "        $padddddddddddddddddd$ const $input_typename$ *input,\n"
-                   "        $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
-                   "        $padddddddddddddddddd$ void *closure_data);\n");
+                   "void $lcfullname$_$method$(ProtobufCService *service,\n"
 #else
                    "void $lcfullname$__$method$(ProtobufCService *service,\n"
+#endif /* ATL_CHANGE */
                    "     $padddddddddddddddddd$ const $input_typename$ *input,\n"
                    "     $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
                    "     $padddddddddddddddddd$ void *closure_data);\n");
-#endif /* ATL_CHANGE */
   }
 }
 
@@ -361,25 +358,20 @@ void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
 
     printer->Print(vars_,
 #ifdef ATL_CHANGE
-                   "int32_t $lcfullname$_$method$(ProtobufCService *service,\n"
-                   "        $padddddddddddddddddd$ const $input_typename$ *input,\n"
-                   "        $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
-                   "        $padddddddddddddddddd$ void *closure_data)\n"
+                   "void $lcfullname$_$method$(ProtobufCService *service,\n"
 #else
                    "void $lcfullname$__$method$(ProtobufCService *service,\n"
+#endif /* ATL_CHANGE */
                    "     $padddddddddddddddddd$ const $input_typename$ *input,\n"
                    "     $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
                    "     $padddddddddddddddddd$ void *closure_data)\n"
-#endif /* ATL_CHANGE */
 		   "{\n"
 #ifdef ATL_CHANGE
 		   "  assert(service->descriptor == &$lcfullname$_descriptor);\n"
-		   "  return service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
 #else
 		   "  assert(service->descriptor == &$lcfullname$__descriptor);\n"
-		   "  service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
-
 #endif /* ATL_CHANGE */
+		   "  service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
 		   "}\n");
   }
 }

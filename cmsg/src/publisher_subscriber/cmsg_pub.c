@@ -122,11 +122,11 @@ cmsg_publisher_queue_entry_free (cmsg_pub_queue_entry *queue_entry)
  * for the given message and sends this to cmsg_psd to be published to all
  * subscribers.
  */
-static int32_t
+static void
 cmsg_pub_invoke (ProtobufCService *service,
                  uint32_t method_index,
                  const ProtobufCMessage *input,
-                 ProtobufCClosure closure, void *closure_data)
+                 ProtobufCClosure closure, void *_closure_data)
 {
     int32_t ret;
     cmsg_publisher *publisher = (cmsg_publisher *) service;
@@ -134,10 +134,12 @@ cmsg_pub_invoke (ProtobufCService *service,
     uint8_t *packet = NULL;
     uint32_t total_message_size = 0;
     cmsg_client *subscribers_client = NULL;
+    cmsg_client_closure_data *closure_data = (cmsg_client_closure_data *) _closure_data;
 
-    CMSG_ASSERT_RETURN_VAL (service != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (service->descriptor != NULL, CMSG_RET_ERR);
-    CMSG_ASSERT_RETURN_VAL (input != NULL, CMSG_RET_ERR);
+    closure_data->retval = CMSG_RET_ERR;
+    CMSG_ASSERT_RETURN_VOID (service != NULL);
+    CMSG_ASSERT_RETURN_VOID (service->descriptor != NULL);
+    CMSG_ASSERT_RETURN_VOID (input != NULL);
 
     method_name = service->descriptor->methods[method_index].name;
 
@@ -150,7 +152,8 @@ cmsg_pub_invoke (ProtobufCService *service,
     if (!subscribers_client)
     {
         pthread_mutex_unlock (&publisher->subscribed_methods_mutex);
-        return CMSG_RET_OK;
+        closure_data->retval = CMSG_RET_OK;
+        return;
     }
 
     ret = cmsg_client_create_packet (subscribers_client, method_name, input,
@@ -160,17 +163,19 @@ cmsg_pub_invoke (ProtobufCService *service,
 
     if (ret != CMSG_RET_OK)
     {
-        return CMSG_RET_ERR;
+        closure_data->retval = CMSG_RET_ERR;
+        return;
     }
 
     ret = cmsg_publisher_queue_packet (publisher, packet, total_message_size, method_name);
     if (ret != CMSG_RET_OK)
     {
         CMSG_FREE (packet);
-        return CMSG_RET_ERR;
+        closure_data->retval = CMSG_RET_ERR;
+        return;
     }
 
-    return CMSG_RET_OK;
+    closure_data->retval = CMSG_RET_OK;
 }
 
 /**

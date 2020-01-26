@@ -21,10 +21,10 @@ struct cmsg_publisher
     //this is a hack to get around a check when a client method is called
     //to not change the order of the first two
     const ProtobufCServiceDescriptor *descriptor;
-    int32_t (*invoke) (ProtobufCService *service,
-                       uint32_t method_index,
-                       const ProtobufCMessage *input,
-                       ProtobufCClosure closure, void *closure_data);
+    void (*invoke) (ProtobufCService *service,
+                    uint32_t method_index,
+                    const ProtobufCMessage *input,
+                    ProtobufCClosure closure, void *closure_data);
     cmsg_object self;
     cmsg_object parent;
 

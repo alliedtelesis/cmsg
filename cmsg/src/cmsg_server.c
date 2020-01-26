@@ -8,6 +8,7 @@
 #include "cmsg_transport.h"
 #include "transport/cmsg_transport_private.h"
 #include "service_listener/cmsg_sl_api_private.h"
+#include "cmsg_protobuf-c.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
