@@ -393,7 +393,7 @@ find_descriptors (void *lib_handle, program_args *args, pbc_descriptors *descrip
     const ProtobufCMethodDescriptor *method = NULL;
     const ProtobufCServiceDescriptor *service_descriptor;
 
-    if (asprintf (&symbol_name, "%s_%s_descriptor", args->package_name,
+    if (asprintf (&symbol_name, "%s__%s__descriptor", args->package_name,
                   args->service_name) < 0)
     {
         fprintf (stderr, "Unable to allocate memory.\n");
