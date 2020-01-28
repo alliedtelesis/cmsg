@@ -52,10 +52,10 @@ do                                                                   \
  * The caller must free any received data, which there may be some of even if an error
  * is returned, as the call may have work on one or more of the other clients.
  */
-static int32_t
+static void
 cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
                               const ProtobufCMessage *input, ProtobufCClosure closure,
-                              void *closure_data)
+                              void *_closure_data)
 {
     GList *l;
     cmsg_composite_client *composite_client = (cmsg_composite_client *) service;
@@ -65,11 +65,12 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
     GQueue *invoke_recv_clients;
     int overall_result = CMSG_RET_OK;
 
-    cmsg_client_closure_data *recv_data = (cmsg_client_closure_data *) closure_data;
+    cmsg_client_closure_data *closure_data = (cmsg_client_closure_data *) _closure_data;
 
     if (composite_client->child_clients == NULL)
     {
-        return CMSG_RET_OK;
+        closure_data->retval = CMSG_RET_OK;
+        return;
     }
 
     invoke_recv_clients = g_queue_new ();
@@ -107,8 +108,7 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
             continue;
         }
 
-        ret = child->invoke_recv (child, method_index, closure,
-                                  closure_data ? &recv_data[i] : NULL);
+        ret = child->invoke_recv (child, method_index, closure, &closure_data[i]);
         pthread_mutex_unlock (&child->invoke_mutex);
 
         if (ret == CMSG_RET_OK)
@@ -125,7 +125,7 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
 
     g_queue_free (invoke_recv_clients);
 
-    return overall_result;
+    closure_data->retval = overall_result;
 }
 
 int32_t

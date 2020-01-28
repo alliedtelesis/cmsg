@@ -1,4 +1,4 @@
-bin_PROGRAMS = protoc-cmsg
+bin_PROGRAMS = protoc-gen-cmsg
 
 http.pb.cc \
 http.pb.h: $(PROTOC_PATH)$(EXEEXT) http.proto
@@ -12,7 +12,7 @@ supported_service.pb.cc \
 supported_service.pb.h: $(PROTOC_PATH)$(EXEEXT) supported_service.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/protoc-c/supported_service.proto
 
-protoc_cmsg_SOURCES = \
+protoc_gen_cmsg_SOURCES = \
 	http.pb.cc \
 	http.pb.h \
 	validation.pb.cc \
@@ -49,23 +49,23 @@ protoc_cmsg_SOURCES = \
 	c_string_field.h \
 	main.cc
 
-protoc_cmsgdir       = $(includedir)/cmsg
-protoc_cmsg_HEADERS  = \
+protoc_gen_cmsgdir       = $(includedir)/cmsg
+protoc_gen_cmsg_HEADERS  = \
 	http.proto \
 	validation.proto \
 	supported_service.proto
 
-protoc_cmsg_CXXFLAGS = \
+protoc_gen_cmsg_CXXFLAGS = \
 	-Werror \
 	$(protobuf_CFLAGS) \
 	-std=c++11
 
-protoc_cmsg_LDADD = \
+protoc_gen_cmsg_LDADD = \
 	$(protobuf_LIBS) \
 	-lprotoc \
 	-lprotobuf
 
-protoc_cmsg_CPPFLAGS = \
+protoc_gen_cmsg_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
 	-I$(top_srcdir)
 
