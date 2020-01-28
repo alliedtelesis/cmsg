@@ -222,6 +222,17 @@ extern ProtobufCAllocator cmsg_memory_allocator;
             if ((_node = (_name)->_field[_idx]) != NULL)
 
 /**
+ * Helper macro to iterate over the int32/uint32 in a repeated field of a CMSG message
+ * @param _name name of message ptr variable.
+ * @param _field name of the repeated field
+ * @param _node integer of the type of the repeated field.
+ * @param _idx integer variable to use as loop counter.
+ */
+#define CMSG_REPEATED_FOREACH_INT(_name, _field, _node, _idx)  \
+    if ((_name) && (_name)->_field)                         \
+        for (_idx = 0, _node = (_name)->_field[_idx]; _idx < (_name)->n_##_field; _idx++)
+
+/**
  * Replace a string field in a received message with a different value using the
  * CMSG memory allocator.
  * This is useful if the message needs a slight modification before sending on
