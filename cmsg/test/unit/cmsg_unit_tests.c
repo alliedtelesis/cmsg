@@ -78,3 +78,27 @@ test_cmsg_repeated_foreach_int (void)
     }
     NP_ASSERT_EQUAL (loop_counter, ARRAY_SIZE);
 }
+
+/**
+ * Test that cmsg_enum_to_name() works as expected.
+ */
+void
+test_cmsg_enum_to_name (void)
+{
+    const ProtobufCEnumDescriptor *desc = CMSG_ENUM_DESCRIPTOR (cmsg_number);
+
+    NP_ASSERT_STR_EQUAL (cmsg_enum_to_name (desc, CMSG_NUMBER_ZERO), "NUMBER_ZERO");
+    NP_ASSERT_STR_EQUAL (cmsg_enum_to_name (desc, CMSG_NUMBER_ONE), "NUMBER_ONE");
+    NP_ASSERT_STR_EQUAL (cmsg_enum_to_name (desc, CMSG_NUMBER_TWO), "NUMBER_TWO");
+    NP_ASSERT_STR_EQUAL (cmsg_enum_to_name (desc, CMSG_NUMBER_2), "NUMBER_TWO");
+    NP_ASSERT_STR_EQUAL (cmsg_enum_to_name (desc, CMSG_NUMBER_MINUS_ONE),
+                         "NUMBER_MINUS_ONE");
+    NP_ASSERT_STR_EQUAL (cmsg_enum_to_name (desc, CMSG_NUMBER__2), "NUMBER__2");
+    NP_ASSERT_STR_EQUAL (cmsg_enum_to_name (desc, CMSG_NUMBER_MINUS_TWO), "NUMBER__2");
+    NP_ASSERT_STR_EQUAL (cmsg_enum_to_name (desc, 10), "NUMBER_TEN");
+    NP_ASSERT_STR_EQUAL (cmsg_enum_to_name (desc, -10), "NUMBER_MINUS_TEN");
+    NP_ASSERT_NULL (cmsg_enum_to_name (desc, 3));
+    NP_ASSERT_NULL (cmsg_enum_to_name (desc, 200));
+    NP_ASSERT_NULL (cmsg_enum_to_name (desc, -3));
+    NP_ASSERT_NULL (cmsg_enum_to_name (desc, -200));
+}

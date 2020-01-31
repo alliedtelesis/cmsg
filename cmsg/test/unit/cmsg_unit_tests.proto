@@ -6,6 +6,21 @@
 
 package cmsg;
 
+enum number
+{
+    option allow_alias = true;
+
+    NUMBER_ZERO = 0;
+    NUMBER_ONE = 1;
+    NUMBER_TWO = 2;
+    NUMBER_2 = 2;
+    NUMBER_MINUS_ONE = -1;
+    NUMBER__2 = -2;
+    NUMBER_MINUS_TWO = -2;
+    NUMBER_TEN = 10;
+    NUMBER_MINUS_TEN = -10;
+}
+
 message internal_dump_msg
 {
     optional uint32 internal_uint32_value = 1;
