@@ -44,9 +44,7 @@ namespace c {
 
 class AtlCodeGenerator {
  public:
-  // See generator.cc for the meaning of dllexport_decl.
-  explicit AtlCodeGenerator(const ServiceDescriptor* descriptor,
-                            const string& dllexport_decl);
+  explicit AtlCodeGenerator(const ServiceDescriptor* descriptor);
   ~AtlCodeGenerator();
 
   // Header stuff.
@@ -87,8 +85,6 @@ class AtlCodeGenerator {
 
   // useful functions
   string GetAtlClosureFunctionName(const MethodDescriptor &method);
-  void PrintMessageFields(io::Printer* printer, const Descriptor *message);
-  string TypeToString(FieldDescriptor::Type type);
 
   const ServiceDescriptor* descriptor_;
   std::map<string, string> vars_;

@@ -69,7 +69,6 @@
 #include <fstream>
 #endif /* ATL_CHANGE */
 #include <google/protobuf/stubs/common.h>
-#include <protoc-c/c_field.h>
 
 namespace google {
 namespace protobuf {
@@ -89,17 +88,12 @@ class ServiceGenerator;        // service.h
 #ifdef ATL_CHANGE
 class AtlCodeGenerator;        // atl_generator.h
 #endif /* ATL_CHANGE */
-class ExtensionGenerator;      // extension.h
 
 class FileGenerator {
  public:
-  // See generator.cc for the meaning of dllexport_decl.
-  explicit FileGenerator(const FileDescriptor* file,
-                         const string& dllexport_decl);
+  explicit FileGenerator(const FileDescriptor* file);
   ~FileGenerator();
 
-  void GenerateHeader(io::Printer* printer);
-  void GenerateSource(io::Printer* printer);
 #ifdef ATL_CHANGE
   void GenerateAtlTypesHeader(io::Printer* printer);
   void GenerateAtlApiHeader(io::Printer* printer);
@@ -109,6 +103,8 @@ class FileGenerator {
   void GenerateAtlImplStubs(io::Printer* printer);
   void GenerateAtlHttpProxySource(io::Printer* printer);
   void GenerateAtlHttpProxyHeader(io::Printer* printer);
+  void GenerateAtlValidationSource(io::Printer* printer);
+  void GenerateAtlValidationHeader(io::Printer* printer);
 #endif /* ATL_CHANGE */
 
  private:
@@ -120,7 +116,6 @@ class FileGenerator {
 #ifdef ATL_CHANGE
   scoped_array<scoped_ptr<AtlCodeGenerator> > atl_code_generators_;
 #endif /* ATL_CHANGE */
-  scoped_array<scoped_ptr<ExtensionGenerator> > extension_generators_;
 
   // E.g. if the package is foo.bar, package_parts_ is {"foo", "bar"}.
   vector<string> package_parts_;

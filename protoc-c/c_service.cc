@@ -64,318 +64,65 @@
 #include <protoc-c/c_helpers.h>
 #include <google/protobuf/io/printer.h>
 
+#ifdef ATL_CHANGE
+#include <protoc-c/c_helpers_cmsg.h>
+#endif /* ATL_CHANGE */
+
 namespace google {
 namespace protobuf {
 namespace compiler {
 namespace c {
 
-ServiceGenerator::ServiceGenerator(const ServiceDescriptor* descriptor,
-                                   const string& dllexport_decl)
+ServiceGenerator::ServiceGenerator(const ServiceDescriptor* descriptor)
   : descriptor_(descriptor) {
   vars_["name"] = descriptor_->name();
   vars_["fullname"] = descriptor_->full_name();
   vars_["cname"] = FullNameToC(descriptor_->full_name());
+  vars_["cmsg_cname"] = cmsg::FullNameToC(descriptor_->full_name());
   vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
+  vars_["cmsg_lcfullname"] = cmsg::FullNameToLower(descriptor_->full_name());
   vars_["ucfullname"] = FullNameToUpper(descriptor_->full_name());
+  vars_["cmsg_ucfullname"] = cmsg::FullNameToUpper(descriptor_->full_name());
   vars_["lcfullpadd"] = ConvertToSpaces(vars_["lcfullname"]);
   vars_["package"] = descriptor_->file()->package();
-  if (dllexport_decl.empty()) {
-    vars_["dllexport"] = "";
-  } else {
-    vars_["dllexport"] = dllexport_decl + " ";
-  }
 }
 
 ServiceGenerator::~ServiceGenerator() {}
 
 // Header stuff.
-void ServiceGenerator::GenerateMainHFile(io::Printer* printer)
+void ServiceGenerator::GenerateMainHFileDefines(io::Printer* printer)
 {
-  GenerateVfuncs(printer);
-  GenerateInitMacros(printer);
-  GenerateCallersDeclarations(printer);
+  GenerateVfuncsDefines(printer);
+  GenerateInitMacrosDefines(printer);
+  GenerateCallersDeclarationsDefines(printer);
 }
-void ServiceGenerator::GenerateVfuncs(io::Printer* printer)
+void ServiceGenerator::GenerateVfuncsDefines(io::Printer* printer)
 {
-  printer->Print(vars_,
-		 "typedef struct _$cname$_Service $cname$_Service;\n"
-		 "struct _$cname$_Service\n"
-		 "{\n"
-		 "  ProtobufCService base;\n");
-  for (int i = 0; i < descriptor_->method_count(); i++) {
-    const MethodDescriptor *method = descriptor_->method(i);
-    string lcname = CamelToLower(method->name());
-    vars_["method"] = lcname;
-    vars_["metpad"] = ConvertToSpaces(lcname);
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
-    printer->Print(vars_,
-#ifdef ATL_CHANGE
-                   "  int32_t (*$method$)($cname$_Service *service,\n"
-#else
-                   "  void (*$method$)($cname$_Service *service,\n"
-#endif /* ATL_CHANGE */
-                   "         $metpad$  const $input_typename$ *input,\n"
-                   "         $metpad$  $output_typename$_Closure closure,\n"
-                   "         $metpad$  void *closure_data);\n");
-  }
-  printer->Print(vars_,
-		 "};\n");
-  printer->Print(vars_,
-		 "typedef void (*$cname$_ServiceDestroy)($cname$_Service *);\n"
-#ifdef ATL_CHANGE
-		 "void $lcfullname$_init ($cname$_Service *service,\n"
-#else
-		 "void $lcfullname$__init ($cname$_Service *service,\n"
-#endif /* ATL_CHANGE */
-		 "     $lcfullpadd$        $cname$_ServiceDestroy destroy);\n");
+  printer->Print(vars_, "#define $cmsg_cname$_Service $cname$_Service\n");
+  printer->Print(vars_, "#define $cmsg_cname$_ServiceDestroy $cname$_ServiceDestroy\n");
+  printer->Print(vars_, "#define $cmsg_lcfullname$_init $lcfullname$__init\n");
 }
-void ServiceGenerator::GenerateInitMacros(io::Printer* printer)
+void ServiceGenerator::GenerateInitMacrosDefines(io::Printer* printer)
 {
-  printer->Print(vars_,
-#ifdef ATL_CHANGE
-		 "#define $ucfullname$_BASE_INIT \\\n"
-		 "    { &$lcfullname$_descriptor, protobuf_c_service_invoke_internal, NULL }\n"
-		 "#define $ucfullname$_INIT(function_prefix_) \\\n"
-		 "    { $ucfullname$_BASE_INIT");
-#else
-		 "#define $ucfullname$__BASE_INIT \\\n"
-		 "    { &$lcfullname$__descriptor, protobuf_c_service_invoke_internal, NULL }\n"
-		 "#define $ucfullname$__INIT(function_prefix__) \\\n"
-		 "    { $ucfullname$__BASE_INIT");
-#endif /* ATL_CHANGE */
-  for (int i = 0; i < descriptor_->method_count(); i++) {
-    const MethodDescriptor *method = descriptor_->method(i);
-    string lcname = CamelToLower(method->name());
-    vars_["method"] = lcname;
-    vars_["metpad"] = ConvertToSpaces(lcname);
-    printer->Print(vars_,
-#ifdef ATL_CHANGE
-                   ",\\\n      function_prefix_ ## $method$");
-#else
-                   ",\\\n      function_prefix__ ## $method$");
-#endif /* ATL_CHANGE */
-  }
-  printer->Print(vars_,
-		 "  }\n");
+  printer->Print(vars_, "#define $cmsg_ucfullname$_BASE_INIT $ucfullname$__BASE_INIT\n");
+  printer->Print(vars_, "#define $cmsg_ucfullname$_INIT $ucfullname$__INIT\n");
 }
-void ServiceGenerator::GenerateCallersDeclarations(io::Printer* printer)
+void ServiceGenerator::GenerateCallersDeclarationsDefines(io::Printer* printer)
 {
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
     string lcname = CamelToLower(method->name());
-    string lcfullname = FullNameToLower(descriptor_->full_name());
+    string cmsg_lcname = cmsg::CamelToLower(method->name());
     vars_["method"] = lcname;
-    vars_["metpad"] = ConvertToSpaces(lcname);
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
-#ifdef ATL_CHANGE
-    vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_" + lcname);
-#else
-    vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "__" + lcname);
-#endif /* ATL_CHANGE */
-    printer->Print(vars_,
-#ifdef ATL_CHANGE
-                   "void $lcfullname$_$method$(ProtobufCService *service,\n"
-#else
-                   "void $lcfullname$__$method$(ProtobufCService *service,\n"
-#endif /* ATL_CHANGE */
-                   "     $padddddddddddddddddd$ const $input_typename$ *input,\n"
-                   "     $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
-                   "     $padddddddddddddddddd$ void *closure_data);\n");
+    vars_["cmsg_method"] = lcname;
+    printer->Print(vars_, "#define $cmsg_lcfullname$_$cmsg_method$ $lcfullname$__$method$ \n");
   }
 }
 
-void ServiceGenerator::GenerateDescriptorDeclarations(io::Printer* printer)
+void ServiceGenerator::GenerateDescriptorDeclarationsDefines(io::Printer* printer)
 {
-#ifdef ATL_CHANGE
-  printer->Print(vars_, "extern const ProtobufCServiceDescriptor $lcfullname$_descriptor;\n");
-#else
-  printer->Print(vars_, "extern const ProtobufCServiceDescriptor $lcfullname$__descriptor;\n");
-#endif /* ATL_CHANGE */
+  printer->Print(vars_, "#define $cmsg_lcfullname$_descriptor $lcfullname$__descriptor\n");
 }
-
-
-// Source file stuff.
-void ServiceGenerator::GenerateCFile(io::Printer* printer)
-{
-  GenerateServiceDescriptor(printer);
-  GenerateCallersImplementations(printer);
-  GenerateInit(printer);
-}
-void ServiceGenerator::GenerateInit(io::Printer* printer)
-{
-  printer->Print(vars_,
-#ifdef ATL_CHANGE
-		 "void $lcfullname$_init ($cname$_Service *service,\n"
-#else
-		 "void $lcfullname$__init ($cname$_Service *service,\n"
-#endif /* ATL_CHANGE */
-		 "     $lcfullpadd$        $cname$_ServiceDestroy destroy)\n"
-		 "{\n"
-		 "  protobuf_c_service_generated_init (&service->base,\n"
-#ifdef ATL_CHANGE
-		 "                                     &$lcfullname$_descriptor,\n"
-#else
-		 "                                     &$lcfullname$__descriptor,\n"
-#endif /* ATL_CHANGE */
-		 "                                     (ProtobufCServiceDestroy) destroy);\n"
-		 "}\n");
-}
-
-struct MethodIndexAndName { unsigned i; const char *name; };
-static int
-compare_method_index_and_name_by_name (const void *a, const void *b)
-{
-  const MethodIndexAndName *ma = (const MethodIndexAndName *) a;
-  const MethodIndexAndName *mb = (const MethodIndexAndName *) b;
-  return strcmp (ma->name, mb->name);
-}
-
-void ServiceGenerator::GenerateServiceDescriptor(io::Printer* printer)
-{
-  int n_methods = descriptor_->method_count();
-  MethodIndexAndName *mi_array = new MethodIndexAndName[n_methods];
-
-  bool optimize_code_size = descriptor_->file()->options().has_optimize_for() &&
-    descriptor_->file()->options().optimize_for() ==
-    FileOptions_OptimizeMode_CODE_SIZE;
-
-  vars_["n_methods"] = SimpleItoa(n_methods);
-#ifdef ATL_CHANGE
-  printer->Print(vars_, "static const ProtobufCMethodDescriptor $lcfullname$_method_descriptors[$n_methods$] =\n"
-#else
-  printer->Print(vars_, "static const ProtobufCMethodDescriptor $lcfullname$__method_descriptors[$n_methods$] =\n"
-#endif /* ATL_CHANGE */
-                       "{\n");
-  for (int i = 0; i < n_methods; i++) {
-    const MethodDescriptor *method = descriptor_->method(i);
-    vars_["method"] = method->name();
-#ifdef ATL_CHANGE
-    vars_["input_descriptor"] = "&" + FullNameToLower(method->input_type()->full_name()) + "_descriptor";
-    vars_["output_descriptor"] = "&" + FullNameToLower(method->output_type()->full_name()) + "_descriptor";
-#else
-    vars_["input_descriptor"] = "&" + FullNameToLower(method->input_type()->full_name()) + "__descriptor";
-    vars_["output_descriptor"] = "&" + FullNameToLower(method->output_type()->full_name()) + "__descriptor";
-#endif /* ATL_CHANGE */
-    if (optimize_code_size) {
-      printer->Print(vars_,
-          "  { NULL, $input_descriptor$, $output_descriptor$ }, /* CODE_SIZE */\n");
-    } else {
-      printer->Print(vars_,
-          "  { \"$method$\", $input_descriptor$, $output_descriptor$ },\n");
-    }
-    mi_array[i].i = i;
-    mi_array[i].name = method->name().c_str();
-  }
-  printer->Print(vars_, "};\n");
-
-  if (!optimize_code_size) {
-    qsort ((void*)mi_array, n_methods, sizeof (MethodIndexAndName),
-        compare_method_index_and_name_by_name);
-#ifdef ATL_CHANGE
-    printer->Print(vars_, "const unsigned $lcfullname$_method_indices_by_name[] = {\n");
-#else
-    printer->Print(vars_, "const unsigned $lcfullname$__method_indices_by_name[] = {\n");
-#endif /* ATL_CHANGE */
-    for (int i = 0; i < n_methods; i++) {
-      vars_["i"] = SimpleItoa(mi_array[i].i);
-#ifdef ATL_CHANGE
-      vars_["method"] = mi_array[i].name;
-#else
-      vars_["name"] = mi_array[i].name;
-#endif /* ATL_CHANGE */
-      vars_["comma"] = (i + 1 < n_methods) ? "," : " ";
-#ifdef ATL_CHANGE
-      printer->Print(vars_, "  $i$$comma$        /* $method$ */\n");
-#else
-      printer->Print(vars_, "  $i$$comma$        /* $name$ */\n");
-#endif /* ATL_CHANGE */
-    }
-    printer->Print(vars_, "};\n");
-    vars_["name"] = descriptor_->name();
-  }
-
-  if (optimize_code_size) {
-#ifdef ATL_CHANGE
-    printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$_descriptor =\n"
-#else
-    printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$__descriptor =\n"
-#endif /* ATL_CHANGE */
-        "{\n"
-        "  PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC,\n"
-        "  NULL,NULL,NULL,NULL, /* CODE_SIZE */\n"
-        "  $n_methods$,\n"
-#ifdef ATL_CHANGE
-        "  $lcfullname$_method_descriptors,\n"
-#else
-        "  $lcfullname$__method_descriptors,\n"
-#endif /* ATL_CHANGE */
-        "  NULL /* CODE_SIZE */\n"
-        "};\n");
-  } else {
-#ifdef ATL_CHANGE
-    printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$_descriptor =\n"
-#else
-    printer->Print(vars_, "const ProtobufCServiceDescriptor $lcfullname$__descriptor =\n"
-#endif /* ATL_CHANGE */
-        "{\n"
-        "  PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC,\n"
-        "  \"$fullname$\",\n"
-        "  \"$name$\",\n"
-        "  \"$cname$\",\n"
-        "  \"$package$\",\n"
-        "  $n_methods$,\n"
-#ifdef ATL_CHANGE
-        "  $lcfullname$_method_descriptors,\n"
-        "  $lcfullname$_method_indices_by_name\n"
-#else
-        "  $lcfullname$__method_descriptors,\n"
-        "  $lcfullname$__method_indices_by_name\n"
-#endif /* ATL_CHANGE */
-        "};\n");
-  }
-
-  delete[] mi_array;
-}
-
-void ServiceGenerator::GenerateCallersImplementations(io::Printer* printer)
-{
-  for (int i = 0; i < descriptor_->method_count(); i++) {
-    const MethodDescriptor *method = descriptor_->method(i);
-    string lcname = CamelToLower(method->name());
-    string lcfullname = FullNameToLower(descriptor_->full_name());
-    vars_["method"] = lcname;
-    vars_["metpad"] = ConvertToSpaces(lcname);
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
-#ifdef ATL_CHANGE
-    vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_" + lcname);
-#else
-    vars_["padddddddddddddddddd"] = ConvertToSpaces(lcfullname + "__" + lcname);
-#endif /* ATL_CHANGE */
-    vars_["index"] = SimpleItoa(i);
-
-    printer->Print(vars_,
-#ifdef ATL_CHANGE
-                   "void $lcfullname$_$method$(ProtobufCService *service,\n"
-#else
-                   "void $lcfullname$__$method$(ProtobufCService *service,\n"
-#endif /* ATL_CHANGE */
-                   "     $padddddddddddddddddd$ const $input_typename$ *input,\n"
-                   "     $padddddddddddddddddd$ $output_typename$_Closure closure,\n"
-                   "     $padddddddddddddddddd$ void *closure_data)\n"
-		   "{\n"
-#ifdef ATL_CHANGE
-		   "  assert(service->descriptor == &$lcfullname$_descriptor);\n"
-#else
-		   "  assert(service->descriptor == &$lcfullname$__descriptor);\n"
-#endif /* ATL_CHANGE */
-		   "  service->invoke(service, $index$, (const ProtobufCMessage *) input, (ProtobufCClosure) closure, closure_data);\n"
-		   "}\n");
-  }
-}
-
 
 }  // namespace c
 }  // namespace compiler
