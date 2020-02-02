@@ -13,6 +13,22 @@ src/ant_result_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/ant_result.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/ant_result.proto
 
+src/validation.pb-c.h \
+src/validation_types_auto.h \
+src/validation_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/validation.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/validation.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/validation.proto
+
+src/supported_service.pb-c.h \
+src/supported_service_types_auto.h \
+src/supported_service_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/supported_service.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/supported_service.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/supported_service.proto
+
 src/cmsg_api_auto.c \
 src/cmsg_api_auto.h \
 src/cmsg_impl_auto.c \
@@ -171,7 +187,15 @@ libcmsg_la_HEADERS  = \
 	src/ant_result.pb-c.c \
 	src/ant_result.pb-c.h \
 	src/ant_result_types_auto.h \
-	src/ant_result_validation_auto.h
+	src/ant_result_validation_auto.h \
+	src/validation.proto \
+	src/validation.pb-c.h \
+	src/validation_types_auto.h \
+	src/validation_validation_auto.h \
+	src/supported_service.proto \
+	src/supported_service.pb-c.h \
+	src/supported_service_types_auto.h \
+	src/supported_service_validation_auto.h
 
 BUILT_SOURCES =  \
 	src/cmsg_api_auto.c \
@@ -315,22 +339,8 @@ test/functional/cmsg_functional_tests.pb-c.h: $(PROTOC_PATH)$(EXEEXT) test/funct
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/functional -I$(top_srcdir)/cmsg/src -I$(top_srcdir)/protoc-c \
 	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg/test/functional/cmsg_functional_tests.proto
 
-test/functional/validation.pb-c.c \
-test/functional/validation.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/protoc-c/validation.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c \
-	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/protoc-c/validation.proto
-
-test/functional/supported_service.pb-c.c \
-test/functional/supported_service.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/protoc-c/supported_service.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c \
-	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/protoc-c/supported_service.proto
-
 bin_PROGRAMS += cmsg_functional_tests
 cmsg_functional_tests_SOURCES = \
-	test/functional/validation.pb-c.c \
-	test/functional/validation.pb-c.h \
-	test/functional/supported_service.pb-c.c \
-	test/functional/supported_service.pb-c.h \
 	test/functional/cmsg_functional_tests_api_auto.c \
 	test/functional/cmsg_functional_tests_api_auto.h \
 	test/functional/cmsg_functional_tests_impl_auto.c \

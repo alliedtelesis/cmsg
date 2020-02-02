@@ -5,12 +5,12 @@ http.pb.h: $(PROTOC_PATH)$(EXEEXT) http.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/protoc-c/http.proto
 
 validation.pb.cc \
-validation.pb.h: $(PROTOC_PATH)$(EXEEXT) validation.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/protoc-c/validation.proto
+validation.pb.h: $(PROTOC_PATH)$(EXEEXT) ../cmsg/src/validation.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/cmsg/src/validation.proto
 
 supported_service.pb.cc \
-supported_service.pb.h: $(PROTOC_PATH)$(EXEEXT) supported_service.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/protoc-c/supported_service.proto
+supported_service.pb.h: $(PROTOC_PATH)$(EXEEXT) ../cmsg/src/supported_service.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/cmsg/src/supported_service.proto
 
 protoc_gen_cmsg_SOURCES = \
 	http.pb.cc \
@@ -39,9 +39,7 @@ protoc_gen_cmsg_SOURCES = \
 
 protoc_gen_cmsgdir       = $(includedir)/cmsg
 protoc_gen_cmsg_HEADERS  = \
-	http.proto \
-	validation.proto \
-	supported_service.proto
+	http.proto
 
 protoc_gen_cmsg_CXXFLAGS = \
 	-Werror \
