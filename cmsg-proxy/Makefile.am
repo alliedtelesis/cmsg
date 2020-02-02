@@ -1,8 +1,8 @@
-lib_LTLIBRARIES = libcmsgproxyconfig.la libcmsgproxy.la libcmsgproxyhttpstreamingapi.la
+lib_LTLIBRARIES = libfile_upload_protobuf.la libcmsgproxyconfig.la libcmsgproxy.la libcmsgproxyhttpstreamingapi.la
 bin_PROGRAMS =
 
 pkgconfiglibdir = $(libdir)/pkgconfig
-pkgconfiglib_DATA = cmsgproxyconfig.pc cmsgproxyhttpstreamingapi.pc
+pkgconfiglib_DATA = cmsgproxyconfig.pc cmsgproxyhttpstreamingapi.pc file_upload_protobuf.pc
 
 src/http_streaming_api_auto.c \
 src/http_streaming_api_auto.h \
@@ -16,9 +16,19 @@ src/http_streaming.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/http_streaming.proto
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg-proxy/src $(top_srcdir)/cmsg-proxy/src/http_streaming.proto
 
 src/file_upload.pb-c.c \
-src/file_upload.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/file_upload.proto
+src/file_upload.pb-c.h \
+src/file_upload_types_auto.h \
+src/file_upload_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/file_upload.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src \
 	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg-proxy/src $(top_srcdir)/cmsg-proxy/src/file_upload.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg-proxy/src $(top_srcdir)/cmsg-proxy/src/file_upload.proto
+
+## Library for file_upload.proto messages
+libfile_upload_protobuf_la_LDFLAGS = -version-info 1:0:0 # version:revision:age
+libfile_upload_protobuf_la_SOURCES = src/file_upload.pb-c.c
+libfile_upload_protobuf_la_LIBADD =
+libfile_upload_protobuf_la_CFLAGS  =
 
 ## Library for cmsg proxy configuration
 libcmsgproxyconfig_la_LDFLAGS = -version-info 1:0:0 # version:revision:age
@@ -40,8 +50,6 @@ libcmsgproxy_la_SOURCES = \
 	src/http_streaming_impl_auto.h \
 	src/http_streaming.pb-c.c \
 	src/http_streaming.pb-c.h \
-	src/file_upload.pb-c.c \
-	src/file_upload.pb-c.h \
 	src/cmsg_proxy.c \
 	cmsg_proxy.h \
 	src/cmsg_proxy_mem.c \
@@ -62,7 +70,8 @@ libcmsgproxy_la_LIBADD = \
 	$(GMEM_DIAG_LIBS) \
 	-lcmsg \
 	-ljansson \
-	-lprotobuf2json-c
+	-lprotobuf2json-c \
+	libfile_upload_protobuf.la
 
 if HAVE_COUNTERD
 libcmsgproxy_la_LIBADD += -lcntr
@@ -77,7 +86,10 @@ libcmsgproxy_la_HEADERS  = \
 	cmsg_proxy.h \
 	cmsg_proxy_config.h \
 	cmsg_proxy_http_streaming_api.h \
-	src/file_upload.proto
+	src/file_upload.proto \
+	src/file_upload.pb-c.h \
+	src/file_upload_types_auto.h \
+	src/file_upload_validation_auto.h
 
 BUILT_SOURCES = \
 	src/http_streaming_api_auto.c \
