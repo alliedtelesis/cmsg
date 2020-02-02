@@ -26,7 +26,7 @@
 #include "cmsg_proxy_index.h"
 #include "cmsg_proxy_input.h"
 #include "cmsg_proxy_output.h"
-#include "ant_result.pb-c.h"
+#include <cmsg/ant_result.pb-c.h>
 
 /* work out the number of elements in an array */
 #define ARRAY_ELEMENTS(arr) (sizeof((arr)) / sizeof((arr)[0]))

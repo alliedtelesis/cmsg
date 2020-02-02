@@ -5,7 +5,7 @@
 #ifndef __CMSG_PROXY_PRIVATE_H_
 #define __CMSG_PROXY_PRIVATE_H_
 
-#include "ant_result_types_auto.h"
+#include <cmsg/ant_result_types_auto.h>
 #include <protobuf2json.h>
 
 typedef struct _cmsg_proxy_processing_info

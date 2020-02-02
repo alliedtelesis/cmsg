@@ -1,5 +1,5 @@
 import "http.proto";
-import "ant_result.proto";
+import "cmsg/ant_result.proto";
 
 package cmsg_proxy_unit_tests;
 

@@ -4,6 +4,15 @@ bin_PROGRAMS = cmsg cmsg_sld cmsg_psd
 pkgconfiglibdir = $(libdir)/pkgconfig
 pkgconfiglib_DATA = cmsg.pc
 
+src/ant_result.pb-c.c \
+src/ant_result.pb-c.h \
+src/ant_result_types_auto.h \
+src/ant_result_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/ant_result.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/ant_result.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/ant_result.proto
+
 src/cmsg_api_auto.c \
 src/cmsg_api_auto.h \
 src/cmsg_impl_auto.c \
@@ -92,6 +101,8 @@ src/publisher_subscriber/update.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/publisher_su
 libcmsg_la_SOURCES = \
 	src/cmsg.pb-c.c \
 	src/cmsg.pb-c.h \
+	src/ant_result.pb-c.c \
+	src/ant_result.pb-c.h \
 	src/transport/cmsg_transport_loopback.c \
 	src/transport/cmsg_transport_tcp.c \
 	src/transport/cmsg_transport_tipc.c \
@@ -155,7 +166,12 @@ libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg_sub.h \
 	include/cmsg/cmsg_transport.h \
 	include/cmsg/cmsg_validation.h \
-	include/cmsg/cmsg.h
+	include/cmsg/cmsg.h \
+	src/ant_result.proto \
+	src/ant_result.pb-c.c \
+	src/ant_result.pb-c.h \
+	src/ant_result_types_auto.h \
+	src/ant_result_validation_auto.h
 
 BUILT_SOURCES =  \
 	src/cmsg_api_auto.c \
@@ -255,10 +271,7 @@ BUILT_SOURCES += \
 	test/functional/cmsg_functional_tests_impl_auto.h \
 	test/functional/cmsg_functional_tests_types_auto.h \
 	test/functional/cmsg_functional_tests.pb-c.c \
-	test/functional/cmsg_functional_tests.pb-c.h \
-	test/functional/ant_result_types_auto.h \
-	test/functional/ant_result.pb-c.c \
-	test/functional/ant_result.pb-c.h
+	test/functional/cmsg_functional_tests.pb-c.h
 
 test/unit/cmsg_unit_tests_api_auto.c \
 test/unit/cmsg_unit_tests_api_auto.h \
@@ -297,18 +310,10 @@ test/functional/cmsg_functional_tests_validation_auto.c \
 test/functional/cmsg_functional_tests_validation_auto.h \
 test/functional/cmsg_functional_tests.pb-c.c \
 test/functional/cmsg_functional_tests.pb-c.h: $(PROTOC_PATH)$(EXEEXT) test/functional/cmsg_functional_tests.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c \
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/functional -I$(top_srcdir)/cmsg/src -I$(top_srcdir)/protoc-c \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg/test/functional/cmsg_functional_tests.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c \
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/functional -I$(top_srcdir)/cmsg/src -I$(top_srcdir)/protoc-c \
 	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg/test/functional/cmsg_functional_tests.proto
-
-test/functional/ant_result_types_auto.h \
-test/functional/ant_result.pb-c.c \
-test/functional/ant_result.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/cmsg-proxy/src/ant_result.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src \
-	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg-proxy/src/ant_result.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src \
-	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg-proxy/src/ant_result.proto
 
 test/functional/validation.pb-c.c \
 test/functional/validation.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/protoc-c/validation.proto
@@ -322,8 +327,6 @@ test/functional/supported_service.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/
 
 bin_PROGRAMS += cmsg_functional_tests
 cmsg_functional_tests_SOURCES = \
-	test/functional/ant_result.pb-c.c \
-	test/functional/ant_result.pb-c.h \
 	test/functional/validation.pb-c.c \
 	test/functional/validation.pb-c.h \
 	test/functional/supported_service.pb-c.c \

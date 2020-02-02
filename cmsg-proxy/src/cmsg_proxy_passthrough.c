@@ -15,7 +15,7 @@
 #include "cmsg_proxy_counters.h"
 #include "cmsg_proxy_tree.h"
 #include "cmsg_proxy_private.h"
-#include "ant_result.pb-c.h"
+#include <cmsg/ant_result.pb-c.h>
 
 static const char *cmsg_mime_application_json = "application/json";
 
