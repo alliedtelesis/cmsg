@@ -139,15 +139,11 @@ test/unit/cmsg_proxy_unit_tests_api_auto.c \
 test/unit/cmsg_proxy_unit_tests_api_auto.h \
 test/unit/cmsg_proxy_unit_tests_types_auto.h \
 test/unit/cmsg_proxy_unit_tests.pb-c.c \
-test/unit/cmsg_proxy_unit_tests.pb-c.h \
-test/unit/http.pb-c.c \
-test/unit/http.pb-c.h: $(PROTOC_PATH)$(EXEEXT) test/unit/cmsg_proxy_unit_tests.proto
+test/unit/cmsg_proxy_unit_tests.pb-c.h: $(PROTOC_PATH)$(EXEEXT) test/unit/cmsg_proxy_unit_tests.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/test/unit -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c -I$(CMSG_PROTO_PATH) \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg-proxy/test/unit $(top_srcdir)/cmsg-proxy/test/unit/cmsg_proxy_unit_tests.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/test/unit -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c -I$(CMSG_PROTO_PATH) \
 	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg-proxy/test/unit $(top_srcdir)/cmsg-proxy/test/unit/cmsg_proxy_unit_tests.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/test/unit -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c -I$(CMSG_PROTO_PATH) \
-	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg-proxy/test/unit $(top_srcdir)/protoc-c/http.proto
 
 bin_PROGRAMS += cmsg_proxy_unit_tests
 cmsg_proxy_unit_tests_SOURCES = \
@@ -155,8 +151,6 @@ cmsg_proxy_unit_tests_SOURCES = \
 	src/http_streaming_impl_auto.h \
 	src/http_streaming.pb-c.c \
 	src/http_streaming.pb-c.h \
-	test/unit/http.pb-c.c \
-	test/unit/http.pb-c.h \
 	test/unit/cmsg_proxy_unit_tests_proxy_def.c \
 	test/unit/cmsg_proxy_unit_tests_proxy_def.h \
 	test/unit/cmsg_proxy_unit_tests_api_auto.c \
@@ -184,20 +178,14 @@ test/functional/cmsg_proxy_functional_tests_impl_auto.c \
 test/functional/cmsg_proxy_functional_tests_impl_auto.h \
 test/functional/cmsg_proxy_functional_tests_types_auto.h \
 test/functional/cmsg_proxy_functional_tests.pb-c.c \
-test/functional/cmsg_proxy_functional_tests.pb-c.h \
-test/functional/http.pb-c.c \
-test/functional/http.pb-c.h: $(PROTOC_PATH)$(EXEEXT) test/functional/cmsg_proxy_functional_tests.proto
+test/functional/cmsg_proxy_functional_tests.pb-c.h: $(PROTOC_PATH)$(EXEEXT) test/functional/cmsg_proxy_functional_tests.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c -I$(CMSG_PROTO_PATH) \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg-proxy/test/functional $(top_srcdir)/cmsg-proxy/test/functional/cmsg_proxy_functional_tests.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c -I$(CMSG_PROTO_PATH) \
 	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg-proxy/test/functional $(top_srcdir)/cmsg-proxy/test/functional/cmsg_proxy_functional_tests.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c -I$(CMSG_PROTO_PATH) \
-	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg-proxy/test/functional $(top_srcdir)/protoc-c/http.proto
 
 bin_PROGRAMS += cmsg_proxy_functional_tests
 cmsg_proxy_functional_tests_SOURCES = \
-	test/functional/http.pb-c.c \
-	test/functional/http.pb-c.h \
 	test/functional/cmsg_proxy_functional_tests_proxy_def.c \
 	test/functional/cmsg_proxy_functional_tests_proxy_def.h \
 	test/functional/cmsg_proxy_functional_tests_api_auto.c \
