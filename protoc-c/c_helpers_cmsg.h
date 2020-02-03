@@ -60,74 +60,77 @@
 
 // Modified to implement C code by Dave Benson.
 
-#include <protoc-c/c_message_field.h>
-#include <protoc-c/c_helpers.h>
+#ifndef GOOGLE_PROTOBUF_COMPILER_C_HELPERS_CMSG_H__
+#define GOOGLE_PROTOBUF_COMPILER_C_HELPERS_CMSG_H__
+
+#include <string>
+#include <vector>
+#include <sstream>
+#include <google/protobuf/descriptor.h>
+#include <google/protobuf/descriptor.pb.h>
 #include <google/protobuf/io/printer.h>
-#include <google/protobuf/wire_format.h>
 
 namespace google {
 namespace protobuf {
 namespace compiler {
-namespace c {
+namespace cmsg {
 
-using internal::WireFormat;
+void SplitStringUsing(const string &str, const char *delim, std::vector<string> *out);
+string CEscape(const string& src);
+string StringReplace(const string& s, const string& oldsub, const string& newsub, bool replace_all);
 
-// ===================================================================
+inline bool HasSuffixString(const string& str, const string& suffix) { return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0; }
+inline string StripSuffixString(const string& str, const string& suffix) { if (HasSuffixString(str, suffix)) { return str.substr(0, str.size() - suffix.size()); } else { return str; } }
+char* FastHexToBuffer(int i, char* buffer);
 
-MessageFieldGenerator::
-MessageFieldGenerator(const FieldDescriptor* descriptor)
-  : FieldGenerator(descriptor) {
-}
 
-MessageFieldGenerator::~MessageFieldGenerator() {}
+// Get the (unqualified) name that should be used for this field in C code.
+// The name is coerced to lower-case to emulate proto1 behavior.  People
+// should be using lowercase-with-underscores style for proto field names
+// anyway, so normally this just returns field->name().
+string FieldName(const FieldDescriptor* field);
 
-void MessageFieldGenerator::GenerateStructMembers(io::Printer* printer) const
-{
-  std::map<string, string> vars;
-  vars["name"] = FieldName(descriptor_);
-  vars["type"] = FullNameToC(descriptor_->message_type()->full_name());
-  vars["deprecated"] = FieldDeprecated(descriptor_);
-  switch (descriptor_->label()) {
-    case FieldDescriptor::LABEL_REQUIRED:
-    case FieldDescriptor::LABEL_OPTIONAL:
-      printer->Print(vars, "$type$ *$name$$deprecated$;\n");
-      break;
-    case FieldDescriptor::LABEL_REPEATED:
-      printer->Print(vars, "size_t n_$name$$deprecated$;\n");
-      printer->Print(vars, "$type$ **$name$$deprecated$;\n");
-      break;
-  }
-}
-string MessageFieldGenerator::GetDefaultValue(void) const
-{
-  /* XXX: update when protobuf gets support
-   *   for default-values of message fields.
-   */
-  return "NULL";
-}
-void MessageFieldGenerator::GenerateStaticInit(io::Printer* printer) const
-{
-  switch (descriptor_->label()) {
-    case FieldDescriptor::LABEL_REQUIRED:
-    case FieldDescriptor::LABEL_OPTIONAL:
-      printer->Print("NULL");
-      break;
-    case FieldDescriptor::LABEL_REPEATED:
-      printer->Print("0,NULL");
-      break;
-  }
-}
-void MessageFieldGenerator::GenerateDescriptorInitializer(io::Printer* printer) const
-{
-#ifdef ATL_CHANGE
-  string addr = "&" + FullNameToLower(descriptor_->message_type()->full_name()) + "_descriptor";
-#else
-  string addr = "&" + FullNameToLower(descriptor_->message_type()->full_name()) + "__descriptor";
-#endif /* ATL_CHANGE */
-  GenerateDescriptorInitializerGeneric(printer, false, "MESSAGE", addr);
-}
+// Get macro string for deprecated field
+string FieldDeprecated(const FieldDescriptor* field);
 
-}  // namespace c
+// convert a CamelCase class name into an all uppercase affair
+// with underscores separating words, e.g. MyClass becomes MY_CLASS.
+string CamelToUpper(const string &class_name);
+string CamelToLower(const string &class_name);
+
+// lowercased, underscored name to camel case
+string ToCamel(const string &name);
+
+// lowercase the string
+string ToLower(const string &class_name);
+string ToUpper(const string &class_name);
+
+// full_name() to lowercase with underscores
+string FullNameToLower(const string &full_name);
+string FullNameToUpper(const string &full_name);
+
+// full_name() to c-typename (with underscores for packages, otherwise camel case)
+string FullNameToC(const string &class_name);
+
+// make a string of spaces as long as input
+string ConvertToSpaces(const string &input);
+
+// Strips ".proto" or ".protodevel" from the end of a filename.
+string StripProto(const string& filename);
+
+string GetAtlFilename(const string &protoname, const string &filetype);
+string GetAtlTypesFilename(const string &protoname);
+string GetAtlApiFilename(const string &protoname);
+string GetAtlImplFilename(const string &protoname);
+string GetAtlValidationFilename(const string &protoname);
+string GetAtlGlobalFilename(const string &protoname);
+string GetPackageName(const string &full_name);
+string GetPackageNameUpper(const string &full_name);
+string MakeHeaderDefineFromFilename(const string &prefix, const string &filename);
+
+}  // namespace cmsg
 }  // namespace compiler
 }  // namespace protobuf
+
 }  // namespace google
+#endif  // GOOGLE_PROTOBUF_COMPILER_C_HELPERS_CMSG_H__

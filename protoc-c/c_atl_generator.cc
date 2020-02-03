@@ -22,6 +22,7 @@
 
 #include <protoc-c/c_atl_generator.h>
 #include <protoc-c/c_helpers.h>
+#include <protoc-c/c_helpers_cmsg.h>
 #include <google/protobuf/io/printer.h>
 #include "validation.pb.h"
 #include "supported_service.pb.h"
@@ -31,21 +32,15 @@ namespace protobuf {
 namespace compiler {
 namespace c {
 
-AtlCodeGenerator::AtlCodeGenerator(const ServiceDescriptor* descriptor,
-                                   const string& dllexport_decl)
+AtlCodeGenerator::AtlCodeGenerator(const ServiceDescriptor* descriptor)
   : descriptor_(descriptor) {
   vars_["name"] = descriptor_->name();
   vars_["fullname"] = descriptor_->full_name();
-  vars_["cname"] = FullNameToC(descriptor_->full_name());
-  vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
-  vars_["ucfullname"] = FullNameToUpper(descriptor_->full_name());
-  vars_["lcfullpadd"] = ConvertToSpaces(vars_["lcfullname"]);
+  vars_["cname"] = cmsg::FullNameToC(descriptor_->full_name());
+  vars_["lcfullname"] = cmsg::FullNameToLower(descriptor_->full_name());
+  vars_["ucfullname"] = cmsg::FullNameToUpper(descriptor_->full_name());
+  vars_["lcfullpadd"] = cmsg::ConvertToSpaces(vars_["lcfullname"]);
   vars_["package"] = descriptor_->file()->package();
-  if (dllexport_decl.empty()) {
-    vars_["dllexport"] = "";
-  } else {
-    vars_["dllexport"] = dllexport_decl + " ";
-  }
 }
 
 AtlCodeGenerator::~AtlCodeGenerator() {}
@@ -189,10 +184,10 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const HttpRule &http_rule, io
 void AtlCodeGenerator::GenerateHttpProxyArrayEntriesPerMethod(const MethodDescriptor &method,
                                                               io::Printer* printer)
 {
-    string lcname = CamelToLower(method.name());
+    string lcname = cmsg::CamelToLower(method.name());
     vars_["method"] = lcname;
-    vars_["inputname"] = FullNameToLower(method.input_type()->full_name());
-    vars_["outputname"] = FullNameToLower(method.output_type()->full_name());
+    vars_["inputname"] = cmsg::FullNameToLower(method.input_type()->full_name());
+    vars_["outputname"] = cmsg::FullNameToLower(method.output_type()->full_name());
 
     if (method.options().HasExtension(http))
     {
@@ -220,10 +215,10 @@ void AtlCodeGenerator::GenerateAtlApiDefinitions(io::Printer* printer, bool forH
 
 void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)
 {
-  string lcname = CamelToLower(method.name());
+  string lcname = cmsg::CamelToLower(method.name());
   vars_["method"] = lcname;
-  vars_["method_input"] = FullNameToC(method.input_type()->full_name());
-  vars_["method_output"] = FullNameToC(method.output_type()->full_name());
+  vars_["method_input"] = cmsg::FullNameToC(method.input_type()->full_name());
+  vars_["method_output"] = cmsg::FullNameToC(method.output_type()->full_name());
 
   printer->Print(vars_, "int $lcfullname$_api_$method$ (cmsg_client *_client");
 
@@ -254,11 +249,11 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
   for (int i = 0; i < descriptor_->method_count(); i++)
   {
     const MethodDescriptor *method = descriptor_->method(i);
-    vars_["method"] = FullNameToC(method->full_name());
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
-    vars_["input_typename_upper"] = FullNameToUpper(method->input_type()->full_name());
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
-    vars_["output_typename_upper"] = FullNameToUpper(method->output_type()->full_name());
+    vars_["method"] = cmsg::FullNameToC(method->full_name());
+    vars_["input_typename"] = cmsg::FullNameToC(method->input_type()->full_name());
+    vars_["input_typename_upper"] = cmsg::FullNameToUpper(method->input_type()->full_name());
+    vars_["output_typename"] = cmsg::FullNameToC(method->output_type()->full_name());
+    vars_["output_typename_upper"] = cmsg::FullNameToUpper(method->output_type()->full_name());
     //
     // create the names of the send and recv messages that will passed to the send function.
     // this allows us to change the names (if e.g. the recv message is null) without doing
@@ -371,8 +366,8 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     //
     printer->Print("/* Send! */\n");
     vars_["closure_name"] = GetAtlClosureFunctionName(*method);
-    vars_["lcfullname"] = FullNameToLower(descriptor_->full_name());
-    vars_["method_lcname"] = CamelToLower(method->name());
+    vars_["lcfullname"] = cmsg::FullNameToLower(descriptor_->full_name());
+    vars_["method_lcname"] = cmsg::CamelToLower(method->name());
 
     printer->Print(vars_, "$lcfullname$_$method_lcname$ (_service, $send_msg_name$, NULL, $closure_data_name$);\n\n");
 
@@ -429,12 +424,12 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
   for (int i = 0; i < descriptor_->method_count(); i++)
   {
     const MethodDescriptor *method = descriptor_->method(i);
-    vars_["method"] = FullNameToC(method->full_name());
-    vars_["input_typename"] = FullNameToC(method->input_type()->full_name());
-    vars_["input_typename_upper"] = FullNameToUpper(method->input_type()->full_name());
-    vars_["input_typename_lower"] = FullNameToLower(method->input_type()->full_name());
-    vars_["output_typename"] = FullNameToC(method->output_type()->full_name());
-    vars_["output_typename_upper"] = FullNameToUpper(method->output_type()->full_name());
+    vars_["method"] = cmsg::FullNameToC(method->full_name());
+    vars_["input_typename"] = cmsg::FullNameToC(method->input_type()->full_name());
+    vars_["input_typename_upper"] = cmsg::FullNameToUpper(method->input_type()->full_name());
+    vars_["input_typename_lower"] = cmsg::FullNameToLower(method->input_type()->full_name());
+    vars_["output_typename"] = cmsg::FullNameToC(method->output_type()->full_name());
+    vars_["output_typename_upper"] = cmsg::FullNameToUpper(method->output_type()->full_name());
 
     //
     // Generate the server function
@@ -453,7 +448,7 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     printer->Print("{\n");
     printer->Indent();
     printer->Print("_closure (NULL, _closure_data);\n");
-    printer->Print("return CMSG_RET_ERR;\n");
+    printer->Print("return;\n");
     printer->Outdent();
     printer->Print("}\n");
 
@@ -508,7 +503,6 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     // call closure()
     //
     printer->Print("\n");
-    printer->Print("return CMSG_RET_OK;\n");
 
     // end of the function
     printer->Outdent();
@@ -550,15 +544,15 @@ void AtlCodeGenerator::GenerateAtlServerCFileDefinitions(io::Printer* printer)
 
 void AtlCodeGenerator::GenerateAtlServerDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)
 {
-  string lcname = CamelToLower(method.name());
-  string lcfullname = FullNameToLower(descriptor_->full_name());
+  string lcname = cmsg::CamelToLower(method.name());
+  string lcfullname = cmsg::FullNameToLower(descriptor_->full_name());
   vars_["method"] = lcname;
-  vars_["input_typename"] = FullNameToC(method.input_type()->full_name());
-  vars_["output_typename"] = FullNameToC(method.output_type()->full_name());
-  vars_["padddddddddddddddddddddddd"] = ConvertToSpaces(lcfullname + "_server_" + lcname);
+  vars_["input_typename"] = cmsg::FullNameToC(method.input_type()->full_name());
+  vars_["output_typename"] = cmsg::FullNameToC(method.output_type()->full_name());
+  vars_["padddddddddddddddddddddddd"] = cmsg::ConvertToSpaces(lcfullname + "_server_" + lcname);
 
   printer->Print(vars_,
-                 "int32_t $lcfullname$_server_$method$ ($cname$_Service *_service,\n"
+                 "void $lcfullname$_server_$method$ ($cname$_Service *_service,\n"
                  "        $padddddddddddddddddddddddd$  const $input_typename$ *input,\n"
                  "        $padddddddddddddddddddddddd$  $output_typename$_Closure _closure,\n"
                  "        $padddddddddddddddddddddddd$  void *_closure_data)");
@@ -574,7 +568,7 @@ void AtlCodeGenerator::GenerateAtlServerImplDefinition(const MethodDescriptor &m
 {
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
-  vars_["method_input"] = FullNameToC(method.input_type()->full_name());
+  vars_["method_input"] = cmsg::FullNameToC(method.input_type()->full_name());
 
   printer->Print(vars_, "void $lcfullname$_impl_$method$ (const void *service");
   if (method.input_type()->field_count() > 0)
@@ -591,9 +585,9 @@ void AtlCodeGenerator::GenerateAtlServerImplDefinition(const MethodDescriptor &m
 
 void AtlCodeGenerator::GenerateAtlServerSendImplementation(const MethodDescriptor &method, io::Printer* printer)
 {
-  vars_["method"] = FullNameToLower(method.name());
-  vars_["input_typename"] = FullNameToC(method.input_type()->full_name());
-  vars_["output_typename"] = FullNameToC(method.output_type()->full_name());
+  vars_["method"] = cmsg::FullNameToLower(method.name());
+  vars_["input_typename"] = cmsg::FullNameToC(method.input_type()->full_name());
+  vars_["output_typename"] = cmsg::FullNameToC(method.output_type()->full_name());
   vars_["send_msg_name"] = "send_msg";
 
   GenerateAtlServerSendDefinition(method, printer, false);
@@ -623,7 +617,7 @@ void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &m
 {
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
-  vars_["method_output"] = FullNameToC(method.output_type()->full_name());
+  vars_["method_output"] = cmsg::FullNameToC(method.output_type()->full_name());
 
   printer->Print(vars_, "void $lcfullname$_server_$method$Send (const void *_service");
   if (method.output_type()->field_count() > 0)
@@ -643,7 +637,7 @@ void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &m
 //
 string AtlCodeGenerator::GetAtlClosureFunctionName(const MethodDescriptor &method)
 {
-  string closure_name = "handle_" + FullNameToLower(method.full_name()) + "_response";
+  string closure_name = "handle_" + cmsg::FullNameToLower(method.full_name()) + "_response";
   return closure_name;
 }
 
@@ -653,9 +647,9 @@ void AtlCodeGenerator::GenerateAtlServerImplStub(const MethodDescriptor &method,
 {
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
-  vars_["method_input"] = FullNameToC(method.input_type()->full_name());
-  vars_["method_output"] = FullNameToC(method.output_type()->full_name());
-  vars_["method_output_upper"] = FullNameToUpper(method.output_type()->full_name());
+  vars_["method_input"] = cmsg::FullNameToC(method.input_type()->full_name());
+  vars_["method_output"] = cmsg::FullNameToC(method.output_type()->full_name());
+  vars_["method_output_upper"] = cmsg::FullNameToUpper(method.output_type()->full_name());
 
   GenerateAtlServerImplDefinition(method, printer, false);
 
@@ -688,103 +682,6 @@ void AtlCodeGenerator::GenerateAtlServerImplStubs(io::Printer* printer)
     const MethodDescriptor *method = descriptor_->method(i);
     GenerateAtlServerImplStub(*method, printer);
   }
-}
-
-// This can be useful for debugging message generation.
-void AtlCodeGenerator::PrintMessageFields(io::Printer* printer, const Descriptor *message)
-{
-
-  vars_["message_name"] = message->full_name();
-  printer->Print(vars_, "message: $message_name$\n");
-  printer->Indent();
-  if (message->nested_type_count() > 0)
-  {
-    printer->Print("contains nested types\n");
-  }
-  else
-  {
-    printer->Print("doesn't contain nested types\n");
-  }
-  for (int i = 0; i < message->field_count(); i++) {
-    const FieldDescriptor *field = message->field(i);
-    if (field->type() == FieldDescriptor::TYPE_MESSAGE)
-    {
-      PrintMessageFields(printer, field->message_type());
-    }
-    else
-    {
-      vars_["field_name"] = FieldName(field);
-      vars_["field_type"] = TypeToString(field->type());
-
-      printer->Print(vars_, "type = $field_type$, name = $field_name$\n");
-    }
-  }
-  printer->Outdent();
-}
-
-// This is used by the PrintMessageFields method
-string AtlCodeGenerator::TypeToString(FieldDescriptor::Type type)
-{
-        string description = "";
-        switch (type) {
-    case FieldDescriptor::TYPE_DOUBLE:
-        description = "double";
-        break;
-    case FieldDescriptor::TYPE_FLOAT:
-        description = "float";
-        break;
-    case FieldDescriptor::TYPE_INT64:
-        description = "int64_t";
-        break;
-    case FieldDescriptor::TYPE_UINT64:
-        description = "uint64_t";
-        break;
-    case FieldDescriptor::TYPE_INT32:
-        description = "int32_t";
-        break;
-    case FieldDescriptor::TYPE_FIXED64:
-        description = "uint64_t";
-        break;
-    case FieldDescriptor::TYPE_FIXED32:
-        description = "uint32_t";
-        break;
-    case FieldDescriptor::TYPE_BOOL:
-        description = "protobuf_c_boolean";
-        break;
-    case FieldDescriptor::TYPE_STRING:
-        description = "char *";
-        break;
-    case FieldDescriptor::TYPE_GROUP:
-        description = "";
-        break;
-    case FieldDescriptor::TYPE_MESSAGE:
-        description = "struct";
-        break;
-    case FieldDescriptor::TYPE_BYTES:
-        description = "ProtobufCBinaryData";
-        break;
-    case FieldDescriptor::TYPE_UINT32:
-        description = "uint32_t";
-        break;
-    case FieldDescriptor::TYPE_ENUM:
-        description = "uint32_t";
-        break;
-    case FieldDescriptor::TYPE_SFIXED32:
-        description = "int32_t";
-        break;
-    case FieldDescriptor::TYPE_SFIXED64:
-        description = "int64_t";
-        break;
-    case FieldDescriptor::TYPE_SINT32:
-        description = "int32_t";
-        break;
-    case FieldDescriptor::TYPE_SINT64:
-        description = "int64_t";
-        break;
-    default:
-        break;
-        }
-        return description;
 }
 
 }  // namespace c

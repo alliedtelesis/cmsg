@@ -71,32 +71,14 @@
 #include <google/protobuf/io/zero_copy_stream.h>
 #include <google/protobuf/descriptor.pb.h>
 
+#ifdef ATL_CHANGE
+#include <protoc-c/c_helpers_cmsg.h>
+#endif /* ATL_CHANGE */
+
 namespace google {
 namespace protobuf {
 namespace compiler {
 namespace c {
-
-// Parses a set of comma-delimited name/value pairs, e.g.:
-//   "foo=bar,baz,qux=corge"
-// parses to the pairs:
-//   ("foo", "bar"), ("baz", ""), ("qux", "corge")
-void ParseOptions(const string& text, vector<pair<string, string> >* output) {
-  vector<string> parts;
-  SplitStringUsing(text, ",", &parts);
-
-  for (unsigned i = 0; i < parts.size(); i++) {
-    string::size_type equals_pos = parts[i].find_first_of('=');
-    pair<string, string> value;
-    if (equals_pos == string::npos) {
-      value.first = parts[i];
-      value.second = "";
-    } else {
-      value.first = parts[i].substr(0, equals_pos);
-      value.second = parts[i].substr(equals_pos + 1);
-    }
-    output->push_back(value);
-  }
-}
 
 CGenerator::CGenerator() {}
 CGenerator::~CGenerator() {}
@@ -105,72 +87,14 @@ bool CGenerator::Generate(const FileDescriptor* file,
                             const string& parameter,
                             OutputDirectory* output_directory,
                             string* error) const {
-  vector<pair<string, string> > options;
-  ParseOptions(parameter, &options);
-
-  // -----------------------------------------------------------------
-  // parse generator options
-
-  // TODO(kenton):  If we ever have more options, we may want to create a
-  //   class that encapsulates them which we can pass down to all the
-  //   generator classes.  Currently we pass dllexport_decl down to all of
-  //   them via the constructors, but we don't want to have to add another
-  //   constructor parameter for every option.
-
-  // If the dllexport_decl option is passed to the compiler, we need to write
-  // it in front of every symbol that should be exported if this .proto is
-  // compiled into a Windows DLL.  E.g., if the user invokes the protocol
-  // compiler as:
-  //   protoc --cpp_out=dllexport_decl=FOO_EXPORT:outdir foo.proto
-  // then we'll define classes like this:
-  //   class FOO_EXPORT Foo {
-  //     ...
-  //   }
-#ifdef ATL_CHANGE
-  // FOO_EXPORT is a macro which should expand to _declspec(dllexport) or
-  // _declspec(dllimport) depending on what is being compiled.
-#else
-  // FOO_EXPORT is a macro which should expand to __declspec(dllexport) or
-  // __declspec(dllimport) depending on what is being compiled.
-#endif /* ATL_CHANGE */
-  string dllexport_decl;
-
-  for (unsigned i = 0; i < options.size(); i++) {
-    if (options[i].first == "dllexport_decl") {
-      dllexport_decl = options[i].second;
-    } else {
-      *error = "Unknown generator option: " + options[i].first;
-      return false;
-    }
-  }
-
-  // -----------------------------------------------------------------
-
-
   string basename = StripProto(file->name());
   basename.append(".pb-c");
 
-  FileGenerator file_generator(file, dllexport_decl);
-
-  // Generate header.
-  {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
-      output_directory->Open(basename + ".h"));
-    io::Printer printer(output.get(), '$');
-    file_generator.GenerateHeader(&printer);
-  }
-
-  // Generate cc file.
-  {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
-      output_directory->Open(basename + ".c"));
-    io::Printer printer(output.get(), '$');
-    file_generator.GenerateSource(&printer);
-  }
+  FileGenerator file_generator(file);
 
 #ifdef ATL_CHANGE
   // generate the atl types header file
-  string types_basename = GetAtlTypesFilename(file->name());
+  string types_basename = cmsg::GetAtlTypesFilename(file->name());
 
   {
     scoped_ptr<io::ZeroCopyOutputStream> output(
@@ -180,7 +104,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
   }
 
   // generate the atl api header and source files
-  string api_basename = GetAtlApiFilename(file->name());
+  string api_basename = cmsg::GetAtlApiFilename(file->name());
 
   {
     scoped_ptr<io::ZeroCopyOutputStream> output(
@@ -198,7 +122,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
   }
 
   // now generate the atl impl header and source files
-  string impl_basename = GetAtlImplFilename(file->name());
+  string impl_basename = cmsg::GetAtlImplFilename(file->name());
 
   {
     scoped_ptr<io::ZeroCopyOutputStream> output(
@@ -237,6 +161,22 @@ bool CGenerator::Generate(const FileDescriptor* file,
           output_directory->Open(StripProto(file->name()) + "_proxy_def.h"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlHttpProxyHeader(&printer);
+  }
+
+  // Generate validation source file
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(StripProto(file->name()) + "_validation_auto.c"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlValidationSource(&printer);
+  }
+
+  // Generate validation header file
+  {
+    scoped_ptr<io::ZeroCopyOutputStream> output(
+          output_directory->Open(StripProto(file->name()) + "_validation_auto.h"));
+    io::Printer printer(output.get(), '$');
+    file_generator.GenerateAtlValidationHeader(&printer);
   }
 #endif /* ATL_CHANGE */
 

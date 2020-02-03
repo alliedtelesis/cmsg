@@ -13,6 +13,8 @@ src/cmsg.pb-c.c \
 src/cmsg.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/cmsg.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/cmsg.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/cmsg.proto
 
 src/service_listener/configuration_api_auto.c \
 src/service_listener/configuration_api_auto.h \
@@ -23,6 +25,8 @@ src/service_listener/configuration.pb-c.c \
 src/service_listener/configuration.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/service_listener/configuration.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/configuration.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/configuration.proto
 
 src/service_listener/remote_sync_api_auto.c \
 src/service_listener/remote_sync_api_auto.h \
@@ -33,6 +37,8 @@ src/service_listener/remote_sync.pb-c.c \
 src/service_listener/remote_sync.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/service_listener/remote_sync.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/remote_sync.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/remote_sync.proto
 
 src/service_listener/events_api_auto.c \
 src/service_listener/events_api_auto.h \
@@ -43,6 +49,8 @@ src/service_listener/events.pb-c.c \
 src/service_listener/events.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/service_listener/events.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/events.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/service_listener -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/src/service_listener $(top_srcdir)/cmsg/src/service_listener/events.proto
 
 src/publisher_subscriber/configuration_api_auto.c \
 src/publisher_subscriber/configuration_api_auto.h \
@@ -53,6 +61,8 @@ src/publisher_subscriber/configuration.pb-c.c \
 src/publisher_subscriber/configuration.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/publisher_subscriber/configuration.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/configuration.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/configuration.proto
 
 src/publisher_subscriber/remote_sync_api_auto.c \
 src/publisher_subscriber/remote_sync_api_auto.h \
@@ -63,6 +73,8 @@ src/publisher_subscriber/remote_sync.pb-c.c \
 src/publisher_subscriber/remote_sync.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/publisher_subscriber/remote_sync.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/remote_sync.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/remote_sync.proto
 
 src/publisher_subscriber/update_api_auto.c \
 src/publisher_subscriber/update_api_auto.h \
@@ -73,6 +85,8 @@ src/publisher_subscriber/update.pb-c.c \
 src/publisher_subscriber/update.pb-c.h: $(PROTOC_PATH)$(EXEEXT) src/publisher_subscriber/update.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/update.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src/publisher_subscriber -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/src/publisher_subscriber $(top_srcdir)/cmsg/src/publisher_subscriber/update.proto
 
 
 libcmsg_la_SOURCES = \
@@ -255,6 +269,8 @@ test/unit/cmsg_unit_tests.pb-c.c \
 test/unit/cmsg_unit_tests.pb-c.h: $(PROTOC_PATH)$(EXEEXT) test/unit/cmsg_unit_tests.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/unit \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/test/unit $(top_srcdir)/cmsg/test/unit/cmsg_unit_tests.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/unit \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/unit $(top_srcdir)/cmsg/test/unit/cmsg_unit_tests.proto
 
 bin_PROGRAMS += cmsg_unit_tests
 cmsg_unit_tests_SOURCES = \
@@ -277,26 +293,47 @@ test/functional/cmsg_functional_tests_api_auto.h \
 test/functional/cmsg_functional_tests_impl_auto.c \
 test/functional/cmsg_functional_tests_impl_auto.h \
 test/functional/cmsg_functional_tests_types_auto.h \
+test/functional/cmsg_functional_tests_validation_auto.c \
+test/functional/cmsg_functional_tests_validation_auto.h \
 test/functional/cmsg_functional_tests.pb-c.c \
 test/functional/cmsg_functional_tests.pb-c.h: $(PROTOC_PATH)$(EXEEXT) test/functional/cmsg_functional_tests.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg/test/functional/cmsg_functional_tests.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/test/functional -I$(top_srcdir)/cmsg-proxy/src -I$(top_srcdir)/protoc-c \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg/test/functional/cmsg_functional_tests.proto
 
 test/functional/ant_result_types_auto.h \
 test/functional/ant_result.pb-c.c \
 test/functional/ant_result.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/cmsg-proxy/src/ant_result.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg-proxy/src/ant_result.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg-proxy/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/cmsg-proxy/src/ant_result.proto
 
+test/functional/validation.pb-c.c \
+test/functional/validation.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/protoc-c/validation.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/protoc-c/validation.proto
+
+test/functional/supported_service.pb-c.c \
+test/functional/supported_service.pb-c.h: $(PROTOC_PATH)$(EXEEXT) $(top_srcdir)/protoc-c/supported_service.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/test/functional $(top_srcdir)/protoc-c/supported_service.proto
 
 bin_PROGRAMS += cmsg_functional_tests
 cmsg_functional_tests_SOURCES = \
 	test/functional/ant_result.pb-c.c \
 	test/functional/ant_result.pb-c.h \
+	test/functional/validation.pb-c.c \
+	test/functional/validation.pb-c.h \
+	test/functional/supported_service.pb-c.c \
+	test/functional/supported_service.pb-c.h \
 	test/functional/cmsg_functional_tests_api_auto.c \
 	test/functional/cmsg_functional_tests_api_auto.h \
 	test/functional/cmsg_functional_tests_impl_auto.c \
 	test/functional/cmsg_functional_tests_impl_auto.h \
+	test/functional/cmsg_functional_tests_validation_auto.c \
+	test/functional/cmsg_functional_tests_validation_auto.h \
 	test/functional/cmsg_functional_tests.pb-c.c \
 	test/functional/cmsg_functional_tests.pb-c.h \
 	test/functional/client_server_rpc_tests.c \

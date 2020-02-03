@@ -79,9 +79,7 @@ namespace c {
 
 class EnumGenerator {
  public:
-  // See generator.cc for the meaning of dllexport_decl.
-  explicit EnumGenerator(const EnumDescriptor* descriptor,
-                         const string& dllexport_decl);
+  explicit EnumGenerator(const EnumDescriptor* descriptor);
   ~EnumGenerator();
 
   // Header stuff.
@@ -89,23 +87,12 @@ class EnumGenerator {
   // Generate header code defining the enum.  This code should be placed
   // within the enum's package namespace, but NOT within any class, even for
   // nested enums.
-  void GenerateDefinition(io::Printer* printer);
+  void GenerateDefinitionDefine(io::Printer* printer);
 
-  void GenerateDescriptorDeclarations(io::Printer* printer);
-
-
-  // Source file stuff.
-
-  // Generate the ProtobufCEnumDescriptor for this enum
-  void GenerateEnumDescriptor(io::Printer* printer);
-
-  // Generate static initializer for a ProtobufCEnumValue
-  // given the index of the value in the enum.
-  void GenerateValueInitializer(io::Printer *printer, int index);
+  void GenerateDescriptorDeclarationsDefines(io::Printer* printer);
 
  private:
   const EnumDescriptor* descriptor_;
-  string dllexport_decl_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(EnumGenerator);
 };
