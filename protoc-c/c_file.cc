@@ -146,20 +146,9 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
 
   // Include dependent types header files
   for (int i = 0; i < file_->dependency_count(); i++) {
-#ifdef ATL_CHANGE
-    if ((StripProto(file_->dependency(i)->name()) != "http") &&
-        (StripProto(file_->dependency(i)->name()) != "validation") &&
-        (StripProto(file_->dependency(i)->name()) != "supported_service"))
-      {
-        printer->Print(
-          "#include \"$dependency$.h\"\n",
-          "dependency", cmsg::GetAtlTypesFilename(file_->dependency(i)->name()));
-      }
-#else
     printer->Print(
       "#include \"$dependency$.h\"\n",
       "dependency", cmsg::GetAtlTypesFilename(file_->dependency(i)->name()));
-#endif /* ATL_CHANGE */
   }
 
   //
@@ -482,14 +471,9 @@ void FileGenerator::GenerateAtlValidationHeader(io::Printer* printer) {
 
     // Include dependent types header files
     for (int i = 0; i < file_->dependency_count(); i++) {
-      if ((StripProto(file_->dependency(i)->name()) != "http") &&
-          (StripProto(file_->dependency(i)->name()) != "validation") &&
-          (StripProto(file_->dependency(i)->name()) != "supported_service"))
-        {
-          printer->Print(
+        printer->Print(
             "#include \"$dependency$.h\"\n",
             "dependency", cmsg::GetAtlValidationFilename(file_->dependency(i)->name()));
-        }
     }
 
     printer->Print("#include \"$types_filename$.h\"\n",
