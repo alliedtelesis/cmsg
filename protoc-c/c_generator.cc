@@ -67,13 +67,10 @@
 
 #include <protoc-c/c_file.h>
 #include <protoc-c/c_helpers.h>
+#include <protoc-c/c_helpers_cmsg.h>
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/io/zero_copy_stream.h>
 #include <google/protobuf/descriptor.pb.h>
-
-#ifdef ATL_CHANGE
-#include <protoc-c/c_helpers_cmsg.h>
-#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {
@@ -92,7 +89,6 @@ bool CGenerator::Generate(const FileDescriptor* file,
 
   FileGenerator file_generator(file);
 
-#ifdef ATL_CHANGE
   // generate the atl types header file
   string types_basename = cmsg::GetAtlTypesFilename(file->name());
 
@@ -178,7 +174,6 @@ bool CGenerator::Generate(const FileDescriptor* file,
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlValidationHeader(&printer);
   }
-#endif /* ATL_CHANGE */
 
   return true;
 }
