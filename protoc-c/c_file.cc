@@ -89,14 +89,14 @@ namespace c {
 FileGenerator::FileGenerator(const FileDescriptor* file)
   : file_(file),
     message_generators_(
-      new scoped_ptr<MessageGenerator>[file->message_type_count()]),
+      new std::unique_ptr<MessageGenerator>[file->message_type_count()]),
     enum_generators_(
-      new scoped_ptr<EnumGenerator>[file->enum_type_count()]),
+      new std::unique_ptr<EnumGenerator>[file->enum_type_count()]),
     service_generators_(
-      new scoped_ptr<ServiceGenerator>[file->service_count()]),
+      new std::unique_ptr<ServiceGenerator>[file->service_count()]),
 #ifdef ATL_CHANGE
     atl_code_generators_(
-      new scoped_ptr<AtlCodeGenerator>[file->service_count()]) {
+      new std::unique_ptr<AtlCodeGenerator>[file->service_count()]) {
 #endif /* ATL_CHANGE */
 
   for (int i = 0; i < file->message_type_count(); i++) {

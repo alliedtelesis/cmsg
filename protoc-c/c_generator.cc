@@ -97,7 +97,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
   string types_basename = cmsg::GetAtlTypesFilename(file->name());
 
   {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
+    std::unique_ptr<io::ZeroCopyOutputStream> output(
           output_directory->Open(types_basename + ".h"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlTypesHeader(&printer);
@@ -107,7 +107,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
   string api_basename = cmsg::GetAtlApiFilename(file->name());
 
   {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
+    std::unique_ptr<io::ZeroCopyOutputStream> output(
           output_directory->Open(api_basename + ".h"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlApiHeader(&printer);
@@ -115,7 +115,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
 
   // Generate c file.
   {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
+    std::unique_ptr<io::ZeroCopyOutputStream> output(
           output_directory->Open(api_basename + ".c"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlApiSource(&printer);
@@ -125,7 +125,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
   string impl_basename = cmsg::GetAtlImplFilename(file->name());
 
   {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
+    std::unique_ptr<io::ZeroCopyOutputStream> output(
           output_directory->Open(impl_basename + ".h"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlImplHeader(&printer);
@@ -133,7 +133,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
 
   // Generate c file.
   {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
+    std::unique_ptr<io::ZeroCopyOutputStream> output(
           output_directory->Open(impl_basename + ".c"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlImplSource(&printer);
@@ -141,7 +141,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
 
   // Generate impl stubs file.
   {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
+    std::unique_ptr<io::ZeroCopyOutputStream> output(
           output_directory->Open(impl_basename + "_stubs.c"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlImplStubs(&printer);
@@ -149,7 +149,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
 
   // Generate http proxy source file
   {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
+    std::unique_ptr<io::ZeroCopyOutputStream> output(
           output_directory->Open(StripProto(file->name()) + "_proxy_def.c"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlHttpProxySource(&printer);
@@ -157,7 +157,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
 
   // Generate http proxy header file
   {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
+    std::unique_ptr<io::ZeroCopyOutputStream> output(
           output_directory->Open(StripProto(file->name()) + "_proxy_def.h"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlHttpProxyHeader(&printer);
@@ -165,7 +165,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
 
   // Generate validation source file
   {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
+    std::unique_ptr<io::ZeroCopyOutputStream> output(
           output_directory->Open(StripProto(file->name()) + "_validation_auto.c"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlValidationSource(&printer);
@@ -173,7 +173,7 @@ bool CGenerator::Generate(const FileDescriptor* file,
 
   // Generate validation header file
   {
-    scoped_ptr<io::ZeroCopyOutputStream> output(
+    std::unique_ptr<io::ZeroCopyOutputStream> output(
           output_directory->Open(StripProto(file->name()) + "_validation_auto.h"));
     io::Printer printer(output.get(), '$');
     file_generator.GenerateAtlValidationHeader(&printer);

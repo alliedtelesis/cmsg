@@ -62,6 +62,7 @@
 
 #include <algorithm>
 #include <map>
+#include <memory>
 #include <protoc-c/c_message.h>
 #include <protoc-c/c_enum.h>
 #include <protoc-c/c_helpers.h>
@@ -83,9 +84,9 @@ namespace c {
 
 MessageGenerator::MessageGenerator(const Descriptor* descriptor)
   : descriptor_(descriptor),
-    nested_generators_(new scoped_ptr<MessageGenerator>[
+    nested_generators_(new std::unique_ptr<MessageGenerator>[
       descriptor->nested_type_count()]),
-    enum_generators_(new scoped_ptr<EnumGenerator>[
+    enum_generators_(new std::unique_ptr<EnumGenerator>[
       descriptor->enum_type_count()]) {
 
   for (int i = 0; i < descriptor->nested_type_count(); i++) {
