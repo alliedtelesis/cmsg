@@ -24,7 +24,8 @@ AC_CONFIG_FILES([Makefile
   protoc-c/Makefile
   cmsg/cmsg.pc
   cmsg-proxy/cmsgproxyconfig.pc
-  cmsg-proxy/cmsgproxyhttpstreamingapi.pc])
+  cmsg-proxy/cmsgproxyhttpstreamingapi.pc
+  cmsg-proxy/file_upload_protobuf.pc])
 
 PKG_CHECK_MODULES([GLIB],[glib-2.0])
 PKG_CHECK_MODULES([GMEM_DIAG],[gmem_diag],[],[unittest_prereq=no])
@@ -37,6 +38,8 @@ AX_PTHREAD([],[unittest_prereq=no])
 AC_ARG_VAR(PROTOC_PATH, [  Path to the protoc compiler])
 AC_ARG_VAR(PROTOC_CMSG_PATH, [  Path to the protoc-cmsg compiler])
 AC_ARG_VAR(PROTOC_C_PATH, [  Path to the protoc-c compiler])
+AC_ARG_VAR(CMSG_PROTO_PATH, [  Path to the CMSG .proto files])
+AC_ARG_VAR(GOOGLEAPIS_PROTO_PATH, [  Path to the googleapis .proto files])
 
 BUILD_PROTOC_CMSG=1
 AC_ARG_ENABLE(protoc-cmsg, [  --disable-protoc-cmsg   Suppress build of protoc-cmsg],

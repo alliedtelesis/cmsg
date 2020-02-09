@@ -123,7 +123,7 @@ void AtlCodeGenerator::GenerateHttpProxyArrayFunctionDefs(io::Printer* printer)
     printer->Print(vars_, "int cmsg_proxy_array_size (void);\n");
 }
 
-void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const HttpRule &http_rule, io::Printer* printer)
+void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const ::google::api::HttpRule &http_rule, io::Printer* printer)
 {
     printer->Indent();
     printer->Print("{\n");
@@ -136,35 +136,35 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const HttpRule &http_rule, io
 
     vars_["body"] = http_rule.body();
 
-    if (http_rule.has_get())
+    if (!http_rule.get().empty())
     {
         vars_["url"] = http_rule.get();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_GET,\n");
         printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
-    else if (http_rule.has_put())
+    else if (!http_rule.put().empty())
     {
         vars_["url"] = http_rule.put();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_PUT,\n");
         printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
-    else if (http_rule.has_post ())
+    else if (!http_rule.post().empty())
     {
         vars_["url"] = http_rule.post();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_POST,\n");
         printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
-    else if (http_rule.has_delete_())
+    else if (!http_rule.delete_().empty())
     {
         vars_["url"] = http_rule.delete_();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
         printer->Print(".http_verb = CMSG_HTTP_DELETE,\n");
         printer->Print(vars_, ".body_string = \"$body$\",\n");
     }
-    else if (http_rule.has_patch())
+    else if (!http_rule.patch().empty())
     {
         vars_["url"] = http_rule.patch();
         printer->Print(vars_, ".url_string = \"$url$\",\n");
@@ -189,9 +189,9 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntriesPerMethod(const MethodDescri
     vars_["inputname"] = cmsg::FullNameToLower(method.input_type()->full_name());
     vars_["outputname"] = cmsg::FullNameToLower(method.output_type()->full_name());
 
-    if (method.options().HasExtension(http))
+    if (method.options().HasExtension(::google::api::http))
     {
-        HttpRule http_rule = method.options().GetExtension(http);
+        ::google::api::HttpRule http_rule = method.options().GetExtension(::google::api::http);
         GenerateHttpProxyArrayEntry(http_rule, printer);
 
         // Generate an entry for each additional binding

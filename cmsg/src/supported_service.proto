@@ -26,7 +26,6 @@ message ServiceSupportInfo
 // implemented by a service using this extension then if the check fails
 // only a single message is returned, rather than a message for every client
 // in the composite client.
-extend google.protobuf.ServiceOptions
-{
+extend google.protobuf.ServiceOptions {
     optional ServiceSupportInfo service_support_check = 72295731;
 }
