@@ -204,6 +204,8 @@ BUILT_SOURCES =  \
 	src/cmsg_impl_auto.h \
 	src/cmsg.pb-c.c \
 	src/cmsg.pb-c.h \
+	src/ant_result.pb-c.c \
+	src/ant_result.pb-c.h \
 	src/service_listener/configuration_api_auto.c \
 	src/service_listener/configuration_api_auto.h \
 	src/service_listener/configuration_impl_auto.c \
