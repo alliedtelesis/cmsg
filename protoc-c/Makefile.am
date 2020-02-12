@@ -1,20 +1,26 @@
 bin_PROGRAMS = protoc-gen-cmsg
 
-http.pb.cc \
-http.pb.h: $(PROTOC_PATH)$(EXEEXT) http.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/protoc-c/http.proto
+google/api/http.pb.cc \
+google/api/http.pb.h: $(PROTOC_PATH)$(EXEEXT) $(GOOGLEAPIS_PROTO_PATH)/google/api/http.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(GOOGLEAPIS_PROTO_PATH) --cpp_out=$(top_srcdir)/protoc-c $(GOOGLEAPIS_PROTO_PATH)/google/api/http.proto
+
+google/api/annotations.pb.cc \
+google/api/annotations.pb.h: $(PROTOC_PATH)$(EXEEXT) $(GOOGLEAPIS_PROTO_PATH)/google/api/annotations.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(GOOGLEAPIS_PROTO_PATH) --cpp_out=$(top_srcdir)/protoc-c $(GOOGLEAPIS_PROTO_PATH)/google/api/annotations.proto
 
 validation.pb.cc \
-validation.pb.h: $(PROTOC_PATH)$(EXEEXT) validation.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/protoc-c/validation.proto
+validation.pb.h: $(PROTOC_PATH)$(EXEEXT) ../cmsg/src/validation.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/cmsg/src/validation.proto
 
 supported_service.pb.cc \
-supported_service.pb.h: $(PROTOC_PATH)$(EXEEXT) supported_service.proto
-	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/protoc-c --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/protoc-c/supported_service.proto
+supported_service.pb.h: $(PROTOC_PATH)$(EXEEXT) ../cmsg/src/supported_service.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/cmsg/src/supported_service.proto
 
 protoc_gen_cmsg_SOURCES = \
-	http.pb.cc \
-	http.pb.h \
+	google/api/http.pb.cc \
+	google/api/http.pb.h \
+	google/api/annotations.pb.cc \
+	google/api/annotations.pb.h \
 	validation.pb.cc \
 	validation.pb.h \
 	supported_service.pb.cc \
@@ -38,10 +44,7 @@ protoc_gen_cmsg_SOURCES = \
 	main.cc
 
 protoc_gen_cmsgdir       = $(includedir)/cmsg
-protoc_gen_cmsg_HEADERS  = \
-	http.proto \
-	validation.proto \
-	supported_service.proto
+protoc_gen_cmsg_HEADERS  =
 
 protoc_gen_cmsg_CXXFLAGS = \
 	-Werror \
@@ -57,5 +60,6 @@ protoc_gen_cmsg_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
 	-I$(top_srcdir)
 
-BUILT_SOURCES = http.pb.cc http.pb.h validation.pb.cc validation.pb.h supported_service.pb.cc supported_service.pb.h
+BUILT_SOURCES = google/api/http.pb.cc google/api/http.pb.h google/api/annotations.pb.cc google/api/annotations.pb.h \
+                validation.pb.cc validation.pb.h supported_service.pb.cc supported_service.pb.h
 CLEANFILES = $(BUILT_SOURCES)

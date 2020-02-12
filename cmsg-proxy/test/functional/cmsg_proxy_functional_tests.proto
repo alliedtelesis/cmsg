@@ -1,5 +1,5 @@
-import "http.proto";
-import "ant_result.proto";
+import "google/api/annotations.proto";
+import "cmsg/ant_result.proto";
 
 message dummy
 {
@@ -150,107 +150,107 @@ message file_response
 service functional_tests
 {
     rpc test_single_bool_get (dummy) returns (bool_result) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_single_bool_get",
         };
     }
 
     rpc test_single_string_get (dummy) returns (string_result) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_single_string_get",
         };
     }
 
     rpc test_single_uint32_get (dummy) returns (uint32_result) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_single_uint32_get",
         };
     }
 
     rpc test_single_message_get (dummy) returns (test_single_message_get_msg) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_single_message_get",
         };
     }
 
     rpc test_repeated_string_get (dummy) returns (string_array_result) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_repeated_string_get",
         };
     }
 
     rpc test_repeated_uint32_get (dummy) returns (uint32_array_result) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_repeated_uint32_get",
         };
     }
 
     rpc test_repeated_message_get (dummy) returns (test_repeated_message_get_msg) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_repeated_message_get",
         };
     }
 
     rpc test_multiple_fields_message_get (dummy) returns (test_multiple_fields_message_get_msg) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_multiple_fields_message_get",
         };
     }
 
     rpc test_ant_result_get_ok (dummy) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_ant_result_get_ok",
         };
     }
 
     rpc test_ant_result_get_error (dummy) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_ant_result_get_error",
         };
     }
 
     rpc test_get_error_with_single_data (dummy) returns (bool_result) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_get_error_with_single_data",
         };
     }
 
     rpc test_get_error_with_multiple_data (dummy) returns (test_multiple_fields_message_get_msg) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_get_error_with_multiple_data",
         };
     }
 
     rpc test_body_mapped_to_sub_message (test_body_msg) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             post: "/test_body_mapped_to_sub_message/{field_a}",
             body: "field_c",
         };
     }
 
     rpc test_body_mapped_to_primitive (test_body_msg) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             post: "/test_body_mapped_to_primitive/{field_b}",
             body: "field_a",
         };
     }
 
     rpc test_body_mapped_to_remaining_multiple_fields (test_body_msg) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             post: "/test_body_mapped_to_remaining_multiple_fields/{field_a}",
             body: "*",
         };
     }
 
     rpc test_body_mapped_to_remaining_single_field (test_body_msg) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             post: "/test_body_mapped_to_remaining_single_field/{field_a}/{field_b}",
             body: "*",
         };
     }
 
     rpc test_body_mapped_to_nothing (test_body_msg) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             post: "/test_body_mapped_to_nothing/{field_a}",
             additional_bindings {
                 post: "/test_accept_empty_body_multiple_fields/{field_a}",
@@ -260,81 +260,81 @@ service functional_tests
     }
 
     rpc test_accept_empty_body_primitive (test_body_single_primitive) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             post: "/test_accept_empty_body_primitive",
             body: "*",
         };
     }
 
     rpc test_accept_empty_body_sub_message (test_body_msg) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             post: "/test_accept_empty_body_sub_message/{field_a}/{field_b}",
             body: "*",
         };
     }
 
     rpc test_single_bool_put (cmsg_bool) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             put: "/test_single_bool_put",
             body: "value",
         };
     }
 
     rpc test_single_string_put (cmsg_string) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             put: "/test_single_string_put",
             body: "value",
         };
     }
 
     rpc test_single_uint32_put (cmsg_uint32) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             put: "/test_single_uint32_put",
             body: "value",
         };
     }
 
     rpc test_single_repeated_uint32_put (cmsg_uint32_array) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             put: "/test_single_repeated_uint32_put",
             body: "values",
         };
     }
 
     rpc test_internal_web_api_info_set (internal_api_info_test) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_internal_web_api_info_set",
         };
     }
 
     rpc test_single_data_plus_internal_set (single_data_and_internal) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             put: "/test_single_data_plus_internal_set",
             body: "*",
         };
     }
 
     rpc test_multiple_data_plus_internal_set (multiple_data_and_internal) returns (ant_result) {
-        option (http) = {
+        option (google.api.http) = {
             put: "/test_multiple_data_plus_internal_set",
             body: "*",
         };
     }
 
     rpc test_body_get (dummy) returns (body_msg) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_body_get",
         };
     }
 
     rpc test_http_streaming (streaming_id) returns (test_multiple_fields_message_get_msg) {
-        option (http) = {
+        option (google.api.http) = {
             get: "/test_http_streaming",
         };
     }
 
     rpc test_http_file_streaming (streaming_id) returns (file_response) {
-        option (http) = {
+        option (google.api.http) = {
             post: "/test_http_file_streaming",
         };
     }

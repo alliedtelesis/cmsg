@@ -26,16 +26,14 @@
 #include <map>
 #include <string>
 #include <google/protobuf/descriptor.h>
-#include "http.pb.h"
+#include "google/api/http.pb.h"
+#include "google/api/annotations.pb.h"
 
 namespace google {
 namespace protobuf {
   namespace io {
     class Printer;             // printer.h
   }
-}
-namespace api {
-  class HttpRule;
 }
 
 namespace protobuf {
@@ -59,7 +57,7 @@ class AtlCodeGenerator {
   // Http proxy stuff
   void GenerateHttpProxyArrayEntries(io::Printer* printer);
   void GenerateHttpProxyArrayEntriesPerMethod(const MethodDescriptor &method, io::Printer* printer);
-  void GenerateHttpProxyArrayEntry(const HttpRule &http_rule, io::Printer* printer);
+  void GenerateHttpProxyArrayEntry(const ::google::api::HttpRule &http_rule, io::Printer* printer);
   void GenerateHttpProxyArrayFunctions(io::Printer* printer);
   void GenerateHttpProxyArrayFunctionDefs(io::Printer* printer);
 

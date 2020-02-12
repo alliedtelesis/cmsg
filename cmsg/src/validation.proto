@@ -37,8 +37,7 @@ message FieldValidation
 // validation function for the message. Based on the FieldValidation options
 // the function will return true/false depending if the message validates.
 // The function generated is simply the message name appended with '_validate'.
-extend google.protobuf.FieldOptions
-{
+extend google.protobuf.FieldOptions {
     optional FieldValidation validation = 72295729;
 }
 
@@ -48,7 +47,6 @@ extend google.protobuf.FieldOptions
 // then an 'ant_result' message is created and returned to the API caller
 // skipping the 'impl' function entirely. Note that to use this extension
 // your method must return an 'ant_result' message.
-extend google.protobuf.MethodOptions
-{
+extend google.protobuf.MethodOptions {
     optional bool auto_validation = 72295730;
 }
