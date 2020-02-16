@@ -875,3 +875,35 @@ cmsg_get_msg_from_file (const ProtobufCMessageDescriptor *desc, const char *file
 
     return message;
 }
+
+/**
+ * Convert enum value to name (in string) that is defined in .proto file.
+ *
+ * @param desc  - The ProtobufCEnumDescriptor of the enum type.
+ * @param value - The enum value to find corresponding name in string format.
+ *
+ * @returns Pointer to the name of the enum on success, NULL otherwise.
+ */
+const char *
+cmsg_enum_to_name (const ProtobufCEnumDescriptor *desc, int value)
+{
+    unsigned i;
+
+    if (desc && desc->values)
+    {
+        for (i = 0; i < desc->n_values; i++)
+        {
+            if (desc->values[i].value == value)
+            {
+                return desc->values[i].name;
+            }
+            else if (desc->values[i].value > value)
+            {
+                /* Array is sorted by numeric value. */
+                break;
+            }
+        }
+    }
+
+    return NULL;
+}

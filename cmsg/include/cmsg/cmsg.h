@@ -222,6 +222,20 @@ extern ProtobufCAllocator cmsg_memory_allocator;
             if ((_node = (_name)->_field[_idx]) != NULL)
 
 /**
+ * Helper macro to iterate over the int32/uint32 in a repeated field of a CMSG message
+ * Last || condition is to ensure assignment and allow zero values to work correctly.
+ * Avoids compilation conditions due to "always evaluates to true"
+ * @param _name name of message ptr variable.
+ * @param _field name of the repeated field
+ * @param _node integer of the type of the repeated field.
+ * @param _idx integer variable to use as loop counter.
+ */
+#define CMSG_REPEATED_FOREACH_INT(_name, _field, _node, _idx)  \
+    if ((_name) && (_name)->_field)                         \
+        for (_idx = 0, _node = (_name)->_field[_idx]; _idx < (_name)->n_##_field; _idx++) \
+            if ((_node = (_name)->_field[_idx]) || (_name))
+
+/**
  * Replace a string field in a received message with a different value using the
  * CMSG memory allocator.
  * This is useful if the message needs a slight modification before sending on
@@ -234,8 +248,8 @@ extern ProtobufCAllocator cmsg_memory_allocator;
 #define CMSG_UPDATE_RECV_MSG_STRING_FIELD(_name, _field, _new_value) \
     cmsg_update_recv_msg_string_field (&((_name)->_field), _new_value, __FILE__, __LINE__)
 
-#define CMSG_MSG_DESCRIPTOR(msg) \
-    (&msg##_descriptor)
+#define CMSG_MSG_DESCRIPTOR(msg)    (&msg##_descriptor)
+#define CMSG_ENUM_DESCRIPTOR(type)  CMSG_MSG_DESCRIPTOR (type)
 
 uint16_t cmsg_service_port_get (const char *name, const char *proto);
 
@@ -244,5 +258,7 @@ const char *cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor)
 int32_t cmsg_dump_msg_to_file (const ProtobufCMessage *msg, const char *file_name);
 ProtobufCMessage *cmsg_get_msg_from_file (const ProtobufCMessageDescriptor *desc,
                                           const char *file_name);
+
+const char *cmsg_enum_to_name (const ProtobufCEnumDescriptor *desc, int value);
 
 #endif /* __CMSG_H_ */
