@@ -732,21 +732,21 @@ cmsg_pack_msg (const ProtobufCMessage *msg, uint32_t *packed_data_size)
     uint32_t ret;
 
     message_size = protobuf_c_message_get_packed_size (msg);
-    packed_data = (uint8_t *) calloc (1, message_size);
+    packed_data = (uint8_t *) CMSG_CALLOC (1, message_size);
 
     ret = protobuf_c_message_pack (msg, packed_data);
     if (ret < message_size)
     {
         CMSG_LOG_GEN_ERROR ("Underpacked message data. Packed %d of %d bytes.", ret,
                             message_size);
-        free (packed_data);
+        CMSG_FREE (packed_data);
         return NULL;
     }
     else if (ret > message_size)
     {
         CMSG_LOG_GEN_ERROR ("Overpacked message data. Packed %d of %d bytes.", ret,
                             message_size);
-        free (packed_data);
+        CMSG_FREE (packed_data);
         return NULL;
     }
 
@@ -783,7 +783,7 @@ cmsg_dump_msg_to_file (const ProtobufCMessage *msg, const char *file_name)
     if (!fp)
     {
         CMSG_LOG_GEN_ERROR ("Failed to open temporary file.");
-        free (tmp_file_name);
+        CMSG_FREE (tmp_file_name);
         return CMSG_RET_ERR;
     }
 
@@ -802,12 +802,12 @@ cmsg_dump_msg_to_file (const ProtobufCMessage *msg, const char *file_name)
                  packed_data_len, len);
         }
 
-        free (packed_data);
+        CMSG_FREE (packed_data);
     }
 
     fclose (fp);
     rename (tmp_file_name, file_name);
-    free (tmp_file_name);
+    CMSG_FREE (tmp_file_name);
 
     return ret;
 }
