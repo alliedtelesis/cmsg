@@ -7,6 +7,7 @@
 import "validation.proto";
 import "ant_result.proto";
 import "supported_service.proto";
+import "file_response.proto";
 
 package cmsg;
 
@@ -65,6 +66,13 @@ message message_with_sub_message_validation
     optional message_with_string_validation sub = 1;
 }
 
+message file_response_message
+{
+    optional ant_result _error_info = 1;
+    optional bool bool_val = 2;
+    optional string string_val = 3;
+}
+
 service test
 {
     rpc simple_rpc_test (bool_msg) returns (bool_msg);
@@ -86,6 +94,11 @@ service test
         option (auto_validation) = true;
     }
     rpc server_multi_threading_test (uint32_msg) returns (uint32_msg);
+    rpc file_response_test (dummy) returns (file_response_message) {
+        option (file_response) = {
+            file_path: "/tmp/test_file_response"
+        };
+    }
 }
 
 message message_with_ant_result
@@ -99,6 +112,7 @@ service supported_service_test
     option (service_support_check) = {
         file_path: "/tmp/test"
         message: "This service is not supported."
+        code: "ANT_CODE_UNIMPLEMENTED"
     };
 
     rpc ss_test_direct (bool_msg) returns (ant_result);

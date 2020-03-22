@@ -26,6 +26,7 @@
 #include <google/protobuf/io/printer.h>
 #include "validation.pb.h"
 #include "supported_service.pb.h"
+#include "file_response.pb.h"
 
 namespace google {
 namespace protobuf {
@@ -241,6 +242,98 @@ void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, 
 
 }
 
+static void
+print_supported_service_check (const ServiceDescriptor* descriptor_, const MethodDescriptor *method,
+                               io::Printer* printer)
+{
+    ServiceSupportInfo info = descriptor_->options().GetExtension(service_support_check);
+    std::map<string, string> vars_;
+    vars_["file_path"] = info.file_path();
+    vars_["output_typename"] = cmsg::FullNameToC(method->output_type()->full_name());
+
+    printer->Print("\n");
+    printer->Print("/* Service support check */\n");
+    printer->Print(vars_, "if (access (\"$file_path$\", F_OK) == -1)\n");
+    printer->Print("{\n");
+    printer->Indent();
+
+    printer->Print(vars_, "ant_result *ant_result_msg = CMSG_MALLOC (sizeof (ant_result));\n");
+    printer->Print("ant_result_init (ant_result_msg);\n");
+    if (info.has_message())
+    {
+        vars_["message"] = info.message();
+        printer->Print(vars_, "CMSG_SET_FIELD_PTR (ant_result_msg, message, CMSG_STRDUP (\"$message$\"));\n");
+    }
+    if (info.has_code())
+    {
+        vars_["code"] = info.code();
+        printer->Print(vars_, "CMSG_SET_FIELD_VALUE (ant_result_msg, code, $code$);\n");
+    }
+
+    if (strcmp (method->output_type()->full_name().c_str(), "ant_result") == 0)
+    {
+        printer->Print("_recv_msg[0] = ant_result_msg;\n");
+    }
+    else
+    {
+        printer->Print(vars_, "$output_typename$ *send_msg = CMSG_MALLOC (sizeof ($output_typename$));\n");
+        printer->Print(vars_, "$output_typename$_init (send_msg);\n");
+        printer->Print("CMSG_SET_FIELD_PTR (send_msg, _error_info, ant_result_msg);\n");
+        printer->Print("_recv_msg[0] = send_msg;\n");
+    }
+
+    printer->Print("return CMSG_RET_OK;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+}
+
+static void
+print_file_response (const MethodDescriptor *method, io::Printer* printer)
+{
+    FileResponseInfo info = method->options().GetExtension(file_response);
+    std::map<string, string> vars_;
+    vars_["file_path"] = info.file_path();
+    vars_["output_typename"] = cmsg::FullNameToC(method->output_type()->full_name());
+
+    printer->Print("\n");
+    printer->Print("/* File response */\n");
+    printer->Print(vars_, "if (access (\"$file_path$\", F_OK) == -1)\n");
+    printer->Print("{\n");
+    printer->Indent();
+
+    printer->Print(vars_, "ant_result *ant_result_msg = CMSG_MALLOC (sizeof (ant_result));\n");
+    printer->Print("ant_result_init (ant_result_msg);\n");
+    printer->Print(vars_, "CMSG_SET_FIELD_VALUE (ant_result_msg, code, ANT_CODE_OK);\n");
+    printer->Print(vars_, "$output_typename$ *send_msg = CMSG_MALLOC (sizeof ($output_typename$));\n");
+    printer->Print(vars_, "$output_typename$_init (send_msg);\n");
+    printer->Print("CMSG_SET_FIELD_PTR (send_msg, _error_info, ant_result_msg);\n");
+    printer->Print("_recv_msg[0] = send_msg;\n");
+    printer->Print("return CMSG_RET_OK;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+    printer->Print("else\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print(vars_, "$output_typename$ *read_data_msg = ($output_typename$ *)\n");
+    printer->Print(vars_, "    cmsg_get_msg_from_file (CMSG_MSG_DESCRIPTOR ($output_typename$),\n");
+    printer->Print(vars_, "                            \"$file_path$\");\n");
+    printer->Print("if (read_data_msg == NULL)\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("return CMSG_RET_ERR;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+    printer->Print("else\n");
+    printer->Print("{\n");
+    printer->Indent();
+    printer->Print("_recv_msg[0] = read_data_msg;\n");
+    printer->Print("return CMSG_RET_OK;\n");
+    printer->Outdent();
+    printer->Print("}\n");
+    printer->Outdent();
+    printer->Print("}\n");
+}
+
 void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
 {
   //
@@ -271,19 +364,6 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print("{\n");
     printer->Indent();
 
-    //
-    // must create send message if it is not supplied by the developer
-    // (ie when it has no fields)
-    //
-    if(method->input_type()->field_count() <= 0)
-    {
-      printer->Print("/* Create a local send message since the developer hasn't supplied one. */\n");
-      printer->Print(vars_, "$input_typename$ _send_msg = $input_typename_upper$_INIT;\n");
-      // change the name of the send message so that we can get the address of it for the send call
-      vars_["send_msg_name"] = "&_send_msg";
-    }
-
-    printer->Print("cmsg_client_closure_data _closure_data[CMSG_RECV_ARRAY_SIZE] = {{NULL, NULL, CMSG_RET_ERR}};\n");
     printer->Print(vars_, "ProtobufCService *_service = (ProtobufCService *)_client;\n");
 
     //
@@ -297,47 +377,6 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     printer->Print("return CMSG_RET_ERR;\n");
     printer->Outdent();
     printer->Print("}\n");
-
-    //
-    // If the service is using the 'service_support_check' option then check
-    // that the service is supported.
-    //
-    if (descriptor_->options().HasExtension(service_support_check))
-    {
-        ServiceSupportInfo info = descriptor_->options().GetExtension(service_support_check);
-        vars_["file_path"] = info.file_path();
-
-        printer->Print("\n");
-        printer->Print("/* Service support check */\n");
-        printer->Print(vars_, "if (access (\"$file_path$\", F_OK) == -1)\n");
-        printer->Print("{\n");
-        printer->Indent();
-
-        printer->Print(vars_, "ant_result *ant_result_msg = CMSG_MALLOC (sizeof (ant_result));\n");
-        printer->Print("ant_result_init (ant_result_msg);\n");
-        printer->Print("CMSG_SET_FIELD_VALUE (ant_result_msg, code, ANT_CODE_UNIMPLEMENTED);\n");
-        if (info.has_message())
-        {
-            vars_["message"] = info.message();
-            printer->Print(vars_, "CMSG_SET_FIELD_PTR (ant_result_msg, message, CMSG_STRDUP (\"$message$\"));\n");
-        }
-
-        if (strcmp (method->output_type()->full_name().c_str(), "ant_result") == 0)
-        {
-            printer->Print("_recv_msg[0] = ant_result_msg;\n");
-        }
-        else
-        {
-            printer->Print(vars_, "$output_typename$ *send_msg = CMSG_MALLOC (sizeof ($output_typename$));\n");
-            printer->Print(vars_, "$output_typename$_init (send_msg);\n");
-            printer->Print("CMSG_SET_FIELD_PTR (send_msg, _error_info, ant_result_msg);\n");
-            printer->Print("_recv_msg[0] = send_msg;\n");
-        }
-
-        printer->Print("return CMSG_RET_OK;\n");
-        printer->Outdent();
-        printer->Print("}\n");
-    }
 
     //
     // finally, test that the recv msg pointer is NULL.
@@ -358,8 +397,45 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
       printer->Print("}\n");
     }
 
+    printer->Print("\n");
+
+    //
+    // If the service is using the 'service_support_check' option then check
+    // that the service is supported.
+    //
+    if (descriptor_->options().HasExtension(service_support_check) &&
+        !method->options().HasExtension(disable_service_support_check))
+    {
+        print_supported_service_check (descriptor_, method, printer);
+    }
+
+    //
+    // If the service is using the 'file_response' option then generate
+    // the code now.
+    //
+    if (method->options().HasExtension(file_response))
+    {
+        print_file_response (method, printer);
+        printer->Outdent();
+        printer->Print("}\n\n");
+        continue;
+    }
 
     printer->Print("\n");
+
+    //
+    // must create send message if it is not supplied by the developer
+    // (ie when it has no fields)
+    //
+    if(method->input_type()->field_count() <= 0)
+    {
+      printer->Print("/* Create a local send message since the developer hasn't supplied one. */\n");
+      printer->Print(vars_, "$input_typename$ _send_msg = $input_typename_upper$_INIT;\n");
+      // change the name of the send message so that we can get the address of it for the send call
+      vars_["send_msg_name"] = "&_send_msg";
+    }
+
+    printer->Print("cmsg_client_closure_data _closure_data[CMSG_RECV_ARRAY_SIZE] = {{NULL, NULL, CMSG_RET_ERR}};\n");
 
     //
     // now send!
@@ -436,6 +512,12 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     //
     // get the definition
     GenerateAtlServerDefinition(*method, printer, false);
+
+    if (method->options().HasExtension(file_response)) {
+        printer->Print("{\n");
+        printer->Print("}\n");
+        continue;
+    }
 
     // start filling it in
     printer->Print("{\n");
@@ -523,14 +605,18 @@ void AtlCodeGenerator::GenerateAtlServerDefinitions(io::Printer* printer, bool f
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
     // only declare the server send in the header file
-    GenerateAtlServerSendDefinition(*method, printer, forHeader);
+    if (!method->options().HasExtension(file_response)) {
+      GenerateAtlServerSendDefinition(*method, printer, forHeader);
+    }
   }
 
   printer->Print("\n");
 
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
-    GenerateAtlServerImplDefinition(*method, printer, forHeader);
+    if (!method->options().HasExtension(file_response)) {
+      GenerateAtlServerImplDefinition(*method, printer, forHeader);
+    }
   }
 }
 
