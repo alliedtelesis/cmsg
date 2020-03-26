@@ -54,7 +54,7 @@ int32_t cmsg_transport_set_recv_peek_timeout (cmsg_transport *transport, uint32_
 int32_t cmsg_transport_apply_send_timeout (cmsg_transport *transport, int sockfd);
 int32_t cmsg_transport_apply_recv_timeout (cmsg_transport *transport, int sockfd);
 
-cmsg_transport_info *cmsg_transport_info_create (cmsg_transport *transport);
+cmsg_transport_info *cmsg_transport_info_create (const cmsg_transport *transport);
 void cmsg_transport_info_free (cmsg_transport_info *transport_info);
 cmsg_transport *cmsg_transport_info_to_transport (const cmsg_transport_info
                                                   *transport_info);
