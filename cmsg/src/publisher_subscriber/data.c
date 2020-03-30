@@ -77,6 +77,45 @@ service_entry_free (gpointer data)
 }
 
 /**
+ * Handle events from cmsg service listener daemon.
+ *
+ * @param transport - The subscriber's transport that the event is related to.
+ * @param added - The subscriber is added or removed.
+ * @param user_data - not used.
+ *
+ * @returns true so to let the process continue.
+ */
+static bool
+_sl_event_handler (const cmsg_transport *transport, bool added, void *user_data)
+{
+    cmsg_transport_info *info = NULL;
+
+    /* The subscriber is already removed off the sld's server list */
+    if (added == false)
+    {
+        info = cmsg_transport_info_create (transport);
+        data_remove_subscriber (info);
+        cmsg_transport_info_free (info);
+    }
+
+    return true;
+}
+
+/**
+ * Callback function that can be used to process events generated from the CMSG
+ * service listener functionality.
+ */
+static gboolean
+_sl_event_process (GIOChannel *source, GIOCondition condition, gpointer data)
+{
+    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+
+    cmsg_service_listener_event_queue_process (info);
+
+    return G_SOURCE_CONTINUE;
+}
+
+/**
  * Gets the 'service_data_entry' structure for the given service name
  * or potentially create one if it doesn't already exist.
  *
@@ -95,6 +134,17 @@ get_service_entry_or_create (const char *service, bool create)
     {
         entry = CMSG_CALLOC (1, sizeof (service_data_entry));
         entry->comp_client = cmsg_composite_client_new (CMSG_DESCRIPTOR (cmsg_psd, update));
+
+        /* Register interest for event from service listener daemon regarding this service */
+        entry->sl_info = cmsg_service_listener_listen (service, _sl_event_handler, NULL);
+        if (entry->sl_info)
+        {
+            int event_fd = cmsg_service_listener_get_event_fd (entry->sl_info);
+            entry->event_channel = g_io_channel_unix_new (event_fd);
+            g_io_add_watch (entry->event_channel, G_IO_IN, _sl_event_process,
+                            (void *) entry->sl_info);
+        }
+
         g_hash_table_insert (local_subscriptions_table, CMSG_STRDUP (service), entry);
     }
 
@@ -176,46 +226,6 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
 }
 
 /**
- * Handle events from cmsg service listener daemon.
- *
- * @param transport - The subscriber's transport that the event is related to.
- * @param added - The subscriber is added or removed.
- * @param user_data - not used.
- *
- * @returns true so to let the process continue.
- */
-static bool
-_sl_event_handler (const cmsg_transport *transport, bool added, void *user_data)
-{
-    cmsg_transport_info *info = NULL;
-
-    /* The subscriber is already removed off the sld's server list */
-    if (added == false)
-    {
-        info = cmsg_transport_info_create (transport);
-        data_remove_subscriber (info);
-        cmsg_transport_info_free (info);
-    }
-
-    return true;
-}
-
-/**
- * Callback function that can be used to process events generated from the CMSG
- * service listener functionality.
- */
-static gboolean
-_sl_event_process (GIOChannel *source, GIOCondition condition, gpointer data)
-{
-    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
-
-    cmsg_service_listener_event_queue_process (info);
-
-    return G_SOURCE_CONTINUE;
-}
-
-
-/**
  * Add a local subscription to the database.
  *
  * @param info - The information about the subscription being added.
@@ -235,19 +245,6 @@ data_add_local_subscription (const cmsg_subscription_info *info)
 
     update_publishers_with_method_change (service_entry->comp_client, info->method_name,
                                           info->transport_info, true);
-
-    /* Register interest for event from service listener daemon regarding this service */
-    if (service_entry->sl_info == NULL)
-    {
-        int event_fd;
-
-        service_entry->sl_info = cmsg_service_listener_listen (info->service,
-                                                               _sl_event_handler, NULL);
-        event_fd = cmsg_service_listener_get_event_fd (service_entry->sl_info);
-        service_entry->event_channel = g_io_channel_unix_new (event_fd);
-        g_io_add_watch (service_entry->event_channel, G_IO_IN, _sl_event_process,
-                        (void *) service_entry->sl_info);
-    }
 }
 
 /**
