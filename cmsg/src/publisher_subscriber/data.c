@@ -23,6 +23,7 @@ typedef struct
     cmsg_client *comp_client;   /* Client to publishers of this service */
     const cmsg_sl_info *sl_info;
     GIOChannel *event_channel;  /* Listen to sld event notification */
+    guint event_source_id;
 } service_data_entry;
 
 typedef struct
@@ -66,6 +67,7 @@ service_entry_free (gpointer data)
         cmsg_service_listener_unlisten (entry->sl_info);
         g_io_channel_shutdown (entry->event_channel, true, NULL);
         g_io_channel_unref (entry->event_channel);
+        g_source_remove (entry->event_source_id);
     }
 
     g_list_free_full (entry->methods, service_entry_free_methods);
@@ -94,8 +96,11 @@ _sl_event_handler (const cmsg_transport *transport, bool added, void *user_data)
     if (added == false)
     {
         info = cmsg_transport_info_create (transport);
-        data_remove_subscriber (info);
-        cmsg_transport_info_free (info);
+        if (info)
+        {
+            data_remove_subscriber (info);
+            cmsg_transport_info_free (info);
+        }
     }
 
     return true;
@@ -141,8 +146,9 @@ get_service_entry_or_create (const char *service, bool create)
         {
             int event_fd = cmsg_service_listener_get_event_fd (entry->sl_info);
             entry->event_channel = g_io_channel_unix_new (event_fd);
-            g_io_add_watch (entry->event_channel, G_IO_IN, _sl_event_process,
-                            (void *) entry->sl_info);
+            entry->event_source_id = g_io_add_watch (entry->event_channel, G_IO_IN,
+                                                     _sl_event_process,
+                                                     (void *) entry->sl_info);
         }
 
         g_hash_table_insert (local_subscriptions_table, CMSG_STRDUP (service), entry);
