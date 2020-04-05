@@ -11,6 +11,7 @@ message listener_info
     optional string service = 1;
     optional cmsg_transport_info transport_info = 2;
     optional uint32 id = 3;
+    optional uint32 pid = 4;
 }
 
 service configuration

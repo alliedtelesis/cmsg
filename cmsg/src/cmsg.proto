@@ -64,6 +64,7 @@ message cmsg_service_info
 {
     optional string service = 1;
     optional cmsg_transport_info server_info = 2;
+    optional uint32 pid = 3;
 }
 
 message cmsg_subscription_info

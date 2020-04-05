@@ -1001,7 +1001,7 @@ cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
  * @returns A pointer to the message on success, NULL on failure.
  */
 cmsg_tipc_transport_info *
-cmsg_transport_tipc_info_create (cmsg_transport *transport)
+cmsg_transport_tipc_info_create (const cmsg_transport *transport)
 {
     cmsg_tipc_transport_info *tipc_info = NULL;
 
@@ -1034,7 +1034,7 @@ cmsg_transport_tipc_info_create (cmsg_transport *transport)
  * @returns A pointer to the message on success, NULL on failure.
  */
 cmsg_tcp_transport_info *
-cmsg_transport_tcp_info_create (cmsg_transport *transport)
+cmsg_transport_tcp_info_create (const cmsg_transport *transport)
 {
     cmsg_tcp_transport_info *tcp_info = NULL;
     bool ipv4;
@@ -1085,7 +1085,7 @@ cmsg_transport_tcp_info_create (cmsg_transport *transport)
  * @returns A pointer to the message on success, NULL on failure.
  */
 cmsg_unix_transport_info *
-cmsg_transport_unix_info_create (cmsg_transport *transport)
+cmsg_transport_unix_info_create (const cmsg_transport *transport)
 {
     cmsg_unix_transport_info *unix_info = NULL;
     char *unix_path = NULL;
@@ -1118,7 +1118,7 @@ cmsg_transport_unix_info_create (cmsg_transport *transport)
  *          This message should be freed using 'cmsg_transport_info_free'.
  */
 cmsg_transport_info *
-cmsg_transport_info_create (cmsg_transport *transport)
+cmsg_transport_info_create (const cmsg_transport *transport)
 {
     cmsg_transport_info *transport_info = NULL;
     cmsg_tcp_transport_info *tcp_info = NULL;

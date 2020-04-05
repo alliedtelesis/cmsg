@@ -8,6 +8,7 @@
 #include "../data.h"
 #include "../remote_sync.h"
 #include "transport/cmsg_transport_private.h"
+#include "cmsg_sl.h"
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it
@@ -30,11 +31,19 @@ sm_mock_remote_sync_subscription_removed (const cmsg_subscription_info *subscrib
     /* Do nothing. */
 }
 
+static const cmsg_sl_info *
+sm_mock_cmsg_service_listener_listen (const char *service_name,
+                                      cmsg_sl_event_handler_t handler, void *user_data)
+{
+    return NULL;
+}
+
 static int USED
 set_up (void)
 {
     np_mock (remote_sync_subscription_added, sm_mock_remote_sync_subscription_added);
     np_mock (remote_sync_subscription_removed, sm_mock_remote_sync_subscription_removed);
+    np_mock (cmsg_service_listener_listen, sm_mock_cmsg_service_listener_listen);
     data_init ();
 
     return 0;

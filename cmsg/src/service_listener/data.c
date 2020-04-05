@@ -314,6 +314,7 @@ data_add_listener (const cmsg_sld_listener_info *info)
     listener_info = CMSG_CALLOC (1, sizeof (listener_data));
     listener_info->client = client;
     listener_info->id = info->id;
+    listener_info->pid = info->pid;
 
     entry->listeners = g_list_append (entry->listeners, listener_info);
 
@@ -476,8 +477,9 @@ data_debug_listener_dump (gpointer data, gpointer user_data)
     const listener_data *listener_info = (const listener_data *) data;
     const cmsg_client *client = listener_info->client;
 
-    fprintf (fp, "   %s (ID: %u)\n", client->_transport->config.socket.sockaddr.un.sun_path,
-             listener_info->id);
+    fprintf (fp, "   %s (ID: %u) (pid: %u)\n",
+             client->_transport->config.socket.sockaddr.un.sun_path, listener_info->id,
+             listener_info->pid);
 }
 
 /**
@@ -486,13 +488,15 @@ data_debug_listener_dump (gpointer data, gpointer user_data)
  * @param fp - The file to print to.
  * @param transport_info - The 'cmsg_transport_info' structure for the transport.
  * @param oneway_str - String to print for the oneway/rpc nature of the transport.
+ * @param pid  - the PID of the process that runs this server.
+ *
  */
 static void
 data_debug_unix_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
-                             const char *oneway_str)
+                             const char *oneway_str, uint32_t pid)
 {
-
-    fprintf (fp, "   (unix, %s) path = %s\n", oneway_str, transport_info->unix_info->path);
+    fprintf (fp, "   (unix, %s) path = %s (pid %u)\n", oneway_str,
+             transport_info->unix_info->path, pid);
 }
 
 /**
@@ -501,10 +505,12 @@ data_debug_unix_server_dump (FILE *fp, const cmsg_transport_info *transport_info
  * @param fp - The file to print to.
  * @param transport_info - The 'cmsg_transport_info' structure for the transport.
  * @param oneway_str - String to print for the oneway/rpc nature of the transport.
+ * @param pid  - the PID of the process that runs this server.
+ *
  */
 static void
 data_debug_tcp_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
-                            const char *oneway_str)
+                            const char *oneway_str, uint32_t pid)
 {
     cmsg_tcp_transport_info *tcp_info = transport_info->tcp_info;
     char ip[INET6_ADDRSTRLEN] = { };
@@ -521,7 +527,7 @@ data_debug_tcp_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
         inet_ntop (AF_INET6, tcp_info->addr.data, ip, INET6_ADDRSTRLEN);
     }
 
-    fprintf (fp, "   (tcp, %s) %s:%u\n", oneway_str, ip, ntohs (port));
+    fprintf (fp, "   (tcp, %s) %s:%u (pid: %u)\n", oneway_str, ip, ntohs (port), pid);
 }
 
 /**
@@ -541,11 +547,11 @@ data_debug_server_dump (gpointer data, gpointer user_data)
 
     if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_UNIX)
     {
-        data_debug_unix_server_dump (fp, transport_info, oneway_str);
+        data_debug_unix_server_dump (fp, transport_info, oneway_str, service_info->pid);
     }
     else
     {
-        data_debug_tcp_server_dump (fp, transport_info, oneway_str);
+        data_debug_tcp_server_dump (fp, transport_info, oneway_str, service_info->pid);
     }
 }
 
@@ -580,4 +586,67 @@ data_debug_dump (FILE *fp)
 {
     fprintf (fp, "Services:\n");
     g_hash_table_foreach (hash_table, _data_debug_dump, fp);
+}
+
+/**
+ * Helper function called for each entry in the hash table. Finds any
+ * servers and listeners that match a process ID and deletes them.
+ *
+ * @param key - The key from the hash table (service name)
+ * @param value - The value associated with the key (service_data_entry structure)
+ * @param user_data - The PID to match against.
+ *
+ * @returns TRUE if the service data entry is now empty and should be removed from the
+ *          hash table, FALSE otherwise.
+ */
+static gboolean
+remove_by_pid (gpointer key, gpointer value, gpointer user_data)
+{
+    uint32_t pid = GPOINTER_TO_UINT (user_data);
+    service_data_entry *entry = (service_data_entry *) value;
+    GList *l = NULL;
+
+    /* First iterate the listeners */
+    l = entry->listeners;
+    while (l != NULL)
+    {
+        GList *next = g_list_next (l);
+        listener_data *listener_info = (listener_data *) l->data;
+        if (listener_info->pid == pid)
+        {
+            cmsg_destroy_client_and_transport (listener_info->client);
+            entry->listeners = g_list_delete_link (entry->listeners, l);
+            CMSG_FREE (listener_info);
+        }
+        l = next;
+    }
+
+    /* Now iterate the servers */
+    l = entry->servers;
+    while (l != NULL)
+    {
+        GList *next = g_list_next (l);
+        cmsg_service_info *service_info = (cmsg_service_info *) l->data;
+        if (service_info->pid == pid)
+        {
+            notify_listeners (service_info, entry, false);
+            remote_sync_server_removed (service_info);
+            entry->servers = g_list_delete_link (entry->servers, l);
+            CMSG_FREE_RECV_MSG (service_info);
+        }
+        l = next;
+    }
+
+    return (entry->servers == NULL && entry->listeners == NULL);
+}
+
+/**
+ * Remove all entries associated with the given process id.
+ *
+ * @param pid - The process ID
+ */
+void
+data_remove_by_pid (int pid)
+{
+    g_hash_table_foreach_remove (hash_table, remove_by_pid, GUINT_TO_POINTER (pid));
 }

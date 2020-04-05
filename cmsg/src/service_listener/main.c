@@ -14,6 +14,7 @@
 #include "configuration.h"
 #include "data.h"
 #include "remote_sync.h"
+#include "netlink.h"
 
 #define DEBUG_FILE "/tmp/cmsg_sld_debug.txt"
 
@@ -126,6 +127,7 @@ main (int argc, char **argv)
 
     data_init ();
     configuration_server_init ();
+    netlink_init ();
 
     /* Create run file */
     if (run_file)

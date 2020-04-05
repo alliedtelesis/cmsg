@@ -9,6 +9,7 @@
 #include <glib.h>
 #include <arpa/inet.h>
 #include <cmsg/cmsg_private.h>
+#include <cmsg/cmsg_glib_helpers.h>
 #include "data.h"
 #include "remote_sync.h"
 #include "transport/cmsg_transport_private.h"
@@ -20,6 +21,9 @@ typedef struct
 {
     GList *methods;
     cmsg_client *comp_client;   /* Client to publishers of this service */
+    const cmsg_sl_info *sl_info;
+    GIOChannel *event_channel;  /* Listen to sld event notification */
+    guint event_source_id;
 } service_data_entry;
 
 typedef struct
@@ -58,11 +62,62 @@ service_entry_free (gpointer data)
 {
     service_data_entry *entry = (service_data_entry *) data;
 
+    if (entry->sl_info)
+    {
+        cmsg_service_listener_unlisten (entry->sl_info);
+        g_io_channel_shutdown (entry->event_channel, true, NULL);
+        g_io_channel_unref (entry->event_channel);
+        g_source_remove (entry->event_source_id);
+    }
+
     g_list_free_full (entry->methods, service_entry_free_methods);
     entry->methods = NULL;
     cmsg_composite_client_free_all_children (entry->comp_client);
     cmsg_client_destroy (entry->comp_client);
+
     CMSG_FREE (entry);
+}
+
+/**
+ * Handle events from cmsg service listener daemon.
+ *
+ * @param transport - The subscriber's transport that the event is related to.
+ * @param added - The subscriber is added or removed.
+ * @param user_data - not used.
+ *
+ * @returns true so to let the process continue.
+ */
+static bool
+_sl_event_handler (const cmsg_transport *transport, bool added, void *user_data)
+{
+    cmsg_transport_info *info = NULL;
+
+    /* The subscriber is already removed off the sld's server list */
+    if (added == false)
+    {
+        info = cmsg_transport_info_create (transport);
+        if (info)
+        {
+            data_remove_subscriber (info);
+            cmsg_transport_info_free (info);
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Callback function that can be used to process events generated from the CMSG
+ * service listener functionality.
+ */
+static gboolean
+_sl_event_process (GIOChannel *source, GIOCondition condition, gpointer data)
+{
+    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+
+    cmsg_service_listener_event_queue_process (info);
+
+    return G_SOURCE_CONTINUE;
 }
 
 /**
@@ -84,6 +139,18 @@ get_service_entry_or_create (const char *service, bool create)
     {
         entry = CMSG_CALLOC (1, sizeof (service_data_entry));
         entry->comp_client = cmsg_composite_client_new (CMSG_DESCRIPTOR (cmsg_psd, update));
+
+        /* Register interest for event from service listener daemon regarding this service */
+        entry->sl_info = cmsg_service_listener_listen (service, _sl_event_handler, NULL);
+        if (entry->sl_info)
+        {
+            int event_fd = cmsg_service_listener_get_event_fd (entry->sl_info);
+            entry->event_channel = g_io_channel_unix_new (event_fd);
+            entry->event_source_id = g_io_add_watch (entry->event_channel, G_IO_IN,
+                                                     _sl_event_process,
+                                                     (void *) entry->sl_info);
+        }
+
         g_hash_table_insert (local_subscriptions_table, CMSG_STRDUP (service), entry);
     }
 
@@ -163,7 +230,6 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
 
     return entry;
 }
-
 
 /**
  * Add a local subscription to the database.

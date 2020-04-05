@@ -1891,6 +1891,12 @@ cmsg_destroy_server_and_transport (cmsg_server *server)
         transport = server->_transport;
         cmsg_server_destroy (server);
 
+        if (transport->type == CMSG_TRANSPORT_RPC_UNIX ||
+            transport->type == CMSG_TRANSPORT_ONEWAY_UNIX)
+        {
+            unlink (transport->config.socket.sockaddr.un.sun_path);
+        }
+
         cmsg_transport_destroy (transport);
     }
 }
