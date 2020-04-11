@@ -62,17 +62,16 @@
 
 #include <algorithm>
 #include <map>
+#include <memory>
 #include <protoc-c/c_message.h>
 #include <protoc-c/c_enum.h>
 #include <protoc-c/c_helpers.h>
+#include <protoc-c/c_helpers_cmsg.h>
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/wire_format.h>
 #include <google/protobuf/descriptor.pb.h>
-#ifdef ATL_CHANGE
-#include <protoc-c/c_helpers_cmsg.h>
 #include "validation.pb.h"
-#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {
@@ -83,9 +82,9 @@ namespace c {
 
 MessageGenerator::MessageGenerator(const Descriptor* descriptor)
   : descriptor_(descriptor),
-    nested_generators_(new scoped_ptr<MessageGenerator>[
+    nested_generators_(new std::unique_ptr<MessageGenerator>[
       descriptor->nested_type_count()]),
-    enum_generators_(new scoped_ptr<EnumGenerator>[
+    enum_generators_(new std::unique_ptr<EnumGenerator>[
       descriptor->enum_type_count()]) {
 
   for (int i = 0; i < descriptor->nested_type_count(); i++) {
@@ -172,7 +171,6 @@ GenerateStructDefinitionDefine(io::Printer* printer) {
   printer->Print(vars, "#define $cmsg_ucclassname$_INIT $ucclassname$__INIT\n");
 }
 
-#ifdef ATL_CHANGE
 static bool message_has_validation(const Descriptor *message)
 {
     const FieldDescriptor *field = NULL;
@@ -374,7 +372,6 @@ generate_validation_function (const Descriptor *message, io::Printer* printer)
     printer->Print("}\n");
     printer->Print("\n");
 }
-#endif /* ATL_CHANGE */
 
 void MessageGenerator::
 GenerateHelperFunctionDeclarationsDefine(io::Printer* printer, bool is_submessage)
