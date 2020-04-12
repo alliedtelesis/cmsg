@@ -59,9 +59,9 @@ cmsg_psd_configuration_impl_remove_subscription (const void *service,
  */
 void
 cmsg_psd_configuration_impl_remove_subscriber (const void *service,
-                                               const cmsg_transport_info *recv_msg)
+                                               const cmsg_service_info *recv_msg)
 {
-    data_remove_subscriber (recv_msg);
+    data_remove_subscriber (recv_msg->service, recv_msg->server_info);
     cmsg_psd_configuration_server_remove_subscriberSend (service);
 }
 

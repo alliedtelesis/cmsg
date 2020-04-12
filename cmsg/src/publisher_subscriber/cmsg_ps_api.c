@@ -184,7 +184,9 @@ cmsg_ps_remove_subscriber (cmsg_server *sub_server)
 {
     cmsg_client *client = NULL;
     int ret;
+    cmsg_service_info send_msg = CMSG_SERVICE_INFO_INIT;
     cmsg_transport_info *transport_info = NULL;
+    const char *service = cmsg_service_name_get (sub_server->service->descriptor);
 
     transport_info = cmsg_transport_info_create (sub_server->_transport);
     if (!transport_info)
@@ -199,7 +201,10 @@ cmsg_ps_remove_subscriber (cmsg_server *sub_server)
         return CMSG_RET_ERR;
     }
 
-    ret = cmsg_psd_configuration_api_remove_subscriber (client, transport_info);
+    CMSG_SET_FIELD_PTR (&send_msg, service, (char *) service);
+    CMSG_SET_FIELD_PTR (&send_msg, server_info, transport_info);
+
+    ret = cmsg_psd_configuration_api_remove_subscriber (client, &send_msg);
 
     cmsg_destroy_client_and_transport (client);
     cmsg_transport_info_free (transport_info);
