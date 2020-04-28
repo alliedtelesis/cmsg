@@ -9,6 +9,7 @@
 #include <glib.h>
 #include <arpa/inet.h>
 #include <cmsg/cmsg_private.h>
+#include <cmsg/cmsg_glib_helpers.h>
 #include "data.h"
 #include "remote_sync.h"
 #include "transport/cmsg_transport_private.h"
@@ -20,6 +21,9 @@ typedef struct
 {
     GList *methods;
     cmsg_client *comp_client;   /* Client to publishers of this service */
+    const cmsg_sl_info *sl_info;
+    GIOChannel *event_channel;  /* Listen to sld event notification */
+    guint event_source_id;
 } service_data_entry;
 
 typedef struct
@@ -58,11 +62,69 @@ service_entry_free (gpointer data)
 {
     service_data_entry *entry = (service_data_entry *) data;
 
+    if (entry->sl_info)
+    {
+        g_source_remove (entry->event_source_id);
+        g_io_channel_shutdown (entry->event_channel, true, NULL);
+        g_io_channel_unref (entry->event_channel);
+        cmsg_service_listener_unlisten (entry->sl_info);
+    }
+
     g_list_free_full (entry->methods, service_entry_free_methods);
     entry->methods = NULL;
     cmsg_composite_client_free_all_children (entry->comp_client);
     cmsg_client_destroy (entry->comp_client);
+
     CMSG_FREE (entry);
+}
+
+/**
+ * Handle events from cmsg service listener daemon.
+ *
+ * @param transport - The subscriber's transport that the event is related to.
+ * @param added - Whether the subscriber is added or removed.
+ * @param user_data - The service name string we are listening for.
+ *
+ * @returns true if we should continue to listen, false if there are no more
+ *          subscribers for the given service and we should stop listening.
+ */
+static bool
+_sl_event_handler (const cmsg_transport *transport, bool added, void *user_data)
+{
+    cmsg_transport_info *info = NULL;
+    const char *service = (const char *) user_data;
+    bool service_removed = false;
+
+    /* The subscriber is already removed off the sld's server list */
+    if (added == false)
+    {
+        info = cmsg_transport_info_create (transport);
+        if (info)
+        {
+            service_removed = data_remove_subscriber (service, info);
+            cmsg_transport_info_free (info);
+        }
+    }
+
+    return !service_removed;
+}
+
+/**
+ * Callback function that can be used to process events generated from the CMSG
+ * service listener functionality.
+ */
+static gboolean
+_sl_event_process (GIOChannel *source, GIOCondition condition, gpointer data)
+{
+    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+    gboolean ret = G_SOURCE_CONTINUE;
+
+    if (!cmsg_service_listener_event_queue_process (info))
+    {
+        ret = G_SOURCE_REMOVE;
+    }
+
+    return ret;
 }
 
 /**
@@ -78,13 +140,28 @@ static service_data_entry *
 get_service_entry_or_create (const char *service, bool create)
 {
     service_data_entry *entry = NULL;
+    char *service_key = NULL;
 
     entry = (service_data_entry *) g_hash_table_lookup (local_subscriptions_table, service);
     if (!entry && create)
     {
         entry = CMSG_CALLOC (1, sizeof (service_data_entry));
         entry->comp_client = cmsg_composite_client_new (CMSG_DESCRIPTOR (cmsg_psd, update));
-        g_hash_table_insert (local_subscriptions_table, CMSG_STRDUP (service), entry);
+
+        service_key = CMSG_STRDUP (service);
+
+        /* Register interest for event from service listener daemon regarding this service */
+        entry->sl_info =
+            cmsg_service_listener_listen (service, _sl_event_handler, service_key);
+        if (entry->sl_info)
+        {
+            int event_fd = cmsg_service_listener_get_event_fd (entry->sl_info);
+            entry->event_channel = g_io_channel_unix_new (event_fd);
+            entry->event_source_id =
+                g_io_add_watch (entry->event_channel, G_IO_IN, _sl_event_process,
+                                (void *) entry->sl_info);
+        }
+        g_hash_table_insert (local_subscriptions_table, service_key, entry);
     }
 
     return entry;
@@ -163,7 +240,6 @@ get_method_entry_or_create (service_data_entry *service_entry, const char *metho
 
     return entry;
 }
-
 
 /**
  * Add a local subscription to the database.
@@ -392,10 +468,12 @@ data_remove_subscription (const cmsg_subscription_info *info)
 /**
  * Remove all remote subscription entries for the given subscriber.
  *
- * @param sub_transport - The transport information for the subscriber.
+ * @param service - The name of the service.
+ * @param transport_info - The transport information for the subscriber.
  */
 static void
-data_remove_remote_entries_for_subscriber (const cmsg_transport_info *sub_transport)
+data_remove_remote_entries_for_subscriber (const char *service,
+                                           const cmsg_transport_info *transport_info)
 {
     GList *list = NULL;
     GList *removal_list = NULL;
@@ -404,7 +482,8 @@ data_remove_remote_entries_for_subscriber (const cmsg_transport_info *sub_transp
     for (list = g_list_first (remote_subscriptions_list); list; list = g_list_next (list))
     {
         info = (const cmsg_subscription_info *) list->data;
-        if (cmsg_transport_info_compare (info->transport_info, sub_transport))
+        if (strcmp (info->service, service) == 0 &&
+            cmsg_transport_info_compare (info->transport_info, transport_info))
         {
             removal_list = g_list_append (removal_list, (void *) info);
         }
@@ -481,23 +560,6 @@ data_prune_empty_methods (service_data_entry *service_entry)
 }
 
 /**
- * Helper function called for each entry in the hash table. Removes
- * entries for the given subscriber.
- *
- * @param key - The key from the hash table (service name)
- * @param value - The value associated with the key (service_data_entry structure)
- * @param user_data - The transport information for the subscriber.
- */
-static void
-data_remove_local_entries_for_subscriber (gpointer key, gpointer value, gpointer user_data)
-{
-    service_data_entry *entry = (service_data_entry *) value;
-
-    g_list_foreach (entry->methods, data_remove_subscriber_from_method, user_data);
-    data_prune_empty_methods (entry);
-}
-
-/**
  * Helper function called for each entry in the hash table. Returns TRUE
  * if the service entry is empty, meaning the entry should be removed from
  * the hash table.
@@ -523,22 +585,38 @@ data_remove_empty_services (gpointer key, gpointer value, gpointer user_data)
 }
 
 /**
- * Remove all subscriptions from the database for the given subscriber.
+ * Remove all subscriptions for the given service from the database for
+ * the given subscriber.
  *
- * @param sub_transport - The transport information for the subscriber.
+ * @param service - The CMSG service name.
+ * @param transport_info - The transport information for the subscriber.
+ *
+ * @returns true if the service containing the subscriber was removed, false otherwise.
  */
-void
-data_remove_subscriber (const cmsg_transport_info *sub_transport)
+bool
+data_remove_subscriber (const char *service, const cmsg_transport_info *transport_info)
 {
-    data_remove_remote_entries_for_subscriber (sub_transport);
-    if (local_subscriptions_table)
+    service_data_entry *service_entry = NULL;
+    bool ret = false;
+
+    service_entry = get_service_entry_or_create (service, false);
+    if (service_entry)
     {
-        g_hash_table_foreach (local_subscriptions_table,
-                              data_remove_local_entries_for_subscriber,
-                              (void *) sub_transport);
-        g_hash_table_foreach_remove (local_subscriptions_table, data_remove_empty_services,
-                                     NULL);
+        g_list_foreach (service_entry->methods, data_remove_subscriber_from_method,
+                        (void *) transport_info);
+        data_prune_empty_methods (service_entry);
+
+        if (g_list_length (service_entry->methods) == 0 &&
+            cmsg_composite_client_num_children (service_entry->comp_client) == 0)
+        {
+            g_hash_table_remove (local_subscriptions_table, service);
+            ret = true;
+        }
     }
+
+    data_remove_remote_entries_for_subscriber (service, transport_info);
+
+    return ret;
 }
 
 /**

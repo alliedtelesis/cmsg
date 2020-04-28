@@ -61,23 +61,15 @@
 
 // Modified to implement C code by Dave Benson.
 
-#ifdef ATL_CHANGE
 #include <protoc-c/c_atl_generator.h>
-#endif /* ATL_CHANGE */
 #include <protoc-c/c_file.h>
 #include <protoc-c/c_enum.h>
 #include <protoc-c/c_service.h>
 #include <protoc-c/c_helpers.h>
+#include <protoc-c/c_helpers_cmsg.h>
 #include <protoc-c/c_message.h>
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/descriptor.pb.h>
-
-#ifdef ATL_CHANGE
-#include <protobuf-c/protobuf-c.h>
-#include <protoc-c/c_helpers_cmsg.h>
-#else
-#include "protobuf-c.h"
-#endif /* ATL_CHANGE */
 
 namespace google {
 namespace protobuf {
@@ -89,15 +81,13 @@ namespace c {
 FileGenerator::FileGenerator(const FileDescriptor* file)
   : file_(file),
     message_generators_(
-      new scoped_ptr<MessageGenerator>[file->message_type_count()]),
+      new std::unique_ptr<MessageGenerator>[file->message_type_count()]),
     enum_generators_(
-      new scoped_ptr<EnumGenerator>[file->enum_type_count()]),
+      new std::unique_ptr<EnumGenerator>[file->enum_type_count()]),
     service_generators_(
-      new scoped_ptr<ServiceGenerator>[file->service_count()]),
-#ifdef ATL_CHANGE
+      new std::unique_ptr<ServiceGenerator>[file->service_count()]),
     atl_code_generators_(
-      new scoped_ptr<AtlCodeGenerator>[file->service_count()]) {
-#endif /* ATL_CHANGE */
+      new std::unique_ptr<AtlCodeGenerator>[file->service_count()]) {
 
   for (int i = 0; i < file->message_type_count(); i++) {
     message_generators_[i].reset(
@@ -114,19 +104,16 @@ FileGenerator::FileGenerator(const FileDescriptor* file)
       new ServiceGenerator(file->service(i)));
   }
 
-#ifdef ATL_CHANGE
   for (int i = 0; i < file->service_count(); i++) {
     atl_code_generators_[i].reset(
       new AtlCodeGenerator(file->service(i)));
   }
-#endif /* ATL_CHANGE */
 
   SplitStringUsing(file_->package(), ".", &package_parts_);
 }
 
 FileGenerator::~FileGenerator() {}
 
-#ifdef ATL_CHANGE
 void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
   string filename_identifier = StripProto(file_->name());
   string header_define = cmsg::MakeHeaderDefineFromFilename("PROTOBUF_C_TYPES_", filename_identifier);
@@ -146,20 +133,9 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
 
   // Include dependent types header files
   for (int i = 0; i < file_->dependency_count(); i++) {
-#ifdef ATL_CHANGE
-    if ((StripProto(file_->dependency(i)->name()) != "http") &&
-        (StripProto(file_->dependency(i)->name()) != "validation") &&
-        (StripProto(file_->dependency(i)->name()) != "supported_service"))
-      {
-        printer->Print(
-          "#include \"$dependency$.h\"\n",
-          "dependency", cmsg::GetAtlTypesFilename(file_->dependency(i)->name()));
-      }
-#else
     printer->Print(
       "#include \"$dependency$.h\"\n",
       "dependency", cmsg::GetAtlTypesFilename(file_->dependency(i)->name()));
-#endif /* ATL_CHANGE */
   }
 
   //
@@ -482,14 +458,9 @@ void FileGenerator::GenerateAtlValidationHeader(io::Printer* printer) {
 
     // Include dependent types header files
     for (int i = 0; i < file_->dependency_count(); i++) {
-      if ((StripProto(file_->dependency(i)->name()) != "http") &&
-          (StripProto(file_->dependency(i)->name()) != "validation") &&
-          (StripProto(file_->dependency(i)->name()) != "supported_service"))
-        {
-          printer->Print(
+        printer->Print(
             "#include \"$dependency$.h\"\n",
             "dependency", cmsg::GetAtlValidationFilename(file_->dependency(i)->name()));
-        }
     }
 
     printer->Print("#include \"$types_filename$.h\"\n",
@@ -504,7 +475,6 @@ void FileGenerator::GenerateAtlValidationHeader(io::Printer* printer) {
       "#endif  /* $header_define$ */\n",
       "header_define", header_define);
 }
-#endif /* ATL_CHANGE */
 
 }  // namespace c
 }  // namespace compiler

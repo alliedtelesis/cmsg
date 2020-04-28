@@ -62,11 +62,8 @@
 
 #include <protoc-c/c_service.h>
 #include <protoc-c/c_helpers.h>
-#include <google/protobuf/io/printer.h>
-
-#ifdef ATL_CHANGE
 #include <protoc-c/c_helpers_cmsg.h>
-#endif /* ATL_CHANGE */
+#include <google/protobuf/io/printer.h>
 
 namespace google {
 namespace protobuf {

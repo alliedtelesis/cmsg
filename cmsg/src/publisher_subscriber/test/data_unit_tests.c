@@ -8,6 +8,7 @@
 #include "../data.h"
 #include "../remote_sync.h"
 #include "transport/cmsg_transport_private.h"
+#include "cmsg_sl.h"
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it
@@ -30,11 +31,19 @@ sm_mock_remote_sync_subscription_removed (const cmsg_subscription_info *subscrib
     /* Do nothing. */
 }
 
+static const cmsg_sl_info *
+sm_mock_cmsg_service_listener_listen (const char *service_name,
+                                      cmsg_sl_event_handler_t handler, void *user_data)
+{
+    return NULL;
+}
+
 static int USED
 set_up (void)
 {
     np_mock (remote_sync_subscription_added, sm_mock_remote_sync_subscription_added);
     np_mock (remote_sync_subscription_removed, sm_mock_remote_sync_subscription_removed);
+    np_mock (cmsg_service_listener_listen, sm_mock_cmsg_service_listener_listen);
     data_init ();
 
     return 0;
@@ -287,7 +296,7 @@ test_data_remove_subscriber (void)
     NP_ASSERT_EQUAL (g_list_length (remote_subscriptions), 1);
 
     transport_info = create_tcp_transport_info (2222);
-    data_remove_subscriber (transport_info);
+    data_remove_subscriber ("test", transport_info);
     cmsg_transport_info_free (transport_info);
 
     NP_ASSERT_EQUAL (g_hash_table_size (local_subscriptions_table), 0);
@@ -320,7 +329,7 @@ test_data_remove_subscriber_unknown (void)
     NP_ASSERT_EQUAL (g_list_length (remote_subscriptions), 1);
 
     transport_info = create_tcp_transport_info (3333);
-    data_remove_subscriber (transport_info);
+    data_remove_subscriber ("test", transport_info);
     cmsg_transport_info_free (transport_info);
 
     NP_ASSERT_EQUAL (g_hash_table_size (local_subscriptions_table), 1);

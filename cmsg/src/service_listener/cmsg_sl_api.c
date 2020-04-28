@@ -204,6 +204,7 @@ _cmsg_service_listener_listen (const char *service_name, bool listen, uint32_t i
 
     if (listen)
     {
+        CMSG_SET_FIELD_VALUE (&send_msg, pid, getpid ());
         cmsg_sld_configuration_api_listen (client, &send_msg);
     }
     else
@@ -479,6 +480,7 @@ cmsg_service_listener_add_server (cmsg_server *server)
     send_msg = cmsg_server_service_info_create (server);
     if (send_msg)
     {
+        CMSG_SET_FIELD_VALUE (send_msg, pid, getpid ());
         client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
         cmsg_sld_configuration_api_add_server (client, send_msg);
         cmsg_destroy_client_and_transport (client);

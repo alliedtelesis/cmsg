@@ -29,6 +29,14 @@ src/supported_service_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/supported_s
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/supported_service.proto
 
+src/file_response.pb-c.h \
+src/file_response_types_auto.h \
+src/file_response_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/file_response.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/file_response.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/file_response.proto
+
 src/cmsg_api_auto.c \
 src/cmsg_api_auto.h \
 src/cmsg_impl_auto.c \
@@ -195,7 +203,11 @@ libcmsg_la_HEADERS  = \
 	src/supported_service.proto \
 	src/supported_service.pb-c.h \
 	src/supported_service_types_auto.h \
-	src/supported_service_validation_auto.h
+	src/supported_service_validation_auto.h \
+	src/file_response.proto \
+	src/file_response.pb-c.h \
+	src/file_response_types_auto.h \
+	src/file_response_validation_auto.h
 
 BUILT_SOURCES =  \
 	src/cmsg_api_auto.c \
@@ -255,6 +267,7 @@ cmsg_sld_SOURCES = \
 	src/service_listener/configuration.c \
 	src/service_listener/remote_sync.c \
 	src/service_listener/data.c \
+	src/service_listener/netlink.c \
 	src/service_listener/configuration_impl_auto.c \
 	src/service_listener/configuration.pb-c.c \
 	src/service_listener/remote_sync_api_auto.c \
@@ -361,6 +374,7 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/pthread_helpers_tests.c \
 	test/functional/cmsg_service_listener_tests.c \
 	test/functional/supported_service_tests.c \
+	test/functional/file_response_tests.c \
 	test/functional/setup.c
 
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) $(PTHREAD_CFLAGS) -include $(top_builddir)/config.h
