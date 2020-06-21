@@ -1120,6 +1120,8 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
                                            send_ret, (uint32_t) (queue_buffer_size),
                                            method_name);
                 }
+                client->state = CMSG_CLIENT_STATE_FAILED;
+                cmsg_client_close_wrapper (client->_transport);
                 CMSG_COUNTER_INC (client, cntr_send_errors);
                 return CMSG_RET_ERR;
             }
@@ -1226,6 +1228,8 @@ _cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_
     {
         CMSG_DEBUG (CMSG_ERROR, "[CLIENT] sending buffer failed, send: %d of %d\n",
                     send_ret, buffer_size);
+        client->state = CMSG_CLIENT_STATE_FAILED;
+        cmsg_client_close_wrapper (client->_transport);
         CMSG_COUNTER_INC (client, cntr_send_errors);
         return CMSG_RET_ERR;
     }
