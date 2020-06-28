@@ -399,10 +399,10 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
     int nbytes = 0;
     bool timed_out = false;
     time_t seconds_waited = 0;
-    struct timeval start;
-    struct timeval current;
+    struct timespec start;
+    struct timespec current;
 
-    gettimeofday (&start, NULL);
+    clock_gettime (CLOCK_MONOTONIC_RAW, &start);
 
     /* Peek until data arrives. This allows us to timeout and recover if no data arrives. */
     while (!timed_out)
@@ -449,7 +449,7 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
             }
         }
 
-        gettimeofday (&current, NULL);
+        clock_gettime (CLOCK_MONOTONIC_RAW, &current);
         seconds_waited = current.tv_sec - start.tv_sec;
         if (seconds_waited > seconds_to_wait)
         {
