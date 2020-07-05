@@ -41,6 +41,10 @@ void cmsg_update_recv_msg_string_field (char **field, const char *new_val,
 
 extern ProtobufCAllocator cmsg_memory_allocator;
 
+/* Copy a message. Use CMSG_FREE_RECV_MSG() to free. */
+#define CMSG_CLONE_RECV_MSG(__msg_struct, _name)  \
+    (__msg_struct *) cmsg_clone ((ProtobufCMessage *)(_name))
+
 // macro to free messages returned back to the API
 #define CMSG_FREE_RECV_MSG(_name)                                                                      \
     do {                                                                                               \
@@ -260,5 +264,7 @@ ProtobufCMessage *cmsg_get_msg_from_file (const ProtobufCMessageDescriptor *desc
                                           const char *file_name);
 
 const char *cmsg_enum_to_name (const ProtobufCEnumDescriptor *desc, int value);
+
+ProtobufCMessage *cmsg_clone (const ProtobufCMessage *msg);
 
 #endif /* __CMSG_H_ */
