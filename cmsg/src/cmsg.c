@@ -907,3 +907,27 @@ cmsg_enum_to_name (const ProtobufCEnumDescriptor *desc, int value)
 
     return NULL;
 }
+
+/**
+ * Deep copy the given protobuf message.
+ * @param msg - The protobuf message to copy
+ * @returns Pointer to the message on success, NULL otherwise. This message must be freed
+ *          by the caller using CMSG_FREE_RECV_MSG.
+ */
+ProtobufCMessage *
+cmsg_clone (const ProtobufCMessage *msg)
+{
+    uint8_t *packed_data = NULL;
+    uint32_t packed_data_len = 0;
+    ProtobufCMessage *new_msg = NULL;
+
+    packed_data = cmsg_pack_msg (msg, &packed_data_len);
+    if (packed_data)
+    {
+        new_msg = protobuf_c_message_unpack (msg->descriptor, &cmsg_memory_allocator,
+                                             packed_data_len, packed_data);
+        CMSG_FREE (packed_data);
+    }
+
+    return new_msg;
+}
