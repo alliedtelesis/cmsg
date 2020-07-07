@@ -37,6 +37,5 @@ GList *data_get_servers_by_addr (uint32_t addr);
 void data_add_listener (const cmsg_sld_listener_info *info);
 void data_remove_listener (const cmsg_sld_listener_info *info);
 service_data_entry *get_service_entry_or_create (const char *service, bool create);
-void data_remove_by_pid (int pid);
 
 #endif /* __DATA_H_ */
