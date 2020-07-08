@@ -159,11 +159,15 @@ notify_listeners (const cmsg_service_info *server_info, service_data_entry *entr
  * for services.
  *
  * @param server_info - The information about the server being added.
+ * @param local - True if the server is running on this device,
+ *                false if it is remote.
  */
 void
-data_add_server (const cmsg_service_info *server_info)
+data_add_server (cmsg_service_info *server_info, bool local)
 {
     service_data_entry *entry = NULL;
+
+    CMSG_SET_FIELD_VALUE (server_info, local, local);
 
     /* Remove the server in case it already exists. This should only
      * occur if the server was previously removed without notifying the
@@ -509,7 +513,7 @@ data_remove_by_pid (gpointer key, gpointer value, gpointer user_data)
     {
         GList *next = g_list_next (l);
         cmsg_service_info *service_info = (cmsg_service_info *) l->data;
-        if (data_pid_is_dead (pid_lookup, service_info->pid))
+        if (service_info->local && data_pid_is_dead (pid_lookup, service_info->pid))
         {
             notify_listeners (service_info, entry, false);
             remote_sync_server_removed (service_info);
