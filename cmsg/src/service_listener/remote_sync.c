@@ -37,7 +37,7 @@ cmsg_sld_remote_sync_impl_bulk_sync (const void *service,
     for (index = 0; index < recv_data->n_data; index++)
     {
         info = recv_data->data[index];
-        data_add_server (info);
+        data_add_server (info, false);
         /* Set to NULL so that the memory is not freed */
         recv_data->data[index] = NULL;
     }
@@ -55,7 +55,7 @@ cmsg_sld_remote_sync_impl_add_server (const void *service,
     /* We hold onto the message to store in the data hash table */
     cmsg_server_app_owns_current_msg_set (remote_sync_server);
 
-    data_add_server (recv_msg);
+    data_add_server ((cmsg_service_info *) recv_msg, false);
     cmsg_sld_remote_sync_server_add_serverSend (service);
 }
 

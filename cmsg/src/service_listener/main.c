@@ -14,7 +14,6 @@
 #include "configuration.h"
 #include "data.h"
 #include "remote_sync.h"
-#include "netlink.h"
 
 #define DEBUG_FILE "/tmp/cmsg_sld_debug.txt"
 
@@ -125,9 +124,8 @@ main (int argc, char **argv)
     /* register for healthchecking */
     g_timeout_add_seconds (1, cmsg_sld_healthcheck_init, NULL);
 
-    data_init ();
+    data_init (true);
     configuration_server_init ();
-    netlink_init ();
 
     /* Create run file */
     if (run_file)

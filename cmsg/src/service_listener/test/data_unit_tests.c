@@ -26,7 +26,7 @@ set_up (void)
 {
     cmsg_sld_events_api_server_added_called = 0;
 
-    data_init ();
+    data_init (false);
 
     return 0;
 }
@@ -90,13 +90,6 @@ create_tcp_transport_info (uint32_t _addr)
 }
 
 static int
-sm_mock_cmsg_sld_events_api_server_removed_ok (cmsg_client *_client,
-                                               const cmsg_sld_server_event *_send_msg)
-{
-    return CMSG_RET_OK;
-}
-
-static int
 sm_mock_cmsg_sld_events_api_server_added_ok (cmsg_client *_client,
                                              const cmsg_sld_server_event *_send_msg)
 {
@@ -135,7 +128,7 @@ test_data_add_server (void)
     cmsg_service_info_init (service_info);
 
     CMSG_SET_FIELD_PTR (service_info, service, CMSG_STRDUP ("test_service"));
-    data_add_server (service_info);
+    data_add_server (service_info, true);
 
     NP_ASSERT_EQUAL (g_hash_table_size (hash_table), 1);
 }
@@ -150,7 +143,7 @@ test_data_add_server_then_lookup (void)
     cmsg_service_info_init (service_info);
 
     CMSG_SET_FIELD_PTR (service_info, service, CMSG_STRDUP ("test_service"));
-    data_add_server (service_info);
+    data_add_server (service_info, true);
 
     entry = get_service_entry_or_create ("test_service", false);
     NP_ASSERT_NOT_NULL (entry);
@@ -168,7 +161,7 @@ test_get_service_entry_or_create_non_existent_service (void)
     cmsg_service_info_init (service_info);
 
     CMSG_SET_FIELD_PTR (service_info, service, CMSG_STRDUP ("test_service"));
-    data_add_server (service_info);
+    data_add_server (service_info, true);
 
     entry = get_service_entry_or_create ("abcdefg", false);
     NP_ASSERT_NULL (entry);
@@ -187,10 +180,10 @@ test_data_add_server_multiple_different_service (void)
     cmsg_service_info_init (service_info_2);
 
     CMSG_SET_FIELD_PTR (service_info_1, service, CMSG_STRDUP ("test_service1"));
-    data_add_server (service_info_1);
+    data_add_server (service_info_1, true);
 
     CMSG_SET_FIELD_PTR (service_info_2, service, CMSG_STRDUP ("test_service2"));
-    data_add_server (service_info_2);
+    data_add_server (service_info_2, true);
 
     NP_ASSERT_EQUAL (g_hash_table_size (hash_table), 2);
 }
@@ -209,10 +202,10 @@ test_data_add_server_multiple_different_service_then_lookup (void)
     cmsg_service_info_init (service_info_2);
 
     CMSG_SET_FIELD_PTR (service_info_1, service, CMSG_STRDUP ("test_service1"));
-    data_add_server (service_info_1);
+    data_add_server (service_info_1, true);
 
     CMSG_SET_FIELD_PTR (service_info_2, service, CMSG_STRDUP ("test_service2"));
-    data_add_server (service_info_2);
+    data_add_server (service_info_2, true);
 
     entry = get_service_entry_or_create ("test_service1", false);
     NP_ASSERT_NOT_NULL (entry);
@@ -244,8 +237,8 @@ test_data_add_server_multiple_times (void)
     CMSG_SET_FIELD_PTR (service_info_2, service, CMSG_STRDUP ("test_service1"));
     CMSG_SET_FIELD_PTR (service_info_2, server_info, create_tcp_transport_info (123));
 
-    data_add_server (service_info_1);
-    data_add_server (service_info_2);
+    data_add_server (service_info_1, true);
+    data_add_server (service_info_2, true);
 
     NP_ASSERT_EQUAL (g_hash_table_size (hash_table), 1);
     entry = get_service_entry_or_create ("test_service1", false);
@@ -272,8 +265,8 @@ test_data_add_server_multiple_same_service (void)
     CMSG_SET_FIELD_PTR (service_info_2, service, CMSG_STRDUP ("test_service1"));
     CMSG_SET_FIELD_PTR (service_info_2, server_info, create_tcp_transport_info (456));
 
-    data_add_server (service_info_1);
-    data_add_server (service_info_2);
+    data_add_server (service_info_1, true);
+    data_add_server (service_info_2, true);
 
     NP_ASSERT_EQUAL (g_hash_table_size (hash_table), 1);
 }
@@ -297,8 +290,8 @@ test_data_add_server_multiple_same_service_then_lookup (void)
     CMSG_SET_FIELD_PTR (service_info_2, service, CMSG_STRDUP ("test_service1"));
     CMSG_SET_FIELD_PTR (service_info_2, server_info, create_tcp_transport_info (456));
 
-    data_add_server (service_info_1);
-    data_add_server (service_info_2);
+    data_add_server (service_info_1, true);
+    data_add_server (service_info_2, true);
 
     entry = get_service_entry_or_create ("test_service1", false);
     NP_ASSERT_NOT_NULL (entry);
@@ -323,7 +316,7 @@ test_data_remove_server (void)
     CMSG_SET_FIELD_PTR (service_info_2, service, CMSG_STRDUP ("test_service"));
     CMSG_SET_FIELD_PTR (service_info_2, server_info, create_unix_transport_info ());
 
-    data_add_server (service_info_1);
+    data_add_server (service_info_1, true);
     data_remove_server (service_info_2);
 
     CMSG_FREE_RECV_MSG (service_info_2);
@@ -357,8 +350,8 @@ test_data_remove_server_correct_service (void)
     CMSG_SET_FIELD_PTR (service_info_3, service, CMSG_STRDUP ("test_service1"));
     CMSG_SET_FIELD_PTR (service_info_3, server_info, create_unix_transport_info ());
 
-    data_add_server (service_info_1);
-    data_add_server (service_info_2);
+    data_add_server (service_info_1, true);
+    data_add_server (service_info_2, true);
     data_remove_server (service_info_3);
 
     CMSG_FREE_RECV_MSG (service_info_3);
@@ -397,8 +390,8 @@ test_data_remove_server_correct_server (void)
     CMSG_SET_FIELD_PTR (service_info_3, service, CMSG_STRDUP ("test_service1"));
     CMSG_SET_FIELD_PTR (service_info_3, server_info, create_tcp_transport_info (123));
 
-    data_add_server (service_info_1);
-    data_add_server (service_info_2);
+    data_add_server (service_info_1, true);
+    data_add_server (service_info_2, true);
     data_remove_server (service_info_3);
 
     CMSG_FREE_RECV_MSG (service_info_3);
@@ -444,10 +437,10 @@ test_data_remove_servers_by_addr (void)
     CMSG_SET_FIELD_PTR (service_info_4, service, CMSG_STRDUP ("test_service2"));
     CMSG_SET_FIELD_PTR (service_info_4, server_info, create_tcp_transport_info (999));
 
-    data_add_server (service_info_1);
-    data_add_server (service_info_2);
-    data_add_server (service_info_3);
-    data_add_server (service_info_4);
+    data_add_server (service_info_1, true);
+    data_add_server (service_info_2, true);
+    data_add_server (service_info_3, true);
+    data_add_server (service_info_4, true);
 
     addr.s_addr = 123;
     data_remove_servers_by_addr (addr);
@@ -498,10 +491,10 @@ test_data_get_servers_by_addr (void)
     CMSG_SET_FIELD_PTR (service_info_4, service, CMSG_STRDUP ("test_service2"));
     CMSG_SET_FIELD_PTR (service_info_4, server_info, create_tcp_transport_info (999));
 
-    data_add_server (service_info_1);
-    data_add_server (service_info_2);
-    data_add_server (service_info_3);
-    data_add_server (service_info_4);
+    data_add_server (service_info_1, true);
+    data_add_server (service_info_2, true);
+    data_add_server (service_info_3, true);
+    data_add_server (service_info_4, true);
 
     addr_list = data_get_servers_by_addr (123);
     NP_ASSERT_EQUAL (g_list_length (addr_list), 2);
@@ -592,7 +585,7 @@ test_data_add_listener_with_existing_server (void)
 
     CMSG_SET_FIELD_PTR (service_info_1, service, CMSG_STRDUP ("test_service1"));
     CMSG_SET_FIELD_PTR (service_info_1, server_info, create_tcp_transport_info (123));
-    data_add_server (service_info_1);
+    data_add_server (service_info_1, true);
 
     transport_info = create_tcp_transport_info (999);
 
@@ -625,7 +618,7 @@ test_data_add_listener_with_existing_server_rpc_failure (void)
 
     CMSG_SET_FIELD_PTR (service_info_1, service, CMSG_STRDUP ("test_service1"));
     CMSG_SET_FIELD_PTR (service_info_1, server_info, create_tcp_transport_info (123));
-    data_add_server (service_info_1);
+    data_add_server (service_info_1, true);
 
     transport_info = create_tcp_transport_info (999);
 
@@ -680,71 +673,8 @@ test_data_add_server_with_existing_listeners_rpc_failure (void)
 
     np_mock (cmsg_sld_events_api_server_added,
              sm_mock_cmsg_sld_events_api_server_added_fail_on_first_call);
-    data_add_server (service_info_1);
+    data_add_server (service_info_1, true);
 
     NP_ASSERT_EQUAL (g_list_length (entry->listeners), 1);
     NP_ASSERT_EQUAL (cmsg_sld_events_api_server_added_called, 2);
-}
-
-void
-test_data_remove_by_pid (void)
-{
-    cmsg_service_info *service_info_1 = NULL;
-    cmsg_service_info *service_info_2 = NULL;
-    service_data_entry *entry = NULL;
-    cmsg_sld_listener_info listener_info = CMSG_SLD_LISTENER_INFO_INIT;
-    cmsg_transport_info *transport_info = NULL;
-
-    np_mock (cmsg_sld_events_api_server_added, sm_mock_cmsg_sld_events_api_server_added_ok);
-    np_mock (cmsg_sld_events_api_server_removed,
-             sm_mock_cmsg_sld_events_api_server_removed_ok);
-
-    /* Add two listeners for different services,
-     * one with PID 10, one with PID 11. */
-    transport_info = create_tcp_transport_info (999);
-
-    CMSG_SET_FIELD_PTR (&listener_info, service, "test_service1");
-    CMSG_SET_FIELD_PTR (&listener_info, transport_info, transport_info);
-    CMSG_SET_FIELD_VALUE (&listener_info, id, 5);
-    CMSG_SET_FIELD_VALUE (&listener_info, pid, 10);
-
-    data_add_listener (&listener_info);
-
-    CMSG_SET_FIELD_PTR (&listener_info, service, "test_service2");
-    CMSG_SET_FIELD_VALUE (&listener_info, pid, 11);
-    data_add_listener (&listener_info);
-
-    cmsg_transport_info_free (transport_info);
-
-    /* Add two servers for the different services, both with PID 10. */
-    service_info_1 = CMSG_MALLOC (sizeof (*service_info_1));
-    cmsg_service_info_init (service_info_1);
-
-    service_info_2 = CMSG_MALLOC (sizeof (*service_info_2));
-    cmsg_service_info_init (service_info_2);
-
-    CMSG_SET_FIELD_PTR (service_info_1, service, CMSG_STRDUP ("test_service1"));
-    CMSG_SET_FIELD_VALUE (service_info_1, pid, 10);
-    data_add_server (service_info_1);
-
-    CMSG_SET_FIELD_PTR (service_info_2, service, CMSG_STRDUP ("test_service2"));
-    CMSG_SET_FIELD_VALUE (service_info_2, pid, 10);
-    data_add_server (service_info_2);
-
-    NP_ASSERT_EQUAL (g_hash_table_size (hash_table), 2);
-
-    /* Remove by PID 10, the only remaining thing should be the listener
-     * with PID 11. */
-    data_remove_by_pid (10);
-    NP_ASSERT_EQUAL (g_hash_table_size (hash_table), 1);
-
-    NP_ASSERT_NULL (get_service_entry_or_create ("test_service1", false));
-    entry = get_service_entry_or_create ("test_service2", false);
-    NP_ASSERT_NOT_NULL (entry);
-    NP_ASSERT_EQUAL (g_list_length (entry->servers), 0);
-    NP_ASSERT_EQUAL (g_list_length (entry->listeners), 1);
-
-    /* Remove by PID 11, the hash table should now be empty. */
-    data_remove_by_pid (11);
-    NP_ASSERT_EQUAL (g_hash_table_size (hash_table), 0);
 }
