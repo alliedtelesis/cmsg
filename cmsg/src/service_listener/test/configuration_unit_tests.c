@@ -26,7 +26,7 @@ sm_mock_cmsg_server_app_owns_current_msg_set (cmsg_server *server)
 }
 
 static void
-sm_mock_data_add_server (const cmsg_service_info *server_info)
+sm_mock_data_add_server (const cmsg_service_info *server_info, bool local)
 {
     data_add_server_called = true;
 }
