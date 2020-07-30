@@ -164,7 +164,7 @@ cmsg_glib_tcp_subscriber_init (const char *service_name, struct in_addr addr,
     cmsg_subscriber *sub = NULL;
     int32_t ret;
 
-    sub = cmsg_subscriber_create_tcp (service_name, addr, service);
+    sub = cmsg_subscriber_create_tcp (service_name, addr, NULL, service);
     if (!sub)
     {
         return NULL;
@@ -237,7 +237,7 @@ cmsg_glib_tcp_server_init_oneway (const char *service_name, struct in_addr *addr
     cmsg_server *server = NULL;
     int32_t ret;
 
-    server = cmsg_create_server_tcp_ipv4_oneway (service_name, addr, service);
+    server = cmsg_create_server_tcp_ipv4_oneway (service_name, addr, NULL, service);
     if (!server)
     {
         CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",

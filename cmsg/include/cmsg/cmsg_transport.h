@@ -13,6 +13,8 @@
 #include "cmsg.h"
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 
+#define CMSG_BIND_DEV_NAME_MAX    16
+
 typedef union _cmsg_socket_address_u
 {
     struct sockaddr generic;    // Generic socket address. Used for determining Address Family.
@@ -25,6 +27,7 @@ typedef union _cmsg_socket_address_u
 typedef struct _cmsg_socket_s
 {
     int family;
+    char vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX];  // For VRF support, the device to bind to the socket
     cmsg_socket_address sockaddr;
 } cmsg_socket;
 
@@ -206,7 +209,11 @@ void cmsg_transport_udt_tcp_base_init (cmsg_transport *transport, bool oneway);
 bool cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two);
 
 cmsg_transport *cmsg_create_transport_tcp_ipv4 (const char *service_name,
-                                                struct in_addr *addr, bool oneway);
+                                                struct in_addr *addr,
+                                                const char *vrf_bind_dev, bool oneway);
+cmsg_transport *cmsg_create_transport_tcp_ipv6 (const char *service_name,
+                                                struct in6_addr *addr, uint32_t scope_id,
+                                                const char *vrf_bind_dev, bool oneway);
 
 cmsg_transport *cmsg_transport_copy (const cmsg_transport *transport);
 

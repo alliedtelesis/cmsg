@@ -214,9 +214,11 @@ void cmsg_destroy_client_and_transport (cmsg_client *client);
 
 cmsg_client *cmsg_create_client_tcp_ipv4_rpc (const char *service_name,
                                               struct in_addr *addr,
+                                              const char *vrf_bind_dev,
                                               const ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_tcp_ipv4_oneway (const char *service_name,
                                                  struct in_addr *addr,
+                                                 const char *vrf_bind_dev,
                                                  const ProtobufCServiceDescriptor
                                                  *descriptor);
 #endif /* __CMSG_CLIENT_H_ */
