@@ -183,7 +183,7 @@ server_thread_process (void *arg)
     {
     case CMSG_TRANSPORT_RPC_TCP:
         tcp_addr.s_addr = INADDR_ANY;
-        server = cmsg_create_server_tcp_ipv4_rpc ("cmsg-test", &tcp_addr,
+        server = cmsg_create_server_tcp_ipv4_rpc ("cmsg-test", &tcp_addr, NULL,
                                                   CMSG_SERVICE (cmsg, test));
         break;
 
@@ -294,7 +294,7 @@ create_client (cmsg_transport_type type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
         tcp_addr.s_addr = INADDR_ANY;
-        client = cmsg_create_client_tcp_ipv4_rpc ("cmsg-test", &tcp_addr,
+        client = cmsg_create_client_tcp_ipv4_rpc ("cmsg-test", &tcp_addr, NULL,
                                                   CMSG_DESCRIPTOR (cmsg, test));
         break;
 

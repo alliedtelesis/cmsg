@@ -37,6 +37,12 @@ message cmsg_tcp_transport_info
     // The port number is always stored in network byte order so to send in this
     // byte order we must send the data as bytes.
     optional bytes port = 3;
+
+    // The scope id if a link local address is used, zero otherwise (IPv6 only).
+    optional uint32 scope_id = 4;
+
+    // The device to bind the socket to for VRF support (IPv6 only).
+    optional string vrf_bind_dev = 5;
 }
 
 message cmsg_tipc_transport_info

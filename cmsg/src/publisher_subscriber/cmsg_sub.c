@@ -198,7 +198,7 @@ cmsg_sub_unsubscribe_events_remote (cmsg_subscriber *subscriber, const char **ev
 
 cmsg_subscriber *
 cmsg_subscriber_create_tcp (const char *server_name, struct in_addr addr,
-                            const ProtobufCService *service)
+                            const char *vrf_bind_dev, const ProtobufCService *service)
 {
     cmsg_transport *transport = NULL;
     cmsg_subscriber *subscriber = NULL;
@@ -206,7 +206,7 @@ cmsg_subscriber_create_tcp (const char *server_name, struct in_addr addr,
     CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
 
-    transport = cmsg_create_transport_tcp_ipv4 (server_name, &addr, true);
+    transport = cmsg_create_transport_tcp_ipv4 (server_name, &addr, vrf_bind_dev, true);
     if (transport == NULL)
     {
         CMSG_LOG_GEN_ERROR ("Failed to create TCP subscriber for %s",

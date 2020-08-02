@@ -225,9 +225,11 @@ void cmsg_server_suppress_error (cmsg_server *server, cmsg_bool_t enable);
 
 cmsg_server *cmsg_create_server_tcp_ipv4_rpc (const char *service_name,
                                               struct in_addr *addr,
+                                              const char *vrf_bind_dev,
                                               const ProtobufCService *service);
 cmsg_server *cmsg_create_server_tcp_ipv4_oneway (const char *service_name,
                                                  struct in_addr *addr,
+                                                 const char *vrf_bind_dev,
                                                  const ProtobufCService *service);
 
 #endif /* __CMSG_SERVER_H_ */

@@ -947,8 +947,13 @@ cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
         case CMSG_TRANSPORT_RPC_TCP:
         case CMSG_TRANSPORT_ONEWAY_TCP:
             if ((one->config.socket.family == two->config.socket.family) &&
-                (one->config.socket.sockaddr.in.sin_addr.s_addr ==
-                 two->config.socket.sockaddr.in.sin_addr.s_addr) &&
+                ((one->config.socket.family == AF_INET &&
+                  one->config.socket.sockaddr.in.sin_addr.s_addr ==
+                  two->config.socket.sockaddr.in.sin_addr.s_addr) ||
+                 (one->config.socket.family == AF_INET6 &&
+                  memcmp (&one->config.socket.sockaddr.in6.sin6_addr,
+                          &two->config.socket.sockaddr.in6.sin6_addr,
+                          sizeof (struct in6_addr)) == 0)) &&
                 (one->config.socket.sockaddr.in.sin_port ==
                  two->config.socket.sockaddr.in.sin_port))
             {
@@ -1073,7 +1078,16 @@ cmsg_transport_tcp_info_create (const cmsg_transport *transport)
     CMSG_SET_FIELD_VALUE (tcp_info, ipv4, ipv4);
     CMSG_SET_FIELD_BYTES (tcp_info, addr, addr, addr_len);
     CMSG_SET_FIELD_BYTES (tcp_info, port, port, port_len);
-
+    if (!ipv4)
+    {
+        CMSG_SET_FIELD_VALUE (tcp_info, scope_id,
+                              transport->config.socket.sockaddr.in6.sin6_scope_id);
+    }
+    if (transport->config.socket.vrf_bind_dev[0])
+    {
+        CMSG_SET_FIELD_PTR (tcp_info, vrf_bind_dev,
+                            CMSG_STRDUP (transport->config.socket.vrf_bind_dev));
+    }
     return tcp_info;
 }
 
@@ -1218,6 +1232,7 @@ cmsg_transport_info_free (cmsg_transport_info *transport_info)
     {
         CMSG_FREE (transport_info->tcp_info->port.data);
         CMSG_FREE (transport_info->tcp_info->addr.data);
+        CMSG_FREE (transport_info->tcp_info->vrf_bind_dev);
         CMSG_FREE (transport_info->tcp_info);
     }
     else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
@@ -1289,6 +1304,14 @@ cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
             memcpy (&transport->config.socket.sockaddr.in6.sin6_port, port, port_len);
             memcpy (&transport->config.socket.sockaddr.in6.sin6_addr.s6_addr, addr,
                     addr_len);
+            transport->config.socket.sockaddr.in6.sin6_scope_id =
+                transport_info->tcp_info->scope_id;
+        }
+        if (transport_info->tcp_info->vrf_bind_dev)
+        {
+            strncpy (transport->config.socket.vrf_bind_dev,
+                     transport_info->tcp_info->vrf_bind_dev, CMSG_BIND_DEV_NAME_MAX);
+            transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
         }
 
         cmsg_transport_ipfree_bind_enable (transport, true);

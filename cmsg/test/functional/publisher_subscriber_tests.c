@@ -122,7 +122,7 @@ create_sub_before_pub_and_test (cmsg_transport_type type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
         addr.s_addr = htonl (INADDR_LOOPBACK);
-        sub = cmsg_subscriber_create_tcp ("cmsg-test-subscriber", addr,
+        sub = cmsg_subscriber_create_tcp ("cmsg-test-subscriber", addr, NULL,
                                           CMSG_SERVICE (cmsg, test));
         break;
     case CMSG_TRANSPORT_RPC_UNIX:
