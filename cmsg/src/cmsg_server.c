@@ -1811,17 +1811,19 @@ cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
  * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
  * @param service - The CMSG service.
  * @param oneway - Whether to make a one-way server, or a two-way (RPC) server.
  */
 static cmsg_server *
 _cmsg_create_server_tcp_ipv4 (const char *service_name, struct in_addr *addr,
+                              const char *vrf_bind_dev,
                               const ProtobufCService *service, bool oneway)
 {
     cmsg_transport *transport;
     cmsg_server *server;
 
-    transport = cmsg_create_transport_tcp_ipv4 (service_name, addr, oneway);
+    transport = cmsg_create_transport_tcp_ipv4 (service_name, addr, vrf_bind_dev, oneway);
     if (!transport)
     {
         return NULL;
@@ -1844,17 +1846,18 @@ _cmsg_create_server_tcp_ipv4 (const char *service_name, struct in_addr *addr,
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
  * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
  * @param service - The CMSG service.
  */
 cmsg_server *
 cmsg_create_server_tcp_ipv4_rpc (const char *service_name, struct in_addr *addr,
-                                 const ProtobufCService *service)
+                                 const char *vrf_bind_dev, const ProtobufCService *service)
 {
     CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
 
-    return _cmsg_create_server_tcp_ipv4 (service_name, addr, service, false);
+    return _cmsg_create_server_tcp_ipv4 (service_name, addr, vrf_bind_dev, service, false);
 }
 
 /**
@@ -1863,17 +1866,19 @@ cmsg_create_server_tcp_ipv4_rpc (const char *service_name, struct in_addr *addr,
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
  * @param addr - The IPv4 address to listen on.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
  * @param service - The CMSG service.
  */
 cmsg_server *
 cmsg_create_server_tcp_ipv4_oneway (const char *service_name, struct in_addr *addr,
+                                    const char *vrf_bind_dev,
                                     const ProtobufCService *service)
 {
     CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
 
-    return _cmsg_create_server_tcp_ipv4 (service_name, addr, service, true);
+    return _cmsg_create_server_tcp_ipv4 (service_name, addr, vrf_bind_dev, service, true);
 }
 
 /**

@@ -79,7 +79,7 @@ create_tcp_transport_info (uint32_t _addr)
     addr.s_addr = _addr;
 
     np_mock (cmsg_service_port_get, sm_mock_cmsg_service_port_get);
-    transport = cmsg_create_transport_tcp_ipv4 ("unused", &addr, true);
+    transport = cmsg_create_transport_tcp_ipv4 ("unused", &addr, NULL, true);
     np_unmock (cmsg_service_port_get);
 
     transport_info = cmsg_transport_info_create (transport);

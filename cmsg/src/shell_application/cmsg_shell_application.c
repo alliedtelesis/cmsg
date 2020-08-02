@@ -532,13 +532,13 @@ create_client (program_args *args, const ProtobufCServiceDescriptor *service_des
         if (args->oneway)
         {
             client = cmsg_create_client_tcp_ipv4_oneway (args->port_service_name,
-                                                         &args->tcp_ip_address,
+                                                         &args->tcp_ip_address, NULL,
                                                          service_descriptor);
         }
         else
         {
             client = cmsg_create_client_tcp_ipv4_rpc (args->port_service_name,
-                                                      &args->tcp_ip_address,
+                                                      &args->tcp_ip_address, NULL,
                                                       service_descriptor);
         }
     }

@@ -62,7 +62,7 @@ sm_mock_remote_sync_bulk_sync_services (cmsg_client *client)
 
 static cmsg_client *
 sm_mock_cmsg_create_client_tcp_ipv4_oneway (const char *service_name,
-                                            struct in_addr *addr,
+                                            struct in_addr *addr, const char *vrf_bind_dev,
                                             const ProtobufCServiceDescriptor *descriptor)
 {
     remote_client = cmsg_create_client_loopback (CMSG_SERVICE (cmsg_sld, remote_sync));
