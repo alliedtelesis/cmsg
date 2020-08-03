@@ -44,6 +44,7 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
     cmsg_server *server = (cmsg_server *) data;
     eventfd_t value;
     int *newfd_ptr = NULL;
+    GSource *read_source;
     GIOChannel *read_channel = NULL;
     cmsg_server_accept_thread_info *info = server->accept_thread_info;
 
@@ -53,7 +54,11 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
     while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
     {
         read_channel = g_io_channel_unix_new (*newfd_ptr);
-        g_io_add_watch (read_channel, G_IO_IN, cmsg_glib_server_read, server);
+        read_source = g_io_create_watch (read_channel, G_IO_IN);
+        g_io_channel_unref (read_channel);
+        g_source_set_callback (read_source, (GSourceFunc) cmsg_glib_server_read,
+                               server, NULL);
+        g_source_attach (read_source, info->context);
         CMSG_FREE (newfd_ptr);
     }
 
@@ -64,25 +69,47 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
  * Start the processing of the accepted connections for a CMSG server.
  *
  * @param server - The CMSG server to start processing.
+ * @param context - The main context to attach the accept thread to.
+ */
+void
+_cmsg_glib_server_processing_start (cmsg_server *server, GMainContext *context)
+{
+    cmsg_server_accept_thread_info *info = server->accept_thread_info;
+    GSource *source;
+    GIOChannel *accept_channel = g_io_channel_unix_new (info->accept_sd_eventfd);
+
+    source = g_io_create_watch (accept_channel, G_IO_IN);
+    g_io_channel_unref (accept_channel);
+    g_source_set_callback (source, (GSourceFunc) cmsg_glib_server_accepted, server, NULL);
+    if (context && source)
+    {
+        g_source_attach (source, context);
+        info->context = context;
+    }
+}
+
+/**
+ * Start the processing of the accepted connections for a CMSG server.
+ *
+ * @param server - The CMSG server to start processing.
  */
 void
 cmsg_glib_server_processing_start (cmsg_server *server)
 {
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
-
-    GIOChannel *accept_channel = g_io_channel_unix_new (info->accept_sd_eventfd);
-    g_io_add_watch (accept_channel, G_IO_IN, cmsg_glib_server_accepted, server);
+    _cmsg_glib_server_processing_start (server, g_main_context_default ());
 }
 
 /**
- * Init and start processing for the given CMSG server.
+ * Init and start processing for the given CMSG server, on a given
+ * main context.
  *
  * @param server - The server to manage with an accept thread and glib.
+ * @param context - The main context to attach the accept thread to.
  *
  * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
  */
 int32_t
-cmsg_glib_server_init (cmsg_server *server)
+cmsg_glib_thread_server_init (cmsg_server *server, GMainContext *context)
 {
     int32_t ret;
 
@@ -94,8 +121,22 @@ cmsg_glib_server_init (cmsg_server *server)
         return ret;
     }
 
-    cmsg_glib_server_processing_start (server);
+    _cmsg_glib_server_processing_start (server, context);
     return CMSG_RET_OK;
+}
+
+/**
+ * Init and start processing for the given CMSG server, on the default
+ * main context.
+ *
+ * @param server - The server to manage with an accept thread and glib.
+ *
+ * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
+ */
+int32_t
+cmsg_glib_server_init (cmsg_server *server)
+{
+    return cmsg_glib_thread_server_init (server, g_main_context_default ());
 }
 
 /**
