@@ -16,6 +16,10 @@ cmsg_server *cmsg_glib_unix_server_init (ProtobufCService *service);
 cmsg_server *cmsg_glib_tcp_server_init_oneway (const char *service_name,
                                                struct in_addr *addr,
                                                ProtobufCService *service);
+cmsg_server *cmsg_glib_tcp_ipv6_server_init_oneway (const char *service_name,
+                                                    struct in6_addr *addr,
+                                                    uint32_t scope_id, const char *bind_dev,
+                                                    ProtobufCService *service);
 cmsg_tipc_mesh_conn *cmsg_glib_tipc_mesh_init (ProtobufCService *service,
                                                const char *service_entry_name,
                                                int this_node_id, int min_node_id,
