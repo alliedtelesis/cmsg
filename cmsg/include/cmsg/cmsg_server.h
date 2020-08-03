@@ -245,4 +245,7 @@ cmsg_server *cmsg_create_server_tcp_ipv6_oneway (const char *service_name,
                                                  uint32_t scope_id,
                                                  const char *vrf_bind_dev,
                                                  const ProtobufCService *service);
+
+const cmsg_server *cmsg_server_from_service_get (const void *service);
+
 #endif /* __CMSG_SERVER_H_ */

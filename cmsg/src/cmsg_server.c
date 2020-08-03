@@ -2204,3 +2204,27 @@ cmsg_server_service_info_free (cmsg_service_info *info)
     cmsg_transport_info_free (info->server_info);
     CMSG_FREE (info);
 }
+
+/**
+ * Helper function that can be used to get the server processing
+ * the request from the 'service' parameter of any given IMPL function.
+ *
+ * @param service - The 'service' pointer passed to the IMPL function.
+ *
+ * @returns The pointer to the server processing the request.
+ */
+const cmsg_server *
+cmsg_server_from_service_get (const void *service)
+{
+    const cmsg_server_closure_info *closure_info = service;
+    const cmsg_server_closure_data *closure_data;
+    const cmsg_server *server = NULL;
+
+    if (closure_info)
+    {
+        closure_data = closure_info->closure_data;
+        server = closure_data->server;
+    }
+
+    return server;
+}
