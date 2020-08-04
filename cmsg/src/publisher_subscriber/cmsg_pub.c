@@ -553,20 +553,17 @@ cmsg_psd_update_impl_subscription_change (const void *service,
                                           const cmsg_psd_subscription_update *recv_msg)
 {
     cmsg_publisher *publisher = NULL;
-    void *_closure_data = NULL;
-    cmsg_server_closure_data *closure_data = NULL;
+    const cmsg_server *server;
 
-    _closure_data = ((const cmsg_server_closure_info *) service)->closure_data;
-    closure_data = (cmsg_server_closure_data *) _closure_data;
-
-    if (closure_data->server->parent.object_type != CMSG_OBJ_TYPE_PUB)
+    server = cmsg_server_from_service_get (service);
+    if (!server || server->parent.object_type != CMSG_OBJ_TYPE_PUB)
     {
         CMSG_LOG_GEN_ERROR ("Failed to update subscriptions for CMSG publisher.");
         cmsg_psd_update_server_subscription_changeSend (service);
         return;
     }
 
-    publisher = (cmsg_publisher *) closure_data->server->parent.object;
+    publisher = (cmsg_publisher *) server->parent.object;
 
     pthread_mutex_lock (&publisher->subscribed_methods_mutex);
 
