@@ -1494,6 +1494,19 @@ cmsg_server_queue_process_some (cmsg_server *server, int32_t number_to_process)
     return cmsg_server_queue_process (server);
 }
 
+int32_t
+cmsg_server_queue_process_all (cmsg_server *server)
+{
+    int processed = 0;
+
+    pthread_mutex_lock (&server->queueing_state_mutex);
+    processed = cmsg_receive_queue_process_all (server->queue, &server->queue_mutex,
+                                                server);
+    pthread_mutex_unlock (&server->queueing_state_mutex);
+
+    return processed;
+}
+
 void
 cmsg_server_drop_all (cmsg_server *server)
 {
