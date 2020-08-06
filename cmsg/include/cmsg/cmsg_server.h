@@ -50,6 +50,11 @@ typedef struct _cmsg_server_accept_thread_info
     /* An eventfd object to notify the server user that there is a new
      * socket descriptor on the accept_sd_queue.  */
     int accept_sd_eventfd;
+
+    /* For processes with threads with unique main loops, store the context.
+     * Should only be accessed within cmsg_glib_helpers.c
+     */
+    GMainContext *context;
 } cmsg_server_accept_thread_info;
 
 typedef struct _cmsg_server_s
@@ -160,6 +165,8 @@ int32_t cmsg_server_queue_process (cmsg_server *server);
 
 int32_t cmsg_server_queue_process_some (cmsg_server *server, int32_t number_to_process);
 
+int32_t cmsg_server_queue_process_all (cmsg_server *server);
+
 void cmsg_server_drop_all (cmsg_server *server);
 
 void cmsg_server_queue_enable (cmsg_server *server);
@@ -231,5 +238,16 @@ cmsg_server *cmsg_create_server_tcp_ipv4_oneway (const char *service_name,
                                                  struct in_addr *addr,
                                                  const char *vrf_bind_dev,
                                                  const ProtobufCService *service);
+cmsg_server *cmsg_create_server_tcp_ipv6_rpc (const char *service_name,
+                                              struct in6_addr *addr,
+                                              uint32_t scope_id, const char *vrf_bind_dev,
+                                              const ProtobufCService *service);
+cmsg_server *cmsg_create_server_tcp_ipv6_oneway (const char *service_name,
+                                                 struct in6_addr *addr,
+                                                 uint32_t scope_id,
+                                                 const char *vrf_bind_dev,
+                                                 const ProtobufCService *service);
+
+const cmsg_server *cmsg_server_from_service_get (const void *service);
 
 #endif /* __CMSG_SERVER_H_ */
