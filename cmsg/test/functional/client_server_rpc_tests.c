@@ -4,6 +4,7 @@
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */
 
+#include <arpa/inet.h>
 #include <np.h>
 #include <stdint.h>
 #include <cmsg_server.h>
@@ -20,6 +21,13 @@
 
 #define STRING_ARRAY_LENGTH         100
 #define TEST_STRING                 "The quick brown fox jumps over the lazy dog"
+
+/* Hold test parameters */
+struct t_parms
+{
+    cmsg_transport_type type;
+    int family;
+};
 
 static const uint16_t port_number = 18888;
 static const uint16_t tipc_instance = 1;
@@ -175,16 +183,27 @@ cmsg_test_impl_empty_msg_rpc_test (const void *service)
 static void *
 server_thread_process (void *arg)
 {
-    cmsg_transport_type transport_type = (uintptr_t) arg;
     cmsg_transport *server_transport = NULL;
-    struct in_addr tcp_addr;
+    struct t_parms *tpp = arg;
 
-    switch (transport_type)
+    switch (tpp->type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
-        tcp_addr.s_addr = INADDR_ANY;
-        server = cmsg_create_server_tcp_ipv4_rpc ("cmsg-test", &tcp_addr, NULL,
-                                                  CMSG_SERVICE (cmsg, test));
+        if (tpp->family == AF_INET)
+        {
+            struct in_addr tcp_addr;
+
+            tcp_addr.s_addr = INADDR_ANY;
+            server = cmsg_create_server_tcp_ipv4_rpc ("cmsg-test", &tcp_addr, NULL,
+                                                      CMSG_SERVICE (cmsg, test));
+        }
+        else if (tpp->family == AF_INET6)
+        {
+            struct in6_addr tcp_addr = IN6ADDR_ANY_INIT;
+
+            server = cmsg_create_server_tcp_ipv6_rpc ("cmsg-test", &tcp_addr, 0, NULL,
+                                                      CMSG_SERVICE (cmsg, test));
+        }
         break;
 
     case CMSG_TRANSPORT_RPC_TIPC:
@@ -250,13 +269,15 @@ server_thread_process (void *arg)
  * @param type - Transport type of the server to create
  */
 static void
-create_server_and_wait (cmsg_transport_type type)
+create_server_and_wait (cmsg_transport_type type, int family)
 {
     int ret = 0;
-    uintptr_t cast_type = 0;
+    struct t_parms tp;
 
-    cast_type = (uintptr_t) type;
-    ret = pthread_create (&server_thread, NULL, &server_thread_process, (void *) cast_type);
+    tp.type = type;
+    tp.family = family;
+
+    ret = pthread_create (&server_thread, NULL, &server_thread_process, &tp);
 
     NP_ASSERT_EQUAL (ret, 0);
 
@@ -284,7 +305,7 @@ stop_server_and_wait (void)
  * @param type - Transport type of the client to create
  */
 static cmsg_client *
-create_client (cmsg_transport_type type)
+create_client (cmsg_transport_type type, int family)
 {
     cmsg_transport *transport = NULL;
     cmsg_client *client = NULL;
@@ -293,9 +314,19 @@ create_client (cmsg_transport_type type)
     switch (type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
-        tcp_addr.s_addr = INADDR_ANY;
-        client = cmsg_create_client_tcp_ipv4_rpc ("cmsg-test", &tcp_addr, NULL,
-                                                  CMSG_DESCRIPTOR (cmsg, test));
+        if (family == AF_INET)
+        {
+            tcp_addr.s_addr = INADDR_ANY;
+            client = cmsg_create_client_tcp_ipv4_rpc ("cmsg-test", &tcp_addr, NULL,
+                                                      CMSG_DESCRIPTOR (cmsg, test));
+        }
+        else if (family == AF_INET6)
+        {
+            struct in6_addr tcp_addr = IN6ADDR_ANY_INIT;
+
+            client = cmsg_create_client_tcp_ipv6_rpc ("cmsg-test", &tcp_addr, 0, NULL,
+                                                      CMSG_DESCRIPTOR (cmsg, test));
+        }
         break;
 
     case CMSG_TRANSPORT_RPC_TIPC:
@@ -356,16 +387,16 @@ _run_client_server_tests (cmsg_client *client)
 }
 
 static void
-run_client_server_tests (cmsg_transport_type type)
+run_client_server_tests (cmsg_transport_type type, int family)
 {
     cmsg_client *client = NULL;
 
     if (type != CMSG_TRANSPORT_LOOPBACK)
     {
-        create_server_and_wait (type);
+        create_server_and_wait (type, family);
     }
 
-    client = create_client (type);
+    client = create_client (type, family);
 
     _run_client_server_tests (client);
 
@@ -420,10 +451,10 @@ run_client_server_tests_big (cmsg_transport_type type)
 
     if (type != CMSG_TRANSPORT_LOOPBACK)
     {
-        create_server_and_wait (type);
+        create_server_and_wait (type, AF_INET);
     }
 
-    client = create_client (type);
+    client = create_client (type, AF_INET);
 
     _run_client_server_tests_big (client);
 
@@ -435,12 +466,21 @@ run_client_server_tests_big (cmsg_transport_type type)
 }
 
 /**
- * Run the simple client <-> server test case with a TCP transport.
+ * Run the simple client <-> server test case with a TCP transport (IPv4).
  */
 void
 test_client_server_rpc_tcp (void)
 {
-    run_client_server_tests (CMSG_TRANSPORT_RPC_TCP);
+    run_client_server_tests (CMSG_TRANSPORT_RPC_TCP, AF_INET);
+}
+
+/**
+ * Run the simple client <-> server test case with a TCP transport (IPv6).
+ */
+void
+test_client_server_rpc_tcp6 (void)
+{
+    run_client_server_tests (CMSG_TRANSPORT_RPC_TCP, AF_INET6);
 }
 
 /**
@@ -449,7 +489,7 @@ test_client_server_rpc_tcp (void)
 void
 test_client_server_rpc_tipc (void)
 {
-    run_client_server_tests (CMSG_TRANSPORT_RPC_TIPC);
+    run_client_server_tests (CMSG_TRANSPORT_RPC_TIPC, AF_UNSPEC);
 }
 
 /**
@@ -458,7 +498,7 @@ test_client_server_rpc_tipc (void)
 void
 test_client_server_rpc_unix (void)
 {
-    run_client_server_tests (CMSG_TRANSPORT_RPC_UNIX);
+    run_client_server_tests (CMSG_TRANSPORT_RPC_UNIX, AF_UNSPEC);
 }
 
 /**
@@ -467,7 +507,7 @@ test_client_server_rpc_unix (void)
 void
 test_client_server_rpc_loopback (void)
 {
-    run_client_server_tests (CMSG_TRANSPORT_LOOPBACK);
+    run_client_server_tests (CMSG_TRANSPORT_LOOPBACK, AF_UNSPEC);
 }
 
 /**
@@ -476,7 +516,7 @@ test_client_server_rpc_loopback (void)
 void
 test_client_server_rpc_udt (void)
 {
-    run_client_server_tests (CMSG_TRANSPORT_RPC_USERDEFINED);
+    run_client_server_tests (CMSG_TRANSPORT_RPC_USERDEFINED, AF_UNSPEC);
 }
 
 /**
@@ -553,10 +593,10 @@ run_client_server_tests_empty_msg (cmsg_transport_type type)
 
     if (type != CMSG_TRANSPORT_LOOPBACK)
     {
-        create_server_and_wait (type);
+        create_server_and_wait (type, AF_INET);
     }
 
-    client = create_client (type);
+    client = create_client (type, AF_INET);
 
     _run_client_server_tests_empty_msg (client);
 

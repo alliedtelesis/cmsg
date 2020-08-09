@@ -221,4 +221,15 @@ cmsg_client *cmsg_create_client_tcp_ipv4_oneway (const char *service_name,
                                                  const char *vrf_bind_dev,
                                                  const ProtobufCServiceDescriptor
                                                  *descriptor);
+cmsg_client *cmsg_create_client_tcp_ipv6_rpc (const char *service_name,
+                                              struct in6_addr *addr,
+                                              uint32_t scope_id, const char *vrf_bind_dev,
+                                              const ProtobufCServiceDescriptor *descriptor);
+
+cmsg_client *cmsg_create_client_tcp_ipv6_oneway (const char *service_name,
+                                                 struct in6_addr *addr,
+                                                 uint32_t scope_id,
+                                                 const char *vrf_bind_dev,
+                                                 const ProtobufCServiceDescriptor
+                                                 *descriptor);
 #endif /* __CMSG_CLIENT_H_ */

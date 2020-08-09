@@ -13,6 +13,7 @@ src/ant_result_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/ant_result.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/ant_result.proto
 
+src/validation.pb-c.c \
 src/validation.pb-c.h \
 src/validation_types_auto.h \
 src/validation_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/validation.proto
@@ -253,7 +254,10 @@ BUILT_SOURCES =  \
 	src/publisher_subscriber/update_impl_auto.c \
 	src/publisher_subscriber/update_impl_auto.h \
 	src/publisher_subscriber/update.pb-c.c \
-	src/publisher_subscriber/update.pb-c.h
+	src/publisher_subscriber/update.pb-c.h \
+	src/validation.pb-c.c \
+	src/validation.pb-c.h
+
 
 CLEANFILES = $(BUILT_SOURCES)
 
@@ -374,6 +378,7 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/cmsg_service_listener_tests.c \
 	test/functional/supported_service_tests.c \
 	test/functional/file_response_tests.c \
+	test/functional/server_queuing_tests.c \
 	test/functional/setup.c
 
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) $(PTHREAD_CFLAGS) -include $(top_builddir)/config.h

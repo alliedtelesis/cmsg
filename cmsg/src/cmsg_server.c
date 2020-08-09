@@ -1494,6 +1494,19 @@ cmsg_server_queue_process_some (cmsg_server *server, int32_t number_to_process)
     return cmsg_server_queue_process (server);
 }
 
+int32_t
+cmsg_server_queue_process_all (cmsg_server *server)
+{
+    int processed = 0;
+
+    pthread_mutex_lock (&server->queueing_state_mutex);
+    processed = cmsg_receive_queue_process_all (server->queue, &server->queue_mutex,
+                                                server);
+    pthread_mutex_unlock (&server->queueing_state_mutex);
+
+    return processed;
+}
+
 void
 cmsg_server_drop_all (cmsg_server *server)
 {
@@ -1882,6 +1895,89 @@ cmsg_create_server_tcp_ipv4_oneway (const char *service_name, struct in_addr *ad
 }
 
 /**
+ * Helper function for creating a CMSG server using TCP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param scope_id - The scope id if a link local address is used, zero otherwise
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ * @param oneway - Whether to make a one-way server, or a two-way (RPC) server.
+ */
+static cmsg_server *
+_cmsg_create_server_tcp_ipv6 (const char *service_name, struct in6_addr *addr,
+                              uint32_t scope_id, const char *vrf_bind_dev,
+                              const ProtobufCService *service, bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_server *server;
+
+    transport = cmsg_create_transport_tcp_ipv6 (service_name, addr, scope_id, vrf_bind_dev,
+                                                oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (!server)
+    {
+        cmsg_transport_destroy (transport);
+        return NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create a RPC (two-way) CMSG server using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param scope_id - The scope id if a link local address is used, zero otherwise
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ */
+cmsg_server *
+cmsg_create_server_tcp_ipv6_rpc (const char *service_name, struct in6_addr *addr,
+                                 uint32_t scope_id, const char *vrf_bind_dev,
+                                 const ProtobufCService *service)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    return _cmsg_create_server_tcp_ipv6 (service_name, addr, scope_id, vrf_bind_dev,
+                                         service, false);
+}
+
+
+/**
+ * Create a oneway CMSG server using TCP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to listen on.
+ * @param scope_id - The scope id if a link local address is used, zero otherwise
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ */
+cmsg_server *
+cmsg_create_server_tcp_ipv6_oneway (const char *service_name, struct in6_addr *addr,
+                                    uint32_t scope_id, const char *vrf_bind_dev,
+                                    const ProtobufCService *service)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    return _cmsg_create_server_tcp_ipv6 (service_name, addr, scope_id, vrf_bind_dev,
+                                         service, true);
+}
+
+/**
  * Destroy a cmsg server and its transport
  *
  * @param server - the cmsg server to destroy
@@ -2120,4 +2216,28 @@ cmsg_server_service_info_free (cmsg_service_info *info)
     CMSG_FREE (info->service);
     cmsg_transport_info_free (info->server_info);
     CMSG_FREE (info);
+}
+
+/**
+ * Helper function that can be used to get the server processing
+ * the request from the 'service' parameter of any given IMPL function.
+ *
+ * @param service - The 'service' pointer passed to the IMPL function.
+ *
+ * @returns The pointer to the server processing the request.
+ */
+const cmsg_server *
+cmsg_server_from_service_get (const void *service)
+{
+    const cmsg_server_closure_info *closure_info = service;
+    const cmsg_server_closure_data *closure_data;
+    const cmsg_server *server = NULL;
+
+    if (closure_info)
+    {
+        closure_data = closure_info->closure_data;
+        server = closure_data->server;
+    }
+
+    return server;
 }

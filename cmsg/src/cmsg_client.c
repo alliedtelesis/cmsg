@@ -1598,3 +1598,85 @@ cmsg_create_client_tcp_ipv4_oneway (const char *service_name, struct in_addr *ad
     return _cmsg_create_client_tcp_ipv4 (service_name, addr, vrf_bind_dev, descriptor,
                                          true);
 }
+
+/**
+ * Helper function for creating a CMSG client using TCP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to connect to (in network byte order).
+ * @param scope_id - The scope id if a link local address is used, zero otherwise
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param descriptor - The CMSG service descriptor for the service.
+ * @param oneway - Whether to make a one-way client, or a two-way (RPC) client.
+ */
+static cmsg_client *
+_cmsg_create_client_tcp_ipv6 (const char *service_name, struct in6_addr *addr,
+                              uint32_t scope_id, const char *vrf_bind_dev,
+                              const ProtobufCServiceDescriptor *descriptor, bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_client *client;
+
+    transport = cmsg_create_transport_tcp_ipv6 (service_name, addr, scope_id, vrf_bind_dev,
+                                                oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    client = cmsg_client_new (transport, descriptor);
+    if (!client)
+    {
+        cmsg_transport_destroy (transport);
+        return NULL;
+    }
+
+    return client;
+}
+
+/**
+ * Create a RPC (two-way) CMSG client using TCP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to connect to (in network byte order).
+ * @param scope_id - The scope id if a link local address is used, zero otherwise
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param descriptor - The CMSG service descriptor for the service.
+ */
+cmsg_client *
+cmsg_create_client_tcp_ipv6_rpc (const char *service_name, struct in6_addr *addr,
+                                 uint32_t scope_id, const char *vrf_bind_dev,
+                                 const ProtobufCServiceDescriptor *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_client_tcp_ipv6 (service_name, addr, scope_id, vrf_bind_dev,
+                                         descriptor, false);
+}
+
+/**
+ * Create a oneway CMSG client using TCP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to connect to (in network byte order).
+ * @param scope_id - The scope is if a link local address is used, zero otherwise
+ * @param bindvrf_bind_dev_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param descriptor - The CMSG service descriptor for the service.
+ */
+cmsg_client *
+cmsg_create_client_tcp_ipv6_oneway (const char *service_name, struct in6_addr *addr,
+                                    uint32_t scope_id, const char *vrf_bind_dev,
+                                    const ProtobufCServiceDescriptor *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_client_tcp_ipv6 (service_name, addr, scope_id, vrf_bind_dev,
+                                         descriptor, true);
+}
