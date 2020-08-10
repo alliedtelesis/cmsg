@@ -197,7 +197,7 @@ remote_sync_add_host (struct in_addr addr)
 {
     cmsg_client *client = NULL;
 
-    client = cmsg_create_client_tcp_ipv4_oneway ("cmsg_sld_sync", &addr,
+    client = cmsg_create_client_tcp_ipv4_oneway ("cmsg_sld_sync", &addr, NULL,
                                                  CMSG_DESCRIPTOR (cmsg_sld, remote_sync));
 
     if (!comp_client)

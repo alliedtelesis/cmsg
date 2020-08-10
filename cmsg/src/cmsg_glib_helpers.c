@@ -44,6 +44,7 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
     cmsg_server *server = (cmsg_server *) data;
     eventfd_t value;
     int *newfd_ptr = NULL;
+    GSource *read_source;
     GIOChannel *read_channel = NULL;
     cmsg_server_accept_thread_info *info = server->accept_thread_info;
 
@@ -53,7 +54,11 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
     while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
     {
         read_channel = g_io_channel_unix_new (*newfd_ptr);
-        g_io_add_watch (read_channel, G_IO_IN, cmsg_glib_server_read, server);
+        read_source = g_io_create_watch (read_channel, G_IO_IN);
+        g_io_channel_unref (read_channel);
+        g_source_set_callback (read_source, (GSourceFunc) cmsg_glib_server_read,
+                               server, NULL);
+        g_source_attach (read_source, info->context);
         CMSG_FREE (newfd_ptr);
     }
 
@@ -64,25 +69,47 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
  * Start the processing of the accepted connections for a CMSG server.
  *
  * @param server - The CMSG server to start processing.
+ * @param context - The main context to attach the accept thread to.
+ */
+void
+_cmsg_glib_server_processing_start (cmsg_server *server, GMainContext *context)
+{
+    cmsg_server_accept_thread_info *info = server->accept_thread_info;
+    GSource *source;
+    GIOChannel *accept_channel = g_io_channel_unix_new (info->accept_sd_eventfd);
+
+    source = g_io_create_watch (accept_channel, G_IO_IN);
+    g_io_channel_unref (accept_channel);
+    g_source_set_callback (source, (GSourceFunc) cmsg_glib_server_accepted, server, NULL);
+    if (context && source)
+    {
+        g_source_attach (source, context);
+        info->context = context;
+    }
+}
+
+/**
+ * Start the processing of the accepted connections for a CMSG server.
+ *
+ * @param server - The CMSG server to start processing.
  */
 void
 cmsg_glib_server_processing_start (cmsg_server *server)
 {
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
-
-    GIOChannel *accept_channel = g_io_channel_unix_new (info->accept_sd_eventfd);
-    g_io_add_watch (accept_channel, G_IO_IN, cmsg_glib_server_accepted, server);
+    _cmsg_glib_server_processing_start (server, g_main_context_default ());
 }
 
 /**
- * Init and start processing for the given CMSG server.
+ * Init and start processing for the given CMSG server, on a given
+ * main context.
  *
  * @param server - The server to manage with an accept thread and glib.
+ * @param context - The main context to attach the accept thread to.
  *
  * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
  */
 int32_t
-cmsg_glib_server_init (cmsg_server *server)
+cmsg_glib_thread_server_init (cmsg_server *server, GMainContext *context)
 {
     int32_t ret;
 
@@ -94,8 +121,22 @@ cmsg_glib_server_init (cmsg_server *server)
         return ret;
     }
 
-    cmsg_glib_server_processing_start (server);
+    _cmsg_glib_server_processing_start (server, context);
     return CMSG_RET_OK;
+}
+
+/**
+ * Init and start processing for the given CMSG server, on the default
+ * main context.
+ *
+ * @param server - The server to manage with an accept thread and glib.
+ *
+ * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
+ */
+int32_t
+cmsg_glib_server_init (cmsg_server *server)
+{
+    return cmsg_glib_thread_server_init (server, g_main_context_default ());
 }
 
 /**
@@ -164,7 +205,7 @@ cmsg_glib_tcp_subscriber_init (const char *service_name, struct in_addr addr,
     cmsg_subscriber *sub = NULL;
     int32_t ret;
 
-    sub = cmsg_subscriber_create_tcp (service_name, addr, service);
+    sub = cmsg_subscriber_create_tcp (service_name, addr, NULL, service);
     if (!sub)
     {
         return NULL;
@@ -237,7 +278,48 @@ cmsg_glib_tcp_server_init_oneway (const char *service_name, struct in_addr *addr
     cmsg_server *server = NULL;
     int32_t ret;
 
-    server = cmsg_create_server_tcp_ipv4_oneway (service_name, addr, service);
+    server = cmsg_create_server_tcp_ipv4_oneway (service_name, addr, NULL, service);
+    if (!server)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
+                            cmsg_service_name_get (service->descriptor));
+        return NULL;
+    }
+
+    ret = cmsg_glib_server_init (server);
+    if (ret != CMSG_RET_OK)
+    {
+        cmsg_destroy_server_and_transport (server);
+        server = NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create and start processing a TCP transport based CMSG server for the given
+ * CMSG service.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to listen on (in network byte order).
+ * @param scope_id - The scope id if a link local address is used, zero otherwise
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ *
+ * @returns Pointer to a 'cmsg_server' structure.
+ *          NULL on failure.
+ */
+cmsg_server *
+cmsg_glib_tcp_ipv6_server_init_oneway (const char *service_name, struct in6_addr *addr,
+                                       uint32_t scope_id, const char *vrf_bind_dev,
+                                       ProtobufCService *service)
+{
+    cmsg_server *server = NULL;
+    int32_t ret;
+
+    server = cmsg_create_server_tcp_ipv6_oneway (service_name, addr, scope_id, vrf_bind_dev,
+                                                 service);
     if (!server)
     {
         CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
