@@ -219,6 +219,8 @@ BUILT_SOURCES =  \
 	src/cmsg.pb-c.h \
 	src/ant_result.pb-c.c \
 	src/ant_result.pb-c.h \
+	src/ant_result_types_auto.h \
+	src/ant_result_validation_auto.h \
 	src/service_listener/configuration_api_auto.c \
 	src/service_listener/configuration_api_auto.h \
 	src/service_listener/configuration_impl_auto.c \
@@ -256,7 +258,17 @@ BUILT_SOURCES =  \
 	src/publisher_subscriber/update.pb-c.c \
 	src/publisher_subscriber/update.pb-c.h \
 	src/validation.pb-c.c \
-	src/validation.pb-c.h
+	src/validation.pb-c.h \
+	src/validation_types_auto.h \
+	src/validation_validation_auto.h \
+	src/supported_service.proto \
+	src/supported_service.pb-c.h \
+	src/supported_service_types_auto.h \
+	src/supported_service_validation_auto.h \
+	src/file_response.proto \
+	src/file_response.pb-c.h \
+	src/file_response_types_auto.h \
+	src/file_response_validation_auto.h
 
 
 CLEANFILES = $(BUILT_SOURCES)
@@ -312,6 +324,8 @@ BUILT_SOURCES += \
 	test/functional/cmsg_functional_tests_impl_auto.c \
 	test/functional/cmsg_functional_tests_impl_auto.h \
 	test/functional/cmsg_functional_tests_types_auto.h \
+	test/functional/cmsg_functional_tests_validation_auto.c \
+	test/functional/cmsg_functional_tests_validation_auto.h \
 	test/functional/cmsg_functional_tests.pb-c.c \
 	test/functional/cmsg_functional_tests.pb-c.h
 
