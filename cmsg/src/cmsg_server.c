@@ -2104,6 +2104,12 @@ cmsg_server_accept_thread_init (cmsg_server *server)
 {
     cmsg_server_accept_thread_info *info = NULL;
 
+    if (server->accept_thread_info)
+    {
+        /* Already initialised */
+        return CMSG_RET_OK;
+    }
+
     info = CMSG_CALLOC (1, sizeof (cmsg_server_accept_thread_info));
     if (info == NULL)
     {
