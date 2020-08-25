@@ -10,6 +10,7 @@
 #include "cmsg_transport.h"
 #include "cmsg_error.h"
 #include "cmsg_composite_client.h"
+#include "cmsg_sl.h"
 
 /**
  * Generate an event for the node/leave join.
@@ -82,8 +83,9 @@ cmsg_broadcast_client_add_child (cmsg_broadcast_client *broadcast_client,
 
     if (cmsg_client_connect (child) < 0)
     {
-        CMSG_LOG_GEN_ERROR ("Failed to connect child for broadcast client (Node id = %u).",
-                            tipc_node_id);
+        CMSG_LOG_GEN_ERROR
+            ("Failed to connect child for broadcast client (Node id = %u service %s).",
+             tipc_node_id, service_entry_name);
         cmsg_destroy_client_and_transport (child);
         return;
     }
@@ -139,67 +141,77 @@ cmsg_broadcast_client_delete_child (cmsg_broadcast_client *broadcast_client,
 }
 
 /**
- * Processes a TIPC topology service event
+ * Processes a notification that a server has been added or removed
  *
- * @param event - tipc_event structure containing information about the
- *                TIPC topology event.
+ * @param transport    - cmsg_transport structure containing information about the server that
+ *                       was added or removed.
+ * @param added        - whether the server has added or removed
+ * @param user_cb_data - the broadcase_client
+ *
  */
-static void
-tipc_subscr_callback (struct tipc_event *event, void *user_cb_data)
+static bool
+server_event_callback (const cmsg_transport *transport, bool added, void *user_cb_data)
 {
-    uint32_t instance;
+    uint32_t instance = transport->config.socket.sockaddr.tipc.addr.name.name.instance;
+    uint32_t port = transport->config.socket.sockaddr.tipc.addr.name.name.type;
     cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) user_cb_data;
 
-    instance = event->found_lower;
+    /* Some CMSG descriptors are not unique (e.g. "ffo.health" is used by multiple daemons)
+     * Ensure we only connect to servers that are on the port we expect for this client.
+     */
+    if (port != cmsg_service_port_get (broadcast_client->service_entry_name, "tipc"))
+    {
+        /* Silently ignore */
+        return true;
+    }
 
     /* this should never happen, but sanity-check event is valid */
     if (instance < broadcast_client->lower_node_id ||
         instance > broadcast_client->upper_node_id)
     {
-        return;
+        /* Silently ignore */
+        return true;
     }
 
-    switch (event->event)
+    if (added)
     {
-    case TIPC_PUBLISHED:
         cmsg_broadcast_client_add_child (broadcast_client, instance);
-        break;
-    case TIPC_WITHDRAWN:
-        cmsg_broadcast_client_delete_child (broadcast_client, instance);
-        break;
-    case TIPC_SUBSCR_TIMEOUT:
-        /* Don't care about this event. */
-        break;
-    default:
-        CMSG_LOG_GEN_ERROR ("Unknown TIPC topology event received (%d)", event->event);
-        break;
     }
+    else
+    {
+        cmsg_broadcast_client_delete_child (broadcast_client, instance);
+    }
+
+    return true;
 }
 
-
 /**
- * Reads a TIPC topology service event from the associated socket
+ * Listen for and process CMSG service listener notifications
  */
 static void *
 cmsg_broadcast_conn_mgmt_thread (void *_broadcast_client)
 {
+    const cmsg_sl_info *info;
+    int event_fd;
     fd_set read_fds;
     int maxfd;
     cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) _broadcast_client;
-    int sd = -1;
+    const char *service_name;
 
-    /*  create a socket and connect with it */
-    sd = cmsg_tipc_topology_connect_subscribe (broadcast_client->service_entry_name,
-                                               broadcast_client->lower_node_id,
-                                               broadcast_client->upper_node_id,
-                                               tipc_subscr_callback);
-    if (sd < 0)
+    service_name =
+        cmsg_service_name_get (broadcast_client->base_client.base_client.descriptor);
+    info =
+        cmsg_service_listener_listen (service_name, server_event_callback,
+                                      broadcast_client);
+    event_fd = cmsg_service_listener_get_event_fd (info);
+
+    if (event_fd < 0)
     {
-        CMSG_LOG_GEN_ERROR ("Failed to get socket for tipc topology service.");
+        CMSG_LOG_GEN_ERROR ("Failed to get socket for service listener.");
         pthread_exit (NULL);
     }
 
-    broadcast_client->tipc_subscription_sd = sd;
+    broadcast_client->tipc_subscription_sd = event_fd;
 
     FD_ZERO (&read_fds);
     FD_SET (broadcast_client->tipc_subscription_sd, &read_fds);
@@ -208,14 +220,13 @@ cmsg_broadcast_conn_mgmt_thread (void *_broadcast_client)
     while (1)
     {
         /* Explicitly set where the thread can be cancelled. This ensures no
-         * data can be leaked if the thread is cancelled while handling a TIPC
-         * topology event. */
+         * data can be leaked if the thread is cancelled while handling an event.
+         */
         pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
         select (maxfd + 1, &read_fds, NULL, NULL, NULL);
         pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
 
-        cmsg_tipc_topology_subscription_read (broadcast_client->tipc_subscription_sd,
-                                              broadcast_client);
+        cmsg_service_listener_event_queue_process (info);
     }
 
     pthread_exit (NULL);
