@@ -270,6 +270,15 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
                 removal_list = g_list_append (removal_list, service_info);
             }
         }
+        else if (service_info->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+        {
+            cmsg_tipc_transport_info *info = service_info->server_info->tipc_info;
+
+            if (info->addr_name_name_instance == ip_addr_to_tipc_instance (*addr))
+            {
+                removal_list = g_list_append (removal_list, service_info);
+            }
+        }
     }
 
     for (list = g_list_first (removal_list); list; list = g_list_next (list))
@@ -418,6 +427,16 @@ _get_servers_by_addr (gpointer key, gpointer value, gpointer user_data)
             cmsg_tcp_transport_info *info = service_info->server_info->tcp_info;
 
             if (info->ipv4 && !memcmp (info->addr.data, &lookup_data->addr, info->addr.len))
+            {
+                lookup_data->list = g_list_append (lookup_data->list, service_info);
+            }
+        }
+        else if (service_info->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+        {
+            cmsg_tipc_transport_info *info = service_info->server_info->tipc_info;
+
+            if (info->addr_name_name_instance ==
+                ip_addr_to_tipc_instance (lookup_data->addr))
             {
                 lookup_data->list = g_list_append (lookup_data->list, service_info);
             }
@@ -655,6 +674,25 @@ data_debug_tcp_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
 }
 
 /**
+ * Print the information about a TIPC transport.
+ *
+ * @param fp - The file to print to.
+ * @param transport_info - The 'cmsg_transport_info' structure for the transport.
+ * @param oneway_str - String to print for the oneway/rpc nature of the transport.
+ * @param pid  - the PID of the process that runs this server.
+ *
+ */
+static void
+data_debug_tipc_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
+                             const char *oneway_str, uint32_t pid)
+{
+    cmsg_tipc_transport_info *tipc_info = transport_info->tipc_info;
+
+    fprintf (fp, "   (tipc, %s) %u:%u (pid: %u)\n", oneway_str,
+             tipc_info->addr_name_name_instance, tipc_info->addr_name_name_type, pid);
+}
+
+/**
  * Helper function called for each server associated with a service. Prints the
  * information about each individual server for a service.
  *
@@ -673,9 +711,13 @@ data_debug_server_dump (gpointer data, gpointer user_data)
     {
         data_debug_unix_server_dump (fp, transport_info, oneway_str, service_info->pid);
     }
-    else
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
         data_debug_tcp_server_dump (fp, transport_info, oneway_str, service_info->pid);
+    }
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+    {
+        data_debug_tipc_server_dump (fp, transport_info, oneway_str, service_info->pid);
     }
 }
 

@@ -38,4 +38,11 @@ void data_add_listener (const cmsg_sld_listener_info *info);
 void data_remove_listener (const cmsg_sld_listener_info *info);
 service_data_entry *get_service_entry_or_create (const char *service, bool create);
 
+/* Derive the TIPC instance from the last byte of the IP address */
+static inline uint32_t
+ip_addr_to_tipc_instance (uint32_t addr)
+{
+    return (ntohl (addr) & 0xff);
+}
+
 #endif /* __DATA_H_ */
