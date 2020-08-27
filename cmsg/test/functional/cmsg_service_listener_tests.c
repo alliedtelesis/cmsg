@@ -9,6 +9,7 @@
 #include <cmsg/cmsg_server.h>
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
+#include "setup.h"
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it
@@ -16,8 +17,6 @@
  * using debug symbols.
  */
 #define USED __attribute__ ((used))
-
-#define CMSG_SLD_WAIT_TIME (500 * 1000)
 
 static cmsg_transport *test_transport = NULL;
 static bool expected_added = false;
@@ -31,8 +30,7 @@ set_up (void)
     test_transport = NULL;
     expected_added = false;
 
-    system ("cmsg_sld &");
-    usleep (CMSG_SLD_WAIT_TIME);
+    cmsg_service_listener_daemon_start ();
 
     return 0;
 }
@@ -40,8 +38,7 @@ set_up (void)
 static int USED
 tear_down (void)
 {
-    system ("pkill cmsg_sld");
-    usleep (CMSG_SLD_WAIT_TIME);
+    cmsg_service_listener_daemon_stop ();
 
     return 0;
 }

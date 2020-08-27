@@ -8,6 +8,22 @@
 #include "service_listener/cmsg_sl_api_private.h"
 #include "publisher_subscriber/cmsg_ps_api_private.h"
 
+#define CMSG_SLD_WAIT_TIME (500 * 1000)
+
+void
+cmsg_service_listener_daemon_start (void)
+{
+    system ("cmsg_sld &");
+    usleep (CMSG_SLD_WAIT_TIME);
+}
+
+void
+cmsg_service_listener_daemon_stop (void)
+{
+    system ("pkill cmsg_sld");
+    usleep (CMSG_SLD_WAIT_TIME);
+}
+
 static void
 sm_mock_cmsg_service_listener_add_server (cmsg_server *server)
 {

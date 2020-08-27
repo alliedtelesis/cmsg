@@ -58,7 +58,8 @@ set_up (void)
     signal (SIGPIPE, SIG_IGN);
 
     np_mock (cmsg_service_port_get, sm_mock_cmsg_service_port_get);
-    cmsg_service_listener_mock_functions ();
+
+    cmsg_service_listener_daemon_start ();
 
     return 0;
 }
@@ -69,6 +70,8 @@ set_up (void)
 static int USED
 tear_down (void)
 {
+    cmsg_service_listener_daemon_stop ();
+
     return 0;
 }
 

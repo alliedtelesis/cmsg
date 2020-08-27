@@ -185,6 +185,15 @@ server_event_callback (const cmsg_transport *transport, bool added, void *user_c
     return true;
 }
 
+/* Clean up the service listener when the connection management thread exits. */
+static void
+cmsg_broadcast_conn_mgmt_thread_cancelled (void *_info)
+{
+    const cmsg_sl_info *info = _info;
+
+    cmsg_service_listener_unlisten (info);
+}
+
 /**
  * Listen for and process CMSG service listener notifications
  */
@@ -203,6 +212,9 @@ cmsg_broadcast_conn_mgmt_thread (void *_broadcast_client)
     info =
         cmsg_service_listener_listen (service_name, server_event_callback,
                                       broadcast_client);
+
+    pthread_cleanup_push (cmsg_broadcast_conn_mgmt_thread_cancelled, (void *) info);
+
     event_fd = cmsg_service_listener_get_event_fd (info);
 
     if (event_fd < 0)
@@ -228,6 +240,8 @@ cmsg_broadcast_conn_mgmt_thread (void *_broadcast_client)
 
         cmsg_service_listener_event_queue_process (info);
     }
+
+    pthread_cleanup_pop (1);
 
     pthread_exit (NULL);
 }
