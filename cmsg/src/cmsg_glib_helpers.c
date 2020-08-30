@@ -234,8 +234,7 @@ cmsg_glib_tcp_subscriber_init (const char *service_name, struct in_addr addr,
  *
  * @param service - The protobuf-c service the server is to implement.
  *
- * @returns Pointer to a 'cmsg_server_accept_thread_info' structure.
- *          NULL on failure.
+ * @returns Pointer to the CMSG server. NULL on failure.
  */
 cmsg_server *
 cmsg_glib_unix_server_init (ProtobufCService *service)
@@ -243,6 +242,36 @@ cmsg_glib_unix_server_init (ProtobufCService *service)
     cmsg_server *server = NULL;
 
     server = cmsg_create_server_unix_rpc (service);
+    if (!server)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
+                            cmsg_service_name_get (service->descriptor));
+        return NULL;
+    }
+
+    if (cmsg_glib_server_init (server) != CMSG_RET_OK)
+    {
+        cmsg_destroy_server_and_transport (server);
+        server = NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create and start processing a UNIX transport based oneway CMSG server for the given
+ * CMSG service.
+ *
+ * @param service - The protobuf-c service the server is to implement.
+ *
+ * @returns Pointer to the CMSG server. NULL on failure.
+ */
+cmsg_server *
+cmsg_glib_unix_server_init_oneway (ProtobufCService *service)
+{
+    cmsg_server *server = NULL;
+
+    server = cmsg_create_server_unix_oneway (service);
     if (!server)
     {
         CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",

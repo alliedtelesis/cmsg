@@ -117,7 +117,7 @@ cmsg_sld_configuration_impl_remove_server (const void *service,
         recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
         /* Ignore everything except TCP and UNIX services for now */
-        cmsg_sld_configuration_server_add_serverSend (service);
+        cmsg_sld_configuration_server_remove_serverSend (service);
         return;
     }
 
