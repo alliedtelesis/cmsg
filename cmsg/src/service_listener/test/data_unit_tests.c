@@ -443,7 +443,7 @@ test_data_remove_servers_by_addr (void)
     data_add_server (service_info_4, true);
 
     addr.s_addr = 123;
-    data_remove_servers_by_addr (addr);
+    data_remove_servers_by_addr (addr, 1);
 
     NP_ASSERT_EQUAL (g_hash_table_size (hash_table), 2);
 
@@ -496,7 +496,7 @@ test_data_get_servers_by_addr (void)
     data_add_server (service_info_3, true);
     data_add_server (service_info_4, true);
 
-    addr_list = data_get_servers_by_addr (123);
+    addr_list = data_get_servers_by_addr (123, 1);
     NP_ASSERT_EQUAL (g_list_length (addr_list), 2);
 
     GList *list = NULL;

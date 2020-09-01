@@ -26,6 +26,7 @@ typedef struct _service_lookup_data
 {
     GList *list;
     uint32_t addr;
+    uint32_t node_id;
 } service_lookup_data;
 
 GHashTable *hash_table = NULL;
@@ -251,7 +252,7 @@ data_remove_server (const cmsg_service_info *server_info)
 static gboolean
 _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
 {
-    uint32_t *addr = (uint32_t *) user_data;
+    service_lookup_data *lookup_data = (service_lookup_data *) user_data;
     service_data_entry *entry = (service_data_entry *) value;
     GList *list = NULL;
     cmsg_service_info *service_info = NULL;
@@ -265,7 +266,7 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
         {
             cmsg_tcp_transport_info *info = service_info->server_info->tcp_info;
 
-            if (info->ipv4 && !memcmp (info->addr.data, addr, info->addr.len))
+            if (info->ipv4 && !memcmp (info->addr.data, &lookup_data->addr, info->addr.len))
             {
                 removal_list = g_list_append (removal_list, service_info);
             }
@@ -274,7 +275,7 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
         {
             cmsg_tipc_transport_info *info = service_info->server_info->tipc_info;
 
-            if (info->addr_name_name_instance == ip_addr_to_tipc_instance (*addr))
+            if (info->addr_name_name_instance == lookup_data->node_id)
             {
                 removal_list = g_list_append (removal_list, service_info);
             }
@@ -301,14 +302,21 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
 }
 
 /**
- * Remove any servers that match the given address from the hash table.
+ * Remove any servers from the hash table that match the given addressing information.
  *
- * @param addr - The IP address to match against.
+ * @param addr    - The IP address to match against.
+ * @param node_id - The node-id to match against.
  */
 void
-data_remove_servers_by_addr (struct in_addr addr)
+data_remove_servers_by_addr (struct in_addr addr, uint32_t node_id)
 {
-    g_hash_table_foreach_remove (hash_table, _delete_server_by_addr, &addr.s_addr);
+    service_lookup_data lookup_data;
+
+    lookup_data.list = NULL;
+    lookup_data.addr = addr.s_addr;
+    lookup_data.node_id = node_id;
+
+    g_hash_table_foreach_remove (hash_table, _delete_server_by_addr, &lookup_data);
 }
 
 /**
@@ -435,8 +443,7 @@ _get_servers_by_addr (gpointer key, gpointer value, gpointer user_data)
         {
             cmsg_tipc_transport_info *info = service_info->server_info->tipc_info;
 
-            if (info->addr_name_name_instance ==
-                ip_addr_to_tipc_instance (lookup_data->addr))
+            if (info->addr_name_name_instance == lookup_data->node_id)
             {
                 lookup_data->list = g_list_append (lookup_data->list, service_info);
             }
@@ -445,20 +452,22 @@ _get_servers_by_addr (gpointer key, gpointer value, gpointer user_data)
 }
 
 /**
- * Get a list of all servers for a given address.
+ * Get a list of all servers for given addressing information.
  *
- * @param addr - The address to get the servers for.
+ * @param addr    - The address to get the servers for.
+ * @param node_id - The node-id to get the servers for.
  *
  * @returns A GList containing all of the servers. This list should be freed
  *          by the caller using 'g_list_free'.
  */
 GList *
-data_get_servers_by_addr (uint32_t addr)
+data_get_servers_by_addr (uint32_t addr, uint32_t node_id)
 {
     service_lookup_data lookup_data;
 
     lookup_data.list = NULL;
     lookup_data.addr = addr;
+    lookup_data.node_id = node_id;
 
     g_hash_table_foreach (hash_table, _get_servers_by_addr, &lookup_data);
 
