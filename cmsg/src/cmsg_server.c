@@ -230,14 +230,14 @@ cmsg_server_destroy (cmsg_server *server)
     pthread_mutex_destroy (&server->queueing_state_mutex);
     pthread_mutex_destroy (&server->queue_mutex);
 
-    if (server->_transport)
-    {
-        server->_transport->tport_funcs.socket_close (server->_transport);
-    }
-
     if (server->accept_thread_info)
     {
         cmsg_server_accept_thread_deinit (server);
+    }
+
+    if (server->_transport)
+    {
+        server->_transport->tport_funcs.socket_close (server->_transport);
     }
 
     CMSG_FREE (server);
