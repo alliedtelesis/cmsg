@@ -257,7 +257,7 @@ data_add_local_subscription (const cmsg_subscription_info *info)
     method_entry = get_method_entry_or_create (service_entry, info->method_name, true);
 
     transport_copy = cmsg_transport_info_copy (info->transport_info);
-    method_entry->transports = g_list_append (method_entry->transports, transport_copy);
+    method_entry->transports = g_list_prepend (method_entry->transports, transport_copy);
 
     update_publishers_with_method_change (service_entry->comp_client, info->method_name,
                                           info->transport_info, true);
@@ -485,7 +485,7 @@ data_remove_remote_entries_for_subscriber (const char *service,
         if (strcmp (info->service, service) == 0 &&
             cmsg_transport_info_compare (info->transport_info, transport_info))
         {
-            removal_list = g_list_append (removal_list, (void *) info);
+            removal_list = g_list_prepend (removal_list, (void *) info);
         }
     }
 
@@ -642,7 +642,7 @@ data_remove_clients_with_addr_from_method (method_data_entry *method_entry, uint
             transport = cmsg_transport_info_to_transport (transport_info);
             if (transport->config.socket.sockaddr.in.sin_addr.s_addr == addr)
             {
-                removal_list = g_list_append (removal_list, transport_info);
+                removal_list = g_list_prepend (removal_list, transport_info);
             }
             cmsg_transport_destroy (transport);
         }
