@@ -177,14 +177,14 @@ cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
     cmsg_server *server;
     server = cmsg_server_create (transport, service);
 
-    cmsg_service_listener_add_server (server);
-
-#ifdef HAVE_COUNTERD
-    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
-
-    /* initialise our counters */
     if (server != NULL)
     {
+        cmsg_service_listener_add_server (server);
+
+#ifdef HAVE_COUNTERD
+        char app_name[CNTRD_MAX_APP_NAME_LENGTH];
+
+        /* initialise our counters */
         snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
                   CMSG_COUNTER_APP_NAME_PREFIX, service->descriptor->name,
                   cmsg_transport_counter_app_tport_id (transport));
@@ -193,8 +193,8 @@ cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
         {
             CMSG_LOG_GEN_ERROR ("[%s] Unable to create server counters.", app_name);
         }
-    }
 #endif
+    }
 
     return server;
 }
