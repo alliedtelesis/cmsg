@@ -323,7 +323,7 @@ cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t 
 
     pthread_mutex_lock (&listener_list_mutex);
 
-    listener_list = g_list_append (listener_list, info);
+    listener_list = g_list_prepend (listener_list, info);
 
     /* If this is the first listener then create the server for receiving
      * notifications from the service listener daemon. */
