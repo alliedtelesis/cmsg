@@ -138,7 +138,7 @@ notify_listeners (const cmsg_service_info *server_info, service_data_entry *entr
 
         if (ret != CMSG_RET_OK)
         {
-            removal_list = g_list_append (removal_list, listener_info);
+            removal_list = g_list_prepend (removal_list, listener_info);
         }
     }
 
@@ -176,7 +176,7 @@ data_add_server (cmsg_service_info *server_info, bool local)
     data_remove_server (server_info);
 
     entry = get_service_entry_or_create (server_info->service, true);
-    entry->servers = g_list_append (entry->servers, (gpointer) server_info);
+    entry->servers = g_list_prepend (entry->servers, (gpointer) server_info);
 
     notify_listeners (server_info, entry, true);
     remote_sync_server_added (server_info);
@@ -267,7 +267,7 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
 
             if (info->ipv4 && !memcmp (info->addr.data, addr, info->addr.len))
             {
-                removal_list = g_list_append (removal_list, service_info);
+                removal_list = g_list_prepend (removal_list, service_info);
             }
         }
     }
@@ -328,7 +328,7 @@ data_add_listener (const cmsg_sld_listener_info *info)
     listener_info->id = info->id;
     listener_info->pid = info->pid;
 
-    entry->listeners = g_list_append (entry->listeners, listener_info);
+    entry->listeners = g_list_prepend (entry->listeners, listener_info);
 
     for (list = g_list_first (entry->servers); list; list = g_list_next (list))
     {
@@ -419,7 +419,7 @@ _get_servers_by_addr (gpointer key, gpointer value, gpointer user_data)
 
             if (info->ipv4 && !memcmp (info->addr.data, &lookup_data->addr, info->addr.len))
             {
-                lookup_data->list = g_list_append (lookup_data->list, service_info);
+                lookup_data->list = g_list_prepend (lookup_data->list, service_info);
             }
         }
     }

@@ -218,7 +218,7 @@ remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void 
     {
         new_transport = cmsg_transport_copy (transport);
         client = cmsg_client_new (new_transport, CMSG_DESCRIPTOR (cmsg_psd, remote_sync));
-        remote_sync_client_list = g_list_append (remote_sync_client_list, client);
+        remote_sync_client_list = g_list_prepend (remote_sync_client_list, client);
         remote_sync_bulk_sync_subscriptions (client);
     }
     else

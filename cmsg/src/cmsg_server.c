@@ -177,14 +177,14 @@ cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
     cmsg_server *server;
     server = cmsg_server_create (transport, service);
 
-    cmsg_service_listener_add_server (server);
-
-#ifdef HAVE_COUNTERD
-    char app_name[CNTRD_MAX_APP_NAME_LENGTH];
-
-    /* initialise our counters */
     if (server != NULL)
     {
+        cmsg_service_listener_add_server (server);
+
+#ifdef HAVE_COUNTERD
+        char app_name[CNTRD_MAX_APP_NAME_LENGTH];
+
+        /* initialise our counters */
         snprintf (app_name, CNTRD_MAX_APP_NAME_LENGTH, "%s%s%s",
                   CMSG_COUNTER_APP_NAME_PREFIX, service->descriptor->name,
                   cmsg_transport_counter_app_tport_id (transport));
@@ -193,8 +193,8 @@ cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
         {
             CMSG_LOG_GEN_ERROR ("[%s] Unable to create server counters.", app_name);
         }
-    }
 #endif
+    }
 
     return server;
 }
@@ -230,14 +230,14 @@ cmsg_server_destroy (cmsg_server *server)
     pthread_mutex_destroy (&server->queueing_state_mutex);
     pthread_mutex_destroy (&server->queue_mutex);
 
-    if (server->_transport)
-    {
-        server->_transport->tport_funcs.socket_close (server->_transport);
-    }
-
     if (server->accept_thread_info)
     {
         cmsg_server_accept_thread_deinit (server);
+    }
+
+    if (server->_transport)
+    {
+        server->_transport->tport_funcs.socket_close (server->_transport);
     }
 
     CMSG_FREE (server);
@@ -764,6 +764,7 @@ cmsg_server_recv_process (int socket, uint8_t *buffer_data, cmsg_server *server,
             cmsg_server_empty_method_reply_send (socket, server,
                                                  CMSG_STATUS_CODE_SERVER_METHOD_NOT_FOUND,
                                                  UNDEFINED_METHOD);
+            CMSG_COUNTER_INC (server, cntr_unknown_rpc);
         }
     }
     else
@@ -831,13 +832,8 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
                     server->service->descriptor->name, server->_transport->type, socket,
                     ret);
 
-        /* Count an unknown method error separately */
-        if (ret == CMSG_RET_METHOD_NOT_FOUND)
-        {
-            CMSG_COUNTER_INC (server, cntr_unknown_rpc);
-        }
         /* Do not count as an error if the peer has performed an orderly shutdown */
-        else if (ret != CMSG_RET_CLOSED)
+        if (ret != CMSG_RET_CLOSED)
         {
             CMSG_COUNTER_INC (server, cntr_recv_errors);
         }

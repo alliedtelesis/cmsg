@@ -171,9 +171,22 @@ GenerateStructDefinitionDefine(io::Printer* printer) {
   printer->Print(vars, "#define $cmsg_ucclassname$_INIT $ucclassname$__INIT\n");
 }
 
-static bool message_has_validation(const Descriptor *message)
+static bool _message_has_validation(const Descriptor *message,
+                                    std::unordered_set<const Descriptor *> *recursed_descriptors)
 {
     const FieldDescriptor *field = NULL;
+
+    /* For each submessage in a message we recursively check if that message
+     * needs validation. Therefore it is possible to recurse infinitively
+     * if a submessage eventually has a field of the type of its parent. This
+     * check here is to ensure that we stop recursion if we have already recursed
+     * through the message type we are currently checking. */
+    if (recursed_descriptors->find(message) != recursed_descriptors->end())
+    {
+        return false;
+    }
+
+    recursed_descriptors->insert(message);
 
     for (int i = 0; i < message->field_count(); i++)
     {
@@ -186,14 +199,7 @@ static bool message_has_validation(const Descriptor *message)
          {
               const Descriptor *submessage = field->message_type();
 
-              /* Check that the sub message type is not the same as the parent message
-               * to avoid infinite recursion. */
-              if (strcmp (message->name().c_str(), submessage->name().c_str()) == 0)
-              {
-                  continue;
-              }
-
-              if (message_has_validation(submessage))
+              if (_message_has_validation(submessage, recursed_descriptors))
               {
                   return true;
               }
@@ -201,6 +207,12 @@ static bool message_has_validation(const Descriptor *message)
     }
 
     return false;
+}
+
+static bool message_has_validation(const Descriptor *message)
+{
+    std::unordered_set<const Descriptor *> recursed_descriptors;
+    return _message_has_validation (message, &recursed_descriptors);
 }
 
 static void
