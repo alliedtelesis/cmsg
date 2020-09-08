@@ -169,6 +169,9 @@ GenerateStructDefinitionDefine(io::Printer* printer) {
   }
 
   printer->Print(vars, "#define $cmsg_ucclassname$_INIT $ucclassname$__INIT\n");
+
+  vars["num_fields"] = std::to_string(descriptor_->field_count());
+  printer->Print(vars, "#define $cmsg_ucclassname$_NUM_FIELDS $num_fields$\n");
 }
 
 static bool _message_has_validation(const Descriptor *message,
