@@ -228,6 +228,40 @@ cmsg_proxy_json_object_sanity_check (json_t *json_obj, json_error_t *error)
 }
 
 /**
+ * Sanity checks for a JSON object array input to the web API
+ * by the user.
+ *
+ * @param json_array - Converted JSON array input by the user
+ * @param error - Error structure to hold error information
+ *
+ * @returns - true if sanity checks pass, false otherwise
+ */
+static bool
+cmsg_proxy_json_object_array_sanity_check (json_t *json_array, json_error_t *error)
+{
+    size_t index;
+    json_t *value;
+
+    if (!json_is_array (json_array))
+    {
+        snprintf (error->text, JSON_ERROR_TEXT_LENGTH,
+                  "JSON array expected but JSON value or object given");
+        return false;
+    }
+
+    json_array_foreach (json_array, index, value)
+    {
+        if (!cmsg_proxy_json_object_sanity_check (value, error))
+        {
+            snprintf (error->text, JSON_ERROR_TEXT_LENGTH, "Invalid JSON");
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Check that no input data is received if we don't expect any or that input data is
  * received when we do expect it. If input data does not match expectations, generate an
  * appropriate error message.
@@ -356,10 +390,21 @@ cmsg_proxy_json_object_create (const char *input_data, size_t input_length,
 
         if (field_desc->type == PROTOBUF_C_TYPE_MESSAGE)
         {
-            if (!cmsg_proxy_json_object_sanity_check (converted_json, error))
+            if (field_desc->label == PROTOBUF_C_LABEL_REPEATED)
             {
-                json_decref (converted_json);
-                return NULL;
+                if (!cmsg_proxy_json_object_array_sanity_check (converted_json, error))
+                {
+                    json_decref (converted_json);
+                    return NULL;
+                }
+            }
+            else
+            {
+                if (!cmsg_proxy_json_object_sanity_check (converted_json, error))
+                {
+                    json_decref (converted_json);
+                    return NULL;
+                }
             }
 
             json_obj = json_pack ("{so}", field_desc->name, converted_json);
