@@ -285,6 +285,7 @@ cmsg_sld_SOURCES = \
 	src/service_listener/configuration.c \
 	src/service_listener/remote_sync.c \
 	src/service_listener/data.c \
+	src/service_listener/process_watch.c \
 	src/service_listener/configuration_impl_auto.c \
 	src/service_listener/configuration.pb-c.c \
 	src/service_listener/remote_sync_api_auto.c \
@@ -408,6 +409,7 @@ cmsg_service_listener_unit_tests_SOURCES = \
 	src/service_listener/configuration.c \
 	src/service_listener/remote_sync.c \
 	src/service_listener/data.c \
+	src/service_listener/process_watch.c \
 	src/service_listener/configuration_impl_auto.c \
 	src/service_listener/configuration.pb-c.c \
 	src/service_listener/remote_sync_api_auto.c \

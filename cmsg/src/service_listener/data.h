@@ -34,6 +34,7 @@ void data_add_server (cmsg_service_info *server_info, bool local);
 void data_remove_server (const cmsg_service_info *server_info);
 void data_remove_servers_by_addr (struct in_addr addr, uint32_t node_id);
 GList *data_get_servers_by_addr (uint32_t addr, uint32_t node_id);
+void data_remove_by_pid (int pid);
 void data_add_listener (const cmsg_sld_listener_info *info);
 void data_remove_listener (const cmsg_sld_listener_info *info);
 service_data_entry *get_service_entry_or_create (const char *service, bool create);
