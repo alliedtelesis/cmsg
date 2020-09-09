@@ -68,7 +68,7 @@ void
 cmsg_sld_remote_sync_impl_remove_server (const void *service,
                                          const cmsg_service_info *recv_msg)
 {
-    data_remove_server (recv_msg);
+    data_remove_server (recv_msg, false);
     cmsg_sld_remote_sync_server_remove_serverSend (service);
 }
 

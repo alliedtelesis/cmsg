@@ -6,6 +6,7 @@
 
 #include <np.h>
 #include "../data.h"
+#include "../process_watch.h"
 #include <cmsg/cmsg_private.h>
 #include "transport/cmsg_transport_private.h"
 #include "../events_api_auto.h"
@@ -21,11 +22,23 @@ extern GHashTable *hash_table;
 
 static int cmsg_sld_events_api_server_added_called = 0;
 
+static void
+sm_mock_process_watch_add (int pid)
+{
+}
+
+static void
+sm_mock_process_watch_remove (int pid)
+{
+}
+
 static int USED
 set_up (void)
 {
     cmsg_sld_events_api_server_added_called = 0;
 
+    np_mock (process_watch_add, sm_mock_process_watch_add);
+    np_mock (process_watch_remove, sm_mock_process_watch_remove);
 
     data_init ();
 
@@ -35,6 +48,9 @@ set_up (void)
 static int USED
 tear_down (void)
 {
+    np_unmock (process_watch_add);
+    np_unmock (process_watch_remove);
+
     data_deinit ();
 
     return 0;
@@ -95,6 +111,13 @@ sm_mock_cmsg_sld_events_api_server_added_ok (cmsg_client *_client,
                                              const cmsg_sld_server_event *_send_msg)
 {
     cmsg_sld_events_api_server_added_called++;
+    return CMSG_RET_OK;
+}
+
+static int
+sm_mock_cmsg_sld_events_api_server_removed_ok (cmsg_client *_client,
+                                               const cmsg_sld_server_event *_send_msg)
+{
     return CMSG_RET_OK;
 }
 
@@ -318,7 +341,7 @@ test_data_remove_server (void)
     CMSG_SET_FIELD_PTR (service_info_2, server_info, create_unix_transport_info ());
 
     data_add_server (service_info_1, true);
-    data_remove_server (service_info_2);
+    data_remove_server (service_info_2, true);
 
     CMSG_FREE_RECV_MSG (service_info_2);
 
@@ -353,7 +376,7 @@ test_data_remove_server_correct_service (void)
 
     data_add_server (service_info_1, true);
     data_add_server (service_info_2, true);
-    data_remove_server (service_info_3);
+    data_remove_server (service_info_3, true);
 
     CMSG_FREE_RECV_MSG (service_info_3);
 
@@ -393,7 +416,7 @@ test_data_remove_server_correct_server (void)
 
     data_add_server (service_info_1, true);
     data_add_server (service_info_2, true);
-    data_remove_server (service_info_3);
+    data_remove_server (service_info_3, true);
 
     CMSG_FREE_RECV_MSG (service_info_3);
 
@@ -678,4 +701,67 @@ test_data_add_server_with_existing_listeners_rpc_failure (void)
 
     NP_ASSERT_EQUAL (g_list_length (entry->listeners), 1);
     NP_ASSERT_EQUAL (cmsg_sld_events_api_server_added_called, 2);
+}
+
+void
+test_data_remove_by_pid (void)
+{
+    cmsg_service_info *service_info_1 = NULL;
+    cmsg_service_info *service_info_2 = NULL;
+    service_data_entry *entry = NULL;
+    cmsg_sld_listener_info listener_info = CMSG_SLD_LISTENER_INFO_INIT;
+    cmsg_transport_info *transport_info = NULL;
+
+    np_mock (cmsg_sld_events_api_server_added, sm_mock_cmsg_sld_events_api_server_added_ok);
+    np_mock (cmsg_sld_events_api_server_removed,
+             sm_mock_cmsg_sld_events_api_server_removed_ok);
+
+    /* Add two listeners for different services,
+     * one with PID 10, one with PID 11. */
+    transport_info = create_tcp_transport_info (999);
+
+    CMSG_SET_FIELD_PTR (&listener_info, service, "test_service1");
+    CMSG_SET_FIELD_PTR (&listener_info, transport_info, transport_info);
+    CMSG_SET_FIELD_VALUE (&listener_info, id, 5);
+    CMSG_SET_FIELD_VALUE (&listener_info, pid, 10);
+
+    data_add_listener (&listener_info);
+
+    CMSG_SET_FIELD_PTR (&listener_info, service, "test_service2");
+    CMSG_SET_FIELD_VALUE (&listener_info, pid, 11);
+    data_add_listener (&listener_info);
+
+    cmsg_transport_info_free (transport_info);
+
+    /* Add two servers for the different services, both with PID 10. */
+    service_info_1 = CMSG_MALLOC (sizeof (*service_info_1));
+    cmsg_service_info_init (service_info_1);
+
+    service_info_2 = CMSG_MALLOC (sizeof (*service_info_2));
+    cmsg_service_info_init (service_info_2);
+
+    CMSG_SET_FIELD_PTR (service_info_1, service, CMSG_STRDUP ("test_service1"));
+    CMSG_SET_FIELD_VALUE (service_info_1, pid, 10);
+    data_add_server (service_info_1, true);
+
+    CMSG_SET_FIELD_PTR (service_info_2, service, CMSG_STRDUP ("test_service2"));
+    CMSG_SET_FIELD_VALUE (service_info_2, pid, 10);
+    data_add_server (service_info_2, true);
+
+    NP_ASSERT_EQUAL (g_hash_table_size (hash_table), 2);
+
+    /* Remove by PID 10, the only remaining thing should be the listener
+     * with PID 11. */
+    data_remove_by_pid (10);
+    NP_ASSERT_EQUAL (g_hash_table_size (hash_table), 1);
+
+    NP_ASSERT_NULL (get_service_entry_or_create ("test_service1", false));
+    entry = get_service_entry_or_create ("test_service2", false);
+    NP_ASSERT_NOT_NULL (entry);
+    NP_ASSERT_EQUAL (g_list_length (entry->servers), 0);
+    NP_ASSERT_EQUAL (g_list_length (entry->listeners), 1);
+
+    /* Remove by PID 11, the hash table should now be empty. */
+    data_remove_by_pid (11);
+    NP_ASSERT_EQUAL (g_hash_table_size (hash_table), 0);
 }

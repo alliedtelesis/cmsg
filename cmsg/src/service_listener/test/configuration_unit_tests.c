@@ -32,7 +32,7 @@ sm_mock_data_add_server (const cmsg_service_info *server_info, bool local)
 }
 
 static void
-sm_mock_data_remove_server (const cmsg_service_info *server_info)
+sm_mock_data_remove_server (const cmsg_service_info *server_info, bool local)
 {
     data_remove_server_called = true;
 }

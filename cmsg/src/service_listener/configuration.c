@@ -125,7 +125,7 @@ cmsg_sld_configuration_impl_remove_server (const void *service,
         return;
     }
 
-    data_remove_server (recv_msg);
+    data_remove_server (recv_msg, true);
 
     cmsg_sld_configuration_server_remove_serverSend (service);
 }
