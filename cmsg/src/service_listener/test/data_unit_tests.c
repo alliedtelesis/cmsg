@@ -26,7 +26,8 @@ set_up (void)
 {
     cmsg_sld_events_api_server_added_called = 0;
 
-    data_init (false);
+
+    data_init ();
 
     return 0;
 }

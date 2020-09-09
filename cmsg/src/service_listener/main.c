@@ -124,7 +124,7 @@ main (int argc, char **argv)
     /* register for healthchecking */
     g_timeout_add_seconds (1, cmsg_sld_healthcheck_init, NULL);
 
-    data_init (true);
+    data_init ();
     configuration_server_init ();
 
     /* Create run file */
