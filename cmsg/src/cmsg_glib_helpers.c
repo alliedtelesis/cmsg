@@ -58,7 +58,7 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
         g_io_channel_unref (read_channel);
         g_source_set_callback (read_source, (GSourceFunc) cmsg_glib_server_read,
                                server, NULL);
-        g_source_attach (read_source, info->context);
+        g_source_attach (read_source, server->event_loop_data);
         CMSG_FREE (newfd_ptr);
     }
 
@@ -84,7 +84,7 @@ _cmsg_glib_server_processing_start (cmsg_server *server, GMainContext *context)
     if (context && source)
     {
         g_source_attach (source, context);
-        info->context = context;
+        server->event_loop_data = context;
     }
 }
 
