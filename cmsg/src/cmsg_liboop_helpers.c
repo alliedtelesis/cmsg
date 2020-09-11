@@ -152,3 +152,49 @@ cmsg_liboop_server_destroy (cmsg_server *server)
         cmsg_destroy_server_and_transport (server);
     }
 }
+
+/**
+ * Create and initialise a CMSG mesh connection. This function automatically
+ * starts the processing of the server that is part of the mesh connection.
+ *
+ * @param service - The protobuf-c service the mesh connection is for.
+ * @param service_entry_name - The name in the services file corresponding to the
+ *                             TIPC port to use for the protobuf-c service.
+ *
+ * @returns Pointer to a 'cmsg_tipc_mesh_conn' structure.
+ *          NULL on failure.
+ */
+cmsg_tipc_mesh_conn *
+cmsg_liboop_tipc_mesh_init (ProtobufCService *service, const char *service_entry_name,
+                            int this_node_id, int min_node_id, int max_node_id,
+                            cmsg_mesh_local_type type, bool oneway)
+{
+    cmsg_tipc_mesh_conn *mesh =
+        cmsg_tipc_mesh_connection_init (service, service_entry_name, this_node_id,
+                                        min_node_id, max_node_id, type, oneway, NULL);
+    if (mesh == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to create mesh connection for %s",
+                            cmsg_service_name_get (service->descriptor));
+        return NULL;
+    }
+
+    cmsg_liboop_server_processing_start (mesh->server);
+
+    return mesh;
+}
+
+/**
+ * Destroy a CMSG mesh connection created with the liboop helper.
+ *
+ * @param mesh - The mesh connection to destroy.
+ */
+void
+cmsg_liboop_mesh_destroy (cmsg_tipc_mesh_conn *mesh)
+{
+    if (mesh)
+    {
+        cmsg_liboop_server_processing_stop (mesh->server);
+        cmsg_tipc_mesh_connection_destroy (mesh);
+    }
+}
