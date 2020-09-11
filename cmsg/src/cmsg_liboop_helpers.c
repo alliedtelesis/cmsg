@@ -198,3 +198,41 @@ cmsg_liboop_mesh_destroy (cmsg_tipc_mesh_conn *mesh)
         cmsg_tipc_mesh_connection_destroy (mesh);
     }
 }
+
+/**
+ * Start a unix subscriber and subscribe for events.
+ * @param service - service to subscribe to.
+ * @param events - Array of strings of events to subscribe to. Last entry must be NULL.
+ * @returns A pointer to the subscriber on success, NULL on failure.
+ */
+cmsg_subscriber *
+cmsg_liboop_unix_subscriber_init (ProtobufCService *service, const char **events)
+{
+    cmsg_subscriber *sub = NULL;
+    int32_t ret;
+
+    sub = cmsg_subscriber_create_unix (service);
+    if (!sub)
+    {
+        return NULL;
+    }
+
+    ret = cmsg_server_accept_thread_init (cmsg_sub_unix_server_get (sub));
+    if (ret != CMSG_RET_OK)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server accept thread for %s",
+                            cmsg_service_name_get (service->descriptor));
+        cmsg_subscriber_destroy (sub);
+        return NULL;
+    }
+
+    cmsg_liboop_server_processing_start (cmsg_sub_unix_server_get (sub));
+
+    /* Subscribe to relevant events */
+    if (events)
+    {
+        cmsg_sub_subscribe_events_local (sub, events);
+    }
+
+    return sub;
+}
