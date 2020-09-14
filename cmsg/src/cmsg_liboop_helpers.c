@@ -236,3 +236,71 @@ cmsg_liboop_unix_subscriber_init (ProtobufCService *service, const char **events
 
     return sub;
 }
+
+/**
+ * Create and start processing a TIPC transport based CMSG server for the given
+ * CMSG service for the given stack node ID.
+ *
+ * @param server_name - TIPC server name
+ * @param member_id - TIPC node ID
+ * @param scope - TIPC scope
+ * @param service - The protobuf-c service the server is to implement.
+ *
+ * @returns Pointer to the 'cmsg_server' structure or NULL on failure.
+ */
+cmsg_server *
+cmsg_liboop_tipc_rpc_server_init (const char *server_name, int member_id, int scope,
+                                  ProtobufCService *service)
+{
+    cmsg_server *server = NULL;
+
+    server = cmsg_create_server_tipc_rpc (server_name, member_id, scope, service);
+    if (!server)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
+                            cmsg_service_name_get (service->descriptor));
+        return NULL;
+    }
+
+    if (cmsg_liboop_server_init (server) != CMSG_RET_OK)
+    {
+        cmsg_destroy_server_and_transport (server);
+        server = NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create and start processing a TIPC transport based CMSG server for the given
+ * CMSG service for the given stack node ID.
+ *
+ * @param server_name - TIPC server name
+ * @param member_id - TIPC node ID
+ * @param scope - TIPC scope
+ * @param service - The protobuf-c service the server is to implement.
+ *
+ * @returns Pointer to the 'cmsg_server' structure or NULL on failure.
+ */
+cmsg_server *
+cmsg_liboop_tipc_oneway_server_init (const char *server_name, int member_id, int scope,
+                                     ProtobufCService *service)
+{
+    cmsg_server *server = NULL;
+
+    server = cmsg_create_server_tipc_oneway (server_name, member_id, scope, service);
+    if (!server)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
+                            cmsg_service_name_get (service->descriptor));
+        return NULL;
+    }
+
+    if (cmsg_liboop_server_init (server) != CMSG_RET_OK)
+    {
+        cmsg_destroy_server_and_transport (server);
+        server = NULL;
+    }
+
+    return server;
+}
