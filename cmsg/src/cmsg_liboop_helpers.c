@@ -76,12 +76,15 @@ cmsg_liboop_server_processing_start (cmsg_server *server)
  *
  * @param server - The CMSG server to stop processing.
  */
-static void
+void
 cmsg_liboop_server_processing_stop (cmsg_server *server)
 {
-    g_hash_table_remove_all (server->event_loop_data);
-    g_hash_table_unref (server->event_loop_data);
-    server->event_loop_data = NULL;
+    if (server && server->event_loop_data)
+    {
+        g_hash_table_remove_all (server->event_loop_data);
+        g_hash_table_unref (server->event_loop_data);
+        server->event_loop_data = NULL;
+    }
 }
 
 /**
@@ -235,6 +238,21 @@ cmsg_liboop_unix_subscriber_init (ProtobufCService *service, const char **events
     }
 
     return sub;
+}
+
+/**
+ * Destroy a CMSG subscriber created with the liboop helper.
+ *
+ * @param subscriber - The subscriber to destroy.
+ */
+void
+cmsg_liboop_unix_subscriber_destroy (cmsg_subscriber *subscriber)
+{
+    if (subscriber)
+    {
+        cmsg_liboop_server_processing_stop (cmsg_sub_unix_server_get (subscriber));
+        cmsg_subscriber_destroy (subscriber);
+    }
 }
 
 /**

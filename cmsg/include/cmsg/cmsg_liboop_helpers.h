@@ -10,6 +10,7 @@
 #include <cmsg/cmsg_sub.h>
 
 cmsg_server *cmsg_liboop_unix_server_init (ProtobufCService *service);
+void cmsg_liboop_server_processing_stop (cmsg_server *server);
 void cmsg_liboop_server_destroy (cmsg_server *server);
 cmsg_tipc_mesh_conn *cmsg_liboop_tipc_mesh_init (ProtobufCService *service,
                                                  const char *service_entry_name,
@@ -19,6 +20,7 @@ cmsg_tipc_mesh_conn *cmsg_liboop_tipc_mesh_init (ProtobufCService *service,
 void cmsg_liboop_mesh_destroy (cmsg_tipc_mesh_conn *mesh);
 cmsg_subscriber *cmsg_liboop_unix_subscriber_init (ProtobufCService *service,
                                                    const char **events);
+void cmsg_liboop_unix_subscriber_destroy (cmsg_subscriber *subscriber);
 cmsg_server *cmsg_liboop_tipc_rpc_server_init (const char *server_name, int member_id,
                                                int scope, ProtobufCService *service);
 cmsg_server *cmsg_liboop_tipc_oneway_server_init (const char *server_name, int member_id,
