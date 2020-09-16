@@ -53,7 +53,6 @@ cmsg_tipc_mesh_connection_init (ProtobufCService *service, const char *service_e
                                                   loopback_client);
         if (ret != CMSG_RET_OK)
         {
-            cmsg_destroy_client_and_transport (mesh_info->loopback_client);
             cmsg_broadcast_client_destroy (mesh_info->broadcast_client);
             CMSG_FREE (mesh_info);
             return NULL;
@@ -73,7 +72,6 @@ cmsg_tipc_mesh_connection_init (ProtobufCService *service, const char *service_e
 
     if (!server)
     {
-        cmsg_destroy_client_and_transport (mesh_info->loopback_client);
         cmsg_broadcast_client_destroy (mesh_info->broadcast_client);
         CMSG_FREE (mesh_info);
         return NULL;
@@ -83,11 +81,21 @@ cmsg_tipc_mesh_connection_init (ProtobufCService *service, const char *service_e
     if (cmsg_server_accept_thread_init (mesh_info->server) != CMSG_RET_OK)
     {
         cmsg_destroy_server_and_transport (mesh_info->server);
-        cmsg_destroy_client_and_transport (mesh_info->loopback_client);
         cmsg_broadcast_client_destroy (mesh_info->broadcast_client);
         CMSG_FREE (mesh_info);
         return NULL;
     }
 
     return mesh_info;
+}
+
+void
+cmsg_tipc_mesh_connection_destroy (cmsg_tipc_mesh_conn *mesh_info)
+{
+    if (mesh_info)
+    {
+        cmsg_destroy_server_and_transport (mesh_info->server);
+        cmsg_broadcast_client_destroy (mesh_info->broadcast_client);
+        CMSG_FREE (mesh_info);
+    }
 }

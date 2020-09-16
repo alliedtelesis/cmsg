@@ -41,5 +41,6 @@ cmsg_tipc_mesh_conn *cmsg_tipc_mesh_connection_init (ProtobufCService *service,
                                                      bool oneway,
                                                      cmsg_broadcast_event_handler_t
                                                      event_handler);
+void cmsg_tipc_mesh_connection_destroy (cmsg_tipc_mesh_conn *mesh);
 
 #endif /* __CMSG_MESH_H_ */

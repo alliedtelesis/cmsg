@@ -149,6 +149,7 @@ libcmsg_la_SOURCES = \
 	src/cmsg_server.c \
 	src/cmsg_mesh.c \
 	src/cmsg_glib_helpers.c \
+	src/cmsg_liboop_helpers.c \
 	src/validation/cmsg_validation.c \
 	src/cmsg_pthread_helpers.c \
 	src/service_listener/cmsg_sl_api.c \
@@ -163,7 +164,7 @@ libcmsg_la_SOURCES = \
 	src/publisher_subscriber/update.pb-c.c \
 	src/cmsg_protobuf-c.c
 
-libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c
+libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c $(OOP_LIBS)
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
@@ -179,6 +180,7 @@ libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg_debug.h \
 	include/cmsg/cmsg_error.h \
 	include/cmsg/cmsg_glib_helpers.h \
+	include/cmsg/cmsg_liboop_helpers.h \
 	include/cmsg/cmsg_mesh.h \
 	include/cmsg/cmsg_private.h \
 	include/cmsg/cmsg_ps_config.h \

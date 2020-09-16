@@ -50,11 +50,6 @@ typedef struct _cmsg_server_accept_thread_info
     /* An eventfd object to notify the server user that there is a new
      * socket descriptor on the accept_sd_queue.  */
     int accept_sd_eventfd;
-
-    /* For processes with threads with unique main loops, store the context.
-     * Should only be accessed within cmsg_glib_helpers.c
-     */
-    GMainContext *context;
 } cmsg_server_accept_thread_info;
 
 typedef struct _cmsg_server_s
@@ -105,6 +100,8 @@ typedef struct _cmsg_server_s
     cmsg_bool_t suppress_errors;
 
     cmsg_server_accept_thread_info *accept_thread_info;
+
+    void *event_loop_data;
 
     //counter information
     void *cntr_session;
