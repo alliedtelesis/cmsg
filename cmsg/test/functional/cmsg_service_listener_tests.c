@@ -9,13 +9,7 @@
 #include <cmsg/cmsg_server.h>
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
-
-/**
- * This informs the compiler that the function is, in fact, being used even though it
- * doesn't look like it. This is useful for static functions that get found by NovaProva
- * using debug symbols.
- */
-#define USED __attribute__ ((used))
+#include "setup.h"
 
 #define CMSG_SLD_WAIT_TIME (500 * 1000)
 

@@ -14,39 +14,18 @@
 #include "cmsg_composite_client.h"
 #include "setup.h"
 
-/**
- * This informs the compiler that the function is, in fact, being used even though it
- * doesn't look like it. This is useful for static functions that get found by NovaProva
- * using debug symbols.
- */
-#define USED __attribute__ ((used))
-
 bool server_threads_run = true;
 
 #define TEST_CLIENT_TIPC_ID 5
 #define MIN_TIPC_ID 1
 #define MAX_TIPC_ID 8
 
-static const uint16_t tipc_port = 18888;
 static const uint16_t tipc_scope = TIPC_CLUSTER_SCOPE;
 
 static pthread_t server_thread1;
 static pthread_t server_thread2;
 
 static bool impl_function_hit = false;
-
-static int
-sm_mock_cmsg_service_port_get (const char *name, const char *proto)
-{
-    if ((strcmp (name, "cmsg-test") == 0) && (strcmp (proto, "tipc") == 0))
-    {
-        return tipc_port;
-    }
-
-    NP_FAIL;
-
-    return 0;
-}
 
 /**
  * Common functionality to run before each test case.

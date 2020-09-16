@@ -14,32 +14,10 @@
 #include "publisher_subscriber/cmsg_ps_api_private.h"
 #include "publisher_subscriber/cmsg_pub_private.h"
 
-/**
- * This informs the compiler that the function is, in fact, being used even though it
- * doesn't look like it. This is useful for static functions that get found by NovaProva
- * using debug symbols.
- */
-#define USED __attribute__ ((used))
-
 /* In microseconds. */
 #define CMSG_PSD_WAIT_TIME (500 * 1000)
 
-static const uint16_t subscriber_port = 18889;
-
 static bool subscriber_run = true;
-
-static int
-sm_mock_cmsg_service_port_get (const char *name, const char *proto)
-{
-    if (strcmp (name, "cmsg-test-subscriber") == 0)
-    {
-        return subscriber_port;
-    }
-
-    NP_FAIL;
-
-    return 0;
-}
 
 /**
  * Common functionality to run before each test case.
@@ -122,7 +100,7 @@ create_sub_before_pub_and_test (cmsg_transport_type type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
         addr.s_addr = htonl (INADDR_LOOPBACK);
-        sub = cmsg_subscriber_create_tcp ("cmsg-test-subscriber", addr, NULL,
+        sub = cmsg_subscriber_create_tcp ("cmsg-test", addr, NULL,
                                           CMSG_SERVICE (cmsg, test));
         break;
     case CMSG_TRANSPORT_RPC_UNIX:
