@@ -129,6 +129,13 @@ typedef struct _cmsg_server_list_s
     pthread_mutex_t server_mutex;   // Used to protect list access.
 } cmsg_server_list;
 
+typedef struct _cmsg_server_thread_task_info_s
+{
+    cmsg_server *server;
+    int timeout;
+    bool running;
+} cmsg_server_thread_task_info;
+
 cmsg_server *cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service);
 
 void cmsg_server_destroy (cmsg_server *server);
@@ -246,5 +253,9 @@ cmsg_server *cmsg_create_server_tcp_ipv6_oneway (const char *service_name,
                                                  const ProtobufCService *service);
 
 const cmsg_server *cmsg_server_from_service_get (const void *service);
+
+cmsg_server_thread_task_info *cmsg_server_thread_task_info_create (cmsg_server *server,
+                                                                   int timeout);
+void *cmsg_server_thread_task (void *_info);
 
 #endif /* __CMSG_SERVER_H_ */
