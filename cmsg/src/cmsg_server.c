@@ -2086,6 +2086,7 @@ static void
 _clear_accept_sd_queue (gpointer data)
 {
     close (GPOINTER_TO_INT (data));
+    CMSG_FREE (data);
 }
 
 /**
