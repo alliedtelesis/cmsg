@@ -142,9 +142,6 @@ void cmsg_server_destroy (cmsg_server *server);
 
 int cmsg_server_get_socket (cmsg_server *server);
 
-int32_t cmsg_server_receive_poll (cmsg_server *server,
-                                  int32_t timeout_ms, fd_set *master_fdset, int *fdmax);
-
 int32_t cmsg_server_thread_receive_poll (cmsg_server *server,
                                          int32_t timeout_ms, fd_set *master_fdset,
                                          int *fdmax);
