@@ -152,8 +152,6 @@ int32_t cmsg_server_receive (cmsg_server *server, int32_t server_socket);
 
 int32_t cmsg_server_accept (cmsg_server *server, int32_t listen_socket);
 
-void cmsg_server_accept_callback (cmsg_server *server, int32_t sock);
-
 void cmsg_server_invoke (int socket, cmsg_server_request *server_request,
                          cmsg_server *server, ProtobufCMessage *message,
                          cmsg_method_processing_reason process_reason);

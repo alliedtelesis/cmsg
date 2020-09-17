@@ -785,23 +785,6 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
     return sock;
 }
 
-
-/**
- * Callback function for CMSG server when a new socket is accepted.
- * This function is for applications that accept sockets by other than CMSG API,
- * cmsg_server_accept() (e.g. by using liboop socket utility functions).
- */
-void
-cmsg_server_accept_callback (cmsg_server *server, int32_t sock)
-{
-    // count the accepted connection
-    if (server != NULL)
-    {
-        CMSG_COUNTER_INC (server, cntr_connections_accepted);
-    }
-}
-
-
 void
 cmsg_server_invoke (int socket, cmsg_server_request *server_request, cmsg_server *server,
                     ProtobufCMessage *message, cmsg_method_processing_reason process_reason)
