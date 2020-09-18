@@ -778,7 +778,7 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
 
 
 /* Accept an incoming socket from a client */
-int32_t
+static int32_t
 cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 {
     int sock = -1;

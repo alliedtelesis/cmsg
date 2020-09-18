@@ -150,8 +150,6 @@ int32_t cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t ti
 
 int32_t cmsg_server_receive (cmsg_server *server, int32_t server_socket);
 
-int32_t cmsg_server_accept (cmsg_server *server, int32_t listen_socket);
-
 void cmsg_server_invoke (int socket, cmsg_server_request *server_request,
                          cmsg_server *server, ProtobufCMessage *message,
                          cmsg_method_processing_reason process_reason);
