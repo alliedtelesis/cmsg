@@ -382,6 +382,8 @@ cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server)
     CMSG_ASSERT_RETURN_VOID (server_list);
     CMSG_ASSERT_RETURN_VOID (server);
 
+    cmsg_server_accept_thread_init (server);
+
     pthread_mutex_lock (&server_list->server_mutex);
     server_list->list = g_list_prepend (server_list->list, server);
     pthread_mutex_unlock (&server_list->server_mutex);
@@ -527,9 +529,11 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     fd_set read_fds;
     int fdmax;
     int ret;
-    int listen_socket;
     int fd;
-    int newfd;
+    cmsg_server_accept_thread_info *info;
+    int accept_event_fd;
+    eventfd_t value;
+    int *newfd_ptr = NULL;
 
     if (!server_list)
     {
@@ -554,9 +558,11 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     {
         server = (cmsg_server *) node->data;
 
-        listen_socket = cmsg_server_get_socket (server);
-        FD_SET (listen_socket, &read_fds);
-        fdmax = MAX (fdmax, listen_socket);
+        info = server->accept_thread_info;
+        accept_event_fd = info->accept_sd_eventfd;
+
+        FD_SET (accept_event_fd, &read_fds);
+        fdmax = MAX (fdmax, accept_event_fd);
 
         for (fd = 0; fd <= server->accepted_fdmax; fd++)
         {
@@ -599,20 +605,22 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
          node = g_list_next (node))
     {
         server = (cmsg_server *) node->data;
-        listen_socket = cmsg_server_get_socket (server);
+        info = server->accept_thread_info;
+        accept_event_fd = info->accept_sd_eventfd;
 
         for (fd = 0; fd <= fdmax; fd++)
         {
             if (FD_ISSET (fd, &read_fds))
             {
-                if (fd == listen_socket)
+                if (fd == accept_event_fd)
                 {
-                    // new connection from a client
-                    newfd = cmsg_server_accept (server, fd);
-                    if (newfd > 0)
+                    /* clear notification */
+                    TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
+                    while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
                     {
-                        FD_SET (newfd, &server->accepted_fdset);
-                        server->accepted_fdmax = MAX (server->accepted_fdmax, newfd);
+                        FD_SET (*newfd_ptr, &server->accepted_fdset);
+                        server->accepted_fdmax = MAX (server->accepted_fdmax, *newfd_ptr);
+                        CMSG_FREE (newfd_ptr);
                     }
                 }
                 else if (FD_ISSET (fd, &server->accepted_fdset))
