@@ -4,7 +4,7 @@
 
 #include <stdbool.h>
 #include <protobuf2json.h>
-#include <cmsg/cmsg_server.h>
+#include <cmsg/cmsg_pthread_helpers.h>
 #include "cmsg_proxy.h"
 #include "cmsg_proxy_mem.h"
 #include "cmsg_proxy_private.h"
@@ -48,7 +48,8 @@ static cmsg_proxy_stream_conn_busy_func _stream_conn_busy = NULL;
 static GList *stream_connections_list = NULL;
 static pthread_mutex_t stream_connections_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t stream_id_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_t server_thread;
+static cmsg_server *streaming_server = NULL;
+static pthread_t streaming_server_thread;
 
 /**
  * Set the function used to send stream responses on an HTTP connection.
@@ -438,83 +439,21 @@ cmsg_proxy_streaming_lookup_conn_by_id (uint32_t id)
 }
 
 /**
- * Function to be called when the 'cmsg_proxy_streaming_server_run'
- * thread is cancelled. This simply cleans up and frees any sockets/
- * memory that was used by the thread.
- *
- * @param poll_info - Structure containing the cmsg_server and sockets used
- *                    by the thread.
- */
-static void
-cmsg_proxy_streaming_server_cleanup (server_poll_info *poll_info)
-{
-    int fd;
-
-    for (fd = 0; fd <= poll_info->fd_max; fd++)
-    {
-        if (FD_ISSET (fd, &poll_info->readfds))
-        {
-            close (fd);
-        }
-    }
-
-    cmsg_destroy_server_and_transport (poll_info->server);
-}
-
-/**
- * The thread that implements the cmsg proxy http streaming functionality.
- * Simply runs a cmsg server that clients can send their streaming responses to.
- *
- * @param arg - Unused
- */
-static void *
-cmsg_proxy_streaming_server_run (void *arg)
-{
-    server_poll_info poll_info;
-    int fd = -1;
-
-    poll_info.server = NULL;
-    poll_info.fd_max = 0;
-    FD_ZERO (&poll_info.readfds);
-
-    pthread_cleanup_push ((void (*)(void *)) cmsg_proxy_streaming_server_cleanup,
-                          &poll_info);
-
-    poll_info.server =
-        cmsg_create_server_unix_rpc (CMSG_SERVICE_NOPACKAGE (http_streaming));
-
-    fd = cmsg_server_get_socket (poll_info.server);
-    poll_info.fd_max = fd;
-    FD_SET (fd, &poll_info.readfds);
-
-    while (true)
-    {
-        cmsg_server_receive_poll (poll_info.server, -1, &poll_info.readfds,
-                                  &poll_info.fd_max);
-    }
-
-    pthread_cleanup_pop (1);
-
-    return NULL;
-}
-
-/**
  * Initialise the cmsg proxy http streaming functionality.
  */
 void
 cmsg_proxy_streaming_init (void)
 {
-    int ret;
-
-    ret = pthread_create (&server_thread, NULL, cmsg_proxy_streaming_server_run, NULL);
-
-    if (ret != 0)
+    streaming_server =
+        cmsg_create_server_unix_rpc (CMSG_SERVICE_NOPACKAGE (http_streaming));
+    if (!streaming_server ||
+        !cmsg_pthread_server_init (&streaming_server_thread, streaming_server))
     {
         syslog (LOG_ERR, "Failed to start cmsg proxy streaming server thread");
         return;
     }
 
-    pthread_setname_np (server_thread, "cmsg_proxy_http");
+    pthread_setname_np (streaming_server_thread, "cmsg_proxy_http");
 }
 
 /**
@@ -523,8 +462,9 @@ cmsg_proxy_streaming_init (void)
 void
 cmsg_proxy_streaming_deinit (void)
 {
-    pthread_cancel (server_thread);
-    pthread_join (server_thread, NULL);
+    pthread_cancel (streaming_server_thread);
+    pthread_join (streaming_server_thread, NULL);
+    cmsg_destroy_server_and_transport (streaming_server);
 }
 
 /**

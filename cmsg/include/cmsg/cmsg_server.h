@@ -129,14 +129,18 @@ typedef struct _cmsg_server_list_s
     pthread_mutex_t server_mutex;   // Used to protect list access.
 } cmsg_server_list;
 
+typedef struct _cmsg_server_thread_task_info_s
+{
+    cmsg_server *server;
+    int timeout;
+    bool running;
+} cmsg_server_thread_task_info;
+
 cmsg_server *cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service);
 
 void cmsg_server_destroy (cmsg_server *server);
 
 int cmsg_server_get_socket (cmsg_server *server);
-
-int32_t cmsg_server_receive_poll (cmsg_server *server,
-                                  int32_t timeout_ms, fd_set *master_fdset, int *fdmax);
 
 int32_t cmsg_server_thread_receive_poll (cmsg_server *server,
                                          int32_t timeout_ms, fd_set *master_fdset,
@@ -145,10 +149,6 @@ int32_t cmsg_server_thread_receive_poll (cmsg_server *server,
 int32_t cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms);
 
 int32_t cmsg_server_receive (cmsg_server *server, int32_t server_socket);
-
-int32_t cmsg_server_accept (cmsg_server *server, int32_t listen_socket);
-
-void cmsg_server_accept_callback (cmsg_server *server, int32_t sock);
 
 void cmsg_server_invoke (int socket, cmsg_server_request *server_request,
                          cmsg_server *server, ProtobufCMessage *message,
@@ -246,5 +246,9 @@ cmsg_server *cmsg_create_server_tcp_ipv6_oneway (const char *service_name,
                                                  const ProtobufCService *service);
 
 const cmsg_server *cmsg_server_from_service_get (const void *service);
+
+cmsg_server_thread_task_info *cmsg_server_thread_task_info_create (cmsg_server *server,
+                                                                   int timeout);
+void *cmsg_server_thread_task (void *_info);
 
 #endif /* __CMSG_SERVER_H_ */

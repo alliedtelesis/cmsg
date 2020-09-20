@@ -258,43 +258,48 @@ static void *
 cmsg_pthread_multithreaded_accept_thread (void *_server_info)
 {
     int ret;
-    int server_socket;
-    int fd = -1;
     static pthread_t new_recv_thread;
     fd_set read_fds;
     int fdmax;
     cmsg_pthread_multithreaded_server_info *server_info = NULL;
     cmsg_pthread_multithreaded_server_recv_info *recv_info = NULL;
+    int accept_event_fd;
+    eventfd_t value;
+    int *newfd_ptr = NULL;
+    cmsg_server_accept_thread_info *info;
 
     pthread_detach (pthread_self ());
 
     server_info = (cmsg_pthread_multithreaded_server_info *) _server_info;
 
-    server_socket = cmsg_server_get_socket (server_info->server);
-    fdmax = MAX (server_socket, server_info->shutdown_eventfd);
+    info = server_info->server->accept_thread_info;
+    accept_event_fd = info->accept_sd_eventfd;
+    fdmax = MAX (accept_event_fd, server_info->shutdown_eventfd);
 
     while (1)
     {
         FD_ZERO (&read_fds);
-        FD_SET (server_socket, &read_fds);
+        FD_SET (accept_event_fd, &read_fds);
         FD_SET (server_info->shutdown_eventfd, &read_fds);
 
         select (fdmax + 1, &read_fds, NULL, NULL, NULL);
-        if (FD_ISSET (server_socket, &read_fds))
+        if (FD_ISSET (accept_event_fd, &read_fds))
         {
-            fd = cmsg_server_accept (server_info->server, server_socket);
-            if (fd >= 0)
+            /* clear notification */
+            TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
+            while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
             {
                 recv_info = malloc (sizeof (*recv_info));
                 if (!recv_info)
                 {
                     syslog (LOG_ERR, "Failed to allocate memory for CMSG server receive");
-                    close (fd);
+                    close (*newfd_ptr);
+                    CMSG_FREE (newfd_ptr);
                     continue;
                 }
 
                 recv_info->server_info = server_info;
-                recv_info->socket = fd;
+                recv_info->socket = *newfd_ptr;
                 ret = pthread_create (&new_recv_thread, NULL,
                                       cmsg_pthread_multithreaded_receive_thread,
                                       (void *) recv_info);
@@ -307,9 +312,10 @@ cmsg_pthread_multithreaded_accept_thread (void *_server_info)
                 else
                 {
                     syslog (LOG_ERR, "Failed to create thread for CMSG server receive");
-                    close (fd);
+                    close (*newfd_ptr);
                     free (recv_info);
                 }
+                CMSG_FREE (newfd_ptr);
             }
         }
         if (FD_ISSET (server_info->shutdown_eventfd, &read_fds))
@@ -371,6 +377,8 @@ cmsg_pthread_multithreaded_server_init (cmsg_server *server, uint32_t timeout)
         free (server_info);
         return NULL;
     }
+
+    cmsg_server_accept_thread_init (server);
 
     ret = pthread_create (&accept_thread, NULL, &cmsg_pthread_multithreaded_accept_thread,
                           (void *) server_info);

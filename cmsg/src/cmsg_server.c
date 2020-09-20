@@ -382,6 +382,8 @@ cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server)
     CMSG_ASSERT_RETURN_VOID (server_list);
     CMSG_ASSERT_RETURN_VOID (server);
 
+    cmsg_server_accept_thread_init (server);
+
     pthread_mutex_lock (&server_list->server_mutex);
     server_list->list = g_list_prepend (server_list->list, server);
     pthread_mutex_unlock (&server_list->server_mutex);
@@ -509,105 +511,6 @@ cmsg_server_thread_receive_poll (cmsg_server *server, int32_t timeout_ms,
 }
 
 /**
- * Wait for any data on a list of sockets or until timeout expires.
- *
- * Note: If the select system call is interrupted before any messages
- *       are received (i.e. returns EINTR) then this function will
- *       return success (instead of blocking until the timeout expires)
- *
- * @param server - The server to poll.
- * @param timeout_ms - The timeout to use with select.
- *                     (0: return immediately, negative number: no timeout).
- * @param master_fdset - An fd_set containing all of the sockets being polled.
- * @param fdmax - Pointer to an integer holding the maximum fd number (NOT max + 1).
- *
- * @return On success returns 0, failure returns -1.
- */
-int32_t
-cmsg_server_receive_poll (cmsg_server *server, int32_t timeout_ms, fd_set *master_fdset,
-                          int *fdmax)
-{
-    int ret = 0;
-    fd_set read_fds = *master_fdset;
-    int nfds = *fdmax;
-    struct timeval timeout = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
-    int fd;
-    int newfd;
-    bool check_fdmax = false;
-    int listen_socket;
-
-    CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
-
-    listen_socket = cmsg_server_get_socket (server);
-
-    ret = select (nfds + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
-    if (ret == -1)
-    {
-        if (errno == EINTR)
-        {
-            // We were interrupted, this is transient so just pretend we timed out.
-            return CMSG_RET_OK;
-        }
-
-        CMSG_LOG_SERVER_ERROR (server,
-                               "An error occurred with receive poll (timeout %dms): %s.",
-                               timeout_ms, strerror (errno));
-        CMSG_COUNTER_INC (server, cntr_poll_errors);
-        return CMSG_RET_ERR;
-    }
-    else if (ret == 0)
-    {
-        // timed out, so func success but nothing received, early return
-        return CMSG_RET_OK;
-    }
-
-    // run through the existing connections looking for data to read
-    for (fd = 0; fd <= nfds; fd++)
-    {
-        if (FD_ISSET (fd, &read_fds))
-        {
-            if (fd == listen_socket)
-            {
-                newfd = cmsg_server_accept (server, fd);
-                if (newfd >= 0)
-                {
-                    FD_SET (newfd, master_fdset);
-                    *fdmax = MAX (newfd, *fdmax);
-                }
-            }
-            else
-            {
-                // there is something happening on the socket so receive it.
-                if (cmsg_server_receive (server, fd) < 0)
-                {
-                    // only close the socket if we have errored
-                    shutdown (fd, SHUT_RDWR);
-                    close (fd);
-                    FD_CLR (fd, master_fdset);
-                    check_fdmax = true;
-                }
-            }
-        }
-    }
-
-    // Check the largest file descriptor
-    if (check_fdmax)
-    {
-        for (fd = *fdmax; fd >= 0; fd--)
-        {
-            if (FD_ISSET (fd, master_fdset))
-            {
-                *fdmax = fd;
-                break;
-            }
-        }
-    }
-
-    return CMSG_RET_OK;
-}
-
-
-/**
  * Perform server receive on a list of cmsg servers.
  *
  * Note: If the select system call is interrupted before any messages
@@ -626,9 +529,11 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     fd_set read_fds;
     int fdmax;
     int ret;
-    int listen_socket;
     int fd;
-    int newfd;
+    cmsg_server_accept_thread_info *info;
+    int accept_event_fd;
+    eventfd_t value;
+    int *newfd_ptr = NULL;
 
     if (!server_list)
     {
@@ -653,9 +558,11 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     {
         server = (cmsg_server *) node->data;
 
-        listen_socket = cmsg_server_get_socket (server);
-        FD_SET (listen_socket, &read_fds);
-        fdmax = MAX (fdmax, listen_socket);
+        info = server->accept_thread_info;
+        accept_event_fd = info->accept_sd_eventfd;
+
+        FD_SET (accept_event_fd, &read_fds);
+        fdmax = MAX (fdmax, accept_event_fd);
 
         for (fd = 0; fd <= server->accepted_fdmax; fd++)
         {
@@ -698,20 +605,22 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
          node = g_list_next (node))
     {
         server = (cmsg_server *) node->data;
-        listen_socket = cmsg_server_get_socket (server);
+        info = server->accept_thread_info;
+        accept_event_fd = info->accept_sd_eventfd;
 
         for (fd = 0; fd <= fdmax; fd++)
         {
             if (FD_ISSET (fd, &read_fds))
             {
-                if (fd == listen_socket)
+                if (fd == accept_event_fd)
                 {
-                    // new connection from a client
-                    newfd = cmsg_server_accept (server, fd);
-                    if (newfd > 0)
+                    /* clear notification */
+                    TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
+                    while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
                     {
-                        FD_SET (newfd, &server->accepted_fdset);
-                        server->accepted_fdmax = MAX (server->accepted_fdmax, newfd);
+                        FD_SET (*newfd_ptr, &server->accepted_fdset);
+                        server->accepted_fdmax = MAX (server->accepted_fdmax, *newfd_ptr);
+                        CMSG_FREE (newfd_ptr);
                     }
                 }
                 else if (FD_ISSET (fd, &server->accepted_fdset))
@@ -869,7 +778,7 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
 
 
 /* Accept an incoming socket from a client */
-int32_t
+static int32_t
 cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 {
     int sock = -1;
@@ -883,23 +792,6 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 
     return sock;
 }
-
-
-/**
- * Callback function for CMSG server when a new socket is accepted.
- * This function is for applications that accept sockets by other than CMSG API,
- * cmsg_server_accept() (e.g. by using liboop socket utility functions).
- */
-void
-cmsg_server_accept_callback (cmsg_server *server, int32_t sock)
-{
-    // count the accepted connection
-    if (server != NULL)
-    {
-        CMSG_COUNTER_INC (server, cntr_connections_accepted);
-    }
-}
-
 
 void
 cmsg_server_invoke (int socket, cmsg_server_request *server_request, cmsg_server *server,
@@ -2086,6 +1978,7 @@ static void
 _clear_accept_sd_queue (gpointer data)
 {
     close (GPOINTER_TO_INT (data));
+    CMSG_FREE (data);
 }
 
 /**
@@ -2242,4 +2135,88 @@ cmsg_server_from_service_get (const void *service)
     }
 
     return server;
+}
+
+/**
+ * Create a 'cmsg_server_thread_task_info' structure containing
+ * the details required to run a server as a task in some thread.
+ *
+ * @param server - The server to run via the task in a thread.
+ * @param timeout - The timeout, in milliseconds, to use when polling the server.
+ *                  Note:
+ *                  - If '-1' is used then the server will block until
+ *                    there is data to read. This makes it difficult
+ *                    to stop the task thread.
+ *                  - If '0' is used then the server will busy poll.
+ *
+ * @returns The 'cmsg_server_thread_task_info' on success, NULL otherwise.
+ */
+cmsg_server_thread_task_info *
+cmsg_server_thread_task_info_create (cmsg_server *server, int timeout)
+{
+    cmsg_server_thread_task_info *info;
+
+    info = (cmsg_server_thread_task_info *) CMSG_CALLOC (1, sizeof (*info));
+    if (info)
+    {
+        info->server = server;
+        info->timeout = timeout;
+        info->running = true;
+    }
+
+    return info;
+}
+
+/**
+ * A generic task than can be used to run a server in a thread of
+ * some given form.
+ *
+ * @param info - The details required to run the server. This should
+ *               have been allocated by a call to 'cmsg_server_thread_task_info_create'.
+ *               To stop the server/task the 'running' field inside the structure
+ *               should be set to 'false'. Note that once set to 'false' the structure
+ *               and server should no longer be accessed as the task will steal the
+ *               memory for them and free on exit.
+ */
+void *
+cmsg_server_thread_task (void *_info)
+{
+    int fd;
+    int fd_max;
+    fd_set readfds;
+    int accept_sd_eventfd;
+    cmsg_server_thread_task_info *info = (cmsg_server_thread_task_info *) _info;
+
+    FD_ZERO (&readfds);
+
+    cmsg_server_accept_thread_init (info->server);
+
+    accept_sd_eventfd = info->server->accept_thread_info->accept_sd_eventfd;
+    fd_max = accept_sd_eventfd;
+    FD_SET (fd_max, &readfds);
+
+    while (info->running)
+    {
+        cmsg_server_thread_receive_poll (info->server, info->timeout, &readfds, &fd_max);
+    }
+
+    cmsg_server_accept_thread_deinit (info->server);
+
+    for (fd = 0; fd <= fd_max; fd++)
+    {
+        /* Don't double close the accept event fd */
+        if (fd == accept_sd_eventfd)
+        {
+            continue;
+        }
+        if (FD_ISSET (fd, &readfds))
+        {
+            close (fd);
+        }
+    }
+
+    cmsg_destroy_server_and_transport (info->server);
+    CMSG_FREE (info);
+
+    return NULL;
 }

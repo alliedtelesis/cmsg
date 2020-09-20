@@ -14,32 +14,10 @@
 #include "publisher_subscriber/cmsg_ps_api_private.h"
 #include "publisher_subscriber/cmsg_pub_private.h"
 
-/**
- * This informs the compiler that the function is, in fact, being used even though it
- * doesn't look like it. This is useful for static functions that get found by NovaProva
- * using debug symbols.
- */
-#define USED __attribute__ ((used))
-
 /* In microseconds. */
 #define CMSG_PSD_WAIT_TIME (500 * 1000)
 
-static const uint16_t subscriber_port = 18889;
-
 static bool subscriber_run = true;
-
-static int
-sm_mock_cmsg_service_port_get (const char *name, const char *proto)
-{
-    if (strcmp (name, "cmsg-test-subscriber") == 0)
-    {
-        return subscriber_port;
-    }
-
-    NP_FAIL;
-
-    return 0;
-}
 
 /**
  * Common functionality to run before each test case.
@@ -111,18 +89,17 @@ publish_message (cmsg_publisher *publisher)
 static void
 create_sub_before_pub_and_test (cmsg_transport_type type)
 {
+    pthread_t subscriber_thread;
     cmsg_subscriber *sub = NULL;
     int ret = 0;
     struct in_addr addr;
-    int fd = -1;
-    cmsg_server *sub_server = NULL;
     cmsg_publisher *publisher = NULL;
 
     switch (type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
         addr.s_addr = htonl (INADDR_LOOPBACK);
-        sub = cmsg_subscriber_create_tcp ("cmsg-test-subscriber", addr, NULL,
+        sub = cmsg_subscriber_create_tcp ("cmsg-test", addr, NULL,
                                           CMSG_SERVICE (cmsg, test));
         break;
     case CMSG_TRANSPORT_RPC_UNIX:
@@ -137,13 +114,8 @@ create_sub_before_pub_and_test (cmsg_transport_type type)
     ret = cmsg_sub_subscribe_local (sub, "simple_notification_test");
     NP_ASSERT_EQUAL (ret, CMSG_RET_OK);
 
-    fd = cmsg_sub_unix_server_socket_get (sub);
-    sub_server = cmsg_sub_unix_server_get (sub);
-    int fd_max = fd + 1;
-
-    fd_set readfds;
-    FD_ZERO (&readfds);
-    FD_SET (fd, &readfds);
+    NP_ASSERT_TRUE (cmsg_pthread_server_init (&subscriber_thread,
+                                              cmsg_sub_unix_server_get (sub)));
 
     publisher = cmsg_publisher_create (CMSG_DESCRIPTOR (cmsg, test));
     NP_ASSERT_NOT_NULL (publisher);
@@ -152,18 +124,11 @@ create_sub_before_pub_and_test (cmsg_transport_type type)
 
     while (subscriber_run)
     {
-        cmsg_server_receive_poll (sub_server, 1000, &readfds, &fd_max);
+        usleep (1000);
     }
 
-    // Close accepted sockets before destroying subscriber
-    for (fd = 0; fd <= fd_max; fd++)
-    {
-        if (FD_ISSET (fd, &readfds))
-        {
-            close (fd);
-        }
-    }
-
+    pthread_cancel (subscriber_thread);
+    pthread_join (subscriber_thread, NULL);
     cmsg_subscriber_destroy (sub);
     cmsg_publisher_destroy (publisher);
 }
