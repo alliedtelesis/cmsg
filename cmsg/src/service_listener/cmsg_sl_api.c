@@ -24,6 +24,7 @@ struct _cmsg_sl_info_s
     void *user_data;
     GAsyncQueue *queue;
     int eventfd;
+    void *event_loop_data;
 };
 
 typedef struct _cmsg_sl_event
@@ -585,4 +586,30 @@ cmsg_service_listener_wait_for_unix_server (const char *service_name, long secon
     cmsg_service_listener_unlisten (info);
 
     return ret;
+}
+
+/**
+ * Set the event loop data for the service listener subscription.
+ *
+ * @param info - The service listener subscription information.
+ * @param data - The data to set.
+ */
+void
+cmsg_service_listener_event_loop_data_set (const cmsg_sl_info *info, void *data)
+{
+    cmsg_sl_info *_info = (cmsg_sl_info *) info;
+    _info->event_loop_data = data;
+}
+
+/**
+ * Get the event loop data for the service listener subscription.
+ *
+ * @param info - The service listener subscription information.
+ *
+ * @returns The stored data.
+ */
+void *
+cmsg_service_listener_event_loop_data_get (const cmsg_sl_info *info)
+{
+    return info->event_loop_data;
 }

@@ -8,6 +8,7 @@
 #include <cmsg/cmsg_server.h>
 #include <cmsg/cmsg_mesh.h>
 #include <cmsg/cmsg_sub.h>
+#include <cmsg/cmsg_sl.h>
 
 cmsg_server *cmsg_liboop_unix_server_init (ProtobufCService *service);
 void cmsg_liboop_server_processing_stop (cmsg_server *server);
@@ -25,5 +26,8 @@ cmsg_server *cmsg_liboop_tipc_rpc_server_init (const char *server_name, int memb
                                                int scope, ProtobufCService *service);
 cmsg_server *cmsg_liboop_tipc_oneway_server_init (const char *server_name, int member_id,
                                                   int scope, ProtobufCService *service);
+const cmsg_sl_info *cmsg_liboop_service_listener_listen (const char *service_name,
+                                                         cmsg_sl_event_handler_t handler,
+                                                         void *user_data);
 
 #endif /* __CMSG_LIBOOP_HELPERS_H_ */
