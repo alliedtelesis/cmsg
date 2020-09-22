@@ -55,9 +55,6 @@ typedef struct _cmsg_broadcast_client_s
     /* Connect to the TIPC server running on this node if it exists */
     bool connect_to_self;
 
-    /* Socket descriptor for the TIPC topology events service */
-    int tipc_subscription_sd;
-
     /* Thread for monitoring the TIPC topology and creating clients as required */
     pthread_t topology_thread;
 

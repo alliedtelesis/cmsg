@@ -9,6 +9,7 @@
 #include "cmsg_server.h"
 #include "cmsg_sub.h"
 #include "cmsg_pub.h"
+#include "cmsg_sl.h"
 
 typedef struct _cmsg_pthread_multithreaded_server_info
 {
@@ -31,5 +32,9 @@ cmsg_pthread_multithreaded_server_info *cmsg_pthread_multithreaded_server_init (
                                                                                 timeout);
 void cmsg_pthread_multithreaded_server_destroy (cmsg_pthread_multithreaded_server_info
                                                 *info);
+
+bool cmsg_pthread_service_listener_listen (pthread_t *thread, const char *service_name,
+                                           cmsg_sl_event_handler_t handler,
+                                           void *user_data);
 
 #endif /* __CMSG_PTHREAD_HELPERS_H_ */

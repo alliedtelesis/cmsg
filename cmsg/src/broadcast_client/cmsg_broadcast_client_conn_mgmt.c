@@ -10,7 +10,7 @@
 #include "cmsg_transport.h"
 #include "cmsg_error.h"
 #include "cmsg_composite_client.h"
-#include "cmsg_sl.h"
+#include "cmsg_pthread_helpers.h"
 
 /**
  * Generate an event for the node/leave join.
@@ -185,68 +185,6 @@ server_event_callback (const cmsg_transport *transport, bool added, void *user_c
     return true;
 }
 
-/* Clean up the service listener when the connection management thread exits. */
-static void
-cmsg_broadcast_conn_mgmt_thread_cancelled (void *_info)
-{
-    const cmsg_sl_info *info = _info;
-
-    cmsg_service_listener_unlisten (info);
-}
-
-/**
- * Listen for and process CMSG service listener notifications
- */
-static void *
-cmsg_broadcast_conn_mgmt_thread (void *_broadcast_client)
-{
-    const cmsg_sl_info *info;
-    int event_fd;
-    fd_set read_fds;
-    int maxfd;
-    cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) _broadcast_client;
-    const char *service_name;
-
-    service_name =
-        cmsg_service_name_get (broadcast_client->base_client.base_client.descriptor);
-    info =
-        cmsg_service_listener_listen (service_name, server_event_callback,
-                                      broadcast_client);
-
-    pthread_cleanup_push (cmsg_broadcast_conn_mgmt_thread_cancelled, (void *) info);
-
-    event_fd = cmsg_service_listener_get_event_fd (info);
-
-    if (event_fd < 0)
-    {
-        CMSG_LOG_GEN_ERROR ("Failed to get socket for service listener.");
-        pthread_exit (NULL);
-    }
-
-    broadcast_client->tipc_subscription_sd = event_fd;
-
-    FD_ZERO (&read_fds);
-    FD_SET (broadcast_client->tipc_subscription_sd, &read_fds);
-    maxfd = broadcast_client->tipc_subscription_sd;
-
-    while (1)
-    {
-        /* Explicitly set where the thread can be cancelled. This ensures no
-         * data can be leaked if the thread is cancelled while handling an event.
-         */
-        pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
-        select (maxfd + 1, &read_fds, NULL, NULL, NULL);
-        pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
-
-        cmsg_service_listener_event_queue_process (info);
-    }
-
-    pthread_cleanup_pop (1);
-
-    pthread_exit (NULL);
-}
-
-
 /**
  * Initialise the cmsg broadcast connection management.
  *
@@ -257,8 +195,12 @@ cmsg_broadcast_conn_mgmt_thread (void *_broadcast_client)
 int32_t
 cmsg_broadcast_conn_mgmt_init (cmsg_broadcast_client *broadcast_client)
 {
-    if (pthread_create (&broadcast_client->topology_thread, NULL,
-                        cmsg_broadcast_conn_mgmt_thread, (void *) broadcast_client) != 0)
+    const char *service_name =
+        cmsg_service_name_get (broadcast_client->base_client.base_client.descriptor);
+
+    if (!cmsg_pthread_service_listener_listen
+        (&broadcast_client->topology_thread, service_name, server_event_callback,
+         broadcast_client))
     {
         return CMSG_RET_ERR;
     }
@@ -279,5 +221,4 @@ cmsg_broadcast_conn_mgmt_deinit (cmsg_broadcast_client *broadcast_client)
 {
     pthread_cancel (broadcast_client->topology_thread);
     pthread_join (broadcast_client->topology_thread, NULL);
-    close (broadcast_client->tipc_subscription_sd);
 }
