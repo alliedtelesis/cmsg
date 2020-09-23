@@ -770,18 +770,6 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     return CMSG_STATUS_CODE_SERVICE_FAILED;
 }
 
-/**
- * Configure the transport to allow listening socket to bind on non-existent, non-local
- * IPv6 addresses. This is specifically added to resolve IPv6 DAD race conditions.
- *
- */
-int32_t
-cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
-                                   cmsg_bool_t ipfree_bind_enable)
-{
-    return transport->tport_funcs.ipfree_bind_enable (transport, ipfree_bind_enable);
-}
-
 int32_t
 cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
                             uint8_t **recv_buffer, cmsg_header *processed_header,
@@ -1331,8 +1319,6 @@ cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
                      transport_info->tcp_info->vrf_bind_dev, CMSG_BIND_DEV_NAME_MAX);
             transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
         }
-
-        cmsg_transport_ipfree_bind_enable (transport, true);
     }
     else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
     {

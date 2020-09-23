@@ -149,17 +149,13 @@ cmsg_transport_tcp_listen (cmsg_transport *transport)
      * considered to be "tentative". While it is in this state, attempts to bind()
      * to the address fail with EADDRNOTAVAIL, as if the address doesn't exist.
      * */
-    if (transport->use_ipfree_bind)
+    ret = setsockopt (listening_socket, IPPROTO_IP, IP_FREEBIND, &yes, sizeof (int32_t));
+    if (ret == -1)
     {
-        ret =
-            setsockopt (listening_socket, IPPROTO_IP, IP_FREEBIND, &yes, sizeof (int32_t));
-        if (ret == -1)
-        {
-            CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to setsockopt. Error:%s",
-                                      strerror (errno));
-            close (listening_socket);
-            return -1;
-        }
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to setsockopt. Error:%s",
+                                  strerror (errno));
+        close (listening_socket);
+        return -1;
     }
 
     if (transport->config.socket.family == PF_INET6)
@@ -285,14 +281,6 @@ cmsg_transport_tcp_client_send (cmsg_transport *transport, void *buff, int lengt
     return (cmsg_transport_socket_send (transport->socket, buff, length, flag));
 }
 
-int32_t
-cmsg_transport_tcp_ipfree_bind_enable (cmsg_transport *transport,
-                                       cmsg_bool_t use_ipfree_bind)
-{
-    transport->use_ipfree_bind = use_ipfree_bind;
-    return 0;
-}
-
 static void
 _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
 {
@@ -305,7 +293,6 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->client_send = cmsg_transport_tcp_client_send;
     tport_funcs->socket_close = cmsg_transport_socket_close;
     tport_funcs->get_socket = cmsg_transport_get_socket;
-    tport_funcs->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
     tport_funcs->destroy = NULL;
     tport_funcs->apply_send_timeout = cmsg_transport_apply_send_timeout;
     tport_funcs->apply_recv_timeout = cmsg_transport_apply_recv_timeout;
@@ -403,7 +390,6 @@ cmsg_create_transport_tcp (cmsg_socket *config, cmsg_transport_type transport_ty
         memcpy (&transport->config.socket.sockaddr.in, &config->sockaddr.in,
                 sizeof (struct sockaddr_in));
     }
-    cmsg_transport_ipfree_bind_enable (transport, true);
 
     return transport;
 }
@@ -456,8 +442,6 @@ cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr,
                  CMSG_BIND_DEV_NAME_MAX);
         transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
     }
-
-    cmsg_transport_ipfree_bind_enable (transport, true);
 
     return transport;
 }
@@ -516,8 +500,6 @@ cmsg_create_transport_tcp_ipv6 (const char *service_name, struct in6_addr *addr,
                  CMSG_BIND_DEV_NAME_MAX);
         transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
     }
-
-    cmsg_transport_ipfree_bind_enable (transport, true);
 
     return transport;
 }

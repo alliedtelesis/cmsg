@@ -53,25 +53,23 @@ typedef void (*socket_close_f) (cmsg_transport *transport);
 typedef int (*get_socket_f) (cmsg_transport *transport);
 typedef int32_t (*apply_send_timeout_f) (cmsg_transport *transport, int sockfd);
 typedef int32_t (*apply_recv_timeout_f) (cmsg_transport *transport, int sockfd);
-typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
 typedef void (*destroy_f) (cmsg_transport *transport);
 
 typedef struct _cmsg_tport_functions_s
 {
     cmsg_recv_func recv_wrapper;
-    client_connect_f connect;                   // client connect function
-    server_listen_f listen;                     // server listen function
-    server_accept_f server_accept;              // server accept
-    server_recv_f server_recv;                  // server receive function
-    client_recv_f client_recv;                  // receive function
-    client_send_f client_send;                  // client send function
-    server_send_f server_send;                  // server send function
-    socket_close_f socket_close;                // close socket function
-    get_socket_f get_socket;                    // gets the socket used by the transport
+    client_connect_f connect;       // client connect function
+    server_listen_f listen;         // server listen function
+    server_accept_f server_accept;  // server accept
+    server_recv_f server_recv;      // server receive function
+    client_recv_f client_recv;      // receive function
+    client_send_f client_send;      // client send function
+    server_send_f server_send;      // server send function
+    socket_close_f socket_close;    // close socket function
+    get_socket_f get_socket;        // gets the socket used by the transport
     apply_send_timeout_f apply_send_timeout;
     apply_recv_timeout_f apply_recv_timeout;
-    ipfree_bind_enable_f ipfree_bind_enable;    // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
-    destroy_f destroy;                          // Called when the transport is to be destroyed
+    destroy_f destroy;              // Called when the transport is to be destroyed
 } cmsg_tport_functions;
 
 typedef struct _cmsg_udt_info_s
@@ -132,9 +130,6 @@ struct _cmsg_transport_s
     // maximum time to wait peeking for a received header
     uint32_t receive_peek_timeout;
 
-    // sets IP_FREEBIND in socket options
-    cmsg_bool_t use_ipfree_bind;
-
     // flag to tell error-level log to be suppressed to debug-level
     cmsg_bool_t suppress_errors;
 
@@ -151,9 +146,6 @@ struct _cmsg_transport_s
 cmsg_transport *cmsg_transport_new (cmsg_transport_type type);
 
 void cmsg_transport_destroy (cmsg_transport *transport);
-
-int32_t cmsg_transport_ipfree_bind_enable (cmsg_transport *transport,
-                                           cmsg_bool_t ipfree_bind_enable);
 
 int32_t cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
                                     uint8_t **recv_buffer, cmsg_header *processed_header,

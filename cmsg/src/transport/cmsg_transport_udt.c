@@ -170,19 +170,6 @@ cmsg_transport_udt_connect (cmsg_transport *transport)
     return ret;
 }
 
-int32_t
-cmsg_transport_udt_ipfree_bind_enable (cmsg_transport *transport,
-                                       cmsg_bool_t use_ipfree_bind)
-{
-    if (transport->udt_info.functions.ipfree_bind_enable)
-    {
-        return transport->udt_info.functions.ipfree_bind_enable (transport,
-                                                                 use_ipfree_bind);
-    }
-
-    return -1;
-}
-
 static void
 cmsg_transport_udt_destroy (cmsg_transport *transport)
 {
@@ -238,7 +225,6 @@ cmsg_transport_udt_init (cmsg_transport *transport)
 
     transport->tport_funcs.get_socket = cmsg_transport_udt_get_socket;
 
-    transport->tport_funcs.ipfree_bind_enable = cmsg_transport_udt_ipfree_bind_enable;
     transport->tport_funcs.destroy = cmsg_transport_udt_destroy;
     transport->tport_funcs.apply_send_timeout = cmsg_transport_udt_apply_send_timeout;
     transport->tport_funcs.apply_recv_timeout = cmsg_transport_udt_apply_recv_timeout;

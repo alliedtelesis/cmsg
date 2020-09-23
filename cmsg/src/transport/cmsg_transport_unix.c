@@ -195,7 +195,6 @@ _cmsg_transport_unix_init_common (cmsg_transport *transport)
     transport->tport_funcs.client_send = cmsg_transport_unix_client_send;
     transport->tport_funcs.socket_close = cmsg_transport_socket_close;
     transport->tport_funcs.get_socket = cmsg_transport_get_socket;
-    transport->tport_funcs.ipfree_bind_enable = NULL;
     transport->tport_funcs.destroy = NULL;
     transport->tport_funcs.apply_send_timeout = cmsg_transport_apply_send_timeout;
     transport->tport_funcs.apply_recv_timeout = cmsg_transport_apply_recv_timeout;
