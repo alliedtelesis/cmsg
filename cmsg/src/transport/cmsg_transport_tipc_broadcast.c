@@ -167,17 +167,6 @@ cmsg_transport_tipc_broadcast_client_send (cmsg_transport *transport, void *buff
     return result;
 }
 
-
-/**
- * TIPC BC can be congested but we don't check for it
- */
-bool
-cmsg_transport_tipc_broadcast_is_congested (cmsg_transport *transport)
-{
-    return false;
-}
-
-
 int32_t
 cmsg_transport_tipc_broadcast_ipfree_bind_enable (cmsg_transport *transport,
                                                   cmsg_bool_t use_ipfree_bind)
@@ -212,7 +201,6 @@ cmsg_transport_tipc_broadcast_init (cmsg_transport *transport)
     transport->tport_funcs.socket_close = cmsg_transport_socket_close;
     transport->tport_funcs.get_socket = cmsg_transport_get_socket;
 
-    transport->tport_funcs.is_congested = cmsg_transport_tipc_broadcast_is_congested;
     transport->tport_funcs.ipfree_bind_enable =
         cmsg_transport_tipc_broadcast_ipfree_bind_enable;
     transport->tport_funcs.destroy = NULL;

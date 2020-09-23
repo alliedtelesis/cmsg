@@ -170,21 +170,6 @@ cmsg_transport_udt_connect (cmsg_transport *transport)
     return ret;
 }
 
-
-/**
- * Can't work out whether the UDT is congested
- */
-bool
-cmsg_transport_udt_is_congested (cmsg_transport *transport)
-{
-    if (transport->udt_info.functions.is_congested)
-    {
-        return transport->udt_info.functions.is_congested (transport);
-    }
-
-    return false;
-}
-
 int32_t
 cmsg_transport_udt_ipfree_bind_enable (cmsg_transport *transport,
                                        cmsg_bool_t use_ipfree_bind)
@@ -253,7 +238,6 @@ cmsg_transport_udt_init (cmsg_transport *transport)
 
     transport->tport_funcs.get_socket = cmsg_transport_udt_get_socket;
 
-    transport->tport_funcs.is_congested = cmsg_transport_udt_is_congested;
     transport->tport_funcs.ipfree_bind_enable = cmsg_transport_udt_ipfree_bind_enable;
     transport->tport_funcs.destroy = cmsg_transport_udt_destroy;
     transport->tport_funcs.apply_send_timeout = cmsg_transport_udt_apply_send_timeout;

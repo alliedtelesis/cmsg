@@ -144,8 +144,6 @@ setup_udt_tcp_transport_functions (cmsg_transport *udt_transport, bool oneway)
 
     udt_transport->udt_info.functions.get_socket = udt_transport->udt_info.base.get_socket;
 
-    udt_transport->udt_info.functions.is_congested =
-        udt_transport->udt_info.base.is_congested;
     udt_transport->udt_info.functions.ipfree_bind_enable =
         udt_transport->udt_info.base.ipfree_bind_enable;
 

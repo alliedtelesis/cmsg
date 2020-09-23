@@ -226,16 +226,6 @@ cmsg_transport_tipc_client_send (cmsg_transport *transport, void *buff, int leng
     return (cmsg_transport_socket_send (transport->socket, buff, length, flag));
 }
 
-/**
- * TIPC is never congested
- */
-bool
-cmsg_transport_tipc_is_congested (cmsg_transport *transport)
-{
-    return false;
-}
-
-
 int32_t
 cmsg_transport_tipc_ipfree_bind_enable (cmsg_transport *transport,
                                         cmsg_bool_t use_ipfree_bind)
@@ -259,7 +249,6 @@ _cmsg_transport_tipc_init_common (cmsg_transport *transport)
     transport->tport_funcs.client_send = cmsg_transport_tipc_client_send;
     transport->tport_funcs.socket_close = cmsg_transport_socket_close;
     transport->tport_funcs.get_socket = cmsg_transport_get_socket;
-    transport->tport_funcs.is_congested = cmsg_transport_tipc_is_congested;
     transport->tport_funcs.ipfree_bind_enable = cmsg_transport_tipc_ipfree_bind_enable;
     transport->tport_funcs.destroy = NULL;
     transport->tport_funcs.apply_send_timeout = cmsg_transport_apply_send_timeout;

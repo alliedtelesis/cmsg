@@ -51,7 +51,6 @@ typedef int (*server_send_f) (int socket, cmsg_transport *transport, void *buff,
                               int flag);
 typedef void (*socket_close_f) (cmsg_transport *transport);
 typedef int (*get_socket_f) (cmsg_transport *transport);
-typedef bool (*is_congested_f) (cmsg_transport *transport);
 typedef int32_t (*apply_send_timeout_f) (cmsg_transport *transport, int sockfd);
 typedef int32_t (*apply_recv_timeout_f) (cmsg_transport *transport, int sockfd);
 typedef int32_t (*ipfree_bind_enable_f) (cmsg_transport *transport, cmsg_bool_t enable);
@@ -69,7 +68,6 @@ typedef struct _cmsg_tport_functions_s
     server_send_f server_send;                  // server send function
     socket_close_f socket_close;                // close socket function
     get_socket_f get_socket;                    // gets the socket used by the transport
-    is_congested_f is_congested;                // Check whether transport is congested
     apply_send_timeout_f apply_send_timeout;
     apply_recv_timeout_f apply_recv_timeout;
     ipfree_bind_enable_f ipfree_bind_enable;    // Allows TCP socket to bind with a non-existent, non-local addr to avoid IPv6 DAD race condition
