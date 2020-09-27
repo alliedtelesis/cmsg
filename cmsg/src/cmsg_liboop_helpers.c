@@ -23,6 +23,8 @@ cmsg_liboop_server_read (int sd, void *data)
     if (cmsg_server_receive (server, sd) < 0)
     {
         g_hash_table_remove (server->event_loop_data, GINT_TO_POINTER (sd));
+        shutdown (sd, SHUT_RDWR);
+        close (sd);
     }
 }
 
