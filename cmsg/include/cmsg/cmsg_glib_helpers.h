@@ -10,6 +10,7 @@
 #include <cmsg/cmsg_sub.h>
 #include <cmsg/cmsg_sl.h>
 
+void _cmsg_glib_server_processing_start (cmsg_server *server, GMainContext *context);
 void cmsg_glib_server_processing_start (cmsg_server *server);
 int32_t cmsg_glib_server_init (cmsg_server *server);
 int32_t cmsg_glib_thread_server_init (cmsg_server *server, GMainContext *context);

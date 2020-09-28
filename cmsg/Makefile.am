@@ -391,6 +391,7 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/broadcast_client_tests.c \
 	test/functional/server_side_validation.c \
 	test/functional/pthread_helpers_tests.c \
+	test/functional/glib_helpers_tests.c \
 	test/functional/cmsg_service_listener_tests.c \
 	test/functional/supported_service_tests.c \
 	test/functional/file_response_tests.c \
