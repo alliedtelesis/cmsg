@@ -101,6 +101,7 @@ service test
             file_path: "/tmp/test_file_response"
         };
     }
+    rpc glib_helper_test (bool_msg) returns (bool_msg);
 }
 
 message message_with_ant_result
