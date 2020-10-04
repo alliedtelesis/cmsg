@@ -45,9 +45,10 @@ server_thread (void *server)
     _cmsg_glib_server_processing_start (server, context);
 
     g_main_loop_run (loop);
-    g_main_loop_unref (loop);
 
-    cmsg_destroy_server_and_transport (server);
+    cmsg_glib_server_destroy (server);
+
+    g_main_loop_unref (loop);
 
     return NULL;
 }
@@ -96,9 +97,12 @@ test_glib_helper (void)
     client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg, test));
     cmsg_test_api_glib_helper_test (client, &send_msg, &recv_msg);
     CMSG_FREE_RECV_MSG (recv_msg);
-    cmsg_destroy_client_and_transport (client);
+    /* Client destroyed at end of test so that the tear down code of
+     * the glib helper is fully exercised as there are open sockets
+     * remaining on the server. */
 
     g_main_loop_quit (loop);
     pthread_join (thread, NULL);
     g_main_context_unref (context);
+    cmsg_destroy_client_and_transport (client);
 }

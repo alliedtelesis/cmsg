@@ -14,6 +14,12 @@
 #include "publisher_subscriber/cmsg_sub_private.h"
 #include "cmsg_sl.h"
 
+typedef struct cmsg_glib_data_s
+{
+    GMainContext *context;
+    GHashTable *sockets;
+} cmsg_glib_data;
+
 /**
  * Callback function to read an accepted socket on a CMSG server.
  */
@@ -22,11 +28,13 @@ cmsg_glib_server_read (GIOChannel *source, GIOCondition condition, gpointer data
 {
     int sd = g_io_channel_unix_get_fd (source);
     cmsg_server *server = (cmsg_server *) data;
+    cmsg_glib_data *glib_data = server->event_loop_data;
 
     if (cmsg_server_receive (server, sd) < 0)
     {
-        // This function internally closes the socket
-        g_io_channel_shutdown (source, TRUE, NULL);
+        shutdown (sd, SHUT_RDWR);
+        close (sd);
+        g_hash_table_remove (glib_data->sockets, GINT_TO_POINTER (sd));
         return FALSE;
     }
 
@@ -47,6 +55,7 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
     GSource *read_source;
     GIOChannel *read_channel = NULL;
     cmsg_server_accept_thread_info *info = server->accept_thread_info;
+    cmsg_glib_data *glib_data = server->event_loop_data;
 
     /* clear notification */
     TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
@@ -58,8 +67,11 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
         g_io_channel_unref (read_channel);
         g_source_set_callback (read_source, (GSourceFunc) cmsg_glib_server_read,
                                server, NULL);
-        g_source_attach (read_source, server->event_loop_data);
+        g_source_attach (read_source, glib_data->context);
         g_source_unref (read_source);
+
+        g_hash_table_insert (glib_data->sockets, GINT_TO_POINTER (*newfd_ptr), read_source);
+
         CMSG_FREE (newfd_ptr);
     }
 
@@ -77,17 +89,35 @@ _cmsg_glib_server_processing_start (cmsg_server *server, GMainContext *context)
 {
     cmsg_server_accept_thread_info *info = server->accept_thread_info;
     GSource *source;
-    GIOChannel *accept_channel = g_io_channel_unix_new (info->accept_sd_eventfd);
+    GIOChannel *accept_channel = NULL;
+    cmsg_glib_data *glib_data = CMSG_CALLOC (1, sizeof (cmsg_glib_data));
 
+    if (!glib_data)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to start glib CMSG server processing");
+        return;
+    }
+
+    glib_data->context = context;
+    glib_data->sockets = g_hash_table_new (g_direct_hash, g_direct_equal);
+
+    if (!glib_data->sockets)
+    {
+        CMSG_FREE (glib_data);
+        CMSG_LOG_GEN_ERROR ("Failed to start glib CMSG server processing");
+        return;
+    }
+    server->event_loop_data = glib_data;
+
+    accept_channel = g_io_channel_unix_new (info->accept_sd_eventfd);
     source = g_io_create_watch (accept_channel, G_IO_IN);
     g_io_channel_unref (accept_channel);
     g_source_set_callback (source, (GSourceFunc) cmsg_glib_server_accepted, server, NULL);
-    if (context && source)
-    {
-        g_source_attach (source, context);
-        server->event_loop_data = context;
-    }
+    g_source_attach (source, context);
     g_source_unref (source);
+
+    g_hash_table_insert (glib_data->sockets, GINT_TO_POINTER (info->accept_sd_eventfd),
+                         source);
 }
 
 /**
@@ -99,6 +129,54 @@ void
 cmsg_glib_server_processing_start (cmsg_server *server)
 {
     _cmsg_glib_server_processing_start (server, g_main_context_default ());
+}
+
+/**
+ * Helper function called for each socket in the hash table. This closes the
+ * socket (if it is not the accept thread eventfd) and destroys the glib source
+ * used for processing the socket.
+ *
+ * @param key - The file descriptor (socket).
+ * @param value - The glib source for the socket.
+ * @param user_data - The CMSG server.
+ *
+ * @returns TRUE always (so that the entry is removed from the hash table).
+ */
+static gboolean
+cmsg_glib_clear_sockets (gpointer key, gpointer value, gpointer user_data)
+{
+    cmsg_server *server = user_data;
+    int accept_eventfd = server->accept_thread_info->accept_sd_eventfd;
+    int sd = GPOINTER_TO_INT (key);
+
+    g_source_destroy (value);
+    if (sd != accept_eventfd)
+    {
+        shutdown (sd, SHUT_RDWR);
+        close (sd);
+    }
+
+    return TRUE;
+}
+
+/**
+ * Stop the processing of the accepted connections for a CMSG server.
+ *
+ * @param server - The CMSG server to stop processing.
+ */
+static void
+cmsg_glib_server_processing_stop (cmsg_server *server)
+{
+    cmsg_glib_data *glib_data = NULL;
+
+    if (server && server->event_loop_data)
+    {
+        glib_data = server->event_loop_data;
+        g_hash_table_foreach_remove (glib_data->sockets, cmsg_glib_clear_sockets, server);
+        g_hash_table_unref (glib_data->sockets);
+        CMSG_FREE (glib_data);
+        server->event_loop_data = NULL;
+    }
 }
 
 /**
@@ -139,6 +217,21 @@ int32_t
 cmsg_glib_server_init (cmsg_server *server)
 {
     return cmsg_glib_thread_server_init (server, g_main_context_default ());
+}
+
+/**
+ * Destroy a CMSG server created via the glib helper functions.
+ *
+ * @param server - The server to destroy.
+ */
+void
+cmsg_glib_server_destroy (cmsg_server *server)
+{
+    if (server)
+    {
+        cmsg_glib_server_processing_stop (server);
+        cmsg_destroy_server_and_transport (server);
+    }
 }
 
 /**
