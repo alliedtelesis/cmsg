@@ -25,10 +25,8 @@ cmsg_glib_server_read (GIOChannel *source, GIOCondition condition, gpointer data
 
     if (cmsg_server_receive (server, sd) < 0)
     {
+        // This function internally closes the socket
         g_io_channel_shutdown (source, TRUE, NULL);
-        g_io_channel_unref (source);
-        shutdown (sd, SHUT_RDWR);
-        close (sd);
         return FALSE;
     }
 
@@ -61,6 +59,7 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
         g_source_set_callback (read_source, (GSourceFunc) cmsg_glib_server_read,
                                server, NULL);
         g_source_attach (read_source, server->event_loop_data);
+        g_source_unref (read_source);
         CMSG_FREE (newfd_ptr);
     }
 
@@ -88,6 +87,7 @@ _cmsg_glib_server_processing_start (cmsg_server *server, GMainContext *context)
         g_source_attach (source, context);
         server->event_loop_data = context;
     }
+    g_source_unref (source);
 }
 
 /**
