@@ -13,6 +13,7 @@
 void _cmsg_glib_server_processing_start (cmsg_server *server, GMainContext *context);
 void cmsg_glib_server_processing_start (cmsg_server *server);
 int32_t cmsg_glib_server_init (cmsg_server *server);
+void cmsg_glib_server_destroy (cmsg_server *server);
 int32_t cmsg_glib_thread_server_init (cmsg_server *server, GMainContext *context);
 cmsg_server *cmsg_glib_unix_server_init (ProtobufCService *service);
 cmsg_server *cmsg_glib_unix_server_init_oneway (ProtobufCService *service);
