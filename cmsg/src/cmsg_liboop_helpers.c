@@ -22,6 +22,8 @@ cmsg_liboop_server_read (int sd, void *data)
 
     if (cmsg_server_receive (server, sd) < 0)
     {
+        oop_socket_deregister (g_hash_table_lookup (server->event_loop_data,
+                                                    GINT_TO_POINTER (sd)));
         g_hash_table_remove (server->event_loop_data, GINT_TO_POINTER (sd));
         shutdown (sd, SHUT_RDWR);
         close (sd);
@@ -64,13 +66,40 @@ cmsg_liboop_server_processing_start (cmsg_server *server)
     cmsg_server_accept_thread_info *info = server->accept_thread_info;
     oop_socket_hdl handle = NULL;
 
-    server->event_loop_data = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
-                                                     oop_socket_deregister);
+    server->event_loop_data = g_hash_table_new (g_direct_hash, g_direct_equal);
 
     handle = oop_socket_register (info->accept_sd_eventfd, cmsg_liboop_server_accepted,
                                   server);
     g_hash_table_insert (server->event_loop_data, GINT_TO_POINTER (info->accept_sd_eventfd),
                          handle);
+}
+
+/**
+ * Helper function called for each socket in the hash table. This closes the
+ * socket (if it is not the accept thread eventfd) and deregisters the liboop
+ * functionality used for processing the socket.
+ *
+ * @param key - The file descriptor (socket).
+ * @param value - The liboop socket pointer.
+ * @param user_data - The CMSG server.
+ *
+ * @returns TRUE always (so that the entry is removed from the hash table).
+ */
+static gboolean
+cmsg_liboop_clear_sockets (gpointer key, gpointer value, gpointer user_data)
+{
+    cmsg_server *server = user_data;
+    int accept_eventfd = server->accept_thread_info->accept_sd_eventfd;
+    int sd = GPOINTER_TO_INT (key);
+
+    oop_socket_deregister (value);
+    if (sd != accept_eventfd)
+    {
+        shutdown (sd, SHUT_RDWR);
+        close (sd);
+    }
+
+    return TRUE;
 }
 
 /**
@@ -83,7 +112,8 @@ cmsg_liboop_server_processing_stop (cmsg_server *server)
 {
     if (server && server->event_loop_data)
     {
-        g_hash_table_remove_all (server->event_loop_data);
+        g_hash_table_foreach_remove (server->event_loop_data, cmsg_liboop_clear_sockets,
+                                     server);
         g_hash_table_unref (server->event_loop_data);
         server->event_loop_data = NULL;
     }
