@@ -65,6 +65,21 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
     return NULL;
 }
 
+typedef void (*cmsg_closure_func) (const ProtobufCMessage *send_msg, void *closure_data);
+/**
+ * Call the appropriate closure function for this service. This is the common code called
+ * by the auto-generated send functions. The auto-generated functions are generated as
+ * inline functions in the header file that only call this function. This allows type
+ * checking, but reduces the compiled code size.
+ */
+void
+cmsg_server_send_response (const ProtobufCMessage *send_msg, const void *service)
+{
+    cmsg_closure_func _closure = ((const cmsg_server_closure_info *) service)->closure;
+    void *_closure_data = ((const cmsg_server_closure_info *) service)->closure_data;
+
+    _closure (send_msg, _closure_data);
+}
 
 /*
  * This is an internal function which can be called from CMSG library.

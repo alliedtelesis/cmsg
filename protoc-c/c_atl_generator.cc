@@ -485,7 +485,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
 }
 
 //
-// Methods to generate the server side code (IMPL and SEND functions)
+// Methods to generate the server side code (IMPL calling functions)
 //
 void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
 {
@@ -589,11 +589,6 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     // end of the function
     printer->Outdent();
     printer->Print("}\n\n");
-
-    // we need to generate a closure function for the api to call on return
-    // of the rpc call from the server
-    //
-    GenerateAtlServerSendImplementation(*method, printer);
   }
 
 }
@@ -606,7 +601,7 @@ void AtlCodeGenerator::GenerateAtlServerDefinitions(io::Printer* printer, bool f
     const MethodDescriptor *method = descriptor_->method(i);
     // only declare the server send in the header file
     if (!method->options().HasExtension(file_response)) {
-      GenerateAtlServerSendDefinition(*method, printer, forHeader);
+      GenerateAtlServerSendDefinition(*method, printer);
     }
   }
 
@@ -669,53 +664,33 @@ void AtlCodeGenerator::GenerateAtlServerImplDefinition(const MethodDescriptor &m
   printer->Print("\n");
 }
 
-void AtlCodeGenerator::GenerateAtlServerSendImplementation(const MethodDescriptor &method, io::Printer* printer)
-{
-  vars_["method"] = cmsg::FullNameToLower(method.name());
-  vars_["input_typename"] = cmsg::FullNameToC(method.input_type()->full_name());
-  vars_["output_typename"] = cmsg::FullNameToC(method.output_type()->full_name());
-  vars_["send_msg_name"] = "send_msg";
-
-  GenerateAtlServerSendDefinition(method, printer, false);
-
-  printer->Print("{\n");
-  printer->Indent();
-
-  printer->Print(vars_, "$output_typename$_Closure _closure = ((const cmsg_server_closure_info *)_service)->closure;\n");
-  printer->Print(vars_, "void *_closure_data = ((const cmsg_server_closure_info *)_service)->closure_data;\n");
-
-  if (method.output_type()->field_count() == 0)
-  {
-    printer->Print(vars_, "$output_typename$ send_msg = $output_typename_upper$_INIT;\n");
-    vars_["send_msg_name"] = "&send_msg";
-  }
-  printer->Print("\n");
-
-  printer->Print(vars_, "_closure ($send_msg_name$, _closure_data);\n");
-
-  printer->Print("\n");
-
-  printer->Outdent();
-  printer->Print("}\n\n");
-}
-
-void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)
+void AtlCodeGenerator::GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer)
 {
   string lcname = CamelToLower(method.name());
   vars_["method"] = lcname;
   vars_["method_output"] = cmsg::FullNameToC(method.output_type()->full_name());
+  vars_["method_output_upper"] = cmsg::FullNameToUpper(method.output_type()->full_name());
 
-  printer->Print(vars_, "void $lcfullname$_server_$method$Send (const void *_service");
+  printer->Print(vars_, "static inline void\n$lcfullname$_server_$method$Send (const void *_service");
   if (method.output_type()->field_count() > 0)
   {
     printer->Print(vars_, ", const $method_output$ *send_msg");
   }
-  printer->Print(")");
-  if (forHeader)
+  printer->Print(")\n");
+  printer->Print("{\n");
+  printer->Indent();
+  if (method.output_type()->field_count() == 0)
   {
-    printer->Print(";");
+    printer->Print(vars_, "$method_output$ send_msg = $method_output_upper$_INIT;\n");
+    vars_["send_msg_name"] = "&send_msg";
   }
-  printer->Print("\n");
+  else
+  {
+    vars_["send_msg_name"] = "send_msg";
+  }
+  printer->Print(vars_,"cmsg_server_send_response ((const struct ProtobufCMessage *) ($send_msg_name$), _service);\n");
+  printer->Outdent();
+  printer->Print("}\n\n");
 }
 
 //

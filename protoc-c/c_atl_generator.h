@@ -77,8 +77,7 @@ class AtlCodeGenerator {
 
   void GenerateAtlServerImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateAtlServerImplStub(const MethodDescriptor &method, io::Printer* printer);
-  void GenerateAtlServerSendImplementation(const MethodDescriptor &method, io::Printer* printer);
-  void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
+  void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer);
 
 
   // useful functions

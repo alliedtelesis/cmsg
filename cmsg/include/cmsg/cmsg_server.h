@@ -158,6 +158,8 @@ void cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_dat
 
 void cmsg_server_closure_oneway (const ProtobufCMessage *message, void *closure_data);
 
+void cmsg_server_send_response (const ProtobufCMessage *message, const void *service);
+
 int32_t cmsg_server_queue_process (cmsg_server *server);
 
 int32_t cmsg_server_queue_process_some (cmsg_server *server, int32_t number_to_process);
