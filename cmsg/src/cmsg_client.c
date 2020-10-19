@@ -1672,3 +1672,24 @@ cmsg_create_client_tcp_ipv6_oneway (const char *service_name, struct in6_addr *a
     return _cmsg_create_client_tcp_ipv6 (service_name, addr, scope_id, vrf_bind_dev,
                                          descriptor, true);
 }
+
+/**
+ * Check the passed in recv_msg pointer to see if it is NULL. If it is not NULL, set it to
+ * NULL and log a client debug message.
+ * @param client cmsg client that called the API
+ * @param recv_msg pointer to set to NULL
+ * @param func function name string to include in the log message
+ */
+void
+cmsg_api_recv_ptr_null_check (cmsg_client *client, void **recv_msg, const char *func)
+{
+    /* test that the pointer to the recv msg is NULL. If it isn't, set it to
+     * NULL but complain loudly that the api is not being used correctly  */
+    if (*(recv_msg) != NULL)
+    {
+        *(recv_msg) = NULL;
+        CMSG_LOG_CLIENT_DEBUG (client,
+                               "WARNING: %s API called with Non-NULL recv_msg! Setting to NULL! (This may be a leak!)",
+                               func);
+    }
+}
