@@ -582,3 +582,59 @@ cmsg_psd_update_impl_subscription_change (const void *service,
 
     cmsg_psd_update_server_subscription_changeSend (service);
 }
+
+/**
+ * @param key - The method name.
+ * @param value - The composite client for this method.
+ * @param user_data - The pointer to the host address.
+ *
+ * @returns TRUE if there are now no subscribers for this method (and the
+ *          composite client should be deleted). FALSE otherwise.
+ */
+static gboolean
+cmsg_publisher_remove_subscribers_from_host (gpointer key, gpointer value,
+                                             gpointer user_data)
+{
+    cmsg_client *comp_client = (cmsg_client *) value;
+    uint32_t *addr = (uint32_t *) user_data;
+    cmsg_client *client = NULL;
+
+    while ((client = cmsg_composite_client_lookup_by_tcp_ipv4_addr (comp_client, *addr)))
+    {
+        cmsg_composite_client_delete_child (comp_client, client);
+        cmsg_destroy_client_and_transport (client);
+    }
+
+    return (cmsg_composite_client_num_children (comp_client) == 0);
+}
+
+void
+cmsg_psd_update_impl_host_removal (const void *service, const cmsg_psd_host_info *recv_msg)
+{
+    cmsg_publisher *publisher = NULL;
+    const cmsg_server *server;
+    uint32_t addr = recv_msg->addr;
+
+    /* Respond to the cmsg_psd daemon as fast as possible. This operation does
+     * not need to be synchronous with respect to cmsg_psd (it has already removed
+     * these subscriptions). With a number of published notifications on the send
+     * queue this operation can take a while due to the connection timeout length
+     * on the TCP connections to the now removed subscribers. */
+    cmsg_psd_update_server_host_removalSend (service);
+
+    server = cmsg_server_from_service_get (service);
+    if (!server || server->parent.object_type != CMSG_OBJ_TYPE_PUB)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to update subscriptions for CMSG publisher.");
+        return;
+    }
+
+    publisher = (cmsg_publisher *) server->parent.object;
+
+    pthread_mutex_lock (&publisher->subscribed_methods_mutex);
+
+    g_hash_table_foreach_remove (publisher->subscribed_methods,
+                                 cmsg_publisher_remove_subscribers_from_host, &addr);
+
+    pthread_mutex_unlock (&publisher->subscribed_methods_mutex);
+}

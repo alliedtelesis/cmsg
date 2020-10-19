@@ -190,6 +190,22 @@ update_publishers_with_method_change (cmsg_client *comp_client, const char *meth
 }
 
 /**
+ * Update the publishers registered for this service with the host removal.
+ *
+ * @param comp_client - The composite client connected to the publishers.
+ * @param addr - The address specifying the host that has been removed.
+ */
+static void
+update_publishers_with_host_removal (cmsg_client *comp_client, uint32_t addr)
+{
+    cmsg_psd_host_info send_msg = CMSG_PSD_HOST_INFO_INIT;
+
+    CMSG_SET_FIELD_VALUE (&send_msg, addr, addr);
+
+    cmsg_psd_update_api_host_removal (comp_client, &send_msg);
+}
+
+/**
  * Helper function for use with 'g_list_find_custom'. Specifically compares a
  * 'method_data_entry' structure with a method name string to see if they match.
  *
@@ -623,16 +639,21 @@ data_remove_subscriber (const char *service, const cmsg_transport_info *transpor
  * Remove any client from the composite client on a given method entry
  * if it has the address of the given remote host.
  *
+ * NOTE: This function does not notify any publishers of the removal.
+ *
  * @param method_entry - The method entry to remove the client from.
  * @param addr - The address specifying any client to remove.
+ *
+ * @returns true if at least one client was removed, false otherwise.
  */
-static void
+static bool
 data_remove_clients_with_addr_from_method (method_data_entry *method_entry, uint32_t addr)
 {
     GList *list = NULL;
     GList *removal_list = NULL;
     cmsg_transport_info *transport_info = NULL;
     cmsg_transport *transport = NULL;
+    bool subscribers_removed = false;
 
     for (list = g_list_first (method_entry->transports); list; list = g_list_next (list))
     {
@@ -651,27 +672,12 @@ data_remove_clients_with_addr_from_method (method_data_entry *method_entry, uint
     for (list = g_list_first (removal_list); list; list = g_list_next (list))
     {
         method_entry->transports = g_list_remove (method_entry->transports, list->data);
-        update_publishers_with_method_change (method_entry->service_entry->comp_client,
-                                              method_entry->method_name, list->data, false);
         cmsg_transport_info_free (list->data);
     }
+    subscribers_removed = (removal_list != NULL);
     g_list_free (removal_list);
-}
 
-/**
- * Helper function called for each method to potentially remove any
- * subscriber on a remote host that is subscribed to it.
- *
- * @param data - The 'method_data_entry' structure for a method.
- * @param user_data - The address of the remote host.
- */
-static void
-data_remove_subscribers_with_addr_from_method (gpointer data, gpointer user_data)
-{
-    uint32_t *addr = (uint32_t *) user_data;
-    method_data_entry *entry = (method_data_entry *) data;
-
-    data_remove_clients_with_addr_from_method (entry, *addr);
+    return subscribers_removed;
 }
 
 /**
@@ -685,11 +691,28 @@ data_remove_subscribers_with_addr_from_method (gpointer data, gpointer user_data
 static void
 data_remove_local_entries_for_addr (gpointer key, gpointer value, gpointer user_data)
 {
+    GList *iter;
     service_data_entry *entry = (service_data_entry *) value;
+    uint32_t *addr = (uint32_t *) user_data;
+    bool subscriber_removed = false;
 
-    g_list_foreach (entry->methods, data_remove_subscribers_with_addr_from_method,
-                    user_data);
+    for (iter = g_list_first (entry->methods); iter; iter = g_list_next (iter))
+    {
+        if (data_remove_clients_with_addr_from_method ((method_data_entry *) iter->data,
+                                                       *addr))
+        {
+            subscriber_removed = true;
+        }
+    }
+
     data_prune_empty_methods (entry);
+
+    if (subscriber_removed)
+    {
+        /* At least one subscriber was removed for this service. Notify all
+         * publishers of this change. */
+        update_publishers_with_host_removal (entry->comp_client, *addr);
+    }
 }
 
 void
