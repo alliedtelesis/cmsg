@@ -79,6 +79,7 @@ class AtlCodeGenerator {
   void GenerateAtlServerImplStub(const MethodDescriptor &method, io::Printer* printer);
   void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer);
 
+  void GenerateServiceSupportCheck (const ServiceDescriptor* descriptor_, io::Printer* printer, bool forHeader);
 
   // useful functions
   string GetAtlClosureFunctionName(const MethodDescriptor &method);

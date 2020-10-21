@@ -231,6 +231,11 @@ cmsg_client *cmsg_create_client_tcp_ipv6_oneway (const char *service_name,
                                                  const ProtobufCServiceDescriptor
                                                  *descriptor);
 
-void cmsg_api_recv_ptr_null_check (cmsg_client *client, void **recv_msg, const char *func);
-
+int cmsg_api_invoke (cmsg_client *client, const ProtobufCServiceDescriptor *service_desc,
+                     int method_index, const ProtobufCMessage *send_msg,
+                     ProtobufCMessage **recv_msg);
+int cmsg_api_file_response (cmsg_client *client,
+                            const ProtobufCServiceDescriptor *service_desc,
+                            int method_index, const char *filename,
+                            ProtobufCMessage **recv_msg);
 #endif /* __CMSG_CLIENT_H_ */

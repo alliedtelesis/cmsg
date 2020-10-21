@@ -91,7 +91,6 @@ void ServiceGenerator::GenerateMainHFileDefines(io::Printer* printer)
 {
   GenerateVfuncsDefines(printer);
   GenerateInitMacrosDefines(printer);
-  GenerateCallersDeclarationsDefines(printer);
 }
 void ServiceGenerator::GenerateVfuncsDefines(io::Printer* printer)
 {

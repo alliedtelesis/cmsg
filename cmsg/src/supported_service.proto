@@ -23,7 +23,8 @@ message ServiceSupportInfo
 // set with the supplied code and message.
 //
 // Note that to use this extension all methods in the service must return
-// an 'ant_result' message or a message with a nested 'ant_result' message.
+// an 'ant_result' message or a message with a nested 'ant_result' message
+// in a field called _error_info.
 //
 // Note that if a composite client is used when calling any of the RPCs
 // implemented by a service using this extension then if the check fails
