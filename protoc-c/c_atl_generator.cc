@@ -339,68 +339,21 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     printer->Print("{\n");
     printer->Indent();
 
-    printer->Print("cmsg_server_closure_info closure_info;\n");
-    printer->Print("\n");
-
-    printer->Print("if (input == NULL)\n");
-    printer->Print("{\n");
-    printer->Indent();
-    printer->Print("_closure (NULL, _closure_data);\n");
-    printer->Print("return;\n");
-    printer->Outdent();
-    printer->Print("}\n");
-
-    printer->Print("\n");
-    printer->Print("// these are needed in 'Send' function for sending reply back to the client\n");
-    printer->Print("closure_info.closure = _closure;\n");
-    printer->Print("closure_info.closure_data = _closure_data;\n");
-    printer->Print("\n");
-
-    //
-    // call _impl user function
-    //
-    printer->Print("bool call_impl = true;\n");
-    if (method->options().HasExtension(auto_validation) && method->options().GetExtension(auto_validation))
-    {
-        printer->Print("char err_str[512];\n");
-        printer->Print(vars_, "if (!$input_typename_lower$_validate (input, err_str, sizeof (err_str)))\n");
-        printer->Print("{\n");
-        printer->Indent();
-        printer->Print("call_impl = false;\n");
-        printer->Print(vars_, "ant_result ant_result_msg = ANT_RESULT_INIT;\n");
-        printer->Print("CMSG_SET_FIELD_VALUE (&ant_result_msg, code, ANT_CODE_INVALID_ARGUMENT);\n");
-        printer->Print("CMSG_SET_FIELD_PTR (&ant_result_msg, message, err_str);\n");
-        if (strcmp (method->output_type()->full_name().c_str(), "ant_result") == 0)
-        {
-            printer->Print(vars_, "$lcfullname$_server_$method$Send (&closure_info, &ant_result_msg);\n");
-        }
-        else
-        {
-            printer->Print(vars_, "$output_typename$ send_msg = $output_typename_upper$_INIT;\n");
-            printer->Print("CMSG_SET_FIELD_PTR (&send_msg, _error_info, &ant_result_msg);\n");
-            printer->Print(vars_, "$lcfullname$_server_$method$Send (&closure_info, &send_msg);\n");
-        }
-        printer->Outdent();
-        printer->Print("}\n");
+    if (method->input_type()->field_count() <= 0) {
+      printer->Print(vars_, "cmsg_server_call_impl_no_input ((cmsg_closure_func) _closure, _closure_data,\n");
+      printer->Print(vars_, "                                (cmsg_impl_no_input_func) $lcfullname$_impl_$method$);\n");
+    } else if (method->options().HasExtension(auto_validation) &&
+               method->options().GetExtension(auto_validation)) {
+      printer->Print(vars_, "cmsg_server_call_impl_with_validation ((const ProtobufCMessage *) input,\n");
+      printer->Print(vars_, "                                       (cmsg_closure_func) _closure, _closure_data,\n");
+      printer->Print(vars_, "                                       (cmsg_impl_func) $lcfullname$_impl_$method$,\n");
+      printer->Print(vars_, "                                       (cmsg_validation_func) $input_typename_lower$_validate,\n");
+      printer->Print(vars_, "                                       &$output_typename$_descriptor);\n");
+    } else {
+      printer->Print(vars_, "cmsg_server_call_impl ((const ProtobufCMessage *) input,\n");
+      printer->Print(vars_, "                       (cmsg_closure_func) _closure, _closure_data,\n");
+      printer->Print(vars_, "                       (cmsg_impl_func) $lcfullname$_impl_$method$);\n");
     }
-
-    printer->Print("if (call_impl)\n");
-    printer->Print("{\n");
-    printer->Indent();
-    // now pass the pbc struct to the new impl function
-    printer->Print(vars_, "$lcfullname$_impl_$method$ (&closure_info");
-    if (method->input_type()->field_count() > 0)
-    {
-      printer->Print(", input");
-    }
-    printer->Print(");\n");
-    printer->Outdent();
-    printer->Print("}\n");
-
-    //
-    // call closure()
-    //
-    printer->Print("\n");
 
     // end of the function
     printer->Outdent();
@@ -450,9 +403,9 @@ void AtlCodeGenerator::GenerateAtlServerDefinition(const MethodDescriptor &metho
 
   printer->Print(vars_,
                  "void $lcfullname$_server_$method$ ($cname$_Service *_service,\n"
-                 "        $padddddddddddddddddddddddd$  const $input_typename$ *input,\n"
-                 "        $padddddddddddddddddddddddd$  $output_typename$_Closure _closure,\n"
-                 "        $padddddddddddddddddddddddd$  void *_closure_data)");
+                 "     $padddddddddddddddddddddddd$  const $input_typename$ *input,\n"
+                 "     $padddddddddddddddddddddddd$  $output_typename$_Closure _closure,\n"
+                 "     $padddddddddddddddddddddddd$  void *_closure_data)");
   if (forHeader)
   {
     printer->Print(";");

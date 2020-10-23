@@ -34,6 +34,16 @@ typedef struct _cmsg_server_closure_data_s
     cmsg_method_processing_reason method_processing_reason;
 } cmsg_server_closure_data;
 
+typedef void (*cmsg_closure_func) (const ProtobufCMessage *send_msg, void *closure_data);
+typedef void (*cmsg_impl_func) (cmsg_server_closure_info *closure_info,
+                                const ProtobufCMessage *input);
+typedef void (*cmsg_impl_no_input_func) (cmsg_server_closure_info *closure_info);
+
+void cmsg_server_call_impl (const ProtobufCMessage *input, cmsg_closure_func closure,
+                            void *closure_data, cmsg_impl_func impl_func);
+void cmsg_server_call_impl_no_input (cmsg_closure_func closure, void *closure_data,
+                                     cmsg_impl_no_input_func impl_func);
+
 typedef int32_t (*server_message_processor_f) (int socket,
                                                cmsg_server_request *server_request,
                                                cmsg_server *server, uint8_t *buffer_data);

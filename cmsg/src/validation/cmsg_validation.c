@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <inttypes.h>
 #include <utility/utlstr.h>
+#include "cmsg_ant_result.h"
 
 /**
  * Validate an integer value is greater than or equal to the specified value.
@@ -193,4 +194,43 @@ cmsg_validate_mac_address (const char *input_string, const char *field_name,
     }
 
     return true;
+}
+
+/**
+ * CMSG server common function to call an impl function that takes an input message
+ * after first performing CMSG validation checks on the message.
+ * The call to this function is intended to be auto-generated, so shouldn't be manually
+ * called.
+ * @param input input message to the impl
+ * @param closure closure function to be passed through to impl for response
+ * @param closure_data closure data to be passed through to impl for response
+ * @param impl_func IMPL function to call.
+ * @param validation_func validation function to call.
+ * @param output_desc descriptor to use for response message if validation fails
+ */
+void
+cmsg_server_call_impl_with_validation (const ProtobufCMessage *input,
+                                       cmsg_closure_func closure, void *closure_data,
+                                       cmsg_impl_func impl_func,
+                                       cmsg_validation_func validation_func,
+                                       const ProtobufCMessageDescriptor *output_desc)
+{
+    char err_str[512];
+
+    if (input == NULL)
+    {
+        closure (NULL, closure_data);
+        return;
+    }
+
+    if (!validation_func (input, err_str, sizeof (err_str)))
+    {
+        ProtobufCMessage *response =
+            cmsg_create_ant_response (err_str, ANT_CODE_INVALID_ARGUMENT, output_desc);
+        closure (response, closure_data);
+        CMSG_FREE_RECV_MSG (response);
+        return;
+    }
+
+    cmsg_server_call_impl (input, closure, closure_data, impl_func);
 }

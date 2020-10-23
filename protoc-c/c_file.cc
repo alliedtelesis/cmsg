@@ -472,6 +472,7 @@ void FileGenerator::GenerateAtlValidationHeader(io::Printer* printer) {
       "\n",
       "header_define", header_define);
 
+    printer->Print("#include <cmsg/cmsg_validation.h>\n");
     // Include dependent types header files
     for (int i = 0; i < file_->dependency_count(); i++) {
         printer->Print(
