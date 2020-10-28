@@ -9,6 +9,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+/* Limit the size of message read */
+#define CMSG_RECV_ALL_CHUNK_SIZE  (16 * 1024)
+
 typedef enum _cmsg_peek_code
 {
     CMSG_PEEK_CODE_SUCCESS,
@@ -157,7 +160,9 @@ ssize_t
 cmsg_transport_socket_recv (int sockfd, void *buf, size_t len, int flags)
 {
     ssize_t ret;
+    size_t chunk_size;
     ssize_t received_bytes = 0;
+    ssize_t bytes_left = 0;
     uint8_t *data = (uint8_t *) buf;
 
     /* If non-blocking behaviour is requested then we don't try to handle
@@ -170,19 +175,32 @@ cmsg_transport_socket_recv (int sockfd, void *buf, size_t len, int flags)
 
     while (received_bytes < len)
     {
-        ret = TEMP_FAILURE_RETRY (recv (sockfd, data + received_bytes,
-                                        len - received_bytes, flags));
-        if (ret == -1)
-        {
-            return -1;
-        }
+        /**
+         * MSG_WAITALL will cause the recv call to block until all data has been
+         * received, but it appears that in cases where the size of the data to
+         * be received is close to or larger than the size of sockets receive
+         * buffer it may be possible for the connection to deadlock as the
+         * receiver is waiting for the sender to send more, and the sender is
+         * waiting for the receiver to receive more.
+         *
+         * To avoid this situation, the data is read in chunks that are
+         * significantly smaller than the receive buffer.
+         */
 
-        /* If we are peeking the socket and the full message was not
-         * read because we were interrupted then we need to read the
-         * entire length again. */
-        if ((flags & MSG_PEEK) && ret != len)
+        /* Do not read past the end of the message */
+        bytes_left = len - received_bytes;
+        chunk_size = MIN (bytes_left, CMSG_RECV_ALL_CHUNK_SIZE);
+
+        ret = TEMP_FAILURE_RETRY (recv (sockfd, data + received_bytes, chunk_size, flags));
+        if (ret < 0)
         {
-            continue;
+            /* error */
+            return ret;
+        }
+        else if (ret == 0)
+        {
+            /* shutdown */
+            return received_bytes;
         }
 
         received_bytes += ret;
