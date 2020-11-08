@@ -13,7 +13,13 @@ message subscription_update
     optional bool added = 3;
 }
 
+message host_info
+{
+    optional uint32 addr = 1;
+}
+
 service update
 {
     rpc subscription_change (subscription_update) returns (dummy);
+    rpc host_removal (host_info) returns (dummy);
 }
