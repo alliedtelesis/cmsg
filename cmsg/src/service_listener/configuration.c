@@ -15,17 +15,18 @@
 static cmsg_server *server = NULL;
 
 /**
- * Configures the IP address of the CMSG server running in the service listener
+ * Configures the address information for the CMSG server running in the service listener
  * daemon for syncing to remote hosts.
  */
 void
-cmsg_sld_configuration_impl_address_set (const void *service, const cmsg_uint32 *recv_msg)
+cmsg_sld_configuration_impl_address_set (const void *service,
+                                         const cmsg_sld_address_info *recv_msg)
 {
     struct in_addr addr = { };
 
-    addr.s_addr = recv_msg->value;
+    addr.s_addr = recv_msg->ip_addr;
 
-    remote_sync_address_set (addr);
+    remote_sync_address_set (addr, recv_msg->node_id);
     cmsg_sld_configuration_server_address_setSend (service);
 }
 
@@ -47,14 +48,15 @@ cmsg_sld_configuration_impl_add_host (const void *service, const cmsg_uint32 *re
  * Removes a remote host from the service listener daemon.
  */
 void
-cmsg_sld_configuration_impl_delete_host (const void *service, const cmsg_uint32 *recv_msg)
+cmsg_sld_configuration_impl_delete_host (const void *service,
+                                         const cmsg_sld_address_info *recv_msg)
 {
     struct in_addr addr = { };
 
-    addr.s_addr = recv_msg->value;
+    addr.s_addr = recv_msg->ip_addr;
 
     remote_sync_delete_host (addr);
-    data_remove_servers_by_addr (addr);
+    data_remove_servers_by_addr (addr, recv_msg->node_id);
     cmsg_sld_configuration_server_delete_hostSend (service);
 }
 
@@ -91,9 +93,10 @@ cmsg_sld_configuration_impl_add_server (const void *service,
                                         const cmsg_service_info *recv_msg)
 {
     if (recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_UNIX &&
-        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
+        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP &&
+        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TIPC)
     {
-        /* Ignore everything except TCP and UNIX services for now */
+        /* Ignore unsupported service types */
         cmsg_sld_configuration_server_add_serverSend (service);
         return;
     }
@@ -114,9 +117,10 @@ cmsg_sld_configuration_impl_remove_server (const void *service,
                                            const cmsg_service_info *recv_msg)
 {
     if (recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_UNIX &&
-        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
+        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP &&
+        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TIPC)
     {
-        /* Ignore everything except TCP and UNIX services for now */
+        /* Ignore unsupported service types */
         cmsg_sld_configuration_server_remove_serverSend (service);
         return;
     }

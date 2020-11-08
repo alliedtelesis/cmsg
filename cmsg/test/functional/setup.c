@@ -14,6 +14,22 @@ static const uint16_t port_number = 18888;
 static const uint16_t tipc_instance = 1;
 static const uint16_t tipc_scope = TIPC_NODE_SCOPE;
 
+#define CMSG_SLD_WAIT_TIME (500 * 1000)
+
+void
+cmsg_service_listener_daemon_start (void)
+{
+    system ("cmsg_sld &");
+    usleep (CMSG_SLD_WAIT_TIME);
+}
+
+void
+cmsg_service_listener_daemon_stop (void)
+{
+    system ("pkill cmsg_sld");
+    usleep (CMSG_SLD_WAIT_TIME);
+}
+
 static void
 sm_mock_cmsg_service_listener_add_server (cmsg_server *server)
 {

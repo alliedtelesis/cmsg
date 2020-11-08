@@ -17,6 +17,7 @@
 
 cmsg_server *remote_sync_server = NULL;
 uint32_t local_ip_addr = 0;
+uint32_t local_node_id = 0;
 cmsg_client *comp_client = NULL;
 
 /**
@@ -86,11 +87,21 @@ remote_sync_server_added_removed (const cmsg_service_info *server_info, bool add
     uint32_t addr;
     cmsg_transport_info *transport_info = server_info->server_info;
 
-    /* Don't sync if:
-     * - The composite client is not created, i.e. no remote hosts yet
-     * - The server is not using a TCP transport
-     * - The server is using a TCP transport but it uses an ipv6 address */
-    if (!comp_client || transport_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP ||
+    /* Don't sync if the composite client is not created, i.e. no remote hosts yet */
+    if (!comp_client)
+    {
+        return false;
+    }
+
+    /* Don't sync if the servers transport type is not supported */
+    if (transport_info->type != CMSG_TRANSPORT_INFO_TYPE_TIPC &&
+        transport_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
+    {
+        return false;
+    }
+
+    /* Don't sync if the server is using a TCP transport but it uses an ipv6 address */
+    if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP &&
         !transport_info->tcp_info->ipv4)
     {
         return false;
@@ -98,10 +109,23 @@ remote_sync_server_added_removed (const cmsg_service_info *server_info, bool add
 
     /* Only sync TCP servers that use the same IP address as the address that
      * we sync to remote nodes using. */
-    memcpy (&addr, transport_info->tcp_info->addr.data, sizeof (uint32_t));
-    if (addr != local_ip_addr)
+    if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
-        return false;
+        memcpy (&addr, transport_info->tcp_info->addr.data, sizeof (uint32_t));
+        if (addr != local_ip_addr)
+        {
+            return false;
+        }
+    }
+
+    /* Only sync TIPC servers that are hosted on the local node. This avoids endless
+     * loops of notification around the nodes. */
+    if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+    {
+        if (transport_info->tipc_info->addr_name_name_instance != local_node_id)
+        {
+            return false;
+        }
     }
 
     if (added)
@@ -138,10 +162,11 @@ remote_sync_server_removed (const cmsg_service_info *server_info)
  * Create the CMSG server for remote service listener daemons to connect to and
  * sync their local service information to.
  *
- * @param addr - The address to use for the CMSG server.
+ * @param addr    - The address to use for the CMSG server and to match services against.
+ * @param node_id - The node-id to match services against.
  */
 void
-remote_sync_address_set (struct in_addr addr)
+remote_sync_address_set (struct in_addr addr, uint32_t node_id)
 {
     if (!remote_sync_server)
     {
@@ -149,6 +174,7 @@ remote_sync_address_set (struct in_addr addr)
                                                                CMSG_SERVICE (cmsg_sld,
                                                                              remote_sync));
         local_ip_addr = addr.s_addr;
+        local_node_id = node_id;
     }
 }
 
@@ -168,8 +194,7 @@ fill_bulk_sync_msg (gpointer data, gpointer user_data)
 }
 
 /**
- * Bulk sync all TCP servers running on the local remote sync IP address
- * to a remote node.
+ * Bulk sync all servers running on the local remote sync IP address to a remote node.
  *
  * @param client - The CMSG client connected to the remote host to sync to.
  */
@@ -179,7 +204,7 @@ remote_sync_bulk_sync_services (cmsg_client *client)
     cmsg_sld_bulk_sync_data send_msg = CMSG_SLD_BULK_SYNC_DATA_INIT;
     GList *services_list = NULL;
 
-    services_list = data_get_servers_by_addr (local_ip_addr);
+    services_list = data_get_servers_by_addr (local_ip_addr, local_node_id);
     g_list_foreach (services_list, fill_bulk_sync_msg, &send_msg);
 
     cmsg_sld_remote_sync_api_bulk_sync (client, &send_msg);

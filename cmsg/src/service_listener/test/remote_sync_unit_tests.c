@@ -101,7 +101,7 @@ test_remote_sync_address_set (void)
     np_mock (cmsg_glib_tcp_server_init_oneway,
              sm_mock_cmsg_glib_tcp_server_init_oneway_ptr_return);
 
-    remote_sync_address_set (addr);
+    remote_sync_address_set (addr, 1);
 
     NP_ASSERT_PTR_EQUAL (remote_sync_server, server_test_ptr);
     NP_ASSERT_EQUAL (test_addr, local_ip_addr);
@@ -118,7 +118,7 @@ test_remote_sync_address_set_called_twice (void)
     np_mock (cmsg_glib_tcp_server_init_oneway,
              sm_mock_cmsg_glib_tcp_server_init_oneway_ptr_return);
 
-    remote_sync_address_set (addr);
+    remote_sync_address_set (addr, 1);
 
     np_mock (cmsg_glib_tcp_server_init_oneway,
              sm_mock_cmsg_glib_tcp_server_init_oneway_fail);
