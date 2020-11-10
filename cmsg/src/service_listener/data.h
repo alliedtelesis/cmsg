@@ -27,7 +27,7 @@ typedef struct _service_data_entry_s
     GList *listeners;
 } service_data_entry;
 
-void data_init (void);
+void data_init (bool poll_pid);
 void data_deinit (void);
 void data_debug_dump (FILE *fp);
 void data_add_server (cmsg_service_info *server_info, bool local);
