@@ -14,7 +14,6 @@
 #include "remote_sync.h"
 #include "transport/cmsg_transport_private.h"
 #include "data.h"
-#include "process_watch.h"
 
 typedef struct _service_lookup_data
 {
@@ -174,7 +173,6 @@ data_add_server (cmsg_service_info *server_info, bool local)
 
     notify_listeners (server_info, entry, true);
     remote_sync_server_added (server_info);
-    process_watch_add (server_info->pid);
 }
 
 /**
@@ -226,7 +224,6 @@ data_remove_server (const cmsg_service_info *server_info)
 
             notify_listeners (server_info, entry, false);
             remote_sync_server_removed (server_info);
-            process_watch_remove (server_info->pid);
 
             data_remove_service_data_entry_if_empty (entry, server_info->service);
         }
@@ -315,69 +312,6 @@ data_remove_servers_by_addr (struct in_addr addr, uint32_t node_id)
 }
 
 /**
- * Helper function called for each entry in the hash table. Finds any
- * servers and listeners that match a process ID and deletes them.
- *
- * @param key - The key from the hash table (service name)
- * @param value - The value associated with the key (service_data_entry structure)
- * @param user_data - The PID to match against.
- *
- * @returns TRUE if the service data entry is now empty and should be removed from the
- *          hash table, FALSE otherwise.
- */
-static gboolean
-remove_by_pid (gpointer key, gpointer value, gpointer user_data)
-{
-    uint32_t pid = GPOINTER_TO_UINT (user_data);
-    service_data_entry *entry = (service_data_entry *) value;
-    GList *l = NULL;
-
-    /* First iterate the listeners */
-    l = entry->listeners;
-    while (l != NULL)
-    {
-        GList *next = g_list_next (l);
-        listener_data *listener_info = (listener_data *) l->data;
-        if (listener_info->pid == pid)
-        {
-            cmsg_destroy_client_and_transport (listener_info->client);
-            entry->listeners = g_list_delete_link (entry->listeners, l);
-            CMSG_FREE (listener_info);
-        }
-        l = next;
-    }
-
-    /* Now iterate the servers */
-    l = entry->servers;
-    while (l != NULL)
-    {
-        GList *next = g_list_next (l);
-        cmsg_service_info *service_info = (cmsg_service_info *) l->data;
-        if (service_info->pid == pid)
-        {
-            notify_listeners (service_info, entry, false);
-            remote_sync_server_removed (service_info);
-            entry->servers = g_list_delete_link (entry->servers, l);
-            CMSG_FREE_RECV_MSG (service_info);
-        }
-        l = next;
-    }
-
-    return (entry->servers == NULL && entry->listeners == NULL);
-}
-
-/**
- * Remove all entries associated with the given process id.
- *
- * @param pid - The process ID
- */
-void
-data_remove_by_pid (int pid)
-{
-    g_hash_table_foreach_remove (hash_table, remove_by_pid, GUINT_TO_POINTER (pid));
-}
-
-/**
  * Add a new listener for a service.
  *
  * @param info - Information about the listener and the service
@@ -404,7 +338,6 @@ data_add_listener (const cmsg_sld_listener_info *info)
     listener_info->pid = info->pid;
 
     entry->listeners = g_list_prepend (entry->listeners, listener_info);
-    process_watch_add (listener_info->pid);
 
     for (list = g_list_first (entry->servers); list; list = g_list_next (list))
     {
@@ -417,7 +350,6 @@ data_add_listener (const cmsg_sld_listener_info *info)
         {
             entry->listeners = g_list_remove (entry->listeners, listener_info);
             cmsg_destroy_client_and_transport (listener_info->client);
-            process_watch_remove (listener_info->pid);
             CMSG_FREE (listener_info);
             break;
         }
@@ -463,7 +395,6 @@ data_remove_listener (const cmsg_sld_listener_info *info)
     {
         entry->listeners = g_list_remove (entry->listeners, listener_info);
         cmsg_destroy_client_and_transport (listener_info->client);
-        process_watch_remove (listener_info->pid);
         CMSG_FREE (listener_info);
         data_remove_service_data_entry_if_empty (entry, info->service);
     }
