@@ -598,7 +598,7 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     uint8_t buf_static[512];
     const ProtobufCMessageDescriptor *desc;
     uint32_t extra_header_size;
-    cmsg_server_request server_request;
+    cmsg_server_request server_request = { };
     int socket = transport->socket;
     cmsg_peek_code ret;
     time_t receive_timeout = transport->receive_peek_timeout;
@@ -676,8 +676,17 @@ cmsg_transport_client_recv (cmsg_transport *transport,
             // Set buffer to take into account a larger header than we expected
             buffer = recv_buffer;
 
-            cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
-                                     descriptor);
+            if (cmsg_tlv_header_process (buffer, &server_request, extra_header_size,
+                                         descriptor) != CMSG_RET_OK)
+            {
+                // Free the allocated buffer
+                if (recv_buffer != buf_static)
+                {
+                    CMSG_FREE (recv_buffer);
+                    recv_buffer = NULL;
+                }
+                return CMSG_STATUS_CODE_SERVICE_FAILED;
+            }
 
             buffer = buffer + extra_header_size;
             CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
