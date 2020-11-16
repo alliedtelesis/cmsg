@@ -10,6 +10,7 @@
 #include "configuration_impl_auto.h"
 #include "remote_sync.h"
 #include "cmsg_server_private.h"
+#include "transport/cmsg_transport_private.h"
 #include "data.h"
 
 static cmsg_server *server = NULL;
@@ -27,6 +28,7 @@ cmsg_sld_configuration_impl_address_set (const void *service,
     addr.s_addr = recv_msg->ip_addr;
 
     remote_sync_address_set (addr, recv_msg->node_id);
+
     cmsg_sld_configuration_server_address_setSend (service);
 }
 
@@ -40,6 +42,7 @@ cmsg_sld_configuration_impl_add_host (const void *service, const cmsg_uint32 *re
 
     addr.s_addr = recv_msg->value;
 
+    cmsg_transport_tcp_cache_set (&addr, true);
     remote_sync_add_host (addr);
     cmsg_sld_configuration_server_add_hostSend (service);
 }
@@ -55,6 +58,7 @@ cmsg_sld_configuration_impl_delete_host (const void *service,
 
     addr.s_addr = recv_msg->ip_addr;
 
+    cmsg_transport_tcp_cache_set (&addr, false);
     remote_sync_delete_host (addr);
     data_remove_servers_by_addr (addr, recv_msg->node_id);
     cmsg_sld_configuration_server_delete_hostSend (service);

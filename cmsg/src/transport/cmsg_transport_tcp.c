@@ -6,6 +6,111 @@
 #include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
+#include <simple_shm.h>
+
+/* This value should match the maximum number of expected nodes in a
+ * cluster using the CMSG service listener functionality. */
+#define TCP_CONNECTION_CACHE_SIZE 24
+
+typedef struct
+{
+    bool present;
+    struct in_addr address;
+} tcp_connection_cache_entry;
+
+typedef struct
+{
+    uint8_t num_entries;
+    tcp_connection_cache_entry entries[TCP_CONNECTION_CACHE_SIZE];
+} tcp_connection_cache;
+
+static void cmsg_transport_tcp_cache_init (void *_cache);
+
+simple_shm_info shm_info = {
+    .shared_data = NULL,
+    .shared_data_size = sizeof (tcp_connection_cache),
+    .shared_mem_key = 0x436d5463,   /* Hex value of "CmTc" */
+    .shared_sem_key = 0x436d5463,   /* Hex value of "CmTc" */
+    .shared_sem_num = 1,
+    .shm_id = -1,
+    .sem_id = -1,
+    .init_func = cmsg_transport_tcp_cache_init,
+};
+
+/**
+ * Initialise the TCP connection cache.
+ */
+static void
+cmsg_transport_tcp_cache_init (void *_cache)
+{
+    tcp_connection_cache *cache = (tcp_connection_cache *) _cache;
+
+    cache->num_entries = 0;
+}
+
+/**
+ * Set an entry for the given address in the TCP connection cache.
+ * Note that this functionality is lockless and assumes only a single
+ * thread in a single process will ever set these entries.
+ *
+ * @param address - The address to set in the cache.
+ * @param present - Whether the address is present or not.
+ */
+void
+cmsg_transport_tcp_cache_set (struct in_addr *address, bool present)
+{
+    tcp_connection_cache *cache = get_shared_memory (&shm_info);
+    int index;
+
+    for (index = 0; index < cache->num_entries; index++)
+    {
+        if (cache->entries[index].address.s_addr == address->s_addr)
+        {
+            cache->entries[index].present = present;
+            return;
+        }
+    }
+
+    if (cache->num_entries < TCP_CONNECTION_CACHE_SIZE - 1)
+    {
+        cache->entries[cache->num_entries].address = *address;
+        cache->entries[cache->num_entries].present = present;
+        cache->num_entries++;
+    }
+    else
+    {
+        CMSG_LOG_GEN_ERROR ("TCP connection cache exhausted");
+    }
+}
+
+/**
+ * Check the given address in the TCP connection cache.
+ * Note that this functionality is lockless and assumes only a single
+ * thread in a single process will ever set these entries.
+ *
+ * @param address - The address to check in the cache.
+ *
+ * @returns true if the address is available or not currently cached (meaning
+ *          that we should attempt to connect to it).
+ *          false if the address is not available (meaning we should not attempt
+ *          to connect to it).
+ */
+static bool
+cmsg_transport_tcp_cache_should_connect (struct in_addr *address)
+{
+    tcp_connection_cache *cache = get_shared_memory (&shm_info);
+    int index;
+
+    for (index = 0; index < cache->num_entries; index++)
+    {
+        if (cache->entries[index].address.s_addr == address->s_addr)
+        {
+            return cache->entries[index].present;
+        }
+    }
+
+    return true;
+}
 
 /*
  * Create a TCP socket connection.
@@ -17,6 +122,16 @@ cmsg_transport_tcp_connect (cmsg_transport *transport)
     int ret;
     struct sockaddr *addr;
     uint32_t addr_len;
+    struct in_addr *address = &transport->config.socket.sockaddr.in.sin_addr;
+
+    /* Check the connection cache for IPv4 addresses */
+    if (transport->config.socket.family == PF_INET &&
+        !cmsg_transport_tcp_cache_should_connect (address))
+    {
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Failed to connect to remote host. Error: %s",
+                                  "Dead cache entry");
+        return -1;
+    }
 
     transport->socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
 
