@@ -12,7 +12,7 @@ typedef struct _cmsg_proxy_processing_info
 {
     bool is_file_input;
     const cmsg_service_info *service_info;
-    const cmsg_client *client;
+    cmsg_client *client;
     uint32_t streaming_id;
     ant_code cmsg_api_result;
     cmsg_http_verb http_verb;

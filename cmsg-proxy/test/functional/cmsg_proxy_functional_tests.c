@@ -2006,7 +2006,7 @@ test_cmsg_proxy_convert_json_to_protobuf__int (void)
  * returning ANT_CODE_INTERNAL.
  */
 ant_code
-sm_mock_cmsg_proxy_call_cmsg_api__error (const cmsg_client *client,
+sm_mock_cmsg_proxy_call_cmsg_api__error (cmsg_client *client,
                                          ProtobufCMessage *input_msg,
                                          ProtobufCMessage **output_msg,
                                          const cmsg_service_info *service_info)

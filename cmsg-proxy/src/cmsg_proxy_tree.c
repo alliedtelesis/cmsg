@@ -340,18 +340,20 @@ cmsg_proxy_body_string_check (const cmsg_service_info *service_info)
     int url_parameters = 0;
     int expected_fields = 0;
     const ProtobufCFieldDescriptor *field_desc = NULL;
+    const ProtobufCMessageDescriptor *input_desc = NULL;
     int i = 0;
     bool ret = true;
 
     if (strcmp (service_info->body_string, "*") == 0)
     {
-        if (!service_info->input_msg_descriptor)
+        input_desc = CMSG_PROXY_INPUT_MSG_DESCRIPTOR (service_info);
+        if (!input_desc)
         {
             return false;
         }
 
         /* If the message has a hidden '_file' field, we expect input */
-        if (cmsg_proxy_msg_has_file (service_info->input_msg_descriptor))
+        if (cmsg_proxy_msg_has_file (input_desc))
         {
             return true;
         }
@@ -368,10 +370,10 @@ cmsg_proxy_body_string_check (const cmsg_service_info *service_info)
             }
         }
 
-        expected_fields = service_info->input_msg_descriptor->n_fields - url_parameters;
-        for (i = 0; i < service_info->input_msg_descriptor->n_fields; i++)
+        expected_fields = input_desc->n_fields - url_parameters;
+        for (i = 0; i < input_desc->n_fields; i++)
         {
-            field_desc = &(service_info->input_msg_descriptor->fields[i]);
+            field_desc = &(input_desc->fields[i]);
 
             /* Subtract hidden fields from number of expected fields. */
             if (cmsg_proxy_field_is_hidden (field_desc->name))
@@ -766,9 +768,9 @@ cmsg_proxy_clients_add (GNode *leaf_node, gpointer data)
     {
         service_info = cmsg_proxy_service_info_get (api_info, action);
         if (service_info &&
-            !cmsg_proxy_find_client_by_service (service_info->service_descriptor))
+            !cmsg_proxy_find_client_by_service (service_info->cmsg_desc->service_desc))
         {
-            cmsg_proxy_create_client (service_info->service_descriptor);
+            cmsg_proxy_create_client (service_info->cmsg_desc->service_desc);
         }
     }
 

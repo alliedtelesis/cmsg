@@ -6,6 +6,7 @@
 
 #include <stdbool.h>
 #include <cmsg/cmsg.h>
+#include <cmsg/cmsg_client.h>
 #include <cmsg/cmsg_server.h>
 
 /* Standard HTTP/1.1 status codes */
@@ -178,14 +179,15 @@ typedef struct _cmsg_proxy_web_socket_info
 
 typedef struct _cmsg_service_info
 {
-    const ProtobufCServiceDescriptor *service_descriptor;
-    const ProtobufCMessageDescriptor *input_msg_descriptor;
-    const ProtobufCMessageDescriptor *output_msg_descriptor;
-    cmsg_api_func_ptr api_ptr;
+    const cmsg_api_descriptor *cmsg_desc;
+    uint32_t method_index;
     const char *url_string;
     cmsg_http_verb http_verb;
     const char *body_string;
 } cmsg_service_info;
+
+#define CMSG_PROXY_INPUT_MSG_DESCRIPTOR(service_info) CMSG_INPUT_MSG_DESCRIPTOR(service_info->cmsg_desc->service_desc, service_info->method_index)
+#define CMSG_PROXY_OUTPUT_MSG_DESCRIPTOR(service_info) CMSG_OUTPUT_MSG_DESCRIPTOR(service_info->cmsg_desc->service_desc, service_info->method_index)
 
 typedef struct _cmsg_proxy_api_info
 {

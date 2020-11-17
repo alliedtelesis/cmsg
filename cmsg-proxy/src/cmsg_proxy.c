@@ -418,31 +418,14 @@ cmsg_proxy_protobuf2json_object (ProtobufCMessage *input_protobuf, json_t **outp
  *            ANT_CODE_INTERNAL if CMSG fails internally.
  */
 static ant_code
-cmsg_proxy_call_cmsg_api (const cmsg_client *client, ProtobufCMessage *input_msg,
+cmsg_proxy_call_cmsg_api (cmsg_client *client, ProtobufCMessage *input_msg,
                           ProtobufCMessage **output_msg,
                           const cmsg_service_info *service_info)
 {
     int ret;
-    bool no_input_arg = (strcmp (service_info->input_msg_descriptor->name, "dummy") == 0);
-    bool no_output_arg = (strcmp (service_info->output_msg_descriptor->name,
-                                  "dummy") == 0);
 
-    if (no_input_arg && no_output_arg)
-    {
-        ret = service_info->api_ptr (client);
-    }
-    else if (no_input_arg)
-    {
-        ret = service_info->api_ptr (client, output_msg);
-    }
-    else if (no_output_arg)
-    {
-        ret = service_info->api_ptr (client, input_msg);
-    }
-    else
-    {
-        ret = service_info->api_ptr (client, input_msg, output_msg);
-    }
+    ret = cmsg_api_invoke (client, service_info->cmsg_desc,
+                           service_info->method_index, input_msg, output_msg);
 
     if (ret == CMSG_RET_OK)
     {

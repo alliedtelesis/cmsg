@@ -47,8 +47,8 @@ AtlCodeGenerator::AtlCodeGenerator(const ServiceDescriptor* descriptor)
 AtlCodeGenerator::~AtlCodeGenerator() {}
 
 void
-AtlCodeGenerator::GenerateServiceSupportCheck (const ServiceDescriptor* descriptor_,
-                               io::Printer* printer, bool forHeader)
+AtlCodeGenerator::GenerateAtlApiServiceSupportCheck (const ServiceDescriptor* descriptor_,
+                                                     io::Printer* printer)
 {
   ServiceSupportInfo info = descriptor_->options().GetExtension(service_support_check);
   vars_["file_path"] = info.file_path();
@@ -57,26 +57,27 @@ AtlCodeGenerator::GenerateServiceSupportCheck (const ServiceDescriptor* descript
   vars_["code"] = info.code();
 
   printer->Print("/* Service support check */\n");
-  if (forHeader) {
-    printer->Print("extern ");
-  }
-  printer->Print(vars_, "const service_support_parameters $lcfullname$_api_service_support_check");
-  if (forHeader) {
-    printer->Print(";\n\n");
-  } else {
-    printer->Print(" = \n{\n");
-    printer->Indent();
-    printer->Print(vars_, "\"$file_path$\",\n");
-    printer->Print(vars_, "\"$message$\",\n");
-    printer->Print(vars_, "$code$\n");
-    printer->Outdent();
-    printer->Print("};\n");
-  }
+  printer->Print(vars_, "static const service_support_parameters $lcfullname$_api_service_support_check");
+  printer->Print(" = \n{\n");
+  printer->Indent();
+  printer->Print(vars_, "\"$file_path$\",\n");
+  printer->Print(vars_, "\"$message$\",\n");
+  printer->Print(vars_, "$code$\n");
+  printer->Outdent();
+  printer->Print("};\n\n");
+
+  printer->Print(vars_, "static const cmsg_method_extensions $lcfullname$_api_service_support_extension");
+  printer->Print(" = \n{\n");
+  printer->Indent();
+  printer->Print(vars_, ".service_support = &$lcfullname$_api_service_support_check,\n");
+  printer->Outdent();
+  printer->Print("};\n\n");
 }
 
 void AtlCodeGenerator::GenerateDescriptorDeclarations(io::Printer* printer)
 {
   printer->Print(vars_, "extern const ProtobufCServiceDescriptor $lcfullname$_descriptor;\n");
+  printer->Print(vars_, "extern const cmsg_api_descriptor $lcfullname$_cmsg_api_descriptor;\n");
 }
 
 // Generate the client header file
@@ -158,10 +159,8 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntry(const ::google::api::HttpRule
     printer->Print("{\n");
 
     printer->Indent();
-    printer->Print(vars_, ".service_descriptor = &$lcfullname$_descriptor,\n");
-    printer->Print(vars_, ".input_msg_descriptor = &$inputname$_descriptor,\n");
-    printer->Print(vars_, ".output_msg_descriptor = &$outputname$_descriptor,\n");
-    printer->Print(vars_, ".api_ptr = &$lcfullname$_api_$method$,\n");
+    printer->Print(vars_, ".cmsg_desc = &$lcfullname$_cmsg_api_descriptor,\n");
+    printer->Print(vars_, ".method_index = $lcfullname$_api_$method$_index,\n");
 
     vars_["body"] = http_rule.body();
 
@@ -215,8 +214,7 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntriesPerMethod(const MethodDescri
 {
     string lcname = cmsg::CamelToLower(method.name());
     vars_["method"] = lcname;
-    vars_["inputname"] = cmsg::FullNameToLower(method.input_type()->full_name());
-    vars_["outputname"] = cmsg::FullNameToLower(method.output_type()->full_name());
+    vars_["index"] = SimpleItoa(method.index());
 
     if (method.options().HasExtension(::google::api::http))
     {
@@ -236,14 +234,43 @@ void AtlCodeGenerator::GenerateHttpProxyArrayEntriesPerMethod(const MethodDescri
 //
 void AtlCodeGenerator::GenerateAtlApiDefinitions(io::Printer* printer, bool forHeader)
 {
-  if (descriptor_->options().HasExtension(service_support_check)) {
-    GenerateServiceSupportCheck (descriptor_, printer, true);
-  }
-
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
     GenerateAtlApiDefinition(*method, printer, forHeader);
   }
+}
+
+void AtlCodeGenerator::GenerateAtlApiMethodExtensionsPtr(const MethodDescriptor &method, io::Printer* printer)
+{
+  string lcname = cmsg::CamelToLower(method.name());
+  vars_["method"] = lcname;
+
+  if (method.options().HasExtension(file_response)) {
+      printer->Print(vars_, "&$lcfullname$_api_$method$_file_extension");
+  } else if (descriptor_->options().HasExtension(service_support_check) &&
+             !method.options().HasExtension(disable_service_support_check)) {
+    printer->Print(vars_, "&$lcfullname$_api_service_support_extension");
+  } else {
+    printer->Print("NULL");
+  }
+  printer->Print(vars_, ", /* $method$ */\n");
+}
+
+void AtlCodeGenerator::GenerateAtlApiMethodExtensions(const MethodDescriptor &method, io::Printer* printer)
+{
+    string lcname = cmsg::CamelToLower(method.name());
+    vars_["method"] = lcname;
+
+    if (method.options().HasExtension(file_response)) {
+        FileResponseInfo info = method.options().GetExtension(file_response);
+        vars_["file_path"] = info.file_path();
+        printer->Print(vars_, "static const cmsg_method_extensions $lcfullname$_api_$method$_file_extension");
+        printer->Print(" = \n{\n");
+        printer->Indent();
+        printer->Print(vars_, ".response_filename = \"$file_path$\",\n");
+        printer->Outdent();
+        printer->Print("};\n\n");
+      }
 }
 
 void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)
@@ -256,6 +283,7 @@ void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, 
   vars_["recv_msg_name"] = "NULL";
   vars_["send_msg_name"] = "NULL";
 
+  printer->Print(vars_, "#define $lcfullname$_api_$method$_index $index$\n");
   printer->Print(vars_, "static inline int\n$lcfullname$_api_$method$ (cmsg_client *client");
 
   if (method.input_type()->field_count() > 0) {
@@ -273,16 +301,9 @@ void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, 
     printer->Print("\n{\n");
     printer->Indent();
 
-    if (method.options().HasExtension(file_response)) {
-      FileResponseInfo info = method.options().GetExtension(file_response);
-      vars_["file_path"] = info.file_path();
-      printer->Print(vars_, "return cmsg_api_file_response (client, &$lcfullname$_descriptor, $index$, \"$file_path$\", $recv_msg_name$);\n");
-    } else if (descriptor_->options().HasExtension(service_support_check) &&
-               !method.options().HasExtension(disable_service_support_check)) {
-      printer->Print(vars_, "return cmsg_api_invoke_with_service_check (client, &$lcfullname$_descriptor, $index$, $send_msg_name$, $recv_msg_name$, &$lcfullname$_api_service_support_check);\n");
-    } else {
-      printer->Print(vars_, "return cmsg_api_invoke (client, &$lcfullname$_descriptor, $index$, $send_msg_name$, $recv_msg_name$);\n");
-    }
+    printer->Print(vars_, "return cmsg_api_invoke (client, &$lcfullname$_cmsg_api_descriptor,\n");
+    printer->Print(vars_, "                        $lcfullname$_api_$method$_index,\n");
+    printer->Print(vars_, "                        $send_msg_name$, $recv_msg_name$);\n");
 
     printer->Outdent();
     printer->Print("}\n");
@@ -294,8 +315,31 @@ void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, 
 void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
 {
   if (descriptor_->options().HasExtension(service_support_check)) {
-    GenerateServiceSupportCheck (descriptor_, printer, false);
+    GenerateAtlApiServiceSupportCheck (descriptor_, printer);
   }
+
+  for (int i = 0; i < descriptor_->method_count(); i++) {
+    const MethodDescriptor *method = descriptor_->method(i);
+    GenerateAtlApiMethodExtensions (*method, printer);
+  }
+
+  printer->Print(vars_, "static const cmsg_method_extensions *$lcfullname$_api_method_extensions[] =\n");
+  printer->Print("{\n");
+  printer->Indent();
+  for (int i = 0; i < descriptor_->method_count(); i++) {
+    const MethodDescriptor *method = descriptor_->method(i);
+    GenerateAtlApiMethodExtensionsPtr (*method, printer);
+  }
+  printer->Outdent();
+  printer->Print("};\n\n");
+
+  printer->Print(vars_, "const cmsg_api_descriptor $lcfullname$_cmsg_api_descriptor =\n");
+  printer->Print("{\n");
+  printer->Indent();
+  printer->Print(vars_, ".service_desc = &$lcfullname$_descriptor,\n");
+  printer->Print(vars_, ".method_extensions = $lcfullname$_api_method_extensions,\n");
+  printer->Outdent();
+  printer->Print("};\n\n");
 
   // API definitions are now done as static inlines in the header file
 }

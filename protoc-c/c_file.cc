@@ -236,14 +236,6 @@ void FileGenerator::GenerateAtlApiHeader(io::Printer* printer) {
   printer->Print("/* include the cmsg_client definition for the api function */\n");
   printer->Print("#include <cmsg/cmsg_client.h>\n");
 
-  // Check if we need to include service support check header
-  for (int i = 0; i < file_->service_count(); i++) {
-    if (file_->service(i)->options().HasExtension(service_support_check)) {
-      printer->Print("#include <cmsg/cmsg_supported_service.h>\n");
-      break;
-    }
-  }
-
   printer->Print("\n");
 
   printer->Print("\n/* --- atl generated code --- */\n\n");
@@ -279,14 +271,8 @@ void FileGenerator::GenerateAtlApiSource(io::Printer* printer) {
 
   // include the cmsg error header so the api can output errors
   printer->Print("#include <cmsg/cmsg_error.h>\n");
-
-  // Check if we need to include service support check header
-  for (int i = 0; i < file_->service_count(); i++) {
-    if (file_->service(i)->options().HasExtension(service_support_check)) {
-      printer->Print("#include <cmsg/cmsg_supported_service.h>\n");
-      break;
-    }
-  }
+  // include the cmsg_client definition for the api params
+  printer->Print("#include <cmsg/cmsg_client.h>\n");
 
   for (int i = 0; i < file_->service_count(); i++) {
     atl_code_generators_[i]->GenerateClientCFile(printer);

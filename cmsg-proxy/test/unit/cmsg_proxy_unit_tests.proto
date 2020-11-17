@@ -90,6 +90,10 @@ service interface
         };
     }
 
+    rpc test_body_string (body_check_msg) returns (dummy);
+    rpc test_body_string_file_ok (file_msg) returns (dummy);
+    rpc test_body_string_dummy (dummy) returns (dummy);
+
     rpc test_put_only_url (dummy) returns (dummy) {
         option (google.api.http) = {
             put: "/v1/test/put_url",

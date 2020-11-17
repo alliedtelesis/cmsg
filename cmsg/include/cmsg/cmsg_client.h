@@ -231,11 +231,32 @@ cmsg_client *cmsg_create_client_tcp_ipv6_oneway (const char *service_name,
                                                  const ProtobufCServiceDescriptor
                                                  *descriptor);
 
-int cmsg_api_invoke (cmsg_client *client, const ProtobufCServiceDescriptor *service_desc,
+typedef struct
+{
+    const char *filename;
+    const char *msg;
+    int return_code;
+} service_support_parameters;
+
+typedef struct
+{
+    const service_support_parameters *service_support;
+    const char *response_filename;
+} cmsg_method_extensions;
+
+typedef struct
+{
+    const ProtobufCServiceDescriptor *service_desc;
+    const cmsg_method_extensions **method_extensions;
+} cmsg_api_descriptor;
+
+int cmsg_api_invoke (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
                      int method_index, const ProtobufCMessage *send_msg,
                      ProtobufCMessage **recv_msg);
-int cmsg_api_file_response (cmsg_client *client,
-                            const ProtobufCServiceDescriptor *service_desc,
-                            int method_index, const char *filename,
-                            ProtobufCMessage **recv_msg);
+#ifdef HAVE_UNITTEST
+int cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
+                          int method_index,
+                          const ProtobufCMessage *send_msg, ProtobufCMessage **recv_msg);
+#endif /*HAVE_UNITTEST */
+
 #endif /* __CMSG_CLIENT_H_ */

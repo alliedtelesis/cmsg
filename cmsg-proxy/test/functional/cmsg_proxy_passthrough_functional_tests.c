@@ -195,11 +195,12 @@ test_simple_passthrough_delete (void)
 }
 
 /**
- * Mock the api_ptr function to simulate it returning CMSG_RET_ERR.
+ * Mock the cmsg_api_invoke function to simulate it returning CMSG_RET_ERR.
  */
 int
-sm_mock_api_ptr_err (const cmsg_client *client, ProtobufCMessage *send_msg,
-                     ProtobufCMessage *recv_msg)
+sm_mock_cmsg_api_invoke_err (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
+                             int method_index, const ProtobufCMessage *send_msg,
+                             ProtobufCMessage **recv_msg)
 {
     return CMSG_RET_ERR;
 }
@@ -227,7 +228,7 @@ test_cmsg_proxy_passthrough__error (void)
     input.data = test_input_json;
     input.data_length = strlen (test_input_json);
 
-    np_mock (api_ptr, sm_mock_api_ptr_err);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke_err);
     cmsg_proxy_passthrough (&input, &output);
 
     NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);

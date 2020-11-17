@@ -151,7 +151,6 @@ libcmsg_la_SOURCES = \
 	src/cmsg_mesh.c \
 	src/cmsg_glib_helpers.c \
 	src/cmsg_liboop_helpers.c \
-	src/supported_service/cmsg_supported_service.c \
 	src/validation/cmsg_validation.c \
 	src/cmsg_pthread_helpers.c \
 	src/service_listener/cmsg_sl_api.c \
@@ -194,7 +193,6 @@ libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg_sl_config.h \
 	include/cmsg/cmsg_sl.h \
 	include/cmsg/cmsg_sub.h \
-	include/cmsg/cmsg_supported_service.h \
 	include/cmsg/cmsg_transport.h \
 	include/cmsg/cmsg_validation.h \
 	include/cmsg/cmsg.h \

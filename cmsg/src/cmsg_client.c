@@ -1733,23 +1733,90 @@ cmsg_api_process_closure_data (cmsg_client_closure_data *closure_data,
     return closure_data[0].retval;
 }
 
+
+/**
+ * Helper for cmsg_api_invoke that returns a response from a file on the client side.
+ * @param filename file that holds the response data
+ * @param output_desc Output message descriptor
+ * @param recv_msg array pointer to hold message responses
+ * @returns API return code
+ */
+static int
+cmsg_api_file_response (const char *filename,
+                        const ProtobufCMessageDescriptor *output_desc,
+                        ProtobufCMessage **recv_msg)
+{
+    /* File response */
+    if (access (filename, F_OK) == -1)
+    {
+        recv_msg[0] = cmsg_create_ant_response (NULL, ANT_CODE_OK, output_desc);
+    }
+    else
+    {
+        recv_msg[0] = cmsg_get_msg_from_file (output_desc, filename);
+        if (recv_msg[0] == NULL)
+        {
+            return CMSG_RET_ERR;
+        }
+    }
+    return CMSG_RET_OK;
+}
+
+/**
+ * Check if service is available and if not, generate response message.
+ * Requires recv_msg to either be ant_result or have an ant_result field called _error_info)
+ * @param check_params Parameters to use for service check.
+ * @param output_desc descriptor for message to be generated
+ * @param recv_msg array to hold response. (Response is only set in first entry)
+ * @returns true if service is available/supported, else false.
+ */
+static bool
+cmsg_supported_service_check (const service_support_parameters *check_params,
+                              const ProtobufCMessageDescriptor *output_desc,
+                              ProtobufCMessage **recv_msg)
+{
+    /* Service support check */
+    if (access (check_params->filename, F_OK) == -1)
+    {
+        recv_msg[0] = cmsg_create_ant_response (check_params->msg,
+                                                check_params->return_code, output_desc);
+
+        return false;
+    }
+    return true;
+}
+
 /**
  * Invoke a CMSG API
  * The call to this function is intended to be auto-generated, so shouldn't be manually
  * called.
  * @param client cmsg client for API call
- * @param service_desc Descriptor for the service being called
+ * @param cmsg_desc CMSG API descriptor for the service being called
  * @param method_index index of method being called
  * @param send_msg message to be sent to the server
  * @param recv_msg array pointer to hold message responses
  * @returns API return code
  */
 int
-cmsg_api_invoke (cmsg_client *client, const ProtobufCServiceDescriptor *service_desc,
-                 int method_index,
-                 const ProtobufCMessage *send_msg, ProtobufCMessage **recv_msg)
+cmsg_api_invoke (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
+                 int method_index, const ProtobufCMessage *send_msg,
+                 ProtobufCMessage **recv_msg)
+#ifdef HAVE_UNITTEST
+{
+    /* This allows mock function for cmsg_api_invoke to still call the real code
+     * in some cases (if only certain APIs should be mocked and not others) */
+    return cmsg_api_invoke_real (client, cmsg_desc, method_index, send_msg, recv_msg);
+}
+
+int
+cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
+                      int method_index, const ProtobufCMessage *send_msg,
+                      ProtobufCMessage **recv_msg)
+#endif /*HAVE_UNITTEST */
 {
     ProtobufCService *service = (ProtobufCService *) client;
+    const ProtobufCServiceDescriptor *service_desc = cmsg_desc->service_desc;
+    const cmsg_method_extensions *extensions = cmsg_desc->method_extensions[method_index];
     ProtobufCMessage *dummy = NULL;
 
     /* test that the pointer to the client is valid before doing anything else */
@@ -1760,6 +1827,26 @@ cmsg_api_invoke (cmsg_client *client, const ProtobufCServiceDescriptor *service_
     assert (service->descriptor == service_desc);
     cmsg_api_recv_ptr_null_check (client, recv_msg,
                                   service->descriptor->methods[method_index].name);
+
+    if (extensions)
+    {
+        if (extensions->response_filename)
+        {
+            return cmsg_api_file_response (extensions->response_filename,
+                                           service->descriptor->
+                                           methods[method_index].output, recv_msg);
+        }
+
+        if (extensions->service_support)
+        {
+            if (!cmsg_supported_service_check (extensions->service_support,
+                                               service_desc->methods[method_index].output,
+                                               recv_msg))
+            {
+                return CMSG_RET_OK;
+            }
+        }
+    }
 
     if (!send_msg)
     {
@@ -1779,49 +1866,4 @@ cmsg_api_invoke (cmsg_client *client, const ProtobufCServiceDescriptor *service_
     CMSG_FREE (dummy);
 
     return cmsg_api_process_closure_data (closure_data, recv_msg);
-}
-
-/**
- * API handler function for APIs that generate their response from a file (client-side)
- * The call to this function is intended to be auto-generated, so shouldn't be manually
- * called. If the file does not exist, an empty response is generated.
- * @param client cmsg client for API call
- * @param service_desc Descriptor for the service being called
- * @param method_index index of method being called
- * @param filename file that holds the response data
- * @param recv_msg array pointer to hold message responses
- * @returns API return code
- */
-int
-cmsg_api_file_response (cmsg_client *client, const ProtobufCServiceDescriptor *service_desc,
-                        int method_index, const char *filename, ProtobufCMessage **recv_msg)
-{
-    ProtobufCService *service = (ProtobufCService *) client;
-    const ProtobufCMessageDescriptor *output_desc = NULL;
-
-    /* test that the pointer to the client is valid before doing anything else */
-    if (service == NULL)
-    {
-        return CMSG_RET_ERR;
-    }
-    assert (service->descriptor == service_desc);
-    cmsg_api_recv_ptr_null_check (client, recv_msg,
-                                  service->descriptor->methods[method_index].name);
-
-    output_desc = service->descriptor->methods[method_index].output;
-
-    /* File response */
-    if (access (filename, F_OK) == -1)
-    {
-        recv_msg[0] = cmsg_create_ant_response (NULL, ANT_CODE_OK, output_desc);
-    }
-    else
-    {
-        recv_msg[0] = cmsg_get_msg_from_file (output_desc, filename);
-        if (recv_msg[0] == NULL)
-        {
-            return CMSG_RET_ERR;
-        }
-    }
-    return CMSG_RET_OK;
 }
