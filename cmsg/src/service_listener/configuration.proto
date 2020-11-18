@@ -6,6 +6,12 @@ package cmsg_sld;
 
 import "cmsg.proto";
 
+message address_info
+{
+    optional uint32 ip_addr = 1;
+    optional uint32 node_id = 2;
+}
+
 message listener_info
 {
     optional string service = 1;
@@ -16,9 +22,9 @@ message listener_info
 
 service configuration
 {
-    rpc address_set (cmsg_uint32) returns (dummy);
+    rpc address_set (address_info) returns (dummy);
     rpc add_host (cmsg_uint32) returns (dummy);
-    rpc delete_host (cmsg_uint32) returns (dummy);
+    rpc delete_host (address_info) returns (dummy);
     rpc listen (listener_info) returns (dummy);
     rpc unlisten (listener_info) returns (dummy);
     rpc add_server (cmsg_service_info) returns (dummy);

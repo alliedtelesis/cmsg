@@ -16,6 +16,8 @@
  */
 #define USED __attribute__ ((used))
 
+void cmsg_service_listener_daemon_start (void);
+void cmsg_service_listener_daemon_stop (void);
 void cmsg_service_listener_mock_functions (void);
 void cmsg_ps_mock_functions (void);
 int sm_mock_cmsg_service_port_get (const char *name, const char *proto);

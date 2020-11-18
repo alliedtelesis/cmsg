@@ -25,7 +25,7 @@ typedef struct _cmsg_pthread_multithreaded_server_recv_info
 } cmsg_pthread_multithreaded_server_recv_info;
 
 /**
- * Function to be called when the 'ffo_health_cmsg_server_thread_run'
+ * Function to be called when the 'pthread_server_run'
  * thread is cancelled. This simply cleans up and frees any sockets/
  * memory that was used by the thread.
  *
@@ -425,4 +425,99 @@ cmsg_pthread_multithreaded_server_destroy (cmsg_pthread_multithreaded_server_inf
     pthread_mutex_destroy (&info->lock);
     cmsg_destroy_server_and_transport (info->server);
     free (info);
+}
+
+/**
+ * Function to be called when the 'cmsg_pthread_sl_event_thread'
+ * thread is cancelled. This simply cleans up the service listener info.
+ *
+ * @param _info - Structure containing the service listener information
+ *                used by the thread.
+ */
+static void
+cmsg_pthread_sl_event_thread_cancelled (void *_info)
+{
+    const cmsg_sl_info *info = _info;
+
+    cmsg_service_listener_unlisten (info);
+}
+
+/**
+ * Thread used to process events generated from the CMSG service listener functionality.
+ */
+static void *
+cmsg_pthread_sl_event_thread (void *sl_info)
+{
+    const cmsg_sl_info *info = (const cmsg_sl_info *) sl_info;
+    int event_fd;
+    fd_set read_fds;
+    int maxfd;
+
+    pthread_cleanup_push ((void (*)(void *)) cmsg_pthread_sl_event_thread_cancelled,
+                          (void *) info);
+
+    event_fd = cmsg_service_listener_get_event_fd (info);
+    if (event_fd < 0)
+    {
+        syslog (LOG_ERR, "Failed to get socket for service listener.");
+        pthread_exit (NULL);
+    }
+
+    FD_ZERO (&read_fds);
+    FD_SET (event_fd, &read_fds);
+    maxfd = event_fd;
+
+    while (1)
+    {
+        /* Explicitly set where the thread can be cancelled. This ensures no
+         * data can be leaked if the thread is cancelled while handling an event.
+         */
+        pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+        select (maxfd + 1, &read_fds, NULL, NULL, NULL);
+        pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+
+        cmsg_service_listener_event_queue_process (info);
+    }
+
+    pthread_cleanup_pop (1);
+    pthread_exit (NULL);
+}
+
+
+/**
+ * Create a new thread to run a service listener function.
+ *
+ * @param thread - Pointer to a pthread_t variable to create the thread.
+ * @param service_name - The CMSG service to listen for events for.
+ * @param handler - The handler to call on a service event.
+ * @param user_data - The data to supply to the handler.
+ *
+ * @returns true if the thread was successfully created, false otherwise.
+ *
+ * Note that this thread can be cancelled using 'pthread_cancel' and then should
+ * be joined using 'pthread_join'.
+ */
+bool
+cmsg_pthread_service_listener_listen (pthread_t *thread, const char *service_name,
+                                      cmsg_sl_event_handler_t handler, void *user_data)
+{
+    int ret = 0;
+    const cmsg_sl_info *info = NULL;
+
+    info = cmsg_service_listener_listen (service_name, handler, user_data);
+    if (!info)
+    {
+        syslog (LOG_ERR, "Failed to initialise service listener functionality");
+        return false;
+    }
+
+    ret = pthread_create (thread, NULL, cmsg_pthread_sl_event_thread, (void *) info);
+    if (ret != 0)
+    {
+        syslog (LOG_ERR, "Failed to start thread for service listener processing");
+        cmsg_service_listener_unlisten (info);
+        return false;
+    }
+
+    return true;
 }

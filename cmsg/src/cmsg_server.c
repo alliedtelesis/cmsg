@@ -1691,9 +1691,6 @@ cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
         return NULL;
     }
 
-    /* Configure the transport to enable non-existent, non-local address binding */
-    cmsg_transport_ipfree_bind_enable (transport, true);
-
     server = cmsg_server_new (transport, descriptor);
     if (server == NULL)
     {

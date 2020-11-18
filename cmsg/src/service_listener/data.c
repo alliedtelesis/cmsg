@@ -14,22 +14,16 @@
 #include "remote_sync.h"
 #include "transport/cmsg_transport_private.h"
 #include "data.h"
-
-enum pid_status
-{
-    UNCHECKED = (intptr_t) NULL,
-    DEAD = 1,
-    ALIVE = 2,
-};
+#include "process_watch.h"
 
 typedef struct _service_lookup_data
 {
     GList *list;
     uint32_t addr;
+    uint32_t node_id;
 } service_lookup_data;
 
 GHashTable *hash_table = NULL;
-static guint cleanup_dead_entries_source = 0;
 
 /**
  * Called for each entry in the servers list of a service entry.
@@ -173,13 +167,18 @@ data_add_server (cmsg_service_info *server_info, bool local)
      * occur if the server was previously removed without notifying the
      * service listener daemon (i.e. process crash). This ensures listeners
      * will get the server removed notification before it is added again. */
-    data_remove_server (server_info);
+    data_remove_server (server_info, local);
 
     entry = get_service_entry_or_create (server_info->service, true);
     entry->servers = g_list_prepend (entry->servers, (gpointer) server_info);
 
     notify_listeners (server_info, entry, true);
     remote_sync_server_added (server_info);
+
+    if (local)
+    {
+        process_watch_add (server_info->pid);
+    }
 }
 
 /**
@@ -213,9 +212,11 @@ data_remove_service_data_entry_if_empty (service_data_entry *entry, const char *
  * Remove a server from the database of servers running for services.
  *
  * @param server_info - The information about the server being removed.
+ * @param local - True if the server is running on this device,
+ *                false if it is remote.
  */
 void
-data_remove_server (const cmsg_service_info *server_info)
+data_remove_server (const cmsg_service_info *server_info, bool local)
 {
     service_data_entry *entry = NULL;
     GList *list_entry = NULL;
@@ -231,6 +232,11 @@ data_remove_server (const cmsg_service_info *server_info)
 
             notify_listeners (server_info, entry, false);
             remote_sync_server_removed (server_info);
+
+            if (local)
+            {
+                process_watch_remove (server_info->pid);
+            }
 
             data_remove_service_data_entry_if_empty (entry, server_info->service);
         }
@@ -251,7 +257,7 @@ data_remove_server (const cmsg_service_info *server_info)
 static gboolean
 _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
 {
-    uint32_t *addr = (uint32_t *) user_data;
+    service_lookup_data *lookup_data = (service_lookup_data *) user_data;
     service_data_entry *entry = (service_data_entry *) value;
     GList *list = NULL;
     cmsg_service_info *service_info = NULL;
@@ -265,7 +271,16 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
         {
             cmsg_tcp_transport_info *info = service_info->server_info->tcp_info;
 
-            if (info->ipv4 && !memcmp (info->addr.data, addr, info->addr.len))
+            if (info->ipv4 && !memcmp (info->addr.data, &lookup_data->addr, info->addr.len))
+            {
+                removal_list = g_list_append (removal_list, service_info);
+            }
+        }
+        else if (service_info->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+        {
+            cmsg_tipc_transport_info *info = service_info->server_info->tipc_info;
+
+            if (info->addr_name_name_instance == lookup_data->node_id)
             {
                 removal_list = g_list_prepend (removal_list, service_info);
             }
@@ -292,14 +307,84 @@ _delete_server_by_addr (gpointer key, gpointer value, gpointer user_data)
 }
 
 /**
- * Remove any servers that match the given address from the hash table.
+ * Remove any servers from the hash table that match the given addressing information.
  *
- * @param addr - The IP address to match against.
+ * @param addr    - The IP address to match against.
+ * @param node_id - The node-id to match against.
  */
 void
-data_remove_servers_by_addr (struct in_addr addr)
+data_remove_servers_by_addr (struct in_addr addr, uint32_t node_id)
 {
-    g_hash_table_foreach_remove (hash_table, _delete_server_by_addr, &addr.s_addr);
+    service_lookup_data lookup_data;
+
+    lookup_data.list = NULL;
+    lookup_data.addr = addr.s_addr;
+    lookup_data.node_id = node_id;
+
+    g_hash_table_foreach_remove (hash_table, _delete_server_by_addr, &lookup_data);
+}
+
+/**
+ * Helper function called for each entry in the hash table. Finds any
+ * servers and listeners that match a process ID and deletes them.
+ *
+ * @param key - The key from the hash table (service name)
+ * @param value - The value associated with the key (service_data_entry structure)
+ * @param user_data - The PID to match against.
+ *
+ * @returns TRUE if the service data entry is now empty and should be removed from the
+ *          hash table, FALSE otherwise.
+ */
+static gboolean
+remove_by_pid (gpointer key, gpointer value, gpointer user_data)
+{
+    uint32_t pid = GPOINTER_TO_UINT (user_data);
+    service_data_entry *entry = (service_data_entry *) value;
+    GList *l = NULL;
+
+    /* First iterate the listeners */
+    l = entry->listeners;
+    while (l != NULL)
+    {
+        GList *next = g_list_next (l);
+        listener_data *listener_info = (listener_data *) l->data;
+        if (listener_info->pid == pid)
+        {
+            cmsg_destroy_client_and_transport (listener_info->client);
+            entry->listeners = g_list_delete_link (entry->listeners, l);
+            CMSG_FREE (listener_info);
+        }
+        l = next;
+    }
+
+    /* Now iterate the servers */
+    l = entry->servers;
+    while (l != NULL)
+    {
+        GList *next = g_list_next (l);
+        cmsg_service_info *service_info = (cmsg_service_info *) l->data;
+        if (service_info->local && service_info->pid == pid)
+        {
+            notify_listeners (service_info, entry, false);
+            remote_sync_server_removed (service_info);
+            entry->servers = g_list_delete_link (entry->servers, l);
+            CMSG_FREE_RECV_MSG (service_info);
+        }
+        l = next;
+    }
+
+    return (entry->servers == NULL && entry->listeners == NULL);
+}
+
+/**
+ * Remove all entries associated with the given process id.
+ *
+ * @param pid - The process ID
+ */
+void
+data_remove_by_pid (int pid)
+{
+    g_hash_table_foreach_remove (hash_table, remove_by_pid, GUINT_TO_POINTER (pid));
 }
 
 /**
@@ -329,6 +414,7 @@ data_add_listener (const cmsg_sld_listener_info *info)
     listener_info->pid = info->pid;
 
     entry->listeners = g_list_prepend (entry->listeners, listener_info);
+    process_watch_add (listener_info->pid);
 
     for (list = g_list_first (entry->servers); list; list = g_list_next (list))
     {
@@ -341,6 +427,7 @@ data_add_listener (const cmsg_sld_listener_info *info)
         {
             entry->listeners = g_list_remove (entry->listeners, listener_info);
             cmsg_destroy_client_and_transport (listener_info->client);
+            process_watch_remove (listener_info->pid);
             CMSG_FREE (listener_info);
             break;
         }
@@ -386,6 +473,7 @@ data_remove_listener (const cmsg_sld_listener_info *info)
     {
         entry->listeners = g_list_remove (entry->listeners, listener_info);
         cmsg_destroy_client_and_transport (listener_info->client);
+        process_watch_remove (listener_info->pid);
         CMSG_FREE (listener_info);
         data_remove_service_data_entry_if_empty (entry, info->service);
     }
@@ -422,24 +510,35 @@ _get_servers_by_addr (gpointer key, gpointer value, gpointer user_data)
                 lookup_data->list = g_list_prepend (lookup_data->list, service_info);
             }
         }
+        else if (service_info->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+        {
+            cmsg_tipc_transport_info *info = service_info->server_info->tipc_info;
+
+            if (info->addr_name_name_instance == lookup_data->node_id)
+            {
+                lookup_data->list = g_list_append (lookup_data->list, service_info);
+            }
+        }
     }
 }
 
 /**
- * Get a list of all servers for a given address.
+ * Get a list of all servers for given addressing information.
  *
- * @param addr - The address to get the servers for.
+ * @param addr    - The address to get the servers for.
+ * @param node_id - The node-id to get the servers for.
  *
  * @returns A GList containing all of the servers. This list should be freed
  *          by the caller using 'g_list_free'.
  */
 GList *
-data_get_servers_by_addr (uint32_t addr)
+data_get_servers_by_addr (uint32_t addr, uint32_t node_id)
 {
     service_lookup_data lookup_data;
 
     lookup_data.list = NULL;
     lookup_data.addr = addr;
+    lookup_data.node_id = node_id;
 
     g_hash_table_foreach (hash_table, _get_servers_by_addr, &lookup_data);
 
@@ -447,112 +546,10 @@ data_get_servers_by_addr (uint32_t addr)
 }
 
 /**
- * Check whether the process with the given PID is still alive.
- *
- * @param pid_lookup - The hash table used to cache results.
- * @param pid - The PID to check.
- *
- * @returns true if the process is dead, false otherwise.
- */
-static bool
-data_pid_is_dead (GHashTable *pid_lookup, int pid)
-{
-    /**
-     * To improve performance we store either DEAD or ALIVE for the given
-     * PID (key) in a hash table. If the key does not currently exist in the
-     * hash table (we haven't checked this PID yet) then the lookup will
-     * return UNCHECKED in which case we need to actually check the filesystem.
-     */
-    enum pid_status state = GPOINTER_TO_INT (g_hash_table_lookup (pid_lookup, &pid));
-    if (state == UNCHECKED)
-    {
-        state = (kill (pid, 0) == 0) ? ALIVE : DEAD;
-        g_hash_table_insert (pid_lookup, &pid, GINT_TO_POINTER (state));
-    }
-
-    return state == DEAD;
-}
-
-/**
- * Helper function called for each entry in the hash table. Finds any
- * servers and listeners that match a process ID that is no longer running
- * and deletes them.
- *
- * @param key - The key from the hash table (service name)
- * @param value - The value associated with the key (service_data_entry structure)
- * @param user_data - The PID lookup hash table.
- *
- * @returns TRUE if the service data entry is now empty and should be removed from the
- *          hash table, FALSE otherwise.
- */
-static gboolean
-data_remove_by_pid (gpointer key, gpointer value, gpointer user_data)
-{
-    GHashTable *pid_lookup = (GHashTable *) user_data;
-    service_data_entry *entry = (service_data_entry *) value;
-    GList *l = NULL;
-
-    /* First iterate the listeners */
-    l = entry->listeners;
-    while (l != NULL)
-    {
-        GList *next = g_list_next (l);
-        listener_data *listener_info = (listener_data *) l->data;
-        if (data_pid_is_dead (pid_lookup, listener_info->pid))
-        {
-            cmsg_destroy_client_and_transport (listener_info->client);
-            entry->listeners = g_list_delete_link (entry->listeners, l);
-            CMSG_FREE (listener_info);
-        }
-        l = next;
-    }
-
-    /* Now iterate the servers */
-    l = entry->servers;
-    while (l != NULL)
-    {
-        GList *next = g_list_next (l);
-        cmsg_service_info *service_info = (cmsg_service_info *) l->data;
-        if (service_info->local && data_pid_is_dead (pid_lookup, service_info->pid))
-        {
-            notify_listeners (service_info, entry, false);
-            remote_sync_server_removed (service_info);
-            entry->servers = g_list_delete_link (entry->servers, l);
-            CMSG_FREE_RECV_MSG (service_info);
-        }
-        l = next;
-    }
-
-    return (entry->servers == NULL && entry->listeners == NULL);
-}
-
-/**
- * Periodic function called to tidy up entries from processes
- * that are no longer running (and didn't unregister).
- *
- * @param unused - unused
- *
- * @returns TRUE always.
- */
-static gboolean
-data_cleanup_dead_entries (gpointer unused)
-{
-    GHashTable *pid_lookup = g_hash_table_new_full (g_int_hash, g_int_equal, NULL, NULL);
-
-    g_hash_table_foreach_remove (hash_table, data_remove_by_pid, pid_lookup);
-
-    g_hash_table_remove_all (pid_lookup);
-    g_hash_table_unref (pid_lookup);
-    return TRUE;
-}
-
-/**
  * Initialise the data layer.
- *
- * @param poll_pid - true to enable polling for dead processes, false otherwise.
  */
 void
-data_init (bool poll_pid)
+data_init (void)
 {
     hash_table = g_hash_table_new_full (g_str_hash, g_str_equal, cmsg_free,
                                         service_entry_free);
@@ -560,11 +557,6 @@ data_init (bool poll_pid)
     {
         syslog (LOG_ERR, "Failed to initialize hash table");
         return;
-    }
-    if (poll_pid)
-    {
-        cleanup_dead_entries_source = g_timeout_add_seconds (30, data_cleanup_dead_entries,
-                                                             NULL);
     }
 }
 
@@ -579,11 +571,6 @@ data_deinit (void)
         g_hash_table_remove_all (hash_table);
         g_hash_table_unref (hash_table);
         hash_table = NULL;
-    }
-    if (cleanup_dead_entries_source)
-    {
-        g_source_remove (cleanup_dead_entries_source);
-        cleanup_dead_entries_source = 0;
     }
 }
 
@@ -655,6 +642,25 @@ data_debug_tcp_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
 }
 
 /**
+ * Print the information about a TIPC transport.
+ *
+ * @param fp - The file to print to.
+ * @param transport_info - The 'cmsg_transport_info' structure for the transport.
+ * @param oneway_str - String to print for the oneway/rpc nature of the transport.
+ * @param pid  - the PID of the process that runs this server.
+ *
+ */
+static void
+data_debug_tipc_server_dump (FILE *fp, const cmsg_transport_info *transport_info,
+                             const char *oneway_str, uint32_t pid)
+{
+    cmsg_tipc_transport_info *tipc_info = transport_info->tipc_info;
+
+    fprintf (fp, "   (tipc, %s) %u:%u (pid: %u)\n", oneway_str,
+             tipc_info->addr_name_name_instance, tipc_info->addr_name_name_type, pid);
+}
+
+/**
  * Helper function called for each server associated with a service. Prints the
  * information about each individual server for a service.
  *
@@ -673,9 +679,13 @@ data_debug_server_dump (gpointer data, gpointer user_data)
     {
         data_debug_unix_server_dump (fp, transport_info, oneway_str, service_info->pid);
     }
-    else
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
         data_debug_tcp_server_dump (fp, transport_info, oneway_str, service_info->pid);
+    }
+    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
+    {
+        data_debug_tipc_server_dump (fp, transport_info, oneway_str, service_info->pid);
     }
 }
 

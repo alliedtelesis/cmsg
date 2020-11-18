@@ -164,7 +164,7 @@ libcmsg_la_SOURCES = \
 	src/publisher_subscriber/update.pb-c.c \
 	src/cmsg_protobuf-c.c
 
-libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c $(OOP_LIBS)
+libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c $(OOP_LIBS) -lsimple_shm
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
@@ -285,6 +285,7 @@ cmsg_sld_SOURCES = \
 	src/service_listener/configuration.c \
 	src/service_listener/remote_sync.c \
 	src/service_listener/data.c \
+	src/service_listener/process_watch.c \
 	src/service_listener/configuration_impl_auto.c \
 	src/service_listener/configuration.pb-c.c \
 	src/service_listener/remote_sync_api_auto.c \
@@ -396,6 +397,7 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/supported_service_tests.c \
 	test/functional/file_response_tests.c \
 	test/functional/server_queuing_tests.c \
+	test/functional/tcp_connection_cache_tests.c \
 	test/functional/setup.c
 
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) $(PTHREAD_CFLAGS) -include $(top_builddir)/config.h
@@ -408,6 +410,7 @@ cmsg_service_listener_unit_tests_SOURCES = \
 	src/service_listener/configuration.c \
 	src/service_listener/remote_sync.c \
 	src/service_listener/data.c \
+	src/service_listener/process_watch.c \
 	src/service_listener/configuration_impl_auto.c \
 	src/service_listener/configuration.pb-c.c \
 	src/service_listener/remote_sync_api_auto.c \

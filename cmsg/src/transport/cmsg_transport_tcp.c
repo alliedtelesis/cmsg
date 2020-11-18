@@ -6,6 +6,111 @@
 #include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
+#include <simple_shm.h>
+
+/* This value should match the maximum number of expected nodes in a
+ * cluster using the CMSG service listener functionality. */
+#define TCP_CONNECTION_CACHE_SIZE 24
+
+typedef struct
+{
+    bool present;
+    struct in_addr address;
+} tcp_connection_cache_entry;
+
+typedef struct
+{
+    uint8_t num_entries;
+    tcp_connection_cache_entry entries[TCP_CONNECTION_CACHE_SIZE];
+} tcp_connection_cache;
+
+static void cmsg_transport_tcp_cache_init (void *_cache);
+
+simple_shm_info shm_info = {
+    .shared_data = NULL,
+    .shared_data_size = sizeof (tcp_connection_cache),
+    .shared_mem_key = 0x436d5463,   /* Hex value of "CmTc" */
+    .shared_sem_key = 0x436d5463,   /* Hex value of "CmTc" */
+    .shared_sem_num = 1,
+    .shm_id = -1,
+    .sem_id = -1,
+    .init_func = cmsg_transport_tcp_cache_init,
+};
+
+/**
+ * Initialise the TCP connection cache.
+ */
+static void
+cmsg_transport_tcp_cache_init (void *_cache)
+{
+    tcp_connection_cache *cache = (tcp_connection_cache *) _cache;
+
+    cache->num_entries = 0;
+}
+
+/**
+ * Set an entry for the given address in the TCP connection cache.
+ * Note that this functionality is lockless and assumes only a single
+ * thread in a single process will ever set these entries.
+ *
+ * @param address - The address to set in the cache.
+ * @param present - Whether the address is present or not.
+ */
+void
+cmsg_transport_tcp_cache_set (struct in_addr *address, bool present)
+{
+    tcp_connection_cache *cache = get_shared_memory (&shm_info);
+    int index;
+
+    for (index = 0; index < cache->num_entries; index++)
+    {
+        if (cache->entries[index].address.s_addr == address->s_addr)
+        {
+            cache->entries[index].present = present;
+            return;
+        }
+    }
+
+    if (cache->num_entries < TCP_CONNECTION_CACHE_SIZE - 1)
+    {
+        cache->entries[cache->num_entries].address = *address;
+        cache->entries[cache->num_entries].present = present;
+        cache->num_entries++;
+    }
+    else
+    {
+        CMSG_LOG_GEN_ERROR ("TCP connection cache exhausted");
+    }
+}
+
+/**
+ * Check the given address in the TCP connection cache.
+ * Note that this functionality is lockless and assumes only a single
+ * thread in a single process will ever set these entries.
+ *
+ * @param address - The address to check in the cache.
+ *
+ * @returns true if the address is available or not currently cached (meaning
+ *          that we should attempt to connect to it).
+ *          false if the address is not available (meaning we should not attempt
+ *          to connect to it).
+ */
+static bool
+cmsg_transport_tcp_cache_should_connect (struct in_addr *address)
+{
+    tcp_connection_cache *cache = get_shared_memory (&shm_info);
+    int index;
+
+    for (index = 0; index < cache->num_entries; index++)
+    {
+        if (cache->entries[index].address.s_addr == address->s_addr)
+        {
+            return cache->entries[index].present;
+        }
+    }
+
+    return true;
+}
 
 /*
  * Create a TCP socket connection.
@@ -17,6 +122,16 @@ cmsg_transport_tcp_connect (cmsg_transport *transport)
     int ret;
     struct sockaddr *addr;
     uint32_t addr_len;
+    struct in_addr *address = &transport->config.socket.sockaddr.in.sin_addr;
+
+    /* Check the connection cache for IPv4 addresses */
+    if (transport->config.socket.family == PF_INET &&
+        !cmsg_transport_tcp_cache_should_connect (address))
+    {
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Failed to connect to remote host. Error: %s",
+                                  "Dead cache entry");
+        return -1;
+    }
 
     transport->socket = socket (transport->config.socket.family, SOCK_STREAM, 0);
 
@@ -149,17 +264,13 @@ cmsg_transport_tcp_listen (cmsg_transport *transport)
      * considered to be "tentative". While it is in this state, attempts to bind()
      * to the address fail with EADDRNOTAVAIL, as if the address doesn't exist.
      * */
-    if (transport->use_ipfree_bind)
+    ret = setsockopt (listening_socket, IPPROTO_IP, IP_FREEBIND, &yes, sizeof (int32_t));
+    if (ret == -1)
     {
-        ret =
-            setsockopt (listening_socket, IPPROTO_IP, IP_FREEBIND, &yes, sizeof (int32_t));
-        if (ret == -1)
-        {
-            CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to setsockopt. Error:%s",
-                                      strerror (errno));
-            close (listening_socket);
-            return -1;
-        }
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to setsockopt. Error:%s",
+                                  strerror (errno));
+        close (listening_socket);
+        return -1;
     }
 
     if (transport->config.socket.family == PF_INET6)
@@ -285,23 +396,6 @@ cmsg_transport_tcp_client_send (cmsg_transport *transport, void *buff, int lengt
     return (cmsg_transport_socket_send (transport->socket, buff, length, flag));
 }
 
-/**
- * TCP is never congested
- */
-bool
-cmsg_transport_tcp_is_congested (cmsg_transport *transport)
-{
-    return false;
-}
-
-int32_t
-cmsg_transport_tcp_ipfree_bind_enable (cmsg_transport *transport,
-                                       cmsg_bool_t use_ipfree_bind)
-{
-    transport->use_ipfree_bind = use_ipfree_bind;
-    return 0;
-}
-
 static void
 _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
 {
@@ -314,8 +408,6 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->client_send = cmsg_transport_tcp_client_send;
     tport_funcs->socket_close = cmsg_transport_socket_close;
     tport_funcs->get_socket = cmsg_transport_get_socket;
-    tport_funcs->is_congested = cmsg_transport_tcp_is_congested;
-    tport_funcs->ipfree_bind_enable = cmsg_transport_tcp_ipfree_bind_enable;
     tport_funcs->destroy = NULL;
     tport_funcs->apply_send_timeout = cmsg_transport_apply_send_timeout;
     tport_funcs->apply_recv_timeout = cmsg_transport_apply_recv_timeout;
@@ -413,7 +505,6 @@ cmsg_create_transport_tcp (cmsg_socket *config, cmsg_transport_type transport_ty
         memcpy (&transport->config.socket.sockaddr.in, &config->sockaddr.in,
                 sizeof (struct sockaddr_in));
     }
-    cmsg_transport_ipfree_bind_enable (transport, true);
 
     return transport;
 }
@@ -466,8 +557,6 @@ cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr,
                  CMSG_BIND_DEV_NAME_MAX);
         transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
     }
-
-    cmsg_transport_ipfree_bind_enable (transport, true);
 
     return transport;
 }
@@ -526,8 +615,6 @@ cmsg_create_transport_tcp_ipv6 (const char *service_name, struct in6_addr *addr,
                  CMSG_BIND_DEV_NAME_MAX);
         transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
     }
-
-    cmsg_transport_ipfree_bind_enable (transport, true);
 
     return transport;
 }

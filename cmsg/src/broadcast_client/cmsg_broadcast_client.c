@@ -51,7 +51,6 @@ cmsg_broadcast_client_create (const ProtobufCServiceDescriptor *descriptor)
         broadcast_client->my_node_id = 0;
         broadcast_client->lower_node_id = 0;
         broadcast_client->upper_node_id = 0;
-        broadcast_client->tipc_subscription_sd = -1;
         broadcast_client->connect_to_self = false;
         broadcast_client->event_queue.queue = NULL;
         broadcast_client->event_queue.eventfd = -1;

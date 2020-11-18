@@ -32,7 +32,7 @@ sm_mock_data_add_server (const cmsg_service_info *server_info, bool local)
 }
 
 static void
-sm_mock_data_remove_server (const cmsg_service_info *server_info)
+sm_mock_data_remove_server (const cmsg_service_info *server_info, bool local)
 {
     data_remove_server_called = true;
 }
@@ -109,8 +109,8 @@ test_cmsg_sld_configuration_impl_add_server_tipc (void)
 
     cmsg_sld_configuration_impl_add_server (NULL, &service_info);
 
-    NP_ASSERT_FALSE (cmsg_server_app_owns_current_msg_set_called);
-    NP_ASSERT_FALSE (data_add_server_called);
+    NP_ASSERT_TRUE (cmsg_server_app_owns_current_msg_set_called);
+    NP_ASSERT_TRUE (data_add_server_called);
     NP_ASSERT_FALSE (data_remove_server_called);
 }
 
@@ -158,6 +158,6 @@ test_cmsg_sld_configuration_impl_remove_server_tipc (void)
     cmsg_sld_configuration_impl_remove_server (NULL, &service_info);
 
     NP_ASSERT_FALSE (cmsg_server_app_owns_current_msg_set_called);
-    NP_ASSERT_FALSE (data_remove_server_called);
+    NP_ASSERT_TRUE (data_remove_server_called);
     NP_ASSERT_FALSE (data_add_server_called);
 }

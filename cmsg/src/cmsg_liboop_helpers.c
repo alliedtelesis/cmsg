@@ -354,3 +354,51 @@ cmsg_liboop_tipc_oneway_server_init (const char *server_name, int member_id, int
 
     return server;
 }
+
+/**
+ * Callback function for service listener events.
+ */
+static void
+cmsg_liboop_sl_event_process (int sd, void *data)
+{
+    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+
+    if (!cmsg_service_listener_event_queue_process (info))
+    {
+        oop_socket_deregister (cmsg_service_listener_event_loop_data_get (info));
+        cmsg_service_listener_unlisten (info);
+    }
+}
+
+/**
+ * Begin listening for events for the given service.
+ *
+ * @param service_name - The service to listen for.
+ * @param handler - The function to call when a server is added or removed
+ *                  for the given service.
+ * @param user_data - Pointer to user supplied data that will be passed into the
+ *                    supplied handler function.
+ *
+ * @returns The service listener subscription information.
+ */
+const cmsg_sl_info *
+cmsg_liboop_service_listener_listen (const char *service_name,
+                                     cmsg_sl_event_handler_t handler, void *user_data)
+{
+    const cmsg_sl_info *info = NULL;
+    oop_socket_hdl handle = NULL;
+
+    info = cmsg_service_listener_listen (service_name, handler, user_data);
+    if (!info)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to initialise service listener functionality");
+        return false;
+    }
+
+    handle = oop_socket_register (cmsg_service_listener_get_event_fd (info),
+                                  cmsg_liboop_sl_event_process, (void *) info);
+
+    cmsg_service_listener_event_loop_data_set (info, handle);
+
+    return info;
+}
