@@ -280,7 +280,7 @@ CLEANFILES = $(BUILT_SOURCES)
 cmsg_SOURCES = src/shell_application/cmsg_shell_application.c
 cmsg_LDADD   = libcmsg.la $(GLIB_LIBS) -ldl -ljansson -lprotobuf2json-c -lprotobuf-c
 cmsg_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
-cmsg_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg
+cmsg_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/src
 
 cmsg_sld_SOURCES = \
 	src/service_listener/main.c \
