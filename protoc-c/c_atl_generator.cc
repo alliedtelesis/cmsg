@@ -66,7 +66,7 @@ AtlCodeGenerator::GenerateAtlApiServiceSupportCheck (const ServiceDescriptor* de
   printer->Outdent();
   printer->Print("};\n\n");
 
-  printer->Print(vars_, "static const cmsg_method_extensions $lcfullname$_api_service_support_extension");
+  printer->Print(vars_, "static const cmsg_method_client_extensions $lcfullname$_api_service_support_extension");
   printer->Print(" = \n{\n");
   printer->Indent();
   printer->Print(vars_, ".service_support = &$lcfullname$_api_service_support_check,\n");
@@ -109,10 +109,6 @@ void AtlCodeGenerator::GenerateClientCFile(io::Printer* printer)
 // Generate the server source file
 void AtlCodeGenerator::GenerateServerCFile(io::Printer* printer)
 {
-  printer->Print("\n/* Start of local server definitions */\n\n");
-  GenerateAtlServerCFileDefinitions(printer);
-  printer->Print("\n/* End of local server definitions */\n\n");
-
   printer->Print("\n/* Start of Server Implementation */\n\n");
   GenerateAtlServerImplementation(printer);
   printer->Print("\n/* End of Server Implementation */\n");
@@ -264,7 +260,7 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensions(const MethodDescriptor &me
     if (method.options().HasExtension(file_response)) {
         FileResponseInfo info = method.options().GetExtension(file_response);
         vars_["file_path"] = info.file_path();
-        printer->Print(vars_, "static const cmsg_method_extensions $lcfullname$_api_$method$_file_extension");
+        printer->Print(vars_, "static const cmsg_method_client_extensions $lcfullname$_api_$method$_file_extension");
         printer->Print(" = \n{\n");
         printer->Indent();
         printer->Print(vars_, ".response_filename = \"$file_path$\",\n");
@@ -323,7 +319,7 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
     GenerateAtlApiMethodExtensions (*method, printer);
   }
 
-  printer->Print(vars_, "static const cmsg_method_extensions *$lcfullname$_api_method_extensions[] =\n");
+  printer->Print(vars_, "static const cmsg_method_client_extensions *$lcfullname$_api_method_extensions[] =\n");
   printer->Print("{\n");
   printer->Indent();
   for (int i = 0; i < descriptor_->method_count(); i++) {
@@ -344,71 +340,88 @@ void AtlCodeGenerator::GenerateAtlApiImplementation(io::Printer* printer)
   // API definitions are now done as static inlines in the header file
 }
 
+void AtlCodeGenerator::GenerateAtlServerImplPtr(const MethodDescriptor &method, io::Printer* printer)
+{
+  string lcname = cmsg::CamelToLower(method.name());
+  vars_["method"] = lcname;
+
+  if (method.options().HasExtension(file_response)) {
+    printer->Print(vars_, "NULL /* $method$ uses file response */");
+  } else {
+    printer->Print(vars_, "(void (*)()) $lcfullname$_impl_$method$");
+  }
+}
+
+void AtlCodeGenerator::GenerateAtlServerMethodExtensionsPtr(const MethodDescriptor &method, io::Printer* printer)
+{
+  string lcname = cmsg::CamelToLower(method.name());
+  vars_["method"] = lcname;
+
+  if (method.options().HasExtension(auto_validation) &&
+      method.options().GetExtension(auto_validation))
+  {
+    printer->Print(vars_, "&$lcfullname$_impl_$method$_extensions");
+  } else {
+     printer->Print("NULL");
+  }
+}
+
+void AtlCodeGenerator::GenerateAtlServerMethodExtensions(const MethodDescriptor &method, io::Printer* printer)
+{
+    string lcname = cmsg::CamelToLower(method.name());
+    vars_["method"] = lcname;
+    vars_["input_typename_lower"] = cmsg::FullNameToLower(method.input_type()->full_name());
+
+    if (method.options().HasExtension(auto_validation) &&
+        method.options().GetExtension(auto_validation)) {
+      printer->Print(vars_, "static const cmsg_method_server_extensions $lcfullname$_impl_$method$_extensions");
+      printer->Print(" = \n{\n");
+      printer->Indent();
+      printer->Print(vars_, ".validation_func = (cmsg_validation_func) $input_typename_lower$_validate,\n");
+      printer->Outdent();
+      printer->Print("};\n\n");
+    }
+}
+
 //
-// Methods to generate the server side code (IMPL calling functions)
+// Methods to generate the server side code (List of impl functions and extensions and
+// service initialiser)
 //
 void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
 {
+  // Method extensions
+  for (int i = 0; i < descriptor_->method_count(); i++) {
+    const MethodDescriptor *method = descriptor_->method(i);
+    GenerateAtlServerMethodExtensions(*method, printer);
+  }
+
+  // Impl pointers
+  printer->Print(vars_, "static const cmsg_impl_info $lcfullname$_impl_info[] =\n");
+  printer->Print("{\n");
+  printer->Indent();
+
+  for (int i = 0; i < descriptor_->method_count(); i++) {
+    const MethodDescriptor *method = descriptor_->method(i);
+    vars_["method"] = cmsg::FullNameToC(method->full_name());
+    printer->Print("{ ");
+    GenerateAtlServerImplPtr(*method, printer);
+    printer->Print(", ");
+    GenerateAtlServerMethodExtensionsPtr(*method, printer);
+    printer->Print(" },\n");
+  }
+
+  printer->Outdent();
+  printer->Print("};\n\n");
+
   //
   // Service initialization
   //
-  printer->Print(vars_, "$cname$_Service $lcfullname$_service = $ucfullname$_INIT($lcfullname$_server_);\n\n");
-
-  //
-  // go through all rpc methods defined for this service and generate the server function
-  //
-  for (int i = 0; i < descriptor_->method_count(); i++)
-  {
-    const MethodDescriptor *method = descriptor_->method(i);
-    vars_["method"] = cmsg::FullNameToC(method->full_name());
-    vars_["input_typename"] = cmsg::FullNameToC(method->input_type()->full_name());
-    vars_["input_typename_upper"] = cmsg::FullNameToUpper(method->input_type()->full_name());
-    vars_["input_typename_lower"] = cmsg::FullNameToLower(method->input_type()->full_name());
-    vars_["output_typename"] = cmsg::FullNameToC(method->output_type()->full_name());
-    vars_["output_typename_upper"] = cmsg::FullNameToUpper(method->output_type()->full_name());
-
-    //
-    // Generate the server function
-    //
-    // get the definition
-    GenerateAtlServerDefinition(*method, printer, false);
-
-    if (method->options().HasExtension(file_response)) {
-        printer->Print("{\n");
-        printer->Print("}\n");
-        continue;
-    }
-
-    // start filling it in
-    printer->Print("{\n");
-    printer->Indent();
-
-    if (method->input_type()->field_count() <= 0) {
-      printer->Print(vars_, "cmsg_server_call_impl_no_input ((cmsg_closure_func) _closure, _closure_data,\n");
-      printer->Print(vars_, "                                (cmsg_impl_no_input_func) $lcfullname$_impl_$method$);\n");
-    } else if (method->options().HasExtension(auto_validation) &&
-               method->options().GetExtension(auto_validation)) {
-      printer->Print(vars_, "cmsg_server_call_impl_with_validation ((const ProtobufCMessage *) input,\n");
-      printer->Print(vars_, "                                       (cmsg_closure_func) _closure, _closure_data,\n");
-      printer->Print(vars_, "                                       (cmsg_impl_func) $lcfullname$_impl_$method$,\n");
-      printer->Print(vars_, "                                       (cmsg_validation_func) $input_typename_lower$_validate,\n");
-      printer->Print(vars_, "                                       &$output_typename$_descriptor);\n");
-    } else {
-      printer->Print(vars_, "cmsg_server_call_impl ((const ProtobufCMessage *) input,\n");
-      printer->Print(vars_, "                       (cmsg_closure_func) _closure, _closure_data,\n");
-      printer->Print(vars_, "                       (cmsg_impl_func) $lcfullname$_impl_$method$);\n");
-    }
-
-    // end of the function
-    printer->Outdent();
-    printer->Print("}\n\n");
-  }
-
+  printer->Print(vars_, "cmsg_service $lcfullname$_service = CMSG_SERVICE_INIT($lcfullname$);\n\n");
 }
 
 void AtlCodeGenerator::GenerateAtlServerDefinitions(io::Printer* printer, bool forHeader)
 {
-  printer->Print(vars_, "extern $cname$_Service $lcfullname$_service;\n");
+  printer->Print(vars_, "extern cmsg_service $lcfullname$_service;\n");
 
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
@@ -425,14 +438,6 @@ void AtlCodeGenerator::GenerateAtlServerDefinitions(io::Printer* printer, bool f
     if (!method->options().HasExtension(file_response)) {
       GenerateAtlServerImplDefinition(*method, printer, forHeader);
     }
-  }
-}
-
-void AtlCodeGenerator::GenerateAtlServerCFileDefinitions(io::Printer* printer)
-{
-  for (int i = 0; i < descriptor_->method_count(); i++) {
-    const MethodDescriptor *method = descriptor_->method(i);
-    GenerateAtlServerDefinition(*method, printer, true);
   }
 }
 

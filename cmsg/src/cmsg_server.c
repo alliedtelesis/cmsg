@@ -9,6 +9,7 @@
 #include "transport/cmsg_transport_private.h"
 #include "service_listener/cmsg_sl_api_private.h"
 #include "cmsg_protobuf-c.h"
+#include "cmsg_ant_result.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
@@ -805,6 +806,109 @@ cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
     CMSG_COUNTER_INC (server, cntr_connections_accepted);
 
     return sock;
+}
+
+/**
+ * Call validation function for message and send a response if it is invalid
+ * @param input message to validate
+ * @param output_desc descriptor of response message to use if validation fails
+ * @param closure_info information needed to send response
+ * @param validation_func validation function to call
+ * @returns true if validation passed, else false.
+ */
+static bool
+cmsg_service_input_valid (const ProtobufCMessage *input,
+                          const ProtobufCMessageDescriptor *output_desc,
+                          cmsg_server_closure_info *closure_info,
+                          cmsg_validation_func validation_func)
+{
+    char err_str[512];
+
+    if (!validation_func (input, err_str, sizeof (err_str)))
+    {
+        ProtobufCMessage *response =
+            cmsg_create_ant_response (err_str, ANT_CODE_INVALID_ARGUMENT, output_desc);
+        cmsg_server_send_response (response, closure_info);
+        CMSG_FREE_RECV_MSG (response);
+        return false;
+    }
+
+    return true;
+}
+
+typedef void (*cmsg_impl_func) (cmsg_server_closure_info *closure_info,
+                                const ProtobufCMessage *input);
+typedef void (*cmsg_impl_no_input_func) (cmsg_server_closure_info *closure_info);
+
+/**
+ * Replacement for protobuf_c_service_invoke_internal. Invokes the CMSG impl function
+ * based on the service information.
+ * @param service ProtobufCService pointer (cast to cmsg_service to get impl_info pointer)
+ * @param method_index index of method to invoke
+ * @param input input message
+ * @param closure closure function
+ * @param closure_data data for closure function
+ */
+void
+cmsg_server_invoke_impl (ProtobufCService *service, unsigned method_index,
+                         const ProtobufCMessage *input,
+                         ProtobufCClosure closure, void *closure_data)
+{
+    const cmsg_impl_info *impl_info = ((cmsg_service *) service)->impl_info;
+    const cmsg_method_server_extensions *method_extensions;
+    cmsg_server_closure_info closure_info;
+
+    // This may not be possible (there will always be dummy input)
+    if (input == NULL)
+    {
+        closure (NULL, closure_data);
+        return;
+    }
+
+    // these are needed in 'Send' function for sending reply back to the client
+    closure_info.closure = closure;
+    closure_info.closure_data = closure_data;
+
+    /*
+     * Verify that method_index is within range. If this fails, you are
+     * likely invoking a newly added method on an old service. (Although
+     * other memory corruption bugs can cause this assertion too.)
+     */
+    assert (method_index < service->descriptor->n_methods);
+
+    method_extensions = impl_info[method_index].method_extensions;
+    if (method_extensions)
+    {
+        if (method_extensions->validation_func)
+        {
+            if (!cmsg_service_input_valid (input,
+                                           service->descriptor->
+                                           methods[method_index].output, &closure_info,
+                                           method_extensions->validation_func))
+            {
+                /* response handled as part of validation */
+                return;
+            }
+        }
+    }
+
+    if (!impl_info[method_index].impl_func)
+    {
+        /* impl_func is set to NULL for file response APIs, but shouldn't get to here */
+        return;
+    }
+
+    if (service->descriptor->methods[method_index].input->n_fields == 0)
+    {
+        cmsg_impl_no_input_func func =
+            (cmsg_impl_no_input_func) impl_info[method_index].impl_func;
+        func (&closure_info);
+    }
+    else
+    {
+        cmsg_impl_func func = (cmsg_impl_func) impl_info[method_index].impl_func;
+        func (&closure_info, input);
+    }
 }
 
 void
@@ -2230,53 +2334,4 @@ cmsg_server_thread_task (void *_info)
     CMSG_FREE (info);
 
     return NULL;
-}
-
-/**
- * CMSG server common function to call an impl function that takes an input message.
- * The call to this function is intended to be auto-generated, so shouldn't be manually
- * called.
- * @param input input message to the impl
- * @param closure closure function to be passed through to impl for response
- * @param closure_data closure data to be passed through to impl for response
- * @param impl_func IMPL function to call.
- */
-void
-cmsg_server_call_impl (const ProtobufCMessage *input, cmsg_closure_func closure,
-                       void *closure_data, cmsg_impl_func impl_func)
-{
-    cmsg_server_closure_info closure_info;
-
-    if (input == NULL)
-    {
-        closure (NULL, closure_data);
-        return;
-    }
-
-    // these are needed in 'Send' function for sending reply back to the client
-    closure_info.closure = closure;
-    closure_info.closure_data = closure_data;
-
-    impl_func (&closure_info, input);
-}
-
-/**
- * CMSG server common function to call an impl function that doesn't take an input message.
- * The call to this function is intended to be auto-generated, so shouldn't be manually
- * called.
- * @param closure closure function to be passed through to impl for response
- * @param closure_data closure data to be passed through to impl for response
- * @param impl_func IMPL function to call.
- */
-void
-cmsg_server_call_impl_no_input (cmsg_closure_func closure, void *closure_data,
-                                cmsg_impl_no_input_func impl_func)
-{
-    cmsg_server_closure_info closure_info;
-
-    // these are needed in 'Send' function for sending reply back to the client
-    closure_info.closure = closure;
-    closure_info.closure_data = closure_data;
-
-    impl_func (&closure_info);
 }

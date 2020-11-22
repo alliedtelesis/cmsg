@@ -29,11 +29,4 @@ bool cmsg_validate_mac_address (const char *input_string, const char *field_name
                                 const char *supplied_error_message, char *err_str,
                                 uint32_t err_str_len);
 
-typedef bool (*cmsg_validation_func) (const ProtobufCMessage *message,
-                                      char *err_str, uint32_t err_str_len);
-void cmsg_server_call_impl_with_validation (const ProtobufCMessage *input,
-                                            cmsg_closure_func closure, void *closure_data,
-                                            cmsg_impl_func impl_func,
-                                            cmsg_validation_func validation_func,
-                                            const ProtobufCMessageDescriptor *output_desc);
 #endif /* __CMSG_VALIDATION_H_ */

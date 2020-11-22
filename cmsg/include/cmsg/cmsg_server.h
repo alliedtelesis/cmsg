@@ -34,15 +34,35 @@ typedef struct _cmsg_server_closure_data_s
     cmsg_method_processing_reason method_processing_reason;
 } cmsg_server_closure_data;
 
-typedef void (*cmsg_closure_func) (const ProtobufCMessage *send_msg, void *closure_data);
-typedef void (*cmsg_impl_func) (cmsg_server_closure_info *closure_info,
-                                const ProtobufCMessage *input);
-typedef void (*cmsg_impl_no_input_func) (cmsg_server_closure_info *closure_info);
+typedef bool (*cmsg_validation_func) (const ProtobufCMessage *message,
+                                      char *err_str, uint32_t err_str_len);
 
-void cmsg_server_call_impl (const ProtobufCMessage *input, cmsg_closure_func closure,
-                            void *closure_data, cmsg_impl_func impl_func);
-void cmsg_server_call_impl_no_input (cmsg_closure_func closure, void *closure_data,
-                                     cmsg_impl_no_input_func impl_func);
+typedef struct
+{
+    cmsg_validation_func validation_func;
+} cmsg_method_server_extensions;
+
+typedef struct
+{
+    void (*impl_func) ();
+    const cmsg_method_server_extensions *method_extensions;
+} cmsg_impl_info;
+
+typedef struct
+{
+    ProtobufCService base;
+    const cmsg_impl_info *impl_info;
+} cmsg_service;
+
+#define CMSG_SERVICE_BASE_INIT(_desc) { _desc, cmsg_server_invoke_impl, NULL }
+#define CMSG_SERVICE_INIT(service_name) \
+    { CMSG_SERVICE_BASE_INIT(&service_name##_descriptor), service_name##_impl_info }
+
+typedef void (*cmsg_closure_func) (const ProtobufCMessage *send_msg, void *closure_data);
+
+void cmsg_server_invoke_impl (ProtobufCService *service, unsigned method_index,
+                              const ProtobufCMessage *input,
+                              ProtobufCClosure closure, void *closure_data);
 
 typedef int32_t (*server_message_processor_f) (int socket,
                                                cmsg_server_request *server_request,
