@@ -77,17 +77,23 @@ sm_mock_cmsg_composite_client_lookup_by_tcp_ipv4_addr (cmsg_client *_composite_c
 }
 
 static int
-sm_mock_cmsg_sld_remote_sync_api_add_server (cmsg_client *_client,
-                                             const cmsg_service_info *_send_msg)
+sm_mock_cmsg_api_invoke (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
+                         int method_index, const ProtobufCMessage *send_msg,
+                         ProtobufCMessage **recv_msg)
 {
-    return CMSG_RET_OK;
-}
+    if (cmsg_desc->service_desc == &cmsg_sld_remote_sync_descriptor)
+    {
+        switch (method_index)
+        {
+        case cmsg_sld_remote_sync_api_add_server_index:
+        case cmsg_sld_remote_sync_api_remove_server_index:
+            return CMSG_RET_OK;
+        default:
+            break;
+        }
+    }
 
-static int
-sm_mock_cmsg_sld_remote_sync_api_remove_server (cmsg_client *_client,
-                                                const cmsg_service_info *_send_msg)
-{
-    return CMSG_RET_OK;
+    return cmsg_api_invoke_real (client, cmsg_desc, method_index, send_msg, recv_msg);
 }
 
 void
@@ -221,8 +227,7 @@ test_remote_sync_server_added_address_local (void)
     cmsg_transport_info transport_info = CMSG_TRANSPORT_INFO_INIT;
     cmsg_tcp_transport_info tcp_info = CMSG_TCP_TRANSPORT_INFO_INIT;
 
-    np_mock (cmsg_sld_remote_sync_api_add_server,
-             sm_mock_cmsg_sld_remote_sync_api_add_server);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke);
 
     comp_client = (cmsg_client *) 0x1;
     local_ip_addr = 1234;
@@ -244,8 +249,7 @@ test_remote_sync_server_removed_address_local (void)
     cmsg_transport_info transport_info = CMSG_TRANSPORT_INFO_INIT;
     cmsg_tcp_transport_info tcp_info = CMSG_TCP_TRANSPORT_INFO_INIT;
 
-    np_mock (cmsg_sld_remote_sync_api_remove_server,
-             sm_mock_cmsg_sld_remote_sync_api_remove_server);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke);
 
     comp_client = (cmsg_client *) 0x1;
     local_ip_addr = 1234;

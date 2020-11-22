@@ -194,6 +194,7 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
     cmsg_tlv_header *tlv_header;
     cmsg_tlv_header_type tlv_type;
     uint32_t tlv_total_length;
+    uint32_t method_length = 0;
 
     /* If there is no tlv header, we have nothing to process */
     if (extra_header_size == 0)
@@ -217,6 +218,24 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
             case CMSG_TLV_METHOD_TYPE:
                 tlv_method_header = (cmsg_tlv_method_header *) buf;
 
+                method_length = ntohl (tlv_method_header->method_length);
+                // Check method name length is within the range
+                if (method_length == 0 ||
+                    method_length > CMSG_SERVER_REQUEST_MAX_NAME_LENGTH)
+                {
+                    CMSG_LOG_GEN_ERROR ("Processing TLV header, bad method length - %d",
+                                        method_length);
+                    return CMSG_RET_ERR;
+                }
+
+                // Check method name is not NUL
+                if (tlv_method_header->method[0] == '\0' ||
+                    tlv_method_header->method[method_length - 1] != '\0')
+                {
+                    CMSG_LOG_GEN_ERROR ("Processing TLV header, method name is invalid");
+                    return CMSG_RET_ERR;
+                }
+
                 server_request->method_index =
                     protobuf_c_service_descriptor_get_method_index_by_name
                     (descriptor, tlv_method_header->method);
@@ -233,9 +252,9 @@ cmsg_tlv_header_process (uint8_t *buf, cmsg_server_request *server_request,
                     return CMSG_RET_METHOD_NOT_FOUND;
                 }
 
-                strncpy (server_request->method_name_recvd, tlv_method_header->method,
-                         MIN (tlv_method_header->method_length,
-                              CMSG_SERVER_REQUEST_MAX_NAME_LENGTH));
+                server_request->method_name_recvd[0] = '\0';
+                strncat (server_request->method_name_recvd, tlv_method_header->method,
+                         (CMSG_SERVER_REQUEST_MAX_NAME_LENGTH - 1));
                 break;
 
             default:

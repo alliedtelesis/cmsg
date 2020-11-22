@@ -70,6 +70,7 @@
 #include <protoc-c/c_message.h>
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/descriptor.pb.h>
+#include "supported_service.pb.h"
 
 namespace google {
 namespace protobuf {
@@ -270,11 +271,12 @@ void FileGenerator::GenerateAtlApiSource(io::Printer* printer) {
 
   // include the cmsg error header so the api can output errors
   printer->Print("#include <cmsg/cmsg_error.h>\n");
+  // include the cmsg_client definition for the api params
+  printer->Print("#include <cmsg/cmsg_client.h>\n");
 
   for (int i = 0; i < file_->service_count(); i++) {
     atl_code_generators_[i]->GenerateClientCFile(printer);
   }
-
 }
 
 void FileGenerator::GenerateAtlImplHeader(io::Printer* printer) {
@@ -456,6 +458,7 @@ void FileGenerator::GenerateAtlValidationHeader(io::Printer* printer) {
       "\n",
       "header_define", header_define);
 
+    printer->Print("#include <cmsg/cmsg_validation.h>\n");
     // Include dependent types header files
     for (int i = 0; i < file_->dependency_count(); i++) {
         printer->Print(

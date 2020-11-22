@@ -110,8 +110,8 @@ test_cmsg_proxy_service_info_init__list_entries (void)
         cmsg_proxy_find_service_from_url_and_verb ("/v1/test", CMSG_HTTP_PUT, NULL);
 
     NP_ASSERT_PTR_EQUAL (entry, cmsg_proxy_array_get ());
-    NP_ASSERT_PTR_EQUAL (entry->service_descriptor,
-                         &cmsg_proxy_unit_tests_interface_descriptor);
+    NP_ASSERT_PTR_EQUAL (entry->cmsg_desc,
+                         &cmsg_proxy_unit_tests_interface_cmsg_api_descriptor);
     NP_ASSERT_EQUAL (entry->http_verb, CMSG_HTTP_PUT);
 }
 
@@ -473,22 +473,22 @@ test_cmsg_proxy_find_service_from_url_and_verb__additional_bindings_use_same_api
     entry1 = cmsg_proxy_find_service_from_url_and_verb (url1, CMSG_HTTP_GET,
                                                         &url_parameters);
     NP_ASSERT_PTR_NOT_EQUAL (entry1, NULL);
-    NP_ASSERT_PTR_EQUAL (entry1->api_ptr,
-                         &cmsg_proxy_unit_tests_interface_api_test_additional_bindings);
+    NP_ASSERT_EQUAL (entry1->method_index,
+                     cmsg_proxy_unit_tests_interface_api_test_additional_bindings_index);
     NP_ASSERT_EQUAL (entry1->http_verb, CMSG_HTTP_GET);
 
     entry2 = cmsg_proxy_find_service_from_url_and_verb (url2, CMSG_HTTP_POST,
                                                         &url_parameters);
     NP_ASSERT_PTR_NOT_EQUAL (entry2, NULL);
-    NP_ASSERT_PTR_EQUAL (entry2->api_ptr,
-                         &cmsg_proxy_unit_tests_interface_api_test_additional_bindings);
+    NP_ASSERT_EQUAL (entry2->method_index,
+                     cmsg_proxy_unit_tests_interface_api_test_additional_bindings_index);
     NP_ASSERT_EQUAL (entry2->http_verb, CMSG_HTTP_POST);
 
     entry3 = cmsg_proxy_find_service_from_url_and_verb (url3, CMSG_HTTP_GET,
                                                         &url_parameters);
     NP_ASSERT_PTR_NOT_EQUAL (entry3, NULL);
-    NP_ASSERT_PTR_EQUAL (entry3->api_ptr,
-                         &cmsg_proxy_unit_tests_interface_api_test_additional_bindings);
+    NP_ASSERT_EQUAL (entry3->method_index,
+                     cmsg_proxy_unit_tests_interface_api_test_additional_bindings_index);
     NP_ASSERT_EQUAL (entry3->http_verb, CMSG_HTTP_GET);
 
     g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
@@ -1496,28 +1496,31 @@ test_cmsg_proxy_service_info_add_body_string_check_ok (void)
         .url_string = "/api/v1/test_body_string_ok",
         .http_verb = CMSG_HTTP_PUT,
         .body_string = "*",
-        .input_msg_descriptor = &cmsg_proxy_unit_tests_body_check_msg_descriptor,
+        .cmsg_desc = &cmsg_proxy_unit_tests_interface_cmsg_api_descriptor,
+        .method_index = cmsg_proxy_unit_tests_interface_api_test_body_string_index,
     };
 
     cmsg_service_info test_service_info_2 = {
         .url_string = "/api/v1/test_body_string_ok/{field_a}",
         .http_verb = CMSG_HTTP_PUT,
         .body_string = "*",
-        .input_msg_descriptor = &cmsg_proxy_unit_tests_body_check_msg_descriptor,
+        .cmsg_desc = &cmsg_proxy_unit_tests_interface_cmsg_api_descriptor,
+        .method_index = cmsg_proxy_unit_tests_interface_api_test_body_string_index,
     };
 
     cmsg_service_info test_service_info_3 = {
         .url_string = "/api/v1/test_body_string_file",
         .http_verb = CMSG_HTTP_PUT,
         .body_string = "*",
-        .input_msg_descriptor = &cmsg_proxy_unit_tests_file_msg_descriptor,
+        .cmsg_desc = &cmsg_proxy_unit_tests_interface_cmsg_api_descriptor,
+        .method_index = cmsg_proxy_unit_tests_interface_api_test_body_string_file_ok_index,
     };
 
     proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
 
-    NP_ASSERT_TRUE (cmsg_proxy_service_info_add (&test_service_info_1));
-    NP_ASSERT_TRUE (cmsg_proxy_service_info_add (&test_service_info_2));
-    NP_ASSERT_TRUE (cmsg_proxy_service_info_add (&test_service_info_3));
+    NP_ASSERT_TRUE (cmsg_proxy_body_string_check (&test_service_info_1));
+    NP_ASSERT_TRUE (cmsg_proxy_body_string_check (&test_service_info_2));
+    NP_ASSERT_TRUE (cmsg_proxy_body_string_check (&test_service_info_3));
 }
 
 /**
@@ -1531,14 +1534,16 @@ test_cmsg_proxy_service_info_add_body_string_check_bad (void)
         .url_string = "/api/v1/test_body_string/{field_a}/{field_b}",
         .http_verb = CMSG_HTTP_PUT,
         .body_string = "*",
-        .input_msg_descriptor = &cmsg_proxy_unit_tests_body_check_msg_descriptor,
+        .cmsg_desc = &cmsg_proxy_unit_tests_interface_cmsg_api_descriptor,
+        .method_index = cmsg_proxy_unit_tests_interface_api_test_body_string_index,
     };
 
     cmsg_service_info test_service_info_2 = {
         .url_string = "/api/v1/test_body_string_dummy",
         .http_verb = CMSG_HTTP_PUT,
         .body_string = "*",
-        .input_msg_descriptor = &cmsg_proxy_unit_tests_dummy_descriptor,
+        .cmsg_desc = &cmsg_proxy_unit_tests_interface_cmsg_api_descriptor,
+        .method_index = cmsg_proxy_unit_tests_interface_api_test_body_string_dummy_index,
     };
 
     proxy_entries_tree = g_node_new (g_strdup ("CMSG_API"));
@@ -2021,6 +2026,7 @@ test_cmsg_proxy_json_object_create_valid_input (void)
     json_t *json_obj = NULL;
     json_error_t error;
     char *json_output_str = NULL;
+    const ProtobufCMessageDescriptor *input_desc = NULL;
 
     input.url = "/v1/test";
     input.http_verb = CMSG_HTTP_PUT;
@@ -2033,8 +2039,9 @@ test_cmsg_proxy_json_object_create_valid_input (void)
                                                                input.http_verb,
                                                                &url_parameters);
 
+    input_desc = CMSG_PROXY_INPUT_MSG_DESCRIPTOR (test_service_info);
     json_obj = cmsg_proxy_json_object_create (input.data, input.data_length,
-                                              test_service_info->input_msg_descriptor,
+                                              input_desc,
                                               test_service_info->body_string,
                                               url_parameters, &error);
 
@@ -2062,6 +2069,7 @@ test_cmsg_proxy_json_object_create_invalid_input (void)
     GList *url_parameters = NULL;
     json_t *json_obj = NULL;
     json_error_t error;
+    const ProtobufCMessageDescriptor *input_desc = NULL;
 
     input.url = "/v1/test";
     input.http_verb = CMSG_HTTP_PUT;
@@ -2073,17 +2081,17 @@ test_cmsg_proxy_json_object_create_invalid_input (void)
     test_service_info = cmsg_proxy_get_service_and_parameters (input.url, NULL,
                                                                input.http_verb,
                                                                &url_parameters);
-
+    input_desc = CMSG_PROXY_INPUT_MSG_DESCRIPTOR (test_service_info);
     /* Try and create json_obj with invalid body_string provided. */
     json_obj = cmsg_proxy_json_object_create (input.data, input.data_length,
-                                              test_service_info->input_msg_descriptor,
+                                              input_desc,
                                               invalid_body_string, url_parameters, &error);
     NP_ASSERT_NULL (json_obj);
 
     /* Try and create json_obj with no input data provided. */
     input.data = "";
     json_obj = cmsg_proxy_json_object_create (input.data, input.data_length,
-                                              test_service_info->input_msg_descriptor,
+                                              input_desc,
                                               test_service_info->body_string,
                                               url_parameters, &error);
     NP_ASSERT_NULL (json_obj);

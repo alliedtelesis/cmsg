@@ -83,6 +83,12 @@ inline bool HasSuffixString(const string& str, const string& suffix) { return st
 inline string StripSuffixString(const string& str, const string& suffix) { if (HasSuffixString(str, suffix)) { return str.substr(0, str.size() - suffix.size()); } else { return str; } }
 char* FastHexToBuffer(int i, char* buffer);
 
+// --- Borrowed from stubs. ---
+template <typename T> string SimpleItoa(T n) {
+  std::stringstream stream;
+  stream << n;
+  return stream.str();
+}
 
 // Get the (unqualified) name that should be used for this field in C code.
 // The name is coerced to lower-case to emulate proto1 behavior.  People

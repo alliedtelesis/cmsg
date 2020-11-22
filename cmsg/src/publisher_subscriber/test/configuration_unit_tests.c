@@ -24,7 +24,7 @@ sm_mock_cmsg_server_app_owns_current_msg_set (cmsg_server *server)
 }
 
 static void
-sm_mock_cmsg_psd_configuration_server_add_subscriptionSend (const void *_service)
+sm_mock_cmsg_server_send_response (const ProtobufCMessage *send_msg, const void *service)
 {
     /* Do nothing. */
 }
@@ -48,8 +48,7 @@ set_up (void)
 
     np_mock (cmsg_server_app_owns_current_msg_set,
              sm_mock_cmsg_server_app_owns_current_msg_set);
-    np_mock (cmsg_psd_configuration_server_add_subscriptionSend,
-             sm_mock_cmsg_psd_configuration_server_add_subscriptionSend);
+    np_mock (cmsg_server_send_response, sm_mock_cmsg_server_send_response);
 
     return 0;
 }

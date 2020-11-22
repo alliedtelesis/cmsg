@@ -38,12 +38,7 @@ sm_mock_data_remove_server (const cmsg_service_info *server_info, bool local)
 }
 
 static void
-sm_mock_cmsg_sld_configuration_server_add_serverSend (const void *_service)
-{
-}
-
-static void
-sm_mock_cmsg_sld_configuration_server_remove_serverSend (const void *_service)
+sm_mock_cmsg_server_send_response (const ProtobufCMessage *send_msg, const void *service)
 {
 }
 
@@ -58,10 +53,7 @@ set_up (void)
              sm_mock_cmsg_server_app_owns_current_msg_set);
     np_mock (data_remove_server, sm_mock_data_remove_server);
     np_mock (data_add_server, sm_mock_data_add_server);
-    np_mock (cmsg_sld_configuration_server_add_serverSend,
-             sm_mock_cmsg_sld_configuration_server_add_serverSend);
-    np_mock (cmsg_sld_configuration_server_remove_serverSend,
-             sm_mock_cmsg_sld_configuration_server_remove_serverSend);
+    np_mock (cmsg_server_send_response, sm_mock_cmsg_server_send_response);
 
     return 0;
 }

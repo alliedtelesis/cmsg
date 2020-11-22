@@ -65,6 +65,20 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
     return NULL;
 }
 
+/**
+ * Call the appropriate closure function for this service. This is the common code called
+ * by the auto-generated send functions. The auto-generated functions are generated as
+ * inline functions in the header file that only call this function. This allows type
+ * checking, but reduces the compiled code size.
+ */
+void
+cmsg_server_send_response (const ProtobufCMessage *send_msg, const void *service)
+{
+    cmsg_closure_func _closure = ((const cmsg_server_closure_info *) service)->closure;
+    void *_closure_data = ((const cmsg_server_closure_info *) service)->closure_data;
+
+    _closure (send_msg, _closure_data);
+}
 
 /*
  * This is an internal function which can be called from CMSG library.
@@ -2216,4 +2230,53 @@ cmsg_server_thread_task (void *_info)
     CMSG_FREE (info);
 
     return NULL;
+}
+
+/**
+ * CMSG server common function to call an impl function that takes an input message.
+ * The call to this function is intended to be auto-generated, so shouldn't be manually
+ * called.
+ * @param input input message to the impl
+ * @param closure closure function to be passed through to impl for response
+ * @param closure_data closure data to be passed through to impl for response
+ * @param impl_func IMPL function to call.
+ */
+void
+cmsg_server_call_impl (const ProtobufCMessage *input, cmsg_closure_func closure,
+                       void *closure_data, cmsg_impl_func impl_func)
+{
+    cmsg_server_closure_info closure_info;
+
+    if (input == NULL)
+    {
+        closure (NULL, closure_data);
+        return;
+    }
+
+    // these are needed in 'Send' function for sending reply back to the client
+    closure_info.closure = closure;
+    closure_info.closure_data = closure_data;
+
+    impl_func (&closure_info, input);
+}
+
+/**
+ * CMSG server common function to call an impl function that doesn't take an input message.
+ * The call to this function is intended to be auto-generated, so shouldn't be manually
+ * called.
+ * @param closure closure function to be passed through to impl for response
+ * @param closure_data closure data to be passed through to impl for response
+ * @param impl_func IMPL function to call.
+ */
+void
+cmsg_server_call_impl_no_input (cmsg_closure_func closure, void *closure_data,
+                                cmsg_impl_no_input_func impl_func)
+{
+    cmsg_server_closure_info closure_info;
+
+    // these are needed in 'Send' function for sending reply back to the client
+    closure_info.closure = closure;
+    closure_info.closure_data = closure_data;
+
+    impl_func (&closure_info);
 }

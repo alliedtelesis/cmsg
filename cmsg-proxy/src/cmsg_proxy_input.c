@@ -627,6 +627,8 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     json_error_t error;
     const cmsg_service_info *service_info = NULL;
     ProtobufCMessage *input_proto_message = NULL;
+    const ProtobufCMessageDescriptor *input_desc = NULL;
+    const ProtobufCMessageDescriptor *output_desc = NULL;
     ant_code result = ANT_CODE_OK;
 
     service_info = cmsg_proxy_get_service_and_parameters (input->url, input->query_string,
@@ -643,6 +645,8 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     }
     processing_info->service_info = service_info;
     processing_info->http_verb = input->http_verb;
+    input_desc = CMSG_PROXY_INPUT_MSG_DESCRIPTOR (service_info);
+    output_desc = CMSG_PROXY_OUTPUT_MSG_DESCRIPTOR (service_info);
 
     CMSG_PROXY_SESSION_COUNTER_INC (service_info, cntr_api_calls);
 
@@ -666,7 +670,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     }
 
     json_obj = cmsg_proxy_json_object_create (input->data, input->data_length,
-                                              service_info->input_msg_descriptor,
+                                              input_desc,
                                               service_info->body_string, url_parameters,
                                               &error);
     if (input->data && !json_obj)
@@ -680,17 +684,14 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
         return NULL;
     }
 
-    cmsg_proxy_parse_url_parameters (url_parameters, &json_obj,
-                                     service_info->input_msg_descriptor);
+    cmsg_proxy_parse_url_parameters (url_parameters, &json_obj, input_desc);
 
     g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
 
-    cmsg_proxy_set_internal_api_info (&input->web_api_info, &json_obj,
-                                      service_info->input_msg_descriptor);
+    cmsg_proxy_set_internal_api_info (&input->web_api_info, &json_obj, input_desc);
 
     result = cmsg_proxy_set_file_upload_info (&input->file_info,
-                                              service_info->input_msg_descriptor,
-                                              &json_obj, &message);
+                                              input_desc, &json_obj, &message);
     if (result != ANT_CODE_OK)
     {
         cmsg_proxy_generate_ant_result_error (result, message, output);
@@ -699,7 +700,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     }
 
     processing_info->client =
-        cmsg_proxy_find_client_by_service (service_info->service_descriptor);
+        cmsg_proxy_find_client_by_service (service_info->cmsg_desc->service_desc);
     if (processing_info->client == NULL)
     {
         /* This should not occur but check for it */
@@ -713,14 +714,13 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
 
     output->stream_response =
         cmsg_proxy_streaming_create_conn (input->connection, &json_obj,
-                                          service_info->input_msg_descriptor,
-                                          service_info->output_msg_descriptor,
+                                          input_desc, output_desc,
                                           &processing_info->streaming_id);
 
     /* Always create an input_proto_message to ensure that if the API call
      * requires an input it has one, even if it is empty. */
     result = cmsg_proxy_convert_json_to_protobuf (json_obj,
-                                                  service_info->input_msg_descriptor,
+                                                  input_desc,
                                                   &input_proto_message, &message);
 
     cmsg_proxy_json_object_destroy (json_obj);
@@ -740,8 +740,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     CMSG_PROXY_FREE (message);
     message = NULL;
 
-    processing_info->is_file_input =
-        cmsg_proxy_msg_has_file (service_info->input_msg_descriptor);
+    processing_info->is_file_input = cmsg_proxy_msg_has_file (input_desc);
     if (processing_info->is_file_input)
     {
         // Set message "_file" field to point directly to input_data (without copying)

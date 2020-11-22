@@ -128,6 +128,7 @@ libcmsg_la_SOURCES = \
 	src/cmsg.pb-c.h \
 	src/ant_result.pb-c.c \
 	src/ant_result.pb-c.h \
+	src/cmsg_ant_result.c \
 	src/transport/cmsg_transport_loopback.c \
 	src/transport/cmsg_transport_tcp.c \
 	src/transport/cmsg_transport_tipc.c \
@@ -174,6 +175,7 @@ libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS) -include $(top_builddir)/config
 libcmsg_la_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 libcmsg_ladir       = $(includedir)/cmsg
 libcmsg_la_HEADERS  = \
+	include/cmsg/cmsg_ant_result.h \
 	include/cmsg/cmsg_broadcast_client.h \
 	include/cmsg/cmsg_client.h \
 	include/cmsg/cmsg_composite_client.h \

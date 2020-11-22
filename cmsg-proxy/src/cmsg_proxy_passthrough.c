@@ -24,7 +24,6 @@ typedef int (*proxy_defs_array_size_func_ptr) ();
 
 static void *lib_handle = NULL;
 
-static cmsg_api_func_ptr api_ptr = NULL;
 static const cmsg_service_info *api_service_info = NULL;
 static const ProtobufCServiceDescriptor *service_descriptor = NULL;
 static cmsg_client *client = NULL;
@@ -71,21 +70,24 @@ _load_library_info (proxy_defs_array_get_func_ptr get_func_addr,
     array = get_func_addr ();
     service_info = &array[0];
 
-    if (strcmp (service_info->input_msg_descriptor->name, "passthrough_request") != 0)
+    if (strcmp
+        (service_info->cmsg_desc->service_desc->methods[0].input->name,
+         "passthrough_request") != 0)
     {
         syslog (LOG_ERR, "Unexpected input msg descriptor");
         return false;
     }
 
-    if (strcmp (service_info->output_msg_descriptor->name, "passthrough_response") != 0)
+    if (strcmp
+        (service_info->cmsg_desc->service_desc->methods[0].output->name,
+         "passthrough_response") != 0)
     {
         syslog (LOG_ERR, "Unexpected output msg descriptor");
         return false;
     }
 
     api_service_info = service_info;
-    api_ptr = service_info->api_ptr;
-    service_descriptor = service_info->service_descriptor;
+    service_descriptor = service_info->cmsg_desc->service_desc;
 
     cmsg_proxy_session_counter_init (api_service_info);
 
@@ -172,7 +174,6 @@ cmsg_proxy_passthrough_deinit (void)
     }
 
     api_service_info = NULL;
-    api_ptr = NULL;
     service_descriptor = NULL;
 
     cmsg_proxy_counter_deinit ();
@@ -198,7 +199,8 @@ cmsg_proxy_passthrough (const cmsg_proxy_input *input, cmsg_proxy_output *output
                         cmsg_proxy_passthrough_verb_to_string (input->http_verb));
     CMSG_SET_FIELD_PTR (&send_msg, request_body, (char *) input->data);
 
-    ret = api_ptr (client, &send_msg, &recv_msg);
+    ret = cmsg_api_invoke (client, api_service_info->cmsg_desc, 0,
+                           (ProtobufCMessage *) &send_msg, (ProtobufCMessage **) &recv_msg);
     if (ret != CMSG_RET_OK)
     {
         CMSG_PROXY_SESSION_COUNTER_INC (api_service_info, cntr_error_api_failure);

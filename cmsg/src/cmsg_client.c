@@ -6,6 +6,7 @@
 #include "cmsg_error.h"
 #include "transport/cmsg_transport_private.h"
 #include "cmsg_protobuf-c.h"
+#include "cmsg_ant_result.h"
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
@@ -1671,4 +1672,198 @@ cmsg_create_client_tcp_ipv6_oneway (const char *service_name, struct in6_addr *a
 
     return _cmsg_create_client_tcp_ipv6 (service_name, addr, scope_id, vrf_bind_dev,
                                          descriptor, true);
+}
+
+/**
+ * Check the passed in recv_msg pointer to see if it is NULL. If it is not NULL, set it to
+ * NULL and log a client debug message.
+ * @param client cmsg client that called the API
+ * @param recv_msg pointer to set to NULL
+ * @param ref API reference to put in the error message
+ */
+static void
+cmsg_api_recv_ptr_null_check (cmsg_client *client, ProtobufCMessage **recv_msg,
+                              const char *ref)
+{
+    if (!recv_msg)
+    {
+        return;
+    }
+
+    /* test that the pointer to the recv msg is NULL. If it isn't, set it to
+     * NULL but complain loudly that the api is not being used correctly  */
+    if (*(recv_msg) != NULL)
+    {
+        *(recv_msg) = NULL;
+        CMSG_LOG_CLIENT_DEBUG (client,
+                               "WARNING: %s API called with Non-NULL recv_msg! Setting to NULL! (This may be a leak!)",
+                               ref);
+    }
+}
+
+/**
+ * Helper function to set or free received response data for an API
+ * @param closure_data received response
+ * @param recv_msg Message to update with responses (if a response is expected)
+ * @returns CMSG API return code.
+ */
+static int
+cmsg_api_process_closure_data (cmsg_client_closure_data *closure_data,
+                               ProtobufCMessage **recv_msg)
+{
+    int i = 0;
+
+    /* sanity check our returned message pointer */
+    while (closure_data[i].message != NULL)
+    {
+        ProtobufCMessage *msg = (ProtobufCMessage *) closure_data[i].message;
+        if (msg->descriptor->n_fields > 0)
+        {
+            /* Update developer output msg to point to received message from invoke */
+            recv_msg[i] = msg;
+        }
+        else
+        {
+            /* Free the received message since the caller does not expect to receive it */
+            CMSG_FREE_RECV_MSG (msg);
+        }
+        i++;
+    }
+
+    return closure_data[0].retval;
+}
+
+
+/**
+ * Helper for cmsg_api_invoke that returns a response from a file on the client side.
+ * @param filename file that holds the response data
+ * @param output_desc Output message descriptor
+ * @param recv_msg array pointer to hold message responses
+ * @returns API return code
+ */
+static int
+cmsg_api_file_response (const char *filename,
+                        const ProtobufCMessageDescriptor *output_desc,
+                        ProtobufCMessage **recv_msg)
+{
+    /* File response */
+    if (access (filename, F_OK) == -1)
+    {
+        recv_msg[0] = cmsg_create_ant_response (NULL, ANT_CODE_OK, output_desc);
+    }
+    else
+    {
+        recv_msg[0] = cmsg_get_msg_from_file (output_desc, filename);
+        if (recv_msg[0] == NULL)
+        {
+            return CMSG_RET_ERR;
+        }
+    }
+    return CMSG_RET_OK;
+}
+
+/**
+ * Check if service is available and if not, generate response message.
+ * Requires recv_msg to either be ant_result or have an ant_result field called _error_info)
+ * @param check_params Parameters to use for service check.
+ * @param output_desc descriptor for message to be generated
+ * @param recv_msg array to hold response. (Response is only set in first entry)
+ * @returns true if service is available/supported, else false.
+ */
+static bool
+cmsg_supported_service_check (const service_support_parameters *check_params,
+                              const ProtobufCMessageDescriptor *output_desc,
+                              ProtobufCMessage **recv_msg)
+{
+    /* Service support check */
+    if (access (check_params->filename, F_OK) == -1)
+    {
+        recv_msg[0] = cmsg_create_ant_response (check_params->msg,
+                                                check_params->return_code, output_desc);
+
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Invoke a CMSG API
+ * The call to this function is intended to be auto-generated, so shouldn't be manually
+ * called.
+ * @param client cmsg client for API call
+ * @param cmsg_desc CMSG API descriptor for the service being called
+ * @param method_index index of method being called
+ * @param send_msg message to be sent to the server
+ * @param recv_msg array pointer to hold message responses
+ * @returns API return code
+ */
+int
+cmsg_api_invoke (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
+                 int method_index, const ProtobufCMessage *send_msg,
+                 ProtobufCMessage **recv_msg)
+#ifdef HAVE_UNITTEST
+{
+    /* This allows mock function for cmsg_api_invoke to still call the real code
+     * in some cases (if only certain APIs should be mocked and not others) */
+    return cmsg_api_invoke_real (client, cmsg_desc, method_index, send_msg, recv_msg);
+}
+
+int
+cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
+                      int method_index, const ProtobufCMessage *send_msg,
+                      ProtobufCMessage **recv_msg)
+#endif /*HAVE_UNITTEST */
+{
+    ProtobufCService *service = (ProtobufCService *) client;
+    const ProtobufCServiceDescriptor *service_desc = cmsg_desc->service_desc;
+    const cmsg_method_extensions *extensions = cmsg_desc->method_extensions[method_index];
+    ProtobufCMessage *dummy = NULL;
+
+    /* test that the pointer to the client is valid before doing anything else */
+    if (service == NULL)
+    {
+        return CMSG_RET_ERR;
+    }
+    assert (service->descriptor == service_desc);
+    cmsg_api_recv_ptr_null_check (client, recv_msg,
+                                  service->descriptor->methods[method_index].name);
+
+    if (extensions)
+    {
+        if (extensions->response_filename)
+        {
+            return cmsg_api_file_response (extensions->response_filename,
+                                           service->descriptor->
+                                           methods[method_index].output, recv_msg);
+        }
+
+        if (extensions->service_support)
+        {
+            if (!cmsg_supported_service_check (extensions->service_support,
+                                               service_desc->methods[method_index].output,
+                                               recv_msg))
+            {
+                return CMSG_RET_OK;
+            }
+        }
+    }
+
+    if (!send_msg)
+    {
+        const ProtobufCMessageDescriptor *input_desc =
+            service->descriptor->methods[method_index].input;
+        if (input_desc->n_fields == 0)
+        {
+            dummy = CMSG_MALLOC (input_desc->sizeof_message);
+            input_desc->message_init (dummy);
+            send_msg = dummy;
+        }
+    }
+    cmsg_client_closure_data closure_data[CMSG_RECV_ARRAY_SIZE] =
+        { { NULL, NULL, CMSG_RET_ERR } };
+    /* Send! */
+    service->invoke (service, method_index, send_msg, NULL, &closure_data);
+    CMSG_FREE (dummy);
+
+    return cmsg_api_process_closure_data (closure_data, recv_msg);
 }

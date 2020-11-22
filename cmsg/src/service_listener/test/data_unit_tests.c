@@ -107,40 +107,55 @@ create_tcp_transport_info (uint32_t _addr)
 }
 
 static int
-sm_mock_cmsg_sld_events_api_server_added_ok (cmsg_client *_client,
-                                             const cmsg_sld_server_event *_send_msg)
+sm_mock_cmsg_api_invoke_ok (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
+                            int method_index, const ProtobufCMessage *send_msg,
+                            ProtobufCMessage **recv_msg)
 {
-    cmsg_sld_events_api_server_added_called++;
+    if (cmsg_desc->service_desc == &cmsg_sld_events_descriptor &&
+        method_index == cmsg_sld_events_api_server_added_index)
+    {
+        cmsg_sld_events_api_server_added_called++;
+    }
+
     return CMSG_RET_OK;
 }
 
 static int
-sm_mock_cmsg_sld_events_api_server_removed_ok (cmsg_client *_client,
-                                               const cmsg_sld_server_event *_send_msg)
+sm_mock_cmsg_api_invoke_fail (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
+                              int method_index, const ProtobufCMessage *send_msg,
+                              ProtobufCMessage **recv_msg)
 {
-    return CMSG_RET_OK;
-}
+    if (cmsg_desc->service_desc == &cmsg_sld_events_descriptor &&
+        method_index == cmsg_sld_events_api_server_added_index)
+    {
+        cmsg_sld_events_api_server_added_called++;
+    }
 
-static int
-sm_mock_cmsg_sld_events_api_server_added_fail (cmsg_client *_client,
-                                               const cmsg_sld_server_event *_send_msg)
-{
-    cmsg_sld_events_api_server_added_called++;
     return CMSG_RET_ERR;
 }
 
 static int
-sm_mock_cmsg_sld_events_api_server_added_fail_on_first_call (cmsg_client *_client,
-                                                             const cmsg_sld_server_event
-                                                             *_send_msg)
+sm_mock_cmsg_api_invoke_fail_on_first_call (cmsg_client *client,
+                                            const cmsg_api_descriptor *cmsg_desc,
+                                            int method_index,
+                                            const ProtobufCMessage *send_msg,
+                                            ProtobufCMessage **recv_msg)
 {
-    cmsg_sld_events_api_server_added_called++;
-    if (cmsg_sld_events_api_server_added_called == 1)
+    if (cmsg_desc->service_desc == &cmsg_sld_events_descriptor &&
+        method_index == cmsg_sld_events_api_server_added_index)
     {
-        return CMSG_RET_ERR;
+        cmsg_sld_events_api_server_added_called++;
+        if (cmsg_sld_events_api_server_added_called == 1)
+        {
+            return CMSG_RET_ERR;
+        }
+        else
+        {
+            return CMSG_RET_OK;
+        }
     }
 
-    return CMSG_RET_OK;
+    return cmsg_api_invoke_real (client, cmsg_desc, method_index, send_msg, recv_msg);
 }
 
 void
@@ -617,7 +632,7 @@ test_data_add_listener_with_existing_server (void)
     CMSG_SET_FIELD_PTR (&listener_info, transport_info, transport_info);
     CMSG_SET_FIELD_VALUE (&listener_info, id, 5);
 
-    np_mock (cmsg_sld_events_api_server_added, sm_mock_cmsg_sld_events_api_server_added_ok);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke_ok);
 
     data_add_listener (&listener_info);
     cmsg_transport_info_free (transport_info);
@@ -650,8 +665,7 @@ test_data_add_listener_with_existing_server_rpc_failure (void)
     CMSG_SET_FIELD_PTR (&listener_info, transport_info, transport_info);
     CMSG_SET_FIELD_VALUE (&listener_info, id, 5);
 
-    np_mock (cmsg_sld_events_api_server_added,
-             sm_mock_cmsg_sld_events_api_server_added_fail);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke_fail);
 
     data_add_listener (&listener_info);
     cmsg_transport_info_free (transport_info);
@@ -695,8 +709,7 @@ test_data_add_server_with_existing_listeners_rpc_failure (void)
     NP_ASSERT_NOT_NULL (entry);
     NP_ASSERT_EQUAL (g_list_length (entry->listeners), 2);
 
-    np_mock (cmsg_sld_events_api_server_added,
-             sm_mock_cmsg_sld_events_api_server_added_fail_on_first_call);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke_fail_on_first_call);
     data_add_server (service_info_1, true);
 
     NP_ASSERT_EQUAL (g_list_length (entry->listeners), 1);
@@ -712,9 +725,7 @@ test_data_remove_by_pid (void)
     cmsg_sld_listener_info listener_info = CMSG_SLD_LISTENER_INFO_INIT;
     cmsg_transport_info *transport_info = NULL;
 
-    np_mock (cmsg_sld_events_api_server_added, sm_mock_cmsg_sld_events_api_server_added_ok);
-    np_mock (cmsg_sld_events_api_server_removed,
-             sm_mock_cmsg_sld_events_api_server_removed_ok);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke_ok);
 
     /* Add two listeners for different services,
      * one with PID 10, one with PID 11. */

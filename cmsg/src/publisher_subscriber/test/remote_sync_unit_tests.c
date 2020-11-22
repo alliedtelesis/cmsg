@@ -99,35 +99,38 @@ sm_mock_data_get_remote_subscriptions (void)
 }
 
 static int
-sm_mock_cmsg_psd_remote_sync_api_bulk_sync (cmsg_client *_client,
-                                            const cmsg_psd_bulk_sync_data *_send_msg)
+sm_mock_cmsg_api_invoke (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
+                         int method_index, const ProtobufCMessage *send_msg,
+                         ProtobufCMessage **recv_msg)
 {
-    int i;
-    cmsg_subscription_info *info;
-
-    CMSG_REPEATED_FOREACH (_send_msg, data, info, i)
+    if (cmsg_desc->service_desc == &cmsg_psd_remote_sync_descriptor)
     {
-        remote_subscriptions_seen = g_list_append (remote_subscriptions_seen, info);
+        if (method_index == cmsg_psd_remote_sync_api_add_subscription_index)
+        {
+            cmsg_psd_remote_sync_api_add_subscription_called++;
+            return CMSG_RET_OK;
+        }
+        else if (method_index == cmsg_psd_remote_sync_api_remove_subscription_index)
+        {
+            cmsg_psd_remote_sync_api_remove_subscription_called++;
+            return CMSG_RET_OK;
+        }
+        else if (method_index == cmsg_psd_remote_sync_api_bulk_sync_index)
+        {
+            int i;
+            const cmsg_psd_bulk_sync_data *_send_msg =
+                (const cmsg_psd_bulk_sync_data *) send_msg;
+            cmsg_subscription_info *info;
+
+            CMSG_REPEATED_FOREACH (_send_msg, data, info, i)
+            {
+                remote_subscriptions_seen = g_list_append (remote_subscriptions_seen, info);
+            }
+            return CMSG_RET_OK;
+        }
     }
 
-    return CMSG_RET_OK;
-}
-
-static int
-sm_mock_cmsg_psd_remote_sync_api_add_subscription (cmsg_client *_client,
-                                                   const cmsg_subscription_info *_send_msg)
-{
-    cmsg_psd_remote_sync_api_add_subscription_called++;
-    return CMSG_RET_OK;
-}
-
-static int
-sm_mock_cmsg_psd_remote_sync_api_remove_subscription (cmsg_client *_client,
-                                                      const cmsg_subscription_info
-                                                      *_send_msg)
-{
-    cmsg_psd_remote_sync_api_remove_subscription_called++;
-    return CMSG_RET_OK;
+    return cmsg_api_invoke_real (client, cmsg_desc, method_index, send_msg, recv_msg);
 }
 
 void
@@ -303,8 +306,7 @@ test_remote_sync_bulk_sync_subscriptions (void)
     client = cmsg_client_new (transport, &test_descriptor);
 
     np_mock (data_get_remote_subscriptions, sm_mock_data_get_remote_subscriptions);
-    np_mock (cmsg_psd_remote_sync_api_bulk_sync,
-             sm_mock_cmsg_psd_remote_sync_api_bulk_sync);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke);
     remote_sync_bulk_sync_subscriptions (client);
 
     NP_ASSERT_EQUAL (g_list_length (remote_subscriptions_seen), 2);
@@ -321,8 +323,7 @@ test_remote_sync_subscription_added_no_remote_host (void)
 
     CMSG_SET_FIELD_VALUE (&sub_info, remote_addr, 1111);
 
-    np_mock (cmsg_psd_remote_sync_api_add_subscription,
-             sm_mock_cmsg_psd_remote_sync_api_add_subscription);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke);
     remote_sync_subscription_added (&sub_info);
     NP_ASSERT_EQUAL (cmsg_psd_remote_sync_api_add_subscription_called, 0);
 }
@@ -334,8 +335,7 @@ test_remote_sync_subscription_removed_no_remote_host (void)
 
     CMSG_SET_FIELD_VALUE (&sub_info, remote_addr, 1111);
 
-    np_mock (cmsg_psd_remote_sync_api_remove_subscription,
-             sm_mock_cmsg_psd_remote_sync_api_remove_subscription);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke);
     remote_sync_subscription_removed (&sub_info);
     NP_ASSERT_EQUAL (cmsg_psd_remote_sync_api_remove_subscription_called, 0);
 }
@@ -358,8 +358,7 @@ test_remote_sync_subscription_added_remote_host_no_match (void)
 
     CMSG_SET_FIELD_VALUE (&sub_info, remote_addr, 2222);
 
-    np_mock (cmsg_psd_remote_sync_api_add_subscription,
-             sm_mock_cmsg_psd_remote_sync_api_add_subscription);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke);
     remote_sync_subscription_added (&sub_info);
     NP_ASSERT_EQUAL (cmsg_psd_remote_sync_api_add_subscription_called, 0);
 
@@ -388,8 +387,7 @@ test_remote_sync_subscription_removed_remote_host_no_match (void)
 
     CMSG_SET_FIELD_VALUE (&sub_info, remote_addr, 2222);
 
-    np_mock (cmsg_psd_remote_sync_api_remove_subscription,
-             sm_mock_cmsg_psd_remote_sync_api_remove_subscription);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke);
     remote_sync_subscription_removed (&sub_info);
     NP_ASSERT_EQUAL (cmsg_psd_remote_sync_api_remove_subscription_called, 0);
 
@@ -418,8 +416,7 @@ test_remote_sync_subscription_added_remote_host_match (void)
 
     CMSG_SET_FIELD_VALUE (&sub_info, remote_addr, 1111);
 
-    np_mock (cmsg_psd_remote_sync_api_add_subscription,
-             sm_mock_cmsg_psd_remote_sync_api_add_subscription);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke);
     remote_sync_subscription_added (&sub_info);
     NP_ASSERT_EQUAL (cmsg_psd_remote_sync_api_add_subscription_called, 1);
 
@@ -448,8 +445,7 @@ test_remote_sync_subscription_removed_remote_host_match (void)
 
     CMSG_SET_FIELD_VALUE (&sub_info, remote_addr, 1111);
 
-    np_mock (cmsg_psd_remote_sync_api_remove_subscription,
-             sm_mock_cmsg_psd_remote_sync_api_remove_subscription);
+    np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke);
     remote_sync_subscription_removed (&sub_info);
     NP_ASSERT_EQUAL (cmsg_psd_remote_sync_api_remove_subscription_called, 1);
 

@@ -69,7 +69,9 @@ class AtlCodeGenerator {
   void GenerateAtlApiDefinitions(io::Printer* printer, bool forHeader);
   void GenerateAtlApiDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateAtlApiImplementation(io::Printer* printer);
-
+  void GenerateAtlApiMethodExtensions(const MethodDescriptor &method, io::Printer* printer);
+  void GenerateAtlApiMethodExtensionsPtr(const MethodDescriptor &method, io::Printer* printer);
+  void GenerateAtlApiServiceSupportCheck (const ServiceDescriptor* descriptor_, io::Printer* printer);
   void GenerateAtlServerDefinitions(io::Printer* printer, bool forHeader);
   void GenerateAtlServerDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateAtlServerCFileDefinitions(io::Printer* printer);
@@ -77,9 +79,7 @@ class AtlCodeGenerator {
 
   void GenerateAtlServerImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateAtlServerImplStub(const MethodDescriptor &method, io::Printer* printer);
-  void GenerateAtlServerSendImplementation(const MethodDescriptor &method, io::Printer* printer);
-  void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
-
+  void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer);
 
   // useful functions
   string GetAtlClosureFunctionName(const MethodDescriptor &method);

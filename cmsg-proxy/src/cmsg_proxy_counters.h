@@ -52,7 +52,7 @@ void cmsg_proxy_session_counter_init (const cmsg_service_info *service_info);
 #define CMSG_PROXY_COUNTER_REGISTER(info,str,cntr) \
     cntrd_app_register_ctr_in_group ((info)->cntr_session, (str), &(info)->cntr)
 
-#define SESSION_KEY(service)    (service->service_descriptor)
+#define SESSION_KEY(service)    (service->cmsg_desc->service_desc)
 
 /* Increment global counter */
 #define CMSG_PROXY_COUNTER_INC(counter)     \

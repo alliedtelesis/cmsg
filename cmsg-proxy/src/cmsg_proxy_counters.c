@@ -100,7 +100,7 @@ void
 cmsg_proxy_session_counter_init (const cmsg_service_info *service_info)
 {
     session_counter_info *session_counter;
-    const char *service_name = service_info->service_descriptor->name;
+    const char *service_name = service_info->cmsg_desc->service_desc->name;
 
     /* Create counter info hash table for the first time */
     if (proxy_session_counter_table == NULL)
@@ -128,7 +128,7 @@ cmsg_proxy_session_counter_init (const cmsg_service_info *service_info)
 }
 
 /**
- * Initialise couter
+ * Initialise counter
  */
 void
 cmsg_proxy_counter_init (void)
@@ -167,7 +167,7 @@ cmsg_proxy_counter_init (void)
 }
 
 /**
- * Deinitialise couter
+ * Deinitialise counter
  */
 void
 cmsg_proxy_counter_deinit (void)

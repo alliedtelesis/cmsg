@@ -255,6 +255,9 @@ extern ProtobufCAllocator cmsg_memory_allocator;
 #define CMSG_MSG_DESCRIPTOR(msg)    (&msg##_descriptor)
 #define CMSG_ENUM_DESCRIPTOR(type)  CMSG_MSG_DESCRIPTOR (type)
 
+#define CMSG_INPUT_MSG_DESCRIPTOR(service_desc,method_index) service_desc->methods[method_index].input
+#define CMSG_OUTPUT_MSG_DESCRIPTOR(service_desc,method_index) service_desc->methods[method_index].output
+
 uint16_t cmsg_service_port_get (const char *name, const char *proto);
 
 const char *cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor);
