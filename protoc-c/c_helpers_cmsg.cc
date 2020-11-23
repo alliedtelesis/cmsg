@@ -160,7 +160,7 @@ string ToCamel(const string &name) {
 }
 
 string FullNameToLower(const string &full_name) {
-  vector<string> pieces;
+  std::vector<string> pieces;
   SplitStringUsing(full_name, ".", &pieces);
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
@@ -171,7 +171,7 @@ string FullNameToLower(const string &full_name) {
   return rv;
 }
 string FullNameToUpper(const string &full_name) {
-  vector<string> pieces;
+  std::vector<string> pieces;
   SplitStringUsing(full_name, ".", &pieces);
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
@@ -182,7 +182,7 @@ string FullNameToUpper(const string &full_name) {
   return rv;
 }
 string FullNameToC(const string &full_name) {
-  vector<string> pieces;
+  std::vector<string> pieces;
   SplitStringUsing(full_name, ".", &pieces);
   string rv = "";
   for (unsigned i = 0; i < pieces.size(); i++) {
@@ -339,8 +339,8 @@ void SplitStringToIteratorUsing(const string& full,
 
 void SplitStringUsing(const string& full,
                       const char* delim,
-                      vector<string>* result) {
-  std::back_insert_iterator< vector<string> > it(*result);
+                      std::vector<string>* result) {
+  std::back_insert_iterator< std::vector<string> > it(*result);
   SplitStringToIteratorUsing(full, delim, it);
 }
 
@@ -437,7 +437,7 @@ string GetAtlValidationFilename(const string &protoname)
 }
 
 string GetPackageName(const string &full_name) {
-  vector<string> pieces;
+  std::vector<string> pieces;
   SplitStringUsing(full_name, ".", &pieces);
   string rv = "";
   //loop through the pieces of the string until we get find

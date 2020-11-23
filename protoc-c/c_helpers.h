@@ -75,13 +75,16 @@ namespace protobuf {
 namespace compiler {
 namespace c {
 
-void SplitStringUsing(const string &str, const char *delim, std::vector<string> *out);
-string CEscape(const string& src);
-string StringReplace(const string& s, const string& oldsub, const string& newsub, bool replace_all);
-
-inline bool HasSuffixString(const string& str, const string& suffix) { return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0; }
-inline string StripSuffixString(const string& str, const string& suffix) { if (HasSuffixString(str, suffix)) { return str.substr(0, str.size() - suffix.size()); } else { return str; } }
-char* FastHexToBuffer(int i, char* buffer);
+// Returns the non-nested type name for the given type.  If "qualified" is
+// true, prefix the type with the full namespace.  For example, if you had:
+//   package foo.bar;
+//   message Baz { message Qux {} }
+// Then the qualified ClassName for Qux would be:
+//   Foo__Bar__Baz_Qux
+// While the non-qualified version would be:
+//   Baz_Qux
+string ClassName(const Descriptor* descriptor, bool qualified);
+string ClassName(const EnumDescriptor* enum_descriptor, bool qualified);
 
 // --- Borrowed from stubs. ---
 template <typename T> string SimpleItoa(T n) {
@@ -89,6 +92,16 @@ template <typename T> string SimpleItoa(T n) {
   stream << n;
   return stream.str();
 }
+
+string SimpleFtoa(float f);
+string SimpleDtoa(double f);
+void SplitStringUsing(const string &str, const char *delim, std::vector<string> *out);
+string CEscape(const string& src);
+string StringReplace(const string& s, const string& oldsub, const string& newsub, bool replace_all);
+inline bool HasSuffixString(const string& str, const string& suffix) { return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0; }
+inline string StripSuffixString(const string& str, const string& suffix) { if (HasSuffixString(str, suffix)) { return str.substr(0, str.size() - suffix.size()); } else { return str; } }
+char* FastHexToBuffer(int i, char* buffer);
+
 
 // Get the (unqualified) name that should be used for this field in C code.
 // The name is coerced to lower-case to emulate proto1 behavior.  People
@@ -98,6 +111,13 @@ string FieldName(const FieldDescriptor* field);
 
 // Get macro string for deprecated field
 string FieldDeprecated(const FieldDescriptor* field);
+
+// Returns the scope where the field was defined (for extensions, this is
+// different from the message type to which the field applies).
+inline const Descriptor* FieldScope(const FieldDescriptor* field) {
+  return field->is_extension() ?
+    field->extension_scope() : field->containing_type();
+}
 
 // convert a CamelCase class name into an all uppercase affair
 // with underscores separating words, e.g. MyClass becomes MY_CLASS.
@@ -118,11 +138,56 @@ string FullNameToUpper(const string &full_name);
 // full_name() to c-typename (with underscores for packages, otherwise camel case)
 string FullNameToC(const string &class_name);
 
+// Splits, indents, formats, and prints comment lines
+void PrintComment (io::Printer* printer, string comment);
+
 // make a string of spaces as long as input
 string ConvertToSpaces(const string &input);
 
 // Strips ".proto" or ".protodevel" from the end of a filename.
 string StripProto(const string& filename);
+
+// Get the C++ type name for a primitive type (e.g. "double", "::google::protobuf::int32", etc.).
+// Note:  non-built-in type names will be qualified, meaning they will start
+// with a ::.  If you are using the type as a template parameter, you will
+// need to insure there is a space between the < and the ::, because the
+// ridiculous C++ standard defines "<:" to be a synonym for "[".
+const char* PrimitiveTypeName(FieldDescriptor::CppType type);
+
+// Get the declared type name in CamelCase format, as is used e.g. for the
+// methods of WireFormat.  For example, TYPE_INT32 becomes "Int32".
+const char* DeclaredTypeMethodName(FieldDescriptor::Type type);
+
+// Convert a file name into a valid identifier.
+string FilenameIdentifier(const string& filename);
+
+// Return the name of the BuildDescriptors() function for a given file.
+string GlobalBuildDescriptorsName(const string& filename);
+
+// return 'required', 'optional', or 'repeated'
+string GetLabelName(FieldDescriptor::Label label);
+
+
+// write IntRanges entries for a bunch of sorted values.
+// returns the number of ranges there are to bsearch.
+unsigned WriteIntRanges(io::Printer* printer, int n_values, const int *values, const string &name);
+
+struct NameIndex
+{
+  unsigned index;
+  const char *name;
+};
+int compare_name_indices_by_name(const void*, const void*);
+
+// Return the syntax version of the file containing the field.
+// This wrapper is needed to be able to compile against protobuf2.
+inline int FieldSyntax(const FieldDescriptor* field) {
+#ifdef HAVE_PROTO3
+  return field->file()->syntax() == FileDescriptor::SYNTAX_PROTO3 ? 3 : 2;
+#else
+  return 2;
+#endif
+}
 
 }  // namespace c
 }  // namespace compiler
