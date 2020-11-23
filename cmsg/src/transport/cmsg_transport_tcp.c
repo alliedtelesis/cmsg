@@ -26,7 +26,7 @@ typedef struct
 
 static void cmsg_transport_tcp_cache_init (void *_cache);
 
-simple_shm_info shm_info = {
+static simple_shm_info shm_info = {
     .shared_data = NULL,
     .shared_data_size = sizeof (tcp_connection_cache),
     .shared_mem_key = 0x436d5463,   /* Hex value of "CmTc" */
