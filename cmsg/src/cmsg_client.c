@@ -1856,7 +1856,7 @@ cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
         if (input_desc->n_fields == 0)
         {
             dummy = CMSG_MALLOC (input_desc->sizeof_message);
-            input_desc->message_init (dummy);
+            protobuf_c_message_init (input_desc, dummy);
             send_msg = dummy;
         }
     }
