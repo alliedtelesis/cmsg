@@ -2210,6 +2210,7 @@ cmsg_server_service_info_create (cmsg_server *server)
     cmsg_service_info_init (info);
     CMSG_SET_FIELD_PTR (info, server_info, transport_info);
     CMSG_SET_FIELD_PTR (info, service, service_str);
+    CMSG_SET_FIELD_VALUE (info, pid, getpid ());
 
     return info;
 }
