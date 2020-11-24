@@ -516,10 +516,10 @@ cmsg_service_listener_remove_server (cmsg_server *server)
 }
 
 /**
- * Callback of cmsg_service_listener_wait_for_server that waits until a server is added.
+ * Callback of cmsg_service_listener_wait_for_server that waits until a unix server is added.
  */
 static bool
-cmsg_server_listener_wait_cb (const cmsg_transport *transport, bool added, void *user_data)
+cmsg_sl_listener_unix_wait_cb (const cmsg_transport *transport, bool added, void *user_data)
 {
     bool *ret = user_data;
 
@@ -537,7 +537,7 @@ cmsg_server_listener_wait_cb (const cmsg_transport *transport, bool added, void 
 /**
  * Blocks until the requested server has been started.
  * Will exit early if a timeout has been specified.
- * This is only supported for UNIX and TCP transport types.
+ * This is only supported for UNIX transport types.
  *
  * @param service_name - The server name to wait for.
  * @param seconds - How many seconds to wait for the notification.
@@ -554,7 +554,7 @@ cmsg_service_listener_wait_for_unix_server (const char *service_name, long secon
     struct timeval timeout;
     struct timeval *_timeout = &timeout;
 
-    info = cmsg_service_listener_listen (service_name, cmsg_server_listener_wait_cb, &ret);
+    info = cmsg_service_listener_listen (service_name, cmsg_sl_listener_unix_wait_cb, &ret);
     if (!info)
     {
         return false;
@@ -582,6 +582,90 @@ cmsg_service_listener_wait_for_unix_server (const char *service_name, long secon
     }
 
     cmsg_service_listener_event_queue_process (info);
+
+    cmsg_service_listener_unlisten (info);
+
+    return ret;
+}
+
+/**
+ * Callback of cmsg_service_listener_wait_for_server that waits until a tcp server is added.
+ */
+static bool
+cmsg_sl_listener_tcp_wait_cb (const cmsg_transport *transport, bool added, void *user_data)
+{
+    struct in_addr *addr = (struct in_addr *) user_data;
+
+    if (transport->type == CMSG_TRANSPORT_RPC_TCP ||
+        transport->type == CMSG_TRANSPORT_ONEWAY_TCP)
+    {
+        if (transport->config.socket.sockaddr.in.sin_addr.s_addr == addr->s_addr)
+        {
+            /* This is the server we are waiting for */
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Blocks until the requested server has been started.
+ * Will exit early if a timeout has been specified.
+ * This is only supported for TCP transport types.
+ *
+ * @param service_name - The server name to wait for.
+ * @param addr - The specific IP address of the server to wait for.
+ * @param seconds - How many seconds to wait for the notification.
+ *                  Special values are 0 for a poll and -1 for indefinitely.
+ * @returns true if the server has started otherwise false.
+ */
+bool
+cmsg_service_listener_wait_for_tcp_server (const char *service_name, struct in_addr *addr,
+                                           int seconds)
+{
+    const cmsg_sl_info *info;
+    struct pollfd pfd = {
+        .events = POLLIN,
+    };
+    struct timespec start;
+    struct timespec current;
+    int time_to_wait = seconds * 1000;
+    bool ret = false;
+    int poll_rc;
+
+    info = cmsg_service_listener_listen (service_name, cmsg_sl_listener_tcp_wait_cb, addr);
+    if (!info)
+    {
+        return false;
+    }
+
+    pfd.fd = cmsg_service_listener_get_event_fd (info);
+    clock_gettime (CLOCK_MONOTONIC_RAW, &start);
+
+    /* We loop continuously until the server with the specified IP address
+     * is available. Unlike unix transports where there is only a single server
+     * on the device, for tcp transports there is a server on each node in the
+     * cluster. This means the first server we are notified of is not guaranteed
+     * to be the one we are waiting for. */
+    while (time_to_wait > 0)
+    {
+        poll_rc = TEMP_FAILURE_RETRY (poll (&pfd, 1, time_to_wait));
+        if (poll_rc < 0 || poll_rc == 0)
+        {
+            break;
+        }
+
+        if (!cmsg_service_listener_event_queue_process (info))
+        {
+            ret = true;
+            break;
+        }
+
+        clock_gettime (CLOCK_MONOTONIC_RAW, &current);
+        time_to_wait -= (current.tv_sec - start.tv_sec) * 1000;
+        time_to_wait -= (current.tv_nsec - start.tv_nsec) / 1000;
+    }
 
     cmsg_service_listener_unlisten (info);
 
