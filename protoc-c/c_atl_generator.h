@@ -74,11 +74,13 @@ class AtlCodeGenerator {
   void GenerateAtlApiServiceSupportCheck (const ServiceDescriptor* descriptor_, io::Printer* printer);
   void GenerateAtlServerDefinitions(io::Printer* printer, bool forHeader);
   void GenerateAtlServerDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
-  void GenerateAtlServerCFileDefinitions(io::Printer* printer);
   void GenerateAtlServerImplementation(io::Printer* printer);
 
   void GenerateAtlServerImplDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader);
   void GenerateAtlServerImplStub(const MethodDescriptor &method, io::Printer* printer);
+  void GenerateAtlServerMethodExtensions(const MethodDescriptor &method, io::Printer* printer);
+  void GenerateAtlServerMethodExtensionsPtr(const MethodDescriptor &method, io::Printer* printer);
+  void GenerateAtlServerImplPtr(const MethodDescriptor &method, io::Printer* printer);
   void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer);
 
   // useful functions

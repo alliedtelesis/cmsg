@@ -1816,7 +1816,8 @@ cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
 {
     ProtobufCService *service = (ProtobufCService *) client;
     const ProtobufCServiceDescriptor *service_desc = cmsg_desc->service_desc;
-    const cmsg_method_extensions *extensions = cmsg_desc->method_extensions[method_index];
+    const cmsg_method_client_extensions *extensions =
+        cmsg_desc->method_extensions[method_index];
     ProtobufCMessage *dummy = NULL;
 
     /* test that the pointer to the client is valid before doing anything else */
@@ -1855,7 +1856,7 @@ cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
         if (input_desc->n_fields == 0)
         {
             dummy = CMSG_MALLOC (input_desc->sizeof_message);
-            input_desc->message_init (dummy);
+            protobuf_c_message_init (input_desc, dummy);
             send_msg = dummy;
         }
     }

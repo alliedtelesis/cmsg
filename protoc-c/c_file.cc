@@ -174,12 +174,6 @@ void FileGenerator::GenerateAtlTypesHeader(io::Printer* printer) {
     message_generators_[i]->GenerateClosureTypedefDefine(printer);
   }
 
-  // Generate service definitions.
-  printer->Print("\n/* --- services --- */\n\n");
-  for (int i = 0; i < file_->service_count(); i++) {
-    service_generators_[i]->GenerateMainHFileDefines(printer);
-  }
-
   printer->Print("\n/* --- descriptors --- */\n\n");
   for (int i = 0; i < file_->enum_type_count(); i++) {
     enum_generators_[i]->GenerateDescriptorDeclarationsDefines(printer);

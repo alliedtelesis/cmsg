@@ -17,7 +17,7 @@ typedef struct
 
 static void init_config (cmsg_proxy_config *proxy_conf);
 
-simple_shm_info shm_info = {
+static simple_shm_info shm_info = {
     .shared_data = NULL,
     .shared_data_size = sizeof (cmsg_proxy_config),
     .shared_mem_key = 0x436d5072,   /* Hex value of "CmPr" */

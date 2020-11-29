@@ -439,7 +439,7 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
             }
             else if (nbytes == -1)
             {
-                if (errno == ECONNRESET)
+                if (errno == ECONNRESET || errno == ECONNABORTED)
                 {
                     CMSG_DEBUG (CMSG_INFO,
                                 "[TRANSPORT] receive failed %d %s", nbytes,
@@ -801,7 +801,8 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
                                            server_socket, transport, &header_received,
                                            recv_buffer, processed_header, nbytes);
     }
-    else if (peek_status == CMSG_PEEK_CODE_CONNECTION_CLOSED)
+    else if (peek_status == CMSG_PEEK_CODE_CONNECTION_CLOSED ||
+             peek_status == CMSG_PEEK_CODE_CONNECTION_RESET)
     {
         ret = CMSG_RET_CLOSED;
     }

@@ -242,12 +242,12 @@ typedef struct
 {
     const service_support_parameters *service_support;
     const char *response_filename;
-} cmsg_method_extensions;
+} cmsg_method_client_extensions;
 
 typedef struct
 {
     const ProtobufCServiceDescriptor *service_desc;
-    const cmsg_method_extensions **method_extensions;
+    const cmsg_method_client_extensions **method_extensions;
 } cmsg_api_descriptor;
 
 int cmsg_api_invoke (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,

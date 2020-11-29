@@ -18,6 +18,7 @@
 #include <arpa/inet.h>
 #include "cmsg.h"
 #include "cmsg_client.h"
+#include "cmsg_protobuf-c.h"
 
 #define LIB_PATH "/usr/lib"
 #define MSG_BUF_LEN 200
@@ -50,10 +51,10 @@ typedef struct program_args_s
 
 typedef struct pbc_descriptors_s
 {
-    const ProtobufCServiceDescriptor *service_descriptor;
+    const cmsg_api_descriptor *cmsg_service_descriptor;
     const ProtobufCMessageDescriptor *input_msg_descriptor;
     const ProtobufCMessageDescriptor *output_msg_descriptor;
-    cmsg_api_func_ptr api_ptr;
+    int method_index;
 } pbc_descriptors;
 
 #define SHELL_OPTIONS    "a:f:hi:m:n:op:s:t:r:"
@@ -390,54 +391,45 @@ static bool
 find_descriptors (void *lib_handle, program_args *args, pbc_descriptors *descriptors)
 {
     char *symbol_name = NULL;
-    const ProtobufCMethodDescriptor *method = NULL;
+    int method_index;
+    const cmsg_api_descriptor *cmsg_service_descriptor;
     const ProtobufCServiceDescriptor *service_descriptor;
 
-    if (asprintf (&symbol_name, "%s__%s__descriptor", args->package_name,
+    if (asprintf (&symbol_name, "%s_%s_cmsg_api_descriptor", args->package_name,
                   args->service_name) < 0)
     {
         fprintf (stderr, "Unable to allocate memory.\n");
         return false;
     }
 
-    service_descriptor = dlsym (lib_handle, symbol_name);
-    if (service_descriptor == NULL)
+    cmsg_service_descriptor = dlsym (lib_handle, symbol_name);
+    if (cmsg_service_descriptor == NULL)
     {
         fprintf (stderr, "Unable to locate service descriptor (symbol = %s).\n",
                  symbol_name);
         return false;
     }
     free (symbol_name);
-    descriptors->service_descriptor = service_descriptor;
 
-    method = protobuf_c_service_descriptor_get_method_by_name (service_descriptor,
-                                                               args->api_name);
-    if (method == NULL)
+    descriptors->cmsg_service_descriptor = cmsg_service_descriptor;
+    service_descriptor = cmsg_service_descriptor->service_desc;
+
+    method_index =
+        protobuf_c_service_descriptor_get_method_index_by_name (service_descriptor,
+                                                                args->api_name);
+    if (method_index == UNDEFINED_METHOD)
     {
         fprintf (stderr, "Unable to locate method descriptor (method = %s).\n",
                  args->api_name);
         return false;
     }
 
-    descriptors->input_msg_descriptor = method->input;
-    descriptors->output_msg_descriptor = method->output;
+    descriptors->method_index = method_index;
+    descriptors->input_msg_descriptor =
+        CMSG_INPUT_MSG_DESCRIPTOR (service_descriptor, method_index);
+    descriptors->output_msg_descriptor =
+        CMSG_OUTPUT_MSG_DESCRIPTOR (service_descriptor, method_index);
 
-    if (asprintf (&symbol_name, "%s_%s_api_%s", args->package_name, args->service_name,
-                  args->api_name) < 0)
-    {
-        fprintf (stderr, "Unable to allocate memory.\n");
-        return false;
-    }
-
-    descriptors->api_ptr = dlsym (lib_handle, symbol_name);
-    if (descriptors->api_ptr == NULL)
-    {
-        fprintf (stderr, "Unable to locate api method pointer (symbol = %s).\n",
-                 symbol_name);
-        return false;
-    }
-
-    free (symbol_name);
     return true;
 }
 
@@ -574,33 +566,17 @@ call_api (program_args *args, pbc_descriptors *descriptors,
     int cmsg_ret;
     cmsg_client *client = NULL;
     bool ret = true;
-    bool no_input_arg = (strcmp (descriptors->input_msg_descriptor->name, "dummy") == 0);
-    bool no_output_arg = (strcmp (descriptors->output_msg_descriptor->name, "dummy") == 0);
 
-    client = create_client (args, descriptors->service_descriptor);
+    client = create_client (args, descriptors->cmsg_service_descriptor->service_desc);
     if (client == NULL)
     {
         fprintf (stderr, "Failed to create CMSG client\n");
         return false;
     }
 
-    if (no_input_arg && no_output_arg)
-    {
-        cmsg_ret = descriptors->api_ptr (client);
-    }
-    else if (no_input_arg)
-    {
-        cmsg_ret = descriptors->api_ptr (client, output_proto_message);
-    }
-    else if (no_output_arg)
-    {
-        cmsg_ret = descriptors->api_ptr (client, input_proto_message);
-    }
-    else
-    {
-        cmsg_ret = descriptors->api_ptr (client, input_proto_message, output_proto_message);
-    }
-
+    cmsg_ret = cmsg_api_invoke (client, descriptors->cmsg_service_descriptor,
+                                descriptors->method_index,
+                                input_proto_message, output_proto_message);
     if (cmsg_ret != CMSG_RET_OK)
     {
         fprintf (stderr, "CMSG API call failed (ret = %d).\n", ret);
