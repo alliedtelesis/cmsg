@@ -114,6 +114,15 @@ message ant_result
     repeated ant_result details = 4;
 }
 
+/// Used if we want to return an ant_result using streaming where a normal ant_result
+/// or _error_info is discarded.
+message streamed_ant_result
+{
+    optional ant_result _error_info = 1;
+
+    optional ant_result response = 2;
+}
+
 message passthrough_request
 {
     optional string path = 1;
