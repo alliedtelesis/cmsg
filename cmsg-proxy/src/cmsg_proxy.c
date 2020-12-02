@@ -526,69 +526,6 @@ cmsg_proxy_generate_ant_result_error (ant_code code, char *message,
 }
 
 /**
- * Unset the ant_result field from the input protobuf message if it exists.
- * For streamed_ant_result, free everything except the 'response' ant_result.
- *
- * @param msg - Pointer to the ProtobufCMessage to remove the field from.
- */
-void
-cmsg_proxy_strip_ant_result (ProtobufCMessage **msg)
-{
-    const ProtobufCFieldDescriptor *field_desc = NULL;
-    ProtobufCMessage **error_message_ptr = NULL;
-    ProtobufCMessage **response_ptr = NULL;
-    ant_result *error_message = NULL;
-    ant_result *response = NULL;
-
-    if (*msg == NULL)
-    {
-        return;
-    }
-
-    field_desc = protobuf_c_message_descriptor_get_field_by_name ((*msg)->descriptor,
-                                                                  "_error_info");
-    if (field_desc)
-    {
-        error_message_ptr = (ProtobufCMessage **) (((char *) *msg) + field_desc->offset);
-    }
-    else if (strcmp ((*msg)->descriptor->name, "ant_result") == 0)
-    {
-        error_message_ptr = msg;
-    }
-    else
-    {
-        return;
-    }
-
-    error_message = (ant_result *) (*error_message_ptr);
-    if (error_message && CMSG_IS_FIELD_PRESENT (error_message, code))
-    {
-        /* Unset the error info message from the protobuf message */
-        CMSG_FREE_RECV_MSG (error_message);
-        *error_message_ptr = NULL;
-    }
-
-    /* Return the internal ant_result as the new message and free the wrapper.
-     * This means that the details field will be correctly stripped if it is empty.
-     */
-    if (msg && strcmp ((*msg)->descriptor->name, "streamed_ant_result") == 0)
-    {
-        field_desc = protobuf_c_message_descriptor_get_field_by_name ((*msg)->descriptor,
-                                                                      "response");
-        if (field_desc)
-        {
-            response_ptr = (ProtobufCMessage **) (((char *) *msg) + field_desc->offset);
-            response = (ant_result *) * response_ptr;
-            *response_ptr = NULL;
-            CMSG_FREE_RECV_MSG (*msg);
-            *msg = (ProtobufCMessage *) response;
-        }
-    }
-
-    return;
-}
-
-/**
  * Initialise the cmsg proxy library
  */
 void
