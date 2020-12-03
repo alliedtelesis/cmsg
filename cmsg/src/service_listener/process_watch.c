@@ -33,7 +33,11 @@ static GHashTable *hash_table = NULL;
 static int
 pidfd_open (pid_t pid, unsigned int flags)
 {
+#ifdef __NR_pidfd_open
     return syscall (__NR_pidfd_open, pid, flags);
+#else
+    return -1;
+#endif
 }
 
 /**

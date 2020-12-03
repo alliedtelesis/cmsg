@@ -6,6 +6,9 @@
 #include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <simple_shm.h>
 
 /* This value should match the maximum number of expected nodes in a
@@ -341,6 +344,25 @@ cmsg_transport_tcp_recv (cmsg_transport *transport, int sock, void *buff, int le
     return cmsg_transport_socket_recv (sock, buff, len, flags);
 }
 
+/**
+ * Set SO_LINGER with a timeout of zero to ensure that the TCP connection is
+ * reset on close, rather than shutting down gracefully. We do this because
+ * most often we are shutting down the connection after the other end of the
+ * connection has already disappeared. Because of this the kernel will keep
+ * the socket around for a long time in the FIN_WAIT_1 state waiting to finish
+ * the TCP connection gracefully. To avoid the socket resources being kept we
+ * choose to simply reset the connection, causing the socket resource to be
+ * released immediately.
+ */
+static void
+cmsg_transport_tcp_set_so_linger (int sock)
+{
+    struct linger sl;
+
+    sl.l_onoff = 1;
+    sl.l_linger = 0;
+    setsockopt (sock, SOL_SOCKET, SO_LINGER, &sl, sizeof (sl));
+}
 
 static int32_t
 cmsg_transport_tcp_server_accept (cmsg_transport *transport)
@@ -378,6 +400,8 @@ cmsg_transport_tcp_server_accept (cmsg_transport *transport)
         return -1;
     }
 
+    cmsg_transport_tcp_set_so_linger (sock);
+
     return sock;
 }
 
@@ -397,6 +421,57 @@ cmsg_transport_tcp_client_send (cmsg_transport *transport, void *buff, int lengt
 }
 
 static void
+cmsg_transport_tcp_enable_keepalive (int sock)
+{
+    int value;
+
+    value = 5;  /* Idle time in seconds until keepalive probes start */
+    setsockopt (sock, SOL_TCP, TCP_KEEPIDLE, (void *) &value, sizeof (value));
+
+    value = 3;  /* Number keepalive probes sent before dropping the connection */
+    setsockopt (sock, SOL_TCP, TCP_KEEPCNT, (void *) &value, sizeof (value));
+
+    value = 1;  /* The time in seconds between keepalive probes */
+    setsockopt (sock, SOL_TCP, TCP_KEEPINTVL, (void *) &value, sizeof (value));
+
+    value = 1;  /* Enable keepalive probes */
+    setsockopt (sock, SOL_SOCKET, SO_KEEPALIVE, (void *) &value, sizeof (value));
+}
+
+static void
+cmsg_transport_tcp_socket_close (cmsg_transport *transport)
+{
+    if (transport->socket != -1)
+    {
+        if (transport->type == CMSG_TRANSPORT_ONEWAY_TCP)
+        {
+            /* Oneway transports are not synchronous so we do not know if the kernel
+             * has fully drained the send buffer before closing the socket. Therefore
+             * we cannot hard reset the connection via 'cmsg_transport_set_so_linger'.
+             * To allow the kernel to fully drain the socket, and avoid orphaned sockets,
+             * we enable TCP keepalive probes so that the kernel can detect the dead
+             * connection and remove the socket. */
+            cmsg_transport_tcp_enable_keepalive (transport->socket);
+        }
+        else
+        {
+            /* RPC transports are synchronous so we know that all the data has been
+             * sent before closing the connection. Simply use SO_LINGER to hard reset
+             * the connection. */
+            cmsg_transport_tcp_set_so_linger (transport->socket);
+        }
+
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
+        shutdown (transport->socket, SHUT_RDWR);
+
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] closing socket\n");
+        close (transport->socket);
+
+        transport->socket = -1;
+    }
+}
+
+static void
 _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
 {
     tport_funcs->recv_wrapper = cmsg_transport_tcp_recv;
@@ -406,7 +481,7 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
     tport_funcs->server_recv = cmsg_transport_server_recv;
     tport_funcs->client_recv = cmsg_transport_tcp_client_recv;
     tport_funcs->client_send = cmsg_transport_tcp_client_send;
-    tport_funcs->socket_close = cmsg_transport_socket_close;
+    tport_funcs->socket_close = cmsg_transport_tcp_socket_close;
     tport_funcs->get_socket = cmsg_transport_get_socket;
     tport_funcs->destroy = NULL;
     tport_funcs->apply_send_timeout = cmsg_transport_apply_send_timeout;
