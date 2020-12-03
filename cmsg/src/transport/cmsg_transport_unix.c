@@ -12,6 +12,7 @@
 #include "cmsg_transport.h"
 #include "cmsg_transport_private.h"
 #include "cmsg_error.h"
+#include <sys/stat.h>
 
 /*
  * Create a UNIX socket connection.
@@ -100,6 +101,10 @@ cmsg_transport_unix_listen (cmsg_transport *transport)
         close (listening_socket);
         return -1;
     }
+
+    /* Ensure that any user can communicate over the unix socket. Otherwise only users with
+     * the same privilege as the process that creates the server can communicate over it. */
+    chmod (transport->config.socket.sockaddr.un.sun_path, 0777);
 
     transport->socket = listening_socket;
 
