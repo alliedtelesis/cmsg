@@ -2065,20 +2065,19 @@ cmsg_server_accept_thread (void *_server)
     {
         select (listen_socket + 1, &read_fds, NULL, NULL, NULL);
 
+        pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
         newfd = cmsg_server_accept (server, listen_socket);
         if (newfd >= 0)
         {
             /* Explicitly set where the thread can be cancelled. This ensures no
              * sockets can be leaked if the thread is cancelled after accepting
              * a connection. */
-            pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
             newfd_ptr = CMSG_CALLOC (1, sizeof (int));
             *newfd_ptr = newfd;
             g_async_queue_push (info->accept_sd_queue, newfd_ptr);
-            pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
-
             TEMP_FAILURE_RETRY (eventfd_write (info->accept_sd_eventfd, 1));
         }
+        pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
     }
 
     pthread_exit (NULL);
@@ -2092,7 +2091,8 @@ cmsg_server_accept_thread (void *_server)
 static void
 _clear_accept_sd_queue (gpointer data)
 {
-    close (GPOINTER_TO_INT (data));
+    int *fd_ptr = (int *) data;
+    close (*fd_ptr);
     CMSG_FREE (data);
 }
 
