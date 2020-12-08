@@ -426,6 +426,43 @@ cmsg_glib_tcp_server_init_oneway (const char *service_name, struct in_addr *addr
  *
  * @param service_name - The service name in the /etc/services file to get
  *                       the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param service - The CMSG service.
+ *
+ * @returns Pointer to a 'cmsg_server' structure.
+ *          NULL on failure.
+ */
+cmsg_server *
+cmsg_glib_tcp_server_init_rpc (const char *service_name, struct in_addr *addr,
+                               ProtobufCService *service)
+{
+    cmsg_server *server = NULL;
+    int32_t ret;
+
+    server = cmsg_create_server_tcp_ipv4_rpc (service_name, addr, NULL, service);
+    if (!server)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
+                            cmsg_service_name_get (service->descriptor));
+        return NULL;
+    }
+
+    ret = cmsg_glib_server_init (server);
+    if (ret != CMSG_RET_OK)
+    {
+        cmsg_destroy_server_and_transport (server);
+        server = NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create and start processing a TCP transport based CMSG server for the given
+ * CMSG service.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
  * @param addr - The IPv6 address to listen on (in network byte order).
  * @param scope_id - The scope id if a link local address is used, zero otherwise
  * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
