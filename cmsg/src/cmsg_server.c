@@ -2055,29 +2055,30 @@ cmsg_server_accept_thread (void *_server)
     cmsg_server_accept_thread_info *info = server->accept_thread_info;
     int listen_socket = cmsg_server_get_socket (server);
     int newfd = -1;
-    fd_set read_fds;
     int *newfd_ptr;
-
-    FD_ZERO (&read_fds);
-    FD_SET (listen_socket, &read_fds);
+    struct pollfd pfd = {
+        .events = POLLIN,
+        .fd = listen_socket,
+    };
 
     while (1)
     {
-        select (listen_socket + 1, &read_fds, NULL, NULL, NULL);
-
-        pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
-        newfd = cmsg_server_accept (server, listen_socket);
-        if (newfd >= 0)
+        if (TEMP_FAILURE_RETRY (poll (&pfd, 1, -1)) > 0)
         {
-            /* Explicitly set where the thread can be cancelled. This ensures no
-             * sockets can be leaked if the thread is cancelled after accepting
-             * a connection. */
-            newfd_ptr = CMSG_CALLOC (1, sizeof (int));
-            *newfd_ptr = newfd;
-            g_async_queue_push (info->accept_sd_queue, newfd_ptr);
-            TEMP_FAILURE_RETRY (eventfd_write (info->accept_sd_eventfd, 1));
+            pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+            newfd = cmsg_server_accept (server, listen_socket);
+            if (newfd >= 0)
+            {
+                /* Explicitly set where the thread can be cancelled. This ensures no
+                 * sockets can be leaked if the thread is cancelled after accepting
+                 * a connection. */
+                newfd_ptr = CMSG_CALLOC (1, sizeof (int));
+                *newfd_ptr = newfd;
+                g_async_queue_push (info->accept_sd_queue, newfd_ptr);
+                TEMP_FAILURE_RETRY (eventfd_write (info->accept_sd_eventfd, 1));
+            }
+            pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
         }
-        pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
     }
 
     pthread_exit (NULL);
