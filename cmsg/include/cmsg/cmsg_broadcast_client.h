@@ -18,6 +18,10 @@ cmsg_client *cmsg_broadcast_client_new (const ProtobufCServiceDescriptor *descri
                                         uint32_t upper_node_id,
                                         bool connect_to_self, bool oneway,
                                         cmsg_broadcast_event_handler_t event_handler);
+cmsg_client *cmsg_broadcast_client_new_tcp (const ProtobufCServiceDescriptor *descriptor,
+                                            const char *service_entry_name,
+                                            struct in_addr my_node_addr,
+                                            bool connect_to_self, bool oneway);
 void cmsg_broadcast_client_destroy (cmsg_client *client);
 
 int32_t cmsg_broadcast_client_add_loopback (cmsg_client *broadcast_client,

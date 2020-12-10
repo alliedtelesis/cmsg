@@ -48,6 +48,9 @@ typedef struct _cmsg_broadcast_client_s
     /* The TIPC node id of this node */
     uint32_t my_node_id;
 
+    /* The IP address of this node */
+    struct in_addr my_node_addr;
+
     /* The range of TIPC node ids we are listening for */
     uint32_t lower_node_id;
     uint32_t upper_node_id;

@@ -132,7 +132,9 @@ server_event_callback (const cmsg_transport *transport, bool added, void *user_c
 {
     uint32_t instance;
     uint32_t port;
+    struct in_addr addr;
     cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) user_cb_data;
+    const char *service_entry_name = broadcast_client->service_entry_name;
 
     /* Unix transports are not supported at this stage */
     if (transport->type == CMSG_TRANSPORT_RPC_UNIX ||
@@ -150,13 +152,36 @@ server_event_callback (const cmsg_transport *transport, bool added, void *user_c
         /* Some CMSG descriptors are not unique (e.g. "ffo.health" is used by multiple daemons)
          * Ensure we only connect to servers that are on the port we expect for this client.
          */
-        if (port != cmsg_service_port_get (broadcast_client->service_entry_name, "tipc"))
+        if (port != cmsg_service_port_get (service_entry_name, "tipc"))
         {
             /* Silently ignore */
             return true;
         }
 
         if (!broadcast_client->connect_to_self && broadcast_client->my_node_id == instance)
+        {
+            /* Only connect to the server on this node if the user has configured
+             * their broadcast client to do so. */
+            return true;
+        }
+    }
+    else if (transport->type == CMSG_TRANSPORT_RPC_TCP ||
+             transport->type == CMSG_TRANSPORT_ONEWAY_TCP)
+    {
+        addr = transport->config.socket.sockaddr.in.sin_addr;
+        port = transport->config.socket.sockaddr.in.sin_port;
+
+        /* Some CMSG descriptors are not unique (e.g. "ffo.health" is used by multiple daemons)
+         * Ensure we only connect to servers that are on the port we expect for this client.
+         */
+        if (port != htons (cmsg_service_port_get (service_entry_name, "tcp")))
+        {
+            /* Silently ignore */
+            return true;
+        }
+
+        if (!broadcast_client->connect_to_self &&
+            broadcast_client->my_node_addr.s_addr == addr.s_addr)
         {
             /* Only connect to the server on this node if the user has configured
              * their broadcast client to do so. */

@@ -183,6 +183,39 @@ cmsg_broadcast_client_new (const ProtobufCServiceDescriptor *descriptor,
     return (cmsg_client *) broadcast_client;
 }
 
+cmsg_client *
+cmsg_broadcast_client_new_tcp (const ProtobufCServiceDescriptor *descriptor,
+                               const char *service_entry_name, struct in_addr my_node_addr,
+                               bool connect_to_self, bool oneway)
+{
+    int ret;
+    cmsg_broadcast_client *broadcast_client = NULL;
+
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service_entry_name != NULL, NULL);
+
+    broadcast_client = cmsg_broadcast_client_create (descriptor);
+    if (!broadcast_client)
+    {
+        return NULL;
+    }
+
+    broadcast_client->service_entry_name = service_entry_name;
+    broadcast_client->oneway_children = oneway;
+    broadcast_client->my_node_addr = my_node_addr;
+    broadcast_client->connect_to_self = connect_to_self;
+
+    ret = cmsg_broadcast_conn_mgmt_init (broadcast_client);
+    if (ret != CMSG_RET_OK)
+    {
+        cmsg_composite_client_deinit (&broadcast_client->base_client);
+        CMSG_FREE (broadcast_client);
+        return NULL;
+    }
+
+    return (cmsg_client *) broadcast_client;
+}
+
 /**
  * Destroy the broadcast client.
  *
