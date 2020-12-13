@@ -13,12 +13,11 @@
 cmsg_server *cmsg_liboop_unix_server_init (ProtobufCService *service);
 void cmsg_liboop_server_processing_stop (cmsg_server *server);
 void cmsg_liboop_server_destroy (cmsg_server *server);
-cmsg_tipc_mesh_conn *cmsg_liboop_tipc_mesh_init (ProtobufCService *service,
-                                                 const char *service_entry_name,
-                                                 int this_node_id, int min_node_id,
-                                                 int max_node_id, cmsg_mesh_local_type type,
-                                                 bool oneway);
-void cmsg_liboop_mesh_destroy (cmsg_tipc_mesh_conn *mesh);
+cmsg_mesh_conn *cmsg_liboop_mesh_init (ProtobufCService *service,
+                                       const char *service_entry_name,
+                                       struct in_addr this_node_addr,
+                                       cmsg_mesh_local_type type, bool oneway);
+void cmsg_liboop_mesh_destroy (cmsg_mesh_conn *mesh);
 cmsg_subscriber *cmsg_liboop_unix_subscriber_init (ProtobufCService *service,
                                                    const char **events);
 void cmsg_liboop_unix_subscriber_destroy (cmsg_subscriber *subscriber);
