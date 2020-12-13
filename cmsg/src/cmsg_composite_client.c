@@ -477,3 +477,29 @@ cmsg_composite_client_free_all_children (cmsg_client *_composite_client)
 
     pthread_mutex_unlock (&composite_client->child_mutex);
 }
+
+cmsg_client *
+cmsg_composite_client_lookup_by_transport (cmsg_client *_composite_client,
+                                           const cmsg_transport *transport)
+{
+    GList *l;
+    cmsg_client *child;
+    cmsg_composite_client *composite_client = (cmsg_composite_client *) _composite_client;
+
+    CMSG_COMPOSITE_CLIENT_TYPE_CHECK (composite_client->base_client, NULL);
+
+    pthread_mutex_lock (&composite_client->child_mutex);
+
+    for (l = composite_client->child_clients; l != NULL; l = l->next)
+    {
+        child = (cmsg_client *) l->data;
+        if (cmsg_transport_compare (child->_transport, transport))
+        {
+            pthread_mutex_unlock (&composite_client->child_mutex);
+            return child;
+        }
+    }
+
+    pthread_mutex_unlock (&composite_client->child_mutex);
+    return NULL;
+}
