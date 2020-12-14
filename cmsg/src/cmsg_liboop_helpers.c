@@ -322,23 +322,23 @@ cmsg_liboop_tcp_rpc_server_init (const char *server_name, struct in_addr *addr,
 }
 
 /**
- * Create and start processing a TIPC transport based CMSG server for the given
+ * Create and start processing a oneway TCP transport based CMSG server for the given
  * CMSG service for the given stack node ID.
  *
- * @param server_name - TIPC server name
- * @param member_id - TIPC node ID
- * @param scope - TIPC scope
- * @param service - The protobuf-c service the server is to implement.
+ * @param server_name - The service name in the /etc/services file to get
+ *                      the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param service - The CMSG service.
  *
  * @returns Pointer to the 'cmsg_server' structure or NULL on failure.
  */
 cmsg_server *
-cmsg_liboop_tipc_oneway_server_init (const char *server_name, int member_id, int scope,
-                                     ProtobufCService *service)
+cmsg_liboop_tcp_oneway_server_init (const char *server_name, struct in_addr *addr,
+                                    ProtobufCService *service)
 {
     cmsg_server *server = NULL;
 
-    server = cmsg_create_server_tipc_oneway (server_name, member_id, scope, service);
+    server = cmsg_create_server_tcp_ipv4_oneway (server_name, addr, NULL, service);
     if (!server)
     {
         CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
