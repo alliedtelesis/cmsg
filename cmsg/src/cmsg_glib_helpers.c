@@ -530,6 +530,38 @@ cmsg_glib_tipc_mesh_init (ProtobufCService *service, const char *service_entry_n
 }
 
 /**
+ * Create and initialise a CMSG mesh connection. This function automatically
+ * starts the processing of the server that is part of the mesh connection.
+ *
+ * @param service - The protobuf service for this connection.
+ * @param service_entry_name - The name in the /etc/services file to get the TCP port number
+ * @param this_node_addr - The IP address of this local node
+ * @param type - The type of mesh connection to create.
+ * @param oneway - Whether the connections are oneway or rpc.
+ *
+ * @returns Pointer to a 'cmsg_mesh_conn' structure.
+ *          NULL on failure.
+ */
+cmsg_mesh_conn *
+cmsg_glib_mesh_init (ProtobufCService *service, const char *service_entry_name,
+                     struct in_addr this_node_addr, cmsg_mesh_local_type type, bool oneway)
+{
+    cmsg_mesh_conn *mesh =
+        cmsg_mesh_connection_init (service, service_entry_name, this_node_addr,
+                                   type, oneway, NULL);
+    if (mesh == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to create mesh connection for %s",
+                            cmsg_service_name_get (service->descriptor));
+        return NULL;
+    }
+
+    cmsg_glib_server_processing_start (mesh->server);
+
+    return mesh;
+}
+
+/**
  * Callback function that fires when an event is generated from a CMSG
  * broadcast client.
  */

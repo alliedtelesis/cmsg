@@ -31,6 +31,10 @@ cmsg_tipc_mesh_conn *cmsg_glib_tipc_mesh_init (ProtobufCService *service,
                                                int this_node_id, int min_node_id,
                                                int max_node_id, cmsg_mesh_local_type type,
                                                bool oneway);
+cmsg_mesh_conn *cmsg_glib_mesh_init (ProtobufCService *service,
+                                     const char *service_entry_name,
+                                     struct in_addr this_node_addr,
+                                     cmsg_mesh_local_type type, bool oneway);
 cmsg_subscriber *cmsg_glib_unix_subscriber_init (ProtobufCService *service,
                                                  const char **events);
 cmsg_subscriber *cmsg_glib_tcp_subscriber_init (const char *service_name,
