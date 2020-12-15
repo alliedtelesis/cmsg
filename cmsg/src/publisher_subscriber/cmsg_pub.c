@@ -596,10 +596,11 @@ cmsg_publisher_remove_subscribers_from_host (gpointer key, gpointer value,
                                              gpointer user_data)
 {
     cmsg_client *comp_client = (cmsg_client *) value;
-    uint32_t *addr = (uint32_t *) user_data;
+    uint32_t *_addr = (uint32_t *) user_data;
     cmsg_client *client = NULL;
+    struct in_addr addr = { .s_addr = *_addr };
 
-    while ((client = cmsg_composite_client_lookup_by_tcp_ipv4_addr (comp_client, *addr)))
+    while ((client = cmsg_composite_client_lookup_by_tcp_ipv4_addr (comp_client, addr)))
     {
         cmsg_composite_client_delete_child (comp_client, client);
         cmsg_destroy_client_and_transport (client);

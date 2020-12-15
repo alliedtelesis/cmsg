@@ -71,7 +71,7 @@ sm_mock_cmsg_create_client_tcp_ipv4_oneway (const char *service_name,
 
 static cmsg_client *
 sm_mock_cmsg_composite_client_lookup_by_tcp_ipv4_addr (cmsg_client *_composite_client,
-                                                       uint32_t addr)
+                                                       struct in_addr addr)
 {
     return remote_client;
 }
