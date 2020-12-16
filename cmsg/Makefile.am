@@ -131,7 +131,6 @@ libcmsg_la_SOURCES = \
 	src/cmsg_ant_result.c \
 	src/transport/cmsg_transport_loopback.c \
 	src/transport/cmsg_transport_tcp.c \
-	src/transport/cmsg_transport_tipc.c \
 	src/transport/cmsg_transport_udt.c \
 	src/transport/cmsg_transport_unix.c \
 	src/transport/cmsg_transport_tipc_broadcast.c \

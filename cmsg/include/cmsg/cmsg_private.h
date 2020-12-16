@@ -66,7 +66,6 @@
 #endif
 
 #define CMSG_RECV_BUFFER_SZ                        512
-#define CMSG_TRANSPORT_TIPC_PUB_CONNECT_TIMEOUT    3000 //ms
 #define CMSG_TRANSPORT_CLIENT_SEND_TRIES           10
 #define CMSG_SERVER_REQUEST_MAX_NAME_LENGTH        128
 
@@ -100,9 +99,8 @@ typedef struct _cmsg_object_s
 
 // NOTE: ECHO is used to implement a healthcheck of the server.
 // Header is sent big-endian/network byte order.
-// NOTE: CONN_OPEN is used to signify a pkt that is being sent that the client
-// needed to.  No response is to be sent.  Only TIPC makes use of it to ensure
-// the stream connection is open in the connect function.
+// NOTE: CONN_OPEN is unused but previously was used to signify a pkt that
+// is being sent that the client needed to.  No response is to be sent.
 
 // The fields involved in the header are:
 //    client method request header:
@@ -147,7 +145,7 @@ typedef enum _cmsg_msg_type_e
     CMSG_MSG_TYPE_METHOD_REPLY,     // Reply from server in response to a method request
     CMSG_MSG_TYPE_ECHO_REQ,         // Request to server for a reply - used for a ping/healthcheck
     CMSG_MSG_TYPE_ECHO_REPLY,       // Reply from server in response to an echo request
-    CMSG_MSG_TYPE_CONN_OPEN,        // Request from client to open the connection - only for TIPC
+    CMSG_MSG_TYPE_CONN_OPEN,        // Request from client to open the connection (unused)
 } cmsg_msg_type;
 
 typedef enum _cmsg_status_code_e

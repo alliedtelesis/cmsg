@@ -78,7 +78,7 @@ typedef struct _cmsg_udt_info_s
     cmsg_tport_functions functions;
 
     // Base transport functions (i.e. allow access to
-    // TCP, TIPC, UNIX, ..., transport functionality if required)
+    // TCP, UNIX, ..., transport functionality if required)
     cmsg_tport_functions base;
 
     // User-defined transport data. It is the responsibility of the
@@ -96,9 +96,7 @@ typedef enum _cmsg_transport_type_e
 {
     CMSG_TRANSPORT_LOOPBACK,
     CMSG_TRANSPORT_RPC_TCP,
-    CMSG_TRANSPORT_RPC_TIPC,
     CMSG_TRANSPORT_ONEWAY_TCP,
-    CMSG_TRANSPORT_ONEWAY_TIPC,
     CMSG_TRANSPORT_ONEWAY_USERDEFINED,
     CMSG_TRANSPORT_RPC_USERDEFINED,
     CMSG_TRANSPORT_BROADCAST,

@@ -44,14 +44,12 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
     switch (transport->type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
-    case CMSG_TRANSPORT_RPC_TIPC:
     case CMSG_TRANSPORT_RPC_USERDEFINED:
     case CMSG_TRANSPORT_LOOPBACK:
     case CMSG_TRANSPORT_RPC_UNIX:
         return cmsg_server_closure_rpc;
 
     case CMSG_TRANSPORT_ONEWAY_TCP:
-    case CMSG_TRANSPORT_ONEWAY_TIPC:
     case CMSG_TRANSPORT_BROADCAST:
     case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
     case CMSG_TRANSPORT_ONEWAY_UNIX:
