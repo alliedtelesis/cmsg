@@ -53,59 +53,6 @@ test_cmsg_transport_compare__different_types (void)
 }
 
 static void
-init_transport_tipc (cmsg_transport *transport)
-{
-    transport->config.socket.family = AF_TIPC;
-    transport->config.socket.sockaddr.tipc.family = AF_TIPC;
-    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
-    transport->config.socket.sockaddr.tipc.addr.name.domain = 0;
-    transport->config.socket.sockaddr.tipc.addr.name.name.type = 10;
-    transport->config.socket.sockaddr.tipc.addr.name.name.instance = 10;
-    transport->config.socket.sockaddr.tipc.scope = TIPC_NODE_SCOPE;
-}
-
-void
-test_cmsg_transport_compare__tipc (void)
-{
-    cmsg_transport *one = cmsg_transport_new (CMSG_TRANSPORT_RPC_TIPC);
-    cmsg_transport *two = cmsg_transport_new (CMSG_TRANSPORT_RPC_TIPC);
-
-    init_transport_tipc (one);
-    init_transport_tipc (two);
-    NP_ASSERT_TRUE (cmsg_transport_compare (one, two));
-
-    one->config.socket.family = AF_UNIX;
-    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
-
-    init_transport_tipc (one);
-    one->config.socket.sockaddr.tipc.family = AF_UNIX;
-    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
-
-    init_transport_tipc (one);
-    one->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAMESEQ;
-    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
-
-    init_transport_tipc (one);
-    one->config.socket.sockaddr.tipc.addr.name.domain = 1;
-    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
-
-    init_transport_tipc (one);
-    one->config.socket.sockaddr.tipc.addr.name.name.type = 11;
-    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
-
-    init_transport_tipc (one);
-    one->config.socket.sockaddr.tipc.addr.name.name.instance = 11;
-    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
-
-    init_transport_tipc (one);
-    one->config.socket.sockaddr.tipc.scope = TIPC_CLUSTER_SCOPE;
-    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
-
-    cmsg_transport_destroy (one);
-    cmsg_transport_destroy (two);
-}
-
-static void
 init_transport_unix (cmsg_transport *transport)
 {
     transport->config.socket.family = AF_UNIX;
@@ -125,11 +72,11 @@ test_cmsg_transport_compare__unix (void)
 
     NP_ASSERT_TRUE (cmsg_transport_compare (one, two));
 
-    one->config.socket.family = AF_TIPC;
+    one->config.socket.family = AF_INET;
     NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
 
     init_transport_unix (one);
-    one->config.socket.sockaddr.un.sun_family = AF_TIPC;
+    one->config.socket.sockaddr.un.sun_family = AF_INET;
     NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
 
     init_transport_unix (one);

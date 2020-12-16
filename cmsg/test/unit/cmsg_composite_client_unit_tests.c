@@ -7,6 +7,9 @@
 #include <np.h>
 #include <cmsg_client.h>
 #include <cmsg_composite_client.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it
@@ -29,7 +32,8 @@ ProtobufCService dummy_service = {
     .descriptor = &dummy_service_descriptor,
 };
 
-static const uint16_t tipc_port = 18888;
+#define LOOPBACK_ADDR_PREFIX    0x7f000000  /* 127.0.0.0 */
+static const uint16_t tcp_port = 18888;
 
 void
 test_cmsg_composite_client_new__success (void)
@@ -63,9 +67,9 @@ test_cmsg_composite_client_new__pthread_mutex_init_failure (void)
 static int
 sm_mock_cmsg_service_port_get (const char *name, const char *proto)
 {
-    if ((strcmp (name, "test") == 0) && (strcmp (proto, "tipc") == 0))
+    if ((strcmp (name, "test") == 0) && (strcmp (proto, "tcp") == 0))
     {
-        return tipc_port;
+        return tcp_port;
     }
 
     NP_FAIL;
@@ -85,13 +89,17 @@ void
 test_cmsg_composite_client_child_add (void)
 {
     int ret;
+    struct in_addr addr1 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 1);
+    struct in_addr addr2 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 2);
+    struct in_addr addr3 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 3);
+
     cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);
-    cmsg_client *child_1 = cmsg_create_client_tipc_rpc ("test", 1, 1,
-                                                        &dummy_service_descriptor);
-    cmsg_client *child_2 = cmsg_create_client_tipc_rpc ("test", 2, 2,
-                                                        &dummy_service_descriptor);
-    cmsg_client *child_3 = cmsg_create_client_tipc_rpc ("test", 3, 3,
-                                                        &dummy_service_descriptor);
+    cmsg_client *child_1 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr1, NULL,
+                                                            &dummy_service_descriptor);
+    cmsg_client *child_2 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr2, NULL,
+                                                            &dummy_service_descriptor);
+    cmsg_client *child_3 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr3, NULL,
+                                                            &dummy_service_descriptor);
 
     ret = cmsg_composite_client_add_child (comp_client, child_1);
     NP_ASSERT_EQUAL (ret, 0);
@@ -116,12 +124,16 @@ test_cmsg_composite_client_child_remove (void)
 {
     int ret;
     cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);
-    cmsg_client *child_1 = cmsg_create_client_tipc_rpc ("test", 1, 1,
-                                                        &dummy_service_descriptor);
-    cmsg_client *child_2 = cmsg_create_client_tipc_rpc ("test", 2, 2,
-                                                        &dummy_service_descriptor);
-    cmsg_client *child_3 = cmsg_create_client_tipc_rpc ("test", 3, 3,
-                                                        &dummy_service_descriptor);
+    struct in_addr addr1 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 1);
+    struct in_addr addr2 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 2);
+    struct in_addr addr3 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 3);
+
+    cmsg_client *child_1 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr1, NULL,
+                                                            &dummy_service_descriptor);
+    cmsg_client *child_2 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr2, NULL,
+                                                            &dummy_service_descriptor);
+    cmsg_client *child_3 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr3, NULL,
+                                                            &dummy_service_descriptor);
 
     cmsg_composite_client_add_child (comp_client, child_1);
     cmsg_composite_client_add_child (comp_client, child_2);
@@ -150,12 +162,16 @@ test_cmsg_composite_client_child_remove__already_removed (void)
 {
     int ret;
     cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);
-    cmsg_client *child_1 = cmsg_create_client_tipc_rpc ("test", 1, 1,
-                                                        &dummy_service_descriptor);
-    cmsg_client *child_2 = cmsg_create_client_tipc_rpc ("test", 2, 2,
-                                                        &dummy_service_descriptor);
-    cmsg_client *child_3 = cmsg_create_client_tipc_rpc ("test", 3, 3,
-                                                        &dummy_service_descriptor);
+    struct in_addr addr1 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 1);
+    struct in_addr addr2 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 2);
+    struct in_addr addr3 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 3);
+
+    cmsg_client *child_1 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr1, NULL,
+                                                            &dummy_service_descriptor);
+    cmsg_client *child_2 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr2, NULL,
+                                                            &dummy_service_descriptor);
+    cmsg_client *child_3 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr3, NULL,
+                                                            &dummy_service_descriptor);
 
     cmsg_composite_client_add_child (comp_client, child_1);
     cmsg_composite_client_add_child (comp_client, child_2);
@@ -180,8 +196,10 @@ test_cmsg_composite_client__sanity_checks (void)
 {
     int ret;
     cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);
-    cmsg_client *child_1 = cmsg_create_client_tipc_rpc ("test", 1, 1,
-                                                        &dummy_service_descriptor);
+    struct in_addr addr1 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 1);
+
+    cmsg_client *child_1 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr1, NULL,
+                                                            &dummy_service_descriptor);
 
     ret = cmsg_composite_client_add_child (NULL, child_1);
     NP_ASSERT_EQUAL (ret, -1);
@@ -209,12 +227,16 @@ void
 test_cmsg_composite_client_add_client__loopback_is_last (void)
 {
     cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);
-    cmsg_client *child_1 = cmsg_create_client_tipc_rpc ("test", 1, 1,
-                                                        &dummy_service_descriptor);
-    cmsg_client *child_2 = cmsg_create_client_tipc_rpc ("test", 2, 2,
-                                                        &dummy_service_descriptor);
-    cmsg_client *child_3 = cmsg_create_client_tipc_rpc ("test", 3, 3,
-                                                        &dummy_service_descriptor);
+    struct in_addr addr1 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 1);
+    struct in_addr addr2 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 2);
+    struct in_addr addr3 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 3);
+
+    cmsg_client *child_1 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr1, NULL,
+                                                            &dummy_service_descriptor);
+    cmsg_client *child_2 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr2, NULL,
+                                                            &dummy_service_descriptor);
+    cmsg_client *child_3 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr3, NULL,
+                                                            &dummy_service_descriptor);
     cmsg_client *child_4 = cmsg_create_client_loopback (&dummy_service);
     cmsg_client *child_5 = cmsg_create_client_loopback (&dummy_service);
     GList *child_clients = NULL;
@@ -246,43 +268,16 @@ test_cmsg_composite_client_add_client__loopback_is_last (void)
 }
 
 void
-test_cmsg_composite_client_lookup_by_tipc_id (void)
-{
-    cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);
-    cmsg_client *child_1 = cmsg_create_client_tipc_oneway ("test", 1, 1,
-                                                           &dummy_service_descriptor);
-    cmsg_client *child_2 = cmsg_create_client_tipc_rpc ("test", 2, 2,
-                                                        &dummy_service_descriptor);
-    cmsg_client *child_3 = cmsg_create_client_tipc_rpc ("test", 3, 3,
-                                                        &dummy_service_descriptor);
-    cmsg_client *lookup_client = NULL;
-
-    cmsg_composite_client_add_child (comp_client, child_1);
-    cmsg_composite_client_add_child (comp_client, child_2);
-
-    lookup_client = cmsg_composite_client_lookup_by_tipc_id (comp_client, 1);
-    NP_ASSERT_PTR_EQUAL (lookup_client, child_1);
-
-    lookup_client = cmsg_composite_client_lookup_by_tipc_id (comp_client, 2);
-    NP_ASSERT_PTR_EQUAL (lookup_client, child_2);
-
-    lookup_client = cmsg_composite_client_lookup_by_tipc_id (comp_client, 3);
-    NP_ASSERT_NULL (lookup_client);
-
-    cmsg_client_destroy (comp_client);
-    cmsg_destroy_client_and_transport (child_1);
-    cmsg_destroy_client_and_transport (child_2);
-    cmsg_destroy_client_and_transport (child_3);
-}
-
-void
 test_wrong_client_type (void)
 {
     cmsg_client *comp_client = cmsg_composite_client_new (&dummy_service_descriptor);
-    cmsg_client *std_client = cmsg_create_client_tipc_rpc ("test", 1, 1,
-                                                           &dummy_service_descriptor);
-    cmsg_client *child_client = cmsg_create_client_tipc_rpc ("test", 2, 2,
-                                                             &dummy_service_descriptor);
+    struct in_addr addr1 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 1);
+    struct in_addr addr2 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 2);
+
+    cmsg_client *std_client = cmsg_create_client_tcp_ipv4_rpc ("test", &addr1, NULL,
+                                                               &dummy_service_descriptor);
+    cmsg_client *child_client = cmsg_create_client_tcp_ipv4_rpc ("test", &addr2, NULL,
+                                                                 &dummy_service_descriptor);
     int ret;
 
     np_syslog_ignore (".*");

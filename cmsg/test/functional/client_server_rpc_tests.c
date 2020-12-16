@@ -208,15 +208,6 @@ test_client_server_rpc_tcp6 (void)
 }
 
 /**
- * Run the simple client <-> server test case with a TIPC transport.
- */
-void
-test_client_server_rpc_tipc (void)
-{
-    run_client_server_tests (CMSG_TRANSPORT_RPC_TIPC, AF_UNSPEC, _run_client_server_tests);
-}
-
-/**
  * Run the simple client <-> server test case with a UNIX transport.
  */
 void
@@ -251,16 +242,6 @@ void
 test_client_server_rpc_tcp_big (void)
 {
     run_client_server_tests (CMSG_TRANSPORT_RPC_TCP, AF_INET, _run_client_server_tests_big);
-}
-
-/**
- * Run the BIG client <-> server test case with a TIPC transport.
- */
-void
-test_client_server_rpc_tipc_big (void)
-{
-    run_client_server_tests (CMSG_TRANSPORT_RPC_TIPC, AF_UNSPEC,
-                             _run_client_server_tests_big);
 }
 
 /**
@@ -322,16 +303,6 @@ void
 test_client_server_rpc_tcp_empty_msg (void)
 {
     run_client_server_tests (CMSG_TRANSPORT_RPC_TCP, AF_INET,
-                             _run_client_server_tests_empty_msg);
-}
-
-/**
- * Run the empty msg client <-> server test case with a TIPC transport.
- */
-void
-test_client_server_rpc_tipc_empty_msg (void)
-{
-    run_client_server_tests (CMSG_TRANSPORT_RPC_TIPC, AF_UNSPEC,
                              _run_client_server_tests_empty_msg);
 }
 
