@@ -48,9 +48,6 @@ cmsg_broadcast_client_create (const ProtobufCServiceDescriptor *descriptor)
 
         broadcast_client->oneway_children = false;
         broadcast_client->service_entry_name = NULL;
-        broadcast_client->my_node_id = 0;
-        broadcast_client->lower_node_id = 0;
-        broadcast_client->upper_node_id = 0;
         broadcast_client->connect_to_self = false;
         broadcast_client->event_queue.queue = NULL;
         broadcast_client->event_queue.eventfd = -1;
@@ -116,77 +113,11 @@ cmsg_broadcast_client_init_events (cmsg_broadcast_client *broadcast_client,
     return CMSG_RET_OK;
 }
 
-/**
- * Create a cmsg broadcast client
- *
- * @param descriptor - Pointer to the ProtobufCServiceDescriptor descriptor structure.
- * @param service_entry_name - The name of the service to look up the TIPC port from
- *                             in the /etc/services file.
- * @param my_node_id - The TIPC ID to use for this node.
- * @param lower_node_id - The lowest TIPC ID we are interested in broadcasting to.
- *                        (STK_NODEID_MIN)
- * @param upper_node_id - The highest TIPC ID we are interest in broadcasting to.
- *                        (STK_NODEID_MAX)
- * @param connect_to_self - Whether to connect to a server running locally on this node.
- * @param oneway - Whether to do one way broadcasting (true), or RPC broadcasting (false).
- * @param event_handler - Function to call on node join/leave events for the broadcast client,
- *                        if NULL is given then no events will be generated.
- *
- * @return pointer to the client on success, NULL otherwise.
- */
 cmsg_client *
 cmsg_broadcast_client_new (const ProtobufCServiceDescriptor *descriptor,
-                           const char *service_entry_name,
-                           uint32_t my_node_id, uint32_t lower_node_id,
-                           uint32_t upper_node_id, bool connect_to_self, bool oneway,
+                           const char *service_entry_name, struct in_addr my_node_addr,
+                           bool connect_to_self, bool oneway,
                            cmsg_broadcast_event_handler_t event_handler)
-{
-    int ret;
-    cmsg_broadcast_client *broadcast_client = NULL;
-
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (service_entry_name != NULL, NULL);
-
-    broadcast_client = cmsg_broadcast_client_create (descriptor);
-    if (!broadcast_client)
-    {
-        return NULL;
-    }
-
-    broadcast_client->service_entry_name = service_entry_name;
-    broadcast_client->oneway_children = oneway;
-    broadcast_client->my_node_id = my_node_id;
-    broadcast_client->lower_node_id = lower_node_id;
-    broadcast_client->upper_node_id = upper_node_id;
-    broadcast_client->connect_to_self = connect_to_self;
-
-    if (event_handler)
-    {
-        ret = cmsg_broadcast_client_init_events (broadcast_client, event_handler);
-        if (ret != CMSG_RET_OK)
-        {
-            cmsg_composite_client_deinit (&broadcast_client->base_client);
-            CMSG_FREE (broadcast_client);
-            return NULL;
-        }
-    }
-
-    ret = cmsg_broadcast_conn_mgmt_init (broadcast_client);
-    if (ret != CMSG_RET_OK)
-    {
-        cmsg_broadcast_client_deinit_events (broadcast_client);
-        cmsg_composite_client_deinit (&broadcast_client->base_client);
-        CMSG_FREE (broadcast_client);
-        return NULL;
-    }
-
-    return (cmsg_client *) broadcast_client;
-}
-
-cmsg_client *
-cmsg_broadcast_client_new_tcp (const ProtobufCServiceDescriptor *descriptor,
-                               const char *service_entry_name, struct in_addr my_node_addr,
-                               bool connect_to_self, bool oneway)
 {
     int ret;
     cmsg_broadcast_client *broadcast_client = NULL;
@@ -204,6 +135,17 @@ cmsg_broadcast_client_new_tcp (const ProtobufCServiceDescriptor *descriptor,
     broadcast_client->oneway_children = oneway;
     broadcast_client->my_node_addr = my_node_addr;
     broadcast_client->connect_to_self = connect_to_self;
+
+    if (event_handler)
+    {
+        ret = cmsg_broadcast_client_init_events (broadcast_client, event_handler);
+        if (ret != CMSG_RET_OK)
+        {
+            cmsg_composite_client_deinit (&broadcast_client->base_client);
+            CMSG_FREE (broadcast_client);
+            return NULL;
+        }
+    }
 
     ret = cmsg_broadcast_conn_mgmt_init (broadcast_client);
     if (ret != CMSG_RET_OK)
@@ -308,7 +250,7 @@ cmsg_broadcast_event_queue_process (cmsg_client *_broadcast_client)
 
     while ((event = g_async_queue_try_pop (broadcast_client->event_queue.queue)))
     {
-        handler_func (event->node_id, event->joined);
+        handler_func (event->node_addr, event->joined);
         CMSG_FREE (event);
     }
 }

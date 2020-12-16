@@ -16,12 +16,12 @@
  * Generate an event for the node/leave join.
  *
  * @param broadcast_client - The broadcast client to queue the event on.
- * @param node_id - The id of the node that has joined/left.
+ * @param node_addr - The address of the node that has joined/left.
  * @param joined - true if the node has joined, false if it has left.
  */
 static void
 cmsg_broadcast_client_generate_event (cmsg_broadcast_client *broadcast_client,
-                                      uint32_t node_id, bool joined)
+                                      struct in_addr node_addr, bool joined)
 {
     cmsg_broadcast_client_event *event = NULL;
 
@@ -30,7 +30,7 @@ cmsg_broadcast_client_generate_event (cmsg_broadcast_client *broadcast_client,
         event = CMSG_MALLOC (sizeof (cmsg_broadcast_client_event));
         if (event)
         {
-            event->node_id = node_id;
+            event->node_addr = node_addr;
             event->joined = joined;
             g_async_queue_push (broadcast_client->event_queue.queue, event);
             TEMP_FAILURE_RETRY (eventfd_write (broadcast_client->event_queue.eventfd, 1));
@@ -54,7 +54,7 @@ cmsg_broadcast_client_add_child (cmsg_broadcast_client *broadcast_client,
         broadcast_client->base_client.base_client.descriptor;
     cmsg_client *comp_client = (cmsg_client *) &broadcast_client->base_client;
     cmsg_transport *transport_copy = cmsg_transport_copy (transport);
-    uint32_t instance;
+    struct in_addr address;
 
     child = cmsg_client_new (transport_copy, descriptor);
     if (!child)
@@ -67,12 +67,8 @@ cmsg_broadcast_client_add_child (cmsg_broadcast_client *broadcast_client,
 
     cmsg_composite_client_add_child (comp_client, child);
 
-    if (transport->type == CMSG_TRANSPORT_RPC_TIPC ||
-        transport->type == CMSG_TRANSPORT_ONEWAY_TIPC)
-    {
-        instance = transport->config.socket.sockaddr.tipc.addr.name.name.instance;
-        cmsg_broadcast_client_generate_event (broadcast_client, instance, true);
-    }
+    address = transport->config.socket.sockaddr.in.sin_addr;
+    cmsg_broadcast_client_generate_event (broadcast_client, address, true);
 }
 
 /**
@@ -88,7 +84,7 @@ cmsg_broadcast_client_delete_child (cmsg_broadcast_client *broadcast_client,
 {
     cmsg_client *child = NULL;
     cmsg_client *comp_client = (cmsg_client *) &broadcast_client->base_client;
-    uint32_t instance;
+    struct in_addr address;
 
     child = cmsg_composite_client_lookup_by_transport (comp_client, transport);
     if (!child)
@@ -110,12 +106,8 @@ cmsg_broadcast_client_delete_child (cmsg_broadcast_client *broadcast_client,
 
     cmsg_destroy_client_and_transport (child);
 
-    if (transport->type == CMSG_TRANSPORT_RPC_TIPC ||
-        transport->type == CMSG_TRANSPORT_ONEWAY_TIPC)
-    {
-        instance = transport->config.socket.sockaddr.tipc.addr.name.name.instance;
-        cmsg_broadcast_client_generate_event (broadcast_client, instance, false);
-    }
+    address = transport->config.socket.sockaddr.in.sin_addr;
+    cmsg_broadcast_client_generate_event (broadcast_client, address, false);
 }
 
 /**
@@ -130,7 +122,6 @@ cmsg_broadcast_client_delete_child (cmsg_broadcast_client *broadcast_client,
 static bool
 server_event_callback (const cmsg_transport *transport, bool added, void *user_cb_data)
 {
-    uint32_t instance;
     uint32_t port;
     struct in_addr addr;
     cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) user_cb_data;
@@ -143,50 +134,24 @@ server_event_callback (const cmsg_transport *transport, bool added, void *user_c
         return true;
     }
 
-    if (transport->type == CMSG_TRANSPORT_RPC_TIPC ||
-        transport->type == CMSG_TRANSPORT_ONEWAY_TIPC)
+    addr = transport->config.socket.sockaddr.in.sin_addr;
+    port = transport->config.socket.sockaddr.in.sin_port;
+
+    /* Some CMSG descriptors are not unique (e.g. "ffo.health" is used by multiple daemons)
+     * Ensure we only connect to servers that are on the port we expect for this client.
+     */
+    if (port != htons (cmsg_service_port_get (service_entry_name, "tcp")))
     {
-        instance = transport->config.socket.sockaddr.tipc.addr.name.name.instance;
-        port = transport->config.socket.sockaddr.tipc.addr.name.name.type;
-
-        /* Some CMSG descriptors are not unique (e.g. "ffo.health" is used by multiple daemons)
-         * Ensure we only connect to servers that are on the port we expect for this client.
-         */
-        if (port != cmsg_service_port_get (service_entry_name, "tipc"))
-        {
-            /* Silently ignore */
-            return true;
-        }
-
-        if (!broadcast_client->connect_to_self && broadcast_client->my_node_id == instance)
-        {
-            /* Only connect to the server on this node if the user has configured
-             * their broadcast client to do so. */
-            return true;
-        }
+        /* Silently ignore */
+        return true;
     }
-    else if (transport->type == CMSG_TRANSPORT_RPC_TCP ||
-             transport->type == CMSG_TRANSPORT_ONEWAY_TCP)
+
+    if (!broadcast_client->connect_to_self &&
+        broadcast_client->my_node_addr.s_addr == addr.s_addr)
     {
-        addr = transport->config.socket.sockaddr.in.sin_addr;
-        port = transport->config.socket.sockaddr.in.sin_port;
-
-        /* Some CMSG descriptors are not unique (e.g. "ffo.health" is used by multiple daemons)
-         * Ensure we only connect to servers that are on the port we expect for this client.
-         */
-        if (port != htons (cmsg_service_port_get (service_entry_name, "tcp")))
-        {
-            /* Silently ignore */
-            return true;
-        }
-
-        if (!broadcast_client->connect_to_self &&
-            broadcast_client->my_node_addr.s_addr == addr.s_addr)
-        {
-            /* Only connect to the server on this node if the user has configured
-             * their broadcast client to do so. */
-            return true;
-        }
+        /* Only connect to the server on this node if the user has configured
+         * their broadcast client to do so. */
+        return true;
     }
 
     if (added)

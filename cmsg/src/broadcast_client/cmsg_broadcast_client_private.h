@@ -13,8 +13,8 @@
 
 typedef struct _cmsg_broadcast_client_event
 {
-    /* Node ID of the node that has joined/left the broadcast client. */
-    uint32_t node_id;
+    /* IP address of the node that has joined/left the broadcast client. */
+    struct in_addr node_addr;
 
     /* true if the given node has joined the broadcast client, false if
      * it has left. */
@@ -45,20 +45,13 @@ typedef struct _cmsg_broadcast_client_s
     /* The name of the service in the /etc/services file */
     const char *service_entry_name;
 
-    /* The TIPC node id of this node */
-    uint32_t my_node_id;
-
     /* The IP address of this node */
     struct in_addr my_node_addr;
 
-    /* The range of TIPC node ids we are listening for */
-    uint32_t lower_node_id;
-    uint32_t upper_node_id;
-
-    /* Connect to the TIPC server running on this node if it exists */
+    /* Connect to the TCP server running on this node if it exists */
     bool connect_to_self;
 
-    /* Thread for monitoring the TIPC topology and creating clients as required */
+    /* Thread for monitoring the topology and creating clients as required */
     pthread_t topology_thread;
 
     /* Queue for storing node join/leave events to the broadcast client */

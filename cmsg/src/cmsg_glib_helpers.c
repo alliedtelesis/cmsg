@@ -502,37 +502,6 @@ cmsg_glib_tcp_ipv6_server_init_oneway (const char *service_name, struct in6_addr
  * Create and initialise a CMSG mesh connection. This function automatically
  * starts the processing of the server that is part of the mesh connection.
  *
- * @param service - The protobuf-c service the mesh connection is for.
- * @param service_entry_name - The name in the services file corresponding to the
- *                             TIPC port to use for the protobuf-c service.
- *
- * @returns Pointer to a 'cmsg_tipc_mesh_conn' structure.
- *          NULL on failure.
- */
-cmsg_tipc_mesh_conn *
-cmsg_glib_tipc_mesh_init (ProtobufCService *service, const char *service_entry_name,
-                          int this_node_id, int min_node_id, int max_node_id,
-                          cmsg_mesh_local_type type, bool oneway)
-{
-    cmsg_tipc_mesh_conn *mesh =
-        cmsg_tipc_mesh_connection_init (service, service_entry_name, this_node_id,
-                                        min_node_id, max_node_id, type, oneway, NULL);
-    if (mesh == NULL)
-    {
-        CMSG_LOG_GEN_ERROR ("Failed to create mesh connection for %s",
-                            cmsg_service_name_get (service->descriptor));
-        return NULL;
-    }
-
-    cmsg_glib_server_processing_start (mesh->server);
-
-    return mesh;
-}
-
-/**
- * Create and initialise a CMSG mesh connection. This function automatically
- * starts the processing of the server that is part of the mesh connection.
- *
  * @param service - The protobuf service for this connection.
  * @param service_entry_name - The name in the /etc/services file to get the TCP port number
  * @param this_node_addr - The IP address of this local node

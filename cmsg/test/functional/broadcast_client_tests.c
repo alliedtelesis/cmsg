@@ -7,6 +7,9 @@
 #include <np.h>
 #include <stdint.h>
 #include <sys/eventfd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "cmsg_broadcast_client.h"
 #include "cmsg_server.h"
 #include "cmsg_functional_tests_api_auto.h"
@@ -14,11 +17,7 @@
 #include "cmsg_composite_client.h"
 #include "setup.h"
 
-#define TEST_CLIENT_TIPC_ID 5
-#define MIN_TIPC_ID 1
-#define MAX_TIPC_ID 8
-
-static const uint16_t tipc_scope = TIPC_CLUSTER_SCOPE;
+#define LOOPBACK_ADDR_PREFIX    0x7f000000  /* 127.0.0.0 */
 
 static cmsg_server *server1;
 static pthread_t server_thread1;
@@ -55,11 +54,14 @@ tear_down (void)
 static void
 create_servers (void)
 {
-    server1 = cmsg_create_server_tipc_rpc ("cmsg-test", 1, tipc_scope,
-                                           CMSG_SERVICE (cmsg, test));
+    struct in_addr addr1 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 1);
+    struct in_addr addr2 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 2);
+
+    server1 = cmsg_create_server_tcp_ipv4_rpc ("cmsg-test", &addr1, NULL,
+                                               CMSG_SERVICE (cmsg, test));
     cmsg_pthread_server_init (&server_thread1, server1);
-    server2 = cmsg_create_server_tipc_rpc ("cmsg-test", 2, tipc_scope,
-                                           CMSG_SERVICE (cmsg, test));
+    server2 = cmsg_create_server_tcp_ipv4_rpc ("cmsg-test", &addr2, NULL,
+                                               CMSG_SERVICE (cmsg, test));
     cmsg_pthread_server_init (&server_thread2, server2);
 }
 
@@ -86,10 +88,10 @@ void
 test_broadcast_client__servers_up_after_client_init (void)
 {
     cmsg_client *broadcast_client = NULL;
+    struct in_addr addr5 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 5);
 
     broadcast_client = cmsg_broadcast_client_new (CMSG_DESCRIPTOR (cmsg, test), "cmsg-test",
-                                                  TEST_CLIENT_TIPC_ID, MIN_TIPC_ID,
-                                                  MAX_TIPC_ID, false, true, NULL);
+                                                  addr5, false, true, NULL);
 
     NP_ASSERT_NOT_NULL (broadcast_client);
 
@@ -114,14 +116,13 @@ void
 test_broadcast_client__servers_up_before_client_init (void)
 {
     cmsg_client *broadcast_client = NULL;
+    struct in_addr addr5 = inet_makeaddr (LOOPBACK_ADDR_PREFIX, 5);
 
     create_servers ();
     sleep (2);
 
     broadcast_client = cmsg_broadcast_client_new (CMSG_DESCRIPTOR (cmsg, test), "cmsg-test",
-                                                  TEST_CLIENT_TIPC_ID, MIN_TIPC_ID,
-                                                  MAX_TIPC_ID, false, true, NULL);
-
+                                                  addr5, false, true, NULL);
     NP_ASSERT_NOT_NULL (broadcast_client);
 
     sleep (2);

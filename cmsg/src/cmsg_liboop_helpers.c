@@ -226,12 +226,12 @@ cmsg_liboop_mesh_init (ProtobufCService *service, const char *service_entry_name
  * @param mesh - The mesh connection to destroy.
  */
 void
-cmsg_liboop_mesh_destroy (cmsg_tipc_mesh_conn *mesh)
+cmsg_liboop_mesh_destroy (cmsg_mesh_conn *mesh)
 {
     if (mesh)
     {
         cmsg_liboop_server_processing_stop (mesh->server);
-        cmsg_tipc_mesh_connection_destroy (mesh);
+        cmsg_mesh_connection_destroy (mesh);
     }
 }
 
