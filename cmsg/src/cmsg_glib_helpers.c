@@ -601,37 +601,3 @@ cmsg_glib_service_listener_listen (const char *service_name,
     event_channel = g_io_channel_unix_new (event_fd);
     g_io_add_watch (event_channel, G_IO_IN, cmsg_glib_sl_event_process, (void *) info);
 }
-
-/**
- * Create and start processing a TIPC transport based CMSG server for the given
- * CMSG service for the given stack node ID.
- *
- * @param server_name - TIPC server name
- * @param member_id - VCS node ID
- * @param scope - TIPC scope
- * @param service - The protobuf-c service the server is to implement.
- *
- * @returns Pointer to the 'cmsg_server' structure or NULL on failure.
- */
-cmsg_server *
-cmsg_glib_tipc_rpc_server_init (const char *server_name, int member_id, int scope,
-                                ProtobufCService *service)
-{
-    cmsg_server *server = NULL;
-
-    server = cmsg_create_server_tipc_rpc (server_name, member_id, scope, service);
-    if (!server)
-    {
-        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
-                            cmsg_service_name_get (service->descriptor));
-        return NULL;
-    }
-
-    if (cmsg_glib_server_init (server) != CMSG_RET_OK)
-    {
-        cmsg_destroy_server_and_transport (server);
-        server = NULL;
-    }
-
-    return server;
-}

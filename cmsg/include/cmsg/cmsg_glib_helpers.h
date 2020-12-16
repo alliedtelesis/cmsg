@@ -39,9 +39,5 @@ void cmsg_glib_subscriber_deinit (cmsg_subscriber *sub);
 void cmsg_glib_bcast_client_processing_start (cmsg_client *broadcast_client);
 void cmsg_glib_service_listener_listen (const char *service_name,
                                         cmsg_sl_event_handler_t handler, void *user_data);
-cmsg_server *cmsg_glib_tipc_rpc_server_init (const char *server_name,
-                                             int member_id, int scope,
-                                             ProtobufCService *service);
-
 
 #endif /* __CMSG_GLIB_HELPERS_H_ */

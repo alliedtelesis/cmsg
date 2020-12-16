@@ -222,12 +222,6 @@ int32_t cmsg_server_queue_filter_set (cmsg_server *server,
 
 int32_t cmsg_server_queue_filter_clear (cmsg_server *server, const char *method);
 
-cmsg_server *cmsg_create_server_tipc_rpc (const char *server_name, int member_id,
-                                          int scope, ProtobufCService *descriptor);
-
-cmsg_server *cmsg_create_server_tipc_oneway (const char *server_name, int member_id,
-                                             int scope, ProtobufCService *descriptor);
-
 cmsg_server *cmsg_create_server_unix_rpc (ProtobufCService *descriptor);
 
 cmsg_server *cmsg_create_server_unix_oneway (ProtobufCService *descriptor);
