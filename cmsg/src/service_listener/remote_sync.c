@@ -17,7 +17,6 @@
 
 cmsg_server *remote_sync_server = NULL;
 uint32_t local_ip_addr = 0;
-uint32_t local_node_id = 0;
 cmsg_client *comp_client = NULL;
 
 /**
@@ -94,8 +93,7 @@ remote_sync_server_added_removed (const cmsg_service_info *server_info, bool add
     }
 
     /* Don't sync if the servers transport type is not supported */
-    if (transport_info->type != CMSG_TRANSPORT_INFO_TYPE_TIPC &&
-        transport_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
+    if (transport_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
         return false;
     }
@@ -113,16 +111,6 @@ remote_sync_server_added_removed (const cmsg_service_info *server_info, bool add
     {
         memcpy (&addr, transport_info->tcp_info->addr.data, sizeof (uint32_t));
         if (addr != local_ip_addr)
-        {
-            return false;
-        }
-    }
-
-    /* Only sync TIPC servers that are hosted on the local node. This avoids endless
-     * loops of notification around the nodes. */
-    if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
-    {
-        if (transport_info->tipc_info->addr_name_name_instance != local_node_id)
         {
             return false;
         }
@@ -163,10 +151,9 @@ remote_sync_server_removed (const cmsg_service_info *server_info)
  * sync their local service information to.
  *
  * @param addr    - The address to use for the CMSG server and to match services against.
- * @param node_id - The node-id to match services against.
  */
 void
-remote_sync_address_set (struct in_addr addr, uint32_t node_id)
+remote_sync_address_set (struct in_addr addr)
 {
     if (!remote_sync_server)
     {
@@ -174,7 +161,6 @@ remote_sync_address_set (struct in_addr addr, uint32_t node_id)
                                                                CMSG_SERVICE (cmsg_sld,
                                                                              remote_sync));
         local_ip_addr = addr.s_addr;
-        local_node_id = node_id;
     }
 }
 
@@ -204,7 +190,7 @@ remote_sync_bulk_sync_services (cmsg_client *client)
     cmsg_sld_bulk_sync_data send_msg = CMSG_SLD_BULK_SYNC_DATA_INIT;
     GList *services_list = NULL;
 
-    services_list = data_get_servers_by_addr (local_ip_addr, local_node_id);
+    services_list = data_get_servers_by_addr (local_ip_addr);
     g_list_foreach (services_list, fill_bulk_sync_msg, &send_msg);
 
     cmsg_sld_remote_sync_api_bulk_sync (client, &send_msg);

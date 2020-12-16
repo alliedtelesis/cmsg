@@ -382,12 +382,11 @@ cmsg_service_listener_unlisten (const cmsg_sl_info *info)
  * daemon. This is the addressing info that remote hosts use to connect.
  *
  * @param addr    - The address to configure.
- * @param node_id - The node-id to configure.
  *
  * @returns CMSG_RET_OK on success, related error code on failure.
  */
 int32_t
-cmsg_service_listener_address_set (struct in_addr addr, uint32_t node_id)
+cmsg_service_listener_address_set (struct in_addr addr)
 {
     cmsg_client *client = NULL;
     cmsg_sld_address_info send_msg = CMSG_SLD_ADDRESS_INFO_INIT;
@@ -400,7 +399,6 @@ cmsg_service_listener_address_set (struct in_addr addr, uint32_t node_id)
     }
 
     CMSG_SET_FIELD_VALUE (&send_msg, ip_addr, addr.s_addr);
-    CMSG_SET_FIELD_VALUE (&send_msg, node_id, node_id);
 
     ret = cmsg_sld_configuration_api_address_set (client, &send_msg);
     cmsg_destroy_client_and_transport (client);
@@ -444,12 +442,11 @@ cmsg_service_listener_add_host (struct in_addr addr)
  * and remove all service information for it.
  *
  * @param addr    - The address of the remote node.
- * @param node_id - The node-id of the remote node.
  *
  * @returns CMSG_RET_OK on success, related error code on failure.
  */
 int32_t
-cmsg_service_listener_delete_host (struct in_addr addr, uint32_t node_id)
+cmsg_service_listener_delete_host (struct in_addr addr)
 {
     cmsg_client *client = NULL;
     cmsg_sld_address_info send_msg = CMSG_SLD_ADDRESS_INFO_INIT;
@@ -462,7 +459,6 @@ cmsg_service_listener_delete_host (struct in_addr addr, uint32_t node_id)
     }
 
     CMSG_SET_FIELD_VALUE (&send_msg, ip_addr, addr.s_addr);
-    CMSG_SET_FIELD_VALUE (&send_msg, node_id, node_id);
 
     ret = cmsg_sld_configuration_api_delete_host (client, &send_msg);
     cmsg_destroy_client_and_transport (client);

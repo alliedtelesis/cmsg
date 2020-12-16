@@ -91,22 +91,6 @@ test_cmsg_sld_configuration_impl_add_server_unix (void)
 }
 
 void
-test_cmsg_sld_configuration_impl_add_server_tipc (void)
-{
-    cmsg_service_info service_info = CMSG_SERVICE_INFO_INIT;
-    cmsg_transport_info transport_info = CMSG_TRANSPORT_INFO_INIT;
-
-    CMSG_SET_FIELD_VALUE (&transport_info, type, CMSG_TRANSPORT_INFO_TYPE_TIPC);
-    CMSG_SET_FIELD_PTR (&service_info, server_info, &transport_info);
-
-    cmsg_sld_configuration_impl_add_server (NULL, &service_info);
-
-    NP_ASSERT_TRUE (cmsg_server_app_owns_current_msg_set_called);
-    NP_ASSERT_TRUE (data_add_server_called);
-    NP_ASSERT_FALSE (data_remove_server_called);
-}
-
-void
 test_cmsg_sld_configuration_impl_remove_server_tcp (void)
 {
     cmsg_service_info service_info = CMSG_SERVICE_INFO_INIT;
@@ -129,22 +113,6 @@ test_cmsg_sld_configuration_impl_remove_server_unix (void)
     cmsg_transport_info transport_info = CMSG_TRANSPORT_INFO_INIT;
 
     CMSG_SET_FIELD_VALUE (&transport_info, type, CMSG_TRANSPORT_INFO_TYPE_UNIX);
-    CMSG_SET_FIELD_PTR (&service_info, server_info, &transport_info);
-
-    cmsg_sld_configuration_impl_remove_server (NULL, &service_info);
-
-    NP_ASSERT_FALSE (cmsg_server_app_owns_current_msg_set_called);
-    NP_ASSERT_TRUE (data_remove_server_called);
-    NP_ASSERT_FALSE (data_add_server_called);
-}
-
-void
-test_cmsg_sld_configuration_impl_remove_server_tipc (void)
-{
-    cmsg_service_info service_info = CMSG_SERVICE_INFO_INIT;
-    cmsg_transport_info transport_info = CMSG_TRANSPORT_INFO_INIT;
-
-    CMSG_SET_FIELD_VALUE (&transport_info, type, CMSG_TRANSPORT_INFO_TYPE_TIPC);
     CMSG_SET_FIELD_PTR (&service_info, server_info, &transport_info);
 
     cmsg_sld_configuration_impl_remove_server (NULL, &service_info);
