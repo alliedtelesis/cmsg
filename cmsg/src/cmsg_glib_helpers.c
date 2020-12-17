@@ -502,21 +502,22 @@ cmsg_glib_tcp_ipv6_server_init_oneway (const char *service_name, struct in6_addr
  * Create and initialise a CMSG mesh connection. This function automatically
  * starts the processing of the server that is part of the mesh connection.
  *
- * @param service - The protobuf-c service the mesh connection is for.
- * @param service_entry_name - The name in the services file corresponding to the
- *                             TIPC port to use for the protobuf-c service.
+ * @param service - The protobuf service for this connection.
+ * @param service_entry_name - The name in the /etc/services file to get the TCP port number
+ * @param this_node_addr - The IP address of this local node
+ * @param type - The type of mesh connection to create.
+ * @param oneway - Whether the connections are oneway or rpc.
  *
- * @returns Pointer to a 'cmsg_tipc_mesh_conn' structure.
+ * @returns Pointer to a 'cmsg_mesh_conn' structure.
  *          NULL on failure.
  */
-cmsg_tipc_mesh_conn *
-cmsg_glib_tipc_mesh_init (ProtobufCService *service, const char *service_entry_name,
-                          int this_node_id, int min_node_id, int max_node_id,
-                          cmsg_mesh_local_type type, bool oneway)
+cmsg_mesh_conn *
+cmsg_glib_mesh_init (ProtobufCService *service, const char *service_entry_name,
+                     struct in_addr this_node_addr, cmsg_mesh_local_type type, bool oneway)
 {
-    cmsg_tipc_mesh_conn *mesh =
-        cmsg_tipc_mesh_connection_init (service, service_entry_name, this_node_id,
-                                        min_node_id, max_node_id, type, oneway, NULL);
+    cmsg_mesh_conn *mesh =
+        cmsg_mesh_connection_init (service, service_entry_name, this_node_addr,
+                                   type, oneway, NULL);
     if (mesh == NULL)
     {
         CMSG_LOG_GEN_ERROR ("Failed to create mesh connection for %s",
@@ -599,38 +600,4 @@ cmsg_glib_service_listener_listen (const char *service_name,
     event_fd = cmsg_service_listener_get_event_fd (info);
     event_channel = g_io_channel_unix_new (event_fd);
     g_io_add_watch (event_channel, G_IO_IN, cmsg_glib_sl_event_process, (void *) info);
-}
-
-/**
- * Create and start processing a TIPC transport based CMSG server for the given
- * CMSG service for the given stack node ID.
- *
- * @param server_name - TIPC server name
- * @param member_id - VCS node ID
- * @param scope - TIPC scope
- * @param service - The protobuf-c service the server is to implement.
- *
- * @returns Pointer to the 'cmsg_server' structure or NULL on failure.
- */
-cmsg_server *
-cmsg_glib_tipc_rpc_server_init (const char *server_name, int member_id, int scope,
-                                ProtobufCService *service)
-{
-    cmsg_server *server = NULL;
-
-    server = cmsg_create_server_tipc_rpc (server_name, member_id, scope, service);
-    if (!server)
-    {
-        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
-                            cmsg_service_name_get (service->descriptor));
-        return NULL;
-    }
-
-    if (cmsg_glib_server_init (server) != CMSG_RET_OK)
-    {
-        cmsg_destroy_server_and_transport (server);
-        server = NULL;
-    }
-
-    return server;
 }

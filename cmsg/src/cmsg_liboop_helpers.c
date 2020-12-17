@@ -192,21 +192,22 @@ cmsg_liboop_server_destroy (cmsg_server *server)
  * Create and initialise a CMSG mesh connection. This function automatically
  * starts the processing of the server that is part of the mesh connection.
  *
- * @param service - The protobuf-c service the mesh connection is for.
- * @param service_entry_name - The name in the services file corresponding to the
- *                             TIPC port to use for the protobuf-c service.
+ * @param service - The protobuf service for this connection.
+ * @param service_entry_name - The name in the /etc/services file to get the TCP port number
+ * @param this_node_addr - The IP address of this local node
+ * @param type - The type of mesh connection to create.
+ * @param oneway - Whether the connections are oneway or rpc.
  *
- * @returns Pointer to a 'cmsg_tipc_mesh_conn' structure.
+ * @returns Pointer to a 'cmsg_mesh_conn' structure.
  *          NULL on failure.
  */
-cmsg_tipc_mesh_conn *
-cmsg_liboop_tipc_mesh_init (ProtobufCService *service, const char *service_entry_name,
-                            int this_node_id, int min_node_id, int max_node_id,
-                            cmsg_mesh_local_type type, bool oneway)
+cmsg_mesh_conn *
+cmsg_liboop_mesh_init (ProtobufCService *service, const char *service_entry_name,
+                       struct in_addr this_node_addr, cmsg_mesh_local_type type,
+                       bool oneway)
 {
-    cmsg_tipc_mesh_conn *mesh =
-        cmsg_tipc_mesh_connection_init (service, service_entry_name, this_node_id,
-                                        min_node_id, max_node_id, type, oneway, NULL);
+    cmsg_mesh_conn *mesh = cmsg_mesh_connection_init (service, service_entry_name,
+                                                      this_node_addr, type, oneway, NULL);
     if (mesh == NULL)
     {
         CMSG_LOG_GEN_ERROR ("Failed to create mesh connection for %s",
@@ -225,12 +226,12 @@ cmsg_liboop_tipc_mesh_init (ProtobufCService *service, const char *service_entry
  * @param mesh - The mesh connection to destroy.
  */
 void
-cmsg_liboop_mesh_destroy (cmsg_tipc_mesh_conn *mesh)
+cmsg_liboop_mesh_destroy (cmsg_mesh_conn *mesh)
 {
     if (mesh)
     {
         cmsg_liboop_server_processing_stop (mesh->server);
-        cmsg_tipc_mesh_connection_destroy (mesh);
+        cmsg_mesh_connection_destroy (mesh);
     }
 }
 
@@ -322,23 +323,23 @@ cmsg_liboop_tcp_rpc_server_init (const char *server_name, struct in_addr *addr,
 }
 
 /**
- * Create and start processing a TIPC transport based CMSG server for the given
+ * Create and start processing a oneway TCP transport based CMSG server for the given
  * CMSG service for the given stack node ID.
  *
- * @param server_name - TIPC server name
- * @param member_id - TIPC node ID
- * @param scope - TIPC scope
- * @param service - The protobuf-c service the server is to implement.
+ * @param server_name - The service name in the /etc/services file to get
+ *                      the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param service - The CMSG service.
  *
  * @returns Pointer to the 'cmsg_server' structure or NULL on failure.
  */
 cmsg_server *
-cmsg_liboop_tipc_oneway_server_init (const char *server_name, int member_id, int scope,
-                                     ProtobufCService *service)
+cmsg_liboop_tcp_oneway_server_init (const char *server_name, struct in_addr *addr,
+                                    ProtobufCService *service)
 {
     cmsg_server *server = NULL;
 
-    server = cmsg_create_server_tipc_oneway (server_name, member_id, scope, service);
+    server = cmsg_create_server_tcp_ipv4_oneway (server_name, addr, NULL, service);
     if (!server)
     {
         CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",

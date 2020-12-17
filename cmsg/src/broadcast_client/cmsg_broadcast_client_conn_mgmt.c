@@ -16,12 +16,12 @@
  * Generate an event for the node/leave join.
  *
  * @param broadcast_client - The broadcast client to queue the event on.
- * @param node_id - The id of the node that has joined/left.
+ * @param node_addr - The address of the node that has joined/left.
  * @param joined - true if the node has joined, false if it has left.
  */
 static void
 cmsg_broadcast_client_generate_event (cmsg_broadcast_client *broadcast_client,
-                                      uint32_t node_id, bool joined)
+                                      struct in_addr node_addr, bool joined)
 {
     cmsg_broadcast_client_event *event = NULL;
 
@@ -30,7 +30,7 @@ cmsg_broadcast_client_generate_event (cmsg_broadcast_client *broadcast_client,
         event = CMSG_MALLOC (sizeof (cmsg_broadcast_client_event));
         if (event)
         {
-            event->node_id = node_id;
+            event->node_addr = node_addr;
             event->joined = joined;
             g_async_queue_push (broadcast_client->event_queue.queue, event);
             TEMP_FAILURE_RETRY (eventfd_write (broadcast_client->event_queue.eventfd, 1));
@@ -39,105 +39,75 @@ cmsg_broadcast_client_generate_event (cmsg_broadcast_client *broadcast_client,
 }
 
 /**
- * Create a TIPC client to the given node id, connect the client,
- * and then add the client to the broadcast composite client.
+ * Create a client using the given transport and then add the
+ * client to the broadcast composite client.
  *
- * @param tipc_node_id - The TIPC node id to connect the client to.
+ * @param broadcast_client - The broadcast client.
+ * @param transport - The transport to connect the client with.
  */
 static void
 cmsg_broadcast_client_add_child (cmsg_broadcast_client *broadcast_client,
-                                 uint32_t tipc_node_id)
+                                 const cmsg_transport *transport)
 {
     cmsg_client *child = NULL;
-    const char *service_entry_name = broadcast_client->service_entry_name;
     const ProtobufCServiceDescriptor *descriptor =
         broadcast_client->base_client.base_client.descriptor;
     cmsg_client *comp_client = (cmsg_client *) &broadcast_client->base_client;
+    cmsg_transport *transport_copy = cmsg_transport_copy (transport);
+    struct in_addr address;
 
-    if (!broadcast_client->connect_to_self && broadcast_client->my_node_id == tipc_node_id)
-    {
-        /* Only connect to the server on this node if the user has configured
-         * their broadcast client to do so. */
-        return;
-    }
-
-    if (broadcast_client->oneway_children)
-    {
-        child = cmsg_create_client_tipc_oneway (service_entry_name, tipc_node_id,
-                                                TIPC_CLUSTER_SCOPE,
-                                                (ProtobufCServiceDescriptor *) descriptor);
-    }
-    else
-    {
-        child = cmsg_create_client_tipc_rpc (service_entry_name, tipc_node_id,
-                                             TIPC_CLUSTER_SCOPE,
-                                             (ProtobufCServiceDescriptor *) descriptor);
-    }
-
+    child = cmsg_client_new (transport_copy, descriptor);
     if (!child)
     {
-        CMSG_LOG_GEN_ERROR ("Failed to create child for broadcast client (Node id = %u).",
-                            tipc_node_id);
-        return;
-    }
-
-    if (cmsg_client_connect (child) < 0)
-    {
-        CMSG_LOG_GEN_ERROR
-            ("Failed to connect child for broadcast client (Node id = %u service %s).",
-             tipc_node_id, service_entry_name);
-        cmsg_destroy_client_and_transport (child);
+        CMSG_LOG_GEN_ERROR ("Failed to create child for broadcast client (service %s).",
+                            broadcast_client->service_entry_name);
+        cmsg_transport_destroy (transport_copy);
         return;
     }
 
     cmsg_composite_client_add_child (comp_client, child);
 
-    cmsg_broadcast_client_generate_event (broadcast_client, tipc_node_id, true);
+    address = transport->config.socket.sockaddr.in.sin_addr;
+    cmsg_broadcast_client_generate_event (broadcast_client, address, true);
 }
 
 /**
- * Remove the TIPC client to the given node id from the broadcast
+ * Remove the client using the given transport from the broadcast
  * composite client and then free the memory of the removed client.
  *
- * @param tipc_node_id - The TIPC node id to remove the client to.
+ * @param broadcast_client - The broadcast client.
+ * @param transport - The transport to remove the connection to.
  */
 static void
 cmsg_broadcast_client_delete_child (cmsg_broadcast_client *broadcast_client,
-                                    uint32_t tipc_node_id)
+                                    const cmsg_transport *transport)
 {
     cmsg_client *child = NULL;
     cmsg_client *comp_client = (cmsg_client *) &broadcast_client->base_client;
+    struct in_addr address;
 
-    if (!broadcast_client->connect_to_self && broadcast_client->my_node_id == tipc_node_id)
-    {
-        /* If the user has not configured the broadcast client to connect to
-         * the local TIPC server then return early here. This avoids printing
-         * an error that the child client can't be found. */
-        return;
-    }
-
-    child = cmsg_composite_client_lookup_by_tipc_id (comp_client, tipc_node_id);
+    child = cmsg_composite_client_lookup_by_transport (comp_client, transport);
     if (!child)
     {
         /* This shouldn't occur but if it does it suggests there is a bug in the
          * implementation of the broadcast client functionality. */
-        CMSG_LOG_GEN_ERROR
-            ("Failed to find child client in broadcast client (Node id = %u).",
-             tipc_node_id);
+        CMSG_LOG_GEN_ERROR ("Failed to find child client in broadcast client (service %s).",
+                            broadcast_client->service_entry_name);
         return;
     }
 
     if (cmsg_composite_client_delete_child (comp_client, child) < 0)
     {
         CMSG_LOG_GEN_ERROR
-            ("Failed to remove child client from broadcast client (Node id = %u).",
-             tipc_node_id);
+            ("Failed to remove child client from broadcast client (service %s).",
+             broadcast_client->service_entry_name);
         return;
     }
 
     cmsg_destroy_client_and_transport (child);
 
-    cmsg_broadcast_client_generate_event (broadcast_client, tipc_node_id, false);
+    address = transport->config.socket.sockaddr.in.sin_addr;
+    cmsg_broadcast_client_generate_event (broadcast_client, address, false);
 }
 
 /**
@@ -152,34 +122,45 @@ cmsg_broadcast_client_delete_child (cmsg_broadcast_client *broadcast_client,
 static bool
 server_event_callback (const cmsg_transport *transport, bool added, void *user_cb_data)
 {
-    uint32_t instance = transport->config.socket.sockaddr.tipc.addr.name.name.instance;
-    uint32_t port = transport->config.socket.sockaddr.tipc.addr.name.name.type;
+    uint32_t port;
+    struct in_addr addr;
     cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) user_cb_data;
+    const char *service_entry_name = broadcast_client->service_entry_name;
+
+    /* Unix transports are not supported at this stage */
+    if (transport->type == CMSG_TRANSPORT_RPC_UNIX ||
+        transport->type == CMSG_TRANSPORT_ONEWAY_UNIX)
+    {
+        return true;
+    }
+
+    addr = transport->config.socket.sockaddr.in.sin_addr;
+    port = transport->config.socket.sockaddr.in.sin_port;
 
     /* Some CMSG descriptors are not unique (e.g. "ffo.health" is used by multiple daemons)
      * Ensure we only connect to servers that are on the port we expect for this client.
      */
-    if (port != cmsg_service_port_get (broadcast_client->service_entry_name, "tipc"))
+    if (port != htons (cmsg_service_port_get (service_entry_name, "tcp")))
     {
         /* Silently ignore */
         return true;
     }
 
-    /* this should never happen, but sanity-check event is valid */
-    if (instance < broadcast_client->lower_node_id ||
-        instance > broadcast_client->upper_node_id)
+    if (!broadcast_client->connect_to_self &&
+        broadcast_client->my_node_addr.s_addr == addr.s_addr)
     {
-        /* Silently ignore */
+        /* Only connect to the server on this node if the user has configured
+         * their broadcast client to do so. */
         return true;
     }
 
     if (added)
     {
-        cmsg_broadcast_client_add_child (broadcast_client, instance);
+        cmsg_broadcast_client_add_child (broadcast_client, transport);
     }
     else
     {
-        cmsg_broadcast_client_delete_child (broadcast_client, instance);
+        cmsg_broadcast_client_delete_child (broadcast_client, transport);
     }
 
     return true;

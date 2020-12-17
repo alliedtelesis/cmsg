@@ -29,7 +29,6 @@ typedef enum transport_type_e
 {
     TRANSPORT_TYPE_NONE,
     TRANSPORT_TYPE_UNIX,
-    TRANSPORT_TYPE_TIPC,
     TRANSPORT_TYPE_TCP,
 } transport_type_t;
 
@@ -42,7 +41,6 @@ typedef struct program_args_s
     char *api_name;
     char *message_data;
     char *port_service_name;
-    int32_t tipc_member_id;
     struct in_addr tcp_ip_address;
     bool valid_ip_address;
     bool oneway;
@@ -63,7 +61,6 @@ static struct option longopts[] = {
     { "api_name", required_argument, NULL, 'a' },
     { "file_name", required_argument, NULL, 'f' },
     { "help", no_argument, NULL, 'h' },
-    { "tipc_member_id", required_argument, NULL, 'i' },
     { "message_data", required_argument, NULL, 'm' },
     { "port_service_name", required_argument, NULL, 'n' },
     { "one_way", no_argument, NULL, 'o' },
@@ -82,9 +79,9 @@ static void
 usage (void)
 {
     fprintf (stderr,
-             "Usage: cmsg [-t {unix|tipc|tcp}] | [-f FILE_NAME] | [-p PACKAGE_NAME] |\n"
+             "Usage: cmsg [-t {unix|tcp}] | [-f FILE_NAME] | [-p PACKAGE_NAME] |\n"
              "            [-s CMSG_SERVICE_NAME] | [-a API_NAME] | [-m MESSAGE_DATA] |\n"
-             "            [-o] | [-n PORT_SERVICE_NAME] | [-i TIPC_MEMBER_ID]\n"
+             "            [-o] | [-n PORT_SERVICE_NAME]\n"
              "\n"
              "Options:\n"
              "  -h                      Display this message.\n"
@@ -99,11 +96,9 @@ usage (void)
              "  -o                      The CMSG client should be oneway (defaults to two-way/rpc).\n"
              "  -q                      Disable the printing of any error logs that may occur.\n"
              "  -n PORT_SERVICE_NAME    The service name for the port specified in the /etc/services file\n"
-             "                          (if using a TIPC or TCP transport).\n"
+             "                          (if using a TCP transport).\n"
              "  -r TCP_IP_ADDRESS       The IP address of the server to connect to (if using a\n"
-             "                          TCP transport). Currently this must be an IPv4 address.\n"
-             "  -i TIPC_MEMBER_ID       The TIPC node to connect to (if using TIPC transport).\n"
-             "                          This assumes TIPC_CLUSTER_SCOPE.\n\n");
+             "                          TCP transport). Currently this must be an IPv4 address.\n\n");
 }
 
 /**
@@ -122,10 +117,6 @@ get_transport_type (const char *type_string)
     if (strcmp (type_string, "unix") == 0)
     {
         type = TRANSPORT_TYPE_UNIX;
-    }
-    else if (strcmp (type_string, "tipc") == 0)
-    {
-        type = TRANSPORT_TYPE_TIPC;
     }
     else if (strcmp (type_string, "tcp") == 0)
     {
@@ -149,30 +140,6 @@ get_ipv4_address (program_args *args, const char *addr_string)
 }
 
 /**
- * Convert the tipc member id argument string to an integer value.
- *
- * @param id - The input argument string
- *
- * @returns The converted integer value on success,
- *          -1 it could not be converted.
- */
-static int32_t
-get_tipc_member_id (const char *id)
-{
-    int32_t value = -1;
-    int32_t ret = -1;
-    char *endptr = NULL;
-
-    value = strtol (id, &endptr, 10);
-    if (*endptr == '\0')
-    {
-        ret = value;
-    }
-
-    return ret;
-}
-
-/**
  * Initialise a 'program_args' args structure to suitable default values.
  *
  * @param args - The 'program_args' structure to initialise.
@@ -187,7 +154,6 @@ program_args_init (program_args *args)
     args->api_name = NULL;
     args->message_data = NULL;
     args->port_service_name = NULL;
-    args->tipc_member_id = -1;
     args->oneway = false;
     args->valid_ip_address = false;
     args->disable_error_logs = false;
@@ -228,19 +194,6 @@ check_input_arguments (program_args *args)
     {
         fprintf (stderr, "An api/rpc name must be supplied.\n");
         return false;
-    }
-    if (args->transport_type == TRANSPORT_TYPE_TIPC)
-    {
-        if (args->port_service_name == NULL)
-        {
-            fprintf (stderr, "A service name for the port must be supplied.\n");
-            return false;
-        }
-        if (args->tipc_member_id == -1)
-        {
-            fprintf (stderr, "A TIPC member id must be supplied.\n");
-            return false;
-        }
     }
     if (args->transport_type == TRANSPORT_TYPE_TCP)
     {
@@ -299,9 +252,6 @@ parse_input_arguments (int argc, char **argv, program_args *args)
         case 'h':
             usage ();
             exit (EXIT_SUCCESS);
-        case 'i':
-            args->tipc_member_id = get_tipc_member_id (optarg);
-            break;
         case 'm':
             args->message_data = optarg;
             break;
@@ -501,22 +451,6 @@ create_client (program_args *args, const ProtobufCServiceDescriptor *service_des
         else
         {
             client = cmsg_create_client_unix (service_descriptor);
-        }
-    }
-    else if (args->transport_type == TRANSPORT_TYPE_TIPC)
-    {
-        if (args->oneway)
-        {
-            client = cmsg_create_client_tipc_oneway (args->port_service_name,
-                                                     args->tipc_member_id,
-                                                     TIPC_CLUSTER_SCOPE,
-                                                     service_descriptor);
-        }
-        else
-        {
-            client = cmsg_create_client_tipc_rpc (args->port_service_name,
-                                                  args->tipc_member_id,
-                                                  TIPC_CLUSTER_SCOPE, service_descriptor);
         }
     }
     else if (args->transport_type == TRANSPORT_TYPE_TCP)

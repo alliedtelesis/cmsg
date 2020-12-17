@@ -155,15 +155,6 @@ int32_t cmsg_transport_oneway_server_send (int socket, cmsg_transport *transport
 int cmsg_transport_get_socket (cmsg_transport *transport);
 void cmsg_transport_socket_close (cmsg_transport *transport);
 
-cmsg_transport *cmsg_create_transport_tipc (const char *server_name, int member_id,
-                                            int scope, cmsg_transport_type transport_type);
-
-cmsg_transport *cmsg_create_transport_tipc_rpc (const char *server_name, int member_id,
-                                                int scope);
-
-cmsg_transport *cmsg_create_transport_tipc_oneway (const char *server_name, int member_id,
-                                                   int scope);
-
 void cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id);
 
 cmsg_transport *cmsg_create_transport_unix (const ProtobufCServiceDescriptor *descriptor,
