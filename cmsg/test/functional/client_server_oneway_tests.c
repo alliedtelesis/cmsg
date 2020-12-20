@@ -113,15 +113,6 @@ test_client_server_oneway_tcp6 (void)
 }
 
 /**
- * Run the simple client <-> server test case with a TIPC transport.
- */
-void
-test_client_server_oneway_tipc (void)
-{
-    run_client_server_tests (CMSG_TRANSPORT_ONEWAY_TIPC, AF_UNSPEC);
-}
-
-/**
  * Run the simple client <-> server test case with a UNIX transport.
  */
 void

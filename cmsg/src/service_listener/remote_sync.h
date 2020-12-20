@@ -12,7 +12,7 @@
 #include "cmsg_types_auto.h"
 
 void remote_sync_debug_dump (FILE *fp);
-void remote_sync_address_set (struct in_addr addr, uint32_t node_id);
+void remote_sync_address_set (struct in_addr addr);
 void remote_sync_add_host (struct in_addr addr);
 void remote_sync_delete_host (struct in_addr addr);
 bool remote_sync_server_added (const cmsg_service_info *server_info);

@@ -15,7 +15,7 @@ cmsg_client *cmsg_composite_client_new (const ProtobufCServiceDescriptor *descri
 cmsg_client *cmsg_composite_client_lookup_by_tipc_id (cmsg_client *composite_client,
                                                       uint32_t id);
 cmsg_client *cmsg_composite_client_lookup_by_tcp_ipv4_addr (cmsg_client *_composite_client,
-                                                            uint32_t addr);
+                                                            struct in_addr addr);
 cmsg_client *cmsg_composite_client_lookup_by_tcp_ipv6_addr (cmsg_client *_composite_client,
                                                             struct in6_addr *addr);
 cmsg_client *cmsg_composite_client_lookup_by_transport (cmsg_client *_composite_client,

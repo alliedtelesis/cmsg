@@ -372,7 +372,7 @@ cmsg_composite_client_lookup_by_tipc_id (cmsg_client *_composite_client, uint32_
  */
 cmsg_client *
 cmsg_composite_client_lookup_by_tcp_ipv4_addr (cmsg_client *_composite_client,
-                                               uint32_t addr)
+                                               struct in_addr addr)
 {
     GList *l;
     cmsg_client *child;
@@ -387,7 +387,7 @@ cmsg_composite_client_lookup_by_tcp_ipv4_addr (cmsg_client *_composite_client,
         child = (cmsg_client *) l->data;
         if ((child->_transport->type == CMSG_TRANSPORT_RPC_TCP ||
              child->_transport->type == CMSG_TRANSPORT_ONEWAY_TCP) &&
-            child->_transport->config.socket.sockaddr.in.sin_addr.s_addr == addr)
+            child->_transport->config.socket.sockaddr.in.sin_addr.s_addr == addr.s_addr)
         {
             pthread_mutex_unlock (&composite_client->child_mutex);
             return child;

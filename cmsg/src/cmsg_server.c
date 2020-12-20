@@ -22,10 +22,6 @@
  * take a long time. */
 #define SERVER_RECV_HEADER_PEEK_TIMEOUT 10
 
-static cmsg_server *_cmsg_create_server_tipc (const char *server_name, int member_id,
-                                              int scope, ProtobufCService *descriptor,
-                                              cmsg_transport_type transport_type);
-
 static void cmsg_server_queue_filter_init (cmsg_server *server);
 
 static cmsg_queue_filter_type cmsg_server_queue_filter_lookup (cmsg_server *server,
@@ -1703,53 +1699,6 @@ cmsg_server_queue_filter_lookup (cmsg_server *server, const char *method)
     pthread_mutex_unlock (&server->queue_filter_mutex);
 
     return ret;
-}
-
-static cmsg_server *
-_cmsg_create_server_tipc (const char *server_name, int member_id, int scope,
-                          ProtobufCService *descriptor, cmsg_transport_type transport_type)
-{
-    cmsg_transport *transport = NULL;
-    cmsg_server *server = NULL;
-
-    transport = cmsg_create_transport_tipc (server_name, member_id, scope, transport_type);
-    if (transport == NULL)
-    {
-        return NULL;
-    }
-
-    server = cmsg_server_new (transport, descriptor);
-    if (server == NULL)
-    {
-        cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("[%s%s] Failed to create TIPC server for member %d.",
-                            descriptor->descriptor->name, transport->tport_id, member_id);
-        return NULL;
-    }
-
-    return server;
-}
-
-cmsg_server *
-cmsg_create_server_tipc_rpc (const char *server_name, int member_id, int scope,
-                             ProtobufCService *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
-                                     CMSG_TRANSPORT_RPC_TIPC);
-}
-
-cmsg_server *
-cmsg_create_server_tipc_oneway (const char *server_name, int member_id, int scope,
-                                ProtobufCService *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_server_tipc (server_name, member_id, scope, descriptor,
-                                     CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 static cmsg_server *

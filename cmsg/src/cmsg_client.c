@@ -31,11 +31,6 @@ static int32_t _cmsg_client_queue_process_all_direct (cmsg_client *client);
 static int32_t _cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer,
                                          uint32_t buffer_size);
 
-static cmsg_client *_cmsg_create_client_tipc (const char *server, int member_id,
-                                              int scope,
-                                              const ProtobufCServiceDescriptor *descriptor,
-                                              cmsg_transport_type transport_type);
-
 int32_t cmsg_client_counter_create (cmsg_client *client, char *app_name);
 
 static void cmsg_client_invoke (ProtobufCService *service,
@@ -1297,53 +1292,6 @@ cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable)
     {
         client->_transport->suppress_errors = enable;
     }
-}
-
-/* Create a cmsg client and its transport with TIPC (RPC) */
-static cmsg_client *
-_cmsg_create_client_tipc (const char *server, int member_id, int scope,
-                          const ProtobufCServiceDescriptor *descriptor,
-                          cmsg_transport_type transport_type)
-{
-    cmsg_transport *transport;
-    cmsg_client *client;
-
-    transport = cmsg_create_transport_tipc (server, member_id, scope, transport_type);
-    if (!transport)
-    {
-        return NULL;
-    }
-
-    client = cmsg_client_new (transport, descriptor);
-    if (!client)
-    {
-        cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("No TIPC client to member %d", member_id);
-        return NULL;
-    }
-    return client;
-}
-
-cmsg_client *
-cmsg_create_client_tipc_rpc (const char *server_name, int member_id, int scope,
-                             const ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
-                                     CMSG_TRANSPORT_RPC_TIPC);
-}
-
-cmsg_client *
-cmsg_create_client_tipc_oneway (const char *server_name, int member_id, int scope,
-                                const ProtobufCServiceDescriptor *descriptor)
-{
-    CMSG_ASSERT_RETURN_VAL (server_name != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    return _cmsg_create_client_tipc (server_name, member_id, scope, descriptor,
-                                     CMSG_TRANSPORT_ONEWAY_TIPC);
 }
 
 /* Create a cmsg client and its transport over a UNIX socket */

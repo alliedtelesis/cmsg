@@ -9,7 +9,6 @@ import "cmsg.proto";
 message address_info
 {
     optional uint32 ip_addr = 1;
-    optional uint32 node_id = 2;
 }
 
 message listener_info

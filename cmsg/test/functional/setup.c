@@ -11,8 +11,6 @@
 #include "setup.h"
 
 static const uint16_t port_number = 18888;
-static const uint16_t tipc_instance = 1;
-static const uint16_t tipc_scope = TIPC_NODE_SCOPE;
 
 #define CMSG_SLD_WAIT_TIME (500 * 1000)
 
@@ -198,16 +196,6 @@ create_client (cmsg_transport_type type, int family)
         }
         break;
 
-    case CMSG_TRANSPORT_ONEWAY_TIPC:
-        client = cmsg_create_client_tipc_oneway ("cmsg-test", tipc_instance, tipc_scope,
-                                                 CMSG_DESCRIPTOR (cmsg, test));
-        break;
-
-    case CMSG_TRANSPORT_RPC_TIPC:
-        client = cmsg_create_client_tipc_rpc ("cmsg-test", tipc_instance, tipc_scope,
-                                              CMSG_DESCRIPTOR (cmsg, test));
-        break;
-
     case CMSG_TRANSPORT_ONEWAY_UNIX:
         client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg, test));
         break;
@@ -313,16 +301,6 @@ create_server (cmsg_transport_type type, int family, pthread_t *thread)
             server = cmsg_create_server_tcp_ipv6_rpc ("cmsg-test", &tcp_addr, 0, NULL,
                                                       CMSG_SERVICE (cmsg, test));
         }
-        break;
-
-    case CMSG_TRANSPORT_ONEWAY_TIPC:
-        server = cmsg_create_server_tipc_oneway ("cmsg-test", tipc_instance, tipc_scope,
-                                                 CMSG_SERVICE (cmsg, test));
-        break;
-
-    case CMSG_TRANSPORT_RPC_TIPC:
-        server = cmsg_create_server_tipc_rpc ("cmsg-test", tipc_instance, tipc_scope,
-                                              CMSG_SERVICE (cmsg, test));
         break;
 
     case CMSG_TRANSPORT_ONEWAY_UNIX:

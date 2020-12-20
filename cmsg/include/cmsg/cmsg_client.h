@@ -192,14 +192,6 @@ int32_t cmsg_client_create_packet (cmsg_client *client, const char *method_name,
                                    const ProtobufCMessage *input, uint8_t **buffer_ptr,
                                    uint32_t *total_message_size_ptr);
 
-cmsg_client *cmsg_create_client_tipc_rpc (const char *server_name, int member_id,
-                                          int scope,
-                                          const ProtobufCServiceDescriptor *descriptor);
-
-cmsg_client *cmsg_create_client_tipc_oneway (const char *server_name, int member_id,
-                                             int scope,
-                                             const ProtobufCServiceDescriptor *descriptor);
-
 cmsg_client *cmsg_create_client_unix (const ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_unix_oneway (const ProtobufCServiceDescriptor *descriptor);
 int32_t cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor);
