@@ -37,9 +37,15 @@ cmsg_sld_remote_sync_impl_bulk_sync (const void *service,
     for (index = 0; index < recv_data->n_data; index++)
     {
         info = recv_data->data[index];
-        data_add_server (info, false);
-        /* Set to NULL so that the memory is not freed */
-        recv_data->data[index] = NULL;
+
+        /* Ensure we only add remote TCP servers (stack members running older
+         * software versions may send non-TCP servers until they update and reboot). */
+        if (info->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+        {
+            data_add_server (info, false);
+            /* Set to NULL so that the memory is not freed */
+            recv_data->data[index] = NULL;
+        }
     }
 
     cmsg_sld_remote_sync_server_bulk_syncSend (service);
@@ -52,10 +58,15 @@ void
 cmsg_sld_remote_sync_impl_add_server (const void *service,
                                       const cmsg_service_info *recv_msg)
 {
-    /* We hold onto the message to store in the data hash table */
-    cmsg_server_app_owns_current_msg_set (remote_sync_server);
+    /* Ensure we only add remote TCP servers (stack members running older
+     * software versions may send non-TCP servers until they update and reboot). */
+    if (recv_msg->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    {
+        /* We hold onto the message to store in the data hash table */
+        cmsg_server_app_owns_current_msg_set (remote_sync_server);
+        data_add_server ((cmsg_service_info *) recv_msg, false);
+    }
 
-    data_add_server ((cmsg_service_info *) recv_msg, false);
     cmsg_sld_remote_sync_server_add_serverSend (service);
 }
 
@@ -67,7 +78,13 @@ void
 cmsg_sld_remote_sync_impl_remove_server (const void *service,
                                          const cmsg_service_info *recv_msg)
 {
-    data_remove_server (recv_msg, false);
+    /* Ensure we only remove remote TCP servers (stack members running older
+     * software versions may send non-TCP servers until they update and reboot). */
+    if (recv_msg->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    {
+        data_remove_server (recv_msg, false);
+    }
+
     cmsg_sld_remote_sync_server_remove_serverSend (service);
 }
 
