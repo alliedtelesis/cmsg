@@ -12,8 +12,28 @@
 #include "cmsg_ps_api_private.h"
 #include "transport/cmsg_transport_private.h"
 #include "update_impl_auto.h"
+#include <cmsg/cmsg_sl.h>
 
 static struct in_addr local_addr;
+
+/**
+ * Create a CMSG client to talk to the cmsg_psd daemon.
+ *
+ * @returns The CMSG client. This must be destroyed by the caller.
+ */
+static cmsg_client *
+cmsg_ps_get_client (void)
+{
+    static bool cmsg_psd_running = false;
+    const char *s_name = cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    if (!cmsg_psd_running)
+    {
+        cmsg_service_listener_wait_for_unix_server (s_name, -1);
+        cmsg_psd_running = true;
+    }
+
+    return cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+}
 
 /**
  * Configure the IP address of the server running in cmsg_psd.
@@ -30,7 +50,7 @@ cmsg_ps_address_set (struct in_addr addr)
     cmsg_uint32 send_msg = CMSG_UINT32_INIT;
     int ret;
 
-    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    client = cmsg_ps_get_client ();
     if (!client)
     {
         return CMSG_RET_ERR;
@@ -81,7 +101,7 @@ cmsg_ps_subscription_add_remove (cmsg_server *sub_server, const char *method_nam
         CMSG_SET_FIELD_VALUE (&send_msg, remote_addr, remote_addr);
     }
 
-    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    client = cmsg_ps_get_client ();
     if (!client)
     {
         cmsg_transport_info_free (transport_info);
@@ -194,7 +214,7 @@ cmsg_ps_remove_subscriber (cmsg_server *sub_server)
         return CMSG_RET_ERR;
     }
 
-    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    client = cmsg_ps_get_client ();
     if (!client)
     {
         cmsg_transport_info_free (transport_info);
@@ -265,7 +285,7 @@ cmsg_ps_register_publisher (const char *service, cmsg_server *server,
         return CMSG_RET_ERR;
     }
 
-    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    client = cmsg_ps_get_client ();
     if (!client)
     {
         cmsg_transport_info_free (transport_info);
@@ -305,7 +325,7 @@ cmsg_ps_deregister_publisher (const char *service, cmsg_server *server)
         return CMSG_RET_ERR;
     }
 
-    client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg_psd, configuration));
+    client = cmsg_ps_get_client ();
     if (!client)
     {
         cmsg_transport_info_free (transport_info);

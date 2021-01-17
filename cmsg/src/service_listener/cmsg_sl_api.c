@@ -40,6 +40,31 @@ static pthread_mutex_t listener_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t add_remove_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /**
+ * Create a CMSG client to talk to the cmsg_sld daemon.
+ *
+ * @returns The CMSG client. This must be destroyed by the caller.
+ */
+static cmsg_client *
+cmsg_sl_get_client (void)
+{
+    static bool cmsg_sld_running = false;
+    cmsg_client *client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld,
+                                                                           configuration));
+    if (!cmsg_sld_running)
+    {
+        cmsg_client_suppress_error (client, true);
+        while (cmsg_client_connect (client) != 0)
+        {
+            sleep (1);
+        }
+        cmsg_client_suppress_error (client, false);
+        cmsg_sld_running = true;
+    }
+
+    return client;
+}
+
+/**
  * Get the eventfd descriptor from the 'cmsg_sl_info' structure.
  *
  * @param info - The 'cmsg_sl_info' structure to get the eventfd descriptor for.
@@ -201,7 +226,7 @@ _cmsg_service_listener_listen (const char *service_name, bool listen, uint32_t i
     CMSG_SET_FIELD_PTR (&send_msg, transport_info, transport_info);
     CMSG_SET_FIELD_VALUE (&send_msg, id, id);
 
-    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
+    client = cmsg_sl_get_client ();
 
     if (listen)
     {
@@ -392,7 +417,7 @@ cmsg_service_listener_address_set (struct in_addr addr)
     cmsg_sld_address_info send_msg = CMSG_SLD_ADDRESS_INFO_INIT;
     int ret;
 
-    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
+    client = cmsg_sl_get_client ();
     if (!client)
     {
         return CMSG_RET_ERR;
@@ -422,7 +447,7 @@ cmsg_service_listener_add_host (struct in_addr addr)
     cmsg_uint32 send_msg = CMSG_UINT32_INIT;
     int ret;
 
-    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
+    client = cmsg_sl_get_client ();
     if (!client)
     {
         return CMSG_RET_ERR;
@@ -452,7 +477,7 @@ cmsg_service_listener_delete_host (struct in_addr addr)
     cmsg_sld_address_info send_msg = CMSG_SLD_ADDRESS_INFO_INIT;
     int ret;
 
-    client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
+    client = cmsg_sl_get_client ();
     if (!client)
     {
         return CMSG_RET_ERR;
@@ -482,7 +507,7 @@ cmsg_service_listener_add_server (cmsg_server *server)
     if (send_msg)
     {
         CMSG_SET_FIELD_VALUE (send_msg, pid, getpid ());
-        client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
+        client = cmsg_sl_get_client ();
         cmsg_sld_configuration_api_add_server (client, send_msg);
         cmsg_destroy_client_and_transport (client);
         cmsg_server_service_info_free (send_msg);
@@ -504,7 +529,7 @@ cmsg_service_listener_remove_server (cmsg_server *server)
     send_msg = cmsg_server_service_info_create (server);
     if (send_msg)
     {
-        client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg_sld, configuration));
+        client = cmsg_sl_get_client ();
         cmsg_sld_configuration_api_remove_server (client, send_msg);
         cmsg_destroy_client_and_transport (client);
         cmsg_server_service_info_free (send_msg);
