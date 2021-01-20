@@ -651,7 +651,7 @@ cmsg_service_listener_wait_for_tcp_server (const char *service_name, struct in_a
     };
     struct timespec start;
     struct timespec current;
-    int time_to_wait = seconds * 1000;
+    long time_to_wait = seconds * 1000;
     bool ret = false;
     int poll_rc;
 
@@ -685,7 +685,7 @@ cmsg_service_listener_wait_for_tcp_server (const char *service_name, struct in_a
 
         clock_gettime (CLOCK_MONOTONIC_RAW, &current);
         time_to_wait -= (current.tv_sec - start.tv_sec) * 1000;
-        time_to_wait -= (current.tv_nsec - start.tv_nsec) / 1000;
+        time_to_wait -= (current.tv_nsec - start.tv_nsec) / 1000000;
     }
 
     cmsg_service_listener_unlisten (info);
