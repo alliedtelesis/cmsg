@@ -249,6 +249,13 @@ cmsg_server_destroy (cmsg_server *server)
         server->_transport->tport_funcs.socket_close (server->_transport);
     }
 
+    if (cmsg_server_crypto_enabled (server))
+    {
+        g_hash_table_remove_all (server->crypto_sa_hash_table);
+        g_hash_table_unref (server->crypto_sa_hash_table);
+        pthread_mutex_destroy (&server->crypto_sa_hash_table_mutex);
+    }
+
     CMSG_FREE (server);
 }
 
@@ -786,15 +793,41 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
 }
 
 
-/* Accept an incoming socket from a client */
+/**
+ * Accept an incoming connection from a client.
+ *
+ * @param server - The server to accept the connection on.
+ * @param listen_socket - The listening socket.
+ *
+ * @returns The accepted socket descriptor on success, -1 otherwise.
+ */
 static int32_t
 cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 {
     int sock = -1;
+    cmsg_crypto_sa *sa = NULL;
+    struct sockaddr_storage addr;
+    socklen_t len = sizeof (addr);
 
     CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
 
     sock = cmsg_transport_accept (server->_transport);
+
+    if (cmsg_server_crypto_enabled (server))
+    {
+        getpeername (sock, (struct sockaddr *) &addr, &len);
+        sa = server->crypto_sa_create_func (&addr);
+        if (sa == NULL)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "No crypto sa for accepted socket %d.", sock);
+            close (sock);
+            return -1;
+        }
+
+        pthread_mutex_lock (&server->crypto_sa_hash_table_mutex);
+        g_hash_table_insert (server->crypto_sa_hash_table, GINT_TO_POINTER (sock), sa);
+        pthread_mutex_unlock (&server->crypto_sa_hash_table_mutex);
+    }
 
     // count the accepted connection
     CMSG_COUNTER_INC (server, cntr_connections_accepted);
@@ -2283,4 +2316,60 @@ cmsg_server_thread_task (void *_info)
     CMSG_FREE (info);
 
     return NULL;
+}
+
+/**
+ * Enable encryption for the connections to this server.
+ *
+ * @param server - The server to accept connections for.
+ * @param func - The user supplied callback function to create a crypto sa
+ *               when the server accepts a connection.
+ *
+ * @return CMSG_RET_OK on success, CMSG_RET_ERR on failure.
+ */
+int32_t
+cmsg_server_crypto_enable (cmsg_server *server, crypto_sa_create_func_t func)
+{
+    if (func == NULL)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    if (server->crypto_sa_hash_table)
+    {
+        /* Already initialised */
+        return CMSG_RET_OK;
+    }
+
+    if (pthread_mutex_init (&server->crypto_sa_hash_table_mutex, NULL) != 0)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    server->crypto_sa_create_func = func;
+
+    server->crypto_sa_hash_table =
+        g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
+                               (GDestroyNotify) cmsg_crypto_sa_free);
+    if (server->crypto_sa_hash_table == NULL)
+    {
+        server->crypto_sa_create_func = NULL;
+        pthread_mutex_destroy (&server->crypto_sa_hash_table_mutex);
+        return CMSG_RET_ERR;
+    }
+
+    return CMSG_RET_OK;
+}
+
+/**
+ * Is encrypted connections enabled for this server.
+ *
+ * @param server - The server to check.
+ *
+ * @returns true if enabled, false otherwise.
+ */
+bool
+cmsg_server_crypto_enabled (cmsg_server *server)
+{
+    return (server->crypto_sa_hash_table != NULL);
 }

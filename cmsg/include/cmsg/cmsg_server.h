@@ -9,6 +9,7 @@
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 #include "cmsg_transport.h"
 #include "cmsg_queue.h"
+#include "cmsg_crypto.h"
 
 #define CMSG_SERVICE(package,service)     ((ProtobufCService *)&package ## _ ## service ## _service)
 #define CMSG_SERVICE_NOPACKAGE(service)   ((ProtobufCService *)&service ## _service)
@@ -132,6 +133,10 @@ typedef struct _cmsg_server_s
     cmsg_server_accept_thread_info *accept_thread_info;
 
     void *event_loop_data;
+
+    GHashTable *crypto_sa_hash_table;
+    pthread_mutex_t crypto_sa_hash_table_mutex;
+    crypto_sa_create_func_t crypto_sa_create_func;
 
     //counter information
     void *cntr_session;
@@ -276,5 +281,8 @@ const cmsg_server *cmsg_server_from_service_get (const void *service);
 cmsg_server_thread_task_info *cmsg_server_thread_task_info_create (cmsg_server *server,
                                                                    int timeout);
 void *cmsg_server_thread_task (void *_info);
+
+int32_t cmsg_server_crypto_enable (cmsg_server *server, crypto_sa_create_func_t func);
+bool cmsg_server_crypto_enabled (cmsg_server *server);
 
 #endif /* __CMSG_SERVER_H_ */
