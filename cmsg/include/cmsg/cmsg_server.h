@@ -284,5 +284,6 @@ void *cmsg_server_thread_task (void *_info);
 
 int32_t cmsg_server_crypto_enable (cmsg_server *server, crypto_sa_create_func_t func);
 bool cmsg_server_crypto_enabled (cmsg_server *server);
+void cmsg_server_close_accepted_socket (cmsg_server *server, int socket);
 
 #endif /* __CMSG_SERVER_H_ */

@@ -48,7 +48,7 @@ pthread_server_cancelled (cmsg_pthread_server_info *pthread_info)
         }
         if (FD_ISSET (fd, &pthread_info->readfds))
         {
-            close (fd);
+            cmsg_server_close_accepted_socket (pthread_info->server, fd);
         }
     }
 }
@@ -221,20 +221,20 @@ cmsg_pthread_multithreaded_receive_thread (void *_recv_info)
         {
             /* There has been no activity on the socket for 5 minutes.
              * Close the connection and exit the thread. */
-            close (recv_info->socket);
+            cmsg_server_close_accepted_socket (server_info->server, recv_info->socket);
             break;
         }
         if (FD_ISSET (recv_info->socket, &read_fds))
         {
             if (cmsg_server_receive (server_info->server, recv_info->socket) < 0)
             {
-                close (recv_info->socket);
+                cmsg_server_close_accepted_socket (server_info->server, recv_info->socket);
                 break;
             }
         }
         if (FD_ISSET (server_info->shutdown_eventfd, &read_fds))
         {
-            close (recv_info->socket);
+            cmsg_server_close_accepted_socket (server_info->server, recv_info->socket);
             break;
         }
     }
@@ -293,7 +293,7 @@ cmsg_pthread_multithreaded_accept_thread (void *_server_info)
                 if (!recv_info)
                 {
                     syslog (LOG_ERR, "Failed to allocate memory for CMSG server receive");
-                    close (*newfd_ptr);
+                    cmsg_server_close_accepted_socket (server_info->server, *newfd_ptr);
                     CMSG_FREE (newfd_ptr);
                     continue;
                 }
@@ -312,7 +312,7 @@ cmsg_pthread_multithreaded_accept_thread (void *_server_info)
                 else
                 {
                     syslog (LOG_ERR, "Failed to create thread for CMSG server receive");
-                    close (*newfd_ptr);
+                    cmsg_server_close_accepted_socket (server_info->server, *newfd_ptr);
                     free (recv_info);
                 }
                 CMSG_FREE (newfd_ptr);

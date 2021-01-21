@@ -223,7 +223,7 @@ cmsg_server_destroy (cmsg_server *server)
     {
         if (FD_ISSET (fd, &server->accepted_fdset))
         {
-            close (fd);
+            cmsg_server_close_accepted_socket (server, fd);
         }
     }
 
@@ -501,8 +501,7 @@ cmsg_server_thread_receive_poll (cmsg_server *server, int32_t timeout_ms,
                 if (cmsg_server_receive (server, fd) < 0)
                 {
                     // only close the socket if we have errored
-                    shutdown (fd, SHUT_RDWR);
-                    close (fd);
+                    cmsg_server_close_accepted_socket (server, fd);
                     FD_CLR (fd, master_fdset);
                     check_fdmax = true;
                 }
@@ -645,8 +644,7 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
                     if (cmsg_server_receive (server, fd) < 0)
                     {
                         // only close the socket if we have errored
-                        shutdown (fd, SHUT_RDWR);
-                        close (fd);
+                        cmsg_server_close_accepted_socket (server, fd);
                         FD_CLR (fd, &server->accepted_fdset);
                         if (server->accepted_fdmax == fd)
                         {
@@ -2308,7 +2306,7 @@ cmsg_server_thread_task (void *_info)
         }
         if (FD_ISSET (fd, &readfds))
         {
-            close (fd);
+            cmsg_server_close_accepted_socket (info->server, fd);
         }
     }
 
@@ -2372,4 +2370,24 @@ bool
 cmsg_server_crypto_enabled (cmsg_server *server)
 {
     return (server->crypto_sa_hash_table != NULL);
+}
+
+/**
+ * Close an accepted socket connection on the server.
+ *
+ * @param server - The server to close the connection for.
+ * @param socket-  The socket connection to close.
+ */
+void
+cmsg_server_close_accepted_socket (cmsg_server *server, int socket)
+{
+    if (cmsg_server_crypto_enabled (server))
+    {
+        pthread_mutex_lock (&server->crypto_sa_hash_table_mutex);
+        g_hash_table_remove (server->crypto_sa_hash_table, GINT_TO_POINTER (socket));
+        pthread_mutex_unlock (&server->crypto_sa_hash_table_mutex);
+    }
+
+    shutdown (socket, SHUT_RDWR);
+    close (socket);
 }
