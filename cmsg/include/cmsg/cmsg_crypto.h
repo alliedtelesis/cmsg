@@ -19,6 +19,10 @@
 
 #define KEY_SIZE                32
 
+/* Allow for encrypted data possibly requiring more buffer space than plain-text data
+ * to pad the end of the last data block */
+#define ENCRYPT_EXTRA   64
+
 typedef struct _cmsg_crypto_sa
 {
     uint32_t id;
@@ -36,5 +40,7 @@ typedef cmsg_crypto_sa *(*crypto_sa_create_func_t) (const struct sockaddr_storag
 
 cmsg_crypto_sa *cmsg_crypto_sa_alloc (void);
 void cmsg_crypto_sa_free (cmsg_crypto_sa *sa);
+int cmsg_crypto_encrypt (cmsg_crypto_sa *sa, void *inbuf, int length,
+                         void *outbuf, int outbuf_size);
 
 #endif /* __CMSG_CRYPTO_H_ */

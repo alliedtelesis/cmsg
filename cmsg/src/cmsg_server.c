@@ -1138,13 +1138,70 @@ _cmsg_server_method_req_message_processor (int socket, cmsg_server_request *serv
 /**
  * Wrap the sending of a buffer so that the input buffer can be encrypted if required
  *
- * @returns -1 on failure, 0 on success
+ * @param server - The server sending data.
+ * @param socket - The socket connection to send the data on.
+ * @param buff - The data to send.
+ * @param length - The length of the data to send.
+ *
+ * @returns The number of bytes sent if successful, -1 on failure.
  */
 static int
-cmsg_server_send_wrapper (int socket, cmsg_transport *transport, void *buff, int length)
+cmsg_server_send_wrapper (cmsg_server *server, int socket, void *buff, int length)
 {
-    return transport->tport_funcs.server_send (socket, transport, buff, length, 0);
+    int ret = -1;
+    cmsg_transport *transport = server->_transport;
+    uint8_t *encrypt_buffer;
+    int encrypt_length;
+    cmsg_crypto_sa *sa = NULL;
 
+    if (cmsg_server_crypto_enabled (server))
+    {
+        pthread_mutex_lock (&server->crypto_sa_hash_table_mutex);
+        sa = g_hash_table_lookup (server->crypto_sa_hash_table, GINT_TO_POINTER (socket));
+        pthread_mutex_unlock (&server->crypto_sa_hash_table_mutex);
+
+        if (sa == NULL)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Server failed to lookup sa on socket %d",
+                                   socket);
+            return -1;
+        }
+
+        encrypt_buffer = (uint8_t *) CMSG_CALLOC (1, length + ENCRYPT_EXTRA);
+        if (encrypt_buffer == NULL)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Server failed to allocate buffer on socket %d",
+                                   socket);
+            return -1;
+        }
+
+        encrypt_length = cmsg_crypto_encrypt (sa, buff, length, encrypt_buffer,
+                                              length + ENCRYPT_EXTRA);
+        if (encrypt_length < 0)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Server encrypt on socket %d failed", socket);
+            CMSG_FREE (encrypt_buffer);
+            return -1;
+        }
+
+        ret = transport->tport_funcs.server_send (socket, transport, encrypt_buffer,
+                                                  encrypt_length, 0);
+
+        /* if the send was successful, fixup the return length to match the original
+         * plaintext length so callers are unaware of the encryption */
+        if (encrypt_length == ret)
+        {
+            ret = length;
+        }
+
+        CMSG_FREE (encrypt_buffer);
+    }
+    else
+    {
+        ret = transport->tport_funcs.server_send (socket, transport, buff, length, 0);
+    }
+
+    return ret;
 }
 
 /**
@@ -1166,7 +1223,7 @@ _cmsg_server_echo_req_message_processor (int socket, cmsg_server *server,
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = cmsg_server_send_wrapper (socket, server->_transport, &header, sizeof (header));
+    ret = cmsg_server_send_wrapper (server, socket, &header, sizeof (header));
     if (ret < (int) sizeof (header))
     {
         CMSG_LOG_SERVER_ERROR (server, "Sending of echo reply failed. Sent:%d of %u bytes.",
@@ -1234,7 +1291,7 @@ cmsg_server_empty_method_reply_send (int socket, cmsg_server *server,
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = cmsg_server_send_wrapper (socket, server->_transport, &header, sizeof (header));
+    ret = cmsg_server_send_wrapper (server, socket, &header, sizeof (header));
     if (ret < (int) sizeof (header))
     {
         CMSG_DEBUG (CMSG_ERROR,
@@ -1380,8 +1437,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         CMSG_DEBUG (CMSG_INFO, "[SERVER] response data\n");
         cmsg_buffer_print ((void *) buffer_data, packed_size);
 
-        send_ret = cmsg_server_send_wrapper (socket, server->_transport, buffer,
-                                             total_message_size);
+        send_ret = cmsg_server_send_wrapper (server, socket, buffer, total_message_size);
 
         if (send_ret < (int) total_message_size)
         {
