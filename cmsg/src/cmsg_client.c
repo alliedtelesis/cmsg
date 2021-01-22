@@ -247,6 +247,11 @@ cmsg_client_deinit (cmsg_client *client)
         client->loopback_server = NULL;
     }
 
+    if (client->crypto_sa)
+    {
+        cmsg_crypto_sa_free (client->crypto_sa);
+    }
+
     pthread_mutex_destroy (&client->invoke_mutex);
     pthread_mutex_destroy (&client->send_mutex);
 }
@@ -1813,4 +1818,42 @@ cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
     CMSG_FREE (dummy);
 
     return cmsg_api_process_closure_data (closure_data, recv_msg);
+}
+
+/**
+ * Enable encryption for this clients connections.
+ *
+ * @param client - The client to enable encryption for.
+ * @param sa - The SA structure to use for the encrypted connection.
+ * @param derive_func - The user supplied callback function to derive the crypto sa
+ *                      before sending the nonce to the server.
+ *
+ * @return CMSG_RET_OK on success, CMSG_RET_ERR on failure.
+ */
+int32_t
+cmsg_client_crypto_enable (cmsg_client *client, cmsg_crypto_sa *sa,
+                           crypto_sa_derive_func_t derive_func)
+{
+    if (sa == NULL || derive_func == NULL)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    client->crypto_sa = sa;
+    client->crypto_sa_derive_func = derive_func;
+
+    return CMSG_RET_OK;
+}
+
+/**
+ * Is encrypted connections enabled for this client.
+ *
+ * @param client - The client to check.
+ *
+ * @returns true if enabled, false otherwise.
+ */
+bool
+cmsg_client_crypto_enabled (cmsg_client *client)
+{
+    return (client->crypto_sa != NULL);
 }
