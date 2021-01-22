@@ -46,5 +46,8 @@ int cmsg_crypto_encrypt (cmsg_crypto_sa *sa, void *inbuf, int length,
 int cmsg_crypto_decrypt (cmsg_crypto_sa *sa, void *inbuf, int length, void *outbuf,
                          crypto_sa_derive_func_t sa_derive_func);
 int cmsg_crypto_parse_header (uint8_t *header);
+uint8_t *cmsg_crypto_create_nonce (cmsg_crypto_sa *sa,
+                                   crypto_sa_derive_func_t sa_derive_func,
+                                   uint32_t *nonce_buffer_length);
 
 #endif /* __CMSG_CRYPTO_H_ */

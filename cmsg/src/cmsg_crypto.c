@@ -6,6 +6,7 @@
 
 #include "cmsg_private.h"
 #include "cmsg_crypto.h"
+#include "cmsg_error.h"
 
 #define tracelog_openssl_error() \
     do { \
@@ -24,6 +25,9 @@
 /* the message types used for CMSG crypto communication */
 #define CMSG_CRYPTO_TYPE_NONCE      1
 #define CMSG_CRYPTO_TYPE_PAYLOAD    2
+
+/* 64 bytes represents 512 bits for the nonce */
+#define NONCE_SIZE     64
 
 /* Header prepended to encrypted CMSG traffic */
 typedef struct _cmsg_crypto_secure_header_s
@@ -284,4 +288,56 @@ cmsg_crypto_parse_header (uint8_t *header)
     }
 
     return msg_length;
+}
+
+/**
+ * Create a NONCE message.
+ *
+ * @param sa - pointer to the SA structure for the communication
+ * @param sa_derive_func - user supplied callback to derive the SA
+ * @param nonce_buffer_length - pointer to store the length of the nonce message
+ *
+ * @returns pointer to the NONCE message on success, NULL otherwise. This message
+ *          must be called using CMSG_FREE.
+ */
+uint8_t *
+cmsg_crypto_create_nonce (cmsg_crypto_sa *sa, crypto_sa_derive_func_t sa_derive_func,
+                          uint32_t *nonce_buffer_length)
+{
+    uint8_t *out;
+    uint8_t nonce[NONCE_SIZE];
+    uint8_t *nonce_buffer;
+    uint32_t bytes_used = 0;
+
+    *nonce_buffer_length = sizeof (cmsg_crypto_secure_header) + NONCE_SIZE;
+    nonce_buffer = CMSG_CALLOC (1, *nonce_buffer_length);
+    if (nonce_buffer == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to allocate memory for sa nonce");
+        return NULL;
+    }
+
+    if (RAND_bytes (nonce, NONCE_SIZE) == 1)
+    {
+        if (sa_derive_func (sa, nonce) < 0)
+        {
+            /* error message was given in the derive function */
+            CMSG_FREE (nonce_buffer);
+            return NULL;
+        }
+    }
+    else
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to get nonce for tcp SA %u", sa->id);
+        CMSG_FREE (nonce_buffer);
+        return NULL;
+    }
+
+    out = nonce_buffer;
+    cmsg_crypto_put32 (&out, &bytes_used, CMSG_CRYPTO_MAGIC);
+    cmsg_crypto_put32 (&out, &bytes_used, *nonce_buffer_length);
+    cmsg_crypto_put32 (&out, &bytes_used, CMSG_CRYPTO_TYPE_NONCE);
+    memcpy (out, nonce, NONCE_SIZE);
+
+    return nonce_buffer;
 }
