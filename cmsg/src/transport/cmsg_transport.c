@@ -12,14 +12,6 @@
 /* Limit the size of message read */
 #define CMSG_RECV_ALL_CHUNK_SIZE  (16 * 1024)
 
-typedef enum _cmsg_peek_code
-{
-    CMSG_PEEK_CODE_SUCCESS,
-    CMSG_PEEK_CODE_CONNECTION_CLOSED,
-    CMSG_PEEK_CODE_CONNECTION_RESET,
-    CMSG_PEEK_CODE_TIMEOUT,
-} cmsg_peek_code;
-
 /**
  * An abstraction of the 'connect' system call that allows a timeout
  * value to be used. Adapted from "Unix Network Programming".
@@ -392,13 +384,14 @@ cmsg_transport_destroy (cmsg_transport *transport)
  * @param socket - The socket to peek the data off.
  * @param seconds_to_wait - The number of seconds to wait before timing out and giving up.
  * @param header_received - Pointer to a header structure to return the peeked header in.
+ * @param header_size - The size of the header to be peeked.
  *
  * @returns CMSG_PEEK_CODE_SUCCESS on success, the related cmsg_peek_code otherwise.
  */
-static cmsg_peek_code
+cmsg_peek_code
 cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *transport,
                                 int32_t socket, time_t seconds_to_wait,
-                                cmsg_header *header_received)
+                                void *header_received, int header_size)
 {
     cmsg_peek_code ret = CMSG_PEEK_CODE_SUCCESS;
     int nbytes = 0;
@@ -413,8 +406,8 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
     while (!timed_out)
     {
         nbytes = recv_wrapper (transport, socket, header_received,
-                               sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
-        if (nbytes == (int) sizeof (cmsg_header))
+                               header_size, MSG_PEEK | MSG_DONTWAIT);
+        if (nbytes == header_size)
         {
             break;
         }
@@ -593,7 +586,8 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     *messagePtPt = NULL;
 
     ret = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper, transport,
-                                          socket, receive_timeout, &header_received);
+                                          socket, receive_timeout, &header_received,
+                                          sizeof (header_received));
     if (ret != CMSG_PEEK_CODE_SUCCESS)
     {
         return cmsg_transport_peek_to_status_code (ret);
@@ -781,7 +775,8 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
     peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
                                                   transport,
                                                   server_socket, receive_timeout,
-                                                  &header_received);
+                                                  &header_received,
+                                                  sizeof (header_received));
     if (peek_status == CMSG_PEEK_CODE_SUCCESS)
     {
         ret = _cmsg_transport_server_recv (transport->tport_funcs.recv_wrapper,

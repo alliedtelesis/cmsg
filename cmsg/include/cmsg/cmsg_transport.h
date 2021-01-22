@@ -104,6 +104,14 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_ONEWAY_UNIX,
 } cmsg_transport_type;
 
+typedef enum _cmsg_peek_code
+{
+    CMSG_PEEK_CODE_SUCCESS,
+    CMSG_PEEK_CODE_CONNECTION_CLOSED,
+    CMSG_PEEK_CODE_CONNECTION_RESET,
+    CMSG_PEEK_CODE_TIMEOUT,
+} cmsg_peek_code;
+
 #define CMSG_MAX_TPORT_ID_LEN 128
 
 struct _cmsg_transport_s
@@ -177,5 +185,10 @@ cmsg_transport *cmsg_create_transport_tcp_ipv6 (const char *service_name,
                                                 const char *vrf_bind_dev, bool oneway);
 
 cmsg_transport *cmsg_transport_copy (const cmsg_transport *transport);
+
+cmsg_peek_code
+cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *transport,
+                                int32_t socket, time_t seconds_to_wait,
+                                void *header_received, int header_size);
 
 #endif /* __CMSG_TRANSPORT_H_ */

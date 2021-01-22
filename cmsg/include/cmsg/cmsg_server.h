@@ -137,6 +137,7 @@ typedef struct _cmsg_server_s
     GHashTable *crypto_sa_hash_table;
     pthread_mutex_t crypto_sa_hash_table_mutex;
     crypto_sa_create_func_t crypto_sa_create_func;
+    crypto_sa_derive_func_t crypto_sa_derive_func;
 
     //counter information
     void *cntr_session;
@@ -282,7 +283,8 @@ cmsg_server_thread_task_info *cmsg_server_thread_task_info_create (cmsg_server *
                                                                    int timeout);
 void *cmsg_server_thread_task (void *_info);
 
-int32_t cmsg_server_crypto_enable (cmsg_server *server, crypto_sa_create_func_t func);
+int32_t cmsg_server_crypto_enable (cmsg_server *server, crypto_sa_create_func_t create_func,
+                                   crypto_sa_derive_func_t derive_func);
 bool cmsg_server_crypto_enabled (cmsg_server *server);
 void cmsg_server_close_accepted_socket (cmsg_server *server, int socket);
 

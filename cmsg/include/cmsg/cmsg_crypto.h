@@ -37,10 +37,14 @@ typedef struct _cmsg_crypto_sa
 } cmsg_crypto_sa;
 
 typedef cmsg_crypto_sa *(*crypto_sa_create_func_t) (const struct sockaddr_storage *addr);
+typedef int (*crypto_sa_derive_func_t) (cmsg_crypto_sa *sa, const uint8_t *nonce);
 
 cmsg_crypto_sa *cmsg_crypto_sa_alloc (void);
 void cmsg_crypto_sa_free (cmsg_crypto_sa *sa);
 int cmsg_crypto_encrypt (cmsg_crypto_sa *sa, void *inbuf, int length,
                          void *outbuf, int outbuf_size);
+int cmsg_crypto_decrypt (cmsg_crypto_sa *sa, void *inbuf, int length, void *outbuf,
+                         crypto_sa_derive_func_t sa_derive_func);
+int cmsg_crypto_parse_header (uint8_t *header);
 
 #endif /* __CMSG_CRYPTO_H_ */
