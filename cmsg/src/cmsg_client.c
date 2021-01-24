@@ -1361,6 +1361,7 @@ cmsg_client_transport_send (cmsg_client *client, uint8_t *queue_buffer,
             }
             send_ret = transport->tport_funcs.client_send (transport, nonce,
                                                            nonce_length, 0);
+            CMSG_FREE (nonce);
             if (send_ret < 0)
             {
                 CMSG_LOG_CLIENT_ERROR (client, "Failed to send nonce for SA %u",
