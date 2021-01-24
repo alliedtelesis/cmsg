@@ -538,7 +538,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket,
  *
  * @returns The converted status code.
  */
-static cmsg_status_code
+cmsg_status_code
 cmsg_transport_peek_to_status_code (cmsg_peek_code peek_code)
 {
     cmsg_status_code status_code;

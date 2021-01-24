@@ -190,5 +190,6 @@ cmsg_peek_code
 cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *transport,
                                 int32_t socket, time_t seconds_to_wait,
                                 void *header_received, int header_size);
+cmsg_status_code cmsg_transport_peek_to_status_code (cmsg_peek_code peek_code);
 
 #endif /* __CMSG_TRANSPORT_H_ */
