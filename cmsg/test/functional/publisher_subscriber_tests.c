@@ -15,7 +15,7 @@
 #include "publisher_subscriber/cmsg_pub_private.h"
 
 /* In microseconds. */
-#define CMSG_PSD_WAIT_TIME (500 * 1000)
+#define WAIT_TIME (500 * 1000)
 
 static bool subscriber_run = true;
 
@@ -34,9 +34,11 @@ set_up (void)
 
     subscriber_run = true;
 
-    /* cmsg_psd is required for these tests. */
+    /* cmsg_sld and cmsg_psd is required for these tests. */
+    system ("cmsg_sld &");
+    usleep (WAIT_TIME);
     system ("cmsg_psd &");
-    usleep (CMSG_PSD_WAIT_TIME);
+    usleep (WAIT_TIME);
 
     return 0;
 }
@@ -47,8 +49,10 @@ set_up (void)
 static int USED
 tear_down (void)
 {
+    system ("pkill cmsg_sld");
+    usleep (WAIT_TIME);
     system ("pkill cmsg_psd");
-    usleep (CMSG_PSD_WAIT_TIME);
+    usleep (WAIT_TIME);
 
     return 0;
 }

@@ -103,7 +103,7 @@ cmsg_composite_client_invoke (ProtobufCService *service, uint32_t method_index,
     {
         if (!child->invoke_recv)
         {
-            // invoke_recv is NULL so nothing to do here (e.g. ONEWAY_TIPC transport type)
+            // invoke_recv is NULL so nothing to do here (e.g. ONEWAY_TCP transport type)
             pthread_mutex_unlock (&child->invoke_mutex);
             continue;
         }
@@ -325,41 +325,6 @@ cmsg_composite_client_new (const ProtobufCServiceDescriptor *descriptor)
     }
 
     return &comp_client->base_client;
-}
-
-/**
- * Find a child client within a composite client based on tipc node id.
- *
- * @param _composite_client - The composite client to look for the child client in.
- * @param id - The tipc id to lookup the child client by.
- *
- * @return - Pointer to the child client if found, NULL otherwise.
- */
-cmsg_client *
-cmsg_composite_client_lookup_by_tipc_id (cmsg_client *_composite_client, uint32_t id)
-{
-    GList *l;
-    cmsg_client *child;
-    cmsg_composite_client *composite_client = (cmsg_composite_client *) _composite_client;
-
-    CMSG_COMPOSITE_CLIENT_TYPE_CHECK (composite_client->base_client, NULL);
-
-    pthread_mutex_lock (&composite_client->child_mutex);
-
-    for (l = composite_client->child_clients; l != NULL; l = l->next)
-    {
-        child = (cmsg_client *) l->data;
-        if ((child->_transport->type == CMSG_TRANSPORT_RPC_TIPC ||
-             child->_transport->type == CMSG_TRANSPORT_ONEWAY_TIPC) &&
-            child->_transport->config.socket.sockaddr.tipc.addr.name.name.instance == id)
-        {
-            pthread_mutex_unlock (&composite_client->child_mutex);
-            return child;
-        }
-    }
-
-    pthread_mutex_unlock (&composite_client->child_mutex);
-    return NULL;
 }
 
 /**

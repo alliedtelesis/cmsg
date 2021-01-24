@@ -280,13 +280,6 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
             }
             break;
         }
-    case CMSG_TRANSPORT_RPC_TIPC:
-    case CMSG_TRANSPORT_ONEWAY_TIPC:
-        {
-            snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tipc[%02d]",
-                      tport->config.socket.sockaddr.tipc.addr.name.name.instance);
-            break;
-        }
     case CMSG_TRANSPORT_BROADCAST:
         {
             snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".tipcb");
@@ -343,12 +336,6 @@ cmsg_transport_new (cmsg_transport_type type)
         break;
     case CMSG_TRANSPORT_ONEWAY_TCP:
         cmsg_transport_oneway_tcp_init (transport);
-        break;
-    case CMSG_TRANSPORT_RPC_TIPC:
-        cmsg_transport_tipc_init (transport);
-        break;
-    case CMSG_TRANSPORT_ONEWAY_TIPC:
-        cmsg_transport_oneway_tipc_init (transport);
         break;
     case CMSG_TRANSPORT_BROADCAST:
         cmsg_transport_tipc_broadcast_init (transport);
@@ -976,25 +963,6 @@ cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
                 return true;
             }
             break;
-        case CMSG_TRANSPORT_RPC_TIPC:
-        case CMSG_TRANSPORT_ONEWAY_TIPC:
-            if ((one->config.socket.family == two->config.socket.family) &&
-                (one->config.socket.sockaddr.tipc.family ==
-                 two->config.socket.sockaddr.tipc.family) &&
-                (one->config.socket.sockaddr.tipc.addrtype ==
-                 two->config.socket.sockaddr.tipc.addrtype) &&
-                (one->config.socket.sockaddr.tipc.addr.name.domain ==
-                 two->config.socket.sockaddr.tipc.addr.name.domain) &&
-                (one->config.socket.sockaddr.tipc.addr.name.name.instance ==
-                 two->config.socket.sockaddr.tipc.addr.name.name.instance) &&
-                (one->config.socket.sockaddr.tipc.addr.name.name.type ==
-                 two->config.socket.sockaddr.tipc.addr.name.name.type) &&
-                (one->config.socket.sockaddr.tipc.scope ==
-                 two->config.socket.sockaddr.tipc.scope))
-            {
-                return true;
-            }
-            break;
         case CMSG_TRANSPORT_RPC_UNIX:
         case CMSG_TRANSPORT_ONEWAY_UNIX:
             if ((one->config.socket.family == two->config.socket.family) &&
@@ -1012,39 +980,6 @@ cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
     }
 
     return false;
-}
-
-/**
- * Create a 'cmsg_tipc_transport_info' message for the given tipc transport.
- *
- * @param transport - The tipc transport to build the message for.
- *
- * @returns A pointer to the message on success, NULL on failure.
- */
-cmsg_tipc_transport_info *
-cmsg_transport_tipc_info_create (const cmsg_transport *transport)
-{
-    cmsg_tipc_transport_info *tipc_info = NULL;
-
-    tipc_info = CMSG_MALLOC (sizeof (cmsg_tipc_transport_info));
-    if (!tipc_info)
-    {
-        return NULL;
-    }
-    cmsg_tipc_transport_info_init (tipc_info);
-
-    CMSG_SET_FIELD_VALUE (tipc_info, family, transport->config.socket.sockaddr.tipc.family);
-    CMSG_SET_FIELD_VALUE (tipc_info, addrtype,
-                          transport->config.socket.sockaddr.tipc.addrtype);
-    CMSG_SET_FIELD_VALUE (tipc_info, addr_name_name_type,
-                          transport->config.socket.sockaddr.tipc.addr.name.name.type);
-    CMSG_SET_FIELD_VALUE (tipc_info, addr_name_name_instance,
-                          transport->config.socket.sockaddr.tipc.addr.name.name.instance);
-    CMSG_SET_FIELD_VALUE (tipc_info, addr_name_domain,
-                          transport->config.socket.sockaddr.tipc.addr.name.domain);
-    CMSG_SET_FIELD_VALUE (tipc_info, scope, transport->config.socket.sockaddr.tipc.scope);
-
-    return tipc_info;
 }
 
 /**
@@ -1153,14 +1088,11 @@ cmsg_transport_info_create (const cmsg_transport *transport)
     cmsg_transport_info *transport_info = NULL;
     cmsg_tcp_transport_info *tcp_info = NULL;
     cmsg_unix_transport_info *unix_info = NULL;
-    cmsg_tipc_transport_info *tipc_info = NULL;
 
     if (transport->type != CMSG_TRANSPORT_RPC_TCP &&
         transport->type != CMSG_TRANSPORT_RPC_UNIX &&
-        transport->type != CMSG_TRANSPORT_RPC_TIPC &&
         transport->type != CMSG_TRANSPORT_ONEWAY_UNIX &&
-        transport->type != CMSG_TRANSPORT_ONEWAY_TCP &&
-        transport->type != CMSG_TRANSPORT_ONEWAY_TIPC)
+        transport->type != CMSG_TRANSPORT_ONEWAY_TCP)
     {
         return NULL;
     }
@@ -1208,24 +1140,6 @@ cmsg_transport_info_create (const cmsg_transport *transport)
             transport_info = NULL;
         }
     }
-    else if (transport->type == CMSG_TRANSPORT_RPC_TIPC ||
-             transport->type == CMSG_TRANSPORT_ONEWAY_TIPC)
-    {
-        tipc_info = cmsg_transport_tipc_info_create (transport);
-        if (tipc_info)
-        {
-            CMSG_SET_FIELD_VALUE (transport_info, type, CMSG_TRANSPORT_INFO_TYPE_TIPC);
-            CMSG_SET_FIELD_VALUE (transport_info, one_way,
-                                  transport->type == CMSG_TRANSPORT_ONEWAY_TIPC);
-            CMSG_SET_FIELD_ONEOF (transport_info, tipc_info, tipc_info,
-                                  data, CMSG_TRANSPORT_INFO_DATA_TIPC_INFO);
-        }
-        else
-        {
-            CMSG_FREE (transport_info);
-            transport_info = NULL;
-        }
-    }
 
     return transport_info;
 }
@@ -1250,10 +1164,6 @@ cmsg_transport_info_free (cmsg_transport_info *transport_info)
         CMSG_FREE (transport_info->tcp_info->addr.data);
         CMSG_FREE (transport_info->tcp_info->vrf_bind_dev);
         CMSG_FREE (transport_info->tcp_info);
-    }
-    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
-    {
-        CMSG_FREE (transport_info->tipc_info);
     }
     CMSG_FREE (transport_info);
 }
@@ -1330,27 +1240,6 @@ cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
             transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
         }
     }
-    else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
-    {
-        if (transport_info->one_way)
-        {
-            transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_TIPC);
-        }
-        else
-        {
-            transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_TIPC);
-        }
-
-        transport->config.socket.family = AF_TIPC;
-        transport->config.socket.sockaddr.tipc.family = AF_TIPC;
-        transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAME;
-        transport->config.socket.sockaddr.tipc.addr.name.domain = 0;
-        transport->config.socket.sockaddr.tipc.addr.name.name.type =
-            transport_info->tipc_info->addr_name_name_type;
-        transport->config.socket.sockaddr.tipc.addr.name.name.instance =
-            transport_info->tipc_info->addr_name_name_instance;
-        transport->config.socket.sockaddr.tipc.scope = transport_info->tipc_info->scope;
-    }
 
     return transport;
 }
@@ -1393,24 +1282,6 @@ cmsg_transport_info_compare (const cmsg_transport_info *transport_info_a,
         cmsg_unix_transport_info *unix_info_b = transport_info_b->unix_info;
 
         return (strcmp (unix_info_a->path, unix_info_b->path) == 0);
-    }
-
-    if (transport_info_a->type == CMSG_TRANSPORT_INFO_TYPE_TIPC)
-    {
-        cmsg_tipc_transport_info *tipc_info_a = transport_info_a->tipc_info;
-        cmsg_tipc_transport_info *tipc_info_b = transport_info_b->tipc_info;
-
-        if (tipc_info_a->family == tipc_info_b->family &&
-            tipc_info_a->addrtype == tipc_info_b->addrtype &&
-            tipc_info_a->addr_name_name_type == tipc_info_b->addr_name_name_type &&
-            tipc_info_a->addr_name_name_instance == tipc_info_b->addr_name_name_instance &&
-            tipc_info_a->addr_name_domain == tipc_info_b->addr_name_domain &&
-            tipc_info_a->scope == tipc_info_b->scope)
-        {
-            return true;
-        }
-
-        return false;
     }
 
     return false;

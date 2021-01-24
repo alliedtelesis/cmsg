@@ -27,9 +27,7 @@
                 __LINE__, transport->parent_obj_id, transport->tport_id, ## __VA_ARGS__); \
     } while (0)
 
-void cmsg_transport_tipc_init (cmsg_transport *transport);
 void cmsg_transport_tcp_init (cmsg_transport *transport);
-void cmsg_transport_oneway_tipc_init (cmsg_transport *transport);
 void cmsg_transport_oneway_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_cpumail_init (cmsg_transport *transport);
 void cmsg_transport_loopback_init (cmsg_transport *transport);

@@ -193,7 +193,7 @@ cmsg_broadcast_conn_mgmt_init (cmsg_broadcast_client *broadcast_client)
 }
 
 /**
- * Shutdown the TIPC topology monitoring thread.
+ * Shutdown the topology monitoring thread.
  *
  * @param broadcast_client - The broadcast client to shutdown connection management for.
  */
