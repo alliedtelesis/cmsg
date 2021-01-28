@@ -388,7 +388,7 @@ functional_tests_impl_test_body_mapped_to_sub_message (const void *service,
     NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_x));
     NP_ASSERT_STR_EQUAL (recv_msg->field_c->field_x, "Hi");
 
-    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_y));
+    NP_ASSERT_TRUE (CMSG_IS_FIELD_PRESENT (recv_msg->field_c, field_y));
     NP_ASSERT_EQUAL (recv_msg->field_c->field_y, 123);
 
     CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
@@ -435,7 +435,7 @@ functional_tests_impl_test_body_mapped_to_remaining_multiple_fields (const void 
     NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_x));
     NP_ASSERT_STR_EQUAL (recv_msg->field_c->field_x, "Hi");
 
-    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_y));
+    NP_ASSERT_TRUE (CMSG_IS_FIELD_PRESENT (recv_msg->field_c, field_y));
     NP_ASSERT_EQUAL (recv_msg->field_c->field_y, 123);
 
     CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
@@ -463,7 +463,7 @@ functional_tests_impl_test_body_mapped_to_remaining_single_field (const void *se
     NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_x));
     NP_ASSERT_STR_EQUAL (recv_msg->field_c->field_x, "Hi");
 
-    NP_ASSERT_TRUE (CMSG_IS_PTR_PRESENT (recv_msg->field_c, field_y));
+    NP_ASSERT_TRUE (CMSG_IS_FIELD_PRESENT (recv_msg->field_c, field_y));
     NP_ASSERT_EQUAL (recv_msg->field_c->field_y, 123);
 
     CMSG_SET_FIELD_VALUE (&send_msg, code, ANT_CODE_OK);
