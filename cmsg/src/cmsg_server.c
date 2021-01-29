@@ -53,6 +53,7 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
     case CMSG_TRANSPORT_BROADCAST:
     case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
     case CMSG_TRANSPORT_ONEWAY_UNIX:
+    case CMSG_TRANSPORT_FORWARDING:
         return cmsg_server_closure_oneway;
     }
 

@@ -130,6 +130,7 @@ libcmsg_la_SOURCES = \
 	src/ant_result.pb-c.h \
 	src/cmsg_ant_result.c \
 	src/transport/cmsg_transport_loopback.c \
+	src/transport/cmsg_transport_forwarding.c \
 	src/transport/cmsg_transport_tcp.c \
 	src/transport/cmsg_transport_udt.c \
 	src/transport/cmsg_transport_unix.c \
@@ -402,6 +403,7 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/server_queuing_tests.c \
 	test/functional/tcp_connection_cache_tests.c \
 	test/functional/client_server_crypto_tests.c \
+	test/functional/client_forwarding_tests.c \
 	test/functional/setup.c
 
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) $(PTHREAD_CFLAGS) -include $(top_builddir)/config.h

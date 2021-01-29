@@ -228,6 +228,11 @@ cmsg_client *cmsg_create_client_tcp_ipv6_oneway (const char *service_name,
                                                  const ProtobufCServiceDescriptor
                                                  *descriptor);
 
+cmsg_client *cmsg_create_client_forwarding (const ProtobufCServiceDescriptor *descriptor,
+                                            void *user_data,
+                                            cmsg_forwarding_transport_send_f send_func);
+void cmsg_client_forwarding_data_set (cmsg_client *client, void *user_data);
+
 typedef struct
 {
     const char *filename;

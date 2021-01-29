@@ -68,6 +68,7 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
         case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
         case CMSG_TRANSPORT_BROADCAST:
         case CMSG_TRANSPORT_ONEWAY_UNIX:
+        case CMSG_TRANSPORT_FORWARDING:
             client->invoke_send = cmsg_client_invoke_send;
             client->invoke_recv = NULL;
             break;
@@ -1785,6 +1786,60 @@ cmsg_create_client_loopback (ProtobufCService *service)
     client->loopback_server = server;
 
     return client;
+}
+
+/**
+ * Creates a forwarding client.
+ *
+ * @param descriptor - The descriptor for the client.
+ * @param user_data - The user data to provide to the forwarding function.
+ * @param send_func - The function that will be called to forward the message.
+ *
+ * @returns A pointer to the client on success, NULL otherwise.
+ */
+cmsg_client *
+cmsg_create_client_forwarding (const ProtobufCServiceDescriptor *descriptor,
+                               void *user_data, cmsg_forwarding_transport_send_f send_func)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_client *client = NULL;
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_FORWARDING);
+    if (transport == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Could not create transport for forwarding client\n");
+        return NULL;
+    }
+
+    cmsg_transport_forwarding_func_set (transport, send_func);
+    cmsg_transport_forwarding_user_data_set (transport, user_data);
+
+    client = cmsg_client_new (transport, descriptor);
+    if (client == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        syslog (LOG_ERR, "Could not create forwarding client");
+        return NULL;
+    }
+
+    return client;
+}
+
+/**
+ * Set the user data for the forwarding client.
+ *
+ * @param client - The forwarding client to set the data for.
+ * @param user_data - The data to set.
+ */
+void
+cmsg_client_forwarding_data_set (cmsg_client *client, void *user_data)
+{
+    if (!client || client->_transport->type != CMSG_TRANSPORT_FORWARDING)
+    {
+        return;
+    }
+
+    cmsg_transport_forwarding_user_data_set (client->_transport, user_data);
 }
 
 /**

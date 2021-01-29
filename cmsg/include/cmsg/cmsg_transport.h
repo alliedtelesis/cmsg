@@ -86,6 +86,8 @@ typedef struct _cmsg_udt_info_s
     void *data;
 } cmsg_udt_info;
 
+typedef int (*cmsg_forwarding_transport_send_f) (void *user_data, void *buff, int length);
+
 typedef union _cmsg_transport_config_u
 {
     cmsg_socket socket;
@@ -102,6 +104,7 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_BROADCAST,
     CMSG_TRANSPORT_RPC_UNIX,
     CMSG_TRANSPORT_ONEWAY_UNIX,
+    CMSG_TRANSPORT_FORWARDING,
 } cmsg_transport_type;
 
 typedef enum _cmsg_peek_code
