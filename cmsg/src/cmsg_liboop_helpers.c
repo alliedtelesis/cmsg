@@ -25,8 +25,7 @@ cmsg_liboop_server_read (int sd, void *data)
         oop_socket_deregister (g_hash_table_lookup (server->event_loop_data,
                                                     GINT_TO_POINTER (sd)));
         g_hash_table_remove (server->event_loop_data, GINT_TO_POINTER (sd));
-        shutdown (sd, SHUT_RDWR);
-        close (sd);
+        cmsg_server_close_accepted_socket (server, sd);
     }
 }
 
@@ -95,8 +94,7 @@ cmsg_liboop_clear_sockets (gpointer key, gpointer value, gpointer user_data)
     oop_socket_deregister (value);
     if (sd != accept_eventfd)
     {
-        shutdown (sd, SHUT_RDWR);
-        close (sd);
+        cmsg_server_close_accepted_socket (server, sd);
     }
 
     return TRUE;

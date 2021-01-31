@@ -10,6 +10,7 @@ typedef struct _cmsg_client_s cmsg_client;
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 #include "cmsg_queue.h"
 #include "cmsg_transport.h"
+#include "cmsg_crypto.h"
 
 
 #define CMSG_DESCRIPTOR(package,service)    (&package ## _ ## service ## _descriptor)
@@ -94,6 +95,10 @@ typedef struct _cmsg_client_s
 
     // mutex for safe client usage across multiple threads
     pthread_mutex_t send_mutex;
+
+    /* SA data for encrypted connections */
+    cmsg_crypto_sa *crypto_sa;
+    crypto_sa_derive_func_t crypto_sa_derive_func;
 
     //counter information
     void *cntr_session;
@@ -250,5 +255,9 @@ int cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_d
                           int method_index,
                           const ProtobufCMessage *send_msg, ProtobufCMessage **recv_msg);
 #endif /*HAVE_UNITTEST */
+
+int32_t cmsg_client_crypto_enable (cmsg_client *client, cmsg_crypto_sa *sa,
+                                   crypto_sa_derive_func_t derive_func);
+bool cmsg_client_crypto_enabled (cmsg_client *client);
 
 #endif /* __CMSG_CLIENT_H_ */
