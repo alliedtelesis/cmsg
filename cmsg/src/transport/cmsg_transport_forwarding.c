@@ -27,12 +27,41 @@ cmsg_transport_forwarding_client_send (cmsg_transport *transport, void *buff, in
 {
     struct forwarding_info *info = transport->udt_info.data;
 
-    if (info->send_f (info->user_data, buff, length) < 0)
+    if (!info->send_f (info->user_data, buff, length))
     {
         return -1;
     }
 
     return length;
+}
+
+static int
+cmsg_transport_forwarding_recv_wrapper (cmsg_transport *transport, int sock, void *msg,
+                                        int len, int flags)
+{
+    struct forwarding_info *info = transport->udt_info.data;
+    struct cmsg_forwarding_server_data *recv_data = info->user_data;
+
+    /* Check whether there is any data to read */
+    if (recv_data->pos >= recv_data->len)
+    {
+        return -1;
+    }
+
+    if (recv_data->pos + len > recv_data->len)
+    {
+        len = recv_data->len - recv_data->pos;
+    }
+
+    memcpy (msg, &recv_data->msg[recv_data->pos], len);
+
+    /* If we are only peeking at the data then don't increase the buffer position */
+    if (!(flags & MSG_PEEK))
+    {
+        recv_data->pos += len;
+    }
+
+    return len;
 }
 
 void
@@ -47,6 +76,9 @@ cmsg_transport_forwarding_init (cmsg_transport *transport)
 
     transport->udt_info.functions.client_send = cmsg_transport_forwarding_client_send;
     transport->udt_info.functions.destroy = cmsg_transport_forwarding_client_destroy;
+
+    transport->udt_info.functions.server_recv = cmsg_transport_server_recv;
+    transport->udt_info.functions.recv_wrapper = cmsg_transport_forwarding_recv_wrapper;
 
     transport->udt_info.data = CMSG_CALLOC (1, sizeof (struct forwarding_info));
 }

@@ -27,6 +27,14 @@
                 __LINE__, transport->parent_obj_id, transport->tport_id, ## __VA_ARGS__); \
     } while (0)
 
+struct cmsg_forwarding_server_data
+{
+    const uint8_t *msg;
+    size_t len;
+    size_t pos;
+    void *user_data;
+};
+
 void cmsg_transport_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_cpumail_init (cmsg_transport *transport);

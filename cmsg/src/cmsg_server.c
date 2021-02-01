@@ -2602,3 +2602,73 @@ cmsg_server_close_accepted_socket (cmsg_server *server, int socket)
     shutdown (socket, SHUT_RDWR);
     close (socket);
 }
+
+/**
+ * Creates a forwarding server. This should be used to process the data
+ * sent by a forwarding client.
+ *
+ * @param descriptor - The service for the server.
+ *
+ * @returns A pointer to the server on success, NULL otherwise.
+ */
+cmsg_server *
+cmsg_create_server_forwarding (const ProtobufCService *service)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_server *server = NULL;
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_FORWARDING);
+    if (transport == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Could not create transport for forwarding server\n");
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (server == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        syslog (LOG_ERR, "Could not create forwarding server");
+        return NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Process the received message for the forwarding server.
+ *
+ * @param server - The forwarding server.
+ * @param data - The received message.
+ * @param length - The length of the received message.
+ * @param user_data - Pointer to data that the caller wishes to access in the IMPL function.
+ */
+void
+cmsg_forwarding_server_process (cmsg_server *server, const uint8_t *data, uint32_t length,
+                                void *user_data)
+{
+    struct cmsg_forwarding_server_data recv_data = {
+        .msg = data,
+        .len = length,
+        .pos = 0,
+        .user_data = user_data,
+    };
+
+    cmsg_transport_forwarding_user_data_set (server->_transport, &recv_data);
+    cmsg_server_receive (server, 1);
+}
+
+/**
+ * Get the user data supplied to the 'cmsg_forwarding_server_process' call.
+ * Note that this data is only available while the message is being processed,
+ * i.e. inside an IMPL function.
+ *
+ * @param server - The server to get the data for.
+ *
+ * @returns Pointer to the supplied user data.
+ */
+void *
+cmsg_forwarding_server_user_data_get (cmsg_server *server)
+{
+    return server->_transport->udt_info.data;
+}

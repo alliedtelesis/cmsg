@@ -288,4 +288,9 @@ int32_t cmsg_server_crypto_enable (cmsg_server *server, crypto_sa_create_func_t 
 bool cmsg_server_crypto_enabled (cmsg_server *server);
 void cmsg_server_close_accepted_socket (cmsg_server *server, int socket);
 
+cmsg_server *cmsg_create_server_forwarding (const ProtobufCService *service);
+void cmsg_forwarding_server_process (cmsg_server *server, const uint8_t *data,
+                                     uint32_t length, void *user_data);
+void *cmsg_forwarding_server_user_data_get (cmsg_server *server);
+
 #endif /* __CMSG_SERVER_H_ */

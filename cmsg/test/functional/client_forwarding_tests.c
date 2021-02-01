@@ -12,6 +12,7 @@
 
 static void *test_ptr;
 static bool func_called = false;
+static bool impl_called = false;
 
 /**
  * Common functionality to run before each test case.
@@ -37,16 +38,23 @@ tear_down (void)
 void
 cmsg_test_impl_simple_forwarding_test (const void *service, const cmsg_bool_msg *recv_msg)
 {
-    /* Should not be hit as client is forwarding to a user defined function */
-    NP_FAIL;
+    impl_called = true;
 }
 
-static int
+static bool
 send_func (void *user_data, void *buff, int length)
 {
     NP_ASSERT_PTR_EQUAL (user_data, test_ptr);
     func_called = true;
-    return 0;
+
+    NP_ASSERT_FALSE (impl_called);
+    cmsg_server *server = cmsg_create_server_forwarding (CMSG_SERVICE (cmsg, test));
+    cmsg_forwarding_server_process (server, buff, length, NULL);
+    cmsg_destroy_server_and_transport (server);
+    NP_ASSERT_TRUE (impl_called);
+    impl_called = false;
+
+    return true;
 }
 
 void

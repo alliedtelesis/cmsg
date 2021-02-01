@@ -86,7 +86,7 @@ typedef struct _cmsg_udt_info_s
     void *data;
 } cmsg_udt_info;
 
-typedef int (*cmsg_forwarding_transport_send_f) (void *user_data, void *buff, int length);
+typedef bool (*cmsg_forwarding_transport_send_f) (void *user_data, void *buff, int length);
 
 typedef union _cmsg_transport_config_u
 {
