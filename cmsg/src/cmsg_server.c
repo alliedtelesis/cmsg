@@ -2670,5 +2670,9 @@ cmsg_forwarding_server_process (cmsg_server *server, const uint8_t *data, uint32
 void *
 cmsg_forwarding_server_user_data_get (cmsg_server *server)
 {
-    return server->_transport->udt_info.data;
+    struct cmsg_forwarding_server_data *recv_data;
+
+    recv_data = cmsg_transport_forwarding_user_data_get (server->_transport);
+
+    return recv_data->user_data;
 }

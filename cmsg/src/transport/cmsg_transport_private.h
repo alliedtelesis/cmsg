@@ -73,5 +73,6 @@ void cmsg_transport_tcp_cache_set (struct in_addr *address, bool present);
 void cmsg_transport_forwarding_func_set (cmsg_transport *transport,
                                          cmsg_forwarding_transport_send_f send_func);
 void cmsg_transport_forwarding_user_data_set (cmsg_transport *transport, void *user_data);
+void *cmsg_transport_forwarding_user_data_get (cmsg_transport *transport);
 
 #endif /* __CMSG_TRANSPORT_PRIVATE_H_ */

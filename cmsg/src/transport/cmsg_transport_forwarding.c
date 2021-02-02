@@ -97,3 +97,10 @@ cmsg_transport_forwarding_user_data_set (cmsg_transport *transport, void *user_d
     struct forwarding_info *info = transport->udt_info.data;
     info->user_data = user_data;
 }
+
+void *
+cmsg_transport_forwarding_user_data_get (cmsg_transport *transport)
+{
+    struct forwarding_info *info = transport->udt_info.data;
+    return info->user_data;
+}
