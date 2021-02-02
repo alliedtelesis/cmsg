@@ -1709,6 +1709,72 @@ cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor)
     return ret;
 }
 
+/**
+ * Create a TIPC broadcast client.
+ *
+ * @param descriptor - The descriptor for the client.
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param lower_addr - The lower TIPC node id to broadcast to.
+ * @param upper_addr - The upper TIPC node id to broadcast to.
+ *
+ * @returns Pointer to the client on success, NULL on failure.
+ */
+cmsg_client *
+cmsg_create_client_tipc_broadcast (const ProtobufCServiceDescriptor *descriptor,
+                                   const char *service_name, int lower_addr, int upper_addr)
+{
+    cmsg_transport *transport;
+    cmsg_client *client;
+    uint16_t port;
+
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    port = cmsg_service_port_get (service_name, "tipc");
+    if (port == 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Unknown TIPC broadcast service: %s", service_name);
+        return NULL;
+    }
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_BROADCAST);
+    if (transport == NULL)
+    {
+        return NULL;
+    }
+
+    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_MCAST;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.type = port;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.lower = lower_addr;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.upper = upper_addr;
+
+    client = cmsg_client_new (transport, descriptor);
+    if (!client)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("[%s] Failed to create TIPC broadcast client.",
+                            descriptor->name);
+        return NULL;
+    }
+
+    return client;
+}
+
+/**
+ * Change the broadcast address for a TIPC broadcast client.
+ *
+ * @param client - The TIPC broadcast client to modify.
+ * @param lower_addr - The lower TIPC node id to broadcast to.
+ * @param upper_addr - The upper TIPC node id to broadcast to.
+ */
+void
+cmsg_client_tipc_broadcast_set_destination (cmsg_client *client, int lower_addr,
+                                            int upper_addr)
+{
+    client->_transport->config.socket.sockaddr.tipc.addr.nameseq.lower = lower_addr;
+    client->_transport->config.socket.sockaddr.tipc.addr.nameseq.upper = upper_addr;
+}
+
 cmsg_client *
 cmsg_create_client_tcp_rpc (cmsg_socket *config,
                             const ProtobufCServiceDescriptor *descriptor)

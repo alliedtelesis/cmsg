@@ -1978,6 +1978,57 @@ cmsg_create_server_unix_oneway (ProtobufCService *descriptor)
     return _cmsg_create_server_unix (descriptor, CMSG_TRANSPORT_ONEWAY_UNIX);
 }
 
+/**
+ * Create a TIPC broadcast server.
+ *
+ * @param descriptor - The service descriptor for the server.
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param id - The TIPC node id for the server.
+ *
+ * @returns Pointer to the server on success, NULL on failure.
+ */
+cmsg_server *
+cmsg_create_server_tipc_broadcast (ProtobufCService *descriptor, const char *service_name,
+                                   int id)
+{
+    cmsg_transport *transport;
+    cmsg_server *server;
+    uint16_t port;
+
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    port = cmsg_service_port_get (service_name, "tipc");
+    if (port == 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Unknown TIPC broadcast service: %s", service_name);
+        return NULL;
+    }
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_BROADCAST);
+    if (transport == NULL)
+    {
+        return NULL;
+    }
+
+    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAMESEQ;
+    transport->config.socket.sockaddr.tipc.scope = TIPC_CLUSTER_SCOPE;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.type = port;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.lower = id;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.upper = id;
+
+    server = cmsg_server_new (transport, descriptor);
+    if (server == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("[%s] Failed to create TIPC broadcast server.",
+                            descriptor->descriptor->name);
+        return NULL;
+    }
+
+    return server;
+}
+
 cmsg_server *
 cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
 {

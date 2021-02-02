@@ -228,6 +228,12 @@ cmsg_client *cmsg_create_client_tcp_ipv6_oneway (const char *service_name,
                                                  const ProtobufCServiceDescriptor
                                                  *descriptor);
 
+cmsg_client *cmsg_create_client_tipc_broadcast (const ProtobufCServiceDescriptor
+                                                *descriptor, const char *service_name,
+                                                int lower_addr, int upper_addr);
+void cmsg_client_tipc_broadcast_set_destination (cmsg_client *client, int lower_addr,
+                                                 int upper_addr);
+
 cmsg_client *cmsg_create_client_forwarding (const ProtobufCServiceDescriptor *descriptor,
                                             void *user_data,
                                             cmsg_forwarding_transport_send_f send_func);
