@@ -13,6 +13,10 @@
 #include "cmsg_proxy_functional_tests_impl_auto.h"
 #include <http_streaming_api_auto.h>
 #include "service_listener/cmsg_sl_api_private.h"
+#include "cmsg_pthread_helpers.h"
+
+static cmsg_server *server = NULL;
+static pthread_t server_thread;
 
 #define BINARY_TEST_DATA_LEN 8
 static const char *test_file_name = "test.file";
@@ -122,19 +126,6 @@ void
 sm_mock_cmsg_proxy_library_handles_load (void)
 {
     cmsg_proxy_service_info_init (cmsg_proxy_array_get (), cmsg_proxy_array_size ());
-}
-
-/**
- * Mock the 'cmsg_create_client_unix' used by the cmsg-proxy to instead be the
- * 'cmsg_create_client_loopback' function. This allows the proxy to execute the
- * CMSG IMPL functions locally which removes the need to run a separate thread/process
- * to implement the CMSG Unix socket server that the proxy usually expects. This makes
- * implementing functional tests much simpler.
- */
-cmsg_client *
-sm_mock_cmsg_create_client_unix (const ProtobufCServiceDescriptor *descriptor)
-{
-    return cmsg_create_client_loopback (CMSG_SERVICE_NOPACKAGE (functional_tests));
 }
 
 void
@@ -606,7 +597,6 @@ functional_tests_impl_test_http_streaming (const void *service,
     stream_data msg = STREAM_DATA_INIT;
     server_response *r_msg = NULL;
     uint32_t ret;
-    cmsg_transport *transport;
     stream_headers_info headers_msg = STREAM_HEADERS_INFO_INIT;
 
     CMSG_SET_FIELD_VALUE (&error_info, code, ANT_CODE_OK);
@@ -619,13 +609,7 @@ functional_tests_impl_test_http_streaming (const void *service,
     CMSG_SET_FIELD_PTR (&send_msg, inner_string, "test_string");
     CMSG_SET_FIELD_VALUE (&send_msg, inner_uint32, 123);
 
-    /* cmsg_create_client_unix is mocked during the setup of all the tests
-     * and doesn't appear to be able to be unmocked dynamically. Simply
-     * create a unix client for the one place in the test we wish to use
-     * an actual unix client. */
-    transport = cmsg_create_transport_unix (CMSG_DESCRIPTOR_NOPACKAGE (http_streaming),
-                                            CMSG_TRANSPORT_RPC_UNIX);
-    client = cmsg_client_new (transport, CMSG_DESCRIPTOR_NOPACKAGE (http_streaming));
+    client = cmsg_create_client_unix (CMSG_DESCRIPTOR_NOPACKAGE (http_streaming));
 
     message_size = protobuf_c_message_get_packed_size ((ProtobufCMessage *) &send_msg);
     buffer = (uint8_t *) calloc (1, message_size);
@@ -662,7 +646,6 @@ functional_tests_impl_test_http_file_streaming (const void *service,
     uint8_t *buffer = NULL;
     stream_data msg = STREAM_DATA_INIT;
     server_response *r_msg = NULL;
-    cmsg_transport *transport;
     stream_headers_info headers_msg = STREAM_HEADERS_INFO_INIT;
     file_info file_info_msg = FILE_INFO_INIT;
 
@@ -671,13 +654,7 @@ functional_tests_impl_test_http_file_streaming (const void *service,
 
     functional_tests_server_test_http_file_streamingSend (service, &send_msg);
 
-    /* cmsg_create_client_unix is mocked during the setup of all the tests
-     * and doesn't appear to be able to be unmocked dynamically. Simply
-     * create a unix client for the one place in the test we wish to use
-     * an actual unix client. */
-    transport = cmsg_create_transport_unix (CMSG_DESCRIPTOR_NOPACKAGE (http_streaming),
-                                            CMSG_TRANSPORT_RPC_UNIX);
-    client = cmsg_client_new (transport, CMSG_DESCRIPTOR_NOPACKAGE (http_streaming));
+    client = cmsg_create_client_unix (CMSG_DESCRIPTOR_NOPACKAGE (http_streaming));
 
     CMSG_SET_FIELD_VALUE (&headers_msg, id, recv_msg->_streaming_id);
     CMSG_SET_FIELD_VALUE (&headers_msg, type, CONTENT_TYPE_FILE);
@@ -706,10 +683,12 @@ int
 set_up (void)
 {
     np_mock (cmsg_proxy_library_handles_load, sm_mock_cmsg_proxy_library_handles_load);
-    np_mock (cmsg_create_client_unix, sm_mock_cmsg_create_client_unix);
     np_mock (cmsg_service_listener_add_server, sm_mock_cmsg_service_listener_add_server);
     np_mock (cmsg_service_listener_remove_server,
              sm_mock_cmsg_service_listener_remove_server);
+
+    server = cmsg_create_server_unix_rpc (CMSG_SERVICE_NOPACKAGE (functional_tests));
+    cmsg_pthread_server_init (&server_thread, server);
 
     expected_file_name = NULL;
     expected_file_data = NULL;
@@ -730,6 +709,11 @@ int
 tear_down (void)
 {
     cmsg_proxy_deinit ();
+
+    pthread_cancel (server_thread);
+    pthread_join (server_thread, NULL);
+    cmsg_destroy_server_and_transport (server);
+    server = NULL;
     return 0;
 }
 
