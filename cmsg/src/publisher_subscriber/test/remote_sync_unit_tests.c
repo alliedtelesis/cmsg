@@ -12,6 +12,7 @@
 #include <cmsg/cmsg_glib_helpers.h>
 #include "cmsg_server_private.h"
 #include "service_listener/cmsg_sl_api_private.h"
+#include "transport/cmsg_transport_private.h"
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it

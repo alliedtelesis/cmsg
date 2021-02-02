@@ -35,6 +35,14 @@ struct cmsg_forwarding_server_data
     void *user_data;
 };
 
+typedef enum _cmsg_peek_code
+{
+    CMSG_PEEK_CODE_SUCCESS,
+    CMSG_PEEK_CODE_CONNECTION_CLOSED,
+    CMSG_PEEK_CODE_CONNECTION_RESET,
+    CMSG_PEEK_CODE_TIMEOUT,
+} cmsg_peek_code;
+
 void cmsg_transport_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_cpumail_init (cmsg_transport *transport);
@@ -73,5 +81,47 @@ void cmsg_transport_forwarding_func_set (cmsg_transport *transport,
                                          cmsg_forwarding_transport_send_f send_func);
 void cmsg_transport_forwarding_user_data_set (cmsg_transport *transport, void *user_data);
 void *cmsg_transport_forwarding_user_data_get (cmsg_transport *transport);
+
+cmsg_transport *cmsg_create_transport_unix (const ProtobufCServiceDescriptor *descriptor,
+                                            cmsg_transport_type transport_type);
+cmsg_transport *cmsg_create_transport_tcp (cmsg_socket *config,
+                                           cmsg_transport_type transport_type);
+
+char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor);
+void cmsg_transport_unix_sun_path_free (char *sun_path);
+
+int32_t cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
+                                    uint8_t **recv_buffer, cmsg_header *processed_header,
+                                    int *nbytes);
+int32_t cmsg_transport_rpc_server_send (int socket, cmsg_transport *transport, void *buff,
+                                        int length, int flag);
+int32_t cmsg_transport_oneway_server_send (int socket, cmsg_transport *transport,
+                                           void *buff, int length, int flag);
+
+cmsg_peek_code
+cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *transport,
+                                int32_t socket, time_t seconds_to_wait,
+                                void *header_received, int header_size);
+cmsg_status_code cmsg_transport_peek_to_status_code (cmsg_peek_code peek_code);
+
+bool cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two);
+
+cmsg_transport *cmsg_create_transport_tcp_ipv4 (const char *service_name,
+                                                struct in_addr *addr,
+                                                const char *vrf_bind_dev, bool oneway);
+cmsg_transport *cmsg_create_transport_tcp_ipv6 (const char *service_name,
+                                                struct in6_addr *addr, uint32_t scope_id,
+                                                const char *vrf_bind_dev, bool oneway);
+
+int cmsg_transport_get_socket (cmsg_transport *transport);
+void cmsg_transport_socket_close (cmsg_transport *transport);
+
+void cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id);
+
+const char *cmsg_transport_counter_app_tport_id (cmsg_transport *transport);
+
+cmsg_transport *cmsg_transport_new (cmsg_transport_type type);
+
+void cmsg_transport_destroy (cmsg_transport *transport);
 
 #endif /* __CMSG_TRANSPORT_PRIVATE_H_ */

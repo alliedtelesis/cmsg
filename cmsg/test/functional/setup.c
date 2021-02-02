@@ -9,6 +9,7 @@
 #include "service_listener/cmsg_sl_api_private.h"
 #include "publisher_subscriber/cmsg_ps_api_private.h"
 #include "setup.h"
+#include "transport/cmsg_transport_private.h"
 
 static const uint16_t port_number = 18888;
 

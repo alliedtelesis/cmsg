@@ -11,6 +11,7 @@
 #include "cmsg_error.h"
 #include "cmsg_composite_client.h"
 #include "cmsg_pthread_helpers.h"
+#include "transport/cmsg_transport_private.h"
 
 /**
  * Generate an event for the node/leave join.

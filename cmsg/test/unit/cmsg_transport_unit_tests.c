@@ -6,6 +6,7 @@
 
 #include <np.h>
 #include <cmsg_transport.h>
+#include "transport/cmsg_transport_private.h"
 
 static void
 init_transport_tcp (cmsg_transport *transport)

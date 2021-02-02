@@ -11,6 +11,7 @@
 #include "cmsg_sub_private.h"
 #include "cmsg_ps_api_private.h"
 #include "cmsg_error.h"
+#include "transport/cmsg_transport_private.h"
 
 static cmsg_subscriber *
 cmsg_sub_new (cmsg_transport *tcp_transport, const ProtobufCService *pub_service)
