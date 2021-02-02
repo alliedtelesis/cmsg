@@ -278,12 +278,6 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
             break;
         }
 
-    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
-        {
-            strncpy (tport->tport_id, ".udt", CMSG_MAX_TPORT_ID_LEN);
-            break;
-        }
-
     case CMSG_TRANSPORT_LOOPBACK:
         {
             strncpy (tport->tport_id, ".lpb", CMSG_MAX_TPORT_ID_LEN);
@@ -337,10 +331,6 @@ cmsg_transport_new (cmsg_transport_type type)
         break;
     case CMSG_TRANSPORT_BROADCAST:
         cmsg_transport_tipc_broadcast_init (transport);
-        break;
-    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
-    case CMSG_TRANSPORT_RPC_USERDEFINED:
-        cmsg_transport_udt_init (transport);
         break;
 
     case CMSG_TRANSPORT_LOOPBACK:

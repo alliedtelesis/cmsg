@@ -489,7 +489,7 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
 }
 
 
-void
+static void
 cmsg_transport_rpc_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
 {
     _cmsg_transport_tcp_init_common (tport_funcs);
@@ -515,7 +515,7 @@ cmsg_transport_tcp_init (cmsg_transport *transport)
 }
 
 
-void
+static void
 cmsg_transport_oneway_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
 {
     _cmsg_transport_tcp_init_common (tport_funcs);

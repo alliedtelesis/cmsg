@@ -33,8 +33,6 @@ typedef struct _cmsg_socket_s
 
 typedef struct _cmsg_transport_s cmsg_transport;    //forward declaration
 
-typedef int (*udt_connect_f) (cmsg_transport *transport);
-typedef int (*udt_send_f) (void *udt_data, void *buff, int length, int flag);
 typedef int (*cmsg_recv_func) (cmsg_transport *transport, int sock, void *buff, int len,
                                int flags);
 typedef int (*client_connect_f) (cmsg_transport *transport);
@@ -72,20 +70,6 @@ typedef struct _cmsg_tport_functions_s
     destroy_f destroy;              // Called when the transport is to be destroyed
 } cmsg_tport_functions;
 
-typedef struct _cmsg_udt_info_s
-{
-    // User-defined transport functions
-    cmsg_tport_functions functions;
-
-    // Base transport functions (i.e. allow access to
-    // TCP, UNIX, ..., transport functionality if required)
-    cmsg_tport_functions base;
-
-    // User-defined transport data. It is the responsibility of the
-    // application using the UDT to correctly manage/free this memory.
-    void *data;
-} cmsg_udt_info;
-
 typedef bool (*cmsg_forwarding_transport_send_f) (void *user_data, void *buff, int length);
 
 typedef union _cmsg_transport_config_u
@@ -99,8 +83,6 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_LOOPBACK,
     CMSG_TRANSPORT_RPC_TCP,
     CMSG_TRANSPORT_ONEWAY_TCP,
-    CMSG_TRANSPORT_ONEWAY_USERDEFINED,
-    CMSG_TRANSPORT_RPC_USERDEFINED,
     CMSG_TRANSPORT_BROADCAST,
     CMSG_TRANSPORT_RPC_UNIX,
     CMSG_TRANSPORT_ONEWAY_UNIX,
@@ -122,7 +104,6 @@ struct _cmsg_transport_s
     //transport information
     cmsg_transport_type type;
     cmsg_transport_config config;
-    cmsg_udt_info udt_info;
     char tport_id[CMSG_MAX_TPORT_ID_LEN + 1];
 
     // send timeout in seconds
@@ -178,8 +159,6 @@ char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor
 void cmsg_transport_unix_sun_path_free (char *sun_path);
 
 const char *cmsg_transport_counter_app_tport_id (cmsg_transport *transport);
-
-void cmsg_transport_udt_tcp_base_init (cmsg_transport *transport, bool oneway);
 
 bool cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two);
 

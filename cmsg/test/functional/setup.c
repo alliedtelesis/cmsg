@@ -120,32 +120,6 @@ sm_mock_cmsg_service_port_get (const char *name, const char *proto)
     return 0;
 }
 
-static void
-setup_udt_tcp_transport_functions (cmsg_transport *udt_transport, bool oneway)
-{
-    cmsg_transport_udt_tcp_base_init (udt_transport, oneway);
-
-    udt_transport->udt_info.functions.recv_wrapper =
-        udt_transport->udt_info.base.recv_wrapper;
-    udt_transport->udt_info.functions.connect = udt_transport->udt_info.base.connect;
-    udt_transport->udt_info.functions.listen = udt_transport->udt_info.base.listen;
-    udt_transport->udt_info.functions.server_accept =
-        udt_transport->udt_info.base.server_accept;
-    udt_transport->udt_info.functions.server_recv =
-        udt_transport->udt_info.base.server_recv;
-    udt_transport->udt_info.functions.client_recv =
-        udt_transport->udt_info.base.client_recv;
-    udt_transport->udt_info.functions.client_send =
-        udt_transport->udt_info.base.client_send;
-    udt_transport->udt_info.functions.socket_close =
-        udt_transport->udt_info.base.socket_close;
-
-    udt_transport->udt_info.functions.get_socket = udt_transport->udt_info.base.get_socket;
-
-    udt_transport->udt_info.functions.server_send =
-        udt_transport->udt_info.base.server_send;
-}
-
 /**
  * Create the client that will be used to run a functional test.
  *
@@ -211,30 +185,6 @@ create_client (cmsg_transport_type type, int family)
         transport->config.socket.sockaddr.tipc.addr.nameseq.type = 9500;
         transport->config.socket.sockaddr.tipc.addr.nameseq.lower = 1;
         transport->config.socket.sockaddr.tipc.addr.nameseq.upper = 8;
-        client = cmsg_client_new (transport, CMSG_DESCRIPTOR (cmsg, test));
-        break;
-
-    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
-        transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_USERDEFINED);
-        transport->config.socket.family = PF_INET;
-        transport->config.socket.sockaddr.generic.sa_family = PF_INET;
-        transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
-        transport->config.socket.sockaddr.in.sin_port = htons (port_number);
-
-        setup_udt_tcp_transport_functions (transport, true);
-
-        client = cmsg_client_new (transport, CMSG_DESCRIPTOR (cmsg, test));
-        break;
-
-    case CMSG_TRANSPORT_RPC_USERDEFINED:
-        transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_USERDEFINED);
-        transport->config.socket.family = PF_INET;
-        transport->config.socket.sockaddr.generic.sa_family = PF_INET;
-        transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
-        transport->config.socket.sockaddr.in.sin_port = htons (port_number);
-
-        setup_udt_tcp_transport_functions (transport, false);
-
         client = cmsg_client_new (transport, CMSG_DESCRIPTOR (cmsg, test));
         break;
 
@@ -319,30 +269,6 @@ create_server (cmsg_transport_type type, int family, pthread_t *thread)
         server_transport->config.socket.sockaddr.tipc.addr.nameseq.type = 9500;
         server_transport->config.socket.sockaddr.tipc.addr.nameseq.lower = 4;
         server_transport->config.socket.sockaddr.tipc.addr.nameseq.upper = 4;
-
-        server = cmsg_server_new (server_transport, CMSG_SERVICE (cmsg, test));
-        break;
-
-    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
-        server_transport = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_USERDEFINED);
-        server_transport->config.socket.family = PF_INET;
-        server_transport->config.socket.sockaddr.generic.sa_family = PF_INET;
-        server_transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_ANY);
-        server_transport->config.socket.sockaddr.in.sin_port = htons (port_number);
-
-        setup_udt_tcp_transport_functions (server_transport, true);
-
-        server = cmsg_server_new (server_transport, CMSG_SERVICE (cmsg, test));
-        break;
-
-    case CMSG_TRANSPORT_RPC_USERDEFINED:
-        server_transport = cmsg_transport_new (CMSG_TRANSPORT_RPC_USERDEFINED);
-        server_transport->config.socket.family = PF_INET;
-        server_transport->config.socket.sockaddr.generic.sa_family = PF_INET;
-        server_transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_ANY);
-        server_transport->config.socket.sockaddr.in.sin_port = htons (port_number);
-
-        setup_udt_tcp_transport_functions (server_transport, false);
 
         server = cmsg_server_new (server_transport, CMSG_SERVICE (cmsg, test));
         break;

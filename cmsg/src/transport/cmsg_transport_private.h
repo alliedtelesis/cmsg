@@ -42,7 +42,6 @@ void cmsg_transport_loopback_init (cmsg_transport *transport);
 void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
 void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
 void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
-void cmsg_transport_udt_init (cmsg_transport *transport);
 void cmsg_transport_forwarding_init (cmsg_transport *transport);
 
 int connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int timeout);
