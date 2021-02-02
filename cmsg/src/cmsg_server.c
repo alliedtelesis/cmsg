@@ -115,13 +115,15 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
         CMSG_DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n",
                     transport->type);
 
-        ret = transport->tport_funcs.listen (server->_transport);
-
-        if (ret < 0)
+        if (transport->tport_funcs.listen)
         {
-            CMSG_FREE (server);
-            server = NULL;
-            return NULL;
+            ret = transport->tport_funcs.listen (server->_transport);
+            if (ret < 0)
+            {
+                CMSG_FREE (server);
+                server = NULL;
+                return NULL;
+            }
         }
 
         if (pthread_mutex_init (&server->queue_mutex, NULL) != 0)
@@ -245,7 +247,7 @@ cmsg_server_destroy (cmsg_server *server)
         cmsg_server_accept_thread_deinit (server);
     }
 
-    if (server->_transport)
+    if (server->_transport && server->_transport->tport_funcs.socket_close)
     {
         server->_transport->tport_funcs.socket_close (server->_transport);
     }

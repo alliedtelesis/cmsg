@@ -844,13 +844,16 @@ cmsg_transport_socket_close (cmsg_transport *transport)
 int32_t
 cmsg_transport_connect (cmsg_transport *transport)
 {
-    int ret;
+    int ret = CMSG_RET_OK;
 
-    ret = transport->tport_funcs.connect (transport);
-    if (ret == CMSG_RET_OK)
+    if (transport->tport_funcs.connect)
     {
-        transport->tport_funcs.apply_send_timeout (transport, transport->socket);
-        transport->tport_funcs.apply_recv_timeout (transport, transport->socket);
+        ret = transport->tport_funcs.connect (transport);
+        if (ret == CMSG_RET_OK)
+        {
+            transport->tport_funcs.apply_send_timeout (transport, transport->socket);
+            transport->tport_funcs.apply_recv_timeout (transport, transport->socket);
+        }
     }
 
     return ret;

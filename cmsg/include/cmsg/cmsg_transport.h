@@ -148,6 +148,9 @@ struct _cmsg_transport_s
 
     //For debug purposes, store the object id of the parent (client/server) using this transport
     char parent_obj_id[CMSG_MAX_OBJ_ID_LEN + 1];
+
+    /* Application defined data to store on the transport */
+    void *user_data;
 };
 
 cmsg_transport *cmsg_transport_new (cmsg_transport_type type);

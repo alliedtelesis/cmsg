@@ -1917,7 +1917,10 @@ cmsg_client_forwarding_data_set (cmsg_client *client, void *user_data)
 static void
 cmsg_client_close_wrapper (cmsg_client *client)
 {
-    client->_transport->tport_funcs.socket_close (client->_transport);
+    if (client->_transport->tport_funcs.socket_close)
+    {
+        client->_transport->tport_funcs.socket_close (client->_transport);
+    }
 
     if (cmsg_client_crypto_enabled (client))
     {
