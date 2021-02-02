@@ -28,12 +28,12 @@ cmsg_transport_loopback_client_close (cmsg_transport *transport)
 {
     struct cmsg_loopback_recv_buffer *buffer;
 
-    if (transport->udt_info.data)
+    if (transport->user_data)
     {
-        buffer = transport->udt_info.data;
+        buffer = transport->user_data;
         CMSG_FREE (buffer->msg);
         CMSG_FREE (buffer);
-        transport->udt_info.data = NULL;
+        transport->user_data = NULL;
     }
 }
 
@@ -56,7 +56,7 @@ cmsg_transport_loopback_server_send (int socket, cmsg_transport *transport, void
     buffer_data->len = length;
     buffer_data->pos = 0;
 
-    transport->udt_info.data = buffer_data;
+    transport->user_data = buffer_data;
     return length;
 }
 
@@ -66,7 +66,7 @@ cmsg_transport_loopback_recv_handler (cmsg_transport *transport, int sock, void 
 {
     struct cmsg_loopback_recv_buffer *buffer;
 
-    buffer = transport->udt_info.data;
+    buffer = transport->user_data;
 
     /* Check whether there is any data to read */
     if (buffer->pos >= buffer->len)
@@ -102,11 +102,11 @@ cmsg_transport_loopback_client_recv (cmsg_transport *transport,
 
     ret = cmsg_transport_client_recv (transport, descriptor, messagePtPt);
 
-    buffer = transport->udt_info.data;
+    buffer = transport->user_data;
 
     CMSG_FREE (buffer->msg);
     CMSG_FREE (buffer);
-    transport->udt_info.data = NULL;
+    transport->user_data = NULL;
     return ret;
 }
 
@@ -118,12 +118,10 @@ cmsg_transport_loopback_init (cmsg_transport *transport)
         return;
     }
 
-    cmsg_transport_udt_init (transport);
-
-    transport->udt_info.functions.server_send = cmsg_transport_loopback_server_send;
-    transport->udt_info.functions.recv_wrapper = cmsg_transport_loopback_recv_handler;
-    transport->udt_info.functions.client_recv = cmsg_transport_loopback_client_recv;
-    transport->udt_info.functions.socket_close = cmsg_transport_loopback_client_close;
+    transport->tport_funcs.server_send = cmsg_transport_loopback_server_send;
+    transport->tport_funcs.recv_wrapper = cmsg_transport_loopback_recv_handler;
+    transport->tport_funcs.client_recv = cmsg_transport_loopback_client_recv;
+    transport->tport_funcs.socket_close = cmsg_transport_loopback_client_close;
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
