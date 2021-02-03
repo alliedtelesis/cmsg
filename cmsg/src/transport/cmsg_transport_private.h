@@ -84,8 +84,6 @@ void *cmsg_transport_forwarding_user_data_get (cmsg_transport *transport);
 
 cmsg_transport *cmsg_create_transport_unix (const ProtobufCServiceDescriptor *descriptor,
                                             cmsg_transport_type transport_type);
-cmsg_transport *cmsg_create_transport_tcp (cmsg_socket *config,
-                                           cmsg_transport_type transport_type);
 
 char *cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor);
 void cmsg_transport_unix_sun_path_free (char *sun_path);

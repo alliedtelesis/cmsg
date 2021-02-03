@@ -1773,33 +1773,6 @@ cmsg_client_tipc_broadcast_set_destination (cmsg_client *client, int lower_addr,
     client->_transport->config.socket.sockaddr.tipc.addr.nameseq.upper = upper_addr;
 }
 
-cmsg_client *
-cmsg_create_client_tcp_rpc (cmsg_socket *config,
-                            const ProtobufCServiceDescriptor *descriptor)
-{
-    cmsg_transport *transport;
-    cmsg_client *client;
-
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    transport = cmsg_create_transport_tcp (config, CMSG_TRANSPORT_RPC_TCP);
-    if (!transport)
-    {
-        return NULL;
-    }
-
-    client = cmsg_client_new (transport, descriptor);
-    if (!client)
-    {
-        cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("No TCP IPC client on %s", descriptor->name);
-        return NULL;
-    }
-
-    return client;
-}
-
 /**
  * Creates a client of type Loopback and sets all the correct fields.
  *

@@ -2029,33 +2029,6 @@ cmsg_create_server_tipc_broadcast (ProtobufCService *descriptor, const char *ser
     return server;
 }
 
-cmsg_server *
-cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
-{
-    cmsg_transport *transport = NULL;
-    cmsg_server *server = NULL;
-
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
-    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
-
-    transport = cmsg_create_transport_tcp (config, CMSG_TRANSPORT_RPC_TCP);
-    if (transport == NULL)
-    {
-        return NULL;
-    }
-
-    server = cmsg_server_new (transport, descriptor);
-    if (server == NULL)
-    {
-        cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("[%s] Failed to create TCP RPC server.",
-                            descriptor->descriptor->name);
-        return NULL;
-    }
-
-    return server;
-}
-
 /**
  * Helper function for creating a CMSG server using TCP over IPv4.
  *
