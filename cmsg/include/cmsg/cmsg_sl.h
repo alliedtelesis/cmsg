@@ -8,6 +8,7 @@
 #define __CMSG_SL_H_
 
 #include <stdbool.h>
+#include <netinet/in.h>
 #include <cmsg/cmsg_transport.h>
 
 typedef struct _cmsg_sl_info_s cmsg_sl_info;

@@ -2,7 +2,6 @@
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #include "cmsg_private.h"
-#include "cmsg_transport.h"
 #include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
@@ -1328,4 +1327,18 @@ cmsg_transport_info_copy (const cmsg_transport_info *transport_info)
     cmsg_transport_destroy (transport);
 
     return copied_info;
+}
+
+/**
+ * Return the IPv4 address for this transport. It is up to the
+ * user to assure that the transport used is of TCP type.
+ *
+ * @param transport - The transport to return the IPv4 address for.
+ *
+ * @returns The IPv4 address.
+ */
+struct in_addr
+cmsg_transport_ipv4_address_get (const cmsg_transport *transport)
+{
+    return transport->config.socket.sockaddr.in.sin_addr;
 }
