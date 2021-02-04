@@ -2,7 +2,6 @@
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #include "cmsg_private.h"
-#include "cmsg_transport.h"
 #include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
@@ -11,14 +10,6 @@
 
 /* Limit the size of message read */
 #define CMSG_RECV_ALL_CHUNK_SIZE  (16 * 1024)
-
-typedef enum _cmsg_peek_code
-{
-    CMSG_PEEK_CODE_SUCCESS,
-    CMSG_PEEK_CODE_CONNECTION_CLOSED,
-    CMSG_PEEK_CODE_CONNECTION_RESET,
-    CMSG_PEEK_CODE_TIMEOUT,
-} cmsg_peek_code;
 
 /**
  * An abstraction of the 'connect' system call that allows a timeout
@@ -286,15 +277,15 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
             break;
         }
 
-    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
-        {
-            strncpy (tport->tport_id, ".udt", CMSG_MAX_TPORT_ID_LEN);
-            break;
-        }
-
     case CMSG_TRANSPORT_LOOPBACK:
         {
             strncpy (tport->tport_id, ".lpb", CMSG_MAX_TPORT_ID_LEN);
+            break;
+        }
+
+    case CMSG_TRANSPORT_FORWARDING:
+        {
+            strncpy (tport->tport_id, ".fwd", CMSG_MAX_TPORT_ID_LEN);
             break;
         }
 
@@ -340,13 +331,13 @@ cmsg_transport_new (cmsg_transport_type type)
     case CMSG_TRANSPORT_BROADCAST:
         cmsg_transport_tipc_broadcast_init (transport);
         break;
-    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
-    case CMSG_TRANSPORT_RPC_USERDEFINED:
-        cmsg_transport_udt_init (transport);
-        break;
 
     case CMSG_TRANSPORT_LOOPBACK:
         cmsg_transport_loopback_init (transport);
+        break;
+
+    case CMSG_TRANSPORT_FORWARDING:
+        cmsg_transport_forwarding_init (transport);
         break;
 
     case CMSG_TRANSPORT_ONEWAY_UNIX:
@@ -392,13 +383,14 @@ cmsg_transport_destroy (cmsg_transport *transport)
  * @param socket - The socket to peek the data off.
  * @param seconds_to_wait - The number of seconds to wait before timing out and giving up.
  * @param header_received - Pointer to a header structure to return the peeked header in.
+ * @param header_size - The size of the header to be peeked.
  *
  * @returns CMSG_PEEK_CODE_SUCCESS on success, the related cmsg_peek_code otherwise.
  */
-static cmsg_peek_code
+cmsg_peek_code
 cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *transport,
                                 int32_t socket, time_t seconds_to_wait,
-                                cmsg_header *header_received)
+                                void *header_received, int header_size)
 {
     cmsg_peek_code ret = CMSG_PEEK_CODE_SUCCESS;
     int nbytes = 0;
@@ -413,8 +405,8 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
     while (!timed_out)
     {
         nbytes = recv_wrapper (transport, socket, header_received,
-                               sizeof (cmsg_header), MSG_PEEK | MSG_DONTWAIT);
-        if (nbytes == (int) sizeof (cmsg_header))
+                               header_size, MSG_PEEK | MSG_DONTWAIT);
+        if (nbytes == header_size)
         {
             break;
         }
@@ -545,7 +537,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket,
  *
  * @returns The converted status code.
  */
-static cmsg_status_code
+cmsg_status_code
 cmsg_transport_peek_to_status_code (cmsg_peek_code peek_code)
 {
     cmsg_status_code status_code;
@@ -593,7 +585,8 @@ cmsg_transport_client_recv (cmsg_transport *transport,
     *messagePtPt = NULL;
 
     ret = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper, transport,
-                                          socket, receive_timeout, &header_received);
+                                          socket, receive_timeout, &header_received,
+                                          sizeof (header_received));
     if (ret != CMSG_PEEK_CODE_SUCCESS)
     {
         return cmsg_transport_peek_to_status_code (ret);
@@ -781,7 +774,8 @@ cmsg_transport_server_recv (int32_t server_socket, cmsg_transport *transport,
     peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
                                                   transport,
                                                   server_socket, receive_timeout,
-                                                  &header_received);
+                                                  &header_received,
+                                                  sizeof (header_received));
     if (peek_status == CMSG_PEEK_CODE_SUCCESS)
     {
         ret = _cmsg_transport_server_recv (transport->tport_funcs.recv_wrapper,
@@ -839,13 +833,16 @@ cmsg_transport_socket_close (cmsg_transport *transport)
 int32_t
 cmsg_transport_connect (cmsg_transport *transport)
 {
-    int ret;
+    int ret = CMSG_RET_OK;
 
-    ret = transport->tport_funcs.connect (transport);
-    if (ret == CMSG_RET_OK)
+    if (transport->tport_funcs.connect)
     {
-        transport->tport_funcs.apply_send_timeout (transport, transport->socket);
-        transport->tport_funcs.apply_recv_timeout (transport, transport->socket);
+        ret = transport->tport_funcs.connect (transport);
+        if (ret == CMSG_RET_OK)
+        {
+            transport->tport_funcs.apply_send_timeout (transport, transport->socket);
+            transport->tport_funcs.apply_recv_timeout (transport, transport->socket);
+        }
     }
 
     return ret;
@@ -1330,4 +1327,18 @@ cmsg_transport_info_copy (const cmsg_transport_info *transport_info)
     cmsg_transport_destroy (transport);
 
     return copied_info;
+}
+
+/**
+ * Return the IPv4 address for this transport. It is up to the
+ * user to assure that the transport used is of TCP type.
+ *
+ * @param transport - The transport to return the IPv4 address for.
+ *
+ * @returns The IPv4 address.
+ */
+struct in_addr
+cmsg_transport_ipv4_address_get (const cmsg_transport *transport)
+{
+    return transport->config.socket.sockaddr.in.sin_addr;
 }

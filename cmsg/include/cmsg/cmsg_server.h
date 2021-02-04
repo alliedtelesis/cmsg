@@ -9,6 +9,7 @@
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 #include "cmsg_transport.h"
 #include "cmsg_queue.h"
+#include "cmsg_crypto.h"
 
 #define CMSG_SERVICE(package,service)     ((ProtobufCService *)&package ## _ ## service ## _service)
 #define CMSG_SERVICE_NOPACKAGE(service)   ((ProtobufCService *)&service ## _service)
@@ -133,6 +134,11 @@ typedef struct _cmsg_server_s
 
     void *event_loop_data;
 
+    GHashTable *crypto_sa_hash_table;
+    pthread_mutex_t crypto_sa_hash_table_mutex;
+    crypto_sa_create_func_t crypto_sa_create_func;
+    crypto_sa_derive_func_t crypto_sa_derive_func;
+
     //counter information
     void *cntr_session;
     // counterd counters
@@ -243,8 +249,6 @@ void cmsg_server_app_owns_current_msg_set (cmsg_server *server);
 
 void cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner);
 
-cmsg_server *cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor);
-
 void cmsg_server_invoke_direct (cmsg_server *server, const ProtobufCMessage *input,
                                 uint32_t method_index);
 
@@ -270,11 +274,23 @@ cmsg_server *cmsg_create_server_tcp_ipv6_oneway (const char *service_name,
                                                  uint32_t scope_id,
                                                  const char *vrf_bind_dev,
                                                  const ProtobufCService *service);
+cmsg_server *cmsg_create_server_tipc_broadcast (ProtobufCService *descriptor,
+                                                const char *service_name, int id);
 
 const cmsg_server *cmsg_server_from_service_get (const void *service);
 
 cmsg_server_thread_task_info *cmsg_server_thread_task_info_create (cmsg_server *server,
                                                                    int timeout);
 void *cmsg_server_thread_task (void *_info);
+
+int32_t cmsg_server_crypto_enable (cmsg_server *server, crypto_sa_create_func_t create_func,
+                                   crypto_sa_derive_func_t derive_func);
+bool cmsg_server_crypto_enabled (cmsg_server *server);
+void cmsg_server_close_accepted_socket (cmsg_server *server, int socket);
+
+cmsg_server *cmsg_create_server_forwarding (const ProtobufCService *service);
+void cmsg_forwarding_server_process (cmsg_server *server, const uint8_t *data,
+                                     uint32_t length, void *user_data);
+void *cmsg_forwarding_server_user_data_get (cmsg_server *server);
 
 #endif /* __CMSG_SERVER_H_ */

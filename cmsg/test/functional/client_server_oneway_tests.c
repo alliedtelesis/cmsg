@@ -129,12 +129,3 @@ test_client_server_oneway_tipc_broadcast (void)
 {
     //run_client_server_tests (CMSG_TRANSPORT_BROADCAST, AF_UNSPEC);
 }
-
-/**
- * Run the simple client <-> server test case with a UDT (TCP) transport.
- */
-void
-test_client_server_oneway_udt (void)
-{
-    run_client_server_tests (CMSG_TRANSPORT_ONEWAY_USERDEFINED, AF_UNSPEC);
-}

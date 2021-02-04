@@ -14,6 +14,7 @@
 #include "remote_sync.h"
 #include "data.h"
 #include <cmsg/cmsg_sl.h>
+#include "transport/cmsg_transport_private.h"
 
 cmsg_server *remote_sync_server = NULL;
 GList *remote_sync_client_list = NULL;

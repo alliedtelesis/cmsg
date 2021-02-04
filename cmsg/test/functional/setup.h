@@ -8,6 +8,7 @@
 #define __SETUP_H_
 
 #include <cmsg_pthread_helpers.h>
+#include "transport/cmsg_transport_private.h"
 
 /**
  * This informs the compiler that the function is, in fact, being used even though it

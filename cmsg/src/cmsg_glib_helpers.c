@@ -32,8 +32,7 @@ cmsg_glib_server_read (GIOChannel *source, GIOCondition condition, gpointer data
 
     if (cmsg_server_receive (server, sd) < 0)
     {
-        shutdown (sd, SHUT_RDWR);
-        close (sd);
+        cmsg_server_close_accepted_socket (server, sd);
         g_hash_table_remove (glib_data->sockets, GINT_TO_POINTER (sd));
         return FALSE;
     }
@@ -152,8 +151,7 @@ cmsg_glib_clear_sockets (gpointer key, gpointer value, gpointer user_data)
     g_source_destroy (value);
     if (sd != accept_eventfd)
     {
-        shutdown (sd, SHUT_RDWR);
-        close (sd);
+        cmsg_server_close_accepted_socket (server, sd);
     }
 
     return TRUE;

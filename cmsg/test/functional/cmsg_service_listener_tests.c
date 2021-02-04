@@ -10,6 +10,7 @@
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
 #include "setup.h"
+#include "transport/cmsg_transport_private.h"
 
 static cmsg_transport *test_transport = NULL;
 static bool expected_added = false;

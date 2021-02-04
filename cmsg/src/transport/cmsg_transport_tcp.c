@@ -2,7 +2,6 @@
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #include "cmsg_private.h"
-#include "cmsg_transport.h"
 #include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
@@ -489,7 +488,7 @@ _cmsg_transport_tcp_init_common (cmsg_tport_functions *tport_funcs)
 }
 
 
-void
+static void
 cmsg_transport_rpc_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
 {
     _cmsg_transport_tcp_init_common (tport_funcs);
@@ -515,7 +514,7 @@ cmsg_transport_tcp_init (cmsg_transport *transport)
 }
 
 
-void
+static void
 cmsg_transport_oneway_tcp_funcs_init (cmsg_tport_functions *tport_funcs)
 {
     _cmsg_transport_tcp_init_common (tport_funcs);
@@ -538,50 +537,6 @@ cmsg_transport_oneway_tcp_init (cmsg_transport *transport)
     cmsg_transport_oneway_tcp_funcs_init (&transport->tport_funcs);
 
     CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
-}
-
-cmsg_transport *
-cmsg_create_transport_tcp (cmsg_socket *config, cmsg_transport_type transport_type)
-{
-    cmsg_transport *transport = NULL;
-
-    transport = cmsg_transport_new (transport_type);
-    if (transport == NULL)
-    {
-        char ip[INET6_ADDRSTRLEN] = { };
-        uint16_t port;
-
-        if (config->family == PF_INET6)
-        {
-            port = ntohs (config->sockaddr.in6.sin6_port);
-            inet_ntop (config->sockaddr.generic.sa_family,
-                       &(config->sockaddr.in6.sin6_addr), ip, INET6_ADDRSTRLEN);
-        }
-        else
-        {
-            port = ntohs (config->sockaddr.in.sin_port);
-            inet_ntop (config->sockaddr.generic.sa_family,
-                       &(config->sockaddr.in.sin_addr), ip, INET6_ADDRSTRLEN);
-        }
-
-        CMSG_LOG_GEN_ERROR ("Unable to create TCP RPC transport. tcp[[%s]:%d]", ip, port);
-
-        return NULL;
-    }
-
-    transport->config.socket.family = config->family;
-    if (config->family == PF_INET6)
-    {
-        memcpy (&transport->config.socket.sockaddr.in6, &config->sockaddr.in6,
-                sizeof (struct sockaddr_in6));
-    }
-    else
-    {
-        memcpy (&transport->config.socket.sockaddr.in, &config->sockaddr.in,
-                sizeof (struct sockaddr_in));
-    }
-
-    return transport;
 }
 
 /**

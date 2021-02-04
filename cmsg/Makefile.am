@@ -130,8 +130,8 @@ libcmsg_la_SOURCES = \
 	src/ant_result.pb-c.h \
 	src/cmsg_ant_result.c \
 	src/transport/cmsg_transport_loopback.c \
+	src/transport/cmsg_transport_forwarding.c \
 	src/transport/cmsg_transport_tcp.c \
-	src/transport/cmsg_transport_udt.c \
 	src/transport/cmsg_transport_unix.c \
 	src/transport/cmsg_transport_tipc_broadcast.c \
 	src/transport/cmsg_transport.c \
@@ -147,6 +147,7 @@ libcmsg_la_SOURCES = \
 	src/publisher_subscriber/cmsg_sub.c \
 	src/cmsg_queue.c \
 	src/cmsg_server.c \
+	src/cmsg_crypto.c \
 	src/cmsg_mesh.c \
 	src/cmsg_glib_helpers.c \
 	src/cmsg_liboop_helpers.c \
@@ -164,7 +165,7 @@ libcmsg_la_SOURCES = \
 	src/publisher_subscriber/update.pb-c.c \
 	src/cmsg_protobuf-c.c
 
-libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c $(OOP_LIBS) -lsimple_shm
+libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c $(OOP_LIBS) $(OPENSSL_LIBS) -lsimple_shm
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
@@ -189,6 +190,7 @@ libcmsg_la_HEADERS  = \
 	include/cmsg/cmsg_pub.h \
 	include/cmsg/cmsg_queue.h \
 	include/cmsg/cmsg_server.h \
+	include/cmsg/cmsg_crypto.h \
 	include/cmsg/cmsg_sl_config.h \
 	include/cmsg/cmsg_sl.h \
 	include/cmsg/cmsg_sub.h \
@@ -357,7 +359,7 @@ cmsg_unit_tests_SOURCES = \
 	test/unit/cmsg_composite_client_unit_tests.c \
 	test/unit/cmsg_unit_tests.c
 cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
-cmsg_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg
+cmsg_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/src
 cmsg_unit_tests_LDFLAGS = -static
 cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
 
@@ -399,6 +401,8 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/file_response_tests.c \
 	test/functional/server_queuing_tests.c \
 	test/functional/tcp_connection_cache_tests.c \
+	test/functional/client_server_crypto_tests.c \
+	test/functional/client_forwarding_tests.c \
 	test/functional/setup.c
 
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) $(PTHREAD_CFLAGS) -include $(top_builddir)/config.h

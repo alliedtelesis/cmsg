@@ -44,15 +44,14 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
     switch (transport->type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
-    case CMSG_TRANSPORT_RPC_USERDEFINED:
     case CMSG_TRANSPORT_LOOPBACK:
     case CMSG_TRANSPORT_RPC_UNIX:
         return cmsg_server_closure_rpc;
 
     case CMSG_TRANSPORT_ONEWAY_TCP:
     case CMSG_TRANSPORT_BROADCAST:
-    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
     case CMSG_TRANSPORT_ONEWAY_UNIX:
+    case CMSG_TRANSPORT_FORWARDING:
         return cmsg_server_closure_oneway;
     }
 
@@ -114,13 +113,15 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
         CMSG_DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n",
                     transport->type);
 
-        ret = transport->tport_funcs.listen (server->_transport);
-
-        if (ret < 0)
+        if (transport->tport_funcs.listen)
         {
-            CMSG_FREE (server);
-            server = NULL;
-            return NULL;
+            ret = transport->tport_funcs.listen (server->_transport);
+            if (ret < 0)
+            {
+                CMSG_FREE (server);
+                server = NULL;
+                return NULL;
+            }
         }
 
         if (pthread_mutex_init (&server->queue_mutex, NULL) != 0)
@@ -223,7 +224,7 @@ cmsg_server_destroy (cmsg_server *server)
     {
         if (FD_ISSET (fd, &server->accepted_fdset))
         {
-            close (fd);
+            cmsg_server_close_accepted_socket (server, fd);
         }
     }
 
@@ -244,9 +245,16 @@ cmsg_server_destroy (cmsg_server *server)
         cmsg_server_accept_thread_deinit (server);
     }
 
-    if (server->_transport)
+    if (server->_transport && server->_transport->tport_funcs.socket_close)
     {
         server->_transport->tport_funcs.socket_close (server->_transport);
+    }
+
+    if (cmsg_server_crypto_enabled (server))
+    {
+        g_hash_table_remove_all (server->crypto_sa_hash_table);
+        g_hash_table_unref (server->crypto_sa_hash_table);
+        pthread_mutex_destroy (&server->crypto_sa_hash_table_mutex);
     }
 
     CMSG_FREE (server);
@@ -494,8 +502,7 @@ cmsg_server_thread_receive_poll (cmsg_server *server, int32_t timeout_ms,
                 if (cmsg_server_receive (server, fd) < 0)
                 {
                     // only close the socket if we have errored
-                    shutdown (fd, SHUT_RDWR);
-                    close (fd);
+                    cmsg_server_close_accepted_socket (server, fd);
                     FD_CLR (fd, master_fdset);
                     check_fdmax = true;
                 }
@@ -638,8 +645,7 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
                     if (cmsg_server_receive (server, fd) < 0)
                     {
                         // only close the socket if we have errored
-                        shutdown (fd, SHUT_RDWR);
-                        close (fd);
+                        cmsg_server_close_accepted_socket (server, fd);
                         FD_CLR (fd, &server->accepted_fdset);
                         if (server->accepted_fdmax == fd)
                         {
@@ -714,6 +720,147 @@ cmsg_server_recv_process (int socket, uint8_t *buffer_data, cmsg_server *server,
     return ret;
 }
 
+/**
+ * Helper function for 'cmsg_server_receive_encrypted'.
+ * Receive the encrypted data, decrypt it and then return the decoded
+ * data to the caller.
+ *
+ * @param sa - The crypto sa required to decrypt the received data.
+ * @param socket - The socket to read the encrypted data off.
+ * @param server - The server to receive on.
+ * @param decoded_data - Pointer to the buffer to return the received data in.
+ * @param decoded_bytes - Pointer to return the number of bytes of received data.
+ *
+ * @return CMSG_RET_OK on success, related error code on failure.
+ */
+static int32_t
+_cmsg_server_receive_encrypted (cmsg_crypto_sa *sa, int socket, cmsg_server *server,
+                                uint8_t **decoded_data, int *decoded_bytes)
+{
+    int32_t ret = CMSG_RET_OK;
+    int recv_bytes = 0;
+    uint8_t *buffer = NULL;
+    uint8_t buf_static[512];
+    uint32_t msg_length = 0;
+    cmsg_transport *transport = server->_transport;
+    uint8_t sec_header[8];
+    cmsg_peek_code peek_status;
+    time_t receive_timeout = transport->receive_peek_timeout;
+
+    CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] server->accecpted_client_socket %d\n", socket);
+
+    peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
+                                                  transport, socket, receive_timeout,
+                                                  sec_header, sizeof (sec_header));
+    if (peek_status != CMSG_PEEK_CODE_SUCCESS)
+    {
+        if (peek_status == CMSG_PEEK_CODE_CONNECTION_CLOSED ||
+            peek_status == CMSG_PEEK_CODE_CONNECTION_RESET)
+        {
+            return CMSG_RET_CLOSED;
+        }
+
+        return CMSG_RET_ERR;
+    }
+
+    msg_length = cmsg_crypto_parse_header (sec_header);
+    if (msg_length == -1)
+    {
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Receive error. Invalid crypto header.");
+        return CMSG_RET_ERR;
+    }
+
+    if (msg_length < sizeof (buf_static))
+    {
+        buffer = buf_static;
+    }
+    else
+    {
+        buffer = (uint8_t *) CMSG_CALLOC (1, msg_length);
+        if (buffer == NULL)
+        {
+            CMSG_LOG_TRANSPORT_ERROR (transport,
+                                      "Failed to allocate buffer memory (%d)", msg_length);
+            return CMSG_RET_ERR;
+        }
+    }
+
+    recv_bytes = transport->tport_funcs.recv_wrapper (transport, socket, buffer,
+                                                      msg_length, MSG_WAITALL);
+    if (recv_bytes == msg_length)
+    {
+        if (msg_length > CMSG_RECV_BUFFER_SZ)
+        {
+            *decoded_data = (uint8_t *) CMSG_CALLOC (1, msg_length);
+            if (*decoded_data == NULL)
+            {
+                return CMSG_RET_ERR;
+            }
+        }
+
+        *decoded_bytes = cmsg_crypto_decrypt (sa, buffer, msg_length, *decoded_data,
+                                              server->crypto_sa_derive_func);
+        ret = CMSG_RET_OK;
+    }
+    else
+    {
+        ret = CMSG_RET_ERR;
+    }
+
+    if (buffer != buf_static)
+    {
+        CMSG_FREE (buffer);
+    }
+
+    return ret;
+}
+
+/**
+ * Receive the data and decrypt it.
+ *
+ * @param server - The server to receive on.
+ * @param socket - The socket to read the encrypted data off.
+ * @param decoded_data - Pointer to the buffer to return the received data in.
+ * @param header_converted - Pointer to return the converted header in.
+ * @param decoded_bytes - Pointer to return the number of decoded bytes received.
+ *
+ * @return CMSG_RET_OK on success, related error code on failure.
+ */
+static int32_t
+cmsg_server_receive_encrypted (cmsg_server *server, int32_t socket, uint8_t **decoded_data,
+                               cmsg_header *header_converted, int *decoded_bytes)
+{
+    int32_t ret = 0;
+    cmsg_crypto_sa *sa = NULL;
+    cmsg_header *header_received;
+
+    pthread_mutex_lock (&server->crypto_sa_hash_table_mutex);
+    sa = g_hash_table_lookup (server->crypto_sa_hash_table, GINT_TO_POINTER (socket));
+    pthread_mutex_unlock (&server->crypto_sa_hash_table_mutex);
+
+    if (sa == NULL)
+    {
+        CMSG_LOG_SERVER_ERROR (server, "Server failed to lookup sa on socket %d", socket);
+        return CMSG_RET_ERR;
+    }
+
+    ret = _cmsg_server_receive_encrypted (sa, socket, server, decoded_data, decoded_bytes);
+    if (*decoded_bytes >= (int) sizeof (cmsg_header))
+    {
+        header_received = (cmsg_header *) *decoded_data;
+
+        if (cmsg_header_process (header_received, header_converted) != CMSG_RET_OK)
+        {
+            /* Couldn't process the header for some reason */
+            CMSG_LOG_SERVER_ERROR (server,
+                                   "Unable to process message header for server recv. Bytes: %d",
+                                   *decoded_bytes);
+            return CMSG_RET_ERR;
+        }
+    }
+
+    return ret;
+}
 
 /**
  * cmsg_server_receive
@@ -739,9 +886,17 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
     CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (server->_transport != NULL, CMSG_RET_ERR);
 
-    ret = server->_transport->tport_funcs.server_recv (socket, server->_transport,
-                                                       &recv_buff, &processed_header,
-                                                       &nbytes);
+    if (cmsg_server_crypto_enabled (server))
+    {
+        ret = cmsg_server_receive_encrypted (server, socket, &recv_buff, &processed_header,
+                                             &nbytes);
+    }
+    else
+    {
+        ret = server->_transport->tport_funcs.server_recv (socket, server->_transport,
+                                                           &recv_buff, &processed_header,
+                                                           &nbytes);
+    }
 
     if (ret < 0)
     {
@@ -786,15 +941,41 @@ cmsg_server_receive (cmsg_server *server, int32_t socket)
 }
 
 
-/* Accept an incoming socket from a client */
+/**
+ * Accept an incoming connection from a client.
+ *
+ * @param server - The server to accept the connection on.
+ * @param listen_socket - The listening socket.
+ *
+ * @returns The accepted socket descriptor on success, -1 otherwise.
+ */
 static int32_t
 cmsg_server_accept (cmsg_server *server, int32_t listen_socket)
 {
     int sock = -1;
+    cmsg_crypto_sa *sa = NULL;
+    struct sockaddr_storage addr;
+    socklen_t len = sizeof (addr);
 
     CMSG_ASSERT_RETURN_VAL (server != NULL, -1);
 
     sock = cmsg_transport_accept (server->_transport);
+
+    if (cmsg_server_crypto_enabled (server))
+    {
+        getpeername (sock, (struct sockaddr *) &addr, &len);
+        sa = server->crypto_sa_create_func (&addr);
+        if (sa == NULL)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "No crypto sa for accepted socket %d.", sock);
+            close (sock);
+            return -1;
+        }
+
+        pthread_mutex_lock (&server->crypto_sa_hash_table_mutex);
+        g_hash_table_insert (server->crypto_sa_hash_table, GINT_TO_POINTER (sock), sa);
+        pthread_mutex_unlock (&server->crypto_sa_hash_table_mutex);
+    }
 
     // count the accepted connection
     CMSG_COUNTER_INC (server, cntr_connections_accepted);
@@ -1107,13 +1288,70 @@ _cmsg_server_method_req_message_processor (int socket, cmsg_server_request *serv
 /**
  * Wrap the sending of a buffer so that the input buffer can be encrypted if required
  *
- * @returns -1 on failure, 0 on success
+ * @param server - The server sending data.
+ * @param socket - The socket connection to send the data on.
+ * @param buff - The data to send.
+ * @param length - The length of the data to send.
+ *
+ * @returns The number of bytes sent if successful, -1 on failure.
  */
 static int
-cmsg_server_send_wrapper (int socket, cmsg_transport *transport, void *buff, int length)
+cmsg_server_send_wrapper (cmsg_server *server, int socket, void *buff, int length)
 {
-    return transport->tport_funcs.server_send (socket, transport, buff, length, 0);
+    int ret = -1;
+    cmsg_transport *transport = server->_transport;
+    uint8_t *encrypt_buffer;
+    int encrypt_length;
+    cmsg_crypto_sa *sa = NULL;
 
+    if (cmsg_server_crypto_enabled (server))
+    {
+        pthread_mutex_lock (&server->crypto_sa_hash_table_mutex);
+        sa = g_hash_table_lookup (server->crypto_sa_hash_table, GINT_TO_POINTER (socket));
+        pthread_mutex_unlock (&server->crypto_sa_hash_table_mutex);
+
+        if (sa == NULL)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Server failed to lookup sa on socket %d",
+                                   socket);
+            return -1;
+        }
+
+        encrypt_buffer = (uint8_t *) CMSG_CALLOC (1, length + ENCRYPT_EXTRA);
+        if (encrypt_buffer == NULL)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Server failed to allocate buffer on socket %d",
+                                   socket);
+            return -1;
+        }
+
+        encrypt_length = cmsg_crypto_encrypt (sa, buff, length, encrypt_buffer,
+                                              length + ENCRYPT_EXTRA);
+        if (encrypt_length < 0)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Server encrypt on socket %d failed", socket);
+            CMSG_FREE (encrypt_buffer);
+            return -1;
+        }
+
+        ret = transport->tport_funcs.server_send (socket, transport, encrypt_buffer,
+                                                  encrypt_length, 0);
+
+        /* if the send was successful, fixup the return length to match the original
+         * plaintext length so callers are unaware of the encryption */
+        if (encrypt_length == ret)
+        {
+            ret = length;
+        }
+
+        CMSG_FREE (encrypt_buffer);
+    }
+    else
+    {
+        ret = transport->tport_funcs.server_send (socket, transport, buff, length, 0);
+    }
+
+    return ret;
 }
 
 /**
@@ -1135,7 +1373,7 @@ _cmsg_server_echo_req_message_processor (int socket, cmsg_server *server,
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = cmsg_server_send_wrapper (socket, server->_transport, &header, sizeof (header));
+    ret = cmsg_server_send_wrapper (server, socket, &header, sizeof (header));
     if (ret < (int) sizeof (header))
     {
         CMSG_LOG_SERVER_ERROR (server, "Sending of echo reply failed. Sent:%d of %u bytes.",
@@ -1203,7 +1441,7 @@ cmsg_server_empty_method_reply_send (int socket, cmsg_server *server,
 
     cmsg_buffer_print ((void *) &header, sizeof (header));
 
-    ret = cmsg_server_send_wrapper (socket, server->_transport, &header, sizeof (header));
+    ret = cmsg_server_send_wrapper (server, socket, &header, sizeof (header));
     if (ret < (int) sizeof (header))
     {
         CMSG_DEBUG (CMSG_ERROR,
@@ -1349,8 +1587,7 @@ cmsg_server_closure_rpc (const ProtobufCMessage *message, void *closure_data_voi
         CMSG_DEBUG (CMSG_INFO, "[SERVER] response data\n");
         cmsg_buffer_print ((void *) buffer_data, packed_size);
 
-        send_ret = cmsg_server_send_wrapper (socket, server->_transport, buffer,
-                                             total_message_size);
+        send_ret = cmsg_server_send_wrapper (server, socket, buffer, total_message_size);
 
         if (send_ret < (int) total_message_size)
         {
@@ -1741,26 +1978,50 @@ cmsg_create_server_unix_oneway (ProtobufCService *descriptor)
     return _cmsg_create_server_unix (descriptor, CMSG_TRANSPORT_ONEWAY_UNIX);
 }
 
+/**
+ * Create a TIPC broadcast server.
+ *
+ * @param descriptor - The service descriptor for the server.
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param id - The TIPC node id for the server.
+ *
+ * @returns Pointer to the server on success, NULL on failure.
+ */
 cmsg_server *
-cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
+cmsg_create_server_tipc_broadcast (ProtobufCService *descriptor, const char *service_name,
+                                   int id)
 {
-    cmsg_transport *transport = NULL;
-    cmsg_server *server = NULL;
+    cmsg_transport *transport;
+    cmsg_server *server;
+    uint16_t port;
 
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
-    transport = cmsg_create_transport_tcp (config, CMSG_TRANSPORT_RPC_TCP);
+    port = cmsg_service_port_get (service_name, "tipc");
+    if (port == 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Unknown TIPC broadcast service: %s", service_name);
+        return NULL;
+    }
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_BROADCAST);
     if (transport == NULL)
     {
         return NULL;
     }
 
+    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAMESEQ;
+    transport->config.socket.sockaddr.tipc.scope = TIPC_CLUSTER_SCOPE;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.type = port;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.lower = id;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.upper = id;
+
     server = cmsg_server_new (transport, descriptor);
     if (server == NULL)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("[%s] Failed to create TCP RPC server.",
+        CMSG_LOG_GEN_ERROR ("[%s] Failed to create TIPC broadcast server.",
                             descriptor->descriptor->name);
         return NULL;
     }
@@ -2275,7 +2536,7 @@ cmsg_server_thread_task (void *_info)
         }
         if (FD_ISSET (fd, &readfds))
         {
-            close (fd);
+            cmsg_server_close_accepted_socket (info->server, fd);
         }
     }
 
@@ -2283,4 +2544,159 @@ cmsg_server_thread_task (void *_info)
     CMSG_FREE (info);
 
     return NULL;
+}
+
+/**
+ * Enable encryption for the connections to this server.
+ *
+ * @param server - The server to accept connections for.
+ * @param create_func - The user supplied callback function to create a crypto sa
+ *                      when the server accepts a connection.
+ * @param derive_func - The user supplied callback function to derive the crypto sa
+ *                      once the nonce is received from the client.
+ *
+ * @return CMSG_RET_OK on success, CMSG_RET_ERR on failure.
+ */
+int32_t
+cmsg_server_crypto_enable (cmsg_server *server, crypto_sa_create_func_t create_func,
+                           crypto_sa_derive_func_t derive_func)
+{
+    if (create_func == NULL || derive_func == NULL)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    if (server->crypto_sa_hash_table)
+    {
+        /* Already initialised */
+        return CMSG_RET_OK;
+    }
+
+    if (pthread_mutex_init (&server->crypto_sa_hash_table_mutex, NULL) != 0)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    server->crypto_sa_create_func = create_func;
+    server->crypto_sa_derive_func = derive_func;
+
+    server->crypto_sa_hash_table =
+        g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
+                               (GDestroyNotify) cmsg_crypto_sa_free);
+    if (server->crypto_sa_hash_table == NULL)
+    {
+        server->crypto_sa_create_func = NULL;
+        server->crypto_sa_derive_func = NULL;
+        pthread_mutex_destroy (&server->crypto_sa_hash_table_mutex);
+        return CMSG_RET_ERR;
+    }
+
+    return CMSG_RET_OK;
+}
+
+/**
+ * Is encrypted connections enabled for this server.
+ *
+ * @param server - The server to check.
+ *
+ * @returns true if enabled, false otherwise.
+ */
+bool
+cmsg_server_crypto_enabled (cmsg_server *server)
+{
+    return (server->crypto_sa_hash_table != NULL);
+}
+
+/**
+ * Close an accepted socket connection on the server.
+ *
+ * @param server - The server to close the connection for.
+ * @param socket-  The socket connection to close.
+ */
+void
+cmsg_server_close_accepted_socket (cmsg_server *server, int socket)
+{
+    if (cmsg_server_crypto_enabled (server))
+    {
+        pthread_mutex_lock (&server->crypto_sa_hash_table_mutex);
+        g_hash_table_remove (server->crypto_sa_hash_table, GINT_TO_POINTER (socket));
+        pthread_mutex_unlock (&server->crypto_sa_hash_table_mutex);
+    }
+
+    shutdown (socket, SHUT_RDWR);
+    close (socket);
+}
+
+/**
+ * Creates a forwarding server. This should be used to process the data
+ * sent by a forwarding client.
+ *
+ * @param descriptor - The service for the server.
+ *
+ * @returns A pointer to the server on success, NULL otherwise.
+ */
+cmsg_server *
+cmsg_create_server_forwarding (const ProtobufCService *service)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_server *server = NULL;
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_FORWARDING);
+    if (transport == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Could not create transport for forwarding server\n");
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (server == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        syslog (LOG_ERR, "Could not create forwarding server");
+        return NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Process the received message for the forwarding server.
+ *
+ * @param server - The forwarding server.
+ * @param data - The received message.
+ * @param length - The length of the received message.
+ * @param user_data - Pointer to data that the caller wishes to access in the IMPL function.
+ */
+void
+cmsg_forwarding_server_process (cmsg_server *server, const uint8_t *data, uint32_t length,
+                                void *user_data)
+{
+    struct cmsg_forwarding_server_data recv_data = {
+        .msg = data,
+        .len = length,
+        .pos = 0,
+        .user_data = user_data,
+    };
+
+    cmsg_transport_forwarding_user_data_set (server->_transport, &recv_data);
+    cmsg_server_receive (server, 1);
+}
+
+/**
+ * Get the user data supplied to the 'cmsg_forwarding_server_process' call.
+ * Note that this data is only available while the message is being processed,
+ * i.e. inside an IMPL function.
+ *
+ * @param server - The server to get the data for.
+ *
+ * @returns Pointer to the supplied user data.
+ */
+void *
+cmsg_forwarding_server_user_data_get (cmsg_server *server)
+{
+    struct cmsg_forwarding_server_data *recv_data;
+
+    recv_data = cmsg_transport_forwarding_user_data_get (server->_transport);
+
+    return recv_data->user_data;
 }

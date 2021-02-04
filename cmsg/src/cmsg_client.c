@@ -45,7 +45,7 @@ static void _cmsg_client_destroy (cmsg_client *client);
 static int32_t _cmsg_client_send_bytes (cmsg_client *client, uint8_t *buffer,
                                         uint32_t buffer_len, const char *method_name);
 
-static void cmsg_client_close_wrapper (cmsg_transport *transport);
+static void cmsg_client_close_wrapper (cmsg_client *client);
 
 static void
 cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
@@ -60,14 +60,13 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
         {
         case CMSG_TRANSPORT_RPC_TCP:
         case CMSG_TRANSPORT_RPC_UNIX:
-        case CMSG_TRANSPORT_RPC_USERDEFINED:
             client->invoke_send = cmsg_client_invoke_send;
             client->invoke_recv = cmsg_client_invoke_recv;
             break;
         case CMSG_TRANSPORT_ONEWAY_TCP:
-        case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
         case CMSG_TRANSPORT_BROADCAST:
         case CMSG_TRANSPORT_ONEWAY_UNIX:
+        case CMSG_TRANSPORT_FORWARDING:
             client->invoke_send = cmsg_client_invoke_send;
             client->invoke_recv = NULL;
             break;
@@ -238,13 +237,18 @@ cmsg_client_deinit (cmsg_client *client)
     client->state = CMSG_CLIENT_STATE_CLOSED;
     if (client->_transport)
     {
-        cmsg_client_close_wrapper (client->_transport);
+        cmsg_client_close_wrapper (client);
     }
 
     if (client->loopback_server)
     {
         cmsg_server_destroy (client->loopback_server);
         client->loopback_server = NULL;
+    }
+
+    if (client->crypto_sa)
+    {
+        cmsg_crypto_sa_free (client->crypto_sa);
     }
 
     pthread_mutex_destroy (&client->invoke_mutex);
@@ -319,11 +323,289 @@ cmsg_client_counter_create (cmsg_client *client, char *app_name)
     return ret;
 }
 
+/**
+ * Helper function for 'cmsg_client_receive_encrypted'.
+ * Decrypts the input encrypted data and unpacks the decrypted message.
+ *
+ * @param client - The client receiving data.
+ * @param descriptor - The descriptor for the CMSG service.
+ * @param msg_length - The length of the encrypted data passed in.
+ * @param buffer - Buffer containing the encrypted data.
+ * @param messagePtPt - Buffer to return the decrypted message in.
+ *
+ * @return CMSG_STATUS_CODE_SUCCESS on success, related error code on failure.
+ */
+static cmsg_status_code
+_cmsg_client_receive_encrypted (cmsg_client *client,
+                                const ProtobufCServiceDescriptor *descriptor,
+                                int32_t msg_length, uint8_t *buffer,
+                                ProtobufCMessage **messagePtPt)
+{
+    uint32_t dyn_len = 0;
+    cmsg_header *header_received;
+    cmsg_header header_converted;
+    uint8_t *msg_data = NULL;
+    uint8_t buf_static[512];
+    uint8_t *decoded_data = buf_static;
+    int decoded_bytes = 0;
+    const ProtobufCMessageDescriptor *desc;
+    uint32_t extra_header_size;
+    cmsg_server_request server_request;
+    *messagePtPt = NULL;
+    cmsg_status_code code = CMSG_STATUS_CODE_SUCCESS;
+    cmsg_transport *transport = client->_transport;
+    int sock = transport->socket;
+
+    if (msg_length > sizeof (buf_static))
+    {
+        decoded_data = (uint8_t *) CMSG_CALLOC (1, msg_length);
+        if (decoded_data == NULL)
+        {
+            CMSG_LOG_TRANSPORT_ERROR (transport,
+                                      "Client failed to allocate buffer on socket %d",
+                                      sock);
+            return CMSG_STATUS_CODE_SERVICE_FAILED;
+        }
+    }
+
+    decoded_bytes =
+        cmsg_crypto_decrypt (client->crypto_sa, buffer, msg_length, decoded_data,
+                             client->crypto_sa_derive_func);
+    if (decoded_bytes >= (int) sizeof (cmsg_header))
+    {
+        header_received = (cmsg_header *) decoded_data;
+        if (cmsg_header_process (header_received, &header_converted) != CMSG_RET_OK)
+        {
+            /* Couldn't process the header for some reason */
+            CMSG_LOG_TRANSPORT_ERROR (transport,
+                                      "Unable to process message header for client receive. Bytes:%d",
+                                      decoded_bytes);
+            if (decoded_data != buf_static)
+            {
+                CMSG_FREE (decoded_data);
+            }
+            return CMSG_STATUS_CODE_SERVICE_FAILED;
+        }
+
+        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response header\n");
+
+        /* Take into account that someone may have changed the size of the header
+         * and we don't know about it, make sure we receive all the information.
+         * Any TLV is taken into account in the header length. */
+        dyn_len = header_converted.message_length +
+            header_converted.header_length - sizeof (cmsg_header);
+
+        /* There is no more data to read so exit. */
+        if (dyn_len == 0)
+        {
+            /* May have been queued, dropped or there was no message returned */
+            CMSG_DEBUG (CMSG_INFO,
+                        "[TRANSPORT] received response without data. server status %d\n",
+                        header_converted.status_code);
+            if (decoded_data != buf_static)
+            {
+                CMSG_FREE (decoded_data);
+            }
+            return header_converted.status_code;
+        }
+
+        if (dyn_len + sizeof (cmsg_header) > msg_length)
+        {
+            transport->tport_funcs.socket_close (transport);
+            CMSG_LOG_TRANSPORT_ERROR (transport,
+                                      "Received message is too large, closed the socket");
+            if (decoded_data != buf_static)
+            {
+                CMSG_FREE (decoded_data);
+            }
+            return CMSG_STATUS_CODE_SERVICE_FAILED;
+        }
+
+        if (decoded_bytes - sizeof (cmsg_header) == (int) dyn_len)
+        {
+            extra_header_size = header_converted.header_length - sizeof (cmsg_header);
+
+            /* Set msg_data to take into account a larger header than we expected */
+            msg_data = decoded_data + sizeof (cmsg_header);
+
+            cmsg_tlv_header_process (msg_data, &server_request, extra_header_size,
+                                     descriptor);
+
+            msg_data = msg_data + extra_header_size;
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] received response data\n");
+            cmsg_buffer_print (msg_data, dyn_len);
+
+            /* Message is only returned if the server returned Success. */
+            if (header_converted.status_code == CMSG_STATUS_CODE_SUCCESS)
+            {
+                ProtobufCMessage *message = NULL;
+                ProtobufCAllocator *allocator = &cmsg_memory_allocator;
+
+                CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] unpacking response message\n");
+
+                desc = descriptor->methods[server_request.method_index].output;
+                message = protobuf_c_message_unpack (desc, allocator,
+                                                     header_converted.message_length,
+                                                     msg_data);
+
+                if (message)
+                {
+                    *messagePtPt = message;
+                }
+                else
+                {
+                    CMSG_LOG_TRANSPORT_ERROR (transport,
+                                              "Error unpacking response message. Msg length:%d",
+                                              header_converted.message_length);
+                    header_converted.status_code = CMSG_STATUS_CODE_SERVICE_FAILED;
+                }
+            }
+
+            /* Free the allocated buffer */
+            if (decoded_data != buf_static)
+            {
+                CMSG_FREE (decoded_data);
+            }
+
+            /* Make sure we return the status from the server */
+            return header_converted.status_code;
+        }
+        else
+        {
+            CMSG_LOG_TRANSPORT_ERROR (transport,
+                                      "No data for recv. socket:%d, dyn_len:%d, actual len:%d",
+                                      sock, dyn_len, msg_length);
+
+        }
+    }
+
+    if (decoded_data != buf_static)
+    {
+        CMSG_FREE (decoded_data);
+    }
+
+    return code;
+}
+
+/**
+ * Receive the data and decrypt it.
+ *
+ * @param client - The server to receive on.
+ * @param messagePtPt - Pointer to store the received message.
+ *
+ * @return CMSG_STATUS_CODE_SUCCESS on success, related status code on failure.
+ */
+static cmsg_status_code
+cmsg_client_receive_encrypted (cmsg_client *client, ProtobufCMessage **messagePtPt)
+{
+    cmsg_transport *transport = client->_transport;
+    uint8_t sec_header[8];
+    uint32_t msg_length = 0;
+    cmsg_peek_code peek_status;
+    time_t receive_timeout = transport->receive_peek_timeout;
+    cmsg_status_code code = CMSG_STATUS_CODE_SUCCESS;
+    int nbytes = 0;
+    uint8_t *buffer;
+    uint8_t buf_static[512];
+    int socket = transport->socket;
+    const ProtobufCServiceDescriptor *descriptor = client->descriptor;
+
+    *messagePtPt = NULL;
+
+    peek_status = cmsg_transport_peek_for_header (transport->tport_funcs.recv_wrapper,
+                                                  transport, socket, receive_timeout,
+                                                  sec_header, sizeof (sec_header));
+    if (peek_status != CMSG_PEEK_CODE_SUCCESS)
+    {
+        return cmsg_transport_peek_to_status_code (peek_status);
+    }
+
+    msg_length = cmsg_crypto_parse_header (sec_header);
+    if (msg_length == -1)
+    {
+        CMSG_LOG_TRANSPORT_ERROR (transport, "Receive error. Invalid crypto header.");
+        return CMSG_STATUS_CODE_SERVICE_FAILED;
+    }
+
+    if (msg_length < sizeof (buf_static))
+    {
+        buffer = buf_static;
+    }
+    else
+    {
+        buffer = (uint8_t *) CMSG_CALLOC (1, msg_length);
+        if (buffer == NULL)
+        {
+            CMSG_LOG_TRANSPORT_ERROR (transport,
+                                      "Client failed to allocate buffer on socket %d",
+                                      transport->socket);
+            return CMSG_STATUS_CODE_SERVICE_FAILED;
+        }
+    }
+
+    nbytes =
+        transport->tport_funcs.recv_wrapper (transport, socket, buffer, msg_length,
+                                             MSG_WAITALL);
+
+    if (nbytes == msg_length)
+    {
+        code = _cmsg_client_receive_encrypted (client, descriptor, msg_length,
+                                               buffer, messagePtPt);
+    }
+    else if (nbytes > 0)
+    {
+        /* Didn't receive all of the CMSG header. */
+        CMSG_LOG_TRANSPORT_ERROR (transport,
+                                  "Bad header length for recv. Socket:%d nbytes:%d",
+                                  transport->socket, nbytes);
+        code = CMSG_STATUS_CODE_SERVICE_FAILED;
+    }
+    else if (nbytes == 0)
+    {
+        /* Normal socket shutdown case. Return other than TRANSPORT_OK to
+         * have socket removed from select set. */
+        code = CMSG_STATUS_CODE_CONNECTION_CLOSED;
+    }
+    else
+    {
+        if (errno == ECONNRESET)
+        {
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] recv socket %d error: %s\n",
+                        transport->socket, strerror (errno));
+            code = CMSG_STATUS_CODE_SERVER_CONNRESET;
+        }
+        else
+        {
+            CMSG_LOG_TRANSPORT_ERROR (transport, "Recv error. Socket:%d Error:%s",
+                                      transport->socket, strerror (errno));
+            code = CMSG_STATUS_CODE_SERVICE_FAILED;
+        }
+    }
+
+    if (buffer != buf_static)
+    {
+        CMSG_FREE (buffer);
+    }
+
+    return code;
+}
+
 cmsg_status_code
 cmsg_client_response_receive (cmsg_client *client, ProtobufCMessage **message)
 {
-    return (client->_transport->
-            tport_funcs.client_recv (client->_transport, client->descriptor, message));
+    cmsg_status_code ret;
+
+    if (cmsg_client_crypto_enabled (client))
+    {
+        ret = cmsg_client_receive_encrypted (client, message);
+    }
+    else
+    {
+        ret = client->_transport->tport_funcs.client_recv (client->_transport,
+                                                           client->descriptor, message);
+    }
+
+    return ret;
 }
 
 
@@ -460,7 +742,7 @@ cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
 
         // close the connection and return early
         client->state = CMSG_CLIENT_STATE_CLOSED;
-        cmsg_client_close_wrapper (client->_transport);
+        cmsg_client_close_wrapper (client);
 
         CMSG_COUNTER_INC (client, cntr_recv_errors);
         return CMSG_RET_CLOSED;
@@ -1046,6 +1328,87 @@ cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
     return ret;
 }
 
+/**
+ * Wrap the sending of a buffer so that the input buffer can be encrypted if required
+ *
+ * @param client - The client sending data.
+ * @param queue_buffer - The data to send.
+ * @param queue_buffer_size - The length of the data to send.
+ *
+ * @returns The number of bytes sent if successful, -1 on failure.
+ */
+static int32_t
+cmsg_client_transport_send (cmsg_client *client, uint8_t *queue_buffer,
+                            uint32_t queue_buffer_size)
+{
+    cmsg_transport *transport = client->_transport;
+    int send_ret = 0;
+    uint8_t *nonce = NULL;
+    uint32_t nonce_length;
+    uint8_t *encrypt_buffer;
+    int encrypt_length;
+
+    if (cmsg_client_crypto_enabled (client))
+    {
+        if (!client->crypto_sa->ctx_in_init)
+        {
+            nonce = cmsg_crypto_create_nonce (client->crypto_sa,
+                                              client->crypto_sa_derive_func, &nonce_length);
+            if (nonce == NULL)
+            {
+                return CMSG_RET_ERR;
+            }
+            send_ret = transport->tport_funcs.client_send (transport, nonce,
+                                                           nonce_length, 0);
+            CMSG_FREE (nonce);
+            if (send_ret < 0)
+            {
+                CMSG_LOG_CLIENT_ERROR (client, "Failed to send nonce for SA %u",
+                                       client->crypto_sa->id);
+                return CMSG_RET_ERR;
+            }
+        }
+
+        encrypt_buffer = (uint8_t *) CMSG_CALLOC (1, queue_buffer_size + ENCRYPT_EXTRA);
+        if (encrypt_buffer == NULL)
+        {
+            CMSG_LOG_CLIENT_ERROR (client, "Client failed to allocate buffer on socket %d",
+                                   transport->socket);
+            return CMSG_RET_ERR;
+        }
+
+        encrypt_length = cmsg_crypto_encrypt (client->crypto_sa, queue_buffer,
+                                              queue_buffer_size, encrypt_buffer,
+                                              queue_buffer_size + ENCRYPT_EXTRA);
+        if (encrypt_length < 0)
+        {
+            CMSG_LOG_CLIENT_ERROR (client, "Client encrypt on socket %d failed - %s",
+                                   transport->socket, strerror (errno));
+            CMSG_FREE (encrypt_buffer);
+            return CMSG_RET_ERR;
+        }
+
+        send_ret = transport->tport_funcs.client_send (transport, encrypt_buffer,
+                                                       encrypt_length, 0);
+
+        /* If the send was successful, fixup the return length to match the original
+         * plaintext length so callers are unaware of the encryption */
+        if (encrypt_length == send_ret)
+        {
+            send_ret = queue_buffer_size;
+        }
+
+        CMSG_FREE (encrypt_buffer);
+    }
+    else
+    {
+        send_ret = transport->tport_funcs.client_send (transport, queue_buffer,
+                                                       queue_buffer_size, 0);
+    }
+
+    return send_ret;
+}
+
 static int32_t
 _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
                                      uint32_t queue_buffer_size, const char *method_name)
@@ -1062,24 +1425,20 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
         return CMSG_RET_CLOSED;
     }
 
-    send_ret = client->_transport->tport_funcs.client_send (client->_transport,
-                                                            queue_buffer,
-                                                            queue_buffer_size, 0);
+    send_ret = cmsg_client_transport_send (client, queue_buffer, queue_buffer_size);
 
     if (send_ret < (int) (queue_buffer_size))
     {
         // close the connection as something must be wrong
         client->state = CMSG_CLIENT_STATE_CLOSED;
-        cmsg_client_close_wrapper (client->_transport);
+        cmsg_client_close_wrapper (client);
         // the connection may be down due to a problem since the last send
         // attempt once to reconnect and send
         connect_error = cmsg_client_connect (client);
 
         if (client->state == CMSG_CLIENT_STATE_CONNECTED)
         {
-            send_ret = client->_transport->tport_funcs.client_send (client->_transport,
-                                                                    queue_buffer,
-                                                                    queue_buffer_size, 0);
+            send_ret = cmsg_client_transport_send (client, queue_buffer, queue_buffer_size);
 
             if (send_ret < (int) (queue_buffer_size))
             {
@@ -1107,7 +1466,7 @@ _cmsg_client_buffer_send_retry_once (cmsg_client *client, uint8_t *queue_buffer,
                                            method_name);
                 }
                 client->state = CMSG_CLIENT_STATE_FAILED;
-                cmsg_client_close_wrapper (client->_transport);
+                cmsg_client_close_wrapper (client);
                 CMSG_COUNTER_INC (client, cntr_send_errors);
                 return CMSG_RET_ERR;
             }
@@ -1208,14 +1567,13 @@ _cmsg_client_buffer_send (cmsg_client *client, uint8_t *buffer, uint32_t buffer_
         return CMSG_RET_CLOSED;
     }
 
-    send_ret = client->_transport->tport_funcs.client_send (client->_transport, buffer,
-                                                            buffer_size, 0);
+    send_ret = cmsg_client_transport_send (client, buffer, buffer_size);
     if (send_ret < (int) buffer_size)
     {
         CMSG_DEBUG (CMSG_ERROR, "[CLIENT] sending buffer failed, send: %d of %d\n",
                     send_ret, buffer_size);
         client->state = CMSG_CLIENT_STATE_FAILED;
-        cmsg_client_close_wrapper (client->_transport);
+        cmsg_client_close_wrapper (client);
         CMSG_COUNTER_INC (client, cntr_send_errors);
         return CMSG_RET_ERR;
     }
@@ -1349,31 +1707,70 @@ cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor)
     return ret;
 }
 
+/**
+ * Create a TIPC broadcast client.
+ *
+ * @param descriptor - The descriptor for the client.
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param lower_addr - The lower TIPC node id to broadcast to.
+ * @param upper_addr - The upper TIPC node id to broadcast to.
+ *
+ * @returns Pointer to the client on success, NULL on failure.
+ */
 cmsg_client *
-cmsg_create_client_tcp_rpc (cmsg_socket *config,
-                            const ProtobufCServiceDescriptor *descriptor)
+cmsg_create_client_tipc_broadcast (const ProtobufCServiceDescriptor *descriptor,
+                                   const char *service_name, int lower_addr, int upper_addr)
 {
     cmsg_transport *transport;
     cmsg_client *client;
+    uint16_t port;
 
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
-    transport = cmsg_create_transport_tcp (config, CMSG_TRANSPORT_RPC_TCP);
-    if (!transport)
+    port = cmsg_service_port_get (service_name, "tipc");
+    if (port == 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Unknown TIPC broadcast service: %s", service_name);
+        return NULL;
+    }
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_BROADCAST);
+    if (transport == NULL)
     {
         return NULL;
     }
+
+    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_MCAST;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.type = port;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.lower = lower_addr;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.upper = upper_addr;
 
     client = cmsg_client_new (transport, descriptor);
     if (!client)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("No TCP IPC client on %s", descriptor->name);
+        CMSG_LOG_GEN_ERROR ("[%s] Failed to create TIPC broadcast client.",
+                            descriptor->name);
         return NULL;
     }
 
     return client;
+}
+
+/**
+ * Change the broadcast address for a TIPC broadcast client.
+ *
+ * @param client - The TIPC broadcast client to modify.
+ * @param lower_addr - The lower TIPC node id to broadcast to.
+ * @param upper_addr - The upper TIPC node id to broadcast to.
+ */
+void
+cmsg_client_tipc_broadcast_set_destination (cmsg_client *client, int lower_addr,
+                                            int upper_addr)
+{
+    client->_transport->config.socket.sockaddr.tipc.addr.nameseq.lower = lower_addr;
+    client->_transport->config.socket.sockaddr.tipc.addr.nameseq.upper = upper_addr;
 }
 
 /**
@@ -1429,15 +1826,77 @@ cmsg_create_client_loopback (ProtobufCService *service)
 }
 
 /**
+ * Creates a forwarding client.
+ *
+ * @param descriptor - The descriptor for the client.
+ * @param user_data - The user data to provide to the forwarding function.
+ * @param send_func - The function that will be called to forward the message.
+ *
+ * @returns A pointer to the client on success, NULL otherwise.
+ */
+cmsg_client *
+cmsg_create_client_forwarding (const ProtobufCServiceDescriptor *descriptor,
+                               void *user_data, cmsg_forwarding_transport_send_f send_func)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_client *client = NULL;
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_FORWARDING);
+    if (transport == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Could not create transport for forwarding client\n");
+        return NULL;
+    }
+
+    cmsg_transport_forwarding_func_set (transport, send_func);
+    cmsg_transport_forwarding_user_data_set (transport, user_data);
+
+    client = cmsg_client_new (transport, descriptor);
+    if (client == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        syslog (LOG_ERR, "Could not create forwarding client");
+        return NULL;
+    }
+
+    return client;
+}
+
+/**
+ * Set the user data for the forwarding client.
+ *
+ * @param client - The forwarding client to set the data for.
+ * @param user_data - The data to set.
+ */
+void
+cmsg_client_forwarding_data_set (cmsg_client *client, void *user_data)
+{
+    if (!client || client->_transport->type != CMSG_TRANSPORT_FORWARDING)
+    {
+        return;
+    }
+
+    cmsg_transport_forwarding_user_data_set (client->_transport, user_data);
+}
+
+/**
  * Close the client transport layer.
  *
  * NOTE user applications should not call this routine directly
  *
  */
 static void
-cmsg_client_close_wrapper (cmsg_transport *transport)
+cmsg_client_close_wrapper (cmsg_client *client)
 {
-    transport->tport_funcs.socket_close (transport);
+    if (client->_transport->tport_funcs.socket_close)
+    {
+        client->_transport->tport_funcs.socket_close (client->_transport);
+    }
+
+    if (cmsg_client_crypto_enabled (client))
+    {
+        client->crypto_sa->ctx_in_init = false;
+    }
 }
 
 /**
@@ -1813,4 +2272,42 @@ cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
     CMSG_FREE (dummy);
 
     return cmsg_api_process_closure_data (closure_data, recv_msg);
+}
+
+/**
+ * Enable encryption for this clients connections.
+ *
+ * @param client - The client to enable encryption for.
+ * @param sa - The SA structure to use for the encrypted connection.
+ * @param derive_func - The user supplied callback function to derive the crypto sa
+ *                      before sending the nonce to the server.
+ *
+ * @return CMSG_RET_OK on success, CMSG_RET_ERR on failure.
+ */
+int32_t
+cmsg_client_crypto_enable (cmsg_client *client, cmsg_crypto_sa *sa,
+                           crypto_sa_derive_func_t derive_func)
+{
+    if (sa == NULL || derive_func == NULL)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    client->crypto_sa = sa;
+    client->crypto_sa_derive_func = derive_func;
+
+    return CMSG_RET_OK;
+}
+
+/**
+ * Is encrypted connections enabled for this client.
+ *
+ * @param client - The client to check.
+ *
+ * @returns true if enabled, false otherwise.
+ */
+bool
+cmsg_client_crypto_enabled (cmsg_client *client)
+{
+    return (client->crypto_sa != NULL);
 }

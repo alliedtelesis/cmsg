@@ -9,6 +9,7 @@
 #include "cmsg_broadcast_client.h"
 #include "cmsg_error.h"
 #include "cmsg_composite_client.h"
+#include "transport/cmsg_transport_private.h"
 
 /**
  * When destroying the broadcast client event queue there may still be

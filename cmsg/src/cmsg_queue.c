@@ -4,6 +4,7 @@
 #include "cmsg_private.h"
 #include "cmsg_queue.h"
 #include "cmsg_error.h"
+#include "transport/cmsg_transport_private.h"
 
 int32_t
 cmsg_send_queue_push (GQueue *queue, uint8_t *buffer, uint32_t buffer_size,

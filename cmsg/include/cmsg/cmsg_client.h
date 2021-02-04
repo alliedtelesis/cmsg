@@ -10,6 +10,7 @@ typedef struct _cmsg_client_s cmsg_client;
 #include "cmsg_private.h"   // to be removed when this file is split private/public
 #include "cmsg_queue.h"
 #include "cmsg_transport.h"
+#include "cmsg_crypto.h"
 
 
 #define CMSG_DESCRIPTOR(package,service)    (&package ## _ ## service ## _descriptor)
@@ -94,6 +95,10 @@ typedef struct _cmsg_client_s
 
     // mutex for safe client usage across multiple threads
     pthread_mutex_t send_mutex;
+
+    /* SA data for encrypted connections */
+    cmsg_crypto_sa *crypto_sa;
+    crypto_sa_derive_func_t crypto_sa_derive_func;
 
     //counter information
     void *cntr_session;
@@ -196,8 +201,6 @@ cmsg_client *cmsg_create_client_unix (const ProtobufCServiceDescriptor *descript
 cmsg_client *cmsg_create_client_unix_oneway (const ProtobufCServiceDescriptor *descriptor);
 int32_t cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor);
 
-cmsg_client *cmsg_create_client_tcp_rpc (cmsg_socket *config,
-                                         const ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_loopback (ProtobufCService *service);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
@@ -222,6 +225,17 @@ cmsg_client *cmsg_create_client_tcp_ipv6_oneway (const char *service_name,
                                                  const char *vrf_bind_dev,
                                                  const ProtobufCServiceDescriptor
                                                  *descriptor);
+
+cmsg_client *cmsg_create_client_tipc_broadcast (const ProtobufCServiceDescriptor
+                                                *descriptor, const char *service_name,
+                                                int lower_addr, int upper_addr);
+void cmsg_client_tipc_broadcast_set_destination (cmsg_client *client, int lower_addr,
+                                                 int upper_addr);
+
+cmsg_client *cmsg_create_client_forwarding (const ProtobufCServiceDescriptor *descriptor,
+                                            void *user_data,
+                                            cmsg_forwarding_transport_send_f send_func);
+void cmsg_client_forwarding_data_set (cmsg_client *client, void *user_data);
 
 typedef struct
 {
@@ -250,5 +264,9 @@ int cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_d
                           int method_index,
                           const ProtobufCMessage *send_msg, ProtobufCMessage **recv_msg);
 #endif /*HAVE_UNITTEST */
+
+int32_t cmsg_client_crypto_enable (cmsg_client *client, cmsg_crypto_sa *sa,
+                                   crypto_sa_derive_func_t derive_func);
+bool cmsg_client_crypto_enabled (cmsg_client *client);
 
 #endif /* __CMSG_CLIENT_H_ */

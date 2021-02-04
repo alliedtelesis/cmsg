@@ -19,6 +19,7 @@
 #include "cmsg_composite_client.h"
 #include "cmsg_composite_client_private.h"
 #include "cmsg_client_private.h"
+#include "transport/cmsg_transport_private.h"
 
 extern int32_t cmsg_client_init (cmsg_client *client, cmsg_transport *transport,
                                  const ProtobufCServiceDescriptor *descriptor);
