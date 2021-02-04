@@ -276,6 +276,8 @@ cmsg_server *cmsg_create_server_tcp_ipv6_oneway (const char *service_name,
                                                  uint32_t scope_id,
                                                  const char *vrf_bind_dev,
                                                  const ProtobufCService *service);
+cmsg_server *cmsg_create_server_tipc_broadcast (ProtobufCService *descriptor,
+                                                const char *service_name, int id);
 
 const cmsg_server *cmsg_server_from_service_get (const void *service);
 
@@ -287,5 +289,10 @@ int32_t cmsg_server_crypto_enable (cmsg_server *server, crypto_sa_create_func_t 
                                    crypto_sa_derive_func_t derive_func);
 bool cmsg_server_crypto_enabled (cmsg_server *server);
 void cmsg_server_close_accepted_socket (cmsg_server *server, int socket);
+
+cmsg_server *cmsg_create_server_forwarding (const ProtobufCService *service);
+void cmsg_forwarding_server_process (cmsg_server *server, const uint8_t *data,
+                                     uint32_t length, void *user_data);
+void *cmsg_forwarding_server_user_data_get (cmsg_server *server);
 
 #endif /* __CMSG_SERVER_H_ */

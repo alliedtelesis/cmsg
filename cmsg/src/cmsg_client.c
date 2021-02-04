@@ -68,6 +68,7 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
         case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
         case CMSG_TRANSPORT_BROADCAST:
         case CMSG_TRANSPORT_ONEWAY_UNIX:
+        case CMSG_TRANSPORT_FORWARDING:
             client->invoke_send = cmsg_client_invoke_send;
             client->invoke_recv = NULL;
             break;
@@ -1708,6 +1709,72 @@ cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor)
     return ret;
 }
 
+/**
+ * Create a TIPC broadcast client.
+ *
+ * @param descriptor - The descriptor for the client.
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param lower_addr - The lower TIPC node id to broadcast to.
+ * @param upper_addr - The upper TIPC node id to broadcast to.
+ *
+ * @returns Pointer to the client on success, NULL on failure.
+ */
+cmsg_client *
+cmsg_create_client_tipc_broadcast (const ProtobufCServiceDescriptor *descriptor,
+                                   const char *service_name, int lower_addr, int upper_addr)
+{
+    cmsg_transport *transport;
+    cmsg_client *client;
+    uint16_t port;
+
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    port = cmsg_service_port_get (service_name, "tipc");
+    if (port == 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Unknown TIPC broadcast service: %s", service_name);
+        return NULL;
+    }
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_BROADCAST);
+    if (transport == NULL)
+    {
+        return NULL;
+    }
+
+    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_MCAST;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.type = port;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.lower = lower_addr;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.upper = upper_addr;
+
+    client = cmsg_client_new (transport, descriptor);
+    if (!client)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("[%s] Failed to create TIPC broadcast client.",
+                            descriptor->name);
+        return NULL;
+    }
+
+    return client;
+}
+
+/**
+ * Change the broadcast address for a TIPC broadcast client.
+ *
+ * @param client - The TIPC broadcast client to modify.
+ * @param lower_addr - The lower TIPC node id to broadcast to.
+ * @param upper_addr - The upper TIPC node id to broadcast to.
+ */
+void
+cmsg_client_tipc_broadcast_set_destination (cmsg_client *client, int lower_addr,
+                                            int upper_addr)
+{
+    client->_transport->config.socket.sockaddr.tipc.addr.nameseq.lower = lower_addr;
+    client->_transport->config.socket.sockaddr.tipc.addr.nameseq.upper = upper_addr;
+}
+
 cmsg_client *
 cmsg_create_client_tcp_rpc (cmsg_socket *config,
                             const ProtobufCServiceDescriptor *descriptor)
@@ -1785,6 +1852,60 @@ cmsg_create_client_loopback (ProtobufCService *service)
     client->loopback_server = server;
 
     return client;
+}
+
+/**
+ * Creates a forwarding client.
+ *
+ * @param descriptor - The descriptor for the client.
+ * @param user_data - The user data to provide to the forwarding function.
+ * @param send_func - The function that will be called to forward the message.
+ *
+ * @returns A pointer to the client on success, NULL otherwise.
+ */
+cmsg_client *
+cmsg_create_client_forwarding (const ProtobufCServiceDescriptor *descriptor,
+                               void *user_data, cmsg_forwarding_transport_send_f send_func)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_client *client = NULL;
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_FORWARDING);
+    if (transport == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Could not create transport for forwarding client\n");
+        return NULL;
+    }
+
+    cmsg_transport_forwarding_func_set (transport, send_func);
+    cmsg_transport_forwarding_user_data_set (transport, user_data);
+
+    client = cmsg_client_new (transport, descriptor);
+    if (client == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        syslog (LOG_ERR, "Could not create forwarding client");
+        return NULL;
+    }
+
+    return client;
+}
+
+/**
+ * Set the user data for the forwarding client.
+ *
+ * @param client - The forwarding client to set the data for.
+ * @param user_data - The data to set.
+ */
+void
+cmsg_client_forwarding_data_set (cmsg_client *client, void *user_data)
+{
+    if (!client || client->_transport->type != CMSG_TRANSPORT_FORWARDING)
+    {
+        return;
+    }
+
+    cmsg_transport_forwarding_user_data_set (client->_transport, user_data);
 }
 
 /**

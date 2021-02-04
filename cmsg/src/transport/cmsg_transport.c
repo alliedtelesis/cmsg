@@ -290,6 +290,12 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
             break;
         }
 
+    case CMSG_TRANSPORT_FORWARDING:
+        {
+            strncpy (tport->tport_id, ".fwd", CMSG_MAX_TPORT_ID_LEN);
+            break;
+        }
+
     case CMSG_TRANSPORT_RPC_UNIX:
     case CMSG_TRANSPORT_ONEWAY_UNIX:
         {
@@ -339,6 +345,10 @@ cmsg_transport_new (cmsg_transport_type type)
 
     case CMSG_TRANSPORT_LOOPBACK:
         cmsg_transport_loopback_init (transport);
+        break;
+
+    case CMSG_TRANSPORT_FORWARDING:
+        cmsg_transport_forwarding_init (transport);
         break;
 
     case CMSG_TRANSPORT_ONEWAY_UNIX:
