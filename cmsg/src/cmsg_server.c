@@ -44,15 +44,14 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
     switch (transport->type)
     {
     case CMSG_TRANSPORT_RPC_TCP:
-    case CMSG_TRANSPORT_RPC_USERDEFINED:
     case CMSG_TRANSPORT_LOOPBACK:
     case CMSG_TRANSPORT_RPC_UNIX:
         return cmsg_server_closure_rpc;
 
     case CMSG_TRANSPORT_ONEWAY_TCP:
     case CMSG_TRANSPORT_BROADCAST:
-    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
     case CMSG_TRANSPORT_ONEWAY_UNIX:
+    case CMSG_TRANSPORT_FORWARDING:
         return cmsg_server_closure_oneway;
     }
 
@@ -114,13 +113,15 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
         CMSG_DEBUG (CMSG_INFO, "[SERVER] creating new server with type: %d\n",
                     transport->type);
 
-        ret = transport->tport_funcs.listen (server->_transport);
-
-        if (ret < 0)
+        if (transport->tport_funcs.listen)
         {
-            CMSG_FREE (server);
-            server = NULL;
-            return NULL;
+            ret = transport->tport_funcs.listen (server->_transport);
+            if (ret < 0)
+            {
+                CMSG_FREE (server);
+                server = NULL;
+                return NULL;
+            }
         }
 
         if (pthread_mutex_init (&server->queue_mutex, NULL) != 0)
@@ -244,7 +245,7 @@ cmsg_server_destroy (cmsg_server *server)
         cmsg_server_accept_thread_deinit (server);
     }
 
-    if (server->_transport)
+    if (server->_transport && server->_transport->tport_funcs.socket_close)
     {
         server->_transport->tport_funcs.socket_close (server->_transport);
     }
@@ -1977,26 +1978,50 @@ cmsg_create_server_unix_oneway (ProtobufCService *descriptor)
     return _cmsg_create_server_unix (descriptor, CMSG_TRANSPORT_ONEWAY_UNIX);
 }
 
+/**
+ * Create a TIPC broadcast server.
+ *
+ * @param descriptor - The service descriptor for the server.
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param id - The TIPC node id for the server.
+ *
+ * @returns Pointer to the server on success, NULL on failure.
+ */
 cmsg_server *
-cmsg_create_server_tcp_rpc (cmsg_socket *config, ProtobufCService *descriptor)
+cmsg_create_server_tipc_broadcast (ProtobufCService *descriptor, const char *service_name,
+                                   int id)
 {
-    cmsg_transport *transport = NULL;
-    cmsg_server *server = NULL;
+    cmsg_transport *transport;
+    cmsg_server *server;
+    uint16_t port;
 
-    CMSG_ASSERT_RETURN_VAL (config != NULL, NULL);
     CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
 
-    transport = cmsg_create_transport_tcp (config, CMSG_TRANSPORT_RPC_TCP);
+    port = cmsg_service_port_get (service_name, "tipc");
+    if (port == 0)
+    {
+        CMSG_LOG_GEN_ERROR ("Unknown TIPC broadcast service: %s", service_name);
+        return NULL;
+    }
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_BROADCAST);
     if (transport == NULL)
     {
         return NULL;
     }
 
+    transport->config.socket.sockaddr.tipc.addrtype = TIPC_ADDR_NAMESEQ;
+    transport->config.socket.sockaddr.tipc.scope = TIPC_CLUSTER_SCOPE;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.type = port;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.lower = id;
+    transport->config.socket.sockaddr.tipc.addr.nameseq.upper = id;
+
     server = cmsg_server_new (transport, descriptor);
     if (server == NULL)
     {
         cmsg_transport_destroy (transport);
-        CMSG_LOG_GEN_ERROR ("[%s] Failed to create TCP RPC server.",
+        CMSG_LOG_GEN_ERROR ("[%s] Failed to create TIPC broadcast server.",
                             descriptor->descriptor->name);
         return NULL;
     }
@@ -2600,4 +2625,78 @@ cmsg_server_close_accepted_socket (cmsg_server *server, int socket)
 
     shutdown (socket, SHUT_RDWR);
     close (socket);
+}
+
+/**
+ * Creates a forwarding server. This should be used to process the data
+ * sent by a forwarding client.
+ *
+ * @param descriptor - The service for the server.
+ *
+ * @returns A pointer to the server on success, NULL otherwise.
+ */
+cmsg_server *
+cmsg_create_server_forwarding (const ProtobufCService *service)
+{
+    cmsg_transport *transport = NULL;
+    cmsg_server *server = NULL;
+
+    transport = cmsg_transport_new (CMSG_TRANSPORT_FORWARDING);
+    if (transport == NULL)
+    {
+        CMSG_LOG_GEN_ERROR ("Could not create transport for forwarding server\n");
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (server == NULL)
+    {
+        cmsg_transport_destroy (transport);
+        syslog (LOG_ERR, "Could not create forwarding server");
+        return NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Process the received message for the forwarding server.
+ *
+ * @param server - The forwarding server.
+ * @param data - The received message.
+ * @param length - The length of the received message.
+ * @param user_data - Pointer to data that the caller wishes to access in the IMPL function.
+ */
+void
+cmsg_forwarding_server_process (cmsg_server *server, const uint8_t *data, uint32_t length,
+                                void *user_data)
+{
+    struct cmsg_forwarding_server_data recv_data = {
+        .msg = data,
+        .len = length,
+        .pos = 0,
+        .user_data = user_data,
+    };
+
+    cmsg_transport_forwarding_user_data_set (server->_transport, &recv_data);
+    cmsg_server_receive (server, 1);
+}
+
+/**
+ * Get the user data supplied to the 'cmsg_forwarding_server_process' call.
+ * Note that this data is only available while the message is being processed,
+ * i.e. inside an IMPL function.
+ *
+ * @param server - The server to get the data for.
+ *
+ * @returns Pointer to the supplied user data.
+ */
+void *
+cmsg_forwarding_server_user_data_get (cmsg_server *server)
+{
+    struct cmsg_forwarding_server_data *recv_data;
+
+    recv_data = cmsg_transport_forwarding_user_data_get (server->_transport);
+
+    return recv_data->user_data;
 }

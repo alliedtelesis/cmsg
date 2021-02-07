@@ -14,6 +14,7 @@
 #include "remote_sync_impl_auto.h"
 #include "remote_sync.h"
 #include "data.h"
+#include "transport/cmsg_transport_private.h"
 
 cmsg_server *remote_sync_server = NULL;
 uint32_t local_ip_addr = 0;

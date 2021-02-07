@@ -2,7 +2,6 @@
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #include "cmsg_private.h"
-#include "cmsg_transport.h"
 #include "cmsg_transport_private.h"
 #include "cmsg_error.h"
 #include <arpa/inet.h>
@@ -278,15 +277,15 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
             break;
         }
 
-    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
-        {
-            strncpy (tport->tport_id, ".udt", CMSG_MAX_TPORT_ID_LEN);
-            break;
-        }
-
     case CMSG_TRANSPORT_LOOPBACK:
         {
             strncpy (tport->tport_id, ".lpb", CMSG_MAX_TPORT_ID_LEN);
+            break;
+        }
+
+    case CMSG_TRANSPORT_FORWARDING:
+        {
+            strncpy (tport->tport_id, ".fwd", CMSG_MAX_TPORT_ID_LEN);
             break;
         }
 
@@ -332,13 +331,13 @@ cmsg_transport_new (cmsg_transport_type type)
     case CMSG_TRANSPORT_BROADCAST:
         cmsg_transport_tipc_broadcast_init (transport);
         break;
-    case CMSG_TRANSPORT_ONEWAY_USERDEFINED:
-    case CMSG_TRANSPORT_RPC_USERDEFINED:
-        cmsg_transport_udt_init (transport);
-        break;
 
     case CMSG_TRANSPORT_LOOPBACK:
         cmsg_transport_loopback_init (transport);
+        break;
+
+    case CMSG_TRANSPORT_FORWARDING:
+        cmsg_transport_forwarding_init (transport);
         break;
 
     case CMSG_TRANSPORT_ONEWAY_UNIX:
@@ -834,13 +833,16 @@ cmsg_transport_socket_close (cmsg_transport *transport)
 int32_t
 cmsg_transport_connect (cmsg_transport *transport)
 {
-    int ret;
+    int ret = CMSG_RET_OK;
 
-    ret = transport->tport_funcs.connect (transport);
-    if (ret == CMSG_RET_OK)
+    if (transport->tport_funcs.connect)
     {
-        transport->tport_funcs.apply_send_timeout (transport, transport->socket);
-        transport->tport_funcs.apply_recv_timeout (transport, transport->socket);
+        ret = transport->tport_funcs.connect (transport);
+        if (ret == CMSG_RET_OK)
+        {
+            transport->tport_funcs.apply_send_timeout (transport, transport->socket);
+            transport->tport_funcs.apply_recv_timeout (transport, transport->socket);
+        }
     }
 
     return ret;
@@ -1325,4 +1327,18 @@ cmsg_transport_info_copy (const cmsg_transport_info *transport_info)
     cmsg_transport_destroy (transport);
 
     return copied_info;
+}
+
+/**
+ * Return the IPv4 address for this transport. It is up to the
+ * user to assure that the transport used is of TCP type.
+ *
+ * @param transport - The transport to return the IPv4 address for.
+ *
+ * @returns The IPv4 address.
+ */
+struct in_addr
+cmsg_transport_ipv4_address_get (const cmsg_transport *transport)
+{
+    return transport->config.socket.sockaddr.in.sin_addr;
 }

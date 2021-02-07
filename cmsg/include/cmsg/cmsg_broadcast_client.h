@@ -21,6 +21,8 @@ void cmsg_broadcast_client_destroy (cmsg_client *client);
 
 int32_t cmsg_broadcast_client_add_loopback (cmsg_client *broadcast_client,
                                             cmsg_client *loopback_client);
+int32_t cmsg_broadcast_client_add_unix (cmsg_client *_broadcast_client,
+                                        cmsg_client *unix_client);
 
 int cmsg_broadcast_client_get_event_fd (cmsg_client *_broadcast_client);
 void cmsg_broadcast_event_queue_process (cmsg_client *_broadcast_client);

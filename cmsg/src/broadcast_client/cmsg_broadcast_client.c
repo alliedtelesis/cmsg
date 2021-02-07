@@ -9,6 +9,7 @@
 #include "cmsg_broadcast_client.h"
 #include "cmsg_error.h"
 #include "cmsg_composite_client.h"
+#include "transport/cmsg_transport_private.h"
 
 /**
  * When destroying the broadcast client event queue there may still be
@@ -210,6 +211,29 @@ cmsg_broadcast_client_add_loopback (cmsg_client *_broadcast_client,
     cmsg_client *comp_client = (cmsg_client *) &broadcast_client->base_client;
 
     return cmsg_composite_client_add_child (comp_client, loopback_client);
+}
+
+/**
+ * Add a unix client to a broadcast client.
+ *
+ * @param _broadcast_client - The broadcast client to add a loopback client to.
+ * @param unix_client - The unix client to add.
+ *
+ * @returns CMSG_RET_OK on success, CMSG_RET_ERR on failure.
+ */
+int32_t
+cmsg_broadcast_client_add_unix (cmsg_client *_broadcast_client, cmsg_client *unix_client)
+{
+    cmsg_broadcast_client *broadcast_client = (cmsg_broadcast_client *) _broadcast_client;
+
+    CMSG_ASSERT_RETURN_VAL (broadcast_client != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL ((unix_client->_transport->type == CMSG_TRANSPORT_RPC_UNIX ||
+                             unix_client->_transport->type == CMSG_TRANSPORT_ONEWAY_UNIX),
+                            CMSG_RET_ERR);
+
+    cmsg_client *comp_client = (cmsg_client *) &broadcast_client->base_client;
+
+    return cmsg_composite_client_add_child (comp_client, unix_client);
 }
 
 /**

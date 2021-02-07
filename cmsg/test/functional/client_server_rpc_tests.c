@@ -226,16 +226,6 @@ test_client_server_rpc_loopback (void)
 }
 
 /**
- * Run the simple client <-> server test case with a UDT (TCP) transport.
- */
-void
-test_client_server_rpc_udt (void)
-{
-    run_client_server_tests (CMSG_TRANSPORT_RPC_USERDEFINED, AF_UNSPEC,
-                             _run_client_server_tests);
-}
-
-/**
  * Run the BIG client <-> server test case with a TCP transport.
  */
 void
@@ -261,16 +251,6 @@ void
 test_client_server_rpc_loopback_big (void)
 {
     run_client_server_tests (CMSG_TRANSPORT_LOOPBACK, AF_UNSPEC,
-                             _run_client_server_tests_big);
-}
-
-/**
- * Run the BIG client <-> server test case with a UDT (TCP) transport.
- */
-void
-test_client_server_rpc_udt_big (void)
-{
-    run_client_server_tests (CMSG_TRANSPORT_RPC_USERDEFINED, AF_UNSPEC,
                              _run_client_server_tests_big);
 }
 
@@ -323,15 +303,5 @@ void
 test_client_server_rpc_loopback_empty_msg (void)
 {
     run_client_server_tests (CMSG_TRANSPORT_LOOPBACK, AF_UNSPEC,
-                             _run_client_server_tests_empty_msg);
-}
-
-/**
- * Run the empty msg client <-> server test case with a UDT (TCP) transport.
- */
-void
-test_client_server_rpc_udt_empty_msg (void)
-{
-    run_client_server_tests (CMSG_TRANSPORT_RPC_USERDEFINED, AF_UNSPEC,
                              _run_client_server_tests_empty_msg);
 }

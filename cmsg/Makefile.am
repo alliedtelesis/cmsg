@@ -130,8 +130,8 @@ libcmsg_la_SOURCES = \
 	src/ant_result.pb-c.h \
 	src/cmsg_ant_result.c \
 	src/transport/cmsg_transport_loopback.c \
+	src/transport/cmsg_transport_forwarding.c \
 	src/transport/cmsg_transport_tcp.c \
-	src/transport/cmsg_transport_udt.c \
 	src/transport/cmsg_transport_unix.c \
 	src/transport/cmsg_transport_tipc_broadcast.c \
 	src/transport/cmsg_transport.c \
@@ -359,7 +359,7 @@ cmsg_unit_tests_SOURCES = \
 	test/unit/cmsg_composite_client_unit_tests.c \
 	test/unit/cmsg_unit_tests.c
 cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
-cmsg_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg
+cmsg_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/src
 cmsg_unit_tests_LDFLAGS = -static
 cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
 
@@ -402,6 +402,7 @@ cmsg_functional_tests_SOURCES = \
 	test/functional/server_queuing_tests.c \
 	test/functional/tcp_connection_cache_tests.c \
 	test/functional/client_server_crypto_tests.c \
+	test/functional/client_forwarding_tests.c \
 	test/functional/setup.c
 
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) $(PTHREAD_CFLAGS) -include $(top_builddir)/config.h

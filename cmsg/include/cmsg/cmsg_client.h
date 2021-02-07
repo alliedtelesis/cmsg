@@ -201,8 +201,6 @@ cmsg_client *cmsg_create_client_unix (const ProtobufCServiceDescriptor *descript
 cmsg_client *cmsg_create_client_unix_oneway (const ProtobufCServiceDescriptor *descriptor);
 int32_t cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor);
 
-cmsg_client *cmsg_create_client_tcp_rpc (cmsg_socket *config,
-                                         const ProtobufCServiceDescriptor *descriptor);
 cmsg_client *cmsg_create_client_loopback (ProtobufCService *service);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
@@ -227,6 +225,17 @@ cmsg_client *cmsg_create_client_tcp_ipv6_oneway (const char *service_name,
                                                  const char *vrf_bind_dev,
                                                  const ProtobufCServiceDescriptor
                                                  *descriptor);
+
+cmsg_client *cmsg_create_client_tipc_broadcast (const ProtobufCServiceDescriptor
+                                                *descriptor, const char *service_name,
+                                                int lower_addr, int upper_addr);
+void cmsg_client_tipc_broadcast_set_destination (cmsg_client *client, int lower_addr,
+                                                 int upper_addr);
+
+cmsg_client *cmsg_create_client_forwarding (const ProtobufCServiceDescriptor *descriptor,
+                                            void *user_data,
+                                            cmsg_forwarding_transport_send_f send_func);
+void cmsg_client_forwarding_data_set (cmsg_client *client, void *user_data);
 
 typedef struct
 {

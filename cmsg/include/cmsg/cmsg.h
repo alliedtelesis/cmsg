@@ -62,6 +62,27 @@ extern ProtobufCAllocator cmsg_memory_allocator;
     } while (0)
 
 
+#define CMSG_UNSET_AND_ZERO_FIELD_VALUE(_name, _field) \
+    do {                                               \
+        (_name)->_field = 0;                           \
+        (_name)->has_##_field = false;                 \
+    } while (0)
+
+#ifdef __cplusplus
+/* Compile-time assert to make sure the variable is a pointer type */
+#define _CMSG_ASSERT_PTR_FIELD(X)                               \
+    static_assert (std::is_pointer<decltype(X)>::value, "Field is not a pointer type");
+#else
+/* Compile-time check whether the variable is a pointer type.
+ * Explicitly check against those types available from protobuf. */
+#define _CMSG_TYPE_IS_PTR(X) _Generic((X), \
+    _Bool:0, int32_t:0, uint32_t:0, int64_t:0, uint64_t:0, float:0, double:0, default:1)
+
+/* Compile-time assert to make sure the variable is a pointer type */
+#define _CMSG_ASSERT_PTR_FIELD(X) \
+    _Static_assert (_CMSG_TYPE_IS_PTR (X), "Field is not a pointer type")
+#endif /* __cplusplus */
+
 /* Macros for setting the fields in a structure, and the associated sub-fields */
 #define CMSG_SET_FIELD_VALUE(_name, _field, _value) \
     do {                                            \
@@ -69,15 +90,10 @@ extern ProtobufCAllocator cmsg_memory_allocator;
         (_name)->has_##_field = true;               \
     } while (0)
 
-#define CMSG_UNSET_AND_ZERO_FIELD_VALUE(_name, _field) \
-    do {                                               \
-        (_name)->_field = 0;                           \
-        (_name)->has_##_field = false;                 \
-    } while (0)
-
-#define CMSG_SET_FIELD_PTR(_name, _field, _ptr) \
-    do {                                        \
-        (_name)->_field = (_ptr);               \
+#define CMSG_SET_FIELD_PTR(_name, _field, _ptr)   \
+    do {                                          \
+        _CMSG_ASSERT_PTR_FIELD ((_name)->_field); \
+        (_name)->_field = (_ptr);                 \
     } while (0)
 
 #define CMSG_SET_FIELD_REPEATED(_name, _field, _ptr, _n_elem) \
@@ -112,7 +128,7 @@ extern ProtobufCAllocator cmsg_memory_allocator;
     ((_msg)->has_##_field ? true : false)
 
 #define CMSG_IS_PTR_PRESENT(_msg, _ptr) \
-    ((_msg)->_ptr != NULL ? true : false)
+    ({ _CMSG_ASSERT_PTR_FIELD ((_msg)->_ptr); (_msg)->_ptr != NULL ? true : false; })
 
 #define CMSG_IS_REPEATED_PRESENT(_msg, _field) \
     ((_msg)->n_##_field ? true : false)
