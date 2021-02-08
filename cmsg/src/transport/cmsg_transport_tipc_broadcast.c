@@ -95,6 +95,37 @@ cmsg_transport_tipc_broadcast_recv (cmsg_transport *transport, int sock, void *b
     nbytes = recvfrom (transport->socket, buff, len, flags,
                        (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
                        &addrlen);
+
+    if (nbytes == 0)
+    {
+        /* In TIPC a return value of zero from recv has special meaning
+         * (refer to http://tipc.io/programming.html#socket_routines, recv() description)
+         * In this case, since the TIPC broadcast socket is a datagram socket, zero means we
+         * have a returned undelivered data message. This can be expected but we need to handle
+         * it well.
+         * Since we do not really need to care about the reason for the failure we can simply
+         * read past that message to clear it from the RX queue. We then return a failure to
+         * trigger our CMSG receive code to retry. Failing to do this leads to reception on
+         * the socket being stalled forever.
+         */
+        CMSG_DEBUG (CMSG_INFO,
+                    "[TRANSPORT] Skipping received returned undelivered message\n");
+
+        if (flags & MSG_PEEK)
+        {
+            /* Read the message without PEEK such that the received returned undelivered message
+             * is correct cleared from the socket RX queue.
+             */
+            recvfrom (transport->socket, buff, len, flags & (~MSG_PEEK),
+                      (struct sockaddr *) &transport->config.socket.sockaddr.tipc,
+                      &addrlen);
+        }
+        /* Since this was a returned undelivered message that is now cleared from the RX queue
+         * we should return a failure response that triggers a retry.
+         */
+        nbytes = -1;
+        errno = EAGAIN;
+    }
     return nbytes;
 }
 
