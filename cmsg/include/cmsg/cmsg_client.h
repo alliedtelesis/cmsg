@@ -193,6 +193,8 @@ cmsg_queue_filter_type cmsg_client_queue_filter_lookup (cmsg_client *client,
 
 void cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable);
 
+void cmsg_client_perform_connection_pre_check (cmsg_client *client, cmsg_bool_t enable);
+
 int32_t cmsg_client_create_packet (cmsg_client *client, const char *method_name,
                                    const ProtobufCMessage *input, uint8_t **buffer_ptr,
                                    uint32_t *total_message_size_ptr);

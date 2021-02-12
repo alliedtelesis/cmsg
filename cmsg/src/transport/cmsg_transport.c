@@ -319,6 +319,7 @@ cmsg_transport_new (cmsg_transport_type type)
     transport->send_timeout = SEND_TIMEOUT_DEFAULT;
     transport->receive_timeout = RECV_TIMEOUT_DEFAULT;
     transport->receive_peek_timeout = RECV_HEADER_PEEK_TIMEOUT_DEFAULT;
+    transport->perform_connection_pre_check = true;
 
     switch (type)
     {

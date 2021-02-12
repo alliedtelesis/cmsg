@@ -1650,6 +1650,16 @@ cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable)
     }
 }
 
+void
+cmsg_client_perform_connection_pre_check (cmsg_client *client, cmsg_bool_t enable)
+{
+    /* This flag is on the transport. */
+    if (client->_transport)
+    {
+        client->_transport->perform_connection_pre_check = enable;
+    }
+}
+
 /* Create a cmsg client and its transport over a UNIX socket */
 static cmsg_client *
 _cmsg_create_client_unix (const ProtobufCServiceDescriptor *descriptor,

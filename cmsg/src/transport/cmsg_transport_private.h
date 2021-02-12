@@ -152,6 +152,9 @@ struct cmsg_transport
     // flag to tell error-level log to be suppressed to debug-level
     cmsg_bool_t suppress_errors;
 
+    // flag to perform pre-checking prior to connect
+    cmsg_bool_t perform_connection_pre_check;
+
     // The socket used by the transport
     int socket;
 
