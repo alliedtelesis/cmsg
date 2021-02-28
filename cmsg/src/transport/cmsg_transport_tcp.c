@@ -130,8 +130,8 @@ cmsg_transport_tcp_connect (cmsg_transport *transport)
     if (transport->config.socket.family == PF_INET &&
         !cmsg_transport_tcp_cache_should_connect (address))
     {
-        CMSG_LOG_TRANSPORT_ERROR (transport, "Failed to connect to remote host. Error: %s",
-                                  "Dead cache entry");
+        CMSG_LOG_TRANSPORT_DEBUG (transport, "Failed to connect to remote host. %s",
+                                  "Host no longer present");
         return -1;
     }
 
