@@ -46,7 +46,7 @@ static const ProtobufCServiceDescriptor cmsg_psd_pub_descriptor = {
  *
  * @returns A pointer to the composite client or NULL.
  */
-static cmsg_client *
+cmsg_client *
 cmsg_publisher_get_client_for_method (cmsg_publisher *publisher, const char *method_name,
                                       bool create)
 {
