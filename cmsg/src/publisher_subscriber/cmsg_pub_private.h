@@ -10,12 +10,6 @@
 #include "cmsg_server.h"
 #include "cmsg_client.h"
 
-typedef struct
-{
-    char *method_name;
-    cmsg_client *comp_client;   /* Client to subscribers of this method */
-} subscribed_method_entry;
-
 struct cmsg_publisher
 {
     //this is a hack to get around a check when a client method is called
@@ -41,5 +35,8 @@ struct cmsg_publisher
     pthread_t update_thread;
     bool update_thread_running;
 };
+
+cmsg_client *cmsg_publisher_get_client_for_method (struct cmsg_publisher *publisher,
+                                                   const char *method_name, bool create);
 
 #endif /* __CMSG_PUB_PRIVATE_H_ */

@@ -455,7 +455,11 @@ data_remove_local_subscription (const cmsg_subscription_info *info)
             service_entry->methods = g_list_remove (service_entry->methods, method_entry);
             CMSG_FREE (method_entry->method_name);
             CMSG_FREE (method_entry);
-            destroy_service_entry = (g_list_length (service_entry->methods) == 0);
+            if (g_list_length (service_entry->methods) == 0 &&
+                cmsg_composite_client_num_children (service_entry->comp_client) == 0)
+            {
+                destroy_service_entry = true;
+            }
         }
     }
     if (destroy_service_entry)
