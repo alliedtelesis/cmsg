@@ -27,6 +27,7 @@
 #include "validation.pb.h"
 #include "supported_service.pb.h"
 #include "file_response.pb.h"
+#include "privilege.pb.h"
 
 namespace google {
 namespace protobuf {
@@ -71,6 +72,7 @@ AtlCodeGenerator::GenerateAtlApiServiceSupportCheck (const ServiceDescriptor* de
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
     if (!method->options().HasExtension(file_response) &&
+        !method->options().HasExtension(rpc_privilege) &&
         !method->options().HasExtension(disable_service_support_check)) {
       share_extension = true;
       break;
@@ -254,7 +256,8 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensionsPtr(const MethodDescriptor 
   string lcname = cmsg::CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  if (method.options().HasExtension(file_response)) {
+  if (method.options().HasExtension(file_response) ||
+      method.options().HasExtension(rpc_privilege)) {
     printer->Print(vars_, "&$lcfullname$_api_$method$_extension");
   } else if (descriptor_->options().HasExtension(service_support_check) &&
              !method.options().HasExtension(disable_service_support_check)) {
@@ -271,7 +274,8 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensions(const MethodDescriptor &me
   vars_["method"] = lcname;
 
   // Return early if per-API extension is not required.
-  if (!method.options().HasExtension(file_response)) {
+  if (!method.options().HasExtension(file_response) &&
+      !method.options().HasExtension(rpc_privilege)) {
     return;
   }
 
@@ -286,6 +290,10 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensions(const MethodDescriptor &me
   if (descriptor_->options().HasExtension(service_support_check) &&
      !method.options().HasExtension(disable_service_support_check)) {
     printer->Print(vars_, ".service_support = &$lcfullname$_api_service_support_check,\n");
+  }
+  if (method.options().HasExtension(rpc_privilege)) {
+    vars_["rpc_privilege"] = SimpleItoa(method.options().GetExtension(rpc_privilege));
+    printer->Print(vars_, ".rpc_privilege = $rpc_privilege$,\n");
   }
   printer->Outdent();
   printer->Print("};\n\n");

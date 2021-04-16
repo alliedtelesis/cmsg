@@ -38,6 +38,15 @@ src/file_response_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/file_response.p
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/file_response.proto
 
+src/privilege.pb-c.c \
+src/privilege.pb-c.h \
+src/privilege_types_auto.h \
+src/privilege_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/privilege.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=disable_message_helpers:$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/privilege.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/privilege.proto
+
 src/cmsg_api_auto.c \
 src/cmsg_api_auto.h \
 src/cmsg_impl_auto.c \
@@ -213,7 +222,11 @@ libcmsg_la_HEADERS  = \
 	src/file_response.proto \
 	src/file_response.pb-c.h \
 	src/file_response_types_auto.h \
-	src/file_response_validation_auto.h
+	src/file_response_validation_auto.h \
+	src/privilege.proto \
+	src/privilege.pb-c.h \
+	src/privilege_types_auto.h \
+	src/privilege_validation_auto.h
 
 BUILT_SOURCES =  \
 	src/cmsg_api_auto.c \
