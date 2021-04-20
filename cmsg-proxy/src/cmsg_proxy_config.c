@@ -13,6 +13,7 @@
 typedef struct
 {
     cmsg_proxy_log_mode log_mode;
+    uint32_t readonly_privilege;
 } cmsg_proxy_config;
 
 static void init_config (cmsg_proxy_config *proxy_conf);
@@ -32,6 +33,7 @@ static void
 init_config (cmsg_proxy_config *proxy_conf)
 {
     proxy_conf->log_mode = CMSG_PROXY_LOG_NONE;
+    proxy_conf->readonly_privilege = DEFAULT_READONLY_PRIVILEGE;
 }
 
 void
@@ -48,4 +50,20 @@ cmsg_proxy_config_get_logging_mode (void)
     cmsg_proxy_config *config = get_shared_memory (&shm_info);
 
     return config->log_mode;
+}
+
+void
+cmsg_proxy_config_set_readonly_privilege (uint32_t privilege)
+{
+    cmsg_proxy_config *config = get_shared_memory (&shm_info);
+
+    config->readonly_privilege = privilege;
+}
+
+uint32_t
+cmsg_proxy_config_get_readonly_privilege (void)
+{
+    cmsg_proxy_config *config = get_shared_memory (&shm_info);
+
+    return config->readonly_privilege;
 }
