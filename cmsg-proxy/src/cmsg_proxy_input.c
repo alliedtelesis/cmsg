@@ -713,7 +713,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     }
 
     output->stream_response =
-        cmsg_proxy_streaming_create_conn (input->connection, &json_obj,
+        cmsg_proxy_streaming_create_conn (input->stream_seq_no, &json_obj,
                                           input_desc, output_desc,
                                           &processing_info->streaming_id);
 
