@@ -205,6 +205,7 @@ void cmsg_proxy_init (void);
 void cmsg_proxy_deinit (void);
 void cmsg_proxy_free_output_contents (cmsg_proxy_output *output);
 void cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output);
+int cmsg_proxy_get_api_privilege (const char *url, cmsg_http_verb http_verb);
 void cmsg_proxy_set_pre_api_http_check_callback (pre_api_http_check_callback cb);
 
 void cmsg_proxy_passthrough_init (const char *library_path);

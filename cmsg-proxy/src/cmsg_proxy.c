@@ -642,3 +642,34 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
 
     cmsg_proxy_output_process (output_proto_message, output, &processing_info);
 }
+
+/**
+ * Get the privilege level configured for the WEB API, which is configured in .proto
+ * file with new extension (e.g. "option (rpc_privilege) = 7").
+ *
+ * @param url - The encoded URL to use for the lookup.
+ * @param http_verb - HTTP verb to use for the lookup.
+ *
+ * @return - the configured privilege or -1 otherwise.
+ */
+int
+cmsg_proxy_get_api_privilege (const char *url, cmsg_http_verb http_verb)
+{
+    const cmsg_service_info *service_info;
+    const cmsg_method_client_extensions *extensions;
+
+    service_info = cmsg_proxy_get_service_and_parameters (url, NULL, http_verb, NULL);
+    if (service_info && service_info->cmsg_desc)
+    {
+        extensions = service_info->cmsg_desc->method_extensions[service_info->method_index];
+        if (extensions)
+        {
+            if (extensions->rpc_privilege > 0)
+            {
+                return extensions->rpc_privilege;
+            }
+        }
+    }
+
+    return -1;
+}
