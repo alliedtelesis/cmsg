@@ -1216,7 +1216,7 @@ test_cmsg_proxy_index__api_prefix_in_basepath (void)
 
     basepath = json_object_get (json_obj, CMSG_PROXY_INDEX_BASEPATH_KEY);
     NP_ASSERT_NOT_NULL (basepath);
-    NP_ASSERT_STR_EQUAL (json_string_value (basepath), API_PREFIX);
+    NP_ASSERT_STR_EQUAL (json_string_value (basepath), CMSG_PROXY_API_PREFIX);
 
     json_decref (json_obj);
     cmsg_proxy_free_output_contents (&output);

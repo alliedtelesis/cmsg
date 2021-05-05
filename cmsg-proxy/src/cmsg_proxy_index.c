@@ -7,13 +7,6 @@
 #include "cmsg_proxy_tree.h"
 #include "cmsg_proxy_private.h"
 
-/* This is the prefix that should be prepended to paths in the proto files to get the
- * absolute path on the device.  It is returned in the indexing function, so should be
- * updated if the API base is ever moved.  If the api is ever moved, the indexing API
- * needs to continue to work at the original location.
- */
-#define API_PREFIX "/api"
-
 /* Wrapper structure for data passed to cmsg_proxy_index_add_element */
 struct index_add_elem_data
 {
@@ -183,7 +176,7 @@ cmsg_proxy_index (const char *query_string, cmsg_proxy_output *output)
 
     result = json_object ();
 
-    json_object_set_new (result, "basepath", json_string (API_PREFIX));
+    json_object_set_new (result, "basepath", json_string (CMSG_PROXY_API_PREFIX));
     json_object_set (result, "paths", api_array);
 
     cmsg_proxy_json_t_to_output (result, JSON_ENCODE_ANY | JSON_COMPACT, output);
