@@ -615,7 +615,8 @@ cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output)
      */
     output->mime_type = cmsg_proxy_mime_application_json;
 
-    if (strcmp (input->url, "/v1/index") == 0 && input->http_verb == CMSG_HTTP_GET)
+    if (input->http_verb == CMSG_HTTP_GET &&
+        (strcmp (input->url, "/v1/index") == 0 || strcmp (input->url, "/v2/index") == 0))
     {
         output->http_status = cmsg_proxy_index (input->query_string, output);
         return;
