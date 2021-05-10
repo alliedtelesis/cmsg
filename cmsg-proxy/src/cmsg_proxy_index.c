@@ -11,21 +11,19 @@
 struct index_add_elem_data
 {
     json_t *api_array;
-    const char *filter;
+    const char *search_pattern;
 };
 
 /**
  * Helper function to get search pattern from passed in query string.
  * @param query_string - Url encoded query string to look for search pattern in.
- * @return - Allocated string containing search pattern. or NULL if search parameter is not
- * set or is empty.
+ * @param search_pattern - Pointer to return allocated string containing search pattern.
  */
-static char *
-cmsg_proxy_index_search_pattern (const char *query_string)
+static void
+cmsg_proxy_index_parse_query_param (const char *query_string, char **search_pattern)
 {
     GList *query_params = NULL;
     GList *node = NULL;
-    char *search_pattern = NULL;
     cmsg_url_parameter *param;
 
     cmsg_proxy_parse_query_parameters (query_string, &query_params);
@@ -33,18 +31,21 @@ cmsg_proxy_index_search_pattern (const char *query_string)
     for (node = query_params; node; node = node->next)
     {
         param = (cmsg_url_parameter *) node->data;
-        if (param && param->key && strcmp (param->key, "search_string") == 0)
+        if (param && param->key && param->value && param->value[0] != '\0')
         {
-            if (param->value && param->value[0] != '\0')
+            /* Use the first occurrence of the param */
+            if (strcmp (param->key, "search_string") == 0)
             {
-                search_pattern = strdup (param->value);
+                if (!*search_pattern)
+                {
+                    *search_pattern = strdup (param->value);
+                }
                 break;
             }
         }
     }
 
     g_list_free_full (query_params, cmsg_proxy_free_url_parameter);
-    return search_pattern;
 }
 
 
@@ -52,14 +53,14 @@ cmsg_proxy_index_search_pattern (const char *query_string)
  * GNodeTraverseFunc to add API tree leaf entry element to index.
  * @param node - API tree leaf node
  * @param data - Pointer to index_add_elem_data struct containing json array to append to
- *               and an optional search filter to match against.
+ *               and an optional search string to match against.
  */
 static gboolean
 cmsg_proxy_index_add_element (GNode *node, gpointer data)
 {
     struct index_add_elem_data *elem_data = (struct index_add_elem_data *) data;
     json_t *api_array = elem_data->api_array;
-    const char *filter = elem_data->filter;
+    const char *search_pattern = elem_data->search_pattern;
     const cmsg_proxy_api_info *api_info = node->data;
     json_t *method_array = NULL;
     const char *url_string = NULL;
@@ -98,8 +99,8 @@ cmsg_proxy_index_add_element (GNode *node, gpointer data)
         json_array_append_new (method_array, json_string ("PUT"));
     }
 
-    /* No url string found or doesn't match the filter, skip */
-    if (!url_string || (filter && !strstr (url_string, filter)))
+    /* No url string found or doesn't match the search string, skip */
+    if (!url_string || (search_pattern && !strstr (url_string, search_pattern)))
     {
         json_array_clear (method_array);
         json_decref (method_array);
@@ -161,10 +162,10 @@ cmsg_proxy_index (const char *query_string, cmsg_proxy_output *output)
         return HTTP_CODE_INTERNAL_SERVER_ERROR;
     }
 
-    search_pattern = cmsg_proxy_index_search_pattern (query_string);
+    cmsg_proxy_index_parse_query_param (query_string, &search_pattern);
     api_array = json_array ();
 
-    traverse_data.filter = search_pattern;
+    traverse_data.search_pattern = search_pattern;
     traverse_data.api_array = api_array;
 
     if (!cmsg_proxy_tree_foreach_leaf (cmsg_proxy_index_add_element, &traverse_data))
