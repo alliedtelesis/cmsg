@@ -275,6 +275,16 @@ cmsg_server *cmsg_create_server_tcp_ipv6_oneway (const char *service_name,
                                                  uint32_t scope_id,
                                                  const char *vrf_bind_dev,
                                                  const ProtobufCService *service);
+cmsg_server *cmsg_create_server_udp_ipv4_oneway (const char *service_name,
+                                                 struct in_addr *addr,
+                                                 struct in_addr *src_addr,
+                                                 const char *vrf_bind_dev,
+                                                 const ProtobufCService *service);
+cmsg_server *cmsg_create_server_udp_ipv6_oneway (const char *service_name,
+                                                 struct in6_addr *addr, uint32_t scope_id,
+                                                 struct in6_addr *src_addr,
+                                                 const char *vrf_bind_dev,
+                                                 const ProtobufCService *service);
 cmsg_server *cmsg_create_server_tipc_broadcast (ProtobufCService *descriptor,
                                                 const char *service_name, int id);
 

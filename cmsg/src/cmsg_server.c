@@ -50,6 +50,7 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
         return cmsg_server_closure_rpc;
 
     case CMSG_TRANSPORT_ONEWAY_TCP:
+    case CMSG_TRANSPORT_ONEWAY_MC_UDP:
     case CMSG_TRANSPORT_BROADCAST:
     case CMSG_TRANSPORT_ONEWAY_UNIX:
     case CMSG_TRANSPORT_FORWARDING:
@@ -2191,6 +2192,66 @@ cmsg_create_server_tcp_ipv6_oneway (const char *service_name, struct in6_addr *a
     CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
 
     return _cmsg_create_server_tcp_ipv6 (service_name, addr, scope_id, vrf_bind_dev,
+                                         service, true);
+}
+
+/**
+ * Helper function for creating a CMSG server using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param src_addr - The IPv4 address (in network byte order) of the source interface.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ * @param oneway - Whether to make a one-way server, or a two-way (RPC) server.
+ */
+static cmsg_server *
+_cmsg_create_server_udp_ipv4 (const char *service_name, struct in_addr *addr,
+                              struct in_addr *src_addr, const char *vrf_bind_dev,
+                              const ProtobufCService *service, bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_server *server;
+
+    transport =
+        cmsg_create_transport_mc_udp_ipv4 (service_name, addr, src_addr, vrf_bind_dev,
+                                           oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (!server)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No UDP IPC server on %s", service->descriptor->name);
+        return NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create a oneway CMSG server using UDP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ */
+cmsg_server *
+cmsg_create_server_udp_ipv4_oneway (const char *service_name, struct in_addr *addr,
+                                    struct in_addr *src_addr, const char *vrf_bind_dev,
+                                    const ProtobufCService *service)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    return _cmsg_create_server_udp_ipv4 (service_name, addr, src_addr, vrf_bind_dev,
                                          service, true);
 }
 

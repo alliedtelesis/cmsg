@@ -113,6 +113,15 @@ test_client_server_oneway_tcp6 (void)
 }
 
 /**
+ * Run the simple client <-> server test case with a UDP transport (IPv4).
+ */
+void
+test_client_server_oneway_udp (void)
+{
+    run_client_server_tests (CMSG_TRANSPORT_ONEWAY_MC_UDP, AF_INET);
+}
+
+/**
  * Run the simple client <-> server test case with a UNIX transport.
  */
 void

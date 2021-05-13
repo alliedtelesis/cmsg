@@ -64,6 +64,7 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
             client->invoke_recv = cmsg_client_invoke_recv;
             break;
         case CMSG_TRANSPORT_ONEWAY_TCP:
+        case CMSG_TRANSPORT_ONEWAY_MC_UDP:
         case CMSG_TRANSPORT_BROADCAST:
         case CMSG_TRANSPORT_ONEWAY_UNIX:
         case CMSG_TRANSPORT_FORWARDING:
@@ -2088,6 +2089,68 @@ cmsg_create_client_tcp_ipv6_oneway (const char *service_name, struct in6_addr *a
     return _cmsg_create_client_tcp_ipv6 (service_name, addr, scope_id, vrf_bind_dev,
                                          descriptor, true);
 }
+
+/**
+ * Helper function for creating a CMSG client using UDP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to connect to (in network byte order).
+ * @param src_addr - The IPv4 address (in network byte order) of the source interface.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param descriptor - The CMSG service descriptor for the service.
+ * @param oneway - Whether to make a one-way client, or a two-way (RPC) client.
+ */
+static cmsg_client *
+_cmsg_create_client_mc_udp_ipv4 (const char *service_name, struct in_addr *addr,
+                                 struct in_addr *src_addr, const char *vrf_bind_dev,
+                                 const ProtobufCServiceDescriptor *descriptor, bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_client *client;
+
+    transport =
+        cmsg_create_transport_mc_udp_ipv4 (service_name, addr, src_addr, vrf_bind_dev,
+                                           oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    client = cmsg_client_new (transport, descriptor);
+    if (!client)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No UDP IPC client on %s", descriptor->name);
+        return NULL;
+    }
+
+    return client;
+}
+
+/**
+ * Create a oneway CMSG client using UDP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to connect to (in network byte order).
+ * @param src_addr - The IPv4 address (in network byte order) of the source interface.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param descriptor - The CMSG service descriptor for the service.
+ */
+cmsg_client *
+cmsg_create_client_mc_udp_ipv4_oneway (const char *service_name, struct in_addr *addr,
+                                       struct in_addr *src_addr, const char *vrf_bind_dev,
+                                       const ProtobufCServiceDescriptor *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_client_mc_udp_ipv4 (service_name, addr, src_addr, vrf_bind_dev,
+                                            descriptor, true);
+}
+
 
 /**
  * Check the passed in recv_msg pointer to see if it is NULL. If it is not NULL, set it to

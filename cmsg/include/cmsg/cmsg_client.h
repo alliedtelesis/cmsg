@@ -228,6 +228,21 @@ cmsg_client *cmsg_create_client_tcp_ipv6_oneway (const char *service_name,
                                                  const ProtobufCServiceDescriptor
                                                  *descriptor);
 
+cmsg_client *cmsg_create_client_mc_udp_ipv4_oneway (const char *service_name,
+                                                    struct in_addr *addr,
+                                                    struct in_addr *src_addr,
+                                                    const char *vrf_bind_dev,
+                                                    const ProtobufCServiceDescriptor
+                                                    *descriptor);
+
+cmsg_client *cmsg_create_client_mc_udp_ipv6_oneway (const char *service_name,
+                                                    struct in6_addr *addr,
+                                                    uint32_t scope_id,
+                                                    struct in6_addr *src_addr,
+                                                    const char *vrf_bind_dev,
+                                                    const ProtobufCServiceDescriptor
+                                                    *descriptor);
+
 cmsg_client *cmsg_create_client_tipc_broadcast (const ProtobufCServiceDescriptor
                                                 *descriptor, const char *service_name,
                                                 int lower_addr, int upper_addr);
