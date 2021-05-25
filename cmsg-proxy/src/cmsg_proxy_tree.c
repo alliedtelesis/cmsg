@@ -716,8 +716,11 @@ cmsg_proxy_find_service_from_url_and_verb (const char *url, cmsg_http_verb verb,
                 /* if this URL segment is a parameter, store it to be parsed later */
                 if (cmsg_proxy_token_is_url_param (key))
                 {
-                    param = cmsg_proxy_create_url_parameter (key, next_entry);
-                    *url_parameters = g_list_prepend (*url_parameters, param);
+                    if (url_parameters)
+                    {
+                        param = cmsg_proxy_create_url_parameter (key, next_entry);
+                        *url_parameters = g_list_prepend (*url_parameters, param);
+                    }
                     parent_node = node;
                     break;
                 }

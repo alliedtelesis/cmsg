@@ -6,52 +6,115 @@
 #include "cmsg_proxy_index.h"
 #include "cmsg_proxy_tree.h"
 #include "cmsg_proxy_private.h"
+#include "cmsg_proxy_config.h"
 
-/* This is the prefix that should be prepended to paths in the proto files to get the
- * absolute path on the device.  It is returned in the indexing function, so should be
- * updated if the API base is ever moved.  If the api is ever moved, the indexing API
- * needs to continue to work at the original location.
- */
-#define API_PREFIX "/api"
+#define CMSG_PROXY_PRIVILEGE_NOT_SET    0
+#define CMSG_PROXY_PRIVILEGE_MIN        1
+#define CMSG_PROXY_PRIVILEGE_MAX        15
 
 /* Wrapper structure for data passed to cmsg_proxy_index_add_element */
 struct index_add_elem_data
 {
     json_t *api_array;
-    const char *filter;
+    const char *search_pattern;
+    int privilege;
+    int readonly_privilege;
 };
 
 /**
  * Helper function to get search pattern from passed in query string.
  * @param query_string - Url encoded query string to look for search pattern in.
- * @return - Allocated string containing search pattern. or NULL if search parameter is not
- * set or is empty.
+ * @param search_pattern - Pointer to return allocated string containing search pattern.
+ * @param privilege - Pointer to store privilege level from the query string.
  */
-static char *
-cmsg_proxy_index_search_pattern (const char *query_string)
+static void
+cmsg_proxy_index_parse_query_param (const char *query_string, char **search_pattern,
+                                    int *privilege)
 {
     GList *query_params = NULL;
     GList *node = NULL;
-    char *search_pattern = NULL;
     cmsg_url_parameter *param;
+    const char *search_string_param = NULL;
+    const char *privilege_param = NULL;
+    int number;
 
     cmsg_proxy_parse_query_parameters (query_string, &query_params);
 
     for (node = query_params; node; node = node->next)
     {
         param = (cmsg_url_parameter *) node->data;
-        if (param && param->key && strcmp (param->key, "search_string") == 0)
+        if (param && param->key && param->value && param->value[0] != '\0')
         {
-            if (param->value && param->value[0] != '\0')
+            /* Use the first occurrence of the param */
+            if (strcmp (param->key, "search_string") == 0)
             {
-                search_pattern = strdup (param->value);
-                break;
+                if (!search_string_param)
+                {
+                    search_string_param = param->value;
+                }
+            }
+            else if (strcmp (param->key, "privilege") == 0)
+            {
+                if (!privilege_param)
+                {
+                    privilege_param = param->value;
+                }
             }
         }
     }
 
+    /* Return the specified params */
+    if (search_pattern && search_string_param)
+    {
+        *search_pattern = strdup (search_string_param);
+    }
+    if (privilege && privilege_param)
+    {
+        number = strtoll (privilege_param, NULL, 10);
+        if (number >= CMSG_PROXY_PRIVILEGE_MIN && number <= CMSG_PROXY_PRIVILEGE_MAX)
+        {
+            *privilege = number;
+        }
+    }
+
     g_list_free_full (query_params, cmsg_proxy_free_url_parameter);
-    return search_pattern;
+}
+
+
+/**
+ * Filter API by the privilege level.
+ * API matches if the given privilege level is same or higher than the API privilege.
+ *
+ * @param service_info - CMSG service info of the API
+ * @param privilege - Privilege level to filter the API
+ * @param default_api_privilege - Default privilege of the API.
+ *
+ * @raturn TRUE if the API matches or FASLE otherwise.
+ */
+static gboolean
+cmsg_proxy_index_privilege_filter (const cmsg_service_info *service_info,
+                                   int privilege, int default_api_privilege)
+{
+    const cmsg_method_client_extensions *extensions;
+    int api_privilege = default_api_privilege;
+
+    /* If privilege filter is not set, allow all */
+    if (privilege == CMSG_PROXY_PRIVILEGE_NOT_SET)
+    {
+        return TRUE;
+    }
+
+    /* Check the privilege of API if set in .proto file */
+    if (service_info->cmsg_desc)
+    {
+        extensions = service_info->cmsg_desc->method_extensions[service_info->method_index];
+        if (extensions && extensions->rpc_privilege > 0)
+        {
+            api_privilege = extensions->rpc_privilege;
+        }
+    }
+
+    return (privilege >= api_privilege);
 }
 
 
@@ -59,14 +122,16 @@ cmsg_proxy_index_search_pattern (const char *query_string)
  * GNodeTraverseFunc to add API tree leaf entry element to index.
  * @param node - API tree leaf node
  * @param data - Pointer to index_add_elem_data struct containing json array to append to
- *               and an optional search filter to match against.
+ *               and an optional search string to match against.
  */
 static gboolean
 cmsg_proxy_index_add_element (GNode *node, gpointer data)
 {
     struct index_add_elem_data *elem_data = (struct index_add_elem_data *) data;
     json_t *api_array = elem_data->api_array;
-    const char *filter = elem_data->filter;
+    const char *search_pattern = elem_data->search_pattern;
+    int privilege = elem_data->privilege;
+    int readonly_privilege = elem_data->readonly_privilege;
     const cmsg_proxy_api_info *api_info = node->data;
     json_t *method_array = NULL;
     const char *url_string = NULL;
@@ -81,32 +146,52 @@ cmsg_proxy_index_add_element (GNode *node, gpointer data)
     method_array = json_array ();
     if (api_info->cmsg_http_delete)
     {
-        url_string = api_info->cmsg_http_delete->url_string;
-        json_array_append_new (method_array, json_string ("DELETE"));
+        if (cmsg_proxy_index_privilege_filter (api_info->cmsg_http_delete, privilege,
+                                               CMSG_PROXY_PRIVILEGE_MAX))
+        {
+            url_string = api_info->cmsg_http_delete->url_string;
+            json_array_append_new (method_array, json_string ("DELETE"));
+        }
     }
     if (api_info->cmsg_http_get)
     {
-        url_string = api_info->cmsg_http_get->url_string;
-        json_array_append_new (method_array, json_string ("GET"));
+        if (cmsg_proxy_index_privilege_filter (api_info->cmsg_http_get, privilege,
+                                               readonly_privilege))
+        {
+            url_string = api_info->cmsg_http_get->url_string;
+            json_array_append_new (method_array, json_string ("GET"));
+        }
     }
     if (api_info->cmsg_http_patch)
     {
-        url_string = api_info->cmsg_http_patch->url_string;
-        json_array_append_new (method_array, json_string ("PATCH"));
+        if (cmsg_proxy_index_privilege_filter (api_info->cmsg_http_patch, privilege,
+                                               CMSG_PROXY_PRIVILEGE_MAX))
+        {
+            url_string = api_info->cmsg_http_patch->url_string;
+            json_array_append_new (method_array, json_string ("PATCH"));
+        }
     }
     if (api_info->cmsg_http_post)
     {
-        url_string = api_info->cmsg_http_post->url_string;
-        json_array_append_new (method_array, json_string ("POST"));
+        if (cmsg_proxy_index_privilege_filter (api_info->cmsg_http_post, privilege,
+                                               CMSG_PROXY_PRIVILEGE_MAX))
+        {
+            url_string = api_info->cmsg_http_post->url_string;
+            json_array_append_new (method_array, json_string ("POST"));
+        }
     }
     if (api_info->cmsg_http_put)
     {
-        url_string = api_info->cmsg_http_put->url_string;
-        json_array_append_new (method_array, json_string ("PUT"));
+        if (cmsg_proxy_index_privilege_filter (api_info->cmsg_http_put, privilege,
+                                               CMSG_PROXY_PRIVILEGE_MAX))
+        {
+            url_string = api_info->cmsg_http_put->url_string;
+            json_array_append_new (method_array, json_string ("PUT"));
+        }
     }
 
-    /* No url string found or doesn't match the filter, skip */
-    if (!url_string || (filter && !strstr (url_string, filter)))
+    /* No url string found or doesn't match the search string, skip */
+    if (!url_string || (search_pattern && !strstr (url_string, search_pattern)))
     {
         json_array_clear (method_array);
         json_decref (method_array);
@@ -159,6 +244,7 @@ int
 cmsg_proxy_index (const char *query_string, cmsg_proxy_output *output)
 {
     char *search_pattern = NULL;
+    int privilege = CMSG_PROXY_PRIVILEGE_NOT_SET;
     json_t *result = NULL;
     json_t *api_array = NULL;
     struct index_add_elem_data traverse_data;
@@ -168,11 +254,14 @@ cmsg_proxy_index (const char *query_string, cmsg_proxy_output *output)
         return HTTP_CODE_INTERNAL_SERVER_ERROR;
     }
 
-    search_pattern = cmsg_proxy_index_search_pattern (query_string);
+    cmsg_proxy_index_parse_query_param (query_string, &search_pattern, &privilege);
+
     api_array = json_array ();
 
-    traverse_data.filter = search_pattern;
+    traverse_data.search_pattern = search_pattern;
     traverse_data.api_array = api_array;
+    traverse_data.privilege = privilege;
+    traverse_data.readonly_privilege = cmsg_proxy_config_get_readonly_privilege ();
 
     if (!cmsg_proxy_tree_foreach_leaf (cmsg_proxy_index_add_element, &traverse_data))
     {
@@ -183,7 +272,7 @@ cmsg_proxy_index (const char *query_string, cmsg_proxy_output *output)
 
     result = json_object ();
 
-    json_object_set_new (result, "basepath", json_string (API_PREFIX));
+    json_object_set_new (result, "basepath", json_string (CMSG_PROXY_API_PREFIX));
     json_object_set (result, "paths", api_array);
 
     cmsg_proxy_json_t_to_output (result, JSON_ENCODE_ANY | JSON_COMPACT, output);

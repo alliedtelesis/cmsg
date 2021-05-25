@@ -9,6 +9,13 @@
 #include <cmsg/cmsg_client.h>
 #include <cmsg/cmsg_server.h>
 
+/* This is the prefix that should be prepended to paths in the proto files to get the
+ * absolute path on the device.  It is returned in the indexing function, so should be
+ * updated if the API base is ever moved.  If the api is ever moved, the indexing API
+ * needs to continue to work at the original location.
+ */
+#define CMSG_PROXY_API_PREFIX   "/api"
+
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
 #define HTTP_CODE_SWITCHING                 101 /* Switching protocols */
@@ -205,6 +212,7 @@ void cmsg_proxy_init (void);
 void cmsg_proxy_deinit (void);
 void cmsg_proxy_free_output_contents (cmsg_proxy_output *output);
 void cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output);
+int cmsg_proxy_get_api_privilege (const char *url, cmsg_http_verb http_verb);
 void cmsg_proxy_set_pre_api_http_check_callback (pre_api_http_check_callback cb);
 
 void cmsg_proxy_passthrough_init (const char *library_path);

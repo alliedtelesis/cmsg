@@ -1,5 +1,6 @@
 import "google/api/annotations.proto";
 import "cmsg/ant_result.proto";
+import "cmsg/privilege.proto";
 
 package cmsg_proxy_unit_tests;
 
@@ -138,5 +139,35 @@ service interface
                 delete: "/v1/test/all_methods_url",
             }
         };
+    }
+
+    rpc test_privilege_7 (dummy) returns (dummy) {
+        option (google.api.http) = {
+            get: "/v1/test/priv_p7",
+            additional_bindings {
+                put: "/v1/test/priv_p7",
+            }
+            additional_bindings {
+                post: "/v1/test/priv_p7_post",
+            }
+        };
+        option (rpc_privilege) = 7;
+    }
+
+    rpc test_privilege_14 (dummy) returns (dummy) {
+        option (google.api.http) = {
+            get: "/v1/test/priv_p14",
+            additional_bindings {
+                post: "/v1/test/priv_p14_post",
+            }
+        };
+        option (rpc_privilege) = 14;
+    }
+
+    rpc test_privilege_15_only (dummy) returns (dummy) {
+        option (google.api.http) = {
+            get: "/v1/test/priv_p15",
+        };
+        option (rpc_privilege) = 15;
     }
 }
