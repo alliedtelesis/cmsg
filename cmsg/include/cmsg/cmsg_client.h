@@ -248,6 +248,7 @@ typedef struct
 {
     const service_support_parameters *service_support;
     const char *response_filename;
+    uint32_t rpc_privilege;
 } cmsg_method_client_extensions;
 
 typedef struct
