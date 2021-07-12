@@ -447,6 +447,8 @@ cmsg_service_listener_add_host (struct in_addr addr)
     cmsg_uint32 send_msg = CMSG_UINT32_INIT;
     int ret;
 
+    cmsg_transport_tcp_cache_set (&addr, true);
+
     client = cmsg_sl_get_client ();
     if (!client)
     {
@@ -476,6 +478,8 @@ cmsg_service_listener_delete_host (struct in_addr addr)
     cmsg_client *client = NULL;
     cmsg_sld_address_info send_msg = CMSG_SLD_ADDRESS_INFO_INIT;
     int ret;
+
+    cmsg_transport_tcp_cache_set (&addr, false);
 
     client = cmsg_sl_get_client ();
     if (!client)
