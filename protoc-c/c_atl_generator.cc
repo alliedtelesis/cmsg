@@ -27,6 +27,7 @@
 #include "validation.pb.h"
 #include "supported_service.pb.h"
 #include "file_response.pb.h"
+#include "privilege.pb.h"
 
 namespace google {
 namespace protobuf {
@@ -66,12 +67,26 @@ AtlCodeGenerator::GenerateAtlApiServiceSupportCheck (const ServiceDescriptor* de
   printer->Outdent();
   printer->Print("};\n\n");
 
-  printer->Print(vars_, "static const cmsg_method_client_extensions $lcfullname$_api_service_support_extension");
-  printer->Print(" = \n{\n");
-  printer->Indent();
-  printer->Print(vars_, ".service_support = &$lcfullname$_api_service_support_check,\n");
-  printer->Outdent();
-  printer->Print("};\n\n");
+  // Check if there is any method that will share same service_support extension
+  bool share_extension = false;
+  for (int i = 0; i < descriptor_->method_count(); i++) {
+    const MethodDescriptor *method = descriptor_->method(i);
+    if (!method->options().HasExtension(file_response) &&
+        !method->options().HasExtension(rpc_privilege) &&
+        !method->options().HasExtension(disable_service_support_check)) {
+      share_extension = true;
+      break;
+    }
+  }
+
+  if (share_extension) {
+    printer->Print(vars_, "static const cmsg_method_client_extensions $lcfullname$_api_service_support_extension");
+    printer->Print(" = \n{\n");
+    printer->Indent();
+    printer->Print(vars_, ".service_support = &$lcfullname$_api_service_support_check,\n");
+    printer->Outdent();
+    printer->Print("};\n\n");
+  }
 }
 
 void AtlCodeGenerator::GenerateDescriptorDeclarations(io::Printer* printer)
@@ -241,8 +256,9 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensionsPtr(const MethodDescriptor 
   string lcname = cmsg::CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  if (method.options().HasExtension(file_response)) {
-      printer->Print(vars_, "&$lcfullname$_api_$method$_file_extension");
+  if (method.options().HasExtension(file_response) ||
+      method.options().HasExtension(rpc_privilege)) {
+    printer->Print(vars_, "&$lcfullname$_api_$method$_extension");
   } else if (descriptor_->options().HasExtension(service_support_check) &&
              !method.options().HasExtension(disable_service_support_check)) {
     printer->Print(vars_, "&$lcfullname$_api_service_support_extension");
@@ -254,19 +270,33 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensionsPtr(const MethodDescriptor 
 
 void AtlCodeGenerator::GenerateAtlApiMethodExtensions(const MethodDescriptor &method, io::Printer* printer)
 {
-    string lcname = cmsg::CamelToLower(method.name());
-    vars_["method"] = lcname;
+  string lcname = cmsg::CamelToLower(method.name());
+  vars_["method"] = lcname;
 
-    if (method.options().HasExtension(file_response)) {
-        FileResponseInfo info = method.options().GetExtension(file_response);
-        vars_["file_path"] = info.file_path();
-        printer->Print(vars_, "static const cmsg_method_client_extensions $lcfullname$_api_$method$_file_extension");
-        printer->Print(" = \n{\n");
-        printer->Indent();
-        printer->Print(vars_, ".response_filename = \"$file_path$\",\n");
-        printer->Outdent();
-        printer->Print("};\n\n");
-      }
+  // Return early if per-API extension is not required.
+  if (!method.options().HasExtension(file_response) &&
+      !method.options().HasExtension(rpc_privilege)) {
+    return;
+  }
+
+  printer->Print(vars_, "static const cmsg_method_client_extensions $lcfullname$_api_$method$_extension");
+  printer->Print(" = \n{\n");
+  printer->Indent();
+  if (method.options().HasExtension(file_response)) {
+    FileResponseInfo info = method.options().GetExtension(file_response);
+    vars_["file_path"] = info.file_path();
+    printer->Print(vars_, ".response_filename = \"$file_path$\",\n");
+  }
+  if (descriptor_->options().HasExtension(service_support_check) &&
+     !method.options().HasExtension(disable_service_support_check)) {
+    printer->Print(vars_, ".service_support = &$lcfullname$_api_service_support_check,\n");
+  }
+  if (method.options().HasExtension(rpc_privilege)) {
+    vars_["rpc_privilege"] = SimpleItoa(method.options().GetExtension(rpc_privilege));
+    printer->Print(vars_, ".rpc_privilege = $rpc_privilege$,\n");
+  }
+  printer->Outdent();
+  printer->Print("};\n\n");
 }
 
 void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)

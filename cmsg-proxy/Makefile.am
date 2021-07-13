@@ -204,7 +204,7 @@ cmsg_proxy_functional_tests_CPPFLAGS  = -I$(top_srcdir) -I$(top_srcdir)/cmsg-pro
 cmsg_proxy_functional_tests_LDFLAGS = -static
 cmsg_proxy_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(GMEM_DIAG_LIBS) \
                                 -lcmsg -lprotobuf-c -lprotobuf2json-c \
-                                -ljansson libcmsgproxy.la -lpthread
+                                -ljansson libcmsgproxy.la libcmsgproxyconfig.la -lpthread
 if HAVE_COUNTERD
 cmsg_proxy_functional_tests_LDADD += -lcntr
 endif
@@ -238,7 +238,7 @@ cmsg_proxy_passthrough_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -
 cmsg_proxy_passthrough_functional_tests_CPPFLAGS  =-I$(top_srcdir) -I$(top_srcdir)/cmsg-proxy -I$(top_srcdir)/cmsg-proxy/src
 cmsg_proxy_passthrough_functional_tests_LDFLAGS = -static
 cmsg_proxy_passthrough_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
-                                                  -lcmsg -lprotobuf-c libcmsgproxy.la
+                                                  -lcmsg -lprotobuf-c libcmsgproxy.la libcmsgproxyconfig.la
 if HAVE_COUNTERD
 cmsg_proxy_passthrough_functional_tests_LDADD += -lcntr
 endif
