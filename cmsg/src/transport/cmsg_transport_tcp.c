@@ -53,7 +53,8 @@ cmsg_transport_tcp_cache_init (void *_cache)
 /**
  * Set an entry for the given address in the TCP connection cache.
  * Note that this functionality is lockless and assumes only a single
- * thread in a single process will ever set these entries.
+ * thread in stackd will ever set these entries. If it is required to
+ * be called by multiple threads then thread locks should be added.
  *
  * @param address - The address to set in the cache.
  * @param present - Whether the address is present or not.
