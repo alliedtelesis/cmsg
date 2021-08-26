@@ -491,12 +491,19 @@ cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *web_api_inf
 {
     if (web_api_info)
     {
+        char privilege_str[16] = { '\0' };
+
         cmsg_proxy_set_internal_api_value (web_api_info->api_request_ip_address,
                                            json_obj, msg_descriptor,
                                            "_api_request_ip_address");
         cmsg_proxy_set_internal_api_value (web_api_info->api_request_username,
                                            json_obj, msg_descriptor,
                                            "_api_request_username");
+
+        snprintf (privilege_str, sizeof (privilege_str), "%u",
+                  web_api_info->api_request_privilege);
+        cmsg_proxy_set_internal_api_value (privilege_str, json_obj, msg_descriptor,
+                                           "_api_request_privilege");
     }
 }
 
