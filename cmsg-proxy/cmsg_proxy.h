@@ -86,6 +86,7 @@ typedef struct _cmsg_proxy_api_request_info
 {
     const char *api_request_ip_address;
     const char *api_request_username;
+    uint32_t api_request_privilege;
 } cmsg_proxy_api_request_info;
 
 typedef struct _cmsg_proxy_api_file_info
