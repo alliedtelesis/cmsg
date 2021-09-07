@@ -47,6 +47,15 @@ src/privilege_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/privilege.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/privilege.proto
 
+src/eventwatch_notify.pb-c.c \
+src/eventwatch_notify.pb-c.h \
+src/eventwatch_notify_types_auto.h \
+src/eventwatch_notify_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/eventwatch_notify.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=disable_message_helpers:$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/eventwatch_notify.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/eventwatch_notify.proto
+
 src/cmsg_api_auto.c \
 src/cmsg_api_auto.h \
 src/cmsg_impl_auto.c \
@@ -226,7 +235,11 @@ libcmsg_la_HEADERS  = \
 	src/privilege.proto \
 	src/privilege.pb-c.h \
 	src/privilege_types_auto.h \
-	src/privilege_validation_auto.h
+	src/privilege_validation_auto.h \
+	src/eventwatch_notify.proto \
+	src/eventwatch_notify.pb-c.h \
+	src/eventwatch_notify_types_auto.h \
+	src/eventwatch_notify_validation_auto.h
 
 BUILT_SOURCES =  \
 	src/cmsg_api_auto.c \

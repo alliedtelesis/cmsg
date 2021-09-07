@@ -41,6 +41,7 @@ typedef bool (*cmsg_validation_func) (const ProtobufCMessage *message,
 typedef struct
 {
     cmsg_validation_func validation_func;
+    char *eventwatch_notify;
 } cmsg_method_server_extensions;
 
 typedef struct

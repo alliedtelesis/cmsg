@@ -1,0 +1,8 @@
+syntax = "proto2";
+
+import "google/protobuf/descriptor.proto";
+
+// This extension allows Eventwatch to be notified when a method is called
+extend google.protobuf.MethodOptions {
+    optional string eventwatch_notify = 72295742;
+}
