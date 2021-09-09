@@ -183,7 +183,7 @@ libcmsg_la_SOURCES = \
 	src/publisher_subscriber/update.pb-c.c \
 	src/cmsg_protobuf-c.c
 
-libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c $(OOP_LIBS) $(OPENSSL_LIBS) -lsimple_shm
+libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c $(OOP_LIBS) $(OPENSSL_LIBS) -lsimple_shm $(EVENTWATCH_LIBS)
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
