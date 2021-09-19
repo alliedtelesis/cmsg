@@ -28,6 +28,7 @@
 #include "supported_service.pb.h"
 #include "file_response.pb.h"
 #include "privilege.pb.h"
+#include "eventwatch_notify.pb.h"
 
 namespace google {
 namespace protobuf {
@@ -387,8 +388,9 @@ void AtlCodeGenerator::GenerateAtlServerMethodExtensionsPtr(const MethodDescript
   string lcname = cmsg::CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  if (method.options().HasExtension(auto_validation) &&
-      method.options().GetExtension(auto_validation))
+  if ((method.options().HasExtension(auto_validation) &&
+       method.options().GetExtension(auto_validation)) ||
+      method.options().HasExtension(eventwatch_notify))
   {
     printer->Print(vars_, "&$lcfullname$_impl_$method$_extensions");
   } else {
@@ -402,15 +404,27 @@ void AtlCodeGenerator::GenerateAtlServerMethodExtensions(const MethodDescriptor 
     vars_["method"] = lcname;
     vars_["input_typename_lower"] = cmsg::FullNameToLower(method.input_type()->full_name());
 
+    // Return early if per-API extension is not required.
+    if (!(method.options().HasExtension(auto_validation) &&
+          method.options().GetExtension(auto_validation)) &&
+        !method.options().HasExtension(eventwatch_notify))
+    {
+        return;
+    }
+
+    printer->Print(vars_, "static const cmsg_method_server_extensions $lcfullname$_impl_$method$_extensions");
+    printer->Print(" = \n{\n");
+    printer->Indent();
     if (method.options().HasExtension(auto_validation) &&
         method.options().GetExtension(auto_validation)) {
-      printer->Print(vars_, "static const cmsg_method_server_extensions $lcfullname$_impl_$method$_extensions");
-      printer->Print(" = \n{\n");
-      printer->Indent();
       printer->Print(vars_, ".validation_func = (cmsg_validation_func) $input_typename_lower$_validate,\n");
-      printer->Outdent();
-      printer->Print("};\n\n");
     }
+    if (method.options().HasExtension(eventwatch_notify)) {
+      vars_["eventwatch_notify"] = method.options().GetExtension(eventwatch_notify);
+      printer->Print(vars_, ".eventwatch_notify = \"$eventwatch_notify$\",\n");
+    }
+    printer->Outdent();
+    printer->Print("};\n\n");
 }
 
 //
