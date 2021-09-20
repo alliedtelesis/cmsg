@@ -708,6 +708,58 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
     return cmsg_transport_set_recv_peek_timeout (client->_transport, timeout);
 }
 
+
+/**
+ * Get a description of the Client transport, doesn't require the connection info.
+ */
+char *
+cmsg_client_get_description_string (cmsg_client *client)
+{
+    /* Composite clients do not have a transport of their own
+     */
+    if (client->self.object_type == CMSG_OBJ_TYPE_COMPOSITE_CLIENT)
+    {
+        return "Comp";
+    }
+
+    /* Unknown case we haven't handled yet where the client doesn't
+     * have a transport in a way we expect.
+     */
+    if (!client->_transport)
+    {
+        return "None";
+    }
+
+    switch (client->_transport->type)
+    {
+    case CMSG_TRANSPORT_LOOPBACK:
+        return "Lpb";
+
+    case CMSG_TRANSPORT_RPC_TCP:
+        return "TCP-R";
+
+    case CMSG_TRANSPORT_ONEWAY_TCP:
+        return "TCP-O";
+
+    case CMSG_TRANSPORT_BROADCAST:
+        return "BC";
+
+    case CMSG_TRANSPORT_RPC_UNIX:
+        return "Unix-R";
+
+    case CMSG_TRANSPORT_ONEWAY_UNIX:
+        return "Unix-O";
+
+    case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+        return "UDP-MC";
+
+    case CMSG_TRANSPORT_FORWARDING:
+        return "Frwd";
+    }
+    return "Unkn";
+}
+
+
 int32_t
 cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
                          ProtobufCClosure closure, cmsg_client_closure_data *closure_data)

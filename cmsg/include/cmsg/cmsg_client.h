@@ -195,6 +195,8 @@ void cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable);
 
 void cmsg_client_perform_connection_pre_check (cmsg_client *client, cmsg_bool_t enable);
 
+char *cmsg_client_get_description_string (cmsg_client *client);
+
 int32_t cmsg_client_create_packet (cmsg_client *client, const char *method_name,
                                    const ProtobufCMessage *input, uint8_t **buffer_ptr,
                                    uint32_t *total_message_size_ptr);

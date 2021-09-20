@@ -2530,6 +2530,58 @@ cmsg_server_from_service_get (const void *service)
 }
 
 /**
+ * Helper function that can be used to get the string of server processing
+ * the request from the 'service' parameter of any given IMPL function.
+ *
+ * @param service - The 'service' pointer passed to the IMPL function.
+ *
+ * @returns The pointer to the server processing the request.
+ */
+const char *
+cmsg_server_description_from_service_get (const void *service)
+{
+    const cmsg_server_closure_info *closure_info = service;
+    const cmsg_server_closure_data *closure_data;
+
+    if (closure_info)
+    {
+        closure_data = closure_info->closure_data;
+        if (closure_data->server && closure_data->server->_transport)
+        {
+            switch (closure_data->server->_transport->type)
+            {
+            case CMSG_TRANSPORT_LOOPBACK:
+                return "Lpb";
+
+            case CMSG_TRANSPORT_RPC_TCP:
+                return "TCP-R";
+
+            case CMSG_TRANSPORT_ONEWAY_TCP:
+                return "TCP-O";
+
+            case CMSG_TRANSPORT_BROADCAST:
+                return "BC";
+
+            case CMSG_TRANSPORT_RPC_UNIX:
+                return "Unix-R";
+
+            case CMSG_TRANSPORT_ONEWAY_UNIX:
+                return "Unix-O";
+
+            case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+                return "UDP-MC";
+
+            case CMSG_TRANSPORT_FORWARDING:
+                return "Frwd";
+            }
+            return "Unkn";
+        }
+    }
+
+    return "";
+}
+
+/**
  * Create a 'cmsg_server_thread_task_info' structure containing
  * the details required to run a server as a task in some thread.
  *
