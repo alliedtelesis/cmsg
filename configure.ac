@@ -35,6 +35,7 @@ PKG_CHECK_MODULES([DEBUG_AWPLUS],[debug_awplus],[],[cmsg_prereq=no])
 PKG_CHECK_MODULES([UTILITY],[utility],[],[cmsg_prereq=no])
 PKG_CHECK_MODULES([HEALTHCHECK],[healthcheck],[],[cmsg_prereq=no])
 PKG_CHECK_MODULES([OPENSSL],[openssl],[],[cmsg_prereq=no])
+PKG_CHECK_MODULES([EVENTWATCH],[eventwatch],[],[cmsg_prereq=no])
 AX_PTHREAD([],[unittest_prereq=no])
 
 AC_ARG_VAR(PROTOC_PATH, [  Path to the protoc compiler])

@@ -10,6 +10,7 @@
 #include "service_listener/cmsg_sl_api_private.h"
 #include "cmsg_protobuf-c.h"
 #include "cmsg_ant_result.h"
+#include <eventwatch.h>
 
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
@@ -1083,6 +1084,11 @@ cmsg_server_invoke_impl (ProtobufCService *service, unsigned method_index,
     {
         cmsg_impl_func func = (cmsg_impl_func) impl_info[method_index].impl_func;
         func (&closure_info, input);
+    }
+
+    if (method_extensions && method_extensions->eventwatch_notify)
+    {
+        eventwatch_event (method_extensions->eventwatch_notify);
     }
 }
 
