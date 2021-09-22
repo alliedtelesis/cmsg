@@ -193,9 +193,8 @@ create_client (cmsg_transport_type type, int family)
             cmsg_client_connect (client);
             sk = cmsg_client_get_socket (client);
 
-            if (setsockopt
-                (transport->socket, IPPROTO_IP, IP_MULTICAST_LOOP, (char *) &loopch,
-                 sizeof (loopch)) < 0)
+            if (setsockopt (sk, IPPROTO_IP, IP_MULTICAST_LOOP, (char *) &loopch,
+                            sizeof (loopch)) < 0)
             {
                 NP_FAIL;
             }
