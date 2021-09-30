@@ -2546,7 +2546,7 @@ cmsg_server_description_from_service_get (const void *service)
     if (closure_info)
     {
         closure_data = closure_info->closure_data;
-        if (closure_data->server && closure_data->server->_transport)
+        if (closure_data && closure_data->server && closure_data->server->_transport)
         {
             switch (closure_data->server->_transport->type)
             {
