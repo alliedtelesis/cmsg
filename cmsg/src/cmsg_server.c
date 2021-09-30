@@ -2581,6 +2581,34 @@ cmsg_server_description_from_service_get (const void *service)
     return "";
 }
 
+
+/**
+ * Helper function that can be used to get the transport of server processing
+ * the request from the 'service' parameter of any given IMPL function.
+ *
+ * @param service - The 'service' pointer passed to the IMPL function.
+ *
+ * @returns The pointer to the server processing the request.
+ */
+bool
+cmsg_server_is_transport_broadcast_from_service (const void *service)
+{
+    const cmsg_server_closure_info *closure_info = service;
+    const cmsg_server_closure_data *closure_data;
+
+    if (closure_info)
+    {
+        closure_data = closure_info->closure_data;
+        if (closure_data->server && closure_data->server->_transport)
+        {
+            return closure_data->server->_transport->type == CMSG_TRANSPORT_BROADCAST;
+        }
+    }
+
+    return false;
+}
+
+
 /**
  * Create a 'cmsg_server_thread_task_info' structure containing
  * the details required to run a server as a task in some thread.
