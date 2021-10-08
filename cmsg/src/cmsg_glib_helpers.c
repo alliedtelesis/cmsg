@@ -397,6 +397,29 @@ cmsg_server *
 cmsg_glib_tcp_server_init_oneway (const char *service_name, struct in_addr *addr,
                                   ProtobufCService *service)
 {
+    return cmsg_glib_tcp_server_init_oneway_with_context (service_name, addr, service,
+                                                          g_main_context_default ());
+}
+
+/**
+ * Create and start processing a TCP transport based CMSG server for the given
+ * CMSG service.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param service - The CMSG service.
+ * @param context - Pointer to the context the server should be added to.
+ *
+ * @returns Pointer to a 'cmsg_server' structure.
+ *          NULL on failure.
+ */
+cmsg_server *
+cmsg_glib_tcp_server_init_oneway_with_context (const char *service_name,
+                                               struct in_addr *addr,
+                                               ProtobufCService *service,
+                                               GMainContext *context)
+{
     cmsg_server *server = NULL;
     int32_t ret;
 
@@ -408,7 +431,7 @@ cmsg_glib_tcp_server_init_oneway (const char *service_name, struct in_addr *addr
         return NULL;
     }
 
-    ret = cmsg_glib_server_init (server);
+    ret = cmsg_glib_thread_server_init (server, context);
     if (ret != CMSG_RET_OK)
     {
         cmsg_destroy_server_and_transport (server);
@@ -590,12 +613,39 @@ void
 cmsg_glib_service_listener_listen (const char *service_name,
                                    cmsg_sl_event_handler_t handler, void *user_data)
 {
+    cmsg_glib_service_listener_listen_with_context (service_name, handler, user_data, NULL);
+}
+
+
+/**
+ * Begin listening for events for the given service, allowing the caller
+ * to specify the GMainContext.
+ *
+ * @param service_name - The service to listen for.
+ * @param func - The function to call when a server is added or removed
+ *               for the given service.
+ * @param user_data - Pointer to user supplied data that will be passed into the
+ *                    supplied handler function.
+ * @param context - Pointer to the context the listener should be added to.
+ * @returns The service listener subscription information.
+ */
+const cmsg_sl_info *
+cmsg_glib_service_listener_listen_with_context (const char *service_name,
+                                                cmsg_sl_event_handler_t handler,
+                                                void *user_data, GMainContext *context)
+{
     int event_fd;
     GIOChannel *event_channel = NULL;
+    GSource *source = NULL;
     const cmsg_sl_info *info = NULL;
 
     info = cmsg_service_listener_listen (service_name, handler, user_data);
     event_fd = cmsg_service_listener_get_event_fd (info);
     event_channel = g_io_channel_unix_new (event_fd);
-    g_io_add_watch (event_channel, G_IO_IN, cmsg_glib_sl_event_process, (void *) info);
+    source = g_io_create_watch (event_channel, G_IO_IN);
+    g_source_set_callback (source, (GSourceFunc) cmsg_glib_sl_event_process, (void *) info,
+                           NULL);
+    g_source_attach (source, context);
+
+    return info;
 }
