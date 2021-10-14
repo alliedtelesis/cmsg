@@ -715,6 +715,13 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
 char *
 cmsg_client_get_description_string (cmsg_client *client)
 {
+    /* If the client is null, return a string signifying that.
+     */
+    if (!client)
+    {
+        return "Null";
+    }
+
     /* Composite clients do not have a transport of their own
      */
     if (client->self.object_type == CMSG_OBJ_TYPE_COMPOSITE_CLIENT)
