@@ -119,6 +119,8 @@ void
 test_client_server_oneway_udp (void)
 {
     run_client_server_tests (CMSG_TRANSPORT_ONEWAY_MC_UDP, AF_INET);
+
+    // Not testing IPv6 UDP
 }
 
 /**

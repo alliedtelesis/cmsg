@@ -2210,6 +2210,48 @@ cmsg_create_client_mc_udp_ipv4_oneway (const char *service_name, struct in_addr 
                                             descriptor, true);
 }
 
+/**
+ * Create a oneway CMSG client using UDP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to connect to (in network byte order).
+ * @param src_addr - The IPv6 address (in network byte order) of the source interface.
+ * @param scope_id - IPv6 scope for the IPv6 address
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param descriptor - The CMSG service descriptor for the service.
+ */
+cmsg_client *
+cmsg_create_client_mc_udp_ipv6_oneway (const char *service_name, struct in6_addr *addr,
+                                       uint32_t scope_id, struct in6_addr *src_addr,
+                                       const char *vrf_bind_dev,
+                                       const ProtobufCServiceDescriptor *descriptor)
+{
+    cmsg_transport *transport;
+    cmsg_client *client;
+
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    transport =
+        cmsg_create_transport_mc_udp_ipv6 (service_name, addr, src_addr, scope_id,
+                                           vrf_bind_dev, true);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    client = cmsg_client_new (transport, descriptor);
+    if (!client)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No UDP IPv6 IPC client on %s", descriptor->name);
+        return NULL;
+    }
+
+    return client;
+}
 
 /**
  * Check the passed in recv_msg pointer to see if it is NULL. If it is not NULL, set it to

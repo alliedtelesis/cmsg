@@ -2256,6 +2256,71 @@ cmsg_create_server_udp_ipv4_oneway (const char *service_name, struct in_addr *ad
 }
 
 /**
+ * Helper function for creating a CMSG server using UDP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to listen on (in network byte order).
+ * @param scope_id - the IPv6 scope id.
+ * @param src_addr - The IPv6 address (in network byte order) of the source interface.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ * @param oneway - Whether to make a one-way server, or a two-way (RPC) server.
+ */
+static cmsg_server *
+_cmsg_create_server_udp_ipv6 (const char *service_name, struct in6_addr *addr,
+                              struct in6_addr *src_addr, uint32_t scope_id,
+                              const char *vrf_bind_dev, const ProtobufCService *service,
+                              bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_server *server;
+
+    transport =
+        cmsg_create_transport_mc_udp_ipv6 (service_name, addr, src_addr, scope_id,
+                                           vrf_bind_dev, oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (!server)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No UDP IPC server on %s", service->descriptor->name);
+        return NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create a oneway CMSG server using UDP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to listen on.
+ * @param scope_id - the IPv6 scope id.
+ * @param src_addr - The IPv6 source address to listen for.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ */
+cmsg_server *
+cmsg_create_server_udp_ipv6_oneway (const char *service_name, struct in6_addr *addr,
+                                    uint32_t scope_id, struct in6_addr *src_addr,
+                                    const char *vrf_bind_dev,
+                                    const ProtobufCService *service)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    return _cmsg_create_server_udp_ipv6 (service_name, addr, src_addr, scope_id,
+                                         vrf_bind_dev, service, true);
+}
+
+/**
  * Destroy a cmsg server and its transport
  *
  * @param server - the cmsg server to destroy

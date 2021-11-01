@@ -173,30 +173,45 @@ create_client (cmsg_transport_type type, int family)
         break;
 
     case CMSG_TRANSPORT_ONEWAY_MC_UDP:
-        if (family == AF_INET)
         {
-            struct in_addr udp_addr;
-            struct in_addr src_addr;
             char loopch = 0;
             int32_t sk;
 
-            inet_pton (AF_INET, "239.1.1.100", &udp_addr);
-            inet_pton (AF_INET, "127.0.0.1", &src_addr);
-            client =
-                cmsg_create_client_mc_udp_ipv4_oneway ("cmsg-test", &udp_addr, &src_addr,
-                                                       NULL, CMSG_DESCRIPTOR (cmsg, test));
-
-            /* Connect, which on a UDP connection less socket sets the source address.
-             * The connect is needed to be able to set the loopback option on the MC
-             * socket.
-             */
-            cmsg_client_connect (client);
-            sk = cmsg_client_get_socket (client);
-
-            if (setsockopt (sk, IPPROTO_IP, IP_MULTICAST_LOOP, (char *) &loopch,
-                            sizeof (loopch)) < 0)
+            if (family == AF_INET)
             {
+                struct in_addr udp_addr;
+                struct in_addr src_addr;
+
+                inet_pton (AF_INET, "239.1.1.100", &udp_addr);
+                inet_pton (AF_INET, "127.0.0.1", &src_addr);
+                client =
+                    cmsg_create_client_mc_udp_ipv4_oneway ("cmsg-test", &udp_addr,
+                                                           &src_addr, NULL,
+                                                           CMSG_DESCRIPTOR (cmsg, test));
+
+                /* Connect, which on a UDP connection less socket sets the source address.
+                 * The connect is needed to be able to set the loopback option on the MC
+                 * socket.
+                 */
+                cmsg_client_connect (client);
+
+            }
+            else if (family == AF_INET6)
+            {
+                // Not supporting IPv6 MC UDP in the unit tests as it doesn't work properly when on
+                // a workstation - sendto returns "Network is unreachable".
                 NP_FAIL;
+            }
+
+            if (client)
+            {
+                sk = cmsg_client_get_socket (client);
+
+                if (setsockopt (sk, IPPROTO_IP, IP_MULTICAST_LOOP, (char *) &loopch,
+                                sizeof (loopch)) < 0)
+                {
+                    NP_FAIL;
+                }
             }
         }
         break;
@@ -295,6 +310,12 @@ create_server (cmsg_transport_type type, int family, pthread_t *thread)
             server =
                 cmsg_create_server_udp_ipv4_oneway ("cmsg-test", &udp_addr, &src_addr, NULL,
                                                     CMSG_SERVICE (cmsg, test));
+        }
+        else if (family == AF_INET6)
+        {
+            // Not supporting IPv6 MC UDP in the unit tests as it doesn't work properly when on
+            // a workstation - sendto returns "Network is unreachable".
+            NP_FAIL;
         }
         break;
 

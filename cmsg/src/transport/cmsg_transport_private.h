@@ -69,6 +69,7 @@ typedef union _cmsg_socket_address_u
 
 typedef union _cmsg_source_addr_u
 {
+    struct sockaddr generic;    // Generic socket address. Used for determining Address Family.
     struct sockaddr_in in;
     struct sockaddr_in6 in6;
 } cmsg_source_addr;
@@ -250,8 +251,9 @@ cmsg_transport *cmsg_create_transport_mc_udp_ipv4 (const char *service_name,
                                                    struct in_addr *src_addr,
                                                    const char *vrf_bind_dev, bool oneway);
 cmsg_transport *cmsg_create_transport_mc_udp_ipv6 (const char *service_name,
-                                                   struct in6_addr *addr, uint32_t scope_id,
+                                                   struct in6_addr *addr,
                                                    struct in6_addr *src_addr,
+                                                   uint32_t scope_id,
                                                    const char *vrf_bind_dev, bool oneway);
 
 int cmsg_transport_get_socket (cmsg_transport *transport);

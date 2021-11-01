@@ -304,9 +304,8 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
             if (tport->config.socket.family == PF_INET6)
             {
                 port = ntohs (tport->config.socket.sockaddr.in6.sin6_port);
-                inet_ntop (tport->config.socket.sockaddr.generic.sa_family,
-                           &(tport->config.socket.sockaddr.in6.sin6_addr), ip,
-                           INET6_ADDRSTRLEN);
+                inet_ntop (AF_INET6, &(tport->config.socket.sockaddr.in6.sin6_addr.s6_addr),
+                           ip, INET6_ADDRSTRLEN);
                 // ipv6 addresses are enclosed in [] in URLs due to ambiguity of :s.
                 snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".udp[[%s]:%u]", ip,
                           port);
