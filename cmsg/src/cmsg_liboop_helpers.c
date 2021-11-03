@@ -355,6 +355,42 @@ cmsg_liboop_tcp_oneway_server_init (const char *server_name, struct in_addr *add
 }
 
 /**
+ * Create and start processing a oneway TCP transport based CMSG server for the given
+ * CMSG service for the given stack node ID.
+ *
+ * @param server_name - The service name in the /etc/services file to get
+ *                      the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param scope_id - The interface index the IPv6 server is to operate on.
+ * @param service - The CMSG service.
+ *
+ * @returns Pointer to the 'cmsg_server' structure or NULL on failure.
+ */
+cmsg_server *
+cmsg_liboop_tcp_ipv6_oneway_server_init (const char *server_name, struct in6_addr *addr,
+                                         uint32_t scope_id, ProtobufCService *service)
+{
+    cmsg_server *server = NULL;
+
+    server =
+        cmsg_create_server_tcp_ipv6_oneway (server_name, addr, scope_id, NULL, service);
+    if (!server)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
+                            cmsg_service_name_get (service->descriptor));
+        return NULL;
+    }
+
+    if (cmsg_liboop_server_init (server) != CMSG_RET_OK)
+    {
+        cmsg_destroy_server_and_transport (server);
+        server = NULL;
+    }
+
+    return server;
+}
+
+/**
  * Callback function for service listener events.
  */
 static void
