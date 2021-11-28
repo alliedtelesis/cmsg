@@ -2417,6 +2417,11 @@ cmsg_server_accept_thread (void *_server)
                 g_async_queue_push (info->accept_sd_queue, newfd_ptr);
                 TEMP_FAILURE_RETRY (eventfd_write (info->accept_sd_eventfd, 1));
             }
+            else
+            {
+                /* Sleep on error before re-trying in order to avoid a tight loop */
+                sleep (1);
+            }
             pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
         }
     }

@@ -13,6 +13,7 @@
 #include "cmsg_error.h"
 #include <sys/stat.h>
 
+#define EMFILE_ERROR_RATELIMIT 300  /* 5 minutes in seconds */
 /*
  * Create a UNIX socket connection.
  * Returns 0 on success or a negative integer on failure.
@@ -145,6 +146,10 @@ cmsg_transport_unix_server_accept (cmsg_transport *transport)
     int sock;
     struct sockaddr *addr;
     int listen_socket = transport->socket;
+    int error;
+    struct timespec now;
+    static time_t last_msg = 0;
+    static uint32_t err_count = 1;
 
     if (listen_socket < 0)
     {
@@ -159,8 +164,30 @@ cmsg_transport_unix_server_accept (cmsg_transport *transport)
 
     if (sock < 0)
     {
-        CMSG_LOG_TRANSPORT_ERROR (transport, "Accept failed. Error:%s", strerror (errno));
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
+        error = errno;
+        /* Rate limit 'Too many open files' errors to 1 message per EMFILE_ERROR_RATELIMIT seconds */
+        if (error == EMFILE)
+        {
+            clock_gettime (CLOCK_MONOTONIC_RAW, &now);
+            if (now.tv_sec - last_msg > EMFILE_ERROR_RATELIMIT)
+            {
+                CMSG_LOG_TRANSPORT_ERROR (transport, "Accept failures: %u. Error:%s",
+                                          err_count, strerror (error));
+                CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
+                err_count = 1;
+                last_msg = now.tv_sec;
+            }
+            else
+            {
+                err_count++;
+            }
+        }
+        else
+        {
+            CMSG_LOG_TRANSPORT_ERROR (transport, "Accept failed. Error:%s",
+                                      strerror (error));
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
+        }
 
         return -1;
     }
