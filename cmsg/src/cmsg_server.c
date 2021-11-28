@@ -2621,30 +2621,30 @@ cmsg_server_description_from_service_get (const void *service)
             switch (closure_data->server->_transport->type)
             {
             case CMSG_TRANSPORT_LOOPBACK:
-                return "Lpb";
+                return "Loopback";
 
             case CMSG_TRANSPORT_RPC_TCP:
-                return "TCP-R";
+                return "TCP-RPC";
 
             case CMSG_TRANSPORT_ONEWAY_TCP:
-                return "TCP-O";
+                return "TCP-One";
 
             case CMSG_TRANSPORT_BROADCAST:
-                return "BC";
+                return "Broadcast";
 
             case CMSG_TRANSPORT_RPC_UNIX:
-                return "Unix-R";
+                return "Unix-RPC";
 
             case CMSG_TRANSPORT_ONEWAY_UNIX:
-                return "Unix-O";
+                return "Unix-One";
 
             case CMSG_TRANSPORT_ONEWAY_MC_UDP:
                 return "UDP-MC";
 
             case CMSG_TRANSPORT_FORWARDING:
-                return "Frwd";
+                return "Forward";
             }
-            return "Unkn";
+            return "Unknown";
         }
     }
 

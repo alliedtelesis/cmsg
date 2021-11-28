@@ -726,7 +726,7 @@ cmsg_client_get_description_string (cmsg_client *client)
      */
     if (client->self.object_type == CMSG_OBJ_TYPE_COMPOSITE_CLIENT)
     {
-        return "Comp";
+        return "Composite";
     }
 
     /* Unknown case we haven't handled yet where the client doesn't
@@ -740,30 +740,30 @@ cmsg_client_get_description_string (cmsg_client *client)
     switch (client->_transport->type)
     {
     case CMSG_TRANSPORT_LOOPBACK:
-        return "Lpb";
+        return "Loopback";
 
     case CMSG_TRANSPORT_RPC_TCP:
-        return "TCP-R";
+        return "TCP-RPC";
 
     case CMSG_TRANSPORT_ONEWAY_TCP:
-        return "TCP-O";
+        return "TCP-One";
 
     case CMSG_TRANSPORT_BROADCAST:
-        return "BC";
+        return "Broadcast";
 
     case CMSG_TRANSPORT_RPC_UNIX:
-        return "Unix-R";
+        return "Unix-RPC";
 
     case CMSG_TRANSPORT_ONEWAY_UNIX:
-        return "Unix-O";
+        return "Unix-One";
 
     case CMSG_TRANSPORT_ONEWAY_MC_UDP:
         return "UDP-MC";
 
     case CMSG_TRANSPORT_FORWARDING:
-        return "Frwd";
+        return "Forward";
     }
-    return "Unkn";
+    return "Unknown";
 }
 
 
