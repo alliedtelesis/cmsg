@@ -352,17 +352,6 @@ cmsg_transport_udp_socket_close (cmsg_transport *transport)
 {
     if (transport->socket != -1)
     {
-        if (transport->type == CMSG_TRANSPORT_ONEWAY_MC_UDP)
-        {
-            /* Oneway transports are not synchronous so we do not know if the kernel
-             * has fully drained the send buffer before closing the socket. Therefore
-             * we cannot hard reset the connection via 'cmsg_transport_set_so_linger'.
-             * To allow the kernel to fully drain the socket, and avoid orphaned sockets,
-             * we enable UDP keepalive probes so that the kernel can detect the dead
-             * connection and remove the socket. */
-            // cmsg_transport_tcp_enable_keepalive (transport->socket);
-        }
-
         CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] shutting down socket\n");
         shutdown (transport->socket, SHUT_RDWR);
 
@@ -397,24 +386,6 @@ _cmsg_transport_oneway_udp_funcs_init (cmsg_tport_functions *tport_funcs)
     _cmsg_transport_udp_init_common (tport_funcs);
 
     tport_funcs->server_send = cmsg_transport_oneway_server_send;
-}
-
-
-void
-cmsg_transport_udp_init (cmsg_transport *transport)
-{
-    if (transport == NULL)
-    {
-        return;
-    }
-
-    transport->config.socket.family = PF_INET;
-    transport->config.socket.sockaddr.generic.sa_family = PF_INET;
-
-    // update to rpc when we do one
-    _cmsg_transport_oneway_udp_funcs_init (&transport->tport_funcs);
-
-    CMSG_DEBUG (CMSG_INFO, "%s: done\n", __FUNCTION__);
 }
 
 
