@@ -80,6 +80,7 @@ class AtlCodeGenerator {
   void GenerateAtlServerImplStub(const MethodDescriptor &method, io::Printer* printer);
   void GenerateAtlServerMethodExtensions(const MethodDescriptor &method, io::Printer* printer);
   void GenerateAtlServerMethodExtensionsPtr(const MethodDescriptor &method, io::Printer* printer);
+  void GenerateAtlServerExtensions (io::Printer * printer);
   void GenerateAtlServerImplPtr(const MethodDescriptor &method, io::Printer* printer);
   void GenerateAtlServerSendDefinition(const MethodDescriptor &method, io::Printer* printer);
 

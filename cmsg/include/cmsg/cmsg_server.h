@@ -52,13 +52,19 @@ typedef struct
 
 typedef struct
 {
+    char **eventwatch_notify_list;
+} cmsg_server_extensions;
+
+typedef struct
+{
     ProtobufCService base;
     const cmsg_impl_info *impl_info;
+    const cmsg_server_extensions *server_extensions;
 } cmsg_service;
 
 #define CMSG_SERVICE_BASE_INIT(_desc) { _desc, cmsg_server_invoke_impl, NULL }
 #define CMSG_SERVICE_INIT(service_name) \
-    { CMSG_SERVICE_BASE_INIT(&service_name##_descriptor), service_name##_impl_info }
+    { CMSG_SERVICE_BASE_INIT(&service_name##_descriptor), service_name##_impl_info, &service_name##_server_impl_extensions }
 
 typedef void (*cmsg_closure_func) (const ProtobufCMessage *send_msg, void *closure_data);
 

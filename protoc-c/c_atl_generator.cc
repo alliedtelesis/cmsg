@@ -427,6 +427,53 @@ void AtlCodeGenerator::GenerateAtlServerMethodExtensions(const MethodDescriptor 
     printer->Print("};\n\n");
 }
 
+void AtlCodeGenerator::GenerateAtlServerExtensions(io::Printer* printer)
+{
+    std::unordered_set<string> feature_set;
+    const MethodDescriptor *method;
+
+    // Add each eventwatch_notify feature from method extensions (duplicates are not added)
+    for (int i = 0; i < descriptor_->method_count(); i++) {
+      method = descriptor_->method(i);
+      if (method->options().HasExtension(eventwatch_notify))
+      {
+          feature_set.insert(method->options().GetExtension(eventwatch_notify));
+      }
+    }
+
+    if (!feature_set.empty())
+    {
+        printer->Print(vars_, "static const char *$lcfullname$_server_impl_eventwatch_notify_list[]");
+        printer->Print(" = \n{\n");
+        printer->Indent();
+
+        // List of eventwatch_notify features
+        for (const auto& elem: feature_set) {
+            vars_["eventwatch_notify_list_elem"] = elem;
+            printer->Print(vars_, "\"$eventwatch_notify_list_elem$\",\n");
+        }
+
+        // List must end with NULL
+        printer->Print(vars_, "NULL,\n");
+        printer->Outdent();
+        printer->Print(vars_, "};\n\n");
+    }
+
+    printer->Print(vars_, "static const cmsg_server_extensions $lcfullname$_server_impl_extensions");
+    printer->Print(" = \n{\n");
+    printer->Indent();
+    if (!feature_set.empty())
+    {
+        printer->Print(vars_, ".eventwatch_notify_list = $lcfullname$_server_impl_eventwatch_notify_list,\n");
+    }
+    else
+    {
+        printer->Print(vars_, ".eventwatch_notify_list = NULL,\n");
+    }
+    printer->Outdent();
+    printer->Print("};\n\n");
+}
+
 //
 // Methods to generate the server side code (List of impl functions and extensions and
 // service initialiser)
@@ -438,6 +485,9 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     const MethodDescriptor *method = descriptor_->method(i);
     GenerateAtlServerMethodExtensions(*method, printer);
   }
+
+  // Server extensions
+  GenerateAtlServerExtensions(printer);
 
   // Impl pointers
   printer->Print(vars_, "static const cmsg_impl_info $lcfullname$_impl_info[] =\n");

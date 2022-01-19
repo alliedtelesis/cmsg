@@ -75,6 +75,23 @@ cmsg_server_send_response (const ProtobufCMessage *send_msg, const void *service
     _closure (send_msg, _closure_data);
 }
 
+void
+cmsg_server_method_eventwatch_notify_init (const ProtobufCService *service)
+{
+    const cmsg_server_extensions *server_extensions =
+        ((cmsg_service *) service)->server_extensions;
+    char **feature_ptr = NULL;
+
+    if (server_extensions && server_extensions->eventwatch_notify_list)
+    {
+        for (feature_ptr = server_extensions->eventwatch_notify_list;
+             *feature_ptr; feature_ptr++)
+        {
+            eventwatch_init_feature (*feature_ptr, NULL);
+        }
+    }
+}
+
 /*
  * This is an internal function which can be called from CMSG library.
  * Applications should use cmsg_server_new() instead.
@@ -168,6 +185,8 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
         server->app_owns_current_msg = false;
         server->app_owns_all_msgs = false;
         server->suppress_errors = false;
+
+        cmsg_server_method_eventwatch_notify_init (service);
     }
     else
     {
