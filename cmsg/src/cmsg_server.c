@@ -75,6 +75,10 @@ cmsg_server_send_response (const ProtobufCMessage *send_msg, const void *service
     _closure (send_msg, _closure_data);
 }
 
+
+/**
+ * Initializes the eventwatch features used by methods of the specified service.
+ */
 void
 cmsg_server_method_eventwatch_notify_init (const ProtobufCService *service)
 {
@@ -185,8 +189,6 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
         server->app_owns_current_msg = false;
         server->app_owns_all_msgs = false;
         server->suppress_errors = false;
-
-        cmsg_server_method_eventwatch_notify_init (service);
     }
     else
     {
@@ -210,6 +212,7 @@ cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
     if (server != NULL)
     {
         cmsg_service_listener_add_server (server);
+        cmsg_server_method_eventwatch_notify_init (service);
 
 #ifdef HAVE_COUNTERD
         char app_name[CNTRD_MAX_APP_NAME_LENGTH];
