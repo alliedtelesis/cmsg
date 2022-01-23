@@ -76,6 +76,27 @@ cmsg_server_send_response (const ProtobufCMessage *send_msg, const void *service
     _closure (send_msg, _closure_data);
 }
 
+
+/**
+ * Initializes the eventwatch features used by methods of the specified service.
+ */
+void
+cmsg_server_method_eventwatch_notify_init (const ProtobufCService *service)
+{
+    const cmsg_server_extensions *server_extensions =
+        ((cmsg_service *) service)->server_extensions;
+    char **feature_ptr = NULL;
+
+    if (server_extensions && server_extensions->eventwatch_notify_list)
+    {
+        for (feature_ptr = server_extensions->eventwatch_notify_list;
+             *feature_ptr; feature_ptr++)
+        {
+            eventwatch_init_feature (*feature_ptr, NULL);
+        }
+    }
+}
+
 /*
  * This is an internal function which can be called from CMSG library.
  * Applications should use cmsg_server_new() instead.
@@ -192,6 +213,7 @@ cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
     if (server != NULL)
     {
         cmsg_service_listener_add_server (server);
+        cmsg_server_method_eventwatch_notify_init (service);
 
 #ifdef HAVE_COUNTERD
         char app_name[CNTRD_MAX_APP_NAME_LENGTH];
