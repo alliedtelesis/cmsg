@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * Functions for dumping the contents of protobuf messages in a user-readable way.
  * The initial implementation was based on protobuf2json code
