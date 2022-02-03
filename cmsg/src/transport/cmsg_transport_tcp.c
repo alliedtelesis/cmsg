@@ -129,7 +129,8 @@ cmsg_transport_tcp_connect (cmsg_transport *transport)
     struct in_addr *address = &transport->config.socket.sockaddr.in.sin_addr;
 
     /* Check the connection cache for IPv4 addresses */
-    if (transport->config.socket.family == PF_INET &&
+    if (transport->perform_connection_pre_check &&
+        transport->config.socket.family == PF_INET &&
         !cmsg_transport_tcp_cache_should_connect (address))
     {
         CMSG_LOG_TRANSPORT_DEBUG (transport, "Failed to connect to remote host. %s",

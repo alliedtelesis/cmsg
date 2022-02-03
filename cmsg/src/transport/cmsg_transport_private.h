@@ -68,11 +68,19 @@ typedef union _cmsg_socket_address_u
     struct sockaddr_in6 in6;    // INET6 socket address, for TCP based transport over IPv6.
 } cmsg_socket_address;
 
+typedef union _cmsg_source_addr_u
+{
+    struct sockaddr generic;    // Generic socket address. Used for determining Address Family.
+    struct sockaddr_in in;
+    struct sockaddr_in6 in6;
+} cmsg_source_addr;
+
 typedef struct _cmsg_socket_s
 {
     int family;
     char vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX];  // For VRF support, the device to bind to the socket
     cmsg_socket_address sockaddr;
+    cmsg_source_addr srcaddr;
 } cmsg_socket;
 
 typedef int (*cmsg_recv_func) (cmsg_transport *transport, int sock, void *buff, int len,
@@ -126,6 +134,7 @@ typedef enum _cmsg_transport_type_e
     CMSG_TRANSPORT_BROADCAST,
     CMSG_TRANSPORT_RPC_UNIX,
     CMSG_TRANSPORT_ONEWAY_UNIX,
+    CMSG_TRANSPORT_ONEWAY_MC_UDP,
     CMSG_TRANSPORT_FORWARDING,
 } cmsg_transport_type;
 
@@ -153,6 +162,9 @@ struct cmsg_transport
     // flag to tell error-level log to be suppressed to debug-level
     cmsg_bool_t suppress_errors;
 
+    // flag to perform pre-checking prior to connect
+    cmsg_bool_t perform_connection_pre_check;
+
     // The socket used by the transport
     int socket;
 
@@ -168,6 +180,7 @@ struct cmsg_transport
 
 void cmsg_transport_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_tcp_init (cmsg_transport *transport);
+void cmsg_transport_oneway_udp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_cpumail_init (cmsg_transport *transport);
 void cmsg_transport_loopback_init (cmsg_transport *transport);
 void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
@@ -233,6 +246,16 @@ cmsg_transport *cmsg_create_transport_tcp_ipv4 (const char *service_name,
 cmsg_transport *cmsg_create_transport_tcp_ipv6 (const char *service_name,
                                                 struct in6_addr *addr, uint32_t scope_id,
                                                 const char *vrf_bind_dev, bool oneway);
+
+cmsg_transport *cmsg_create_transport_mc_udp_ipv4 (const char *service_name,
+                                                   struct in_addr *addr,
+                                                   struct in_addr *src_addr,
+                                                   const char *vrf_bind_dev, bool oneway);
+cmsg_transport *cmsg_create_transport_mc_udp_ipv6 (const char *service_name,
+                                                   struct in6_addr *addr,
+                                                   struct in6_addr *src_addr,
+                                                   uint32_t scope_id,
+                                                   const char *vrf_bind_dev, bool oneway);
 
 int cmsg_transport_get_socket (cmsg_transport *transport);
 void cmsg_transport_socket_close (cmsg_transport *transport);

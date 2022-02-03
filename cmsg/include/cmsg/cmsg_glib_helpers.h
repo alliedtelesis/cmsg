@@ -21,6 +21,10 @@ cmsg_server *cmsg_glib_unix_server_init_oneway (ProtobufCService *service);
 cmsg_server *cmsg_glib_tcp_server_init_oneway (const char *service_name,
                                                struct in_addr *addr,
                                                ProtobufCService *service);
+cmsg_server *cmsg_glib_tcp_server_init_oneway_with_context (const char *service_name,
+                                                            struct in_addr *addr,
+                                                            ProtobufCService *service,
+                                                            GMainContext *context);
 cmsg_server *cmsg_glib_tcp_server_init_rpc (const char *service_name, struct in_addr *addr,
                                             ProtobufCService *service);
 cmsg_server *cmsg_glib_tcp_ipv6_server_init_oneway (const char *service_name,
@@ -40,5 +44,11 @@ void cmsg_glib_subscriber_deinit (cmsg_subscriber *sub);
 void cmsg_glib_bcast_client_processing_start (cmsg_client *broadcast_client);
 void cmsg_glib_service_listener_listen (const char *service_name,
                                         cmsg_sl_event_handler_t handler, void *user_data);
+const cmsg_sl_info *cmsg_glib_service_listener_listen_with_context (const char
+                                                                    *service_name,
+                                                                    cmsg_sl_event_handler_t
+                                                                    handler,
+                                                                    void *user_data,
+                                                                    GMainContext *context);
 
 #endif /* __CMSG_GLIB_HELPERS_H_ */

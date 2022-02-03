@@ -194,6 +194,10 @@ cmsg_queue_filter_type cmsg_client_queue_filter_lookup (cmsg_client *client,
 
 void cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable);
 
+void cmsg_client_perform_connection_pre_check (cmsg_client *client, cmsg_bool_t enable);
+
+char *cmsg_client_get_description_string (cmsg_client *client);
+
 int32_t cmsg_client_create_packet (cmsg_client *client, const char *method_name,
                                    const ProtobufCMessage *input, uint8_t **buffer_ptr,
                                    uint32_t *total_message_size_ptr);
@@ -226,6 +230,21 @@ cmsg_client *cmsg_create_client_tcp_ipv6_oneway (const char *service_name,
                                                  const char *vrf_bind_dev,
                                                  const ProtobufCServiceDescriptor
                                                  *descriptor);
+
+cmsg_client *cmsg_create_client_mc_udp_ipv4_oneway (const char *service_name,
+                                                    struct in_addr *addr,
+                                                    struct in_addr *src_addr,
+                                                    const char *vrf_bind_dev,
+                                                    const ProtobufCServiceDescriptor
+                                                    *descriptor);
+
+cmsg_client *cmsg_create_client_mc_udp_ipv6_oneway (const char *service_name,
+                                                    struct in6_addr *addr,
+                                                    uint32_t scope_id,
+                                                    struct in6_addr *src_addr,
+                                                    const char *vrf_bind_dev,
+                                                    const ProtobufCServiceDescriptor
+                                                    *descriptor);
 
 cmsg_client *cmsg_create_client_tipc_broadcast (const ProtobufCServiceDescriptor
                                                 *descriptor, const char *service_name,

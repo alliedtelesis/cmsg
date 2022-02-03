@@ -150,6 +150,7 @@ libcmsg_la_SOURCES = \
 	src/transport/cmsg_transport_loopback.c \
 	src/transport/cmsg_transport_forwarding.c \
 	src/transport/cmsg_transport_tcp.c \
+	src/transport/cmsg_transport_udp.c \
 	src/transport/cmsg_transport_unix.c \
 	src/transport/cmsg_transport_tipc_broadcast.c \
 	src/transport/cmsg_transport.c \

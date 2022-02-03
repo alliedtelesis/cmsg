@@ -298,6 +298,30 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
             break;
         }
 
+    case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+        {
+            char ip[INET6_ADDRSTRLEN] = { };
+            uint16_t port;
+            if (tport->config.socket.family == PF_INET6)
+            {
+                port = ntohs (tport->config.socket.sockaddr.in6.sin6_port);
+                inet_ntop (AF_INET6, &(tport->config.socket.sockaddr.in6.sin6_addr.s6_addr),
+                           ip, INET6_ADDRSTRLEN);
+                // ipv6 addresses are enclosed in [] in URLs due to ambiguity of :s.
+                snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".udp[[%s]:%u]", ip,
+                          port);
+            }
+            else
+            {
+                port = ntohs (tport->config.socket.sockaddr.in.sin_port);
+                inet_ntop (tport->config.socket.sockaddr.generic.sa_family,
+                           &(tport->config.socket.sockaddr.in.sin_addr), ip,
+                           INET6_ADDRSTRLEN);
+                snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".udp[%s:%u]", ip, port);
+            }
+            break;
+        }
+
     default:
         strncpy (tport->tport_id, ".unknown_transport", CMSG_MAX_TPORT_ID_LEN);
     }
@@ -320,6 +344,7 @@ cmsg_transport_new (cmsg_transport_type type)
     transport->send_timeout = SEND_TIMEOUT_DEFAULT;
     transport->receive_timeout = RECV_TIMEOUT_DEFAULT;
     transport->receive_peek_timeout = RECV_HEADER_PEEK_TIMEOUT_DEFAULT;
+    transport->perform_connection_pre_check = true;
 
     switch (type)
     {
@@ -329,6 +354,11 @@ cmsg_transport_new (cmsg_transport_type type)
     case CMSG_TRANSPORT_ONEWAY_TCP:
         cmsg_transport_oneway_tcp_init (transport);
         break;
+
+    case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+        cmsg_transport_oneway_udp_init (transport);
+        break;
+
     case CMSG_TRANSPORT_BROADCAST:
         cmsg_transport_tipc_broadcast_init (transport);
         break;
@@ -938,6 +968,49 @@ cmsg_transport_apply_recv_timeout (cmsg_transport *transport, int sockfd)
     return 0;
 }
 
+
+/**
+ *  Compares two IP based transports
+ */
+static bool
+_cmsg_transport_ip_compare (const cmsg_transport *one, const cmsg_transport *two)
+{
+    if (one->config.socket.family != two->config.socket.family)
+    {
+        return false;
+    }
+    else if (one->config.socket.family == AF_INET)
+    {
+        if (one->config.socket.sockaddr.in.sin_addr.s_addr !=
+            two->config.socket.sockaddr.in.sin_addr.s_addr)
+        {
+            return false;
+        }
+    }
+    else if (one->config.socket.family == AF_INET6)
+    {
+        if (memcmp (&one->config.socket.sockaddr.in6.sin6_addr,
+                    &two->config.socket.sockaddr.in6.sin6_addr,
+                    sizeof (struct in6_addr)) != 0)
+        {
+            return false;
+        }
+    }
+    else
+    {
+        // Unsupported address to compare
+        return false;
+    }
+
+    if (one->config.socket.sockaddr.in.sin_port != two->config.socket.sockaddr.in.sin_port)
+    {
+        return false;
+    }
+
+    // All checks have shown to be the same so the entries are the same
+    return true;
+}
+
 bool
 cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
 {
@@ -947,19 +1020,7 @@ cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
         {
         case CMSG_TRANSPORT_RPC_TCP:
         case CMSG_TRANSPORT_ONEWAY_TCP:
-            if ((one->config.socket.family == two->config.socket.family) &&
-                ((one->config.socket.family == AF_INET &&
-                  one->config.socket.sockaddr.in.sin_addr.s_addr ==
-                  two->config.socket.sockaddr.in.sin_addr.s_addr) ||
-                 (one->config.socket.family == AF_INET6 &&
-                  memcmp (&one->config.socket.sockaddr.in6.sin6_addr,
-                          &two->config.socket.sockaddr.in6.sin6_addr,
-                          sizeof (struct in6_addr)) == 0)) &&
-                (one->config.socket.sockaddr.in.sin_port ==
-                 two->config.socket.sockaddr.in.sin_port))
-            {
-                return true;
-            }
+            return _cmsg_transport_ip_compare (one, two);
             break;
         case CMSG_TRANSPORT_RPC_UNIX:
         case CMSG_TRANSPORT_ONEWAY_UNIX:
@@ -972,6 +1033,11 @@ cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
                 return true;
             }
             break;
+
+        case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+            return _cmsg_transport_ip_compare (one, two);
+            break;
+
         default:
             return false;
         }
