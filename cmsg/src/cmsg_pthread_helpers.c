@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * @file cmsg_pthread_helpers.c
  *

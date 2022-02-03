@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * The forwarding transport is used in cases where the application wants the client
  * to forward the encoded protobuf message using some supplied function.

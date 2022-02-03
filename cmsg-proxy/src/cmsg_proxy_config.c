@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * A shared memory library that contains the configuration
  * for CMSG proxy.
