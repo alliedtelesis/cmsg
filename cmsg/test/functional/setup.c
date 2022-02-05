@@ -6,6 +6,7 @@
  */
 
 #include <np.h>
+#include <arpa/inet.h>
 #include "cmsg_functional_tests_impl_auto.h"
 #include "service_listener/cmsg_sl_api_private.h"
 #include "publisher_subscriber/cmsg_ps_api_private.h"
@@ -172,6 +173,50 @@ create_client (cmsg_transport_type type, int family)
         }
         break;
 
+    case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+        {
+            char loopch = 0;
+            int32_t sk;
+
+            if (family == AF_INET)
+            {
+                struct in_addr udp_addr;
+                struct in_addr src_addr;
+
+                inet_pton (AF_INET, "239.1.1.100", &udp_addr);
+                inet_pton (AF_INET, "127.0.0.1", &src_addr);
+                client =
+                    cmsg_create_client_mc_udp_ipv4_oneway ("cmsg-test", &udp_addr,
+                                                           &src_addr, NULL,
+                                                           CMSG_DESCRIPTOR (cmsg, test));
+
+                /* Connect, which on a UDP connection less socket sets the source address.
+                 * The connect is needed to be able to set the loopback option on the MC
+                 * socket.
+                 */
+                cmsg_client_connect (client);
+
+            }
+            else if (family == AF_INET6)
+            {
+                // Not supporting IPv6 MC UDP in the unit tests as it doesn't work properly when on
+                // a workstation - sendto returns "Network is unreachable".
+                NP_FAIL;
+            }
+
+            if (client)
+            {
+                sk = cmsg_client_get_socket (client);
+
+                if (setsockopt (sk, IPPROTO_IP, IP_MULTICAST_LOOP, (char *) &loopch,
+                                sizeof (loopch)) < 0)
+                {
+                    NP_FAIL;
+                }
+            }
+        }
+        break;
+
     case CMSG_TRANSPORT_ONEWAY_UNIX:
         client = cmsg_create_client_unix_oneway (CMSG_DESCRIPTOR (cmsg, test));
         break;
@@ -252,6 +297,26 @@ create_server (cmsg_transport_type type, int family, pthread_t *thread)
 
             server = cmsg_create_server_tcp_ipv6_rpc ("cmsg-test", &tcp_addr, 0, NULL,
                                                       CMSG_SERVICE (cmsg, test));
+        }
+        break;
+
+    case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+        if (family == AF_INET)
+        {
+            struct in_addr udp_addr;
+            struct in_addr src_addr;
+
+            inet_pton (AF_INET, "239.1.1.100", &udp_addr);
+            inet_pton (AF_INET, "127.0.0.1", &src_addr);
+            server =
+                cmsg_create_server_udp_ipv4_oneway ("cmsg-test", &udp_addr, &src_addr, NULL,
+                                                    CMSG_SERVICE (cmsg, test));
+        }
+        else if (family == AF_INET6)
+        {
+            // Not supporting IPv6 MC UDP in the unit tests as it doesn't work properly when on
+            // a workstation - sendto returns "Network is unreachable".
+            NP_FAIL;
         }
         break;
 

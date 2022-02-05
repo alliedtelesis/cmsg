@@ -89,3 +89,33 @@ test_cmsg_transport_compare__unix (void)
     cmsg_transport_destroy (one);
     cmsg_transport_destroy (two);
 }
+
+static void
+init_transport_udp (cmsg_transport *transport)
+{
+    transport->config.socket.family = PF_INET;
+    transport->config.socket.sockaddr.un.sun_family = AF_INET;
+    transport->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+    transport->config.socket.sockaddr.in.sin_port = htons ((unsigned short) 10);
+}
+
+void
+test_cmsg_transport_compare__udp (void)
+{
+    cmsg_transport *one = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_MC_UDP);
+    cmsg_transport *two = cmsg_transport_new (CMSG_TRANSPORT_ONEWAY_MC_UDP);
+
+    init_transport_udp (one);
+    init_transport_udp (two);
+    NP_ASSERT_TRUE (cmsg_transport_compare (one, two));
+
+    one->config.socket.sockaddr.in.sin_addr.s_addr = htonl (INADDR_LOOPBACK + 1);
+    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
+
+    init_transport_udp (one);
+    one->config.socket.sockaddr.in.sin_port = htons ((unsigned short) 11);
+    NP_ASSERT_FALSE (cmsg_transport_compare (one, two));
+
+    cmsg_transport_destroy (one);
+    cmsg_transport_destroy (two);
+}

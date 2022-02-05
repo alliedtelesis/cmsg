@@ -27,6 +27,10 @@ cmsg_server *cmsg_liboop_tcp_rpc_server_init (const char *server_name, struct in
 cmsg_server *cmsg_liboop_tcp_oneway_server_init (const char *server_name,
                                                  struct in_addr *addr,
                                                  ProtobufCService *service);
+cmsg_server *cmsg_liboop_tcp_ipv6_oneway_server_init (const char *server_name,
+                                                      struct in6_addr *addr,
+                                                      uint32_t scope_id,
+                                                      ProtobufCService *service);
 const cmsg_sl_info *cmsg_liboop_service_listener_listen (const char *service_name,
                                                          cmsg_sl_event_handler_t handler,
                                                          void *user_data);

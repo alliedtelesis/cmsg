@@ -51,6 +51,7 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
         return cmsg_server_closure_rpc;
 
     case CMSG_TRANSPORT_ONEWAY_TCP:
+    case CMSG_TRANSPORT_ONEWAY_MC_UDP:
     case CMSG_TRANSPORT_BROADCAST:
     case CMSG_TRANSPORT_ONEWAY_UNIX:
     case CMSG_TRANSPORT_FORWARDING:
@@ -2218,6 +2219,131 @@ cmsg_create_server_tcp_ipv6_oneway (const char *service_name, struct in6_addr *a
 }
 
 /**
+ * Helper function for creating a CMSG server using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param src_addr - The IPv4 address (in network byte order) of the source interface.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ * @param oneway - Whether to make a one-way server, or a two-way (RPC) server.
+ */
+static cmsg_server *
+_cmsg_create_server_udp_ipv4 (const char *service_name, struct in_addr *addr,
+                              struct in_addr *src_addr, const char *vrf_bind_dev,
+                              const ProtobufCService *service, bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_server *server;
+
+    transport =
+        cmsg_create_transport_mc_udp_ipv4 (service_name, addr, src_addr, vrf_bind_dev,
+                                           oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (!server)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No UDP IPC server on %s", service->descriptor->name);
+        return NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create a oneway CMSG server using UDP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ */
+cmsg_server *
+cmsg_create_server_udp_ipv4_oneway (const char *service_name, struct in_addr *addr,
+                                    struct in_addr *src_addr, const char *vrf_bind_dev,
+                                    const ProtobufCService *service)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    return _cmsg_create_server_udp_ipv4 (service_name, addr, src_addr, vrf_bind_dev,
+                                         service, true);
+}
+
+/**
+ * Helper function for creating a CMSG server using UDP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to listen on (in network byte order).
+ * @param scope_id - the IPv6 scope id.
+ * @param src_addr - The IPv6 address (in network byte order) of the source interface.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ * @param oneway - Whether to make a one-way server, or a two-way (RPC) server.
+ */
+static cmsg_server *
+_cmsg_create_server_udp_ipv6 (const char *service_name, struct in6_addr *addr,
+                              struct in6_addr *src_addr, uint32_t scope_id,
+                              const char *vrf_bind_dev, const ProtobufCService *service,
+                              bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_server *server;
+
+    transport =
+        cmsg_create_transport_mc_udp_ipv6 (service_name, addr, src_addr, scope_id,
+                                           vrf_bind_dev, oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (!server)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No UDP IPC server on %s", service->descriptor->name);
+        return NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create a oneway CMSG server using UDP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to listen on.
+ * @param scope_id - the IPv6 scope id.
+ * @param src_addr - The IPv6 source address to listen for.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ */
+cmsg_server *
+cmsg_create_server_udp_ipv6_oneway (const char *service_name, struct in6_addr *addr,
+                                    uint32_t scope_id, struct in6_addr *src_addr,
+                                    const char *vrf_bind_dev,
+                                    const ProtobufCService *service)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    return _cmsg_create_server_udp_ipv6 (service_name, addr, src_addr, scope_id,
+                                         vrf_bind_dev, service, true);
+}
+
+/**
  * Destroy a cmsg server and its transport
  *
  * @param server - the cmsg server to destroy
@@ -2495,6 +2621,86 @@ cmsg_server_from_service_get (const void *service)
 
     return server;
 }
+
+/**
+ * Helper function that can be used to get the string of server processing
+ * the request from the 'service' parameter of any given IMPL function.
+ *
+ * @param service - The 'service' pointer passed to the IMPL function.
+ *
+ * @returns The pointer to the server processing the request.
+ */
+const char *
+cmsg_server_description_from_service_get (const void *service)
+{
+    const cmsg_server_closure_info *closure_info = service;
+    const cmsg_server_closure_data *closure_data;
+
+    if (closure_info)
+    {
+        closure_data = closure_info->closure_data;
+        if (closure_data && closure_data->server && closure_data->server->_transport)
+        {
+            switch (closure_data->server->_transport->type)
+            {
+            case CMSG_TRANSPORT_LOOPBACK:
+                return "Loopback";
+
+            case CMSG_TRANSPORT_RPC_TCP:
+                return "TCP-RPC";
+
+            case CMSG_TRANSPORT_ONEWAY_TCP:
+                return "TCP-One";
+
+            case CMSG_TRANSPORT_BROADCAST:
+                return "Broadcast";
+
+            case CMSG_TRANSPORT_RPC_UNIX:
+                return "Unix-RPC";
+
+            case CMSG_TRANSPORT_ONEWAY_UNIX:
+                return "Unix-One";
+
+            case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+                return "UDP-MC";
+
+            case CMSG_TRANSPORT_FORWARDING:
+                return "Forward";
+            }
+            return "Unknown";
+        }
+    }
+
+    return "";
+}
+
+
+/**
+ * Helper function that can be used to get the transport of server processing
+ * the request from the 'service' parameter of any given IMPL function.
+ *
+ * @param service - The 'service' pointer passed to the IMPL function.
+ *
+ * @returns The pointer to the server processing the request.
+ */
+bool
+cmsg_server_is_transport_broadcast_from_service (const void *service)
+{
+    const cmsg_server_closure_info *closure_info = service;
+    const cmsg_server_closure_data *closure_data;
+
+    if (closure_info)
+    {
+        closure_data = closure_info->closure_data;
+        if (closure_data->server && closure_data->server->_transport)
+        {
+            return closure_data->server->_transport->type == CMSG_TRANSPORT_BROADCAST;
+        }
+    }
+
+    return false;
+}
+
 
 /**
  * Create a 'cmsg_server_thread_task_info' structure containing
