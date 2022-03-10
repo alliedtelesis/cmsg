@@ -137,11 +137,18 @@ remote_sync_server_added_removed (const cmsg_service_info *server_info, bool add
 
     if (added)
     {
-        cmsg_sld_remote_sync_api_add_server (comp_client, server_info);
+        if (cmsg_sld_remote_sync_api_add_server (comp_client, server_info) != CMSG_RET_OK)
+        {
+            syslog (LOG_ERR, "Sending Add Server to composite failed");
+        }
     }
     else
     {
-        cmsg_sld_remote_sync_api_remove_server (comp_client, server_info);
+        if (cmsg_sld_remote_sync_api_remove_server (comp_client, server_info) !=
+            CMSG_RET_OK)
+        {
+            syslog (LOG_ERR, "Sending Remove Server to composite failed");
+        }
     }
 
     return true;
@@ -204,7 +211,7 @@ fill_bulk_sync_msg (gpointer data, gpointer user_data)
  * @param client - The CMSG client connected to the remote host to sync to.
  */
 static void
-remote_sync_bulk_sync_services (cmsg_client *client)
+remote_sync_bulk_sync_services (cmsg_client *client, struct in_addr *addr)
 {
     cmsg_sld_bulk_sync_data send_msg = CMSG_SLD_BULK_SYNC_DATA_INIT;
     GList *services_list = NULL;
@@ -212,7 +219,10 @@ remote_sync_bulk_sync_services (cmsg_client *client)
     services_list = data_get_servers_by_addr (local_ip_addr);
     g_list_foreach (services_list, fill_bulk_sync_msg, &send_msg);
 
-    cmsg_sld_remote_sync_api_bulk_sync (client, &send_msg);
+    if (cmsg_sld_remote_sync_api_bulk_sync (client, &send_msg) != CMSG_RET_OK)
+    {
+        syslog (LOG_ERR, "Bulk sync add to remote %x failed", addr->s_addr);
+    }
     CMSG_REPEATED_FREE (send_msg.data);
     g_list_free (services_list);
 }
@@ -235,7 +245,7 @@ remote_sync_add_host (struct in_addr addr)
         comp_client = cmsg_composite_client_new (CMSG_DESCRIPTOR (cmsg_sld, remote_sync));
     }
     cmsg_composite_client_add_child (comp_client, client);
-    remote_sync_bulk_sync_services (client);
+    remote_sync_bulk_sync_services (client, &addr);
 }
 
 /**

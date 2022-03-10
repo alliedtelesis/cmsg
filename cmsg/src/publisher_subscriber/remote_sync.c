@@ -109,11 +109,21 @@ remote_sync_subscription_added_removed (const cmsg_subscription_info *subscriber
 
         if (added)
         {
-            cmsg_psd_remote_sync_api_add_subscription (client, subscriber_info);
+            if (cmsg_psd_remote_sync_api_add_subscription (client, subscriber_info) !=
+                CMSG_RET_OK)
+            {
+                syslog (LOG_ERR, "Subscription add to remote %x failed",
+                        subscriber_info->remote_addr);
+            }
         }
         else
         {
-            cmsg_psd_remote_sync_api_remove_subscription (client, subscriber_info);
+            if (cmsg_psd_remote_sync_api_remove_subscription (client, subscriber_info) !=
+                CMSG_RET_OK)
+            {
+                syslog (LOG_ERR, "Subscription remove to remote %x failed",
+                        subscriber_info->remote_addr);
+            }
         }
     }
 }
@@ -163,7 +173,10 @@ remote_sync_bulk_sync_subscriptions (cmsg_client *client)
         }
     }
 
-    cmsg_psd_remote_sync_api_bulk_sync (client, &send_msg);
+    if (cmsg_psd_remote_sync_api_bulk_sync (client, &send_msg) != CMSG_RET_OK)
+    {
+        syslog (LOG_ERR, "Bulk sync to remote %x failed", remote_addr);
+    }
     CMSG_REPEATED_FREE (send_msg.data);
 }
 
