@@ -29,6 +29,7 @@
 #include "file_response.pb.h"
 #include "privilege.pb.h"
 #include "eventwatch_notify.pb.h"
+#include "timeout.pb.h"
 
 namespace google {
 namespace protobuf {
@@ -74,6 +75,7 @@ AtlCodeGenerator::GenerateAtlApiServiceSupportCheck (const ServiceDescriptor* de
     const MethodDescriptor *method = descriptor_->method(i);
     if (!method->options().HasExtension(file_response) &&
         !method->options().HasExtension(rpc_privilege) &&
+        !method->options().HasExtension(timeout) &&
         !method->options().HasExtension(disable_service_support_check)) {
       share_extension = true;
       break;
@@ -258,7 +260,8 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensionsPtr(const MethodDescriptor 
   vars_["method"] = lcname;
 
   if (method.options().HasExtension(file_response) ||
-      method.options().HasExtension(rpc_privilege)) {
+      method.options().HasExtension(rpc_privilege) ||
+      method.options().HasExtension(timeout)) {
     printer->Print(vars_, "&$lcfullname$_api_$method$_extension");
   } else if (descriptor_->options().HasExtension(service_support_check) &&
              !method.options().HasExtension(disable_service_support_check)) {
@@ -276,7 +279,8 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensions(const MethodDescriptor &me
 
   // Return early if per-API extension is not required.
   if (!method.options().HasExtension(file_response) &&
-      !method.options().HasExtension(rpc_privilege)) {
+      !method.options().HasExtension(rpc_privilege) &&
+      !method.options().HasExtension(timeout)) {
     return;
   }
 
@@ -295,6 +299,10 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensions(const MethodDescriptor &me
   if (method.options().HasExtension(rpc_privilege)) {
     vars_["rpc_privilege"] = SimpleItoa(method.options().GetExtension(rpc_privilege));
     printer->Print(vars_, ".rpc_privilege = $rpc_privilege$,\n");
+  }
+  if (method.options().HasExtension(timeout)) {
+    vars_["timeout"] = SimpleItoa(method.options().GetExtension(timeout));
+    printer->Print(vars_, ".timeout = $timeout$,\n");
   }
   printer->Outdent();
   printer->Print("};\n\n");

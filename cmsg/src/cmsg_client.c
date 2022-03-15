@@ -709,6 +709,19 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
     return cmsg_transport_set_recv_peek_timeout (client->_transport, timeout);
 }
 
+/**
+ * Get the currently configured receive timeout for a cmsg client.
+ * @param timeout pointer to hold timeout in seconds
+ */
+int
+cmsg_client_get_receive_timeout (cmsg_client *client, uint32_t *timeout)
+{
+    CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
+
+    *timeout = cmsg_transport_get_recv_peek_timeout (client->_transport);
+
+    return CMSG_RET_OK;
+}
 
 /**
  * Get a description of the Client transport, doesn't require the connection info.
@@ -2399,6 +2412,7 @@ cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
     const cmsg_method_client_extensions *extensions =
         cmsg_desc->method_extensions[method_index];
     ProtobufCMessage *dummy = NULL;
+    uint32_t old_timeout = 0;
 
     /* test that the pointer to the client is valid before doing anything else */
     if (service == NULL)
@@ -2427,6 +2441,12 @@ cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
                 return CMSG_RET_OK;
             }
         }
+
+        if (extensions->timeout)
+        {
+            cmsg_client_get_receive_timeout (client, &old_timeout);
+            cmsg_client_set_receive_timeout (client, extensions->timeout);
+        }
     }
 
     if (!send_msg)
@@ -2445,6 +2465,11 @@ cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
     /* Send! */
     service->invoke (service, method_index, send_msg, NULL, &closure_data);
     CMSG_FREE (dummy);
+
+    if (old_timeout)
+    {
+        cmsg_client_set_receive_timeout (client, old_timeout);
+    }
 
     return cmsg_api_process_closure_data (closure_data, recv_msg);
 }
