@@ -155,8 +155,8 @@ remote_sync_subscription_removed (const cmsg_subscription_info *subscriber_info)
  *
  * @param client - The client to the remote host that has just joined.
  */
-void
-remote_sync_bulk_sync_subscriptions (cmsg_client *client)
+static bool
+_remote_sync_bulk_sync_subscriptions (cmsg_client *client)
 {
     cmsg_psd_bulk_sync_data send_msg = CMSG_PSD_BULK_SYNC_DATA_INIT;
     GList *list = NULL;
@@ -176,8 +176,36 @@ remote_sync_bulk_sync_subscriptions (cmsg_client *client)
     if (cmsg_psd_remote_sync_api_bulk_sync (client, &send_msg) != CMSG_RET_OK)
     {
         syslog (LOG_ERR, "Bulk sync to remote %x failed", remote_addr);
+        return false;
     }
     CMSG_REPEATED_FREE (send_msg.data);
+    return true;
+}
+
+/**
+ * Retries sending the bulk_sync to the given client
+ */
+gboolean
+remote_sync_bulk_sync_subscriptions_retry (gpointer data)
+{
+    cmsg_client *client = (cmsg_client *) data;
+
+    return !_remote_sync_bulk_sync_subscriptions (client);
+}
+
+/**
+ * Send all subscriptions on this node that are for a remote host that has just joined.
+ *
+ * @param client - The client to the remote host that has just joined.
+ */
+void
+remote_sync_bulk_sync_subscriptions (cmsg_client *client)
+{
+    if (!_remote_sync_bulk_sync_subscriptions (client))
+    {
+        // keep retrying at 2 second intervals until the called fn returns false
+        g_timeout_add (2000, remote_sync_bulk_sync_subscriptions_retry, (gpointer) client);
+    }
 }
 
 /**
