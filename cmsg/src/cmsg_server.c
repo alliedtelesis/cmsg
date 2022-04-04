@@ -244,6 +244,14 @@ cmsg_server_destroy (cmsg_server *server)
 
     cmsg_service_listener_remove_server (server);
 
+    // Close accept thread before destroying any structures
+    // it might use (like counters), or closing currently accepted
+    // sockets
+    if (server->accept_thread_info)
+    {
+        cmsg_server_accept_thread_deinit (server);
+    }
+
     // Close accepted sockets before destroying server
     for (fd = 0; fd <= server->accepted_fdmax; fd++)
     {
@@ -264,11 +272,6 @@ cmsg_server_destroy (cmsg_server *server)
     cmsg_receive_queue_free_all (server->queue);
     pthread_mutex_destroy (&server->queueing_state_mutex);
     pthread_mutex_destroy (&server->queue_mutex);
-
-    if (server->accept_thread_info)
-    {
-        cmsg_server_accept_thread_deinit (server);
-    }
 
     if (server->_transport && server->_transport->tport_funcs.socket_close)
     {
