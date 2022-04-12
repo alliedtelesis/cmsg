@@ -688,7 +688,7 @@ cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout)
  * @returns 0 on success or -1 on failure
  */
 int
-cmsg_client_set_connect_timeout (cmsg_client *client, uint32_t timeout)
+cmsg_client_set_connect_timeout (cmsg_client *client, struct timeval *timeout)
 {
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 

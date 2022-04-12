@@ -154,7 +154,7 @@ struct cmsg_transport
     uint32_t receive_timeout;
 
     // connect timeout in seconds
-    uint32_t connect_timeout;
+    struct timeval connect_timeout;
 
     // maximum time to wait peeking for a received header
     uint32_t receive_peek_timeout;
@@ -188,7 +188,8 @@ void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
 void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
 void cmsg_transport_forwarding_init (cmsg_transport *transport);
 
-int connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int timeout);
+int connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen,
+                struct timeval *timeout);
 ssize_t cmsg_transport_socket_send (int sockfd, const void *buf, size_t len, int flags);
 ssize_t cmsg_transport_socket_recv (int sockfd, void *buf, size_t len, int flags);
 
@@ -198,7 +199,8 @@ cmsg_status_code cmsg_transport_client_recv (cmsg_transport *transport,
 
 int32_t cmsg_transport_connect (cmsg_transport *transport);
 int32_t cmsg_transport_accept (cmsg_transport *transport);
-int32_t cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout);
+int32_t cmsg_transport_set_connect_timeout (cmsg_transport *transport,
+                                            struct timeval *timeout);
 int32_t cmsg_transport_set_send_timeout (cmsg_transport *transport, uint32_t timeout);
 int32_t cmsg_transport_set_recv_peek_timeout (cmsg_transport *transport, uint32_t timeout);
 int32_t cmsg_transport_apply_send_timeout (cmsg_transport *transport, int sockfd);
