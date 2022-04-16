@@ -132,7 +132,7 @@ int cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout);
 
 int cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout);
 
-int cmsg_client_set_connect_timeout (cmsg_client *client, uint32_t timeout);
+int cmsg_client_set_connect_timeout (cmsg_client *client, struct timeval *timeout);
 
 cmsg_status_code cmsg_client_response_receive (cmsg_client *client,
                                                ProtobufCMessage **message);

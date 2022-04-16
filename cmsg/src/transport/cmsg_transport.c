@@ -23,7 +23,8 @@
  *                  timeout value for the socket type).
  */
 int
-connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int timeout)
+connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen,
+            struct timeval *timeout)
 {
     int flags;
     int n;
@@ -31,7 +32,6 @@ connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int time
     socklen_t len;
     fd_set rset;
     fd_set wset;
-    struct timeval tval;
 
     error = 0;
     len = sizeof (error);
@@ -59,10 +59,9 @@ connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int time
     FD_ZERO (&rset);
     FD_SET (sockfd, &rset);
     wset = rset;
-    tval.tv_sec = timeout;
-    tval.tv_usec = 0;
 
-    n = select (sockfd + 1, &rset, &wset, NULL, timeout ? &tval : NULL);
+    n = select (sockfd + 1, &rset, &wset, NULL,
+                (timeout->tv_sec || timeout->tv_usec) ? timeout : NULL);
     if (n == 0)
     {
         fcntl (sockfd, F_SETFL, flags);
@@ -340,7 +339,8 @@ cmsg_transport_new (cmsg_transport_type type)
     memset (transport, 0, sizeof (cmsg_transport));
 
     transport->type = type;
-    transport->connect_timeout = CONNECT_TIMEOUT_DEFAULT;
+    transport->connect_timeout.tv_sec = CONNECT_TIMEOUT_DEFAULT;
+    transport->connect_timeout.tv_usec = 0;
     transport->send_timeout = SEND_TIMEOUT_DEFAULT;
     transport->receive_timeout = RECV_TIMEOUT_DEFAULT;
     transport->receive_peek_timeout = RECV_HEADER_PEEK_TIMEOUT_DEFAULT;
@@ -898,7 +898,7 @@ cmsg_transport_accept (cmsg_transport *transport)
 }
 
 int32_t
-cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout)
+cmsg_transport_set_connect_timeout (cmsg_transport *transport, struct timeval *timeout)
 {
     if (transport->type == CMSG_TRANSPORT_RPC_UNIX ||
         transport->type == CMSG_TRANSPORT_ONEWAY_UNIX)
@@ -907,7 +907,7 @@ cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout)
         return -1;
     }
 
-    transport->connect_timeout = timeout;
+    transport->connect_timeout = *timeout;
 
     return 0;
 }
