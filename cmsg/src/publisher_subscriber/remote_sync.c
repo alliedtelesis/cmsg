@@ -176,6 +176,7 @@ _remote_sync_bulk_sync_subscriptions (cmsg_client *client)
     if (cmsg_psd_remote_sync_api_bulk_sync (client, &send_msg) != CMSG_RET_OK)
     {
         syslog (LOG_ERR, "Bulk sync to remote %x failed", remote_addr);
+        CMSG_REPEATED_FREE (send_msg.data);
         return false;
     }
     CMSG_REPEATED_FREE (send_msg.data);
