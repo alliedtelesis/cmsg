@@ -402,14 +402,31 @@ void AtlCodeGenerator::GenerateAtlServerImplPtr(const MethodDescriptor &method, 
   }
 }
 
+bool AtlCodeGenerator::ServerMethodHasAutoValidation(const MethodDescriptor &method)
+{
+  if (method.options().HasExtension(auto_validation) &&
+      method.options().GetExtension(auto_validation)) {
+    return true;
+  }
+  return false;
+}
+
+bool AtlCodeGenerator::ServerMethodHasOwnExtensions(const MethodDescriptor &method)
+{
+   if (ServerMethodHasAutoValidation(method) ||
+       method.options().HasExtension(eventwatch_notify)) {
+    return true;
+  }
+
+  return false;
+}
+
 void AtlCodeGenerator::GenerateAtlServerMethodExtensionsPtr(const MethodDescriptor &method, io::Printer* printer)
 {
   string lcname = cmsg::CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  if ((method.options().HasExtension(auto_validation) &&
-       method.options().GetExtension(auto_validation)) ||
-      method.options().HasExtension(eventwatch_notify))
+  if (ServerMethodHasOwnExtensions(method))
   {
     printer->Print(vars_, "&$lcfullname$_impl_$method$_extensions");
   } else {
@@ -424,9 +441,7 @@ void AtlCodeGenerator::GenerateAtlServerMethodExtensions(const MethodDescriptor 
     vars_["input_typename_lower"] = cmsg::FullNameToLower(method.input_type()->full_name());
 
     // Return early if per-API extension is not required.
-    if (!(method.options().HasExtension(auto_validation) &&
-          method.options().GetExtension(auto_validation)) &&
-        !method.options().HasExtension(eventwatch_notify))
+    if (!ServerMethodHasOwnExtensions(method))
     {
         return;
     }
@@ -434,8 +449,7 @@ void AtlCodeGenerator::GenerateAtlServerMethodExtensions(const MethodDescriptor 
     printer->Print(vars_, "static const cmsg_method_server_extensions $lcfullname$_impl_$method$_extensions");
     printer->Print(" = \n{\n");
     printer->Indent();
-    if (method.options().HasExtension(auto_validation) &&
-        method.options().GetExtension(auto_validation)) {
+    if (ServerMethodHasAutoValidation(method)) {
       printer->Print(vars_, ".validation_func = (cmsg_validation_func) $input_typename_lower$_validate,\n");
     }
     if (method.options().HasExtension(eventwatch_notify)) {
