@@ -73,10 +73,8 @@ AtlCodeGenerator::GenerateAtlApiServiceSupportCheck (const ServiceDescriptor* de
   bool share_extension = false;
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor *method = descriptor_->method(i);
-    if (!method->options().HasExtension(file_response) &&
-        !method->options().HasExtension(rpc_privilege) &&
-        !method->options().HasExtension(timeout) &&
-        !method->options().HasExtension(disable_service_support_check)) {
+    if (ApiMethodHasServiceSupportCheck(*method) &&
+        !ApiMethodHasOwnExtensions(*method)) {
       share_extension = true;
       break;
     }
@@ -254,17 +252,33 @@ void AtlCodeGenerator::GenerateAtlApiDefinitions(io::Printer* printer, bool forH
   }
 }
 
+bool AtlCodeGenerator::ApiMethodHasOwnExtensions(const MethodDescriptor &method)
+{
+  if (method.options().HasExtension(file_response) ||
+      method.options().HasExtension(rpc_privilege) ||
+      method.options().HasExtension(timeout)) {
+      return true;
+  }
+  return false;
+}
+
+bool AtlCodeGenerator::ApiMethodHasServiceSupportCheck(const MethodDescriptor &method)
+{
+  if (descriptor_->options().HasExtension(service_support_check) &&
+      !method.options().HasExtension(disable_service_support_check)) {
+    return true;
+  }
+  return false;
+}
+
 void AtlCodeGenerator::GenerateAtlApiMethodExtensionsPtr(const MethodDescriptor &method, io::Printer* printer)
 {
   string lcname = cmsg::CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  if (method.options().HasExtension(file_response) ||
-      method.options().HasExtension(rpc_privilege) ||
-      method.options().HasExtension(timeout)) {
+  if (ApiMethodHasOwnExtensions(method)) {
     printer->Print(vars_, "&$lcfullname$_api_$method$_extension");
-  } else if (descriptor_->options().HasExtension(service_support_check) &&
-             !method.options().HasExtension(disable_service_support_check)) {
+  } else if (ApiMethodHasServiceSupportCheck(method)) {
     printer->Print(vars_, "&$lcfullname$_api_service_support_extension");
   } else {
     printer->Print("NULL");
@@ -278,9 +292,7 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensions(const MethodDescriptor &me
   vars_["method"] = lcname;
 
   // Return early if per-API extension is not required.
-  if (!method.options().HasExtension(file_response) &&
-      !method.options().HasExtension(rpc_privilege) &&
-      !method.options().HasExtension(timeout)) {
+  if (!ApiMethodHasOwnExtensions(method)) {
     return;
   }
 
@@ -292,8 +304,7 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensions(const MethodDescriptor &me
     vars_["file_path"] = info.file_path();
     printer->Print(vars_, ".response_filename = \"$file_path$\",\n");
   }
-  if (descriptor_->options().HasExtension(service_support_check) &&
-     !method.options().HasExtension(disable_service_support_check)) {
+  if (ApiMethodHasServiceSupportCheck(method)) {
     printer->Print(vars_, ".service_support = &$lcfullname$_api_service_support_check,\n");
   }
   if (method.options().HasExtension(rpc_privilege)) {
