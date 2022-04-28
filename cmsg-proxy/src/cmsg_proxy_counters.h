@@ -44,7 +44,7 @@ typedef struct _session_counter_info
 } session_counter_info;
 
 /* Global counters */
-counter_info proxy_counter;
+extern counter_info proxy_counter;
 /* Table to store per-session counters */
 extern GHashTable *proxy_session_counter_table;
 
