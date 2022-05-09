@@ -32,6 +32,7 @@ connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen,
     socklen_t len;
     fd_set rset;
     fd_set wset;
+    struct timeval tv;
 
     error = 0;
     len = sizeof (error);
@@ -56,12 +57,15 @@ connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen,
         return 0;
     }
 
+    tv.tv_usec = timeout->tv_usec;
+    tv.tv_sec = timeout->tv_sec;
+
     FD_ZERO (&rset);
     FD_SET (sockfd, &rset);
     wset = rset;
 
     n = select (sockfd + 1, &rset, &wset, NULL,
-                (timeout->tv_sec || timeout->tv_usec) ? timeout : NULL);
+                (timeout->tv_sec || timeout->tv_usec) ? &tv : NULL);
     if (n == 0)
     {
         fcntl (sockfd, F_SETFL, flags);
