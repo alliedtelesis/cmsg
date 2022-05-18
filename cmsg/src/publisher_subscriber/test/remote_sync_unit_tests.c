@@ -22,6 +22,12 @@
  */
 #define USED __attribute__ ((used))
 
+struct remote_sync_data
+{
+    cmsg_client *client;
+    guint timer_id;
+};
+
 extern cmsg_server *remote_sync_server;
 extern GList *remote_sync_client_list;
 
@@ -89,7 +95,7 @@ sm_mock_cmsg_service_listener_remove_server (cmsg_server *server)
 }
 
 static void
-sm_mock_remote_sync_bulk_sync_subscriptions (cmsg_client *client)
+sm_mock_remote_sync_bulk_sync_subscriptions (struct remote_sync_data *remote)
 {
     /* Do nothing. */
 }
@@ -201,7 +207,7 @@ test_remote_sync_sl_event_handler (void)
     cmsg_transport *test_transport_1 = NULL;
     cmsg_transport *test_transport_2 = NULL;
     cmsg_transport *server_transport = NULL;
-    cmsg_client *client = NULL;
+    struct remote_sync_data *remote = NULL;
 
     server_transport = create_tcp_transport (1234);
     remote_sync_server = cmsg_server_create (server_transport, &test_service);
@@ -220,8 +226,8 @@ test_remote_sync_sl_event_handler (void)
 
     remote_sync_sl_event_handler (test_transport_2, false, NULL);
     NP_ASSERT_EQUAL (g_list_length (remote_sync_client_list), 1);
-    client = (cmsg_client *) remote_sync_client_list->data;
-    NP_ASSERT_TRUE (cmsg_transport_compare (client->_transport, test_transport_1));
+    remote = (struct remote_sync_data *) remote_sync_client_list->data;
+    NP_ASSERT_TRUE (cmsg_transport_compare (remote->client->_transport, test_transport_1));
 
     remote_sync_sl_event_handler (test_transport_1, false, NULL);
     NP_ASSERT_EQUAL (g_list_length (remote_sync_client_list), 0);
@@ -291,7 +297,7 @@ test_remote_sync_bulk_sync_subscriptions (void)
     cmsg_subscription_info sub_info_2 = CMSG_SUBSCRIPTION_INFO_INIT;
     cmsg_subscription_info sub_info_3 = CMSG_SUBSCRIPTION_INFO_INIT;
     cmsg_transport *transport = NULL;
-    cmsg_client *client = NULL;
+    struct remote_sync_data remote;
 
     CMSG_SET_FIELD_VALUE (&sub_info_1, remote_addr, 1111);
     CMSG_SET_FIELD_VALUE (&sub_info_2, remote_addr, 1111);
@@ -305,15 +311,16 @@ test_remote_sync_bulk_sync_subscriptions (void)
                                                     &sub_info_3);
 
     transport = create_tcp_transport (1111);
-    client = cmsg_client_new (transport, &test_descriptor);
+    remote.client = cmsg_client_new (transport, &test_descriptor);
+    remote.timer_id = 0;
 
     np_mock (data_get_remote_subscriptions, sm_mock_data_get_remote_subscriptions);
     np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke);
-    remote_sync_bulk_sync_subscriptions (client);
+    remote_sync_bulk_sync_subscriptions (&remote);
 
     NP_ASSERT_EQUAL (g_list_length (remote_subscriptions_seen), 2);
 
-    cmsg_destroy_client_and_transport (client);
+    cmsg_destroy_client_and_transport (remote.client);
     g_list_free (mock_remote_subscriptions_list);
     g_list_free (remote_subscriptions_seen);
 }
