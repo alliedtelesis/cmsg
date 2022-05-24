@@ -14,6 +14,8 @@
 #include <cmsg/cmsg_transport.h>
 #include <cmsg/cmsg_client.h>
 
+struct remote_sync_data;
+
 void remote_sync_debug_dump (FILE *fp);
 void remote_sync_address_set (struct in_addr addr);
 uint32_t remote_sync_get_local_ip (void);
@@ -21,5 +23,8 @@ void remote_sync_subscription_added (const cmsg_subscription_info *subscriber_in
 void remote_sync_subscription_removed (const cmsg_subscription_info *subscriber_info);
 bool remote_sync_sl_event_handler (const cmsg_transport *transport, bool added,
                                    void *user_data);
-void remote_sync_bulk_sync_subscriptions (cmsg_client *client);
+#ifdef HAVE_UNITTEST
+extern void remote_sync_bulk_sync_subscriptions (struct remote_sync_data *remote);
+#endif
+
 #endif /* __REMOTE_SYNC_H_ */

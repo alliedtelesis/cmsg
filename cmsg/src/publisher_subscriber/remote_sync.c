@@ -17,8 +17,20 @@
 #include <cmsg/cmsg_sl.h>
 #include "transport/cmsg_transport_private.h"
 
-cmsg_server *remote_sync_server = NULL;
-GList *remote_sync_client_list = NULL;
+#ifdef HAVE_UNITTEST
+#define STATIC
+#else
+#define STATIC static
+#endif
+
+struct remote_sync_data
+{
+    cmsg_client *client;
+    guint timer_id;
+};
+
+STATIC cmsg_server *remote_sync_server = NULL;
+STATIC GList *remote_sync_client_list = NULL;
 static uint32_t remote_sync_local_ip_addr = 0;
 
 /**
@@ -76,10 +88,10 @@ cmsg_psd_remote_sync_impl_remove_subscription (const void *service,
 static gint
 remote_sync_find_client_by_address (gconstpointer a, gconstpointer b)
 {
-    cmsg_client *client = (cmsg_client *) a;
+    struct remote_sync_data *remote = (struct remote_sync_data *) a;
     uint32_t *addr = (uint32_t *) b;
 
-    if (client->_transport->config.socket.sockaddr.in.sin_addr.s_addr == *addr)
+    if (remote->client->_transport->config.socket.sockaddr.in.sin_addr.s_addr == *addr)
     {
         return 0;
     }
@@ -98,19 +110,19 @@ static void
 remote_sync_subscription_added_removed (const cmsg_subscription_info *subscriber_info,
                                         bool added)
 {
-    cmsg_client *client = NULL;
+    struct remote_sync_data *remote = NULL;
     GList *link = NULL;
 
     link = g_list_find_custom (remote_sync_client_list, &subscriber_info->remote_addr,
                                remote_sync_find_client_by_address);
     if (link)
     {
-        client = (cmsg_client *) link->data;
+        remote = (struct remote_sync_data *) link->data;
 
         if (added)
         {
-            if (cmsg_psd_remote_sync_api_add_subscription (client, subscriber_info) !=
-                CMSG_RET_OK)
+            if (cmsg_psd_remote_sync_api_add_subscription (remote->client, subscriber_info)
+                != CMSG_RET_OK)
             {
                 syslog (LOG_ERR, "Subscription add to remote %x failed",
                         subscriber_info->remote_addr);
@@ -118,8 +130,8 @@ remote_sync_subscription_added_removed (const cmsg_subscription_info *subscriber
         }
         else
         {
-            if (cmsg_psd_remote_sync_api_remove_subscription (client, subscriber_info) !=
-                CMSG_RET_OK)
+            if (cmsg_psd_remote_sync_api_remove_subscription
+                (remote->client, subscriber_info) != CMSG_RET_OK)
             {
                 syslog (LOG_ERR, "Subscription remove to remote %x failed",
                         subscriber_info->remote_addr);
@@ -176,6 +188,7 @@ _remote_sync_bulk_sync_subscriptions (cmsg_client *client)
     if (cmsg_psd_remote_sync_api_bulk_sync (client, &send_msg) != CMSG_RET_OK)
     {
         syslog (LOG_ERR, "Bulk sync to remote %x failed", remote_addr);
+        CMSG_REPEATED_FREE (send_msg.data);
         return false;
     }
     CMSG_REPEATED_FREE (send_msg.data);
@@ -185,12 +198,18 @@ _remote_sync_bulk_sync_subscriptions (cmsg_client *client)
 /**
  * Retries sending the bulk_sync to the given client
  */
-gboolean
+static gboolean
 remote_sync_bulk_sync_subscriptions_retry (gpointer data)
 {
-    cmsg_client *client = (cmsg_client *) data;
+    struct remote_sync_data *remote = (struct remote_sync_data *) data;
 
-    return !_remote_sync_bulk_sync_subscriptions (client);
+    if (!_remote_sync_bulk_sync_subscriptions (remote->client))
+    {
+        return TRUE;    // keep retrying
+    }
+    // success - timer will be destroyed.
+    remote->timer_id = 0;
+    return FALSE;
 }
 
 /**
@@ -198,13 +217,15 @@ remote_sync_bulk_sync_subscriptions_retry (gpointer data)
  *
  * @param client - The client to the remote host that has just joined.
  */
-void
-remote_sync_bulk_sync_subscriptions (cmsg_client *client)
+STATIC void
+remote_sync_bulk_sync_subscriptions (struct remote_sync_data *remote)
 {
-    if (!_remote_sync_bulk_sync_subscriptions (client))
+    if (!_remote_sync_bulk_sync_subscriptions (remote->client))
     {
         // keep retrying at 2 second intervals until the called fn returns false
-        g_timeout_add (2000, remote_sync_bulk_sync_subscriptions_retry, (gpointer) client);
+        remote->timer_id =
+            g_timeout_add (2000, remote_sync_bulk_sync_subscriptions_retry,
+                           (gpointer) remote);
     }
 }
 
@@ -220,10 +241,10 @@ remote_sync_bulk_sync_subscriptions (cmsg_client *client)
 static gint
 remote_sync_find_client_by_transport (gconstpointer a, gconstpointer b)
 {
-    cmsg_client *client = (cmsg_client *) a;
+    struct remote_sync_data *remote = (struct remote_sync_data *) a;
     cmsg_transport *transport = (cmsg_transport *) b;
 
-    if (cmsg_transport_compare (client->_transport, transport))
+    if (cmsg_transport_compare (remote->client->_transport, transport))
     {
         return 0;
     }
@@ -246,10 +267,10 @@ remote_sync_find_client_by_transport (gconstpointer a, gconstpointer b)
 bool
 remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void *user_data)
 {
-    cmsg_client *client = NULL;
     GList *link = NULL;
     cmsg_transport *new_transport = NULL;
     uint32_t remote_addr;
+    struct remote_sync_data *remote;
 
     /* Do nothing for the server running locally. */
     if (cmsg_transport_compare (remote_sync_server->_transport, transport))
@@ -259,10 +280,13 @@ remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void 
 
     if (added)
     {
+        remote = CMSG_MALLOC (sizeof (struct remote_sync_data));
         new_transport = cmsg_transport_copy (transport);
-        client = cmsg_client_new (new_transport, CMSG_DESCRIPTOR (cmsg_psd, remote_sync));
-        remote_sync_client_list = g_list_prepend (remote_sync_client_list, client);
-        remote_sync_bulk_sync_subscriptions (client);
+        remote->client =
+            cmsg_client_new (new_transport, CMSG_DESCRIPTOR (cmsg_psd, remote_sync));
+        remote->timer_id = 0;
+        remote_sync_client_list = g_list_prepend (remote_sync_client_list, remote);
+        remote_sync_bulk_sync_subscriptions (remote);
     }
     else
     {
@@ -272,8 +296,15 @@ remote_sync_sl_event_handler (const cmsg_transport *transport, bool added, void 
                                    remote_sync_find_client_by_transport);
         if (link)
         {
-            cmsg_destroy_client_and_transport ((cmsg_client *) link->data);
+            remote = (struct remote_sync_data *) link->data;
+            if (remote->timer_id)
+            {
+                g_source_remove (remote->timer_id);
+                remote->timer_id = 0;
+            }
+            cmsg_destroy_client_and_transport (remote->client);
             remote_sync_client_list = g_list_delete_link (remote_sync_client_list, link);
+            CMSG_FREE (remote);
         }
     }
 
@@ -353,10 +384,10 @@ remote_sync_debug_print_transport_ip (FILE *fp, cmsg_transport *transport)
 static void
 data_debug_server_dump (gpointer data, gpointer user_data)
 {
-    const cmsg_client *client = (const cmsg_client *) data;
+    const struct remote_sync_data *remote = (const struct remote_sync_data *) data;
     FILE *fp = (FILE *) user_data;
 
-    remote_sync_debug_print_transport_ip (fp, client->_transport);
+    remote_sync_debug_print_transport_ip (fp, remote->client->_transport);
     fprintf (fp, " ");
 }
 
