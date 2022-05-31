@@ -131,6 +131,7 @@ int32_t cmsg_client_connect (cmsg_client *client);
 int cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout);
 
 int cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout);
+int cmsg_client_get_receive_timeout (cmsg_client *client, uint32_t *timeout);
 
 int cmsg_client_set_connect_timeout (cmsg_client *client, struct timeval *timeout);
 
@@ -269,6 +270,7 @@ typedef struct
     const service_support_parameters *service_support;
     const char *response_filename;
     uint32_t rpc_privilege;
+    uint32_t timeout;
 } cmsg_method_client_extensions;
 
 typedef struct

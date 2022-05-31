@@ -202,6 +202,7 @@ int32_t cmsg_transport_accept (cmsg_transport *transport);
 int32_t cmsg_transport_set_connect_timeout (cmsg_transport *transport,
                                             struct timeval *timeout);
 int32_t cmsg_transport_set_send_timeout (cmsg_transport *transport, uint32_t timeout);
+uint32_t cmsg_transport_get_recv_peek_timeout (cmsg_transport *transport);
 int32_t cmsg_transport_set_recv_peek_timeout (cmsg_transport *transport, uint32_t timeout);
 int32_t cmsg_transport_apply_send_timeout (cmsg_transport *transport, int sockfd);
 int32_t cmsg_transport_apply_recv_timeout (cmsg_transport *transport, int sockfd);

@@ -932,6 +932,12 @@ cmsg_transport_set_recv_peek_timeout (cmsg_transport *transport, uint32_t timeou
     return 0;
 }
 
+uint32_t
+cmsg_transport_get_recv_peek_timeout (cmsg_transport *transport)
+{
+    return transport->receive_peek_timeout;
+}
+
 int32_t
 cmsg_transport_apply_send_timeout (cmsg_transport *transport, int sockfd)
 {
