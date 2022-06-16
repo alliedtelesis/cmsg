@@ -1,0 +1,8 @@
+syntax = "proto2";
+
+import "google/protobuf/descriptor.proto";
+
+// This extension allows configuring a per-RPC client timeout
+extend google.protobuf.MethodOptions {
+    optional uint32 timeout = 72295743;
+}

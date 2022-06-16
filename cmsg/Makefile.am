@@ -56,6 +56,15 @@ src/eventwatch_notify_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/eventwatch_
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/eventwatch_notify.proto
 
+src/timeout.pb-c.c \
+src/timeout.pb-c.h \
+src/timeout_types_auto.h \
+src/timeout_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/timeout.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=disable_message_helpers:$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/timeout.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/timeout.proto
+
 src/cmsg_api_auto.c \
 src/cmsg_api_auto.h \
 src/cmsg_impl_auto.c \
@@ -240,7 +249,11 @@ libcmsg_la_HEADERS  = \
 	src/eventwatch_notify.proto \
 	src/eventwatch_notify.pb-c.h \
 	src/eventwatch_notify_types_auto.h \
-	src/eventwatch_notify_validation_auto.h
+	src/eventwatch_notify_validation_auto.h \
+	src/timeout.proto \
+	src/timeout.pb-c.h \
+	src/timeout_types_auto.h \
+	src/timeout_validation_auto.h
 
 BUILT_SOURCES =  \
 	src/cmsg_api_auto.c \
