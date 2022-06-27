@@ -290,6 +290,7 @@ ProtobufCMessage *cmsg_get_msg_from_file (const ProtobufCMessageDescriptor *desc
                                           const char *file_name);
 
 const char *cmsg_enum_to_name (const ProtobufCEnumDescriptor *desc, int value);
+#define CMSG_ENUM_TO_NAME(_type,_value) cmsg_enum_to_name (CMSG_ENUM_DESCRIPTOR(_type), _value)
 
 ProtobufCMessage *cmsg_clone (const ProtobufCMessage *msg);
 
