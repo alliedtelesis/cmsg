@@ -180,7 +180,7 @@ struct cmsg_transport
 
 void cmsg_transport_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_tcp_init (cmsg_transport *transport);
-void cmsg_transport_oneway_udp_init (cmsg_transport *transport);
+void cmsg_transport_oneway_udp_vcs_mgmt_init (cmsg_transport *transport);
 void cmsg_transport_oneway_cpumail_init (cmsg_transport *transport);
 void cmsg_transport_loopback_init (cmsg_transport *transport);
 void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
