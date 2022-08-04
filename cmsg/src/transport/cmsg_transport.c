@@ -1108,10 +1108,10 @@ cmsg_transport_tcp_info_create (const cmsg_transport *transport)
         CMSG_SET_FIELD_VALUE (tcp_info, scope_id,
                               transport->config.socket.sockaddr.in6.sin6_scope_id);
     }
-    if (transport->config.socket.vrf_bind_dev[0])
+    if (transport->config.socket.bind_dev[0])
     {
         CMSG_SET_FIELD_PTR (tcp_info, vrf_bind_dev,
-                            CMSG_STRDUP (transport->config.socket.vrf_bind_dev));
+                            CMSG_STRDUP (transport->config.socket.bind_dev));
     }
     return tcp_info;
 }
@@ -1309,9 +1309,9 @@ cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
         }
         if (transport_info->tcp_info->vrf_bind_dev)
         {
-            strncpy (transport->config.socket.vrf_bind_dev,
+            strncpy (transport->config.socket.bind_dev,
                      transport_info->tcp_info->vrf_bind_dev, CMSG_BIND_DEV_NAME_MAX);
-            transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
+            transport->config.socket.bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
         }
     }
 

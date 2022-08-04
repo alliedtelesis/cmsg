@@ -609,9 +609,8 @@ cmsg_create_transport_mc_udp_ipv6 (const char *service_name, struct in6_addr *ad
 
     if (vrf_bind_dev)
     {
-        strncpy (transport->config.socket.vrf_bind_dev, vrf_bind_dev,
-                 CMSG_BIND_DEV_NAME_MAX);
-        transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
+        strncpy (transport->config.socket.bind_dev, vrf_bind_dev, CMSG_BIND_DEV_NAME_MAX);
+        transport->config.socket.bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
     }
 
     return transport;

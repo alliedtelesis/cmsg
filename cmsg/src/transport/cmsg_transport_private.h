@@ -78,7 +78,7 @@ typedef union _cmsg_source_addr_u
 typedef struct _cmsg_socket_s
 {
     int family;
-    char vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX];  // For VRF support, the device to bind to the socket
+    char bind_dev[CMSG_BIND_DEV_NAME_MAX];  // The device to bind to the socket
     cmsg_socket_address sockaddr;
     cmsg_source_addr srcaddr;
 } cmsg_socket;
