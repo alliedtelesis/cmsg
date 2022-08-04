@@ -108,49 +108,10 @@ cmsg_transport_udp_connect (cmsg_transport *transport)
 
 
 /**
- * Bind to VCS management VLAN interface so that only
- * internal stacking traffic is accepted on the socket.
- */
-static int32_t
-_cmsg_transport_udp_bind_to_vcs_vlan (int32_t listening_socket)
-{
-    char ifname[256] = { };
-    FILE *fp;
-    int i;
-
-    fp = fopen ("/var/lib/stack/reserved_interfaces", "r");
-    if (fp != NULL)
-    {
-        fread (ifname, 1, 256, fp);
-        fclose (fp);
-
-        // Read first interface name, stop at first whitespace
-        for (i = 0; i < sizeof (ifname); i++)
-        {
-            if (ifname[i] == ' ')
-            {
-                ifname[i] = '\0';
-                break;
-            }
-        }
-
-        if (setsockopt
-            (listening_socket, SOL_SOCKET, SO_BINDTODEVICE, ifname,
-             strnlen (ifname, sizeof (ifname))) == -1)
-        {
-            return -1;
-        }
-    }
-
-    return 0;
-}
-
-/**
  *  Bind to the IPv4 socket and add the membership to the group and source.
  */
 static int32_t
-_cmsg_transport_udp_ipv4_vcs_mgmt_listen (cmsg_transport *transport,
-                                          int32_t listening_socket)
+_cmsg_transport_udp_ipv4_listen (cmsg_transport *transport, int32_t listening_socket)
 {
     struct sockaddr_in in;
     struct ip_mreq group;
@@ -164,13 +125,6 @@ _cmsg_transport_udp_ipv4_vcs_mgmt_listen (cmsg_transport *transport,
     {
         CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to bind socket. Error:%s",
                                   strerror (errno));
-        close (listening_socket);
-        return -1;
-    }
-
-    if (_cmsg_transport_udp_bind_to_vcs_vlan (listening_socket) == -1)
-    {
-        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to bind to VCS management interface.");
         close (listening_socket);
         return -1;
     }
@@ -202,8 +156,7 @@ _cmsg_transport_udp_ipv4_vcs_mgmt_listen (cmsg_transport *transport,
  *  ifindex for the multicast group.
  */
 static int32_t
-_cmsg_transport_udp_ipv6_vcs_mgmt_listen (cmsg_transport *transport,
-                                          int32_t listening_socket)
+_cmsg_transport_udp_ipv6_listen (cmsg_transport *transport, int32_t listening_socket)
 {
     struct sockaddr_in6 in6;
     struct ipv6_mreq group;
@@ -217,13 +170,6 @@ _cmsg_transport_udp_ipv6_vcs_mgmt_listen (cmsg_transport *transport,
     {
         CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to bind socket. Error:%s",
                                   strerror (errno));
-        close (listening_socket);
-        return -1;
-    }
-
-    if (_cmsg_transport_udp_bind_to_vcs_vlan (listening_socket) == -1)
-    {
-        CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to bind to VCS management interface.");
         close (listening_socket);
         return -1;
     }
@@ -296,11 +242,28 @@ cmsg_transport_udp_listen (cmsg_transport *transport)
 
     if (transport->config.socket.family == PF_INET)
     {
-        ret = _cmsg_transport_udp_ipv4_vcs_mgmt_listen (transport, listening_socket);
+        ret = _cmsg_transport_udp_ipv4_listen (transport, listening_socket);
     }
     else
     {
-        ret = _cmsg_transport_udp_ipv6_vcs_mgmt_listen (transport, listening_socket);
+        ret = _cmsg_transport_udp_ipv6_listen (transport, listening_socket);
+    }
+
+    if (transport->config.socket.bind_dev[0] != '\0')
+    {
+        /* Bind to passed in interface or VRF device so that
+         * multicast traffic is only received on this interface.
+         */
+        if (setsockopt
+            (listening_socket, SOL_SOCKET, SO_BINDTODEVICE,
+             transport->config.socket.bind_dev,
+             strnlen (transport->config.socket.bind_dev, CMSG_BIND_DEV_NAME_MAX)) == -1)
+        {
+            CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to bind to device. socket %d",
+                                      listening_socket);
+            close (listening_socket);
+            return -1;
+        }
     }
 
     if (ret < 0)
@@ -444,7 +407,7 @@ _cmsg_transport_oneway_udp_funcs_init (cmsg_tport_functions *tport_funcs)
 
 
 void
-cmsg_transport_oneway_udp_vcs_mgmt_init (cmsg_transport *transport)
+cmsg_transport_oneway_udp_init (cmsg_transport *transport)
 {
     if (transport == NULL)
     {
@@ -488,14 +451,6 @@ cmsg_create_transport_mc_udp_ipv4 (const char *service_name, struct in_addr *add
         return NULL;
     }
 
-    if (vrf_bind_dev != NULL)
-    {
-        inet_ntop (AF_INET, addr, ip_addr, INET_ADDRSTRLEN);
-        CMSG_LOG_GEN_ERROR ("Don't support VRF bind device. Server:%s, IP:%s", service_name,
-                            ip_addr);
-        return NULL;
-    }
-
     transport_type = CMSG_TRANSPORT_ONEWAY_MC_UDP;
 
     port = cmsg_service_port_get (service_name, "udp");
@@ -522,6 +477,12 @@ cmsg_create_transport_mc_udp_ipv4 (const char *service_name, struct in_addr *add
     memcpy (&transport->config.socket.sockaddr.in.sin_addr, addr, sizeof (*addr));
     transport->config.socket.srcaddr.in.sin_family = AF_INET;
     memcpy (&transport->config.socket.srcaddr.in.sin_addr, src_addr, sizeof (*src_addr));
+
+    if (vrf_bind_dev)
+    {
+        strncpy (transport->config.socket.bind_dev, vrf_bind_dev, CMSG_BIND_DEV_NAME_MAX);
+        transport->config.socket.bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
+    }
 
     return transport;
 }
@@ -552,14 +513,6 @@ cmsg_create_transport_mc_udp_ipv6 (const char *service_name, struct in6_addr *ad
     {
         inet_ntop (AF_INET6, addr, ip6_addr, INET6_ADDRSTRLEN);
         CMSG_LOG_GEN_ERROR ("Only support oneway UDP. Server:%s, IP:%s", service_name,
-                            ip6_addr);
-        return NULL;
-    }
-
-    if (vrf_bind_dev != NULL)
-    {
-        inet_ntop (AF_INET6, addr, ip6_addr, INET6_ADDRSTRLEN);
-        CMSG_LOG_GEN_ERROR ("Don't support VRF bind device. Server:%s, IP:%s", service_name,
                             ip6_addr);
         return NULL;
     }

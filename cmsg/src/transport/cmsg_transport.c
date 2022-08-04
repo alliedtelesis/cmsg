@@ -360,7 +360,7 @@ cmsg_transport_new (cmsg_transport_type type)
         break;
 
     case CMSG_TRANSPORT_ONEWAY_MC_UDP:
-        cmsg_transport_oneway_udp_vcs_mgmt_init (transport);
+        cmsg_transport_oneway_udp_init (transport);
         break;
 
     case CMSG_TRANSPORT_BROADCAST:
