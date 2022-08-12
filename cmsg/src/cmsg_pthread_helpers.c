@@ -36,7 +36,7 @@ static void
 pthread_server_cancelled (cmsg_pthread_server_info *pthread_info)
 {
     int fd;
-    int accept_sd_eventfd = pthread_info->server->accept_thread_info->accept_sd_eventfd;
+    int accept_sd_eventfd = pthread_info->server->accept_sd_eventfd;
 
     cmsg_server_accept_thread_deinit (pthread_info->server);
 
@@ -70,7 +70,7 @@ pthread_server_run (void *_server)
 
     pthread_info.server = server;
 
-    fd = server->accept_thread_info->accept_sd_eventfd;
+    fd = server->accept_sd_eventfd;
     pthread_info.fd_max = fd;
     FD_SET (fd, &pthread_info.readfds);
 
@@ -264,31 +264,29 @@ cmsg_pthread_multithreaded_accept_thread (void *_server_info)
     int fdmax;
     cmsg_pthread_multithreaded_server_info *server_info = NULL;
     cmsg_pthread_multithreaded_server_recv_info *recv_info = NULL;
-    int accept_event_fd;
     eventfd_t value;
     int *newfd_ptr = NULL;
-    cmsg_server_accept_thread_info *info;
 
     pthread_detach (pthread_self ());
 
     server_info = (cmsg_pthread_multithreaded_server_info *) _server_info;
 
-    info = server_info->server->accept_thread_info;
-    accept_event_fd = info->accept_sd_eventfd;
-    fdmax = MAX (accept_event_fd, server_info->shutdown_eventfd);
+    fdmax = MAX (server_info->server->accept_sd_eventfd, server_info->shutdown_eventfd);
 
     while (1)
     {
         FD_ZERO (&read_fds);
-        FD_SET (accept_event_fd, &read_fds);
+        FD_SET (server_info->server->accept_sd_eventfd, &read_fds);
         FD_SET (server_info->shutdown_eventfd, &read_fds);
 
         select (fdmax + 1, &read_fds, NULL, NULL, NULL);
-        if (FD_ISSET (accept_event_fd, &read_fds))
+        if (FD_ISSET (server_info->server->accept_sd_eventfd, &read_fds))
         {
             /* clear notification */
-            TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
-            while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
+            TEMP_FAILURE_RETRY (eventfd_read
+                                (server_info->server->accept_sd_eventfd, &value));
+            while ((newfd_ptr =
+                    g_async_queue_try_pop (server_info->server->accept_sd_queue)))
             {
                 recv_info = malloc (sizeof (*recv_info));
                 if (!recv_info)

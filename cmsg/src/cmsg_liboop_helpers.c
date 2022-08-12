@@ -41,13 +41,12 @@ cmsg_liboop_server_accepted (int sd, void *data)
     cmsg_server *server = (cmsg_server *) data;
     eventfd_t value;
     int *newfd_ptr = NULL;
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
     oop_socket_hdl handle = NULL;
 
     /* clear notification */
-    TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
+    TEMP_FAILURE_RETRY (eventfd_read (server->accept_sd_eventfd, &value));
 
-    while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
+    while ((newfd_ptr = g_async_queue_try_pop (server->accept_sd_queue)))
     {
         handle = oop_socket_register (*newfd_ptr, cmsg_liboop_server_read, server);
         g_hash_table_insert (server->event_loop_data, GINT_TO_POINTER (*newfd_ptr), handle);
@@ -63,15 +62,14 @@ cmsg_liboop_server_accepted (int sd, void *data)
 static void
 cmsg_liboop_server_processing_start (cmsg_server *server)
 {
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
     oop_socket_hdl handle = NULL;
 
     server->event_loop_data = g_hash_table_new (g_direct_hash, g_direct_equal);
 
-    handle = oop_socket_register (info->accept_sd_eventfd, cmsg_liboop_server_accepted,
+    handle = oop_socket_register (server->accept_sd_eventfd, cmsg_liboop_server_accepted,
                                   server);
-    g_hash_table_insert (server->event_loop_data, GINT_TO_POINTER (info->accept_sd_eventfd),
-                         handle);
+    g_hash_table_insert (server->event_loop_data,
+                         GINT_TO_POINTER (server->accept_sd_eventfd), handle);
 }
 
 /**
@@ -89,7 +87,7 @@ static gboolean
 cmsg_liboop_clear_sockets (gpointer key, gpointer value, gpointer user_data)
 {
     cmsg_server *server = user_data;
-    int accept_eventfd = server->accept_thread_info->accept_sd_eventfd;
+    int accept_eventfd = server->accept_sd_eventfd;
     int sd = GPOINTER_TO_INT (key);
 
     oop_socket_deregister (value);

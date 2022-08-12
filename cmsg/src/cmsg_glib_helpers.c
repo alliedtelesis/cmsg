@@ -54,13 +54,12 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
     int *newfd_ptr = NULL;
     GSource *read_source;
     GIOChannel *read_channel = NULL;
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
     cmsg_glib_data *glib_data = server->event_loop_data;
 
     /* clear notification */
-    TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
+    TEMP_FAILURE_RETRY (eventfd_read (server->accept_sd_eventfd, &value));
 
-    while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
+    while ((newfd_ptr = g_async_queue_try_pop (server->accept_sd_queue)))
     {
         read_channel = g_io_channel_unix_new (*newfd_ptr);
         read_source = g_io_create_watch (read_channel, G_IO_IN);
@@ -87,7 +86,6 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
 void
 _cmsg_glib_server_processing_start (cmsg_server *server, GMainContext *context)
 {
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
     GSource *source;
     GIOChannel *accept_channel = NULL;
     cmsg_glib_data *glib_data = CMSG_CALLOC (1, sizeof (cmsg_glib_data));
@@ -109,14 +107,14 @@ _cmsg_glib_server_processing_start (cmsg_server *server, GMainContext *context)
     }
     server->event_loop_data = glib_data;
 
-    accept_channel = g_io_channel_unix_new (info->accept_sd_eventfd);
+    accept_channel = g_io_channel_unix_new (server->accept_sd_eventfd);
     source = g_io_create_watch (accept_channel, G_IO_IN);
     g_io_channel_unref (accept_channel);
     g_source_set_callback (source, (GSourceFunc) cmsg_glib_server_accepted, server, NULL);
     g_source_attach (source, context);
     g_source_unref (source);
 
-    g_hash_table_insert (glib_data->sockets, GINT_TO_POINTER (info->accept_sd_eventfd),
+    g_hash_table_insert (glib_data->sockets, GINT_TO_POINTER (server->accept_sd_eventfd),
                          source);
 }
 
@@ -146,7 +144,7 @@ static gboolean
 cmsg_glib_clear_sockets (gpointer key, gpointer value, gpointer user_data)
 {
     cmsg_server *server = user_data;
-    int accept_eventfd = server->accept_thread_info->accept_sd_eventfd;
+    int accept_eventfd = server->accept_sd_eventfd;
     int sd = GPOINTER_TO_INT (key);
 
     g_source_destroy (value);
