@@ -27,6 +27,12 @@
 
 /* Thread for all the servers of this process. */
 static pthread_t global_server_accept_thread = -1;
+/* This mutex protects the global_servers_hash table and the server currently being processed
+ * by the accept thread.
+ * The main thread should take lock when adding or removing a server from the hash table and
+ * when closing the event socket and queue of the server.
+ * Since the accept thread defers thread cancellation until while it is processing an event,
+ * the main thread should unlock the mutex before waiting for the accept thread to join.  */
 static pthread_mutex_t global_server_accept_lock = PTHREAD_MUTEX_INITIALIZER;
 static unsigned int global_server_accept_count = 0;
 /* Hash table of servers to ensure server is not processed after it is freed. */
@@ -2589,6 +2595,8 @@ cmsg_server_accept_thread_init (cmsg_server *server)
 void
 cmsg_server_accept_thread_deinit (cmsg_server *server)
 {
+    int server_count;
+
     if (server && server->accept_sd_eventfd)
     {
         pthread_mutex_lock (&global_server_accept_lock);
@@ -2601,7 +2609,12 @@ cmsg_server_accept_thread_deinit (cmsg_server *server)
         g_hash_table_remove (global_servers_hash, server);
 
         global_server_accept_count--;
-        if (global_server_accept_count == 0)
+        server_count = global_server_accept_count;
+        /* Unlock here so that accept thread can take the mutex if it receives an event between when this
+         * thread took it  and when it is requested to be cancelled. Otherwise pthread_join will deadlock. */
+        pthread_mutex_unlock (&global_server_accept_lock);
+
+        if (server_count == 0)
         {
             pthread_cancel (global_server_accept_thread);
             pthread_join (global_server_accept_thread, NULL);
@@ -2610,7 +2623,6 @@ cmsg_server_accept_thread_deinit (cmsg_server *server)
             close (epollfd);
             epollfd = -1;
         }
-        pthread_mutex_unlock (&global_server_accept_lock);
     }
 }
 
