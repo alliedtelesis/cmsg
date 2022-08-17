@@ -27,16 +27,9 @@
 
 /* Thread for all the servers of this process. */
 static pthread_t global_server_accept_thread = -1;
-/* This mutex protects the global_servers_hash table and the server currently being processed
- * by the accept thread.
- * The main thread should take lock when adding or removing a server from the hash table and
- * when closing the event socket and queue of the server.
- * Since the accept thread defers thread cancellation until while it is processing an event,
- * the main thread should unlock the mutex before waiting for the accept thread to join.  */
+/* This mutex protects the global server accept count and epoll data. */
 static pthread_mutex_t global_server_accept_lock = PTHREAD_MUTEX_INITIALIZER;
 static unsigned int global_server_accept_count = 0;
-/* Hash table of servers to ensure server is not processed after it is freed. */
-static GHashTable *global_servers_hash = NULL;
 
 /* Global epoll data. Note that MAX_EVENTS may need to be increased at some point
  * as it is the number of CMSG servers using the global accept thread. */
@@ -190,6 +183,12 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
         if (pthread_mutex_init (&server->queue_filter_mutex, NULL) != 0)
         {
             CMSG_LOG_SERVER_ERROR (server, "Init failed for queue_filter_mutex.");
+            return NULL;
+        }
+
+        if (pthread_mutex_init (&server->accept_mutex, NULL) != 0)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Init failed for accept_mutex.");
             return NULL;
         }
 
@@ -2455,8 +2454,8 @@ cmsg_server_accept_thread (void *unused)
             {
                 server = events[n].data.ptr;
 
-                pthread_mutex_lock (&global_server_accept_lock);
-                if (g_hash_table_contains (global_servers_hash, server))
+                pthread_mutex_lock (&server->accept_mutex);
+                if (server->accept_sd_queue)
                 {
                     newfd = cmsg_server_accept (server, cmsg_server_get_socket (server));
                     if (newfd >= 0)
@@ -2467,7 +2466,7 @@ cmsg_server_accept_thread (void *unused)
                         TEMP_FAILURE_RETRY (eventfd_write (server->accept_sd_eventfd, 1));
                     }
                 }
-                pthread_mutex_unlock (&global_server_accept_lock);
+                pthread_mutex_unlock (&server->accept_mutex);
             }
             else
             {
@@ -2501,29 +2500,17 @@ _clear_accept_sd_queue (gpointer data)
  *
  * @return CMSG_RET_OK on success, CMSG_RET_ERR on failure.
  */
-int32_t
-cmsg_server_accept_thread_init (cmsg_server *server)
+static int32_t
+_cmsg_server_accept_thread_init (cmsg_server *server)
 {
     struct epoll_event ev;
 
     /* Global thread data is to be setup. */
-    pthread_mutex_lock (&global_server_accept_lock);
     if (epollfd == -1)
     {
         epollfd = epoll_create1 (0);
         if (epollfd == -1)
         {
-            pthread_mutex_unlock (&global_server_accept_lock);
-            return CMSG_RET_ERR;
-        }
-    }
-
-    if (!global_servers_hash)
-    {
-        global_servers_hash = g_hash_table_new (g_direct_hash, g_direct_equal);
-        if (!global_servers_hash)
-        {
-            pthread_mutex_unlock (&global_server_accept_lock);
             return CMSG_RET_ERR;
         }
     }
@@ -2534,7 +2521,6 @@ cmsg_server_accept_thread_init (cmsg_server *server)
                             cmsg_server_accept_thread, NULL) != 0)
         {
             global_server_accept_thread = -1;
-            pthread_mutex_unlock (&global_server_accept_lock);
             return CMSG_RET_ERR;
         }
         cmsg_pthread_setname (global_server_accept_thread, "global", CMSG_ACCEPT_PREFIX);
@@ -2547,7 +2533,6 @@ cmsg_server_accept_thread_init (cmsg_server *server)
          * Continue processing but the new server will fail to run. */
         syslog (LOG_ALERT, "Maximum CMSG server accept thread limit has been reached!");
     }
-    pthread_mutex_unlock (&global_server_accept_lock);
 
     if (server->accept_sd_eventfd)
     {
@@ -2579,12 +2564,26 @@ cmsg_server_accept_thread_init (cmsg_server *server)
         return CMSG_RET_ERR;
     }
 
-    pthread_mutex_lock (&global_server_accept_lock);
     global_server_accept_count++;
-    g_hash_table_insert (global_servers_hash, server, server);
-    pthread_mutex_unlock (&global_server_accept_lock);
 
     return CMSG_RET_OK;
+}
+
+/**
+ * Locking wrapper.
+ */
+int32_t
+cmsg_server_accept_thread_init (cmsg_server *server)
+{
+    int32_t ret;
+
+    pthread_mutex_lock (&global_server_accept_lock);
+    pthread_mutex_lock (&server->accept_mutex);
+    ret = _cmsg_server_accept_thread_init (server);
+    pthread_mutex_unlock (&server->accept_mutex);
+    pthread_mutex_unlock (&global_server_accept_lock);
+
+    return ret;
 }
 
 /**
@@ -2595,34 +2594,30 @@ cmsg_server_accept_thread_init (cmsg_server *server)
 void
 cmsg_server_accept_thread_deinit (cmsg_server *server)
 {
-    int server_count;
 
     if (server && server->accept_sd_eventfd)
     {
         pthread_mutex_lock (&global_server_accept_lock);
 
         epoll_ctl (epollfd, EPOLL_CTL_DEL, cmsg_server_get_socket (server), NULL);
+
+        pthread_mutex_lock (&server->accept_mutex);
         close (server->accept_sd_eventfd);
         g_async_queue_unref (server->accept_sd_queue);
         server->accept_sd_queue = NULL;
-
-        g_hash_table_remove (global_servers_hash, server);
+        pthread_mutex_unlock (&server->accept_mutex);
 
         global_server_accept_count--;
-        server_count = global_server_accept_count;
-        /* Unlock here so that accept thread can take the mutex if it receives an event between when this
-         * thread took it  and when it is requested to be cancelled. Otherwise pthread_join will deadlock. */
-        pthread_mutex_unlock (&global_server_accept_lock);
-
-        if (server_count == 0)
+        if (global_server_accept_count == 0)
         {
             pthread_cancel (global_server_accept_thread);
             pthread_join (global_server_accept_thread, NULL);
-            global_server_accept_thread = -1;
 
+            global_server_accept_thread = -1;
             close (epollfd);
             epollfd = -1;
         }
+        pthread_mutex_unlock (&global_server_accept_lock);
     }
 }
 
