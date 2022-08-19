@@ -132,6 +132,9 @@ typedef struct _cmsg_server_s
      * socket descriptor on the accept_sd_queue.  */
     int accept_sd_eventfd;
 
+    /* Mutex to protect multithreaded use-after-free of the server by the accept thread. */
+    pthread_mutex_t accept_mutex;
+
     void *event_loop_data;
 
     GHashTable *crypto_sa_hash_table;
