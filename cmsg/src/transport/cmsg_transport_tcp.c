@@ -154,11 +154,11 @@ cmsg_transport_tcp_connect (cmsg_transport *transport)
         addr_len = sizeof (transport->config.socket.sockaddr.in6);
 
         if (transport->config.socket.sockaddr.in6.sin6_scope_id == 0 &&
-            transport->config.socket.vrf_bind_dev[0] != '\0')
+            transport->config.socket.bind_dev[0] != '\0')
         {
             ret = setsockopt (transport->socket, SOL_SOCKET, SO_BINDTODEVICE,
-                              transport->config.socket.vrf_bind_dev,
-                              strlen (transport->config.socket.vrf_bind_dev) + 1);
+                              transport->config.socket.bind_dev,
+                              strlen (transport->config.socket.bind_dev) + 1);
             if (ret < 0)
             {
                 ret = -errno;
@@ -175,11 +175,11 @@ cmsg_transport_tcp_connect (cmsg_transport *transport)
         addr = (struct sockaddr *) &transport->config.socket.sockaddr.in;
         addr_len = sizeof (transport->config.socket.sockaddr.in);
 
-        if (transport->config.socket.vrf_bind_dev[0] != '\0')
+        if (transport->config.socket.bind_dev[0] != '\0')
         {
             ret = setsockopt (transport->socket, SOL_SOCKET, SO_BINDTODEVICE,
-                              transport->config.socket.vrf_bind_dev,
-                              strlen (transport->config.socket.vrf_bind_dev) + 1);
+                              transport->config.socket.bind_dev,
+                              strlen (transport->config.socket.bind_dev) + 1);
             if (ret < 0)
             {
                 ret = -errno;
@@ -248,11 +248,11 @@ cmsg_transport_tcp_listen (cmsg_transport *transport)
          transport->config.socket.sockaddr.in6.sin6_scope_id == 0) ||
         (transport->config.socket.family == PF_INET))
     {
-        if (transport->config.socket.vrf_bind_dev[0] != '\0')
+        if (transport->config.socket.bind_dev[0] != '\0')
         {
             ret = setsockopt (listening_socket, SOL_SOCKET, SO_BINDTODEVICE,
-                              transport->config.socket.vrf_bind_dev,
-                              strlen (transport->config.socket.vrf_bind_dev) + 1);
+                              transport->config.socket.bind_dev,
+                              strlen (transport->config.socket.bind_dev) + 1);
             if (ret < 0)
             {
                 CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to setsockopt. Error:%s",
@@ -586,9 +586,8 @@ cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr,
     transport->config.socket.sockaddr.in.sin_addr.s_addr = addr->s_addr;
     if (vrf_bind_dev)
     {
-        strncpy (transport->config.socket.vrf_bind_dev, vrf_bind_dev,
-                 CMSG_BIND_DEV_NAME_MAX);
-        transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
+        strncpy (transport->config.socket.bind_dev, vrf_bind_dev, CMSG_BIND_DEV_NAME_MAX);
+        transport->config.socket.bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
     }
 
     return transport;
@@ -644,9 +643,8 @@ cmsg_create_transport_tcp_ipv6 (const char *service_name, struct in6_addr *addr,
             sizeof (struct in6_addr));
     if (vrf_bind_dev)
     {
-        strncpy (transport->config.socket.vrf_bind_dev, vrf_bind_dev,
-                 CMSG_BIND_DEV_NAME_MAX);
-        transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
+        strncpy (transport->config.socket.bind_dev, vrf_bind_dev, CMSG_BIND_DEV_NAME_MAX);
+        transport->config.socket.bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
     }
 
     return transport;

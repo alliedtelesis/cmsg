@@ -78,7 +78,7 @@ typedef union _cmsg_source_addr_u
 typedef struct _cmsg_socket_s
 {
     int family;
-    char vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX];  // For VRF support, the device to bind to the socket
+    char bind_dev[CMSG_BIND_DEV_NAME_MAX];  // The device to bind to the socket
     cmsg_socket_address sockaddr;
     cmsg_source_addr srcaddr;
 } cmsg_socket;
@@ -180,7 +180,7 @@ struct cmsg_transport
 
 void cmsg_transport_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_tcp_init (cmsg_transport *transport);
-void cmsg_transport_oneway_udp_vcs_mgmt_init (cmsg_transport *transport);
+void cmsg_transport_oneway_udp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_cpumail_init (cmsg_transport *transport);
 void cmsg_transport_loopback_init (cmsg_transport *transport);
 void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
