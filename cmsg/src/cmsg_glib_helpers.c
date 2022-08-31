@@ -331,6 +331,21 @@ cmsg_glib_tcp_subscriber_init (const char *service_name, struct in_addr addr,
 cmsg_server *
 cmsg_glib_unix_server_init (ProtobufCService *service)
 {
+    return cmsg_glib_unix_server_init_with_context (service, g_main_context_default ());
+}
+
+/**
+ * Create and start processing a UNIX transport based CMSG server for the given
+ * CMSG service.
+ *
+ * @param service - The protobuf-c service the server is to implement.
+ * @param context - Pointer to the context the server should be added to.
+ *
+ * @returns Pointer to the CMSG server. NULL on failure.
+ */
+cmsg_server *
+cmsg_glib_unix_server_init_with_context (ProtobufCService *service, GMainContext *context)
+{
     cmsg_server *server = NULL;
 
     server = cmsg_create_server_unix_rpc (service);
@@ -341,7 +356,7 @@ cmsg_glib_unix_server_init (ProtobufCService *service)
         return NULL;
     }
 
-    if (cmsg_glib_server_init (server) != CMSG_RET_OK)
+    if (cmsg_glib_thread_server_init (server, context) != CMSG_RET_OK)
     {
         cmsg_destroy_server_and_transport (server);
         server = NULL;
