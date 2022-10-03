@@ -17,6 +17,18 @@
 #include "data.h"
 #include "process_watch.h"
 
+
+#ifdef HAVE_PIDPOLL
+enum pid_status
+{
+    UNCHECKED = (intptr_t) NULL,
+    DEAD = 1,
+    ALIVE = 2,
+};
+
+static guint cleanup_dead_entries_source = 0;
+#endif /* HAVE_PIDPOLL */
+
 typedef struct _service_lookup_data
 {
     GList *list;
@@ -313,13 +325,42 @@ data_remove_servers_by_addr (struct in_addr addr)
     g_hash_table_foreach_remove (hash_table, _delete_server_by_addr, &lookup_data);
 }
 
+#ifdef HAVE_PIDPOLL
+/**
+ * Check whether the process with the given PID is still alive.
+ *
+ * @param pid_lookup - The hash table used to cache results.
+ * @param pid - The PID to check.
+ *
+ * @returns true if the process is dead, false otherwise.
+ */
+static bool
+pid_is_dead (GHashTable *pid_lookup, int pid)
+{
+    /**
+     * To improve performance we store either DEAD or ALIVE for the given
+     * PID (key) in a hash table. If the key does not currently exist in the
+     * hash table (we haven't checked this PID yet) then the lookup will
+     * return UNCHECKED in which case we need to actually check the filesystem.
+     */
+    enum pid_status state = GPOINTER_TO_INT (g_hash_table_lookup (pid_lookup, &pid));
+    if (state == UNCHECKED)
+    {
+        state = (kill (pid, 0) == 0) ? ALIVE : DEAD;
+        g_hash_table_insert (pid_lookup, &pid, GINT_TO_POINTER (state));
+    }
+
+    return state == DEAD;
+}
+#endif /* HAVE_PIDPOLL */
+
 /**
  * Helper function called for each entry in the hash table. Finds any
  * servers and listeners that match a process ID and deletes them.
  *
  * @param key - The key from the hash table (service name)
  * @param value - The value associated with the key (service_data_entry structure)
- * @param user_data - The PID to match against.
+ * @param user_data - The PID data to match against. Is a lookup if poll is used or int if pidfd.
  *
  * @returns TRUE if the service data entry is now empty and should be removed from the
  *          hash table, FALSE otherwise.
@@ -327,7 +368,11 @@ data_remove_servers_by_addr (struct in_addr addr)
 static gboolean
 remove_by_pid (gpointer key, gpointer value, gpointer user_data)
 {
+#ifdef HAVE_PIDPOLL
+    GHashTable *pid_lookup = (GHashTable *) user_data;
+#elif HAVE_PIDFD
     uint32_t pid = GPOINTER_TO_UINT (user_data);
+#endif
     service_data_entry *entry = (service_data_entry *) value;
     GList *l = NULL;
 
@@ -337,7 +382,13 @@ remove_by_pid (gpointer key, gpointer value, gpointer user_data)
     {
         GList *next = g_list_next (l);
         listener_data *listener_info = (listener_data *) l->data;
-        if (listener_info->pid == pid)
+#ifdef HAVE_PIDPOLL
+        bool remove = pid_is_dead (pid_lookup, listener_info->pid);
+#elif HAVE_PIDFD
+        bool remove = listener_info->pid == pid;
+#endif
+
+        if (remove)
         {
             cmsg_destroy_client_and_transport (listener_info->client);
             entry->listeners = g_list_delete_link (entry->listeners, l);
@@ -352,7 +403,13 @@ remove_by_pid (gpointer key, gpointer value, gpointer user_data)
     {
         GList *next = g_list_next (l);
         cmsg_service_info *service_info = (cmsg_service_info *) l->data;
-        if (service_info->local && service_info->pid == pid)
+#ifdef HAVE_PIDPOLL
+        bool remove = service_info->local && pid_is_dead (pid_lookup, service_info->pid);
+#elif HAVE_PIDFD
+        bool remove = service_info->local && service_info->pid == pid;
+#endif
+
+        if (remove)
         {
             notify_listeners (service_info, entry, false);
             remote_sync_server_removed (service_info);
@@ -365,6 +422,29 @@ remove_by_pid (gpointer key, gpointer value, gpointer user_data)
     return (entry->servers == NULL && entry->listeners == NULL);
 }
 
+#ifdef HAVE_PIDPOLL
+/**
+ * Periodic function called to tidy up entries from processes
+ * that are no longer running (and didn't unregister).
+ *
+ * @param unused - unused
+ *
+ * @returns TRUE always.
+ */
+static gboolean
+data_cleanup_dead_entries (gpointer unused)
+{
+    GHashTable *pid_lookup = g_hash_table_new_full (g_int_hash, g_int_equal, NULL, NULL);
+
+    g_hash_table_foreach_remove (hash_table, remove_by_pid, pid_lookup);
+
+    g_hash_table_remove_all (pid_lookup);
+    g_hash_table_unref (pid_lookup);
+    return TRUE;
+}
+#endif /* HAVE_PIDPOLL */
+
+#ifdef HAVE_PIDFD
 /**
  * Remove all entries associated with the given process id.
  *
@@ -375,6 +455,7 @@ data_remove_by_pid (int pid)
 {
     g_hash_table_foreach_remove (hash_table, remove_by_pid, GUINT_TO_POINTER (pid));
 }
+#endif /* HAVE_PIDFD */
 
 /**
  * Add a new listener for a service.
@@ -536,6 +617,11 @@ data_init (void)
         syslog (LOG_ERR, "Failed to initialize hash table");
         return;
     }
+
+#ifdef HAVE_PIDPOLL
+    cleanup_dead_entries_source = g_timeout_add_seconds (30, data_cleanup_dead_entries,
+                                                         NULL);
+#endif /* HAVE_PIDPOLL */
 }
 
 /**
@@ -550,6 +636,14 @@ data_deinit (void)
         g_hash_table_unref (hash_table);
         hash_table = NULL;
     }
+
+#ifdef HAVE_PIDPOLL
+    if (cleanup_dead_entries_source)
+    {
+        g_source_remove (cleanup_dead_entries_source);
+        cleanup_dead_entries_source = 0;
+    }
+#endif /* HAVE_PIDPOLL */
 }
 
 /**

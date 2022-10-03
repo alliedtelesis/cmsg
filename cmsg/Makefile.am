@@ -328,7 +328,6 @@ cmsg_sld_SOURCES = \
 	src/service_listener/configuration.c \
 	src/service_listener/remote_sync.c \
 	src/service_listener/data.c \
-	src/service_listener/process_watch.c \
 	src/service_listener/configuration_impl_auto.c \
 	src/service_listener/configuration.pb-c.c \
 	src/service_listener/remote_sync_api_auto.c \
@@ -336,6 +335,10 @@ cmsg_sld_SOURCES = \
 	src/service_listener/remote_sync.pb-c.c \
 	src/service_listener/events_api_auto.c \
 	src/service_listener/events.pb-c.c
+if HAVE_PIDFD
+cmsg_sld_SOURCES += src/service_listener/process_watch.c
+endif
+
 cmsg_sld_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c $(HEALTHCHECK_LIBS)
 cmsg_sld_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
 cmsg_sld_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
