@@ -66,12 +66,6 @@ static void
 cmsg_dump_protobuf_value (FILE *fp, const ProtobufCFieldDescriptor *field_descriptor,
                           const void *protobuf_value, bool is_set, int indent)
 {
-    if (field_descriptor->flags & PROTOBUF_C_FIELD_FLAG_ONEOF)
-    {
-        fprintf (fp, "<oneof not supported>\n");
-        return;
-    }
-
     if (!is_set)
     {
         fprintf (fp, "<not-set>\n");
@@ -180,6 +174,14 @@ cmsg_dump_protobuf_msg (FILE *fp, const ProtobufCMessage *protobuf_message, int 
         {
             protobuf_c_boolean is_set = 0;
 
+            if (field_descriptor->flags & PROTOBUF_C_FIELD_FLAG_ONEOF)
+            {
+                if (*(uint32_t *) protobuf_value_quantifier != field_descriptor->id)
+                {
+                    fprintf (fp, "<not-this-one-of>\n");
+                    continue;
+                }
+            }
             if (field_descriptor->type == PROTOBUF_C_TYPE_MESSAGE ||
                 field_descriptor->type == PROTOBUF_C_TYPE_STRING)
             {
