@@ -82,6 +82,14 @@ if test "x$enableval" = xyes ; then
 fi)
 AM_CONDITIONAL(HAVE_COUNTERD, test $HAVE_COUNTERD = 1)
 
+AC_ARG_ENABLE([pidfd], [AS_HELP_STRING([--with-pidfd], [Use pidfd or pidpoll in cmsg])])
+if test "${with_pidfd}" = "yes"; then
+  AC_DEFINE([HAVE_PIDFD],1,[pidfd])
+else
+  AC_DEFINE([HAVE_PIDPOLL],1,[pidpoll])
+fi
+AM_CONDITIONAL([HAVE_PIDFD],[test "$with_pidfd" = yes])
+
 gl_LD_VERSION_SCRIPT
 
 gl_VALGRIND_TESTS
