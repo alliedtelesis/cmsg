@@ -194,6 +194,13 @@ static bool _message_has_validation(const Descriptor *message,
     for (int i = 0; i < message->field_count(); i++)
     {
         field = message->field(i);
+        // Don't include repeated fields in checks for validation. These are more
+        // likely to be in get messages, but also generator doesn't currently
+        // support iterating over repeated fields for validation functions.
+        if (field->label() == FieldDescriptor::LABEL_REPEATED)
+        {
+            continue;
+        }
         if (field->options().HasExtension(validation))
         {
             return true;
@@ -336,6 +343,14 @@ generate_fields_validation (const Descriptor *message, io::Printer* printer)
     for (int i = 0; i < message->field_count(); i++)
     {
         field = message->field(i);
+        // Don't generate validation for repeated fields. Validation for repeated
+        // fields would require generating code to iterate over every array member which
+        // is not currently supported. Without that, the generated code has warnings.
+        if (field->label() == FieldDescriptor::LABEL_REPEATED)
+        {
+            assert (!field->options().HasExtension(validation));
+            continue;
+        }
         if (field->options().HasExtension(validation))
         {
             generate_field_validation (field, printer);
