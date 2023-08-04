@@ -53,7 +53,7 @@ typedef struct
 
 typedef struct
 {
-    char **eventwatch_notify_list;
+    const char **eventwatch_notify_list;
 } cmsg_server_extensions;
 
 typedef struct

@@ -99,7 +99,7 @@ cmsg_server_method_eventwatch_notify_init (const ProtobufCService *service)
 {
     const cmsg_server_extensions *server_extensions =
         ((cmsg_service *) service)->server_extensions;
-    char **feature_ptr = NULL;
+    const char **feature_ptr = NULL;
 
     if (server_extensions && server_extensions->eventwatch_notify_list)
     {
