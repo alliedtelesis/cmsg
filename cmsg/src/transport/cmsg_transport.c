@@ -460,6 +460,13 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
                                 strerror (errno));
                     return CMSG_PEEK_CODE_CONNECTION_RESET;
                 }
+                else if (errno == EBADF)
+                {
+                    CMSG_DEBUG (CMSG_INFO,
+                                "[TRANSPORT] receive failed with %s (socket %d)",
+                                strerror (errno), socket);
+                    return CMSG_PEEK_CODE_CONNECTION_RESET;
+                }
                 else if (errno == EINTR)
                 {
                     // We were interrupted, this is transient so just try again without a delay.
