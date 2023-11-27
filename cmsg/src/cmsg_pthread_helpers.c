@@ -12,74 +12,29 @@
 #include "cmsg_pthread_helpers.h"
 #include "publisher_subscriber/cmsg_sub_private.h"
 
-typedef struct _cmsg_pthread_server_info
-{
-    fd_set readfds;
-    int fd_max;
-    cmsg_server *server;
-} cmsg_pthread_server_info;
-
 typedef struct _cmsg_pthread_multithreaded_server_recv_info
 {
     cmsg_pthread_multithreaded_server_info *server_info;
     int socket;
 } cmsg_pthread_multithreaded_server_recv_info;
 
-/**
- * Function to be called when the 'pthread_server_run'
- * thread is cancelled. This simply cleans up and frees any sockets/
- * memory that was used by the thread.
- *
- * @param pthread_info - Structure containing the resources used by the thread.
- */
-static void
-pthread_server_cancelled (cmsg_pthread_server_info *pthread_info)
-{
-    int fd;
-    int accept_sd_eventfd = pthread_info->server->accept_sd_eventfd;
-
-    cmsg_server_accept_thread_deinit (pthread_info->server);
-
-    for (fd = 0; fd <= pthread_info->fd_max; fd++)
-    {
-        /* Don't double close the accept event fd */
-        if (fd == accept_sd_eventfd)
-        {
-            continue;
-        }
-        if (FD_ISSET (fd, &pthread_info->readfds))
-        {
-            cmsg_server_close_accepted_socket (pthread_info->server, fd);
-        }
-    }
-}
-
 static void *
 pthread_server_run (void *_server)
 {
-    cmsg_pthread_server_info pthread_info;
-    int fd = -1;
     cmsg_server *server = (cmsg_server *) _server;
+    cmsg_server_thread_task_info *info;
 
-    pthread_info.fd_max = 0;
-    FD_ZERO (&pthread_info.readfds);
-
-    pthread_cleanup_push ((void (*)(void *)) pthread_server_cancelled, &pthread_info);
-
+    info = cmsg_server_thread_task_info_create (server, -1);
+    if (!info)
+    {
+        return NULL;
+    }
+    pthread_cleanup_push ((void (*)(void *)) cmsg_server_thread_task_info_free, info);
     cmsg_server_accept_thread_init (server);
-
-    pthread_info.server = server;
-
-    fd = server->accept_sd_eventfd;
-    pthread_info.fd_max = fd;
-    FD_SET (fd, &pthread_info.readfds);
-
     while (true)
     {
-        cmsg_server_thread_receive_poll (server, -1, &pthread_info.readfds,
-                                         &pthread_info.fd_max);
+        cmsg_server_thread_receive_poll (info);
     }
-
     pthread_cleanup_pop (1);
 
     return NULL;

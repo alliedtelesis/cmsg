@@ -173,7 +173,8 @@ typedef struct _cmsg_server_thread_task_info_s
 {
     cmsg_server *server;
     int timeout;
-    bool running;
+    volatile bool running;
+    int poll_fd;
 } cmsg_server_thread_task_info;
 
 cmsg_server *cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service);
@@ -182,9 +183,7 @@ void cmsg_server_destroy (cmsg_server *server);
 
 int cmsg_server_get_socket (cmsg_server *server);
 
-int32_t cmsg_server_thread_receive_poll (cmsg_server *server,
-                                         int32_t timeout_ms, fd_set *master_fdset,
-                                         int *fdmax);
+int32_t cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info);
 
 int32_t cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms);
 
@@ -297,6 +296,7 @@ bool cmsg_server_is_transport_broadcast_from_service (const void *service);
 
 cmsg_server_thread_task_info *cmsg_server_thread_task_info_create (cmsg_server *server,
                                                                    int timeout);
+void cmsg_server_thread_task_info_free (cmsg_server_thread_task_info *info);
 void *cmsg_server_thread_task (void *_info);
 
 int32_t cmsg_server_crypto_enable (cmsg_server *server, crypto_sa_create_func_t create_func,
