@@ -453,7 +453,7 @@ void
 cmsg_server_list_destroy (cmsg_server_list *server_list)
 {
     CMSG_ASSERT_RETURN_VOID (server_list != NULL);
-    CMSG_ASSERT_RETURN_VOID (g_list_length (server_list->list) == 0);
+    CMSG_ASSERT_RETURN_VOID (server_list->list == NULL);
 
     if (pthread_mutex_destroy (&server_list->server_mutex) != 0)
     {
@@ -473,7 +473,7 @@ cmsg_server_list_is_empty (cmsg_server_list *server_list)
     if (server_list != NULL)
     {
         pthread_mutex_lock (&server_list->server_mutex);
-        ret = g_list_length (server_list->list) == 0;
+        ret = server_list->list == NULL;
         pthread_mutex_unlock (&server_list->server_mutex);
     }
 
