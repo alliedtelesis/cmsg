@@ -140,11 +140,10 @@ cmsg_pthread_multithreaded_thread_exit (cmsg_pthread_multithreaded_server_info *
 static void *
 cmsg_pthread_multithreaded_receive_thread (void *_recv_info)
 {
-    fd_set read_fds;
-    int fdmax;
-    struct timeval tv;
-    struct timeval *tv_ptr;
+    // Set the fds later
+    struct pollfd pollfd_list[] = { { 0, POLLIN, 0 }, { 0, POLLIN, 0 } };
     int ret;
+
     cmsg_pthread_multithreaded_server_recv_info *recv_info = NULL;
     cmsg_pthread_multithreaded_server_info *server_info = NULL;
 
@@ -153,34 +152,14 @@ cmsg_pthread_multithreaded_receive_thread (void *_recv_info)
     recv_info = (cmsg_pthread_multithreaded_server_recv_info *) _recv_info;
     server_info = recv_info->server_info;
 
-    fdmax = MAX (recv_info->socket, server_info->shutdown_eventfd);
+    pollfd_list[0].fd = recv_info->socket;
+    pollfd_list[1].fd = server_info->shutdown_eventfd;
 
     while (1)
     {
-        FD_ZERO (&read_fds);
-        FD_SET (recv_info->socket, &read_fds);
-        FD_SET (server_info->shutdown_eventfd, &read_fds);
-
-        if (server_info->timeout)
-        {
-            tv.tv_sec = server_info->timeout;
-            tv.tv_usec = 0;
-            tv_ptr = &tv;
-        }
-        else
-        {
-            tv_ptr = NULL;
-        }
-
-        ret = select (fdmax + 1, &read_fds, NULL, NULL, tv_ptr);
-        if (ret == 0)
-        {
-            /* There has been no activity on the socket for 5 minutes.
-             * Close the connection and exit the thread. */
-            cmsg_server_close_accepted_socket (server_info->server, recv_info->socket);
-            break;
-        }
-        if (FD_ISSET (recv_info->socket, &read_fds))
+        ret = poll (pollfd_list, 2, server_info->timeout);
+        /* Accept event FD */
+        if (pollfd_list[0].revents & POLLIN)
         {
             if (cmsg_server_receive (server_info->server, recv_info->socket) < 0)
             {
@@ -188,7 +167,9 @@ cmsg_pthread_multithreaded_receive_thread (void *_recv_info)
                 break;
             }
         }
-        if (FD_ISSET (server_info->shutdown_eventfd, &read_fds))
+        /* If ret == 0, the poll timed out (default 5 minutes). fd_list[1] is the
+         * shutdown socket. In both cases, close the connection and exit the thread. */
+        if (ret == 0 || (pollfd_list[1].revents & POLLIN))
         {
             cmsg_server_close_accepted_socket (server_info->server, recv_info->socket);
             break;
@@ -215,8 +196,8 @@ cmsg_pthread_multithreaded_accept_thread (void *_server_info)
 {
     int ret;
     static pthread_t new_recv_thread;
-    fd_set read_fds;
-    int fdmax;
+    // Set the fds later
+    struct pollfd pollfd_list[] = { { 0, POLLIN, 0 }, { 0, POLLIN, 0 } };
     cmsg_pthread_multithreaded_server_info *server_info = NULL;
     cmsg_pthread_multithreaded_server_recv_info *recv_info = NULL;
     eventfd_t value;
@@ -226,16 +207,14 @@ cmsg_pthread_multithreaded_accept_thread (void *_server_info)
 
     server_info = (cmsg_pthread_multithreaded_server_info *) _server_info;
 
-    fdmax = MAX (server_info->server->accept_sd_eventfd, server_info->shutdown_eventfd);
+    pollfd_list[0].fd = server_info->server->accept_sd_eventfd;
+    pollfd_list[1].fd = server_info->shutdown_eventfd;
 
     while (1)
     {
-        FD_ZERO (&read_fds);
-        FD_SET (server_info->server->accept_sd_eventfd, &read_fds);
-        FD_SET (server_info->shutdown_eventfd, &read_fds);
-
-        select (fdmax + 1, &read_fds, NULL, NULL, NULL);
-        if (FD_ISSET (server_info->server->accept_sd_eventfd, &read_fds))
+        ret = poll (pollfd_list, 2, -1);
+        /* Accept event FD */
+        if (pollfd_list[0].revents & POLLIN)
         {
             /* clear notification */
             TEMP_FAILURE_RETRY (eventfd_read
@@ -272,7 +251,8 @@ cmsg_pthread_multithreaded_accept_thread (void *_server_info)
                 CMSG_FREE (newfd_ptr);
             }
         }
-        if (FD_ISSET (server_info->shutdown_eventfd, &read_fds))
+        /* Shutdown FD */
+        if (pollfd_list[1].revents & POLLIN)
         {
             break;
         }
@@ -309,7 +289,7 @@ cmsg_pthread_multithreaded_server_init (cmsg_server *server, uint32_t timeout)
     }
 
     server_info->server = server;
-    server_info->timeout = timeout;
+    server_info->timeout = (timeout && timeout <= UINT32_MAX / 1000) ? timeout * 1000 : -1;
     server_info->num_threads = 0;
     server_info->exiting = false;
     server_info->shutdown_eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
@@ -404,8 +384,7 @@ cmsg_pthread_sl_event_thread (void *sl_info)
 {
     const cmsg_sl_info *info = (const cmsg_sl_info *) sl_info;
     int event_fd;
-    fd_set read_fds;
-    int maxfd;
+    struct pollfd pollfd = { 0, POLLIN, 0 };
 
     pthread_cleanup_push ((void (*)(void *)) cmsg_pthread_sl_event_thread_cancelled,
                           (void *) info);
@@ -417,9 +396,7 @@ cmsg_pthread_sl_event_thread (void *sl_info)
         pthread_exit (NULL);
     }
 
-    FD_ZERO (&read_fds);
-    FD_SET (event_fd, &read_fds);
-    maxfd = event_fd;
+    pollfd.fd = event_fd;
 
     while (1)
     {
@@ -427,7 +404,7 @@ cmsg_pthread_sl_event_thread (void *sl_info)
          * data can be leaked if the thread is cancelled while handling an event.
          */
         pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
-        select (maxfd + 1, &read_fds, NULL, NULL, NULL);
+        poll (&pollfd, 1, -1);
         pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
 
         cmsg_service_listener_event_queue_process (info);

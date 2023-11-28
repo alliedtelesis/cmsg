@@ -575,10 +575,8 @@ cmsg_service_listener_wait_for_unix_server (const char *service_name, long secon
 {
     const cmsg_sl_info *info;
     bool ret = false;
-    fd_set fds;
-    int select_rc;
-    struct timeval timeout;
-    struct timeval *_timeout = &timeout;
+    struct pollfd pollfd = { 0, POLLIN, 0 };
+    int poll_rc;
 
     info = cmsg_service_listener_listen (service_name, cmsg_sl_listener_unix_wait_cb, &ret);
     if (!info)
@@ -586,21 +584,9 @@ cmsg_service_listener_wait_for_unix_server (const char *service_name, long secon
         return false;
     }
 
-    if (seconds == -1)
-    {
-        _timeout = NULL;
-    }
-    else
-    {
-        timeout.tv_sec = seconds;
-        timeout.tv_usec = 0;
-    }
-
-    FD_ZERO (&fds);
-    FD_SET (info->eventfd, &fds);
-
-    select_rc = TEMP_FAILURE_RETRY (select (info->eventfd + 1, &fds, NULL, NULL, _timeout));
-    if (select_rc == 0 || select_rc == -1)
+    pollfd.fd = info->eventfd;
+    poll_rc = TEMP_FAILURE_RETRY (poll (&pollfd, 1, seconds == -1L ? -1L : seconds * 1000));
+    if (poll_rc == 0 || poll_rc == -1)
     {
         /* Timed out or failed. */
         cmsg_service_listener_unlisten (info);

@@ -30,9 +30,8 @@ connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen,
     int n;
     int error;
     socklen_t len;
-    fd_set rset;
-    fd_set wset;
-    struct timeval tv;
+    struct pollfd pollfd = { 0 };
+    int timeout_ms = -1;
 
     error = 0;
     len = sizeof (error);
@@ -57,15 +56,15 @@ connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen,
         return 0;
     }
 
-    tv.tv_usec = timeout->tv_usec;
-    tv.tv_sec = timeout->tv_sec;
+    pollfd.fd = sockfd;
+    pollfd.events = POLLIN | POLLOUT;
 
-    FD_ZERO (&rset);
-    FD_SET (sockfd, &rset);
-    wset = rset;
-
-    n = select (sockfd + 1, &rset, &wset, NULL,
-                (timeout->tv_sec || timeout->tv_usec) ? &tv : NULL);
+    // Calculate timeout in ms. If it would overflow, leave the timeout as infinite
+    if ((timeout->tv_sec || timeout->tv_usec) && (timeout->tv_sec < INT_MAX / 1000))
+    {
+        timeout_ms = (timeout->tv_sec * 1000) + (timeout->tv_usec / 1000);
+    }
+    n = poll (&pollfd, 1, timeout_ms);
     if (n == 0)
     {
         fcntl (sockfd, F_SETFL, flags);
@@ -73,7 +72,7 @@ connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen,
         return -1;
     }
 
-    if (FD_ISSET (sockfd, &rset) || FD_ISSET (sockfd, &wset))
+    if ((pollfd.revents & POLLIN) || (pollfd.revents & POLLOUT))
     {
         if (getsockopt (sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
         {
