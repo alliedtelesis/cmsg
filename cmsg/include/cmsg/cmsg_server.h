@@ -107,8 +107,7 @@ typedef struct _cmsg_server_s
     cmsg_bool_t queue_process_number;
     pthread_t self_thread_id;
 
-    fd_set accepted_fdset;
-    int accepted_fdmax;
+    GHashTable *accepted_fdset;
 
     // memory management
     // flag to tell the server whether or not the application wants to take ownership
@@ -166,6 +165,8 @@ typedef struct _cmsg_server_list_s
 {
     GList *list;
     pthread_mutex_t server_mutex;   // Used to protect list access.
+    int poll_fd;
+    GHashTable *fd_server_map;
 } cmsg_server_list;
 
 typedef struct _cmsg_server_thread_task_info_s

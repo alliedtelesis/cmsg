@@ -17,6 +17,7 @@
 #include <netdb.h>
 #include <syslog.h>
 #include <sys/select.h>
+#include <sys/epoll.h>
 #include <sys/time.h>
 #include <string.h>
 #include <utility/tracelog.h>
