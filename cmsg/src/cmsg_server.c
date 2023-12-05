@@ -650,6 +650,52 @@ cmsg_server_thread_receive_init (cmsg_server_thread_task_info *info)
     return CMSG_RET_OK;
 }
 
+static void
+cmsg_server_process_epoll_event (cmsg_server *server, int fd, int poll_fd,
+                                 GHashTable *fd_server_map)
+{
+    int *newfd_ptr = NULL;
+    eventfd_t value;
+
+    // Here we can be certain that the FD is either the accept event fd, or in the
+    // accepted fdset. Checking event fd is faster, so do that first
+    if (fd == server->accept_sd_eventfd)
+    {
+        // clear notification
+        TEMP_FAILURE_RETRY (eventfd_read (server->accept_sd_eventfd, &value));
+        while ((newfd_ptr = g_async_queue_try_pop (server->accept_sd_queue)))
+        {
+            if (cmsg_server_epoll_add_fd (poll_fd, *newfd_ptr, EPOLLIN,
+                                          server->accepted_fdset) == CMSG_RET_ERR)
+            {
+                CMSG_LOG_SERVER_ERROR (server,
+                                       "An error occurred with registering FD %d for list receive poll: %s.",
+                                       *newfd_ptr, strerror (errno));
+                CMSG_COUNTER_INC (server, cntr_errors);
+                cmsg_server_close_accepted_socket (server, *newfd_ptr);
+            }
+            else if (fd_server_map)
+            {
+                g_hash_table_insert (fd_server_map, GINT_TO_POINTER (*newfd_ptr),
+                                     (gpointer) server);
+            }
+            CMSG_FREE (newfd_ptr);
+        }
+    }
+    else    // fd is an accepted connection, and there is something happening on the socket so receive it.
+    if (cmsg_server_receive (server, fd) < 0)
+    {
+        // Only close the socket if we have errored. The FD is automatically removed
+        // from the epoll instance when it is closed.
+        cmsg_server_close_accepted_socket (server, fd);
+        g_hash_table_remove (server->accepted_fdset, GINT_TO_POINTER (fd));
+        if (fd_server_map)
+        {
+            g_hash_table_remove (fd_server_map, GINT_TO_POINTER (fd));
+        }
+    }
+}
+
 /**
  * Poll a CMSG server that is accepting connections in a separate thread.
  *
@@ -671,8 +717,6 @@ cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info)
     struct epoll_event events[ACCEPT_MAX_EVENTS];
     int n;
     int fd;
-    eventfd_t value;
-    int *newfd_ptr = NULL;
 
     // Initialize epoll FD if not yet done
     ret = cmsg_server_thread_receive_init (info);
@@ -706,46 +750,13 @@ cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info)
         CMSG_COUNTER_INC (server, cntr_poll_errors);
         return CMSG_RET_ERR;
     }
-    else if (nfds == 0)
-    {
-        // timed out, so func success but nothing received, early return
-        return CMSG_RET_OK;
-    }
 
     // run through the existing connections looking for data to read
+    // if nfds is 0, nothing was received before time out, so we just skip the loop
     for (n = 0; n < nfds; n++)
     {
         fd = events[n].data.fd;
-        if (fd == server->accept_sd_eventfd)
-        {
-            /* clear notification */
-            TEMP_FAILURE_RETRY (eventfd_read (server->accept_sd_eventfd, &value));
-            while ((newfd_ptr = g_async_queue_try_pop (server->accept_sd_queue)))
-            {
-                if (cmsg_server_epoll_add_fd
-                    (info->poll_fd, *newfd_ptr, EPOLLIN,
-                     server->accepted_fdset) == CMSG_RET_ERR)
-                {
-                    CMSG_LOG_SERVER_ERROR (server,
-                                           "An error occurred with registering FD %d for thread receive poll",
-                                           *newfd_ptr);
-                    CMSG_COUNTER_INC (server, cntr_errors);
-                    cmsg_server_close_accepted_socket (server, *newfd_ptr);
-                }
-                CMSG_FREE (newfd_ptr);
-            }
-        }
-        else
-        {
-            // there is something happening on the socket so receive it.
-            if (cmsg_server_receive (server, fd) < 0)
-            {
-                // Only close the socket if we have errored. The FD is automatically removed
-                // from the epoll instance when it is closed.
-                cmsg_server_close_accepted_socket (server, fd);
-                g_hash_table_remove (server->accepted_fdset, GINT_TO_POINTER (fd));
-            }
-        }
+        cmsg_server_process_epoll_event (server, fd, info->poll_fd, NULL);
     }
 
     return CMSG_RET_OK;
@@ -771,8 +782,6 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     int fd;
     gpointer fd_key;
     cmsg_server *server = NULL;
-    eventfd_t value;
-    int *newfd_ptr = NULL;
 
     if (cmsg_server_list_is_empty (server_list))
     {
@@ -821,8 +830,14 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
         fd = events[n].data.fd;
         fd_key = GINT_TO_POINTER (fd);
         server = (cmsg_server *) g_hash_table_lookup (server_list->fd_server_map, fd_key);
-        if (!server || (fd != server->accept_sd_eventfd &&
-                        !g_hash_table_contains (server->accepted_fdset, fd_key)))
+        if (server &&
+            (fd == server->accept_sd_eventfd ||
+             g_hash_table_contains (server->accepted_fdset, fd_key)))
+        {
+            cmsg_server_process_epoll_event (server, fd, server_list->poll_fd,
+                                             server_list->fd_server_map);
+        }
+        else
         {
             // Likely memory issue
             CMSG_LOG_GEN_ERROR ("FD %d has no matching server in list receive poll.", fd);
@@ -835,43 +850,6 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
             continue;
         }
 
-        // Here we can be certain that the FD is either the accept event fd, or in the
-        // accepted fdset. Checking event fd is faster, so do that first
-        if (fd == server->accept_sd_eventfd)
-        {
-            // clear notification
-            TEMP_FAILURE_RETRY (eventfd_read (server->accept_sd_eventfd, &value));
-            while ((newfd_ptr = g_async_queue_try_pop (server->accept_sd_queue)))
-            {
-                if (cmsg_server_epoll_add_fd (server_list->poll_fd, *newfd_ptr, EPOLLIN,
-                                              server->accepted_fdset) == CMSG_RET_ERR)
-                {
-                    CMSG_LOG_SERVER_ERROR (server,
-                                           "An error occurred with registering FD %d for list receive poll: %s.",
-                                           *newfd_ptr, strerror (errno));
-                    CMSG_COUNTER_INC (server, cntr_errors);
-                    cmsg_server_close_accepted_socket (server, *newfd_ptr);
-                }
-                else
-                {
-                    g_hash_table_insert (server_list->fd_server_map,
-                                         GINT_TO_POINTER (*newfd_ptr), (gpointer) server);
-                }
-                CMSG_FREE (newfd_ptr);
-            }
-        }
-        else    // g_hash_table_contains (server->accepted_fdset, fd_key)
-        {
-            // there is something happening on the socket so receive it.
-            if (cmsg_server_receive (server, fd) < 0)
-            {
-                // Only close the socket if we have errored. The FD is automatically removed
-                // from the epoll instance when it is closed.
-                cmsg_server_close_accepted_socket (server, fd);
-                g_hash_table_remove (server->accepted_fdset, fd_key);
-                g_hash_table_remove (server_list->fd_server_map, fd_key);
-            }
-        }
     }
     pthread_mutex_unlock (&server_list->server_mutex);
 
