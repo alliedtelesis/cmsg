@@ -123,17 +123,11 @@ int
 cmsg_transport_unix_recv (cmsg_transport *transport, int sock, void *buff, int len,
                           int flags)
 {
-    struct timeval timeout = { 1, 0 };
-    fd_set read_fds;
-    int maxfd;
+    struct pollfd pollfd = { sock, POLLIN, 0 };
 
-    FD_ZERO (&read_fds);
-    FD_SET (sock, &read_fds);
-    maxfd = sock;
-
-    /* Do select() on the socket to prevent it to go to usleep instantaneously in the loop
+    /* Do poll() on the socket to prevent it to go to usleep instantaneously in the loop
      * if the data is not yet available.*/
-    select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
+    poll (&pollfd, 1, 1000);
 
     return cmsg_transport_socket_recv (sock, buff, len, flags);
 }
