@@ -508,7 +508,7 @@ cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server)
     {
         if (was_uninitialized)
         {
-            cmsg_server_accept_thread_init (server);
+            cmsg_server_accept_thread_deinit (server);
         }
         CMSG_LOG_SERVER_ERROR (server,
                                "An error occurred with registering FD %d for list receive poll: %s.",
@@ -710,7 +710,7 @@ cmsg_server_process_epoll_event (cmsg_server *server, int fd, int poll_fd,
 int32_t
 cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info)
 {
-    static uint32_t warning_count = ACCEPT_MAX_EVENTS;
+    static bool warning_logged = false;
     int32_t ret;
     cmsg_server *server;
     int nfds;
@@ -722,14 +722,6 @@ cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info)
     ret = cmsg_server_thread_receive_init (info);
     CMSG_ASSERT_RETURN_VAL (ret == CMSG_RET_OK, ret);
     server = info->server;
-
-    if (g_hash_table_size (server->accepted_fdset) + 1 >= warning_count)
-    {
-        CMSG_LOG_OBJ_DEBUG (server, server->_transport,
-                            "Number of watched FDs %d has exceeded limit of %d",
-                            g_hash_table_size (server->accepted_fdset) + 1, warning_count);
-        warning_count <<= 1;
-    }
 
     /* Explicitly set where the thread can be cancelled to avoid leaking
      * connected sockets. */
@@ -749,6 +741,13 @@ cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info)
                                info->poll_fd, info->timeout, strerror (errno));
         CMSG_COUNTER_INC (server, cntr_poll_errors);
         return CMSG_RET_ERR;
+    }
+    else if (nfds == ACCEPT_MAX_EVENTS && !warning_logged)
+    {
+        // ACCEPT_MAX_EVENTS may need to change to a different define if this error is logged.
+        CMSG_LOG_GEN_INFO ("Number of FD events %d has reached limit of %d",
+                           nfds, ACCEPT_MAX_EVENTS);
+        warning_logged = true;
     }
 
     // run through the existing connections looking for data to read
@@ -775,7 +774,7 @@ cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info)
 int32_t
 cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms)
 {
-    static uint32_t warning_count = ACCEPT_MAX_EVENTS;
+    static bool warning_logged = false;
     int n;
     int nfds;
     struct epoll_event events[ACCEPT_MAX_EVENTS];
@@ -789,16 +788,6 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
         return CMSG_RET_OK;
     }
 
-    // ACCEPT_MAX_EVENTS may need to change to a different define if this error is logged.
-    pthread_mutex_lock (&server_list->server_mutex);
-    n = g_hash_table_size (server_list->fd_server_map);
-    pthread_mutex_unlock (&server_list->server_mutex);
-    if (n >= warning_count)
-    {
-        CMSG_LOG_GEN_INFO ("Number of watched FDs %d has exceeded limit of %d.",
-                           n, warning_count);
-        warning_count <<= 1;
-    }
     // Check any data is available
     nfds = epoll_wait (server_list->poll_fd, events, ACCEPT_MAX_EVENTS, timeout_ms);
     if (nfds == -1)
@@ -809,16 +798,21 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
             return CMSG_RET_OK;
         }
 
-        CMSG_LOG_SERVER_ERROR (server,
-                               "An error occurred with list receive poll (timeout: %dms): %s.",
-                               timeout_ms, strerror (errno));
-        CMSG_COUNTER_INC (server, cntr_poll_errors);
+        CMSG_LOG_GEN_ERROR ("An error occurred with list receive poll (timeout: %dms): %s.",
+                            timeout_ms, strerror (errno));
         return CMSG_RET_ERR;
     }
     else if (nfds == 0)
     {
         // timed out, so func success but nothing received, early return
         return CMSG_RET_OK;
+    }
+    else if (nfds == ACCEPT_MAX_EVENTS && !warning_logged)
+    {
+        // ACCEPT_MAX_EVENTS may need to change to a different define if this error is logged.
+        CMSG_LOG_GEN_INFO ("Number of FD events %d has reached limit of %d",
+                           nfds, ACCEPT_MAX_EVENTS);
+        warning_logged = true;
     }
 
     // Process any data available on the sockets, make sure the list cannot be changed while
