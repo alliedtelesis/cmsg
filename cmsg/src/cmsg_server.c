@@ -39,6 +39,7 @@ static int epollfd = -1;
 
 /* Accept thread define. Also uses epoll, but each using isolated data */
 #define ACCEPT_MAX_EVENTS 32
+static void cmsg_server_accepted_fd_free (gpointer list_data);
 
 static void cmsg_server_queue_filter_init (cmsg_server *server);
 
@@ -171,12 +172,6 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
             return NULL;
         }
 
-        server->accepted_fdset = g_hash_table_new (g_direct_hash, NULL);
-        if (!server->accepted_fdset)
-        {
-            CMSG_LOG_SERVER_ERROR (server, "Init failed for accepted_fdset.");
-            return NULL;
-        }
         server->maxQueueLength = 0;
         server->queue = g_queue_new ();
         server->queue_filter_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
@@ -264,9 +259,6 @@ cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
 void
 cmsg_server_destroy (cmsg_server *server)
 {
-    GHashTableIter fd_iter;
-    gpointer fd_ptr;
-
     CMSG_ASSERT_RETURN_VOID (server != NULL);
 
     cmsg_service_listener_remove_server (server);
@@ -280,15 +272,8 @@ cmsg_server_destroy (cmsg_server *server)
     }
 
     // Close accepted sockets before destroying server
-    if (server->accepted_fdset != NULL)
-    {
-        g_hash_table_iter_init (&fd_iter, server->accepted_fdset);
-        while (g_hash_table_iter_next (&fd_iter, &fd_ptr, NULL))
-        {
-            cmsg_server_close_accepted_socket (server, GPOINTER_TO_INT (fd_ptr));
-        }
-        g_hash_table_destroy (server->accepted_fdset);
-    }
+    g_list_free_full (server->accepted_fds, cmsg_server_accepted_fd_free);
+    server->accepted_fds = NULL;
 
     /* Free counter session info but do not destroy counter data in the shared memory */
 #ifdef HAVE_COUNTERD
@@ -400,21 +385,89 @@ cmsg_server_get_socket (cmsg_server *server)
     return socket;
 }
 
-int32_t
-cmsg_server_epoll_add_fd (int poll_fd, int fd, uint32_t watch_events, GHashTable *fd_set)
+static void
+cmsg_server_accepted_fd_free (gpointer list_data)
+{
+    cmsg_fd_info *data;
+    cmsg_server *server;
+    CMSG_ASSERT_RETURN_VOID (list_data);
+
+    data = (cmsg_fd_info *) list_data;
+    server = data->parent;
+    CMSG_ASSERT_RETURN_VOID (server);
+
+    if (data->fd != server->accept_sd_eventfd)
+    {
+        cmsg_server_close_accepted_socket (server, data->fd);
+    }
+    CMSG_FREE (data);
+}
+
+static int32_t
+cmsg_server_epoll_add_fd (int poll_fd, int fd, uint32_t watch_events, cmsg_server *server)
 {
     struct epoll_event event;
-    CMSG_ASSERT_RETURN_VAL (fd_set != NULL, CMSG_RET_ERR);
+    bool is_initialized = false;
+    GList *listnode = NULL;
+    cmsg_fd_info *data = NULL;
+    int32_t ret = CMSG_RET_ERR;
 
-    event.data.fd = fd;
+    CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
+
+    // Don't allocate anything if we are adding the accept event FD again.
+    // If we are, set listnode to the existing data.
+    if (fd == server->accept_sd_eventfd && (listnode = server->accepted_fds) &&
+        (data = (cmsg_fd_info *) listnode->data) && data->fd == fd)
+    {
+        CMSG_LOG_SERVER_ERROR (server, "Tried to reallocate poll data for accept FD");
+    }
+    else
+    {
+        data = CMSG_MALLOC (sizeof (cmsg_fd_info));
+        CMSG_ASSERT_RETURN_VAL (data != NULL, CMSG_RET_ERR);
+
+        data->fd = fd;
+        data->parent = server;
+        is_initialized = true;
+
+        if (fd == server->accept_sd_eventfd)
+        {
+            // Ensure accept event FD is always at the start of the list so that we can
+            // always check if it has already been added
+            server->accepted_fds = listnode = g_list_prepend (server->accepted_fds, data);
+        }
+        else
+        {
+            server->accepted_fds = g_list_insert (server->accepted_fds, data, 1);
+            listnode = g_list_next (server->accepted_fds);
+        }
+    }
+
+    event.data.ptr = listnode;
     event.events = watch_events;
 
-    if (epoll_ctl (poll_fd, EPOLL_CTL_ADD, fd, &event) == 0 || errno == EEXIST)
+    if (epoll_ctl (poll_fd, EPOLL_CTL_ADD, fd, &event) == 0)
     {
-        g_hash_table_add (fd_set, GINT_TO_POINTER (fd));
         return CMSG_RET_OK;
     }
-    return CMSG_RET_ERR;
+    else if (errno == EEXIST)
+    {
+        /*
+         * If epoll_ctl fails with EEXIST, then the FD has already been added, and a
+         * listnode must already exist within a list. So we return OK, but still free the
+         * listnode we created, because that will not be referenced by the epoll list. We
+         * dont expect duplicates, but returning an error would unnecessarily close the FD.
+         */
+        CMSG_LOG_SERVER_ERROR (server, "Duplicate FD %d found in receive poll", fd);
+        ret = CMSG_RET_OK;
+    }
+
+    if (is_initialized)
+    {
+        server->accepted_fds = g_list_delete_link (server->accepted_fds, listnode);
+        CMSG_FREE (data);
+    }
+    return ret;
 }
 
 cmsg_server_list *
@@ -433,12 +486,6 @@ cmsg_server_list_new (void)
         if (server_list->poll_fd == -1)
         {
             CMSG_LOG_GEN_ERROR ("Failed to create server list poll");
-        }
-
-        server_list->fd_server_map = g_hash_table_new (g_direct_hash, NULL);
-        if (!server_list->fd_server_map)
-        {
-            CMSG_LOG_GEN_ERROR ("Failed to create server list epoll read fd set");
         }
     }
     else
@@ -461,7 +508,6 @@ cmsg_server_list_destroy (cmsg_server_list *server_list)
     }
 
     close (server_list->poll_fd);
-    g_hash_table_destroy (server_list->fd_server_map);
     CMSG_FREE (server_list);
 }
 
@@ -483,11 +529,11 @@ cmsg_server_list_is_empty (cmsg_server_list *server_list)
 void
 cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server)
 {
-    struct epoll_event event;
-    GHashTableIter fd_iter;
-    gpointer key;
-    int fd;
     bool was_uninitialized;
+    struct epoll_event event;
+    GList *listnode;
+    cmsg_fd_info *data;
+
     CMSG_ASSERT_RETURN_VOID (server_list);
     CMSG_ASSERT_RETURN_VOID (server);
 
@@ -495,85 +541,71 @@ cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server)
     cmsg_server_accept_thread_init (server);
 
     pthread_mutex_lock (&server_list->server_mutex);
-    // Add the accept event FD to the watched FDs
-    event.data.fd = server->accept_sd_eventfd;
-    event.events = EPOLLIN;
-    if (epoll_ctl (server_list->poll_fd, EPOLL_CTL_ADD, server->accept_sd_eventfd, &event)
-        == 0)
+
+    listnode = server->accepted_fds;
+    data = (cmsg_fd_info *) listnode ? listnode->data : NULL;
+
+    // If the accept event FD is not present, add the accept event FD
+    // (Should only be when the list is empty)
+    if (!data || data->fd != server->accept_sd_eventfd)
     {
-        g_hash_table_insert (server_list->fd_server_map,
-                             GINT_TO_POINTER (server->accept_sd_eventfd), (void *) server);
-    }
-    else
-    {
-        if (was_uninitialized)
+        if (cmsg_server_epoll_add_fd
+            (server_list->poll_fd, server->accept_sd_eventfd, EPOLLIN,
+             server) == CMSG_RET_ERR)
         {
-            cmsg_server_accept_thread_deinit (server);
+            if (was_uninitialized)
+            {
+                cmsg_server_accept_thread_deinit (server);
+            }
+            CMSG_LOG_SERVER_ERROR (server,
+                                   "An error occurred with registering FD %d for list receive poll: %s.",
+                                   server->accept_sd_eventfd, strerror (errno));
+            pthread_mutex_unlock (&server_list->server_mutex);
+            return;
         }
-        CMSG_LOG_SERVER_ERROR (server,
-                               "An error occurred with registering FD %d for list receive poll: %s.",
-                               server->accept_sd_eventfd, strerror (errno));
-        pthread_mutex_unlock (&server_list->server_mutex);
-        return;
+        // Skip the accept event FD when adding the accepted FDs
+        listnode = g_list_next (server->accepted_fds);
     }
-    server_list->list = g_list_prepend (server_list->list, server);
 
     // Add the accepted FDs to the watched FDs
-    g_hash_table_iter_init (&fd_iter, server->accepted_fdset);
-    while (g_hash_table_iter_next (&fd_iter, &key, NULL))
+    for (; listnode; listnode = g_list_next (listnode))
     {
-        fd = GPOINTER_TO_INT (key);
-        event.data.fd = fd;
+        data = (cmsg_fd_info *) listnode->data;
+        event.data.ptr = listnode;
         event.events = EPOLLIN;
-        if (epoll_ctl (server_list->poll_fd, EPOLL_CTL_ADD, fd, &event) == 0)
-        {
-            g_hash_table_insert (server_list->fd_server_map, key, (void *) server);
-        }
-        else
+        if (epoll_ctl (server_list->poll_fd, EPOLL_CTL_ADD, data->fd, &event) != 0)
         {
             CMSG_LOG_SERVER_ERROR (server,
                                    "An error occurred with registering FD %d for list receive poll: %s.",
-                                   fd, strerror (errno));
+                                   data->fd, strerror (errno));
         }
     }
+
+    server_list->list = g_list_prepend (server_list->list, server);
     pthread_mutex_unlock (&server_list->server_mutex);
 }
 
 void
 cmsg_server_list_remove_server (cmsg_server_list *server_list, cmsg_server *server)
 {
-    GHashTableIter fd_iter;
-    gpointer key;
-    int fd;
+    GList *listnode;
+    cmsg_fd_info *data;
     CMSG_ASSERT_RETURN_VOID (server_list);
     CMSG_ASSERT_RETURN_VOID (server);
 
     pthread_mutex_lock (&server_list->server_mutex);
     server_list->list = g_list_remove (server_list->list, server);
 
-    // Remove the accept FD from the watched FDs
-    if (epoll_ctl (server_list->poll_fd, EPOLL_CTL_DEL, server->accept_sd_eventfd, NULL) !=
-        0)
+    // Remove the FDs from the watched FDs
+    for (listnode = server->accepted_fds; listnode; listnode = g_list_next (listnode))
     {
-        CMSG_LOG_SERVER_ERROR (server,
-                               "An error occurred with removing FD %d from list receive poll: %s.",
-                               server->accept_sd_eventfd, strerror (errno));
-    }
-    g_hash_table_remove (server_list->fd_server_map,
-                         GINT_TO_POINTER (server->accept_sd_eventfd));
-
-    // Remove the accepted FDs from the watched FDs
-    g_hash_table_iter_init (&fd_iter, server->accepted_fdset);
-    while (g_hash_table_iter_next (&fd_iter, &key, NULL))
-    {
-        fd = GPOINTER_TO_INT (key);
-        if (epoll_ctl (server_list->poll_fd, EPOLL_CTL_DEL, fd, NULL) != 0)
+        data = (cmsg_fd_info *) listnode->data;
+        if (epoll_ctl (server_list->poll_fd, EPOLL_CTL_DEL, data->fd, NULL) != 0)
         {
             CMSG_LOG_SERVER_ERROR (server,
                                    "An error occurred with removing FD %d from list receive poll: %s.",
-                                   fd, strerror (errno));
+                                   data->fd, strerror (errno));
         }
-        g_hash_table_remove (server_list->fd_server_map, key);
     }
     pthread_mutex_unlock (&server_list->server_mutex);
 }
@@ -586,20 +618,10 @@ cmsg_server_list_remove_server (cmsg_server_list *server_list, cmsg_server *serv
 static void
 _cmsg_server_thread_receive_free (cmsg_server_thread_task_info *info)
 {
-    GHashTableIter fd_iter;
-    gpointer key;
-
-    if (info->server && info->server->accepted_fdset)
+    if (info->server)
     {
-        g_hash_table_iter_init (&fd_iter, info->server->accepted_fdset);
-        while (g_hash_table_iter_next (&fd_iter, &key, NULL))
-        {
-            /* The accept event fd is not stored by the hash table, otherwise we would need
-             * an exception clause here */
-            cmsg_server_close_accepted_socket (info->server, GPOINTER_TO_INT (key));
-        }
-
-        g_hash_table_remove_all (info->server->accepted_fdset);
+        g_list_free_full (info->server->accepted_fds, cmsg_server_accepted_fd_free);
+        info->server->accepted_fds = NULL;
     }
 
     if (info->poll_fd != -1)
@@ -612,7 +634,6 @@ _cmsg_server_thread_receive_free (cmsg_server_thread_task_info *info)
 int32_t
 cmsg_server_thread_receive_init (cmsg_server_thread_task_info *info)
 {
-    struct epoll_event accept_fd_event;
     cmsg_server *server;
     CMSG_ASSERT_RETURN_VAL (info != NULL, CMSG_RET_ERR);
     CMSG_ASSERT_RETURN_VAL (info->server != NULL, CMSG_RET_ERR);
@@ -624,10 +645,6 @@ cmsg_server_thread_receive_init (cmsg_server_thread_task_info *info)
     }
 
     server = info->server;
-    accept_fd_event.events = EPOLLIN;
-    accept_fd_event.data.fd = server->accept_sd_eventfd;
-    /* The accept event fd is not stored by the hash table, as generally those sockets are not closed */
-
     info->poll_fd = epoll_create1 (0);
     if (info->poll_fd < 0)
     {
@@ -637,8 +654,8 @@ cmsg_server_thread_receive_init (cmsg_server_thread_task_info *info)
         info->poll_fd = -1;
         return CMSG_RET_ERR;
     }
-    else if (epoll_ctl
-             (info->poll_fd, EPOLL_CTL_ADD, server->accept_sd_eventfd, &accept_fd_event))
+    else if (cmsg_server_epoll_add_fd
+             (info->poll_fd, server->accept_sd_eventfd, EPOLLIN, server) == CMSG_RET_ERR)
     {
         CMSG_LOG_SERVER_ERROR (server,
                                "Failed to register accept FD in epoll for server accept thread: %s",
@@ -651,14 +668,29 @@ cmsg_server_thread_receive_init (cmsg_server_thread_task_info *info)
 }
 
 static void
-cmsg_server_process_epoll_event (cmsg_server *server, int fd, int poll_fd,
-                                 GHashTable *fd_server_map)
+cmsg_server_process_epoll_event (GList *listnode, int poll_fd)
 {
+    cmsg_fd_info *data;
+    cmsg_server *server;
+    int fd;
     int *newfd_ptr = NULL;
     eventfd_t value;
 
-    // Here we can be certain that the FD is either the accept event fd, or in the
-    // accepted fdset. Checking event fd is faster, so do that first
+    CMSG_ASSERT_RETURN_VOID (listnode);
+    CMSG_ASSERT_RETURN_VOID (poll_fd != -1);
+
+    data = (cmsg_fd_info *) listnode->data;
+    server = data->parent;
+    fd = data->fd;
+
+    if (!server)
+    {
+        CMSG_LOG_GEN_ERROR ("FD %d has no matching server in list receive poll.", fd);
+        epoll_ctl (poll_fd, EPOLL_CTL_DEL, fd, NULL);
+        return;
+    }
+
+    // The FD is either the accept event fd or an accepted fd
     if (fd == server->accept_sd_eventfd)
     {
         // clear notification
@@ -666,18 +698,13 @@ cmsg_server_process_epoll_event (cmsg_server *server, int fd, int poll_fd,
         while ((newfd_ptr = g_async_queue_try_pop (server->accept_sd_queue)))
         {
             if (cmsg_server_epoll_add_fd (poll_fd, *newfd_ptr, EPOLLIN,
-                                          server->accepted_fdset) == CMSG_RET_ERR)
+                                          server) == CMSG_RET_ERR)
             {
                 CMSG_LOG_SERVER_ERROR (server,
                                        "An error occurred with registering FD %d for list receive poll: %s.",
                                        *newfd_ptr, strerror (errno));
                 CMSG_COUNTER_INC (server, cntr_errors);
                 cmsg_server_close_accepted_socket (server, *newfd_ptr);
-            }
-            else if (fd_server_map)
-            {
-                g_hash_table_insert (fd_server_map, GINT_TO_POINTER (*newfd_ptr),
-                                     (gpointer) server);
             }
             CMSG_FREE (newfd_ptr);
         }
@@ -687,12 +714,9 @@ cmsg_server_process_epoll_event (cmsg_server *server, int fd, int poll_fd,
     {
         // Only close the socket if we have errored. The FD is automatically removed
         // from the epoll instance when it is closed.
-        cmsg_server_close_accepted_socket (server, fd);
-        g_hash_table_remove (server->accepted_fdset, GINT_TO_POINTER (fd));
-        if (fd_server_map)
-        {
-            g_hash_table_remove (fd_server_map, GINT_TO_POINTER (fd));
-        }
+        listnode->data = NULL;
+        server->accepted_fds = g_list_delete_link (server->accepted_fds, listnode);
+        cmsg_server_accepted_fd_free (data);
     }
 }
 
@@ -711,17 +735,15 @@ int32_t
 cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info)
 {
     static bool warning_logged = false;
-    int32_t ret;
-    cmsg_server *server;
+    int ret;
     int nfds;
     struct epoll_event events[ACCEPT_MAX_EVENTS];
     int n;
-    int fd;
+    GList *listnode = NULL;
 
     // Initialize epoll FD if not yet done
     ret = cmsg_server_thread_receive_init (info);
     CMSG_ASSERT_RETURN_VAL (ret == CMSG_RET_OK, ret);
-    server = info->server;
 
     /* Explicitly set where the thread can be cancelled to avoid leaking
      * connected sockets. */
@@ -736,10 +758,10 @@ cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info)
             return CMSG_RET_OK;
         }
 
-        CMSG_LOG_SERVER_ERROR (server,
+        CMSG_LOG_SERVER_ERROR (info->server,
                                "An error occurred with receive poll (%d, %d): %s.",
                                info->poll_fd, info->timeout, strerror (errno));
-        CMSG_COUNTER_INC (server, cntr_poll_errors);
+        CMSG_COUNTER_INC (info->server, cntr_poll_errors);
         return CMSG_RET_ERR;
     }
     else if (nfds == ACCEPT_MAX_EVENTS && !warning_logged)
@@ -756,8 +778,8 @@ cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info)
     {
         if (events[n].events & EPOLLIN)
         {
-            fd = events[n].data.fd;
-            cmsg_server_process_epoll_event (server, fd, info->poll_fd, NULL);
+            listnode = events[n].data.ptr;
+            cmsg_server_process_epoll_event (listnode, info->poll_fd);
         }
     }
 
@@ -781,15 +803,14 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     int n;
     int nfds;
     struct epoll_event events[ACCEPT_MAX_EVENTS];
-    int fd;
-    gpointer fd_key;
-    cmsg_server *server = NULL;
+    GList *listnode = NULL;
 
     if (cmsg_server_list_is_empty (server_list))
     {
         // Nothing to do
         return CMSG_RET_OK;
     }
+    CMSG_ASSERT_RETURN_VAL (server_list->poll_fd != -1, CMSG_RET_ERR);
 
     // Check any data is available
     nfds = epoll_wait (server_list->poll_fd, events, ACCEPT_MAX_EVENTS, timeout_ms);
@@ -801,8 +822,8 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
             return CMSG_RET_OK;
         }
 
-        CMSG_LOG_GEN_ERROR ("An error occurred with list receive poll (timeout: %dms): %s.",
-                            timeout_ms, strerror (errno));
+        CMSG_LOG_GEN_ERROR ("An error occurred with list receive poll (%d, %d): %s.",
+                            server_list->poll_fd, timeout_ms, strerror (errno));
         return CMSG_RET_ERR;
     }
     else if (nfds == 0)
@@ -826,30 +847,8 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     {
         if (events[n].events & EPOLLIN)
         {
-            fd = events[n].data.fd;
-            fd_key = GINT_TO_POINTER (fd);
-            server =
-                (cmsg_server *) g_hash_table_lookup (server_list->fd_server_map, fd_key);
-            if (server &&
-                (fd == server->accept_sd_eventfd ||
-                 g_hash_table_contains (server->accepted_fdset, fd_key)))
-            {
-                cmsg_server_process_epoll_event (server, fd, server_list->poll_fd,
-                                                 server_list->fd_server_map);
-            }
-            else
-            {
-                // Likely memory issue
-                CMSG_LOG_GEN_ERROR ("FD %d has no matching server in list receive poll.",
-                                    fd);
-                epoll_ctl (server_list->poll_fd, EPOLL_CTL_DEL, fd, NULL);
-                g_hash_table_remove (server_list->fd_server_map, fd_key);
-                if (server)
-                {
-                    g_hash_table_remove (server->accepted_fdset, fd_key);
-                }
-                continue;
-            }
+            listnode = events[n].data.ptr;
+            cmsg_server_process_epoll_event (listnode, server_list->poll_fd);
         }
     }
     pthread_mutex_unlock (&server_list->server_mutex);
@@ -2975,10 +2974,7 @@ cmsg_server_thread_task_info_free (cmsg_server_thread_task_info *info)
     {
         cmsg_server_accept_thread_deinit (info->server);
     }
-    if (info->poll_fd != -1)
-    {
-        _cmsg_server_thread_receive_free (info);
-    }
+    _cmsg_server_thread_receive_free (info);
     CMSG_FREE (info);
 }
 
