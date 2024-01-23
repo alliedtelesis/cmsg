@@ -754,8 +754,11 @@ cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info)
     // if nfds is 0, nothing was received before time out, so we just skip the loop
     for (n = 0; n < nfds; n++)
     {
-        fd = events[n].data.fd;
-        cmsg_server_process_epoll_event (server, fd, info->poll_fd, NULL);
+        if (events[n].events & EPOLLIN)
+        {
+            fd = events[n].data.fd;
+            cmsg_server_process_epoll_event (server, fd, info->poll_fd, NULL);
+        }
     }
 
     return CMSG_RET_OK;
@@ -821,29 +824,33 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     pthread_mutex_lock (&server_list->server_mutex);
     for (n = 0; n < nfds; n++)
     {
-        fd = events[n].data.fd;
-        fd_key = GINT_TO_POINTER (fd);
-        server = (cmsg_server *) g_hash_table_lookup (server_list->fd_server_map, fd_key);
-        if (server &&
-            (fd == server->accept_sd_eventfd ||
-             g_hash_table_contains (server->accepted_fdset, fd_key)))
+        if (events[n].events & EPOLLIN)
         {
-            cmsg_server_process_epoll_event (server, fd, server_list->poll_fd,
-                                             server_list->fd_server_map);
-        }
-        else
-        {
-            // Likely memory issue
-            CMSG_LOG_GEN_ERROR ("FD %d has no matching server in list receive poll.", fd);
-            epoll_ctl (server_list->poll_fd, EPOLL_CTL_DEL, fd, NULL);
-            g_hash_table_remove (server_list->fd_server_map, fd_key);
-            if (server)
+            fd = events[n].data.fd;
+            fd_key = GINT_TO_POINTER (fd);
+            server =
+                (cmsg_server *) g_hash_table_lookup (server_list->fd_server_map, fd_key);
+            if (server &&
+                (fd == server->accept_sd_eventfd ||
+                 g_hash_table_contains (server->accepted_fdset, fd_key)))
             {
-                g_hash_table_remove (server->accepted_fdset, fd_key);
+                cmsg_server_process_epoll_event (server, fd, server_list->poll_fd,
+                                                 server_list->fd_server_map);
             }
-            continue;
+            else
+            {
+                // Likely memory issue
+                CMSG_LOG_GEN_ERROR ("FD %d has no matching server in list receive poll.",
+                                    fd);
+                epoll_ctl (server_list->poll_fd, EPOLL_CTL_DEL, fd, NULL);
+                g_hash_table_remove (server_list->fd_server_map, fd_key);
+                if (server)
+                {
+                    g_hash_table_remove (server->accepted_fdset, fd_key);
+                }
+                continue;
+            }
         }
-
     }
     pthread_mutex_unlock (&server_list->server_mutex);
 
