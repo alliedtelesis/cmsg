@@ -172,6 +172,7 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
             return NULL;
         }
 
+        server->accept_sd_eventfd = -1;
         server->maxQueueLength = 0;
         server->queue = g_queue_new ();
         server->queue_filter_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
@@ -549,7 +550,7 @@ cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server)
     CMSG_ASSERT_RETURN_VOID (server_list);
     CMSG_ASSERT_RETURN_VOID (server);
 
-    was_uninitialized = server->accept_sd_eventfd == 0;
+    was_uninitialized = (server->accept_sd_queue == NULL);
     cmsg_server_accept_thread_init (server);
 
     pthread_mutex_lock (&server_list->server_mutex);
@@ -2696,7 +2697,7 @@ _cmsg_server_accept_thread_init (cmsg_server *server)
         syslog (LOG_ALERT, "Maximum CMSG server accept thread limit has been reached!");
     }
 
-    if (server->accept_sd_eventfd)
+    if (server->accept_sd_eventfd != -1)
     {
         /* Already initialised */
         return CMSG_RET_OK;
@@ -2705,6 +2706,7 @@ _cmsg_server_accept_thread_init (cmsg_server *server)
     server->accept_sd_eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
     if (server->accept_sd_eventfd < 0)
     {
+        server->accept_sd_eventfd = -1;
         return CMSG_RET_ERR;
     }
 
@@ -2712,6 +2714,7 @@ _cmsg_server_accept_thread_init (cmsg_server *server)
     if (!server->accept_sd_queue)
     {
         close (server->accept_sd_eventfd);
+        server->accept_sd_eventfd = -1;
         return CMSG_RET_ERR;
     }
 
@@ -2721,6 +2724,7 @@ _cmsg_server_accept_thread_init (cmsg_server *server)
     if (epoll_ctl (epollfd, EPOLL_CTL_ADD, cmsg_server_get_socket (server), &ev) == -1)
     {
         close (server->accept_sd_eventfd);
+        server->accept_sd_eventfd = -1;
         g_async_queue_unref (server->accept_sd_queue);
         server->accept_sd_queue = NULL;
         return CMSG_RET_ERR;
@@ -2757,7 +2761,7 @@ void
 cmsg_server_accept_thread_deinit (cmsg_server *server)
 {
 
-    if (server && server->accept_sd_eventfd)
+    if (server && server->accept_sd_eventfd != -1)
     {
         pthread_mutex_lock (&global_server_accept_lock);
 
@@ -2765,6 +2769,7 @@ cmsg_server_accept_thread_deinit (cmsg_server *server)
 
         pthread_mutex_lock (&server->accept_mutex);
         close (server->accept_sd_eventfd);
+        server->accept_sd_eventfd = -1;
         g_async_queue_unref (server->accept_sd_queue);
         server->accept_sd_queue = NULL;
         pthread_mutex_unlock (&server->accept_mutex);
