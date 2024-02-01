@@ -455,10 +455,22 @@ cmsg_server_epoll_add_fd (int poll_fd, int fd, uint32_t watch_events, cmsg_serve
         /*
          * If epoll_ctl fails with EEXIST, then the FD has already been added, and a
          * listnode must already exist within a list. So we return OK, but still free the
-         * listnode we created, because that will not be referenced by the epoll list. We
-         * dont expect duplicates, but returning an error would unnecessarily close the FD.
+         * listnode we created, because that will not be referenced by the epoll list.
+         *
+         * UDP transports reuse the same FD, so multiple accepts will occur for the same FD
+         * on those transports. So anticipating that the FD has already been added, we just
+         * skip this log.
+         *
+         * On other transport types, the same FD should never be re-added to the epoll
+         * instance. But returning an error would close the FD unnecessarily. So just log
+         * an error.
+         *
+         * In both cases, the data is freed below.
          */
-        CMSG_LOG_SERVER_ERROR (server, "Duplicate FD %d found in receive poll", fd);
+        if (server->_transport->type != CMSG_TRANSPORT_ONEWAY_MC_UDP)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Duplicate FD %d found in receive poll", fd);
+        }
         ret = CMSG_RET_OK;
     }
 
