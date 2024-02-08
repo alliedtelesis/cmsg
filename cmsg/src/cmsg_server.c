@@ -711,8 +711,9 @@ cmsg_server_process_epoll_event (GList *listnode, int poll_fd)
     else    // fd is an accepted connection, and there is something happening on the socket so receive it.
     if (cmsg_server_receive (server, fd) < 0)
     {
-        // Only close the socket if we have errored. The FD is automatically removed
-        // from the epoll instance when it is closed.
+        // Only close the socket if we have errored. Manually remove it from the epoll
+        // instance to prevent issues with duplicated sockets and unclosed sockets.
+        epoll_ctl (poll_fd, EPOLL_CTL_DEL, fd, NULL);
         listnode->data = NULL;
         server->accepted_fds = g_list_delete_link (server->accepted_fds, listnode);
         cmsg_server_accepted_fd_free (data);
