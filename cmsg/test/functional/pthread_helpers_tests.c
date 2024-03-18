@@ -8,12 +8,15 @@
 #include <np.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/resource.h>
 #include <cmsg_pthread_helpers.h>
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
 #include "setup.h"
 
 static bool notification_received;
+
+#define NUM_CLIENTS 1500
 
 #define NUM_CLIENT_THREADS 32
 #define NUM_SENT_MESSAGES 20
@@ -41,12 +44,11 @@ set_up (void)
  * is running and functioning as expected.
  */
 static void
-call_api (void)
+call_api_on_client (cmsg_client *client)
 {
     int ret = 0;
     cmsg_bool_msg send_msg = CMSG_BOOL_MSG_INIT;
     cmsg_bool_msg *recv_msg = NULL;
-    cmsg_client *client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg, test));
 
     CMSG_SET_FIELD_VALUE (&send_msg, value, true);
 
@@ -57,7 +59,47 @@ call_api (void)
     NP_ASSERT_TRUE (recv_msg->value);
 
     CMSG_FREE_RECV_MSG (recv_msg);
+}
+
+/**
+ * Create a temporary client to call a CMSG API
+ */
+static void
+call_api (void)
+{
+    cmsg_client *client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg, test));
+
+    call_api_on_client (client);
+
     cmsg_destroy_client_and_transport (client);
+}
+
+/*
+ * Increase the open file limit if necessary, and return the previous limit
+ */
+static struct rlimit
+set_open_file_limit (rlim_t required)
+{
+    struct rlimit old_rlim;
+    struct rlimit rlim;
+
+    // Get the current open file limit
+    if (getrlimit (RLIMIT_NOFILE, &old_rlim) < 0)
+    {
+        NP_FAIL;
+    }
+
+    // Only update the limit if necessary
+    if (old_rlim.rlim_cur < required)
+    {
+        memcpy (&rlim, &old_rlim, sizeof (struct rlimit));
+        rlim.rlim_cur = required;
+        if (required <= 0 || setrlimit (RLIMIT_NOFILE, &rlim) < 0)
+        {
+            NP_FAIL;
+        }
+    }
+    return old_rlim;
 }
 
 /**
@@ -79,6 +121,69 @@ test_cmsg_pthread_server_init (void)
     NP_ASSERT_EQUAL (ret, 0);
 
     cmsg_destroy_server_and_transport (server);
+}
+
+/**
+ * Run an RPC test with a large number of clients using a server created using
+ * 'cmsg_pthread_server_init'.
+ *
+ * A bug exists in 'select()' which causes unreliable behaviour for sockets higher than
+ * the default open file limit of 1024. CMSG used to use select() for several things
+ * before the usages were refactored in CR-80868.
+ *
+ * This is a regression check for whether the server can handle more sockets than the
+ * default open file limit of 1024.
+ */
+void
+test_cmsg_pthread_server_load (void)
+{
+    int ret = 0;
+    pthread_t server_thread;
+    cmsg_server *server = cmsg_create_server_unix_rpc (CMSG_SERVICE (cmsg, test));
+    cmsg_client *clients[NUM_CLIENTS] = { NULL };
+    struct rlimit old_rlim;
+    int i = 0;
+
+    np_syslog_match ("Number of FD events 32 has reached limit of 32", 0);
+
+    // Allow enough open files for the test to run
+    old_rlim = set_open_file_limit (NUM_CLIENTS + 100);
+
+    cmsg_pthread_server_init (&server_thread, server);
+
+    /*
+     * Make sure we can simultaneously handle 1500 clients. Each client creates a
+     * socket when connecting to the server, so by doing this we ensure that there are
+     * more than 1024 sockets open, which is the default maximum open file limit.
+     */
+    for (i = 0; i < NUM_CLIENTS; i++)
+    {
+        clients[i] = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg, test));
+    }
+
+    for (i = 0; i < NUM_CLIENTS; i++)
+    {
+        call_api_on_client (clients[i]);
+    }
+
+    // Clean up
+    for (i = 0; i < NUM_CLIENTS; i++)
+    {
+        cmsg_destroy_client_and_transport (clients[i]);
+    }
+
+    ret = pthread_cancel (server_thread);
+    NP_ASSERT_EQUAL (ret, 0);
+    ret = pthread_join (server_thread, NULL);
+    NP_ASSERT_EQUAL (ret, 0);
+
+    cmsg_destroy_server_and_transport (server);
+
+    // Reset the open file limit
+    if (setrlimit (RLIMIT_NOFILE, &old_rlim) < 0)
+    {
+        NP_FAIL;
+    }
 }
 
 void
