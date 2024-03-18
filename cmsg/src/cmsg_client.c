@@ -1275,7 +1275,7 @@ cmsg_client_queue_process_all (cmsg_client *client)
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
-    clock_gettime (CLOCK_REALTIME, &time_to_wait);
+    clock_gettime (CLOCK_MONOTONIC_RAW, &time_to_wait);
 
     //if the we run do api calls and processing in different threads wait
     //for a signal from the api thread to start processing
@@ -1285,8 +1285,9 @@ cmsg_client_queue_process_all (cmsg_client *client)
         while (client->queue_process_count == 0)
         {
             time_to_wait.tv_sec++;
-            pthread_cond_timedwait (&client->queue_process_cond,
-                                    &client->queue_process_mutex, &time_to_wait);
+            pthread_cond_clockwait (&client->queue_process_cond,
+                                    &client->queue_process_mutex, CLOCK_MONOTONIC_RAW,
+                                    &time_to_wait);
         }
         pthread_mutex_unlock (&client->queue_process_mutex);
 
