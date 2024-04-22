@@ -17,6 +17,7 @@
 static bool notification_received;
 
 #define NUM_CLIENTS 1500
+#define REQ_FDS (NUM_CLIENTS * 2 + 200)
 
 #define NUM_CLIENT_THREADS 32
 #define NUM_SENT_MESSAGES 20
@@ -74,34 +75,6 @@ call_api (void)
     cmsg_destroy_client_and_transport (client);
 }
 
-/*
- * Increase the open file limit if necessary, and return the previous limit
- */
-static struct rlimit
-set_open_file_limit (rlim_t required)
-{
-    struct rlimit old_rlim;
-    struct rlimit rlim;
-
-    // Get the current open file limit
-    if (getrlimit (RLIMIT_NOFILE, &old_rlim) < 0)
-    {
-        NP_FAIL;
-    }
-
-    // Only update the limit if necessary
-    if (old_rlim.rlim_cur < required)
-    {
-        memcpy (&rlim, &old_rlim, sizeof (struct rlimit));
-        rlim.rlim_cur = required;
-        if (required <= 0 || setrlimit (RLIMIT_NOFILE, &rlim) < 0)
-        {
-            NP_FAIL;
-        }
-    }
-    return old_rlim;
-}
-
 /**
  * Run a basic RPC test with a server created using 'cmsg_pthread_server_init'.
  */
@@ -133,6 +106,12 @@ test_cmsg_pthread_server_init (void)
  *
  * This is a regression check for whether the server can handle more sockets than the
  * default open file limit of 1024.
+ *
+ * Currently this test is skipped if the open file limit is not increased. This may require
+ * the tests to be run as the root user, as it requires certain capabilities. The limit is
+ * increased in run-unit-tests.py in buildsys, as it is much more complicated to make the
+ * tests themselves run with capabilities. Novaprova also uses Valgrind, which has issues
+ * running files with additional capability privileges.
  */
 void
 test_cmsg_pthread_server_load (void)
@@ -141,14 +120,16 @@ test_cmsg_pthread_server_load (void)
     pthread_t server_thread;
     cmsg_server *server = cmsg_create_server_unix_rpc (CMSG_SERVICE (cmsg, test));
     cmsg_client *clients[NUM_CLIENTS] = { NULL };
-    struct rlimit old_rlim;
+    struct rlimit rlim;
     int i = 0;
 
+    // Only run this test if the open file limit is high enough
+    if (getrlimit (RLIMIT_NOFILE, &rlim) != 0 || rlim.rlim_cur < REQ_FDS)
+    {
+        NP_NOTAPPLICABLE;
+    }
+
     np_syslog_match ("Number of FD events 32 has reached limit of 32", 0);
-
-    // Allow enough open files for the test to run
-    old_rlim = set_open_file_limit (NUM_CLIENTS + 100);
-
     cmsg_pthread_server_init (&server_thread, server);
 
     /*
@@ -178,12 +159,6 @@ test_cmsg_pthread_server_load (void)
     NP_ASSERT_EQUAL (ret, 0);
 
     cmsg_destroy_server_and_transport (server);
-
-    // Reset the open file limit
-    if (setrlimit (RLIMIT_NOFILE, &old_rlim) < 0)
-    {
-        NP_FAIL;
-    }
 }
 
 void
