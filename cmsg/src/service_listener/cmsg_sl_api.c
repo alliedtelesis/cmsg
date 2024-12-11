@@ -17,17 +17,6 @@
 #include "events_impl_auto.h"
 #include "transport/cmsg_transport_private.h"
 
-struct _cmsg_sl_info_s
-{
-    char *service_name;
-    cmsg_sl_event_handler_t handler;
-    uint32_t id;
-    void *user_data;
-    GAsyncQueue *queue;
-    int eventfd;
-    void *event_loop_data;
-};
-
 typedef struct _cmsg_sl_event
 {
     bool added;
@@ -73,7 +62,7 @@ cmsg_sl_get_client (void)
  * @returns The eventfd descriptor.
  */
 int
-cmsg_service_listener_get_event_fd (const cmsg_sl_info *info)
+cmsg_service_listener_get_event_fd (cmsg_sl_info *info)
 {
     return info->eventfd;
 }
@@ -86,7 +75,7 @@ cmsg_service_listener_get_event_fd (const cmsg_sl_info *info)
  * @returns true if the service listening should keep running, false otherwise.
  */
 bool
-cmsg_service_listener_event_queue_process (const cmsg_sl_info *info)
+cmsg_service_listener_event_queue_process (cmsg_sl_info *info)
 {
     cmsg_sl_event *event = NULL;
     eventfd_t value;
@@ -301,6 +290,15 @@ cmsg_service_listener_info_create (const char *service_name,
         return NULL;
     }
 
+    if (pthread_mutex_init (&info->thread_mutex, NULL) != 0)
+    {
+        g_async_queue_unref (info->queue);
+        close (info->eventfd);
+        CMSG_FREE (info->service_name);
+        CMSG_FREE (info);
+        return NULL;
+    }
+
     info->handler = handler;
     info->user_data = user_data;
     info->id = id++;
@@ -333,7 +331,7 @@ cmsg_service_listener_info_destroy (cmsg_sl_info *info)
  *
  * @returns A pointer to the 'cmsg_sl_info' structure for the given service.
  */
-const cmsg_sl_info *
+cmsg_sl_info *
 cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t handler,
                               void *user_data)
 {
@@ -373,7 +371,7 @@ cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t 
  * @param service_name - The service to unlisten from.
  */
 void
-cmsg_service_listener_unlisten (const cmsg_sl_info *info)
+cmsg_service_listener_unlisten (cmsg_sl_info *info)
 {
     pthread_mutex_lock (&add_remove_mutex);
     pthread_mutex_lock (&listener_list_mutex);
@@ -573,7 +571,7 @@ cmsg_sl_listener_unix_wait_cb (const cmsg_transport *transport, bool added, void
 bool
 cmsg_service_listener_wait_for_unix_server (const char *service_name, long seconds)
 {
-    const cmsg_sl_info *info;
+    cmsg_sl_info *info;
     bool ret = false;
     struct pollfd pollfd = { 0, POLLIN, 0 };
     int poll_rc;
@@ -636,7 +634,7 @@ bool
 cmsg_service_listener_wait_for_tcp_server (const char *service_name, struct in_addr *addr,
                                            int seconds)
 {
-    const cmsg_sl_info *info;
+    cmsg_sl_info *info;
     struct pollfd pfd = {
         .events = POLLIN,
     };
@@ -691,7 +689,7 @@ cmsg_service_listener_wait_for_tcp_server (const char *service_name, struct in_a
  * @param data - The data to set.
  */
 void
-cmsg_service_listener_event_loop_data_set (const cmsg_sl_info *info, void *data)
+cmsg_service_listener_event_loop_data_set (cmsg_sl_info *info, void *data)
 {
     cmsg_sl_info *_info = (cmsg_sl_info *) info;
     _info->event_loop_data = data;
@@ -705,7 +703,7 @@ cmsg_service_listener_event_loop_data_set (const cmsg_sl_info *info, void *data)
  * @returns The stored data.
  */
 void *
-cmsg_service_listener_event_loop_data_get (const cmsg_sl_info *info)
+cmsg_service_listener_event_loop_data_get (cmsg_sl_info *info)
 {
     return info->event_loop_data;
 }

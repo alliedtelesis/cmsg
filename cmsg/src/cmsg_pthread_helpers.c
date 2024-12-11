@@ -11,6 +11,7 @@
 #include <sys/eventfd.h>
 #include "cmsg_pthread_helpers.h"
 #include "publisher_subscriber/cmsg_sub_private.h"
+#include "cmsg_sl.h"
 
 typedef struct _cmsg_pthread_multithreaded_server_recv_info
 {
@@ -361,59 +362,115 @@ cmsg_pthread_multithreaded_server_destroy (cmsg_pthread_multithreaded_server_inf
     free (info);
 }
 
-/**
- * Function to be called when the 'cmsg_pthread_sl_event_thread'
- * thread is cancelled. This simply cleans up the service listener info.
- *
- * @param _info - Structure containing the service listener information
- *                used by the thread.
- */
-static void
-cmsg_pthread_sl_event_thread_cancelled (void *_info)
-{
-    const cmsg_sl_info *info = _info;
+/* Thread for all the servers of this process. */
+static pthread_t global_sl_accept_thread = -1;
+/* This mutex protects the global server accept count and epoll data. */
+static pthread_mutex_t global_sl_accept_lock = PTHREAD_MUTEX_INITIALIZER;
+static unsigned int global_sl_accept_count = 0;
 
-    cmsg_service_listener_unlisten (info);
-}
+/* Global epoll data. Note that MAX_EVENTS may need to be increased at some point
+ * as it is the number of CMSG servers using the global accept thread. */
+#define MAX_EVENTS 128
+static struct epoll_event events[MAX_EVENTS];
+static int epollfd = -1;
 
 /**
  * Thread used to process events generated from the CMSG service listener functionality.
  */
 static void *
-cmsg_pthread_sl_event_thread (void *sl_info)
+cmsg_pthread_sl_event_thread (void *unused)
 {
-    const cmsg_sl_info *info = (const cmsg_sl_info *) sl_info;
-    int event_fd;
-    struct pollfd pollfd = { 0, POLLIN, 0 };
-
-    pthread_cleanup_push ((void (*)(void *)) cmsg_pthread_sl_event_thread_cancelled,
-                          (void *) info);
-
-    event_fd = cmsg_service_listener_get_event_fd (info);
-    if (event_fd < 0)
-    {
-        syslog (LOG_ERR, "Failed to get socket for service listener.");
-        pthread_exit (NULL);
-    }
-
-    pollfd.fd = event_fd;
+    cmsg_sl_info *info;
+    int n;
+    int nfds;
 
     while (1)
     {
-        /* Explicitly set where the thread can be cancelled. This ensures no
-         * data can be leaked if the thread is cancelled while handling an event.
-         */
-        pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
-        poll (&pollfd, 1, -1);
-        pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+        nfds = epoll_wait (epollfd, events, MAX_EVENTS, -1);
+        if (nfds == -1)
+        {
+            continue;
+        }
+        for (n = 0; n < nfds; n++)
+        {
+            /* Explicitly set where the thread can be cancelled. This ensures no
+             * sockets can be leaked if the thread is cancelled after accepting
+             * a connection. */
+            pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+            if (events[n].events & EPOLLIN)
+            {
+                info = events[n].data.ptr;
 
-        cmsg_service_listener_event_queue_process (info);
+                pthread_mutex_lock (&info->thread_mutex);
+                if (info->using_global_thread)
+                {
+                    cmsg_service_listener_event_queue_process (info);
+                }
+                pthread_mutex_unlock (&info->thread_mutex);
+            }
+            else
+            {
+                /* Sleep on error before re-trying in order to avoid a tight loop */
+                sleep (1);
+            }
+            pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+        }
     }
 
-    pthread_cleanup_pop (1);
     pthread_exit (NULL);
 }
 
+
+static bool
+_cmsg_pthread_service_listener_listen (cmsg_sl_info *info, const char *service_name,
+                                       cmsg_sl_event_handler_t handler, void *user_data)
+{
+    struct epoll_event ev;
+
+    /* Global thread data is to be setup. */
+    if (epollfd == -1)
+    {
+        epollfd = epoll_create1 (0);
+        if (epollfd == -1)
+        {
+            return CMSG_RET_ERR;
+        }
+    }
+
+    if (global_sl_accept_thread == -1)
+    {
+        if (pthread_create (&global_sl_accept_thread, NULL,
+                            cmsg_pthread_sl_event_thread, NULL) != 0)
+        {
+            global_sl_accept_thread = -1;
+            return CMSG_RET_ERR;
+        }
+        cmsg_pthread_setname (global_sl_accept_thread, "global", CMSG_ACCEPT_PREFIX);
+    }
+
+    if (global_sl_accept_count == MAX_EVENTS)
+    {
+        /* This should not happen in an actual release but during development.
+         * As more servers are added, the limit will need to be increased.
+         * Continue processing but the new server will fail to run. */
+        syslog (LOG_ALERT, "Maximum CMSG service listener thread limit has been reached!");
+    }
+
+    memset (&ev, 0, sizeof (struct epoll_event));
+    ev.events = EPOLLIN;
+    ev.data.ptr = info;
+    if (epoll_ctl (epollfd, EPOLL_CTL_ADD, cmsg_service_listener_get_event_fd (info), &ev)
+        == -1)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    info->using_global_thread = true;
+
+    global_sl_accept_count++;
+
+    return CMSG_RET_OK;
+}
 
 /**
  * Create a new thread to run a service listener function.
@@ -428,27 +485,64 @@ cmsg_pthread_sl_event_thread (void *sl_info)
  * Note that this thread can be cancelled using 'pthread_cancel' and then should
  * be joined using 'pthread_join'.
  */
-bool
-cmsg_pthread_service_listener_listen (pthread_t *thread, const char *service_name,
+cmsg_sl_info *
+cmsg_pthread_service_listener_listen (const char *service_name,
                                       cmsg_sl_event_handler_t handler, void *user_data)
 {
     int ret = 0;
-    const cmsg_sl_info *info = NULL;
+    cmsg_sl_info *info = NULL;
 
     info = cmsg_service_listener_listen (service_name, handler, user_data);
     if (!info)
     {
         syslog (LOG_ERR, "Failed to initialise service listener functionality");
-        return false;
+        return NULL;
     }
 
-    ret = pthread_create (thread, NULL, cmsg_pthread_sl_event_thread, (void *) info);
+    pthread_mutex_lock (&global_sl_accept_lock);
+    pthread_mutex_lock (&info->thread_mutex);
+    ret = _cmsg_pthread_service_listener_listen (info, service_name, handler, user_data);
     if (ret != 0)
     {
         syslog (LOG_ERR, "Failed to start thread for service listener processing");
         cmsg_service_listener_unlisten (info);
-        return false;
+        return NULL;
     }
+    pthread_mutex_unlock (&info->thread_mutex);
+    pthread_mutex_unlock (&global_sl_accept_lock);
 
-    return true;
+    return info;
+}
+
+/**
+ * Shutdown the server accept thread.
+ *
+ * @param server - The CMSG server to shutdown the accept thread for.
+ */
+void
+cmsg_pthread_service_listener_unlisten (cmsg_sl_info *info)
+{
+    if (info && info->using_global_thread)
+    {
+        pthread_mutex_lock (&global_sl_accept_lock);
+
+        epoll_ctl (epollfd, EPOLL_CTL_DEL, cmsg_service_listener_get_event_fd (info), NULL);
+
+        pthread_mutex_lock (&info->thread_mutex);
+        info->using_global_thread = false;
+        pthread_mutex_unlock (&info->thread_mutex);
+        cmsg_service_listener_unlisten (info);
+
+        global_sl_accept_count--;
+        if (global_sl_accept_count == 0)
+        {
+            pthread_cancel (global_sl_accept_thread);
+            pthread_join (global_sl_accept_thread, NULL);
+
+            global_sl_accept_thread = -1;
+            close (epollfd);
+            epollfd = -1;
+        }
+        pthread_mutex_unlock (&global_sl_accept_lock);
+    }
 }

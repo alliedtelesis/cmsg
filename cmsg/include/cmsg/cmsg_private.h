@@ -275,5 +275,6 @@ void cmsg_malloc_init (int mtype);
 #define CMSG_SERVER_PREFIX     "cmsr:"
 #define CMSG_PUBLISHER_PREFIX  "cmpb:"
 #define CMSG_ACCEPT_PREFIX     "cmat:"
+#define CMSG_SL_PREFIX         "cmsl:"
 void cmsg_pthread_setname (pthread_t thread, const char *cmsg_name, const char *prefix);
 #endif /* __CMSG_PRIVATE_H_ */

@@ -602,7 +602,7 @@ cmsg_glib_bcast_client_processing_start (cmsg_client *broadcast_client)
 static gboolean
 cmsg_glib_sl_event_process (GIOChannel *source, GIOCondition condition, gpointer data)
 {
-    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+    cmsg_sl_info *info = (cmsg_sl_info *) data;
     gboolean ret = G_SOURCE_CONTINUE;
 
     if (!cmsg_service_listener_event_queue_process (info))
@@ -651,7 +651,7 @@ cmsg_glib_service_listener_listen_with_context (const char *service_name,
     int event_fd;
     GIOChannel *event_channel = NULL;
     GSource *source = NULL;
-    const cmsg_sl_info *info = NULL;
+    cmsg_sl_info *info = NULL;
 
     info = cmsg_service_listener_listen (service_name, handler, user_data);
     event_fd = cmsg_service_listener_get_event_fd (info);

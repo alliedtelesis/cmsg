@@ -22,7 +22,7 @@ typedef struct
 {
     GList *methods;
     cmsg_client *comp_client;   /* Client to publishers of this service */
-    const cmsg_sl_info *sl_info;
+    cmsg_sl_info *sl_info;
     GIOChannel *event_channel;  /* Listen to sld event notification */
     guint event_source_id;
 } service_data_entry;
@@ -117,7 +117,7 @@ _sl_event_handler (const cmsg_transport *transport, bool added, void *user_data)
 static gboolean
 _sl_event_process (GIOChannel *source, GIOCondition condition, gpointer data)
 {
-    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+    cmsg_sl_info *info = (cmsg_sl_info *) data;
     gboolean ret = G_SOURCE_CONTINUE;
 
     if (!cmsg_service_listener_event_queue_process (info))

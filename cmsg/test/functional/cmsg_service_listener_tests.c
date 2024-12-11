@@ -50,7 +50,7 @@ sl_event_handler (const cmsg_transport *transport, bool added, void *user_data)
 void
 test_cmsg_service_listener_listen_first (void)
 {
-    const cmsg_sl_info *info = NULL;
+    cmsg_sl_info *info = NULL;
     const char *service_name = NULL;
     cmsg_server *test_server = NULL;
 
@@ -80,7 +80,7 @@ test_cmsg_service_listener_listen_first (void)
 void
 test_cmsg_service_listener_listen_last (void)
 {
-    const cmsg_sl_info *info = NULL;
+    cmsg_sl_info *info = NULL;
     const char *service_name = NULL;
     cmsg_server *test_server = NULL;
 
@@ -110,7 +110,7 @@ test_cmsg_service_listener_listen_last (void)
 void
 test_cmsg_service_listener_create_server_after_crash (void)
 {
-    const cmsg_sl_info *info = NULL;
+    cmsg_sl_info *info = NULL;
     const char *service_name = NULL;
     cmsg_server *test_server1 = NULL;
     cmsg_server *test_server2 = NULL;

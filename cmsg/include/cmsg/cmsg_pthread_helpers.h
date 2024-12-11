@@ -34,8 +34,9 @@ cmsg_pthread_multithreaded_server_info *cmsg_pthread_multithreaded_server_init (
 void cmsg_pthread_multithreaded_server_destroy (cmsg_pthread_multithreaded_server_info
                                                 *info);
 
-bool cmsg_pthread_service_listener_listen (pthread_t *thread, const char *service_name,
-                                           cmsg_sl_event_handler_t handler,
-                                           void *user_data);
+cmsg_sl_info *cmsg_pthread_service_listener_listen (const char *service_name,
+                                                    cmsg_sl_event_handler_t handler,
+                                                    void *user_data);
+void cmsg_pthread_service_listener_unlisten (cmsg_sl_info *info);
 
 #endif /* __CMSG_PTHREAD_HELPERS_H_ */

@@ -395,7 +395,7 @@ cmsg_liboop_tcp_ipv6_oneway_server_init (const char *server_name, struct in6_add
 static void
 cmsg_liboop_sl_event_process (int sd, void *data)
 {
-    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+    cmsg_sl_info *info = (cmsg_sl_info *) data;
 
     if (!cmsg_service_listener_event_queue_process (info))
     {
@@ -419,7 +419,7 @@ const cmsg_sl_info *
 cmsg_liboop_service_listener_listen (const char *service_name,
                                      cmsg_sl_event_handler_t handler, void *user_data)
 {
-    const cmsg_sl_info *info = NULL;
+    cmsg_sl_info *info = NULL;
     oop_socket_hdl handle = NULL;
 
     info = cmsg_service_listener_listen (service_name, handler, user_data);

@@ -11,6 +11,7 @@
 #include "cmsg.h"
 #include "../cmsg_composite_client_private.h"
 #include "cmsg_broadcast_client.h"
+#include "cmsg_sl.h"
 
 typedef struct _cmsg_broadcast_client_event
 {
@@ -52,11 +53,10 @@ typedef struct _cmsg_broadcast_client_s
     /* Connect to the TCP server running on this node if it exists */
     bool connect_to_self;
 
-    /* Thread for monitoring the topology and creating clients as required */
-    pthread_t topology_thread;
-
     /* Queue for storing node join/leave events to the broadcast client */
     cmsg_broadcast_client_event_queue event_queue;
+
+    cmsg_sl_info *sl_info;
 } cmsg_broadcast_client;
 
 int32_t cmsg_broadcast_conn_mgmt_init (cmsg_broadcast_client *broadcast_client);
