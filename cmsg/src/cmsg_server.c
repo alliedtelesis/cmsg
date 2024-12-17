@@ -807,7 +807,8 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
 
     if (cmsg_server_list_is_empty (server_list))
     {
-        // Nothing to do
+        // Nothing to do. Sleep to avoid busy loop.
+        sleep (1);
         return CMSG_RET_OK;
     }
     CMSG_ASSERT_RETURN_VAL (server_list->poll_fd != -1, CMSG_RET_ERR);

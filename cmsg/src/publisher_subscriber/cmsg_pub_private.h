@@ -33,8 +33,6 @@ struct cmsg_publisher
     bool send_thread_running;
 
     cmsg_server *update_server;
-    pthread_t update_thread;
-    bool update_thread_running;
 };
 
 cmsg_client *cmsg_publisher_get_client_for_method (struct cmsg_publisher *publisher,
