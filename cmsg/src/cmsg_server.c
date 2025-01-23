@@ -805,11 +805,10 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
     struct epoll_event events[ACCEPT_MAX_EVENTS];
     GList *listnode = NULL;
 
-    if (cmsg_server_list_is_empty (server_list))
+    if (server_list == NULL)
     {
-        // Nothing to do. Sleep to avoid busy loop.
         sleep (1);
-        return CMSG_RET_OK;
+        return CMSG_RET_ERR;
     }
     CMSG_ASSERT_RETURN_VAL (server_list->poll_fd != -1, CMSG_RET_ERR);
 
