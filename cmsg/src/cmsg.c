@@ -6,7 +6,12 @@
 #include "cmsg_private.h"
 #include "cmsg_error.h"
 #include "cmsg_protobuf-c.h"
+#ifdef HAVE_GMEM_DIAG
 #include <gmem_diag.h>
+#else
+#define g_mem_record_alloc(ptr, type, filename, line)
+#define g_mem_record_free(ptr, type, filename, line)
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
