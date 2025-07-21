@@ -12,8 +12,9 @@
 #include "service_listener/cmsg_sl_api_private.h"
 #include "cmsg_protobuf-c.h"
 #include "cmsg_ant_result.h"
+#ifdef HAVE_EVENTWATCH
 #include <eventwatch.h>
-
+#endif
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"
@@ -96,6 +97,7 @@ cmsg_server_send_response (const ProtobufCMessage *send_msg, const void *service
 }
 
 
+#ifdef HAVE_EVENTWATCH
 /**
  * Initializes the eventwatch features used by methods of the specified service.
  */
@@ -115,6 +117,7 @@ cmsg_server_method_eventwatch_notify_init (const ProtobufCService *service)
         }
     }
 }
+#endif
 
 /*
  * This is an internal function which can be called from CMSG library.
@@ -237,8 +240,9 @@ cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
     if (server != NULL)
     {
         cmsg_service_listener_add_server (server);
+#ifdef HAVE_EVENTWATCH
         cmsg_server_method_eventwatch_notify_init (service);
-
+#endif
 #ifdef HAVE_COUNTERD
         char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
@@ -1276,11 +1280,12 @@ cmsg_server_invoke_impl (ProtobufCService *service, unsigned method_index,
         cmsg_impl_func func = (cmsg_impl_func) impl_info[method_index].impl_func;
         func (&closure_info, input);
     }
-
+#ifdef HAVE_EVENTWATCH
     if (method_extensions && method_extensions->eventwatch_notify)
     {
         eventwatch_event (method_extensions->eventwatch_notify);
     }
+#endif
 }
 
 void

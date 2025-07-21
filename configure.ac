@@ -34,7 +34,7 @@ PKG_CHECK_MODULES([NOVAPROVA],[novaprova],[],[unittest_prereq=no])
 PKG_CHECK_MODULES([DEBUG_AWPLUS],[debug_awplus],[AC_DEFINE([HAVE_DEBUG_AWPLUS],[1],[Tracelog is available])],[cmsg_prereq=no])
 PKG_CHECK_MODULES([HEALTHCHECK],[healthcheck],[],[cmsg_prereq=no])
 PKG_CHECK_MODULES([OPENSSL],[openssl],[],[cmsg_prereq=no])
-PKG_CHECK_MODULES([EVENTWATCH],[eventwatch],[],[cmsg_prereq=no])
+PKG_CHECK_MODULES([EVENTWATCH],[eventwatch],[AC_DEFINE([HAVE_EVENTWATCH],[1],[Eventwatch is available])],[cmsg_prereq=no])
 AX_PTHREAD([],[unittest_prereq=no])
 
 AC_ARG_VAR(PROTOC_PATH, [  Path to the protoc compiler])
