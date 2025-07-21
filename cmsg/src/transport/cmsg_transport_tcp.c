@@ -9,7 +9,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#ifdef HAVE_SIMPLE_SHM
 #include <simple_shm.h>
+#endif
 
 /* This value should match the maximum number of expected nodes in a
  * cluster using the CMSG service listener functionality. */
@@ -27,6 +29,7 @@ typedef struct
     tcp_connection_cache_entry entries[TCP_CONNECTION_CACHE_SIZE];
 } tcp_connection_cache;
 
+#ifdef HAVE_SIMPLE_SHM
 static void cmsg_transport_tcp_cache_init (void *_cache);
 
 static simple_shm_info shm_info = {
@@ -115,6 +118,20 @@ cmsg_transport_tcp_cache_should_connect (struct in_addr *address)
 
     return true;
 }
+#else
+/* No cache */
+void
+cmsg_transport_tcp_cache_set (struct in_addr *address, bool present)
+{
+    return;
+}
+
+static bool
+cmsg_transport_tcp_cache_should_connect (struct in_addr *address)
+{
+    return true;
+}
+#endif /* HAVE_SIMPLE_SHM */
 
 /*
  * Create a TCP socket connection.

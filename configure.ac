@@ -33,6 +33,7 @@ PKG_CHECK_MODULES([GMEM_DIAG],[gmem_diag],[AC_DEFINE([HAVE_GMEM_DIAG],[1],[Glib 
 PKG_CHECK_MODULES([NOVAPROVA],[novaprova],[],[unittest_prereq=no])
 PKG_CHECK_MODULES([DEBUG_AWPLUS],[debug_awplus],[AC_DEFINE([HAVE_DEBUG_AWPLUS],[1],[Tracelog is available])],[cmsg_prereq=no])
 PKG_CHECK_MODULES([HEALTHCHECK],[healthcheck],[],[cmsg_prereq=no])
+PKG_CHECK_MODULES([SIMPLE_SHM],[simple_shm],[AC_DEFINE([HAVE_SIMPLE_SHM],[1],[Simple Shared Memory is available])],[cmsg_prereq=no])
 PKG_CHECK_MODULES([OPENSSL],[openssl],[],[cmsg_prereq=no])
 PKG_CHECK_MODULES([EVENTWATCH],[eventwatch],[AC_DEFINE([HAVE_EVENTWATCH],[1],[Eventwatch is available])],[cmsg_prereq=no])
 AX_PTHREAD([],[unittest_prereq=no])
