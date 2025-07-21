@@ -19,7 +19,11 @@
 #include <sys/epoll.h>
 #include <sys/time.h>
 #include <string.h>
+#ifdef HAVE_DEBUG_AWPLUS
 #include <utility/tracelog.h>
+#else
+#define tracelog(tag, fmt, args...)
+#endif
 #include <glib.h>
 #include <protobuf-c/protobuf-c.h>
 
