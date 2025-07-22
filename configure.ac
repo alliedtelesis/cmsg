@@ -28,7 +28,7 @@ AC_CONFIG_FILES([Makefile
   cmsg-proxy/file_upload_protobuf.pc])
 
 PKG_CHECK_MODULES([GLIB],[glib-2.0])
-PKG_CHECK_MODULES([OOP],[liboop],[],[cmsg_prereq=no])
+PKG_CHECK_MODULES([OOP],[liboop],[AC_DEFINE([HAVE_LIBOOP],[1],[liboop is available])],[cmsg_prereq=no])
 PKG_CHECK_MODULES([GMEM_DIAG],[gmem_diag],[AC_DEFINE([HAVE_GMEM_DIAG],[1],[Glib Memory Diagnostics are available])],[unittest_prereq=no])
 PKG_CHECK_MODULES([NOVAPROVA],[novaprova],[],[unittest_prereq=no])
 PKG_CHECK_MODULES([DEBUG_AWPLUS],[debug_awplus],[AC_DEFINE([HAVE_DEBUG_AWPLUS],[1],[Tracelog is available])],[cmsg_prereq=no])

@@ -6,7 +6,7 @@
  *
  * Copyright 2020, Allied Telesis Labs New Zealand, Ltd
  */
-
+#ifdef HAVE_LIBOOP
 #include <oop_util.h>
 #include <gmodule.h>
 #include <sys/eventfd.h>
@@ -436,3 +436,4 @@ cmsg_liboop_service_listener_listen (const char *service_name,
 
     return info;
 }
+#endif /* HAVE_LIBOOP */
