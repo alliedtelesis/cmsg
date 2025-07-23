@@ -9,12 +9,12 @@
 #include "cmsg_crypto.h"
 #include "cmsg_error.h"
 
-#define tracelog_openssl_error() \
+#define debug_openssl_error() \
     do { \
         int __e; \
         while ((__e = ERR_get_error ()) != 0) \
         { \
-            tracelog ("cmsg-openssl", "%s", ERR_error_string(__e, NULL)); \
+            CMSG_LOG_DEBUG ("[CRYPTO]%s", ERR_error_string(__e, NULL)); \
         } \
     } while (0)
 
@@ -157,7 +157,7 @@ cmsg_crypto_encrypt (cmsg_crypto_sa *sa, void *inbuf, int length,
     /* encrypt the data for the message */
     if (EVP_EncryptInit_ex (sa->ctx_out, EVP_aes_256_cbc (), NULL, sa->keydata, NULL) != 1)
     {
-        tracelog_openssl_error ();
+        debug_openssl_error ();
         return -1;
     }
 
@@ -174,7 +174,7 @@ cmsg_crypto_encrypt (cmsg_crypto_sa *sa, void *inbuf, int length,
         }
         else
         {
-            tracelog_openssl_error ();
+            debug_openssl_error ();
             out_length = -1;
         }
     }
@@ -244,7 +244,7 @@ cmsg_crypto_decrypt (cmsg_crypto_sa *sa, void *inbuf, int length, void *outbuf,
         if (EVP_DecryptInit_ex (sa->ctx_in, EVP_aes_256_cbc (), NULL, sa->keydata,
                                 NULL) != 1)
         {
-            tracelog_openssl_error ();
+            debug_openssl_error ();
             return -1;
         }
 
@@ -256,13 +256,13 @@ cmsg_crypto_decrypt (cmsg_crypto_sa *sa, void *inbuf, int length, void *outbuf,
             }
             else
             {
-                tracelog_openssl_error ();
+                debug_openssl_error ();
                 out_length = -1;
             }
         }
         else
         {
-            tracelog_openssl_error ();
+            debug_openssl_error ();
             out_length = -1;
         }
     }

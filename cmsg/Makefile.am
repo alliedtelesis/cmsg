@@ -193,7 +193,7 @@ libcmsg_la_SOURCES = \
 	src/publisher_subscriber/update.pb-c.c \
 	src/cmsg_protobuf-c.c
 
-libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c $(OOP_LIBS) $(OPENSSL_LIBS) $(SIMPLE_SHM_LIBS) $(EVENTWATCH_LIBS)
+libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(UTILITY_LIBS) -lprotobuf-c $(OOP_LIBS) $(OPENSSL_LIBS) $(SIMPLE_SHM_LIBS) $(EVENTWATCH_LIBS)
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
@@ -404,7 +404,7 @@ cmsg_unit_tests_SOURCES = \
 cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
 cmsg_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/src
 cmsg_unit_tests_LDFLAGS = -static
-cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
+cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) libcmsg.la -lprotobuf-c
 
 test/functional/cmsg_functional_tests_api_auto.c \
 test/functional/cmsg_functional_tests_api_auto.h \
@@ -451,7 +451,7 @@ cmsg_functional_tests_SOURCES = \
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) $(PTHREAD_CFLAGS) -include $(top_builddir)/config.h
 cmsg_functional_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg -I$(top_builddir) -I$(top_srcdir)/cmsg/src
 cmsg_functional_tests_LDFLAGS = -static
-cmsg_functional_tests_LDADD   = $(PTHREAD_LIBS) $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
+cmsg_functional_tests_LDADD   = $(PTHREAD_LIBS) $(NOVAPROVA_LIBS) $(GLIB_LIBS) libcmsg.la -lprotobuf-c
 
 bin_PROGRAMS += cmsg_service_listener_unit_tests
 cmsg_service_listener_unit_tests_SOURCES = \
@@ -472,7 +472,7 @@ cmsg_service_listener_unit_tests_SOURCES = \
 cmsg_service_listener_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
 cmsg_service_listener_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 cmsg_service_listener_unit_tests_LDFLAGS = -static
-cmsg_service_listener_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
+cmsg_service_listener_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) libcmsg.la -lprotobuf-c
 
 bin_PROGRAMS += cmsg_publisher_subscriber_unit_tests
 cmsg_publisher_subscriber_unit_tests_SOURCES = \
@@ -492,5 +492,5 @@ cmsg_publisher_subscriber_unit_tests_SOURCES = \
 cmsg_publisher_subscriber_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
 cmsg_publisher_subscriber_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 cmsg_publisher_subscriber_unit_tests_LDFLAGS = -static
-cmsg_publisher_subscriber_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
+cmsg_publisher_subscriber_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) libcmsg.la -lprotobuf-c
 endif # BUILD_UNITTEST
