@@ -33,7 +33,7 @@ libfile_upload_protobuf_la_CFLAGS  =
 ## Library for cmsg proxy configuration
 libcmsgproxyconfig_la_LDFLAGS = -version-info 1:0:0 # version:revision:age
 libcmsgproxyconfig_la_SOURCES = src/cmsg_proxy_config.c cmsg_proxy_config.h
-libcmsgproxyconfig_la_LIBADD = -lsimple_shm
+libcmsgproxyconfig_la_LIBADD = $(SIMPLE_SHM_LIBS)
 libcmsgproxyconfig_la_CFLAGS  = -include $(top_builddir)/config.h
 
 ## Library for using the cmsg proxy http streaming functionality

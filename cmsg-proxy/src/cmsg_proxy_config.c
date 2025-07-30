@@ -8,7 +8,9 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#ifdef HAVE_SIMPLE_SHM
 #include "simple_shm.h"
+#endif
 #include "cmsg_proxy_config.h"
 
 typedef struct
@@ -17,6 +19,7 @@ typedef struct
     uint32_t readonly_privilege;
 } cmsg_proxy_config;
 
+#ifdef HAVE_SIMPLE_SHM
 static void init_config (cmsg_proxy_config *proxy_conf);
 
 static simple_shm_info shm_info = {
@@ -68,3 +71,4 @@ cmsg_proxy_config_get_readonly_privilege (void)
 
     return config->readonly_privilege;
 }
+#endif
