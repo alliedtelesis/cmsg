@@ -47,6 +47,7 @@ typedef struct program_args_s
     bool oneway;
     bool disable_error_logs;
     bool list_methods;
+    uint32_t timeout;
 } program_args;
 
 typedef struct pbc_descriptors_s
@@ -57,7 +58,7 @@ typedef struct pbc_descriptors_s
     int method_index;
 } pbc_descriptors;
 
-#define SHELL_OPTIONS    "a:f:hi:lm:n:op:s:t:r:"
+#define SHELL_OPTIONS    "a:f:hi:lm:n:op:s:t:r:T:"
 
 static struct option longopts[] = {
     { "api_name", required_argument, NULL, 'a' },
@@ -72,6 +73,7 @@ static struct option longopts[] = {
     { "service_name", required_argument, NULL, 's' },
     { "transport_type", required_argument, NULL, 't' },
     { "ip_address", required_argument, NULL, 'r' },
+    { "timeout", required_argument, NULL, 'T' },
     { 0 }
 };
 
@@ -84,7 +86,7 @@ usage (void)
     fprintf (stderr,
              "Usage: cmsg [-t {unix|tcp}] | [-f FILE_NAME] | [-p PACKAGE_NAME] |\n"
              "            [-s CMSG_SERVICE_NAME] | [-a API_NAME] | [-m MESSAGE_DATA] |\n"
-             "            [-o] | [-n PORT_SERVICE_NAME]\n"
+             "            [-o] | [-n PORT_SERVICE_NAME] | [-T TIMEOUT]\n"
              "       cmsg [-l] | [-f FILE_NAME] | [-p PACKAGE_NAME] | [-s CMSG_SERVICE_NAME]\n"
              "\n"
              "Options:\n"
@@ -103,7 +105,8 @@ usage (void)
              "  -n PORT_SERVICE_NAME    The service name for the port specified in the /etc/services file\n"
              "                          (if using a TCP transport).\n"
              "  -r TCP_IP_ADDRESS       The IP address of the server to connect to (if using a\n"
-             "                          TCP transport). Currently this must be an IPv4 address.\n\n");
+             "                          TCP transport). Currently this must be an IPv4 address.\n"
+             "  -T TIMEOUT              Receive timeout in seconds (default: 100)\n\n");
 }
 
 /**
@@ -152,6 +155,8 @@ get_ipv4_address (program_args *args, const char *addr_string)
 static void
 program_args_init (program_args *args)
 {
+    const char *timeout_str;
+
     args->transport_type = TRANSPORT_TYPE_NONE;
     args->file_name = NULL;
     args->package_name = NULL;
@@ -162,6 +167,14 @@ program_args_init (program_args *args)
     args->oneway = false;
     args->valid_ip_address = false;
     args->disable_error_logs = false;
+    args->timeout = 0;
+
+    /* Choose the default timeout if it's set via environment variable */
+    timeout_str = getenv ("CMSG_TIMEOUT");
+    if (timeout_str)
+    {
+        args->timeout = atoi (timeout_str);
+    }
 }
 
 /**
@@ -303,6 +316,9 @@ parse_input_arguments (int argc, char **argv, program_args *args)
             break;
         case 'r':
             get_ipv4_address (args, optarg);
+            break;
+        case 'T':
+            args->timeout = atoi (optarg);
             break;
         case '?':
             /* getopt_long already printed an error message. */
@@ -565,6 +581,12 @@ call_api (program_args *args, pbc_descriptors *descriptors,
     {
         fprintf (stderr, "Failed to create CMSG client\n");
         return false;
+    }
+
+    /* Change the default receive timeout with the user-specified value */
+    if (args->timeout != 0)
+    {
+        cmsg_client_set_receive_timeout (client, args->timeout);
     }
 
     cmsg_ret = cmsg_api_invoke (client, descriptors->cmsg_service_descriptor,
