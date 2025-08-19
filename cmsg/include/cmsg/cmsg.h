@@ -287,6 +287,8 @@ const char *cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor)
 
 const char *cmsg_socket_path (void);
 
+uint16_t cmsg_namespace (void);
+
 int32_t cmsg_dump_msg_to_file (const ProtobufCMessage *msg, const char *file_name);
 ProtobufCMessage *cmsg_get_msg_from_file (const ProtobufCMessageDescriptor *desc,
                                           const char *file_name);

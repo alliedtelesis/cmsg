@@ -254,8 +254,9 @@ cmsg_ps_create_publisher_update_server (void)
     transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
     snprintf (transport->config.socket.sockaddr.un.sun_path,
               sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
-              "%s/%s.%u.%u", cmsg_socket_path (),
-              cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_psd, update)), getpid (), id++);
+              "%s/%s.%u.%u.%u", cmsg_socket_path (),
+              cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_psd, update)),
+              cmsg_namespace (), getpid (), id++);
 
     return cmsg_server_new (transport, CMSG_SERVICE (cmsg_psd, update));
 }

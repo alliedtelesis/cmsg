@@ -174,8 +174,9 @@ event_server_init (void)
     transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
     snprintf (transport->config.socket.sockaddr.un.sun_path,
               sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
-              "%s/%s.%u", cmsg_socket_path (),
-              cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_sld, events)), getpid ());
+              "%s/%s.%u.%u", cmsg_socket_path (),
+              cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_sld, events)),
+              cmsg_namespace (), getpid ());
 
     event_server = cmsg_server_new (transport, CMSG_SERVICE (cmsg_sld, events));
     cmsg_pthread_server_init (&event_server_thread, event_server);

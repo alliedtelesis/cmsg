@@ -343,6 +343,25 @@ cmsg_socket_path (void)
     return path;
 }
 
+uint16_t
+cmsg_namespace (void)
+{
+    static uint16_t ns = 0;
+    if (ns == 0)
+    {
+        /* Use 16 bits of the inode id of the mnt ns file
+         * in a similar way to ftok as the namespace id */
+        char *path = g_strdup_printf ("/proc/%d/ns/mnt", getpid ());
+        struct stat st = { 0 };
+        if (stat (path, &st) == 0)
+        {
+            ns = (uint16_t) st.st_ino;
+        }
+        free (path);
+    }
+    return ns;
+}
+
 void *
 cmsg_malloc (size_t size, const char *filename, int line)
 {
