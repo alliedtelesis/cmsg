@@ -328,6 +328,21 @@ cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor)
     return descriptor->name;
 }
 
+const char *
+cmsg_socket_path (void)
+{
+    static const char *path = NULL;
+    if (!path)
+    {
+        path = getenv ("CMSG_SOCKET_PATH");
+    }
+    if (!path)
+    {
+        path = "/tmp";
+    }
+    return path;
+}
+
 void *
 cmsg_malloc (size_t size, const char *filename, int line)
 {

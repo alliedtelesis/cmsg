@@ -23,6 +23,8 @@ static int32_t
 cmsg_transport_unix_connect (cmsg_transport *transport)
 {
     int32_t ret;
+    const char *path;
+    struct sockaddr_un sock;
     struct sockaddr_un *addr;
     uint32_t addrlen;
 
@@ -38,6 +40,17 @@ cmsg_transport_unix_connect (cmsg_transport *transport)
 
     addr = (struct sockaddr_un *) &transport->config.socket.sockaddr.un;
     addrlen = sizeof (transport->config.socket.sockaddr.un);
+
+    /* Other processes may have a different path to the cmsg unix socket
+     * files. Make sure we use our path to the sockets */
+    path = cmsg_socket_path ();
+    if (strncmp (addr->sun_path, path, strlen (path)) != 0)
+    {
+        sock.sun_family = addr->sun_family;
+        snprintf (sock.sun_path, sizeof (sock.sun_path), "%s%s",
+                  path, strrchr (addr->sun_path, '/'));
+        addr = &sock;
+    }
 
     if (connect (transport->socket, (struct sockaddr *) addr, addrlen) < 0)
     {
@@ -296,7 +309,7 @@ cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor)
     char *copy_str = NULL;
     char *iter;
 
-    CMSG_ASPRINTF (&copy_str, "/tmp/%s", descriptor->name);
+    CMSG_ASPRINTF (&copy_str, "%s/%s", cmsg_socket_path (), descriptor->name);
 
     /* Replace the '.' in the name with '_' */
     iter = copy_str;
