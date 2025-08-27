@@ -771,9 +771,12 @@ monitor (void *lib_handle, program_args *args)
     pthread_t subscriber_processing_thread;
     cmsg_subscriber *subscriber;
     cmsg_server *server;
-    ProtobufCService service = {
-        .invoke = monitor_invoke
+    cmsg_service service_full = {
+        .base = {
+                 .invoke = monitor_invoke,
+                 },
     };
+    ProtobufCService *service = &service_full.base;
     int method_index;
 
     /* Load the requested service descriptor */
@@ -781,19 +784,19 @@ monitor (void *lib_handle, program_args *args)
     {
         return false;
     }
-    service.descriptor = cmsg_descriptor->service_desc;
+    service->descriptor = cmsg_descriptor->service_desc;
 
     /* Create the subscriber */
     if (args->transport_type == TRANSPORT_TYPE_UNIX)
     {
-        subscriber = cmsg_subscriber_create_unix (&service);
+        subscriber = cmsg_subscriber_create_unix (service);
         server = subscriber ? cmsg_sub_unix_server_get (subscriber) : NULL;
     }
     else
     {
         subscriber =
             cmsg_subscriber_create_tcp (args->port_service_name, args->tcp_ip_address, NULL,
-                                        &service);
+                                        service);
         server = subscriber ? cmsg_sub_tcp_server_get (subscriber) : NULL;
     }
     if (!subscriber)
@@ -815,17 +818,18 @@ monitor (void *lib_handle, program_args *args)
     }
     else
     {
-        for (method_index = 0; method_index < service.descriptor->n_methods; method_index++)
+        for (method_index = 0; method_index < service->descriptor->n_methods;
+             method_index++)
         {
             if (local)
             {
                 cmsg_sub_subscribe_local (subscriber,
-                                          service.descriptor->methods[method_index].name);
+                                          service->descriptor->methods[method_index].name);
             }
             else
             {
                 cmsg_sub_subscribe_remote (subscriber,
-                                           service.descriptor->methods[method_index].name,
+                                           service->descriptor->methods[method_index].name,
                                            args->tcp_ip_address);
             }
         }
