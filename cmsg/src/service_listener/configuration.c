@@ -17,6 +17,23 @@
 static cmsg_server *server = NULL;
 
 /**
+ * Use the peer pid from the service reply socket in preference to the pid the
+ * peer process thinks it has as it may be in a different namespace to us.
+ */
+static int
+get_peer_pid (const void *service, int old_pid)
+{
+    int pid;
+
+    pid = cmsg_peer_pid_from_service_get (service);
+    if (pid > 0)
+    {
+        return pid;
+    }
+    return old_pid;
+}
+
+/**
  * Configures the address information for the CMSG server running in the service listener
  * daemon for syncing to remote hosts.
  */
@@ -71,6 +88,7 @@ void
 cmsg_sld_configuration_impl_listen (const void *service,
                                     const cmsg_sld_listener_info *recv_msg)
 {
+    ((cmsg_sld_listener_info *) recv_msg)->pid = get_peer_pid (service, recv_msg->pid);
     data_add_listener (recv_msg);
     cmsg_sld_configuration_server_listenSend (service);
 }
@@ -83,6 +101,7 @@ void
 cmsg_sld_configuration_impl_unlisten (const void *service,
                                       const cmsg_sld_listener_info *recv_msg)
 {
+    ((cmsg_sld_listener_info *) recv_msg)->pid = get_peer_pid (service, recv_msg->pid);
     data_remove_listener (recv_msg);
     cmsg_sld_configuration_server_unlistenSend (service);
 }
@@ -105,6 +124,7 @@ cmsg_sld_configuration_impl_add_server (const void *service,
 
     /* We hold onto the message to store in the data hash table */
     cmsg_server_app_owns_current_msg_set (server);
+    ((cmsg_service_info *) recv_msg)->pid = get_peer_pid (service, recv_msg->pid);
     data_add_server ((cmsg_service_info *) recv_msg, true);
 
     cmsg_sld_configuration_server_add_serverSend (service);
@@ -126,6 +146,7 @@ cmsg_sld_configuration_impl_remove_server (const void *service,
         return;
     }
 
+    ((cmsg_service_info *) recv_msg)->pid = get_peer_pid (service, recv_msg->pid);
     data_remove_server (recv_msg, true);
 
     cmsg_sld_configuration_server_remove_serverSend (service);

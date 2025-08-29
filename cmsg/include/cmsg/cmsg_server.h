@@ -298,6 +298,7 @@ cmsg_server *cmsg_create_server_tipc_broadcast (ProtobufCService *descriptor,
 const cmsg_server *cmsg_server_from_service_get (const void *service);
 const char *cmsg_server_description_from_service_get (const void *service);
 bool cmsg_server_is_transport_broadcast_from_service (const void *service);
+int cmsg_peer_pid_from_service_get (const void *service);
 
 cmsg_server_thread_task_info *cmsg_server_thread_task_info_create (cmsg_server *server,
                                                                    int timeout);

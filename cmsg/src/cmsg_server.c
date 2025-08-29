@@ -2863,6 +2863,36 @@ cmsg_server_from_service_get (const void *service)
 }
 
 /**
+ * Helper function that can be used to get the other process pid from
+ * the request from the 'service' parameter of any given IMPL function.
+ *
+ * @param service - The 'service' pointer passed to the IMPL function.
+ *
+ * @returns The pid of the other process.
+ */
+int
+cmsg_peer_pid_from_service_get (const void *service)
+{
+    const cmsg_server_closure_info *closure_info = service;
+    const cmsg_server_closure_data *closure_data;
+    int reply_socket;
+    struct ucred ucred;
+    socklen_t uclen = sizeof (struct ucred);
+    int pid = -1;
+
+    if (closure_info)
+    {
+        closure_data = closure_info->closure_data;
+        reply_socket = closure_data->reply_socket;
+        if (getsockopt (reply_socket, SOL_SOCKET, SO_PEERCRED, &ucred, &uclen) == 0)
+        {
+            pid = ucred.pid;
+        }
+    }
+    return pid;
+}
+
+/**
  * Helper function that can be used to get the string of server processing
  * the request from the 'service' parameter of any given IMPL function.
  *
