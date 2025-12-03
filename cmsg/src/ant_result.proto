@@ -82,8 +82,9 @@ enum ant_code
     // authentication credentials for the operation.
     ANT_CODE_UNAUTHENTICATED = 16;
 
-    // One or more items in a batch operation failed. The "details" field
-    // should be examined for more information.
+    // One or more items in a batch operation failed. The HTTP response
+    // code will be 200. The "details" field will show codes and messages
+    // for individual items in the batch.
     ANT_CODE_BATCH_PARTIAL_FAIL = 17;
     ANT_CODE_MAX = 18;
 }
