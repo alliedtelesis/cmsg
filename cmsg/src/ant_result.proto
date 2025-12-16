@@ -5,7 +5,7 @@ enum ant_code
     // OK is returned on success.
     ANT_CODE_OK = 0;
 
-    // Canceled indicates the operation was cancelled (typically by the caller).
+    // Cancelled indicates the operation was cancelled (typically by the caller).
     ANT_CODE_CANCELLED = 1;
 
     // Unknown error.  An example of where this error may be returned is
