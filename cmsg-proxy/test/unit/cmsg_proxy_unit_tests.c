@@ -2518,6 +2518,44 @@ test_cmsg_proxy_input_process_invalid_input (void)
 }
 
 /**
+ * Function Tested: cmsg_proxy_input_process()
+ *
+ * Tests that cmsg_proxy_input_process rejects unknown query parameters
+ * as invalid arguments.
+ */
+void
+test_cmsg_proxy_input_process_unknown_query_parameter (void)
+{
+    ProtobufCMessage *input_message = NULL;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+    cmsg_proxy_processing_info processing_info = { 0 };
+    json_t *json_obj = NULL;
+    json_t *error_code = NULL;
+
+    input.url = "/v1/test/query_param/AA/CC";
+    input.query_string = "unknown_key=ZZ";
+    input.http_verb = CMSG_HTTP_GET;
+
+    setup_standard_test_tree ();
+    cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
+
+    input_message = cmsg_proxy_input_process (&input, &output, &processing_info);
+
+    NP_ASSERT_NULL (input_message);
+    NP_ASSERT_NOT_NULL (output.response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_BAD_REQUEST);
+
+    json_obj = json_loads (output.response_body, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+    error_code = json_object_get (json_obj, "code");
+    NP_ASSERT_STR_EQUAL (json_string_value (error_code), "ANT_CODE_INVALID_ARGUMENT");
+
+    json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
  * Function Tested: cmsg_proxy_set_http_status()
  *
  * Tests that cmsg_proxy_set_http_status returns true if the _error_info field
