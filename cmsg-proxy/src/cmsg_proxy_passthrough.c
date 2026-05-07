@@ -158,20 +158,20 @@ cmsg_proxy_passthrough_init (const char *library_path)
 void
 cmsg_proxy_passthrough_deinit (void)
 {
-    if (lib_handle)
-    {
-        dlclose (lib_handle);
-        lib_handle = NULL;
-
-        CMSG_PROXY_COUNTER_INC (cntr_service_info_unloaded);
-    }
-
     if (client)
     {
         cmsg_destroy_client_and_transport (client);
         client = NULL;
 
         CMSG_PROXY_COUNTER_INC (cntr_client_freed);
+    }
+
+    if (lib_handle)
+    {
+        dlclose (lib_handle);
+        lib_handle = NULL;
+
+        CMSG_PROXY_COUNTER_INC (cntr_service_info_unloaded);
     }
 
     api_service_info = NULL;
