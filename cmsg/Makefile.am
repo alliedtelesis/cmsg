@@ -199,6 +199,10 @@ if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
 endif
 
+if HAVE_TRACE
+libcmsg_la_LIBADD += -lprotobuf2json-c
+endif
+
 libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS) -include $(top_builddir)/config.h
 libcmsg_la_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 libcmsg_ladir       = $(includedir)/cmsg

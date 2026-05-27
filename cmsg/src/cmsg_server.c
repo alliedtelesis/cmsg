@@ -4,6 +4,7 @@
  */
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
+#include "cmsg_debug.h"
 #include "cmsg_private.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
@@ -1268,6 +1269,11 @@ cmsg_server_invoke_impl (ProtobufCService *service, unsigned method_index,
         /* impl_func is set to NULL for file response APIs, but shouldn't get to here */
         return;
     }
+
+#ifdef HAVE_TRACE
+    cmsg_trace_message (service->descriptor->name,
+                        service->descriptor->methods[method_index].name, input);
+#endif /* HAVE_TRACE */
 
     if (service->descriptor->methods[method_index].input->n_fields == 0)
     {

@@ -10,4 +10,9 @@
 void cmsg_dump_protobuf_msg (FILE *fp, const ProtobufCMessage *protobuf_message,
                              int indent);
 
+#ifdef HAVE_TRACE
+void cmsg_trace_message (const char *service_name, const char *method_name,
+                         const ProtobufCMessage *input);
+#endif /* HAVE_TRACE */
+
 #endif /* _CMSG_DEBUG_H_ */
