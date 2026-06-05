@@ -75,6 +75,7 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
     case CMSG_TRANSPORT_BROADCAST:
     case CMSG_TRANSPORT_ONEWAY_UNIX:
     case CMSG_TRANSPORT_FORWARDING:
+    case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
         return cmsg_server_closure_oneway;
     }
 
@@ -2921,6 +2922,9 @@ cmsg_server_description_from_service_get (const void *service)
             {
             case CMSG_TRANSPORT_LOOPBACK:
                 return "Loopback";
+
+            case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
+                return "Loopback-One";
 
             case CMSG_TRANSPORT_RPC_TCP:
                 return "TCP-RPC";

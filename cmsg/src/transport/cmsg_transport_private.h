@@ -129,6 +129,7 @@ typedef union _cmsg_transport_config_u
 typedef enum _cmsg_transport_type_e
 {
     CMSG_TRANSPORT_LOOPBACK,
+    CMSG_TRANSPORT_ONEWAY_LOOPBACK,
     CMSG_TRANSPORT_RPC_TCP,
     CMSG_TRANSPORT_ONEWAY_TCP,
     CMSG_TRANSPORT_BROADCAST,

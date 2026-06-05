@@ -281,6 +281,7 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
         }
 
     case CMSG_TRANSPORT_LOOPBACK:
+    case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
         {
             strncpy (tport->tport_id, ".lpb", CMSG_MAX_TPORT_ID_LEN);
             break;
@@ -367,6 +368,7 @@ cmsg_transport_new (cmsg_transport_type type)
         break;
 
     case CMSG_TRANSPORT_LOOPBACK:
+    case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
         cmsg_transport_loopback_init (transport);
         break;
 
