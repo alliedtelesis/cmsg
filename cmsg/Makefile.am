@@ -1,5 +1,8 @@
 lib_LTLIBRARIES = libcmsg.la
 bin_PROGRAMS = cmsg cmsg_sld cmsg_psd
+if HAVE_TRACE
+bin_SCRIPTS = src/shell_application/cmsg_trace_replay.lua
+endif
 
 pkgconfiglibdir = $(libdir)/pkgconfig
 pkgconfiglib_DATA = cmsg.pc
