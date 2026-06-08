@@ -1,5 +1,8 @@
 lib_LTLIBRARIES = libcmsg.la
 bin_PROGRAMS = cmsg cmsg_sld cmsg_psd
+if HAVE_TRACE
+bin_SCRIPTS = src/shell_application/cmsg_trace_replay.lua
+endif
 
 pkgconfiglibdir = $(libdir)/pkgconfig
 pkgconfiglib_DATA = cmsg.pc
@@ -197,6 +200,10 @@ libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(UTILITY_LIBS) -lprotobuf-c 
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
+endif
+
+if HAVE_TRACE
+libcmsg_la_LIBADD += -lprotobuf2json-c
 endif
 
 libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS) -include $(top_builddir)/config.h

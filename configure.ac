@@ -81,6 +81,15 @@ if test "x$enableval" = xyes ; then
 fi)
 AM_CONDITIONAL(HAVE_COUNTERD, test $HAVE_COUNTERD = 1)
 
+# --- Check if IPC message tracing is enabled
+HAVE_TRACE=0
+AC_ARG_ENABLE(tracing, [  --enable-tracing        Enable IPC message tracing],
+if test "x$enableval" = xyes ; then
+  HAVE_TRACE=1
+  AC_DEFINE(HAVE_TRACE, 1, [enable IPC message tracing])
+fi)
+AM_CONDITIONAL(HAVE_TRACE, test $HAVE_TRACE = 1)
+
 AC_ARG_ENABLE([pidfd], [AS_HELP_STRING([--with-pidfd], [Use pidfd or pidpoll in cmsg])])
 if test "${with_pidfd}" = "yes"; then
   AC_DEFINE([HAVE_PIDFD],1,[pidfd])
@@ -124,4 +133,5 @@ AC_MSG_RESULT([
         protoc-cmsg-path:       ${PROTOC_CMSG_PATH}
         cmsg:                   ${BUILD_CMSG}
         counterd:               ${HAVE_COUNTERD}
+        tracing:                ${HAVE_TRACE}
 ])

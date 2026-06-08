@@ -239,6 +239,10 @@ create_client (cmsg_transport_type type, int family)
         client = cmsg_create_client_loopback (CMSG_SERVICE (cmsg, test));
         break;
 
+    case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
+        client = cmsg_create_client_loopback_oneway (CMSG_SERVICE (cmsg, test));
+        break;
+
     default:
         NP_FAIL;
     }

@@ -4,6 +4,7 @@
  */
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
+#include "cmsg_debug.h"
 #include "cmsg_private.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
@@ -74,6 +75,7 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
     case CMSG_TRANSPORT_BROADCAST:
     case CMSG_TRANSPORT_ONEWAY_UNIX:
     case CMSG_TRANSPORT_FORWARDING:
+    case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
         return cmsg_server_closure_oneway;
     }
 
@@ -1268,6 +1270,11 @@ cmsg_server_invoke_impl (ProtobufCService *service, unsigned method_index,
         /* impl_func is set to NULL for file response APIs, but shouldn't get to here */
         return;
     }
+
+#ifdef HAVE_TRACE
+    cmsg_trace_message (service->descriptor->name,
+                        service->descriptor->methods[method_index].name, input);
+#endif /* HAVE_TRACE */
 
     if (service->descriptor->methods[method_index].input->n_fields == 0)
     {
@@ -2915,6 +2922,9 @@ cmsg_server_description_from_service_get (const void *service)
             {
             case CMSG_TRANSPORT_LOOPBACK:
                 return "Loopback";
+
+            case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
+                return "Loopback-One";
 
             case CMSG_TRANSPORT_RPC_TCP:
                 return "TCP-RPC";

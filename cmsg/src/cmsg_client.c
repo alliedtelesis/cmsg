@@ -76,6 +76,10 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
             client->invoke_send = cmsg_client_invoke_send_direct;
             client->invoke_recv = cmsg_client_invoke_recv;
             break;
+        case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
+            client->invoke_send = cmsg_client_invoke_send_direct;
+            client->invoke_recv = NULL;
+            break;
         default:
             assert (false && "Unknown transport type");
         }
@@ -754,6 +758,7 @@ cmsg_client_get_description_string (cmsg_client *client)
     switch (client->_transport->type)
     {
     case CMSG_TRANSPORT_LOOPBACK:
+    case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
         return "Loopback";
 
     case CMSG_TRANSPORT_RPC_TCP:
@@ -1863,14 +1868,16 @@ cmsg_client_tipc_broadcast_set_destination (cmsg_client *client, int lower_addr,
  *
  * Returns NULL if failed to create anything - malloc problems.
  */
-cmsg_client *
-cmsg_create_client_loopback (ProtobufCService *service)
+static cmsg_client *
+_cmsg_create_client_loopback (ProtobufCService *service, bool oneway)
 {
     cmsg_transport *transport = NULL;
     cmsg_server *server = NULL;
     cmsg_client *client = NULL;
 
-    transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
+    transport =
+        cmsg_transport_new (oneway ? CMSG_TRANSPORT_ONEWAY_LOOPBACK :
+                            CMSG_TRANSPORT_LOOPBACK);
     if (transport == NULL)
     {
         CMSG_LOG_GEN_ERROR ("Could not create transport for loopback client\n");
@@ -1908,6 +1915,18 @@ cmsg_create_client_loopback (ProtobufCService *service)
     client->loopback_server = server;
 
     return client;
+}
+
+cmsg_client *
+cmsg_create_client_loopback (ProtobufCService *service)
+{
+    return _cmsg_create_client_loopback (service, false);
+}
+
+cmsg_client *
+cmsg_create_client_loopback_oneway (ProtobufCService *service)
+{
+    return _cmsg_create_client_loopback (service, true);
 }
 
 /**

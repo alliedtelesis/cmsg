@@ -208,6 +208,7 @@ cmsg_client *cmsg_create_client_unix_oneway (const ProtobufCServiceDescriptor *d
 int32_t cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor);
 
 cmsg_client *cmsg_create_client_loopback (ProtobufCService *service);
+cmsg_client *cmsg_create_client_loopback_oneway (ProtobufCService *service);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
 
