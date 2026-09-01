@@ -88,6 +88,12 @@ void
 cmsg_sld_configuration_impl_listen (const void *service,
                                     const cmsg_sld_listener_info *recv_msg)
 {
+    if (!data_validate_transport_info (recv_msg->service, recv_msg->transport_info))
+    {
+        cmsg_sld_configuration_server_listenSend (service);
+        return;
+    }
+
     ((cmsg_sld_listener_info *) recv_msg)->pid = get_peer_pid (service, recv_msg->pid);
     data_add_listener (recv_msg);
     cmsg_sld_configuration_server_listenSend (service);
@@ -101,6 +107,12 @@ void
 cmsg_sld_configuration_impl_unlisten (const void *service,
                                       const cmsg_sld_listener_info *recv_msg)
 {
+    if (!data_validate_transport_info (recv_msg->service, recv_msg->transport_info))
+    {
+        cmsg_sld_configuration_server_unlistenSend (service);
+        return;
+    }
+
     ((cmsg_sld_listener_info *) recv_msg)->pid = get_peer_pid (service, recv_msg->pid);
     data_remove_listener (recv_msg);
     cmsg_sld_configuration_server_unlistenSend (service);
@@ -114,10 +126,8 @@ void
 cmsg_sld_configuration_impl_add_server (const void *service,
                                         const cmsg_service_info *recv_msg)
 {
-    if (recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_UNIX &&
-        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
+    if (!data_validate_transport_info (recv_msg->service, recv_msg->server_info))
     {
-        /* Ignore unsupported service types */
         cmsg_sld_configuration_server_add_serverSend (service);
         return;
     }
@@ -138,10 +148,8 @@ void
 cmsg_sld_configuration_impl_remove_server (const void *service,
                                            const cmsg_service_info *recv_msg)
 {
-    if (recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_UNIX &&
-        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
+    if (!data_validate_transport_info (recv_msg->service, recv_msg->server_info))
     {
-        /* Ignore unsupported service types */
         cmsg_sld_configuration_server_remove_serverSend (service);
         return;
     }

@@ -40,9 +40,10 @@ cmsg_sld_remote_sync_impl_bulk_sync (const void *service,
     {
         info = recv_data->data[index];
 
-        /* Ensure we only add remote TCP servers (stack members running older
+        /* Ensure we only add valid remote TCP servers (stack members running older
          * software versions may send non-TCP servers until they update and reboot). */
-        if (info->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+        if (data_validate_transport_info (info->service, info->server_info) &&
+            info->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
         {
             data_add_server (info, false);
             /* Set to NULL so that the memory is not freed */
@@ -60,14 +61,18 @@ void
 cmsg_sld_remote_sync_impl_add_server (const void *service,
                                       const cmsg_service_info *recv_msg)
 {
-    /* Ensure we only add remote TCP servers (stack members running older
+    /* Ensure we only add valid remote TCP servers (stack members running older
      * software versions may send non-TCP servers until they update and reboot). */
-    if (recv_msg->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    if (!data_validate_transport_info (recv_msg->service, recv_msg->server_info) ||
+        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
-        /* We hold onto the message to store in the data hash table */
-        cmsg_server_app_owns_current_msg_set (remote_sync_server);
-        data_add_server ((cmsg_service_info *) recv_msg, false);
+        cmsg_sld_remote_sync_server_add_serverSend (service);
+        return;
     }
+
+    /* We hold onto the message to store in the data hash table */
+    cmsg_server_app_owns_current_msg_set (remote_sync_server);
+    data_add_server ((cmsg_service_info *) recv_msg, false);
 
     cmsg_sld_remote_sync_server_add_serverSend (service);
 }
@@ -80,9 +85,10 @@ void
 cmsg_sld_remote_sync_impl_remove_server (const void *service,
                                          const cmsg_service_info *recv_msg)
 {
-    /* Ensure we only remove remote TCP servers (stack members running older
+    /* Ensure we only remove valid remote TCP servers (stack members running older
      * software versions may send non-TCP servers until they update and reboot). */
-    if (recv_msg->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
+    if (data_validate_transport_info (recv_msg->service, recv_msg->server_info) &&
+        recv_msg->server_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
         data_remove_server (recv_msg, false);
     }
