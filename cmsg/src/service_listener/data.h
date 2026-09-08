@@ -31,8 +31,6 @@ typedef struct _service_data_entry_s
 void data_init (void);
 void data_deinit (void);
 void data_debug_dump (FILE *fp);
-bool data_validate_transport_info (const char *service,
-                                   const cmsg_transport_info *transport_info);
 void data_add_server (cmsg_service_info *server_info, bool local);
 void data_remove_server (const cmsg_service_info *server_info, bool local);
 void data_remove_servers_by_addr (struct in_addr addr);

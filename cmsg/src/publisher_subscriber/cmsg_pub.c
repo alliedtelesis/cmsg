@@ -222,6 +222,11 @@ cmsg_publisher_add_subscriber (cmsg_publisher *publisher, const char *method_nam
     cmsg_transport *transport = NULL;
     cmsg_client *client = NULL;
 
+    if (!cmsg_transport_info_validate (method_name, transport_info))
+    {
+        return;
+    }
+
     comp_client = cmsg_publisher_get_client_for_method (publisher, method_name, true);
 
     transport = cmsg_transport_info_to_transport (transport_info);
@@ -246,6 +251,11 @@ cmsg_publisher_remove_subscriber (cmsg_publisher *publisher, const char *method_
     cmsg_transport *transport = NULL;
     cmsg_client *child_client = NULL;
     GList *list_entry = NULL;
+
+    if (!cmsg_transport_info_validate (method_name, transport_info))
+    {
+        return;
+    }
 
     comp_client = cmsg_publisher_get_client_for_method (publisher, method_name, false);
     if (comp_client)

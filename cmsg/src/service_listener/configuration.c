@@ -88,7 +88,7 @@ void
 cmsg_sld_configuration_impl_listen (const void *service,
                                     const cmsg_sld_listener_info *recv_msg)
 {
-    if (!data_validate_transport_info (recv_msg->service, recv_msg->transport_info))
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->transport_info))
     {
         cmsg_sld_configuration_server_listenSend (service);
         return;
@@ -107,7 +107,7 @@ void
 cmsg_sld_configuration_impl_unlisten (const void *service,
                                       const cmsg_sld_listener_info *recv_msg)
 {
-    if (!data_validate_transport_info (recv_msg->service, recv_msg->transport_info))
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->transport_info))
     {
         cmsg_sld_configuration_server_unlistenSend (service);
         return;
@@ -126,7 +126,7 @@ void
 cmsg_sld_configuration_impl_add_server (const void *service,
                                         const cmsg_service_info *recv_msg)
 {
-    if (!data_validate_transport_info (recv_msg->service, recv_msg->server_info))
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->server_info))
     {
         cmsg_sld_configuration_server_add_serverSend (service);
         return;
@@ -148,7 +148,7 @@ void
 cmsg_sld_configuration_impl_remove_server (const void *service,
                                            const cmsg_service_info *recv_msg)
 {
-    if (!data_validate_transport_info (recv_msg->service, recv_msg->server_info))
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->server_info))
     {
         cmsg_sld_configuration_server_remove_serverSend (service);
         return;

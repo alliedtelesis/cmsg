@@ -1251,13 +1251,104 @@ cmsg_transport_info_free (cmsg_transport_info *transport_info)
 }
 
 /**
+ * Validate the transport information received from another process or stack
+ * member before it is stored or converted into a transport. The lengths of the
+ * address and port buffers are chosen by the peer, but the functions that later
+ * read those buffers use a fixed length based on the address family. A buffer
+ * whose length does not match the family exactly would therefore be read out of
+ * bounds.
+ *
+ * @param service - The service the transport information relates to. Used for
+ *                  logging only.
+ * @param transport_info - The message to validate.
+ *
+ * @returns true if the transport information is safe to store and use,
+ *          false otherwise.
+ */
+bool
+cmsg_transport_info_validate (const char *service,
+                              const cmsg_transport_info *transport_info)
+{
+    const cmsg_tcp_transport_info *tcp_info = NULL;
+    const cmsg_unix_transport_info *unix_info = NULL;
+
+    if (!service)
+    {
+        syslog (LOG_ERR, "Missing service key");
+        return false;
+    }
+
+    if (!transport_info)
+    {
+        syslog (LOG_ERR, "%s: Missing transport info", service);
+        return false;
+    }
+
+    switch (transport_info->type)
+    {
+    case CMSG_TRANSPORT_INFO_TYPE_TCP:
+        tcp_info = transport_info->tcp_info;
+
+        if (!tcp_info)
+        {
+            syslog (LOG_ERR, "%s: Missing TCP info", service);
+            return false;
+        }
+
+        if (tcp_info->ipv4)
+        {
+            if (tcp_info->addr.len != sizeof (struct in_addr))
+            {
+                syslog (LOG_ERR, "%s: Invalid IPv4 address length", service);
+                return false;
+            }
+        }
+        else if (tcp_info->addr.len != sizeof (struct in6_addr))
+        {
+            syslog (LOG_ERR, "%s: Invalid IPv6 address length", service);
+            return false;
+        }
+
+        if (tcp_info->port.len != sizeof (in_port_t))
+        {
+            syslog (LOG_ERR, "%s: Invalid TCP port length", service);
+            return false;
+        }
+
+        return true;
+
+    case CMSG_TRANSPORT_INFO_TYPE_UNIX:
+        unix_info = transport_info->unix_info;
+
+        if (!unix_info || !unix_info->path)
+        {
+            syslog (LOG_ERR, "%s: Missing UNIX path", service);
+            return false;
+        }
+
+        return true;
+
+    default:
+        /* Not set or undefined */
+        return false;
+    }
+}
+
+/**
  * Create a 'cmsg_transport' structure based on the input 'cmsg_transport_info'
  * message.
  *
- * @param transport_info - The 'cmsg_transport_info' message to build the transport
- *                         for.
+ * The address and port buffers are copied using the length implied by the
+ * address family rather than the length the message claims, so the caller must
+ * have passed the message through 'cmsg_transport_info_validate' before calling
+ * this. Messages that originate from another process or stack member are
+ * validated where they are received.
  *
- * @returns A pointer to the transport on success, NULL on failure.
+ * @param transport_info - The 'cmsg_transport_info' message to build the transport
+ *                         for. Must be valid.
+ *
+ * @returns A pointer to the transport on success, NULL if the transport type is
+ *          neither UNIX nor TCP.
  */
 cmsg_transport *
 cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
@@ -1284,9 +1375,7 @@ cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
     else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
         uint8_t *port = transport_info->tcp_info->port.data;
-        uint32_t port_len = transport_info->tcp_info->port.len;
         uint8_t *addr = transport_info->tcp_info->addr.data;
-        uint32_t addr_len = transport_info->tcp_info->addr.len;
 
         if (transport_info->one_way)
         {
@@ -1302,16 +1391,19 @@ cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
             transport->config.socket.family = PF_INET;
             transport->config.socket.sockaddr.generic.sa_family = PF_INET;
             transport->config.socket.sockaddr.in.sin_family = AF_INET;
-            memcpy (&transport->config.socket.sockaddr.in.sin_port, port, port_len);
-            memcpy (&transport->config.socket.sockaddr.in.sin_addr.s_addr, addr, addr_len);
+            memcpy (&transport->config.socket.sockaddr.in.sin_port, port,
+                    sizeof (in_port_t));
+            memcpy (&transport->config.socket.sockaddr.in.sin_addr.s_addr, addr,
+                    sizeof (struct in_addr));
         }
         else
         {
             transport->config.socket.family = PF_INET6;
             transport->config.socket.sockaddr.generic.sa_family = PF_INET6;
-            memcpy (&transport->config.socket.sockaddr.in6.sin6_port, port, port_len);
+            memcpy (&transport->config.socket.sockaddr.in6.sin6_port, port,
+                    sizeof (in_port_t));
             memcpy (&transport->config.socket.sockaddr.in6.sin6_addr.s6_addr, addr,
-                    addr_len);
+                    sizeof (struct in6_addr));
             transport->config.socket.sockaddr.in6.sin6_scope_id =
                 transport_info->tcp_info->scope_id;
         }
@@ -1408,6 +1500,11 @@ cmsg_transport_info_copy (const cmsg_transport_info *transport_info)
      * to a new 'cmsg_transport_info' message. */
 
     transport = cmsg_transport_info_to_transport (transport_info);
+    if (!transport)
+    {
+        return NULL;
+    }
+
     copied_info = cmsg_transport_info_create (transport);
     cmsg_transport_destroy (transport);
 

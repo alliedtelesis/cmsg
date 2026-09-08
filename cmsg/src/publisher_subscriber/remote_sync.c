@@ -46,7 +46,10 @@ cmsg_psd_remote_sync_impl_bulk_sync (const void *service,
 
     CMSG_REPEATED_FOREACH (recv_msg, data, info, i)
     {
-        data_add_local_subscription (info);
+        if (cmsg_transport_info_validate (info->service, info->transport_info))
+        {
+            data_add_local_subscription (info);
+        }
     }
 
     cmsg_psd_remote_sync_server_bulk_syncSend (service);
@@ -60,6 +63,12 @@ void
 cmsg_psd_remote_sync_impl_add_subscription (const void *service,
                                             const cmsg_subscription_info *recv_msg)
 {
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->transport_info))
+    {
+        cmsg_psd_remote_sync_server_add_subscriptionSend (service);
+        return;
+    }
+
     data_add_local_subscription (recv_msg);
     cmsg_psd_remote_sync_server_add_subscriptionSend (service);
 }
@@ -72,6 +81,12 @@ void
 cmsg_psd_remote_sync_impl_remove_subscription (const void *service,
                                                const cmsg_subscription_info *recv_msg)
 {
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->transport_info))
+    {
+        cmsg_psd_remote_sync_server_remove_subscriptionSend (service);
+        return;
+    }
+
     data_remove_local_subscription (recv_msg);
     cmsg_psd_remote_sync_server_remove_subscriptionSend (service);
 }

@@ -113,6 +113,18 @@ notify_listener (const cmsg_sld_server_event *recv_msg, bool added)
     cmsg_sl_event *event = NULL;
     const cmsg_transport_info *transport_info = NULL;
 
+    if (!recv_msg->service_info)
+    {
+        syslog (LOG_ERR, "Missing service info in server event");
+        return;
+    }
+
+    transport_info = recv_msg->service_info->server_info;
+    if (!cmsg_transport_info_validate (recv_msg->service_info->service, transport_info))
+    {
+        return;
+    }
+
     pthread_mutex_lock (&listener_list_mutex);
 
     for (list = g_list_first (listener_list); list; list = g_list_next (list))
@@ -124,8 +136,6 @@ notify_listener (const cmsg_sld_server_event *recv_msg, bool added)
             event = CMSG_MALLOC (sizeof (cmsg_sl_event));
             if (event)
             {
-                transport_info = recv_msg->service_info->server_info;
-
                 event->added = added;
                 event->transport = cmsg_transport_info_to_transport (transport_info);
                 g_async_queue_push (entry->queue, event);
