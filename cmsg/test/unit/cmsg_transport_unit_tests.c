@@ -494,3 +494,28 @@ test_cmsg_transport_info_validate_unix (void)
 
     NP_ASSERT_TRUE (cmsg_transport_info_validate ("test_service", &transport_info));
 }
+
+/**
+ * The UNIX path is chosen by the peer, so conversion specifiers must not be
+ * interpreted.
+ */
+void
+test_cmsg_transport_info_to_transport_unix_path_not_a_format (void)
+{
+    cmsg_transport_info transport_info = CMSG_TRANSPORT_INFO_INIT;
+    cmsg_unix_transport_info unix_info = CMSG_UNIX_TRANSPORT_INFO_INIT;
+    char path[] = "%s%s%s%s%s%s%s%s";
+    cmsg_transport *transport = NULL;
+
+    CMSG_SET_FIELD_VALUE (&transport_info, type, CMSG_TRANSPORT_INFO_TYPE_UNIX);
+    CMSG_SET_FIELD_PTR (&unix_info, path, path);
+    CMSG_SET_FIELD_ONEOF (&transport_info, unix_info, &unix_info,
+                          data, CMSG_TRANSPORT_INFO_DATA_UNIX_INFO);
+
+    transport = cmsg_transport_info_to_transport (&transport_info);
+    NP_ASSERT_NOT_NULL (transport);
+
+    NP_ASSERT_STR_EQUAL (transport->config.socket.sockaddr.un.sun_path, path);
+
+    cmsg_transport_destroy (transport);
+}

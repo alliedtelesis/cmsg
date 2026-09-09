@@ -1368,9 +1368,9 @@ cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
 
         transport->config.socket.family = AF_UNIX;
         transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
-        snprintf (transport->config.socket.sockaddr.un.sun_path,
-                  sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
-                  transport_info->unix_info->path);
+        strncpy (transport->config.socket.sockaddr.un.sun_path,
+                 transport_info->unix_info->path,
+                 sizeof (transport->config.socket.sockaddr.un.sun_path) - 1);
     }
     else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
