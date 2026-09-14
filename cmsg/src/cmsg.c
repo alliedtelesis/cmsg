@@ -183,6 +183,30 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
         break;
     }
 
+    /*
+     * header_length covers the fixed header plus any TLV headers, so it can
+     * never be less than the fixed header.
+     */
+    if (header_converted->header_length < sizeof (cmsg_header))
+    {
+        CMSG_LOG_GEN_ERROR ("Processing header, header length %u is smaller than "
+                            "the minimum %zu", header_converted->header_length,
+                            sizeof (cmsg_header));
+        return CMSG_RET_ERR;
+    }
+
+    /*
+     * The receive buffer is sized from message_length + header_length. Reject
+     * values that would cause an overflow.
+     */
+    if (header_converted->message_length > UINT32_MAX - header_converted->header_length)
+    {
+        CMSG_LOG_GEN_ERROR ("Processing header, message length %u and header length "
+                            "%u overflow", header_converted->message_length,
+                            header_converted->header_length);
+        return CMSG_RET_ERR;
+    }
+
     return CMSG_RET_OK;
 }
 
