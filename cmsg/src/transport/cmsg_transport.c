@@ -1512,6 +1512,20 @@ cmsg_transport_info_copy (const cmsg_transport_info *transport_info)
 }
 
 /**
+ * Return the address family of this transport.
+ *
+ * @param transport - The transport to return the address family for.
+ *
+ * @returns The address family, for example AF_INET, AF_INET6 or AF_UNIX.
+ *          AF_UNSPEC for a transport that does not use a socket address.
+ */
+int
+cmsg_transport_af_get (const cmsg_transport *transport)
+{
+    return transport->config.socket.family;
+}
+
+/**
  * Return the IPv4 address for this transport. It is up to the
  * user to assure that the transport used is of TCP type.
  *

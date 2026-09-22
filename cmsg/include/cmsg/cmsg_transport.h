@@ -12,6 +12,7 @@ typedef struct cmsg_transport cmsg_transport;
 typedef bool (*cmsg_forwarding_transport_send_f) (void *user_data, void *buff, int length);
 
 cmsg_transport *cmsg_transport_copy (const cmsg_transport *transport);
+int cmsg_transport_af_get (const cmsg_transport *transport);
 struct in_addr cmsg_transport_ipv4_address_get (const cmsg_transport *transport);
 
 #endif /* __CMSG_TRANSPORT_H_ */

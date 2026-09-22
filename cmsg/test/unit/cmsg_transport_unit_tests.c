@@ -519,3 +519,25 @@ test_cmsg_transport_info_to_transport_unix_path_not_a_format (void)
 
     cmsg_transport_destroy (transport);
 }
+
+void
+test_cmsg_transport_af_get (void)
+{
+    cmsg_transport *tcp = cmsg_transport_new (CMSG_TRANSPORT_RPC_TCP);
+    cmsg_transport *unix_tport = cmsg_transport_new (CMSG_TRANSPORT_RPC_UNIX);
+    cmsg_transport *loopback = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
+
+    init_transport_tcp (tcp);
+    init_transport_unix (unix_tport);
+
+    NP_ASSERT_EQUAL (cmsg_transport_af_get (tcp), AF_INET);
+    NP_ASSERT_EQUAL (cmsg_transport_af_get (unix_tport), AF_UNIX);
+    NP_ASSERT_EQUAL (cmsg_transport_af_get (loopback), AF_UNSPEC);
+
+    tcp->config.socket.family = PF_INET6;
+    NP_ASSERT_EQUAL (cmsg_transport_af_get (tcp), AF_INET6);
+
+    cmsg_transport_destroy (tcp);
+    cmsg_transport_destroy (unix_tport);
+    cmsg_transport_destroy (loopback);
+}
