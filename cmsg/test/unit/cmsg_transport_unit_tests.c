@@ -408,7 +408,8 @@ test_cmsg_transport_info_validate_null_key (void)
 
 /**
  * A peer claiming a TCP transport but leaving the 'tcp_info' side of the oneof
- * unset must be rejected rather than dereferenced.
+ * unset must be rejected rather than dereferenced. The oneof case is unset, so
+ * it does not match the type.
  */
 void
 test_cmsg_transport_info_validate_tcp_info_missing (void)
@@ -417,7 +418,7 @@ test_cmsg_transport_info_validate_tcp_info_missing (void)
 
     CMSG_SET_FIELD_VALUE (&transport_info, type, CMSG_TRANSPORT_INFO_TYPE_TCP);
 
-    np_syslog_match ("test_service: Missing TCP info", 0);
+    np_syslog_match ("test_service: Transport type does not match data", 0);
 
     NP_ASSERT_FALSE (cmsg_transport_info_validate ("test_service", &transport_info));
     NP_ASSERT_EQUAL (np_syslog_count (0), 1);
@@ -427,6 +428,7 @@ test_cmsg_transport_info_validate_tcp_info_missing (void)
  * A peer claiming a UNIX transport but leaving the 'unix_info' side of the
  * oneof unset must be rejected. 'data_debug_unix_server_dump' and
  * 'cmsg_transport_info_compare' both dereference the path unconditionally.
+ * The oneof case is unset, so it does not match the type.
  */
 void
 test_cmsg_transport_info_validate_unix_info_missing (void)
@@ -435,7 +437,7 @@ test_cmsg_transport_info_validate_unix_info_missing (void)
 
     CMSG_SET_FIELD_VALUE (&transport_info, type, CMSG_TRANSPORT_INFO_TYPE_UNIX);
 
-    np_syslog_match ("test_service: Missing UNIX path", 0);
+    np_syslog_match ("test_service: Transport type does not match data", 0);
 
     NP_ASSERT_FALSE (cmsg_transport_info_validate ("test_service", &transport_info));
     NP_ASSERT_EQUAL (np_syslog_count (0), 1);
@@ -456,6 +458,52 @@ test_cmsg_transport_info_validate_unix_path_missing (void)
                           data, CMSG_TRANSPORT_INFO_DATA_UNIX_INFO);
 
     np_syslog_match ("test_service: Missing UNIX path", 0);
+
+    NP_ASSERT_FALSE (cmsg_transport_info_validate ("test_service", &transport_info));
+    NP_ASSERT_EQUAL (np_syslog_count (0), 1);
+}
+
+/**
+ * A peer claiming a TCP transport but sending the 'unix_info' side of the
+ * oneof must be rejected. The oneof members share storage, so reading the UNIX
+ * information as TCP information reads beyond the UNIX allocation.
+ */
+void
+test_cmsg_transport_info_validate_tcp_type_unix_data (void)
+{
+    cmsg_transport_info transport_info = CMSG_TRANSPORT_INFO_INIT;
+    cmsg_unix_transport_info unix_info = CMSG_UNIX_TRANSPORT_INFO_INIT;
+    char path[] = "/tmp/test_service";
+
+    CMSG_SET_FIELD_VALUE (&transport_info, type, CMSG_TRANSPORT_INFO_TYPE_TCP);
+    CMSG_SET_FIELD_PTR (&unix_info, path, path);
+    CMSG_SET_FIELD_ONEOF (&transport_info, unix_info, &unix_info,
+                          data, CMSG_TRANSPORT_INFO_DATA_UNIX_INFO);
+
+    np_syslog_match ("test_service: Transport type does not match data", 0);
+
+    NP_ASSERT_FALSE (cmsg_transport_info_validate ("test_service", &transport_info));
+    NP_ASSERT_EQUAL (np_syslog_count (0), 1);
+}
+
+/**
+ * A peer claiming a UNIX transport but sending the 'tcp_info' side of the
+ * oneof must be rejected. The oneof members share storage, so reading the TCP
+ * information as UNIX information treats the address buffer as a path.
+ */
+void
+test_cmsg_transport_info_validate_unix_type_tcp_data (void)
+{
+    cmsg_transport_info transport_info = CMSG_TRANSPORT_INFO_INIT;
+    cmsg_tcp_transport_info tcp_info = CMSG_TCP_TRANSPORT_INFO_INIT;
+    uint8_t addr[sizeof (struct in_addr)] = { };
+    uint8_t port[sizeof (in_port_t)] = { };
+
+    init_tcp_transport_info (&transport_info, &tcp_info, true,
+                             addr, sizeof (addr), port, sizeof (port));
+    CMSG_SET_FIELD_VALUE (&transport_info, type, CMSG_TRANSPORT_INFO_TYPE_UNIX);
+
+    np_syslog_match ("test_service: Transport type does not match data", 0);
 
     NP_ASSERT_FALSE (cmsg_transport_info_validate ("test_service", &transport_info));
     NP_ASSERT_EQUAL (np_syslog_count (0), 1);

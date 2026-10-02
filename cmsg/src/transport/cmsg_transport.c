@@ -1287,6 +1287,12 @@ cmsg_transport_info_validate (const char *service,
     switch (transport_info->type)
     {
     case CMSG_TRANSPORT_INFO_TYPE_TCP:
+        if (transport_info->data_case != CMSG_TRANSPORT_INFO_DATA_TCP_INFO)
+        {
+            syslog (LOG_ERR, "%s: Transport type does not match data", service);
+            return false;
+        }
+
         tcp_info = transport_info->tcp_info;
 
         if (!tcp_info)
@@ -1318,6 +1324,12 @@ cmsg_transport_info_validate (const char *service,
         return true;
 
     case CMSG_TRANSPORT_INFO_TYPE_UNIX:
+        if (transport_info->data_case != CMSG_TRANSPORT_INFO_DATA_UNIX_INFO)
+        {
+            syslog (LOG_ERR, "%s: Transport type does not match data", service);
+            return false;
+        }
+
         unix_info = transport_info->unix_info;
 
         if (!unix_info || !unix_info->path)
