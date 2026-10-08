@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <limits.h>
 
 #define CMSG_REPEATED_BLOCK_SIZE 64
 
@@ -196,13 +197,16 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
     }
 
     /*
-     * The receive buffer is sized from message_length + header_length. Reject
-     * values that would cause an overflow.
+     * The receive buffer is sized from message_length + header_length, and
+     * that sum is passed to the transport receive functions as an int. No
+     * valid message is this large, so a sum above INT_MAX means the header is
+     * corrupt or crafted. This also rejects sums that wrap uint32.
      */
-    if (header_converted->message_length > UINT32_MAX - header_converted->header_length)
+    if (header_converted->header_length > INT_MAX ||
+        header_converted->message_length > INT_MAX - header_converted->header_length)
     {
         CMSG_LOG_GEN_ERROR ("Processing header, message length %u and header length "
-                            "%u overflow", header_converted->message_length,
+                            "%u exceed INT_MAX", header_converted->message_length,
                             header_converted->header_length);
         return CMSG_RET_ERR;
     }

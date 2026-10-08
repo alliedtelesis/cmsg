@@ -8,6 +8,7 @@
 #include "cmsg_private.h"
 #include "cmsg_crypto.h"
 #include "cmsg_error.h"
+#include <limits.h>
 
 #define debug_openssl_error() \
     do { \
@@ -285,7 +286,10 @@ cmsg_crypto_parse_header (uint8_t *header)
 
     cmsg_crypto_get32_direct (header, &magic);
     cmsg_crypto_get32_direct (&header[4], &msg_length);
-    if (magic != CMSG_CRYPTO_MAGIC || msg_length == 0)
+    /* The length is returned as an int and passed to the transport receive
+     * functions as an int. No valid message is this large, so a length above
+     * INT_MAX means the header is corrupt or crafted. */
+    if (magic != CMSG_CRYPTO_MAGIC || msg_length == 0 || msg_length > INT_MAX)
     {
         return -1;
     }

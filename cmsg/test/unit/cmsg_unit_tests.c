@@ -8,7 +8,9 @@
 #include <np.h>
 #include <cmsg.h>
 #include "cmsg_private.h"
+#include "cmsg_crypto.h"
 #include "cmsg_unit_tests_types_auto.h"
+#include <limits.h>
 
 #define BOOL_VALUE true
 #define UINT32_VALUE 123456
@@ -218,17 +220,75 @@ test_cmsg_header_process_length_overflow (void)
 }
 
 /**
- * A message_length + header_length sum that reaches exactly UINT32_MAX does not
- * wrap and must be accepted.
+ * A message_length + header_length sum above INT_MAX is rejected. The transport
+ * receive functions take the length as an int, so such a sum becomes negative.
  */
 void
-test_cmsg_header_process_length_no_overflow_boundary (void)
+test_cmsg_header_process_length_exceeds_int_max (void)
+{
+    cmsg_header converted;
+    cmsg_header wire_sum = make_wire_header (CMSG_MSG_TYPE_METHOD_REQ,
+                                             sizeof (cmsg_header),
+                                             0x80000000 - sizeof (cmsg_header),
+                                             CMSG_STATUS_CODE_UNSET);
+    cmsg_header wire_message = make_wire_header (CMSG_MSG_TYPE_METHOD_REQ,
+                                                 sizeof (cmsg_header), 0x80000000,
+                                                 CMSG_STATUS_CODE_UNSET);
+    cmsg_header wire_header = make_wire_header (CMSG_MSG_TYPE_METHOD_REQ,
+                                                0x80000000, 0,
+                                                CMSG_STATUS_CODE_UNSET);
+
+    np_syslog_match ("Processing header, message length", 0);
+
+    NP_ASSERT_EQUAL (cmsg_header_process (&wire_sum, &converted), CMSG_RET_ERR);
+    NP_ASSERT_EQUAL (cmsg_header_process (&wire_message, &converted), CMSG_RET_ERR);
+    NP_ASSERT_EQUAL (cmsg_header_process (&wire_header, &converted), CMSG_RET_ERR);
+    NP_ASSERT_EQUAL (np_syslog_count (0), 3);
+}
+
+/**
+ * A message_length + header_length sum of exactly INT_MAX must be accepted.
+ */
+void
+test_cmsg_header_process_length_int_max_boundary (void)
 {
     cmsg_header wire = make_wire_header (CMSG_MSG_TYPE_METHOD_REQ,
                                          sizeof (cmsg_header),
-                                         UINT32_MAX - sizeof (cmsg_header),
+                                         INT_MAX - sizeof (cmsg_header),
                                          CMSG_STATUS_CODE_UNSET);
     cmsg_header converted;
 
     NP_ASSERT_EQUAL (cmsg_header_process (&wire, &converted), CMSG_RET_OK);
+}
+
+/**
+ * Build a crypto header from host values.
+ */
+static void
+make_crypto_header (uint8_t *header, uint32_t magic, uint32_t msg_length)
+{
+    uint32_t wire_magic = htonl (magic);
+    uint32_t wire_length = htonl (msg_length);
+
+    memcpy (header, &wire_magic, sizeof (wire_magic));
+    memcpy (header + 4, &wire_length, sizeof (wire_length));
+}
+
+/**
+ * A crypto header length that does not fit in an int is rejected, and the
+ * largest length that does fit is accepted.
+ */
+void
+test_cmsg_crypto_parse_header_length (void)
+{
+    uint8_t header[8];
+
+    make_crypto_header (header, 0xa5a50001, INT_MAX);
+    NP_ASSERT_EQUAL (cmsg_crypto_parse_header (header), INT_MAX);
+
+    make_crypto_header (header, 0xa5a50001, 0x80000000);
+    NP_ASSERT_EQUAL (cmsg_crypto_parse_header (header), -1);
+
+    make_crypto_header (header, 0xa5a50001, UINT32_MAX - 1);
+    NP_ASSERT_EQUAL (cmsg_crypto_parse_header (header), -1);
 }

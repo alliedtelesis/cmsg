@@ -540,7 +540,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket,
                              uint8_t **recv_buffer, cmsg_header *processed_header,
                              int *nbytes)
 {
-    uint32_t dyn_len = 0;
+    int dyn_len = 0;
 
     CMSG_ASSERT_RETURN_VAL (peeked_header != NULL, CMSG_RET_ERR);
 
