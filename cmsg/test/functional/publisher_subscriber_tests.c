@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Functional tests for publisher <-> subscriber communication.
  *
@@ -13,6 +14,9 @@
 #include "setup.h"
 #include "publisher_subscriber/cmsg_ps_api_private.h"
 #include "publisher_subscriber/cmsg_pub_private.h"
+#include "cmsg_composite_client.h"
+#include "cmsg_composite_client_private.h"
+#include <arpa/inet.h>
 
 /* In microseconds. */
 #define WAIT_TIME (500 * 1000)
@@ -178,5 +182,124 @@ test_publisher_receives_subscription_updates (void)
     NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
 
     cmsg_publisher_destroy (publisher);
+}
 
+/**
+ * Test that a publisher is correctly updated when a second subscriber joins
+ * after the first subscriber is finished.
+ */
+void
+test_publisher_receives_subscription_updates_sequential (void)
+{
+    cmsg_publisher *publisher = NULL;
+    cmsg_subscriber *sub = NULL;
+
+    publisher = cmsg_publisher_create (CMSG_DESCRIPTOR (cmsg, test));
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    /* First run of subscriber. */
+    sub = cmsg_subscriber_create_unix (CMSG_SERVICE (cmsg, test));
+    cmsg_sub_subscribe_local (sub, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 1);
+
+    cmsg_sub_unsubscribe_local (sub, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    cmsg_subscriber_destroy (sub);
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    /* Second run of new subscriber. */
+    sub = cmsg_subscriber_create_unix (CMSG_SERVICE (cmsg, test));
+    cmsg_sub_subscribe_local (sub, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 1);
+
+    cmsg_sub_unsubscribe_local (sub, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    cmsg_subscriber_destroy (sub);
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    cmsg_publisher_destroy (publisher);
+}
+
+/**
+ * Test that a publisher is correctly updated when a subscriber rejoins.
+ */
+void
+test_publisher_receives_subscription_updates_rejoin (void)
+{
+    cmsg_publisher *publisher = NULL;
+    cmsg_subscriber *sub = NULL;
+
+    publisher = cmsg_publisher_create (CMSG_DESCRIPTOR (cmsg, test));
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    /* First run of subscriber. */
+    sub = cmsg_subscriber_create_unix (CMSG_SERVICE (cmsg, test));
+    cmsg_sub_subscribe_local (sub, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 1);
+
+    cmsg_sub_unsubscribe_local (sub, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    /* Second run by rejoining. */
+    cmsg_sub_subscribe_local (sub, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 1);
+
+    cmsg_sub_unsubscribe_local (sub, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    cmsg_subscriber_destroy (sub);
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    cmsg_publisher_destroy (publisher);
+}
+
+/**
+ * Test that a publisher is correctly updated with 2 simultaneous subscribers.
+ */
+void
+test_publisher_receives_subscription_updates_simultaneous (void)
+{
+    cmsg_publisher *publisher = NULL;
+    cmsg_subscriber *sub1 = NULL;
+    cmsg_subscriber *sub2 = NULL;
+    cmsg_client *client;
+
+    publisher = cmsg_publisher_create (CMSG_DESCRIPTOR (cmsg, test));
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    sub1 = cmsg_subscriber_create_unix (CMSG_SERVICE (cmsg, test));
+    cmsg_sub_subscribe_local (sub1, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 1);
+    client = cmsg_publisher_get_client_for_method (publisher, "simple_notification_test",
+                                                   false);
+    NP_ASSERT_EQUAL (g_list_length (((cmsg_composite_client *) client)->child_clients), 1);
+
+    sub2 = cmsg_subscriber_create_unix (CMSG_SERVICE (cmsg, test));
+    cmsg_sub_subscribe_local (sub2, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 1);
+    client = cmsg_publisher_get_client_for_method (publisher, "simple_notification_test",
+                                                   false);
+    NP_ASSERT_EQUAL (g_list_length (((cmsg_composite_client *) client)->child_clients), 2);
+
+    cmsg_sub_unsubscribe_local (sub1, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 1);
+    client = cmsg_publisher_get_client_for_method (publisher, "simple_notification_test",
+                                                   false);
+    NP_ASSERT_EQUAL (g_list_length (((cmsg_composite_client *) client)->child_clients), 1);
+
+    cmsg_sub_unsubscribe_local (sub2, "simple_notification_test");
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+    client = cmsg_publisher_get_client_for_method (publisher, "simple_notification_test",
+                                                   false);
+    NP_ASSERT_NULL (client);
+
+    cmsg_subscriber_destroy (sub1);
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    cmsg_subscriber_destroy (sub2);
+    NP_ASSERT_EQUAL (g_hash_table_size (publisher->subscribed_methods), 0);
+
+    cmsg_publisher_destroy (publisher);
 }

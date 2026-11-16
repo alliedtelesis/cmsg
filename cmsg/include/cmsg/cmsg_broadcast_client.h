@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * cmsg_broadcast_client.h
  *

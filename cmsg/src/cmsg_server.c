@@ -1,7 +1,10 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
 #include <sys/eventfd.h>
+#include <sys/epoll.h>
+#include "cmsg_debug.h"
 #include "cmsg_private.h"
 #include "cmsg_server.h"
 #include "cmsg_error.h"
@@ -10,7 +13,9 @@
 #include "service_listener/cmsg_sl_api_private.h"
 #include "cmsg_protobuf-c.h"
 #include "cmsg_ant_result.h"
-
+#ifdef HAVE_EVENTWATCH
+#include <eventwatch.h>
+#endif
 #ifdef HAVE_COUNTERD
 #include "cntrd_app_defines.h"
 #include "cntrd_app_api.h"
@@ -21,6 +26,23 @@
  * outside of error conditions why peeking the header on a server should
  * take a long time. */
 #define SERVER_RECV_HEADER_PEEK_TIMEOUT 10
+
+/* Thread for all the servers of this process. */
+static pthread_t global_server_accept_thread = -1;
+/* This mutex protects the global server accept count and epoll data. */
+static pthread_mutex_t global_server_accept_lock = PTHREAD_MUTEX_INITIALIZER;
+static unsigned int global_server_accept_count = 0;
+
+/* Global epoll data. Note that MAX_EVENTS may need to be increased at some point
+ * as it is the number of CMSG servers using the global accept thread. */
+#define MAX_EVENTS 128
+static struct epoll_event events[MAX_EVENTS];
+static int epollfd = -1;
+
+/* Accept thread define. Also uses epoll, but each using isolated data */
+#define ACCEPT_MAX_EVENTS 32
+static void cmsg_server_accepted_fd_free (gpointer list_data);
+static void cmsg_server_epoll_free_fds (cmsg_server *server);
 
 static void cmsg_server_queue_filter_init (cmsg_server *server);
 
@@ -49,9 +71,11 @@ cmsg_server_get_closure_func (cmsg_transport *transport)
         return cmsg_server_closure_rpc;
 
     case CMSG_TRANSPORT_ONEWAY_TCP:
+    case CMSG_TRANSPORT_ONEWAY_MC_UDP:
     case CMSG_TRANSPORT_BROADCAST:
     case CMSG_TRANSPORT_ONEWAY_UNIX:
     case CMSG_TRANSPORT_FORWARDING:
+    case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
         return cmsg_server_closure_oneway;
     }
 
@@ -73,6 +97,29 @@ cmsg_server_send_response (const ProtobufCMessage *send_msg, const void *service
 
     _closure (send_msg, _closure_data);
 }
+
+
+#ifdef HAVE_EVENTWATCH
+/**
+ * Initializes the eventwatch features used by methods of the specified service.
+ */
+void
+cmsg_server_method_eventwatch_notify_init (const ProtobufCService *service)
+{
+    const cmsg_server_extensions *server_extensions =
+        ((cmsg_service *) service)->server_extensions;
+    const char **feature_ptr = NULL;
+
+    if (server_extensions && server_extensions->eventwatch_notify_list)
+    {
+        for (feature_ptr = server_extensions->eventwatch_notify_list;
+             *feature_ptr; feature_ptr++)
+        {
+            eventwatch_init_feature (*feature_ptr, NULL);
+        }
+    }
+}
+#endif
 
 /*
  * This is an internal function which can be called from CMSG library.
@@ -131,8 +178,7 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
             return NULL;
         }
 
-        server->accepted_fdmax = 0;
-        FD_ZERO (&server->accepted_fdset);
+        server->accept_sd_eventfd = -1;
         server->maxQueueLength = 0;
         server->queue = g_queue_new ();
         server->queue_filter_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
@@ -146,6 +192,12 @@ cmsg_server_create (cmsg_transport *transport, const ProtobufCService *service)
         if (pthread_mutex_init (&server->queue_filter_mutex, NULL) != 0)
         {
             CMSG_LOG_SERVER_ERROR (server, "Init failed for queue_filter_mutex.");
+            return NULL;
+        }
+
+        if (pthread_mutex_init (&server->accept_mutex, NULL) != 0)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Init failed for accept_mutex.");
             return NULL;
         }
 
@@ -190,7 +242,9 @@ cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
     if (server != NULL)
     {
         cmsg_service_listener_add_server (server);
-
+#ifdef HAVE_EVENTWATCH
+        cmsg_server_method_eventwatch_notify_init (service);
+#endif
 #ifdef HAVE_COUNTERD
         char app_name[CNTRD_MAX_APP_NAME_LENGTH];
 
@@ -213,20 +267,20 @@ cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service)
 void
 cmsg_server_destroy (cmsg_server *server)
 {
-    int fd;
-
     CMSG_ASSERT_RETURN_VOID (server != NULL);
 
     cmsg_service_listener_remove_server (server);
 
-    // Close accepted sockets before destroying server
-    for (fd = 0; fd <= server->accepted_fdmax; fd++)
+    // Close accept thread before destroying any structures
+    // it might use (like counters), or closing currently accepted
+    // sockets
+    if (server->accept_sd_queue)
     {
-        if (FD_ISSET (fd, &server->accepted_fdset))
-        {
-            cmsg_server_close_accepted_socket (server, fd);
-        }
+        cmsg_server_accept_thread_deinit (server);
     }
+
+    // Close accepted sockets before destroying server
+    cmsg_server_epoll_free_fds (server);
 
     /* Free counter session info but do not destroy counter data in the shared memory */
 #ifdef HAVE_COUNTERD
@@ -239,11 +293,6 @@ cmsg_server_destroy (cmsg_server *server)
     cmsg_receive_queue_free_all (server->queue);
     pthread_mutex_destroy (&server->queueing_state_mutex);
     pthread_mutex_destroy (&server->queue_mutex);
-
-    if (server->accept_thread_info)
-    {
-        cmsg_server_accept_thread_deinit (server);
-    }
 
     if (server->_transport && server->_transport->tport_funcs.socket_close)
     {
@@ -343,6 +392,102 @@ cmsg_server_get_socket (cmsg_server *server)
     return socket;
 }
 
+static void
+cmsg_server_accepted_fd_free (gpointer list_data)
+{
+    cmsg_fd_info *data;
+    cmsg_server *server;
+    CMSG_ASSERT_RETURN_VOID (list_data);
+
+    data = (cmsg_fd_info *) list_data;
+    server = data->parent;
+    CMSG_ASSERT_RETURN_VOID (server);
+    cmsg_server_close_accepted_socket (server, data->fd);
+    CMSG_FREE (data);
+}
+
+static void
+cmsg_server_epoll_free_fds (cmsg_server *server)
+{
+    if (server && server->accepted_fds)
+    {
+        // First node is the accept event FD; it uses a different socket close function,
+        // and we also may wish to leave it unclosed. So just free the link and data
+        gpointer data = server->accepted_fds->data;
+        server->accepted_fds->data = NULL;
+        server->accepted_fds =
+            g_list_delete_link (server->accepted_fds, server->accepted_fds);
+        CMSG_FREE (data);
+
+        g_list_free_full (server->accepted_fds, cmsg_server_accepted_fd_free);
+        server->accepted_fds = NULL;
+    }
+}
+
+static int32_t
+cmsg_server_epoll_add_fd (int poll_fd, int fd, uint32_t watch_events, cmsg_server *server)
+{
+    struct epoll_event event;
+    GList *listnode = NULL;
+    cmsg_fd_info *data = NULL;
+    int32_t ret = CMSG_RET_ERR;
+
+    CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
+
+    data = CMSG_MALLOC (sizeof (cmsg_fd_info));
+    CMSG_ASSERT_RETURN_VAL (data != NULL, CMSG_RET_ERR);
+
+    data->fd = fd;
+    data->parent = server;
+
+    // Ensure accept event FD is always at the start of the list so that we can
+    // always check if it has already been added
+    if (fd == server->accept_sd_eventfd)
+    {
+        server->accepted_fds = listnode = g_list_prepend (server->accepted_fds, data);
+    }
+    else
+    {
+        server->accepted_fds = g_list_insert (server->accepted_fds, data, 1);
+        listnode = g_list_next (server->accepted_fds);
+    }
+
+    event.data.ptr = listnode;
+    event.events = watch_events;
+
+    if (epoll_ctl (poll_fd, EPOLL_CTL_ADD, fd, &event) == 0)
+    {
+        return CMSG_RET_OK;
+    }
+    else if (errno == EEXIST)
+    {
+        /*
+         * If epoll_ctl fails with EEXIST, then the FD has already been added, and a
+         * listnode must already exist within a list. So we return OK, but still free the
+         * listnode we created, because that will not be referenced by the epoll list.
+         *
+         * UDP transports reuse the same FD, so multiple accepts will occur for the same FD
+         * on those transports. So anticipating that the FD has already been added, we just
+         * skip this log.
+         *
+         * On other transport types, the same FD should never be re-added to the epoll
+         * instance. But returning an error would close the FD unnecessarily. So just log
+         * an error.
+         *
+         * In both cases, the data is freed below.
+         */
+        if (server->_transport->type != CMSG_TRANSPORT_ONEWAY_MC_UDP)
+        {
+            CMSG_LOG_SERVER_ERROR (server, "Duplicate FD %d found in receive poll", fd);
+        }
+        ret = CMSG_RET_OK;
+    }
+
+    server->accepted_fds = g_list_delete_link (server->accepted_fds, listnode);
+    CMSG_FREE (data);
+    return ret;
+}
+
 cmsg_server_list *
 cmsg_server_list_new (void)
 {
@@ -354,6 +499,11 @@ cmsg_server_list_new (void)
         if (pthread_mutex_init (&server_list->server_mutex, NULL) != 0)
         {
             CMSG_LOG_GEN_ERROR ("Failed to create server list mutex");
+        }
+        server_list->poll_fd = epoll_create1 (0);
+        if (server_list->poll_fd == -1)
+        {
+            CMSG_LOG_GEN_ERROR ("Failed to create server list poll");
         }
     }
     else
@@ -368,13 +518,14 @@ void
 cmsg_server_list_destroy (cmsg_server_list *server_list)
 {
     CMSG_ASSERT_RETURN_VOID (server_list != NULL);
-    CMSG_ASSERT_RETURN_VOID (g_list_length (server_list->list) == 0);
+    CMSG_ASSERT_RETURN_VOID (server_list->list == NULL);
 
     if (pthread_mutex_destroy (&server_list->server_mutex) != 0)
     {
         CMSG_LOG_GEN_ERROR ("Failed to destroy server list mutex");
     }
 
+    close (server_list->poll_fd);
     CMSG_FREE (server_list);
 }
 
@@ -386,7 +537,7 @@ cmsg_server_list_is_empty (cmsg_server_list *server_list)
     if (server_list != NULL)
     {
         pthread_mutex_lock (&server_list->server_mutex);
-        ret = g_list_length (server_list->list) == 0;
+        ret = server_list->list == NULL;
         pthread_mutex_unlock (&server_list->server_mutex);
     }
 
@@ -396,12 +547,61 @@ cmsg_server_list_is_empty (cmsg_server_list *server_list)
 void
 cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server)
 {
+    bool was_uninitialized;
+    struct epoll_event event;
+    GList *listnode;
+    cmsg_fd_info *data;
+
     CMSG_ASSERT_RETURN_VOID (server_list);
     CMSG_ASSERT_RETURN_VOID (server);
 
+    was_uninitialized = (server->accept_sd_queue == NULL);
     cmsg_server_accept_thread_init (server);
 
     pthread_mutex_lock (&server_list->server_mutex);
+
+    if (server->accepted_fds)
+    {
+        // Add the accepted FDs to the watched FDs
+        for (listnode = server->accepted_fds; listnode; listnode = g_list_next (listnode))
+        {
+            data = (cmsg_fd_info *) listnode->data;
+            event.data.ptr = listnode;
+            event.events = EPOLLIN;
+            if (epoll_ctl (server_list->poll_fd, EPOLL_CTL_ADD, data->fd, &event) != 0 &&
+                errno != EEXIST)
+            {
+                CMSG_LOG_SERVER_ERROR (server,
+                                       "An error occurred with registering FD %d for list receive poll: %s.",
+                                       data->fd, strerror (errno));
+                if (data->fd == server->accept_sd_eventfd)
+                {
+                    pthread_mutex_unlock (&server_list->server_mutex);
+                    return;
+                }
+                // Not much point keeping track of it now
+                listnode->data = NULL;
+                server->accepted_fds = g_list_delete_link (server->accepted_fds, listnode);
+                cmsg_server_accepted_fd_free (data);
+            }
+        }
+    }
+    // If the list is empty, add the accept event FD
+    else if (cmsg_server_epoll_add_fd
+             (server_list->poll_fd, server->accept_sd_eventfd, EPOLLIN,
+              server) == CMSG_RET_ERR)
+    {
+        CMSG_LOG_SERVER_ERROR (server,
+                               "An error occurred with registering accept FD %d for list receive poll: %s.",
+                               server->accept_sd_eventfd, strerror (errno));
+        if (was_uninitialized)
+        {
+            cmsg_server_accept_thread_deinit (server);
+        }
+        pthread_mutex_unlock (&server_list->server_mutex);
+        return;
+    }
+
     server_list->list = g_list_prepend (server_list->list, server);
     pthread_mutex_unlock (&server_list->server_mutex);
 }
@@ -409,58 +609,154 @@ cmsg_server_list_add_server (cmsg_server_list *server_list, cmsg_server *server)
 void
 cmsg_server_list_remove_server (cmsg_server_list *server_list, cmsg_server *server)
 {
+    GList *listnode;
+    cmsg_fd_info *data;
     CMSG_ASSERT_RETURN_VOID (server_list);
     CMSG_ASSERT_RETURN_VOID (server);
 
     pthread_mutex_lock (&server_list->server_mutex);
     server_list->list = g_list_remove (server_list->list, server);
+
+    // Remove the FDs from the watched FDs
+    for (listnode = server->accepted_fds; listnode; listnode = g_list_next (listnode))
+    {
+        data = (cmsg_fd_info *) listnode->data;
+        if (epoll_ctl (server_list->poll_fd, EPOLL_CTL_DEL, data->fd, NULL) != 0)
+        {
+            CMSG_LOG_SERVER_ERROR (server,
+                                   "An error occurred with removing FD %d from list receive poll: %s.",
+                                   data->fd, strerror (errno));
+        }
+    }
     pthread_mutex_unlock (&server_list->server_mutex);
+}
+
+int32_t
+cmsg_server_thread_receive_init (cmsg_server_thread_task_info *info)
+{
+    cmsg_server *server;
+    CMSG_ASSERT_RETURN_VAL (info != NULL, CMSG_RET_ERR);
+    CMSG_ASSERT_RETURN_VAL (info->server != NULL, CMSG_RET_ERR);
+
+    // Check if we already initialized
+    if (info->poll_fd != -1)
+    {
+        return CMSG_RET_OK;
+    }
+
+    server = info->server;
+    info->poll_fd = epoll_create1 (0);
+    if (info->poll_fd < 0)
+    {
+        CMSG_LOG_SERVER_ERROR (server,
+                               "Failed to create epoll for server accept thread: %s",
+                               strerror (errno));
+        info->poll_fd = -1;
+        return CMSG_RET_ERR;
+    }
+
+    // Don't keep any old FDs
+    cmsg_server_epoll_free_fds (server);
+
+    // Now add the accept event FD to the FD list
+    if (cmsg_server_epoll_add_fd
+        (info->poll_fd, server->accept_sd_eventfd, EPOLLIN, server) == CMSG_RET_ERR)
+    {
+        CMSG_LOG_SERVER_ERROR (server,
+                               "Failed to register accept FD in epoll for server accept thread: %s",
+                               strerror (errno));
+        close (info->poll_fd);
+        info->poll_fd = -1;
+        return CMSG_RET_ERR;
+    }
+    return CMSG_RET_OK;
+}
+
+static void
+cmsg_server_process_epoll_event (GList *listnode, int poll_fd)
+{
+    cmsg_fd_info *data;
+    cmsg_server *server;
+    int fd;
+    int *newfd_ptr = NULL;
+    eventfd_t value;
+
+    CMSG_ASSERT_RETURN_VOID (listnode);
+    CMSG_ASSERT_RETURN_VOID (poll_fd != -1);
+
+    data = (cmsg_fd_info *) listnode->data;
+    server = data->parent;
+    fd = data->fd;
+
+    if (!server)
+    {
+        CMSG_LOG_GEN_ERROR ("FD %d has no matching server in list receive poll.", fd);
+        epoll_ctl (poll_fd, EPOLL_CTL_DEL, fd, NULL);
+        return;
+    }
+
+    // The FD is either the accept event fd or an accepted fd
+    if (fd == server->accept_sd_eventfd)
+    {
+        // clear notification
+        TEMP_FAILURE_RETRY (eventfd_read (server->accept_sd_eventfd, &value));
+        while ((newfd_ptr = g_async_queue_try_pop (server->accept_sd_queue)))
+        {
+            if (cmsg_server_epoll_add_fd (poll_fd, *newfd_ptr, EPOLLIN,
+                                          server) == CMSG_RET_ERR)
+            {
+                CMSG_LOG_SERVER_ERROR (server,
+                                       "An error occurred with registering FD %d for list receive poll: %s.",
+                                       *newfd_ptr, strerror (errno));
+                CMSG_COUNTER_INC (server, cntr_errors);
+                cmsg_server_close_accepted_socket (server, *newfd_ptr);
+            }
+            CMSG_FREE (newfd_ptr);
+        }
+    }
+    else    // fd is an accepted connection, and there is something happening on the socket so receive it.
+    if (cmsg_server_receive (server, fd) < 0)
+    {
+        // Only close the socket if we have errored. Manually remove it from the epoll
+        // instance to prevent issues with duplicated sockets and unclosed sockets.
+        epoll_ctl (poll_fd, EPOLL_CTL_DEL, fd, NULL);
+        listnode->data = NULL;
+        server->accepted_fds = g_list_delete_link (server->accepted_fds, listnode);
+        cmsg_server_accepted_fd_free (data);
+    }
 }
 
 /**
  * Poll a CMSG server that is accepting connections in a separate thread.
  *
- * Note: If the select system call is interrupted before any messages
+ * Note: If the epoll system call is interrupted before any messages
  *       are received (i.e. returns EINTR) then this function will
  *       return success (instead of blocking until the timeout expires)
  *
- * Timeout is specified in 'timeout_ms' (0: return immediately,
- * negative number: no timeout).
- *
- * @param server - The CMSG server to poll.
- * @param timeout_ms - The timeout to use with select.
- *                     (0: return immediately, negative number: no timeout).
- * @param master_fdset - An fd_set containing all of the sockets being polled.
- * @param fdmax - Pointer to an integer holding the maximum fd number.
+ * @param info - A pointer to information created by cmsg_server_thread_task_info_create
  *
  * @returns On success returns 0, failure returns -1.
  */
 int32_t
-cmsg_server_thread_receive_poll (cmsg_server *server, int32_t timeout_ms,
-                                 fd_set *master_fdset, int *fdmax)
+cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info)
 {
-    int ret = 0;
-    fd_set read_fds = *master_fdset;
-    int nfds = *fdmax;
-    struct timeval timeout = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
-    int fd;
-    bool check_fdmax = false;
-    int accept_event_fd;
-    eventfd_t value;
-    int *newfd_ptr = NULL;
-    cmsg_server_accept_thread_info *info;
+    static bool warning_logged = false;
+    int ret;
+    int nfds;
+    struct epoll_event events[ACCEPT_MAX_EVENTS];
+    int n;
+    GList *listnode = NULL;
 
-    CMSG_ASSERT_RETURN_VAL (server != NULL, CMSG_RET_ERR);
-
-    info = server->accept_thread_info;
-    accept_event_fd = info->accept_sd_eventfd;
+    // Initialize epoll FD if not yet done
+    ret = cmsg_server_thread_receive_init (info);
+    CMSG_ASSERT_RETURN_VAL (ret == CMSG_RET_OK, ret);
 
     /* Explicitly set where the thread can be cancelled to avoid leaking
      * connected sockets. */
     pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
-    ret = select (nfds + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
+    nfds = epoll_wait (info->poll_fd, events, ACCEPT_MAX_EVENTS, info->timeout);
     pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
-    if (ret == -1)
+    if (nfds == -1)
     {
         if (errno == EINTR)
         {
@@ -468,58 +764,28 @@ cmsg_server_thread_receive_poll (cmsg_server *server, int32_t timeout_ms,
             return CMSG_RET_OK;
         }
 
-        CMSG_LOG_SERVER_ERROR (server,
-                               "An error occurred with receive poll (timeout %dms): %s.",
-                               timeout_ms, strerror (errno));
-        CMSG_COUNTER_INC (server, cntr_poll_errors);
+        CMSG_LOG_SERVER_ERROR (info->server,
+                               "An error occurred with receive poll (%d, %d): %s.",
+                               info->poll_fd, info->timeout, strerror (errno));
+        CMSG_COUNTER_INC (info->server, cntr_poll_errors);
         return CMSG_RET_ERR;
     }
-    else if (ret == 0)
+    else if (nfds == ACCEPT_MAX_EVENTS && !warning_logged)
     {
-        // timed out, so func success but nothing received, early return
-        return CMSG_RET_OK;
+        // ACCEPT_MAX_EVENTS may need to change to a different define if this error is logged.
+        CMSG_LOG_GEN_INFO ("Number of FD events %d has reached limit of %d",
+                           nfds, ACCEPT_MAX_EVENTS);
+        warning_logged = true;
     }
 
     // run through the existing connections looking for data to read
-    for (fd = 0; fd <= nfds; fd++)
+    // if nfds is 0, nothing was received before time out, so we just skip the loop
+    for (n = 0; n < nfds; n++)
     {
-        if (FD_ISSET (fd, &read_fds))
+        if (events[n].events & EPOLLIN)
         {
-            if (fd == accept_event_fd)
-            {
-                /* clear notification */
-                TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
-                while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
-                {
-                    FD_SET (*newfd_ptr, master_fdset);
-                    *fdmax = MAX (*newfd_ptr, *fdmax);
-                    CMSG_FREE (newfd_ptr);
-                }
-            }
-            else
-            {
-                // there is something happening on the socket so receive it.
-                if (cmsg_server_receive (server, fd) < 0)
-                {
-                    // only close the socket if we have errored
-                    cmsg_server_close_accepted_socket (server, fd);
-                    FD_CLR (fd, master_fdset);
-                    check_fdmax = true;
-                }
-            }
-        }
-    }
-
-    // Check the largest file descriptor
-    if (check_fdmax)
-    {
-        for (fd = *fdmax; fd >= 0; fd--)
-        {
-            if (FD_ISSET (fd, master_fdset))
-            {
-                *fdmax = fd;
-                break;
-            }
+            listnode = events[n].data.ptr;
+            cmsg_server_process_epoll_event (listnode, info->poll_fd);
         }
     }
 
@@ -534,66 +800,27 @@ cmsg_server_thread_receive_poll (cmsg_server *server, int32_t timeout_ms,
  *       return success (instead of blocking until the timeout expires)
  *
  * Timeout : (0: return immediately, +: wait in milli-seconds, -: no timeout).
- * On success returns 0, failure returns -1.
+ * On success returns CMSG_RET_OK, failure returns CMSG_RET_ERR.
  */
 int32_t
 cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms)
 {
-    struct timeval timeout = { timeout_ms / 1000, (timeout_ms % 1000) * 1000 };
-    cmsg_server *server = NULL;
-    GList *node;
-    fd_set read_fds;
-    int fdmax;
-    int ret;
-    int fd;
-    cmsg_server_accept_thread_info *info;
-    int accept_event_fd;
-    eventfd_t value;
-    int *newfd_ptr = NULL;
+    static bool warning_logged = false;
+    int n;
+    int nfds;
+    struct epoll_event events[ACCEPT_MAX_EVENTS];
+    GList *listnode = NULL;
 
-    if (!server_list)
+    if (server_list == NULL)
     {
-        return 0;
+        sleep (1);
+        return CMSG_RET_ERR;
     }
-
-    pthread_mutex_lock (&server_list->server_mutex);
-    if (g_list_length (server_list->list) == 0)
-    {
-        pthread_mutex_unlock (&server_list->server_mutex);
-
-        // Nothing to do
-        return 0;
-    }
-
-    FD_ZERO (&read_fds);
-
-    // Collect fds to examine, make sure the list cannot be changed while we traverse it.
-    fdmax = 0;
-    for (node = g_list_first (server_list->list); node && node->data;
-         node = g_list_next (node))
-    {
-        server = (cmsg_server *) node->data;
-
-        info = server->accept_thread_info;
-        accept_event_fd = info->accept_sd_eventfd;
-
-        FD_SET (accept_event_fd, &read_fds);
-        fdmax = MAX (fdmax, accept_event_fd);
-
-        for (fd = 0; fd <= server->accepted_fdmax; fd++)
-        {
-            if (FD_ISSET (fd, &server->accepted_fdset))
-            {
-                FD_SET (fd, &read_fds);
-            }
-        }
-        fdmax = MAX (fdmax, server->accepted_fdmax);
-    }
-    pthread_mutex_unlock (&server_list->server_mutex);
+    CMSG_ASSERT_RETURN_VAL (server_list->poll_fd != -1, CMSG_RET_ERR);
 
     // Check any data is available
-    ret = select (fdmax + 1, &read_fds, NULL, NULL, (timeout_ms < 0) ? NULL : &timeout);
-    if (ret == -1)
+    nfds = epoll_wait (server_list->poll_fd, events, ACCEPT_MAX_EVENTS, timeout_ms);
+    if (nfds == -1)
     {
         if (errno == EINTR)
         {
@@ -601,68 +828,39 @@ cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms
             return CMSG_RET_OK;
         }
 
-        CMSG_LOG_SERVER_ERROR (server,
-                               "An error occurred with list receive poll (timeout: %dms): %s.",
-                               timeout_ms, strerror (errno));
-        CMSG_COUNTER_INC (server, cntr_poll_errors);
+        CMSG_LOG_GEN_ERROR ("An error occurred with list receive poll (%d, %d): %s.",
+                            server_list->poll_fd, timeout_ms, strerror (errno));
         return CMSG_RET_ERR;
     }
-    else if (ret == 0)
+    else if (nfds == 0)
     {
         // timed out, so func success but nothing received, early return
         return CMSG_RET_OK;
+    }
+    else if (nfds == ACCEPT_MAX_EVENTS && !warning_logged)
+    {
+        // ACCEPT_MAX_EVENTS may need to change to a different define if this error is logged.
+        CMSG_LOG_GEN_INFO ("Number of FD events %d has reached limit of %d",
+                           nfds, ACCEPT_MAX_EVENTS);
+        warning_logged = true;
     }
 
     // Process any data available on the sockets, make sure the list cannot be changed while
     // we traverse it. Changes between the first and second traversal should not cause any
     // problems.
     pthread_mutex_lock (&server_list->server_mutex);
-    for (node = g_list_first (server_list->list); node && node->data;
-         node = g_list_next (node))
+    for (n = 0; n < nfds; n++)
     {
-        server = (cmsg_server *) node->data;
-        info = server->accept_thread_info;
-        accept_event_fd = info->accept_sd_eventfd;
-
-        for (fd = 0; fd <= fdmax; fd++)
+        if (events[n].events & EPOLLIN)
         {
-            if (FD_ISSET (fd, &read_fds))
-            {
-                if (fd == accept_event_fd)
-                {
-                    /* clear notification */
-                    TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
-                    while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
-                    {
-                        FD_SET (*newfd_ptr, &server->accepted_fdset);
-                        server->accepted_fdmax = MAX (server->accepted_fdmax, *newfd_ptr);
-                        CMSG_FREE (newfd_ptr);
-                    }
-                }
-                else if (FD_ISSET (fd, &server->accepted_fdset))
-                {
-                    // there is something happening on the socket so receive it.
-                    if (cmsg_server_receive (server, fd) < 0)
-                    {
-                        // only close the socket if we have errored
-                        cmsg_server_close_accepted_socket (server, fd);
-                        FD_CLR (fd, &server->accepted_fdset);
-                        if (server->accepted_fdmax == fd)
-                        {
-                            server->accepted_fdmax--;
-                        }
-                    }
-
-                    FD_CLR (fd, &read_fds);
-                }
-            }
+            listnode = events[n].data.ptr;
+            cmsg_server_process_epoll_event (listnode, server_list->poll_fd);
         }
     }
     pthread_mutex_unlock (&server_list->server_mutex);
 
     return CMSG_RET_OK;
 }
-
 
 static int32_t
 cmsg_server_recv_process (int socket, uint8_t *buffer_data, cmsg_server *server,
@@ -1073,6 +1271,11 @@ cmsg_server_invoke_impl (ProtobufCService *service, unsigned method_index,
         return;
     }
 
+#ifdef HAVE_TRACE
+    cmsg_trace_message (service->descriptor->name,
+                        service->descriptor->methods[method_index].name, input);
+#endif /* HAVE_TRACE */
+
     if (service->descriptor->methods[method_index].input->n_fields == 0)
     {
         cmsg_impl_no_input_func func =
@@ -1084,6 +1287,12 @@ cmsg_server_invoke_impl (ProtobufCService *service, unsigned method_index,
         cmsg_impl_func func = (cmsg_impl_func) impl_info[method_index].impl_func;
         func (&closure_info, input);
     }
+#ifdef HAVE_EVENTWATCH
+    if (method_extensions && method_extensions->eventwatch_notify)
+    {
+        eventwatch_event (method_extensions->eventwatch_notify);
+    }
+#endif
 }
 
 void
@@ -2189,6 +2398,131 @@ cmsg_create_server_tcp_ipv6_oneway (const char *service_name, struct in6_addr *a
 }
 
 /**
+ * Helper function for creating a CMSG server using TCP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param src_addr - The IPv4 address (in network byte order) of the source interface.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ * @param oneway - Whether to make a one-way server, or a two-way (RPC) server.
+ */
+static cmsg_server *
+_cmsg_create_server_udp_ipv4 (const char *service_name, struct in_addr *addr,
+                              struct in_addr *src_addr, const char *vrf_bind_dev,
+                              const ProtobufCService *service, bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_server *server;
+
+    transport =
+        cmsg_create_transport_mc_udp_ipv4 (service_name, addr, src_addr, vrf_bind_dev,
+                                           oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (!server)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No UDP IPC server on %s", service->descriptor->name);
+        return NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create a oneway CMSG server using UDP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ */
+cmsg_server *
+cmsg_create_server_udp_ipv4_oneway (const char *service_name, struct in_addr *addr,
+                                    struct in_addr *src_addr, const char *vrf_bind_dev,
+                                    const ProtobufCService *service)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    return _cmsg_create_server_udp_ipv4 (service_name, addr, src_addr, vrf_bind_dev,
+                                         service, true);
+}
+
+/**
+ * Helper function for creating a CMSG server using UDP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to listen on (in network byte order).
+ * @param scope_id - the IPv6 scope id.
+ * @param src_addr - The IPv6 address (in network byte order) of the source interface.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ * @param oneway - Whether to make a one-way server, or a two-way (RPC) server.
+ */
+static cmsg_server *
+_cmsg_create_server_udp_ipv6 (const char *service_name, struct in6_addr *addr,
+                              struct in6_addr *src_addr, uint32_t scope_id,
+                              const char *vrf_bind_dev, const ProtobufCService *service,
+                              bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_server *server;
+
+    transport =
+        cmsg_create_transport_mc_udp_ipv6 (service_name, addr, src_addr, scope_id,
+                                           vrf_bind_dev, oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    server = cmsg_server_new (transport, service);
+    if (!server)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No UDP IPC server on %s", service->descriptor->name);
+        return NULL;
+    }
+
+    return server;
+}
+
+/**
+ * Create a oneway CMSG server using UDP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to listen on.
+ * @param scope_id - the IPv6 scope id.
+ * @param src_addr - The IPv6 source address to listen for.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param service - The CMSG service.
+ */
+cmsg_server *
+cmsg_create_server_udp_ipv6_oneway (const char *service_name, struct in6_addr *addr,
+                                    uint32_t scope_id, struct in6_addr *src_addr,
+                                    const char *vrf_bind_dev,
+                                    const ProtobufCService *service)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (service != NULL, NULL);
+
+    return _cmsg_create_server_udp_ipv6 (service_name, addr, src_addr, scope_id,
+                                         vrf_bind_dev, service, true);
+}
+
+/**
  * Destroy a cmsg server and its transport
  *
  * @param server - the cmsg server to destroy
@@ -2257,33 +2591,49 @@ cmsg_server_app_owns_all_msgs_set (cmsg_server *server, cmsg_bool_t app_is_owner
  * client user to read from.
  */
 static void *
-cmsg_server_accept_thread (void *_server)
+cmsg_server_accept_thread (void *unused)
 {
-    cmsg_server *server = (cmsg_server *) _server;
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
-    int listen_socket = cmsg_server_get_socket (server);
+    cmsg_server *server;
     int newfd = -1;
     int *newfd_ptr;
-    struct pollfd pfd = {
-        .events = POLLIN,
-        .fd = listen_socket,
-    };
+    int n;
+    int nfds;
 
     while (1)
     {
-        if (TEMP_FAILURE_RETRY (poll (&pfd, 1, -1)) > 0)
+        nfds = epoll_wait (epollfd, events, MAX_EVENTS, -1);
+        if (nfds == -1)
         {
+            continue;
+        }
+        for (n = 0; n < nfds; n++)
+        {
+            /* Explicitly set where the thread can be cancelled. This ensures no
+             * sockets can be leaked if the thread is cancelled after accepting
+             * a connection. */
             pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
-            newfd = cmsg_server_accept (server, listen_socket);
-            if (newfd >= 0)
+            if (events[n].events & EPOLLIN)
             {
-                /* Explicitly set where the thread can be cancelled. This ensures no
-                 * sockets can be leaked if the thread is cancelled after accepting
-                 * a connection. */
-                newfd_ptr = CMSG_CALLOC (1, sizeof (int));
-                *newfd_ptr = newfd;
-                g_async_queue_push (info->accept_sd_queue, newfd_ptr);
-                TEMP_FAILURE_RETRY (eventfd_write (info->accept_sd_eventfd, 1));
+                server = events[n].data.ptr;
+
+                pthread_mutex_lock (&server->accept_mutex);
+                if (server->accept_sd_queue)
+                {
+                    newfd = cmsg_server_accept (server, cmsg_server_get_socket (server));
+                    if (newfd >= 0)
+                    {
+                        newfd_ptr = CMSG_CALLOC (1, sizeof (int));
+                        *newfd_ptr = newfd;
+                        g_async_queue_push (server->accept_sd_queue, newfd_ptr);
+                        TEMP_FAILURE_RETRY (eventfd_write (server->accept_sd_eventfd, 1));
+                    }
+                }
+                pthread_mutex_unlock (&server->accept_mutex);
+            }
+            else
+            {
+                /* Sleep on error before re-trying in order to avoid a tight loop */
+                sleep (1);
             }
             pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
         }
@@ -2312,53 +2662,93 @@ _clear_accept_sd_queue (gpointer data)
  *
  * @return CMSG_RET_OK on success, CMSG_RET_ERR on failure.
  */
-int32_t
-cmsg_server_accept_thread_init (cmsg_server *server)
+static int32_t
+_cmsg_server_accept_thread_init (cmsg_server *server)
 {
-    cmsg_server_accept_thread_info *info = NULL;
+    struct epoll_event ev;
 
-    if (server->accept_thread_info)
+    /* Global thread data is to be setup. */
+    if (epollfd == -1)
+    {
+        epollfd = epoll_create1 (0);
+        if (epollfd == -1)
+        {
+            return CMSG_RET_ERR;
+        }
+    }
+
+    if (global_server_accept_thread == -1)
+    {
+        if (pthread_create (&global_server_accept_thread, NULL,
+                            cmsg_server_accept_thread, NULL) != 0)
+        {
+            global_server_accept_thread = -1;
+            return CMSG_RET_ERR;
+        }
+        cmsg_pthread_setname (global_server_accept_thread, "global", CMSG_ACCEPT_PREFIX);
+    }
+
+    if (global_server_accept_count == MAX_EVENTS)
+    {
+        /* This should not happen in an actual release but during development.
+         * As more servers are added, the limit will need to be increased.
+         * Continue processing but the new server will fail to run. */
+        syslog (LOG_ALERT, "Maximum CMSG server accept thread limit has been reached!");
+    }
+
+    if (server->accept_sd_eventfd != -1)
     {
         /* Already initialised */
         return CMSG_RET_OK;
     }
 
-    info = CMSG_CALLOC (1, sizeof (cmsg_server_accept_thread_info));
-    if (info == NULL)
+    server->accept_sd_eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
+    if (server->accept_sd_eventfd < 0)
     {
+        server->accept_sd_eventfd = -1;
         return CMSG_RET_ERR;
     }
 
-    info->accept_sd_eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
-    if (info->accept_sd_eventfd < 0)
+    server->accept_sd_queue = g_async_queue_new_full (_clear_accept_sd_queue);
+    if (!server->accept_sd_queue)
     {
-        CMSG_FREE (info);
+        close (server->accept_sd_eventfd);
+        server->accept_sd_eventfd = -1;
         return CMSG_RET_ERR;
     }
 
-    info->accept_sd_queue = g_async_queue_new_full (_clear_accept_sd_queue);
-    if (!info->accept_sd_queue)
+    memset (&ev, 0, sizeof (struct epoll_event));
+    ev.events = EPOLLIN;
+    ev.data.ptr = server;
+    if (epoll_ctl (epollfd, EPOLL_CTL_ADD, cmsg_server_get_socket (server), &ev) == -1)
     {
-        close (info->accept_sd_eventfd);
-        CMSG_FREE (info);
+        close (server->accept_sd_eventfd);
+        server->accept_sd_eventfd = -1;
+        g_async_queue_unref (server->accept_sd_queue);
+        server->accept_sd_queue = NULL;
         return CMSG_RET_ERR;
     }
 
-    server->accept_thread_info = info;
+    global_server_accept_count++;
 
-    if (pthread_create (&info->server_accept_thread, NULL,
-                        cmsg_server_accept_thread, server) != 0)
-    {
-        close (info->accept_sd_eventfd);
-        g_async_queue_unref (info->accept_sd_queue);
-        CMSG_FREE (info);
-        server->accept_thread_info = NULL;
-        return CMSG_RET_ERR;
-    }
-
-    cmsg_pthread_setname (info->server_accept_thread,
-                          server->service->descriptor->short_name, CMSG_ACCEPT_PREFIX);
     return CMSG_RET_OK;
+}
+
+/**
+ * Locking wrapper.
+ */
+int32_t
+cmsg_server_accept_thread_init (cmsg_server *server)
+{
+    int32_t ret;
+
+    pthread_mutex_lock (&global_server_accept_lock);
+    pthread_mutex_lock (&server->accept_mutex);
+    ret = _cmsg_server_accept_thread_init (server);
+    pthread_mutex_unlock (&server->accept_mutex);
+    pthread_mutex_unlock (&global_server_accept_lock);
+
+    return ret;
 }
 
 /**
@@ -2369,14 +2759,31 @@ cmsg_server_accept_thread_init (cmsg_server *server)
 void
 cmsg_server_accept_thread_deinit (cmsg_server *server)
 {
-    if (server && server->accept_thread_info)
+
+    if (server && server->accept_sd_eventfd != -1)
     {
-        pthread_cancel (server->accept_thread_info->server_accept_thread);
-        pthread_join (server->accept_thread_info->server_accept_thread, NULL);
-        close (server->accept_thread_info->accept_sd_eventfd);
-        g_async_queue_unref (server->accept_thread_info->accept_sd_queue);
-        CMSG_FREE (server->accept_thread_info);
-        server->accept_thread_info = NULL;
+        pthread_mutex_lock (&global_server_accept_lock);
+
+        epoll_ctl (epollfd, EPOLL_CTL_DEL, cmsg_server_get_socket (server), NULL);
+
+        pthread_mutex_lock (&server->accept_mutex);
+        close (server->accept_sd_eventfd);
+        server->accept_sd_eventfd = -1;
+        g_async_queue_unref (server->accept_sd_queue);
+        server->accept_sd_queue = NULL;
+        pthread_mutex_unlock (&server->accept_mutex);
+
+        global_server_accept_count--;
+        if (global_server_accept_count == 0)
+        {
+            pthread_cancel (global_server_accept_thread);
+            pthread_join (global_server_accept_thread, NULL);
+
+            global_server_accept_thread = -1;
+            close (epollfd);
+            epollfd = -1;
+        }
+        pthread_mutex_unlock (&global_server_accept_lock);
     }
 }
 
@@ -2463,6 +2870,118 @@ cmsg_server_from_service_get (const void *service)
 }
 
 /**
+ * Helper function that can be used to get the other process pid from
+ * the request from the 'service' parameter of any given IMPL function.
+ *
+ * @param service - The 'service' pointer passed to the IMPL function.
+ *
+ * @returns The pid of the other process.
+ */
+int
+cmsg_peer_pid_from_service_get (const void *service)
+{
+    const cmsg_server_closure_info *closure_info = service;
+    const cmsg_server_closure_data *closure_data;
+    int reply_socket;
+    struct ucred ucred;
+    socklen_t uclen = sizeof (struct ucred);
+    int pid = -1;
+
+    if (closure_info)
+    {
+        closure_data = closure_info->closure_data;
+        reply_socket = closure_data->reply_socket;
+        if (getsockopt (reply_socket, SOL_SOCKET, SO_PEERCRED, &ucred, &uclen) == 0)
+        {
+            pid = ucred.pid;
+        }
+    }
+    return pid;
+}
+
+/**
+ * Helper function that can be used to get the string of server processing
+ * the request from the 'service' parameter of any given IMPL function.
+ *
+ * @param service - The 'service' pointer passed to the IMPL function.
+ *
+ * @returns The pointer to the server processing the request.
+ */
+const char *
+cmsg_server_description_from_service_get (const void *service)
+{
+    const cmsg_server_closure_info *closure_info = service;
+    const cmsg_server_closure_data *closure_data;
+
+    if (closure_info)
+    {
+        closure_data = closure_info->closure_data;
+        if (closure_data && closure_data->server && closure_data->server->_transport)
+        {
+            switch (closure_data->server->_transport->type)
+            {
+            case CMSG_TRANSPORT_LOOPBACK:
+                return "Loopback";
+
+            case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
+                return "Loopback-One";
+
+            case CMSG_TRANSPORT_RPC_TCP:
+                return "TCP-RPC";
+
+            case CMSG_TRANSPORT_ONEWAY_TCP:
+                return "TCP-One";
+
+            case CMSG_TRANSPORT_BROADCAST:
+                return "Broadcast";
+
+            case CMSG_TRANSPORT_RPC_UNIX:
+                return "Unix-RPC";
+
+            case CMSG_TRANSPORT_ONEWAY_UNIX:
+                return "Unix-One";
+
+            case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+                return "UDP-MC";
+
+            case CMSG_TRANSPORT_FORWARDING:
+                return "Forward";
+            }
+            return "Unknown";
+        }
+    }
+
+    return "";
+}
+
+
+/**
+ * Helper function that can be used to get the transport of server processing
+ * the request from the 'service' parameter of any given IMPL function.
+ *
+ * @param service - The 'service' pointer passed to the IMPL function.
+ *
+ * @returns The pointer to the server processing the request.
+ */
+bool
+cmsg_server_is_transport_broadcast_from_service (const void *service)
+{
+    const cmsg_server_closure_info *closure_info = service;
+    const cmsg_server_closure_data *closure_data;
+
+    if (closure_info)
+    {
+        closure_data = closure_info->closure_data;
+        if (closure_data->server && closure_data->server->_transport)
+        {
+            return closure_data->server->_transport->type == CMSG_TRANSPORT_BROADCAST;
+        }
+    }
+
+    return false;
+}
+
+/**
  * Create a 'cmsg_server_thread_task_info' structure containing
  * the details required to run a server as a task in some thread.
  *
@@ -2487,9 +3006,32 @@ cmsg_server_thread_task_info_create (cmsg_server *server, int timeout)
         info->server = server;
         info->timeout = timeout;
         info->running = true;
+        info->poll_fd = -1;
+    }
+    return info;
+}
+
+/**
+ * Free a 'cmsg_server_thread_task_info' structure
+ *
+ * @param The 'cmsg_server_thread_task_info' to free
+ */
+void
+cmsg_server_thread_task_info_free (cmsg_server_thread_task_info *info)
+{
+    cmsg_server *server = info->server;
+    if (server)
+    {
+        cmsg_server_accept_thread_deinit (server);
+        cmsg_server_epoll_free_fds (server);
     }
 
-    return info;
+    if (info->poll_fd != -1)
+    {
+        close (info->poll_fd);
+        info->poll_fd = -1;
+    }
+    CMSG_FREE (info);
 }
 
 /**
@@ -2506,42 +3048,16 @@ cmsg_server_thread_task_info_create (cmsg_server *server, int timeout)
 void *
 cmsg_server_thread_task (void *_info)
 {
-    int fd;
-    int fd_max;
-    fd_set readfds;
-    int accept_sd_eventfd;
     cmsg_server_thread_task_info *info = (cmsg_server_thread_task_info *) _info;
 
-    FD_ZERO (&readfds);
-
     cmsg_server_accept_thread_init (info->server);
-
-    accept_sd_eventfd = info->server->accept_thread_info->accept_sd_eventfd;
-    fd_max = accept_sd_eventfd;
-    FD_SET (fd_max, &readfds);
-
     while (info->running)
     {
-        cmsg_server_thread_receive_poll (info->server, info->timeout, &readfds, &fd_max);
+        cmsg_server_thread_receive_poll (info);
     }
-
-    cmsg_server_accept_thread_deinit (info->server);
-
-    for (fd = 0; fd <= fd_max; fd++)
-    {
-        /* Don't double close the accept event fd */
-        if (fd == accept_sd_eventfd)
-        {
-            continue;
-        }
-        if (FD_ISSET (fd, &readfds))
-        {
-            cmsg_server_close_accepted_socket (info->server, fd);
-        }
-    }
-
     cmsg_destroy_server_and_transport (info->server);
-    CMSG_FREE (info);
+    info->server = NULL;
+    cmsg_server_thread_task_info_free (info);
 
     return NULL;
 }

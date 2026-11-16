@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+import "google/protobuf/descriptor.proto";
+
+// This extension allows to store the minimum user privilege level to access
+// the RPC in .proto file.
+// Then the stored privilege level can be used in run-time. For example CMSG Proxy can
+// prevent users having low privilege accessing those APIs.
+extend google.protobuf.MethodOptions {
+    optional uint32 rpc_privilege = 72295741;
+}

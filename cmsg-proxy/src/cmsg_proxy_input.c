@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2018, Allied Telesis Labs New Zealand, Ltd
  */
@@ -491,12 +492,19 @@ cmsg_proxy_set_internal_api_info (const cmsg_proxy_api_request_info *web_api_inf
 {
     if (web_api_info)
     {
+        char privilege_str[16] = { '\0' };
+
         cmsg_proxy_set_internal_api_value (web_api_info->api_request_ip_address,
                                            json_obj, msg_descriptor,
                                            "_api_request_ip_address");
         cmsg_proxy_set_internal_api_value (web_api_info->api_request_username,
                                            json_obj, msg_descriptor,
                                            "_api_request_username");
+
+        snprintf (privilege_str, sizeof (privilege_str), "%u",
+                  web_api_info->api_request_privilege);
+        cmsg_proxy_set_internal_api_value (privilege_str, json_obj, msg_descriptor,
+                                           "_api_request_privilege");
     }
 }
 
@@ -556,15 +564,20 @@ cmsg_proxy_set_file_upload_info (const cmsg_proxy_api_file_info *file_info,
  * @param parameters - list of parameter-name & parameter pairs
  * @param json_obj - the message body
  * @param msg_descriptor - used to determine the target field type when converting to JSON
+ * @param error_message - Error message populated if ANT_CODE_INTERNAL is returned.
+ * @return ANT_CODE_OK on success, ANT_CODE_INTERNAL on failure.
  */
-void
+static ant_code
 cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
-                                 const ProtobufCMessageDescriptor *msg_descriptor)
+                                 const ProtobufCMessageDescriptor *msg_descriptor,
+                                 char **error_message)
 {
     GList *iter = NULL;
     const ProtobufCFieldDescriptor *field_descriptor = NULL;
     cmsg_url_parameter *p = NULL;
     json_t *new_object = NULL;
+
+    *error_message = NULL;
 
     for (iter = parameters; iter; iter = g_list_next (iter))
     {
@@ -581,14 +594,22 @@ cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
 
         if (!field_descriptor)
         {
-            continue;   /* TODO: add to json as strings (for unexpected argument error) */
+            /* Add unknown URL parameters as strings so protobuf conversion reports
+             * an unexpected argument error. */
+            new_object = json_pack ("{ss}", p->key, p->value ? p->value : "");
+            if (!new_object)
+            {
+                *error_message = CMSG_PROXY_STRDUP ("Internal proxy error");
+                return ANT_CODE_INTERNAL;
+            }
         }
-
-        new_object = cmsg_proxy_json_value_to_object (field_descriptor, p->value);
-
-        if (!new_object)
+        else
         {
-            continue;
+            new_object = cmsg_proxy_json_value_to_object (field_descriptor, p->value);
+            if (!new_object)
+            {
+                continue;
+            }
         }
 
         if (*json_obj)
@@ -601,6 +622,8 @@ cmsg_proxy_parse_url_parameters (GList *parameters, json_t **json_obj,
             *json_obj = new_object;
         }
     }
+
+    return ANT_CODE_OK;
 }
 
 /**
@@ -684,7 +707,16 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
         return NULL;
     }
 
-    cmsg_proxy_parse_url_parameters (url_parameters, &json_obj, input_desc);
+    result = cmsg_proxy_parse_url_parameters (url_parameters, &json_obj, input_desc,
+                                              &message);
+    if (result != ANT_CODE_OK)
+    {
+        cmsg_proxy_generate_ant_result_error (result, message, output);
+        CMSG_PROXY_FREE (message);
+        g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
+        cmsg_proxy_json_object_destroy (json_obj);
+        return NULL;
+    }
 
     g_list_free_full (url_parameters, cmsg_proxy_free_url_parameter);
 
@@ -713,7 +745,7 @@ cmsg_proxy_input_process (const cmsg_proxy_input *input, cmsg_proxy_output *outp
     }
 
     output->stream_response =
-        cmsg_proxy_streaming_create_conn (input->connection, &json_obj,
+        cmsg_proxy_streaming_create_conn (input->stream_seq_no, &json_obj,
                                           input_desc, output_desc,
                                           &processing_info->streaming_id);
 

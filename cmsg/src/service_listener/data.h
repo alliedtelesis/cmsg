@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * data.h
  *
@@ -34,7 +35,9 @@ void data_add_server (cmsg_service_info *server_info, bool local);
 void data_remove_server (const cmsg_service_info *server_info, bool local);
 void data_remove_servers_by_addr (struct in_addr addr);
 GList *data_get_servers_by_addr (uint32_t addr);
+#ifdef HAVE_PIDFD
 void data_remove_by_pid (int pid);
+#endif /* HAVE_PIDFD */
 void data_add_listener (const cmsg_sld_listener_info *info);
 void data_remove_listener (const cmsg_sld_listener_info *info);
 service_data_entry *get_service_entry_or_create (const char *service, bool create);

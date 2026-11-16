@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * A shared memory library that contains the configuration
  * for CMSG proxy.
@@ -7,14 +8,18 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#ifdef HAVE_SIMPLE_SHM
 #include "simple_shm.h"
+#endif
 #include "cmsg_proxy_config.h"
 
 typedef struct
 {
     cmsg_proxy_log_mode log_mode;
+    uint32_t readonly_privilege;
 } cmsg_proxy_config;
 
+#ifdef HAVE_SIMPLE_SHM
 static void init_config (cmsg_proxy_config *proxy_conf);
 
 static simple_shm_info shm_info = {
@@ -32,6 +37,7 @@ static void
 init_config (cmsg_proxy_config *proxy_conf)
 {
     proxy_conf->log_mode = CMSG_PROXY_LOG_NONE;
+    proxy_conf->readonly_privilege = DEFAULT_READONLY_PRIVILEGE;
 }
 
 void
@@ -49,3 +55,20 @@ cmsg_proxy_config_get_logging_mode (void)
 
     return config->log_mode;
 }
+
+void
+cmsg_proxy_config_set_readonly_privilege (uint32_t privilege)
+{
+    cmsg_proxy_config *config = get_shared_memory (&shm_info);
+
+    config->readonly_privilege = privilege;
+}
+
+uint32_t
+cmsg_proxy_config_get_readonly_privilege (void)
+{
+    cmsg_proxy_config *config = get_shared_memory (&shm_info);
+
+    return config->readonly_privilege;
+}
+#endif

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
@@ -8,7 +9,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#ifdef HAVE_SIMPLE_SHM
 #include <simple_shm.h>
+#endif
 
 /* This value should match the maximum number of expected nodes in a
  * cluster using the CMSG service listener functionality. */
@@ -26,6 +29,7 @@ typedef struct
     tcp_connection_cache_entry entries[TCP_CONNECTION_CACHE_SIZE];
 } tcp_connection_cache;
 
+#ifdef HAVE_SIMPLE_SHM
 static void cmsg_transport_tcp_cache_init (void *_cache);
 
 static simple_shm_info shm_info = {
@@ -53,7 +57,8 @@ cmsg_transport_tcp_cache_init (void *_cache)
 /**
  * Set an entry for the given address in the TCP connection cache.
  * Note that this functionality is lockless and assumes only a single
- * thread in a single process will ever set these entries.
+ * thread in stackd will ever set these entries. If it is required to
+ * be called by multiple threads then thread locks should be added.
  *
  * @param address - The address to set in the cache.
  * @param present - Whether the address is present or not.
@@ -113,6 +118,20 @@ cmsg_transport_tcp_cache_should_connect (struct in_addr *address)
 
     return true;
 }
+#else
+/* No cache */
+void
+cmsg_transport_tcp_cache_set (struct in_addr *address, bool present)
+{
+    return;
+}
+
+static bool
+cmsg_transport_tcp_cache_should_connect (struct in_addr *address)
+{
+    return true;
+}
+#endif /* HAVE_SIMPLE_SHM */
 
 /*
  * Create a TCP socket connection.
@@ -127,11 +146,12 @@ cmsg_transport_tcp_connect (cmsg_transport *transport)
     struct in_addr *address = &transport->config.socket.sockaddr.in.sin_addr;
 
     /* Check the connection cache for IPv4 addresses */
-    if (transport->config.socket.family == PF_INET &&
+    if (transport->perform_connection_pre_check &&
+        transport->config.socket.family == PF_INET &&
         !cmsg_transport_tcp_cache_should_connect (address))
     {
-        CMSG_LOG_TRANSPORT_ERROR (transport, "Failed to connect to remote host. Error: %s",
-                                  "Dead cache entry");
+        CMSG_LOG_TRANSPORT_DEBUG (transport, "Failed to connect to remote host. %s",
+                                  "Host no longer present");
         return -1;
     }
 
@@ -151,11 +171,11 @@ cmsg_transport_tcp_connect (cmsg_transport *transport)
         addr_len = sizeof (transport->config.socket.sockaddr.in6);
 
         if (transport->config.socket.sockaddr.in6.sin6_scope_id == 0 &&
-            transport->config.socket.vrf_bind_dev[0] != '\0')
+            transport->config.socket.bind_dev[0] != '\0')
         {
             ret = setsockopt (transport->socket, SOL_SOCKET, SO_BINDTODEVICE,
-                              transport->config.socket.vrf_bind_dev,
-                              strlen (transport->config.socket.vrf_bind_dev) + 1);
+                              transport->config.socket.bind_dev,
+                              strlen (transport->config.socket.bind_dev) + 1);
             if (ret < 0)
             {
                 ret = -errno;
@@ -172,11 +192,11 @@ cmsg_transport_tcp_connect (cmsg_transport *transport)
         addr = (struct sockaddr *) &transport->config.socket.sockaddr.in;
         addr_len = sizeof (transport->config.socket.sockaddr.in);
 
-        if (transport->config.socket.vrf_bind_dev[0] != '\0')
+        if (transport->config.socket.bind_dev[0] != '\0')
         {
             ret = setsockopt (transport->socket, SOL_SOCKET, SO_BINDTODEVICE,
-                              transport->config.socket.vrf_bind_dev,
-                              strlen (transport->config.socket.vrf_bind_dev) + 1);
+                              transport->config.socket.bind_dev,
+                              strlen (transport->config.socket.bind_dev) + 1);
             if (ret < 0)
             {
                 ret = -errno;
@@ -189,7 +209,7 @@ cmsg_transport_tcp_connect (cmsg_transport *transport)
         }
     }
 
-    if (connect_nb (transport->socket, addr, addr_len, transport->connect_timeout) < 0)
+    if (connect_nb (transport->socket, addr, addr_len, &transport->connect_timeout) < 0)
     {
         if (errno == EINPROGRESS)
         {
@@ -245,11 +265,11 @@ cmsg_transport_tcp_listen (cmsg_transport *transport)
          transport->config.socket.sockaddr.in6.sin6_scope_id == 0) ||
         (transport->config.socket.family == PF_INET))
     {
-        if (transport->config.socket.vrf_bind_dev[0] != '\0')
+        if (transport->config.socket.bind_dev[0] != '\0')
         {
             ret = setsockopt (listening_socket, SOL_SOCKET, SO_BINDTODEVICE,
-                              transport->config.socket.vrf_bind_dev,
-                              strlen (transport->config.socket.vrf_bind_dev) + 1);
+                              transport->config.socket.bind_dev,
+                              strlen (transport->config.socket.bind_dev) + 1);
             if (ret < 0)
             {
                 CMSG_LOG_TRANSPORT_ERROR (transport, "Unable to setsockopt. Error:%s",
@@ -328,18 +348,11 @@ int
 cmsg_transport_tcp_recv (cmsg_transport *transport, int sock, void *buff, int len,
                          int flags)
 {
-    struct timeval timeout = { 1, 0 };
-    fd_set read_fds;
-    int maxfd;
+    struct pollfd pollfd = { sock, POLLIN, 0 };
 
-    FD_ZERO (&read_fds);
-    FD_SET (sock, &read_fds);
-    maxfd = sock;
-
-    /* Do select() on the socket to prevent it to go to usleep instantaneously in the loop
+    /* Do poll() on the socket to prevent it to go to usleep instantaneously in the loop
      * if the data is not yet available.*/
-    select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
-
+    poll (&pollfd, 1, 1000);
     return cmsg_transport_socket_recv (sock, buff, len, flags);
 }
 
@@ -583,9 +596,8 @@ cmsg_create_transport_tcp_ipv4 (const char *service_name, struct in_addr *addr,
     transport->config.socket.sockaddr.in.sin_addr.s_addr = addr->s_addr;
     if (vrf_bind_dev)
     {
-        strncpy (transport->config.socket.vrf_bind_dev, vrf_bind_dev,
-                 CMSG_BIND_DEV_NAME_MAX);
-        transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
+        strncpy (transport->config.socket.bind_dev, vrf_bind_dev, CMSG_BIND_DEV_NAME_MAX);
+        transport->config.socket.bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
     }
 
     return transport;
@@ -641,9 +653,8 @@ cmsg_create_transport_tcp_ipv6 (const char *service_name, struct in6_addr *addr,
             sizeof (struct in6_addr));
     if (vrf_bind_dev)
     {
-        strncpy (transport->config.socket.vrf_bind_dev, vrf_bind_dev,
-                 CMSG_BIND_DEV_NAME_MAX);
-        transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
+        strncpy (transport->config.socket.bind_dev, vrf_bind_dev, CMSG_BIND_DEV_NAME_MAX);
+        transport->config.socket.bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
     }
 
     return transport;

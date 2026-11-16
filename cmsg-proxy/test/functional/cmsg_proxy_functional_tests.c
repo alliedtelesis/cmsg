@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  *
@@ -59,12 +60,12 @@ static const char *cmsg_mime_octet_stream = "application/octet-stream";
 static const char *cmsg_mime_text_plain = "text/plain";
 static const char *cmsg_binary_encoding = "binary";
 
-void *streamed_connection_ptr = (void *) 0x123abc;
+uint64_t streamed_seq_no = 123456;
 
 static void
 stream_response_send (cmsg_proxy_stream_response_data *data)
 {
-    NP_ASSERT_PTR_EQUAL (data->connection, streamed_connection_ptr);
+    NP_ASSERT_EQUAL (data->stream_seq_no, streamed_seq_no);
     NP_ASSERT_STR_EQUAL (data->data, expected_stream_response);
 
     cmsg_proxy_streaming_free_stream_response_data (data);
@@ -75,7 +76,7 @@ stream_response_send (cmsg_proxy_stream_response_data *data)
 static void
 stream_file_data_response_send (cmsg_proxy_stream_response_data *data)
 {
-    NP_ASSERT_PTR_EQUAL (data->connection, streamed_connection_ptr);
+    NP_ASSERT_EQUAL (data->stream_seq_no, streamed_seq_no);
     NP_ASSERT_TRUE (memcmp (data->data, expected_file_data, expected_file_data_length) ==
                     0);
 
@@ -1583,7 +1584,7 @@ test_http_streaming (void)
 
     input.url = "/test_http_streaming";
     input.http_verb = CMSG_HTTP_GET;
-    input.connection = streamed_connection_ptr;
+    input.stream_seq_no = streamed_seq_no;
 
     /* Give some time to ensure the http streaming server has actually started
      * inside the proxy. */
@@ -1630,7 +1631,7 @@ test_http_file_streaming (void)
 
     input.url = "/test_http_file_streaming";
     input.http_verb = CMSG_HTTP_POST;
-    input.connection = streamed_connection_ptr;
+    input.stream_seq_no = streamed_seq_no;
 
     /* Give some time to ensure the http streaming server has actually started
      * inside the proxy. */

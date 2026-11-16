@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
@@ -15,10 +16,9 @@
 #include <time.h>
 #include <netdb.h>
 #include <syslog.h>
-#include <sys/select.h>
+#include <sys/epoll.h>
 #include <sys/time.h>
 #include <string.h>
-#include <utility/tracelog.h>
 #include <glib.h>
 #include <protobuf-c/protobuf-c.h>
 
@@ -274,5 +274,6 @@ void cmsg_malloc_init (int mtype);
 #define CMSG_SERVER_PREFIX     "cmsr:"
 #define CMSG_PUBLISHER_PREFIX  "cmpb:"
 #define CMSG_ACCEPT_PREFIX     "cmat:"
+#define CMSG_SL_PREFIX         "cmsl:"
 void cmsg_pthread_setname (pthread_t thread, const char *cmsg_name, const char *prefix);
 #endif /* __CMSG_PRIVATE_H_ */

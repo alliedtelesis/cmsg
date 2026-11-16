@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * @file cmsg_pthread_helpers.c
  *
@@ -10,13 +11,7 @@
 #include <sys/eventfd.h>
 #include "cmsg_pthread_helpers.h"
 #include "publisher_subscriber/cmsg_sub_private.h"
-
-typedef struct _cmsg_pthread_server_info
-{
-    fd_set readfds;
-    int fd_max;
-    cmsg_server *server;
-} cmsg_pthread_server_info;
+#include "cmsg_sl.h"
 
 typedef struct _cmsg_pthread_multithreaded_server_recv_info
 {
@@ -24,61 +19,23 @@ typedef struct _cmsg_pthread_multithreaded_server_recv_info
     int socket;
 } cmsg_pthread_multithreaded_server_recv_info;
 
-/**
- * Function to be called when the 'pthread_server_run'
- * thread is cancelled. This simply cleans up and frees any sockets/
- * memory that was used by the thread.
- *
- * @param pthread_info - Structure containing the resources used by the thread.
- */
-static void
-pthread_server_cancelled (cmsg_pthread_server_info *pthread_info)
-{
-    int fd;
-    int accept_sd_eventfd = pthread_info->server->accept_thread_info->accept_sd_eventfd;
-
-    cmsg_server_accept_thread_deinit (pthread_info->server);
-
-    for (fd = 0; fd <= pthread_info->fd_max; fd++)
-    {
-        /* Don't double close the accept event fd */
-        if (fd == accept_sd_eventfd)
-        {
-            continue;
-        }
-        if (FD_ISSET (fd, &pthread_info->readfds))
-        {
-            cmsg_server_close_accepted_socket (pthread_info->server, fd);
-        }
-    }
-}
-
 static void *
 pthread_server_run (void *_server)
 {
-    cmsg_pthread_server_info pthread_info;
-    int fd = -1;
     cmsg_server *server = (cmsg_server *) _server;
+    cmsg_server_thread_task_info *info;
 
-    pthread_info.fd_max = 0;
-    FD_ZERO (&pthread_info.readfds);
-
-    pthread_cleanup_push ((void (*)(void *)) pthread_server_cancelled, &pthread_info);
-
+    info = cmsg_server_thread_task_info_create (server, -1);
+    if (!info)
+    {
+        return NULL;
+    }
+    pthread_cleanup_push ((void (*)(void *)) cmsg_server_thread_task_info_free, info);
     cmsg_server_accept_thread_init (server);
-
-    pthread_info.server = server;
-
-    fd = server->accept_thread_info->accept_sd_eventfd;
-    pthread_info.fd_max = fd;
-    FD_SET (fd, &pthread_info.readfds);
-
     while (true)
     {
-        cmsg_server_thread_receive_poll (server, -1, &pthread_info.readfds,
-                                         &pthread_info.fd_max);
+        cmsg_server_thread_receive_poll (info);
     }
-
     pthread_cleanup_pop (1);
 
     return NULL;
@@ -184,11 +141,10 @@ cmsg_pthread_multithreaded_thread_exit (cmsg_pthread_multithreaded_server_info *
 static void *
 cmsg_pthread_multithreaded_receive_thread (void *_recv_info)
 {
-    fd_set read_fds;
-    int fdmax;
-    struct timeval tv;
-    struct timeval *tv_ptr;
+    // Set the fds later
+    struct pollfd pollfd_list[] = { { 0, POLLIN, 0 }, { 0, POLLIN, 0 } };
     int ret;
+
     cmsg_pthread_multithreaded_server_recv_info *recv_info = NULL;
     cmsg_pthread_multithreaded_server_info *server_info = NULL;
 
@@ -197,34 +153,14 @@ cmsg_pthread_multithreaded_receive_thread (void *_recv_info)
     recv_info = (cmsg_pthread_multithreaded_server_recv_info *) _recv_info;
     server_info = recv_info->server_info;
 
-    fdmax = MAX (recv_info->socket, server_info->shutdown_eventfd);
+    pollfd_list[0].fd = recv_info->socket;
+    pollfd_list[1].fd = server_info->shutdown_eventfd;
 
     while (1)
     {
-        FD_ZERO (&read_fds);
-        FD_SET (recv_info->socket, &read_fds);
-        FD_SET (server_info->shutdown_eventfd, &read_fds);
-
-        if (server_info->timeout)
-        {
-            tv.tv_sec = server_info->timeout;
-            tv.tv_usec = 0;
-            tv_ptr = &tv;
-        }
-        else
-        {
-            tv_ptr = NULL;
-        }
-
-        ret = select (fdmax + 1, &read_fds, NULL, NULL, tv_ptr);
-        if (ret == 0)
-        {
-            /* There has been no activity on the socket for 5 minutes.
-             * Close the connection and exit the thread. */
-            cmsg_server_close_accepted_socket (server_info->server, recv_info->socket);
-            break;
-        }
-        if (FD_ISSET (recv_info->socket, &read_fds))
+        ret = poll (pollfd_list, 2, server_info->timeout);
+        /* Accept event FD */
+        if (pollfd_list[0].revents & POLLIN)
         {
             if (cmsg_server_receive (server_info->server, recv_info->socket) < 0)
             {
@@ -232,7 +168,9 @@ cmsg_pthread_multithreaded_receive_thread (void *_recv_info)
                 break;
             }
         }
-        if (FD_ISSET (server_info->shutdown_eventfd, &read_fds))
+        /* If ret == 0, the poll timed out (default 5 minutes). fd_list[1] is the
+         * shutdown socket. In both cases, close the connection and exit the thread. */
+        if (ret == 0 || (pollfd_list[1].revents & POLLIN))
         {
             cmsg_server_close_accepted_socket (server_info->server, recv_info->socket);
             break;
@@ -259,35 +197,31 @@ cmsg_pthread_multithreaded_accept_thread (void *_server_info)
 {
     int ret;
     static pthread_t new_recv_thread;
-    fd_set read_fds;
-    int fdmax;
+    // Set the fds later
+    struct pollfd pollfd_list[] = { { 0, POLLIN, 0 }, { 0, POLLIN, 0 } };
     cmsg_pthread_multithreaded_server_info *server_info = NULL;
     cmsg_pthread_multithreaded_server_recv_info *recv_info = NULL;
-    int accept_event_fd;
     eventfd_t value;
     int *newfd_ptr = NULL;
-    cmsg_server_accept_thread_info *info;
 
     pthread_detach (pthread_self ());
 
     server_info = (cmsg_pthread_multithreaded_server_info *) _server_info;
 
-    info = server_info->server->accept_thread_info;
-    accept_event_fd = info->accept_sd_eventfd;
-    fdmax = MAX (accept_event_fd, server_info->shutdown_eventfd);
+    pollfd_list[0].fd = server_info->server->accept_sd_eventfd;
+    pollfd_list[1].fd = server_info->shutdown_eventfd;
 
     while (1)
     {
-        FD_ZERO (&read_fds);
-        FD_SET (accept_event_fd, &read_fds);
-        FD_SET (server_info->shutdown_eventfd, &read_fds);
-
-        select (fdmax + 1, &read_fds, NULL, NULL, NULL);
-        if (FD_ISSET (accept_event_fd, &read_fds))
+        ret = poll (pollfd_list, 2, -1);
+        /* Accept event FD */
+        if (pollfd_list[0].revents & POLLIN)
         {
             /* clear notification */
-            TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
-            while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
+            TEMP_FAILURE_RETRY (eventfd_read
+                                (server_info->server->accept_sd_eventfd, &value));
+            while ((newfd_ptr =
+                    g_async_queue_try_pop (server_info->server->accept_sd_queue)))
             {
                 recv_info = malloc (sizeof (*recv_info));
                 if (!recv_info)
@@ -318,7 +252,8 @@ cmsg_pthread_multithreaded_accept_thread (void *_server_info)
                 CMSG_FREE (newfd_ptr);
             }
         }
-        if (FD_ISSET (server_info->shutdown_eventfd, &read_fds))
+        /* Shutdown FD */
+        if (pollfd_list[1].revents & POLLIN)
         {
             break;
         }
@@ -355,7 +290,7 @@ cmsg_pthread_multithreaded_server_init (cmsg_server *server, uint32_t timeout)
     }
 
     server_info->server = server;
-    server_info->timeout = timeout;
+    server_info->timeout = (timeout && timeout <= UINT32_MAX / 1000) ? timeout * 1000 : -1;
     server_info->num_threads = 0;
     server_info->exiting = false;
     server_info->shutdown_eventfd = eventfd (0, EFD_NONBLOCK | EFD_CLOEXEC);
@@ -427,62 +362,115 @@ cmsg_pthread_multithreaded_server_destroy (cmsg_pthread_multithreaded_server_inf
     free (info);
 }
 
-/**
- * Function to be called when the 'cmsg_pthread_sl_event_thread'
- * thread is cancelled. This simply cleans up the service listener info.
- *
- * @param _info - Structure containing the service listener information
- *                used by the thread.
- */
-static void
-cmsg_pthread_sl_event_thread_cancelled (void *_info)
-{
-    const cmsg_sl_info *info = _info;
+/* Thread for all the servers of this process. */
+static pthread_t global_sl_accept_thread = -1;
+/* This mutex protects the global server accept count and epoll data. */
+static pthread_mutex_t global_sl_accept_lock = PTHREAD_MUTEX_INITIALIZER;
+static unsigned int global_sl_accept_count = 0;
 
-    cmsg_service_listener_unlisten (info);
-}
+/* Global epoll data. Note that MAX_EVENTS may need to be increased at some point
+ * as it is the number of CMSG servers using the global accept thread. */
+#define MAX_EVENTS 128
+static struct epoll_event events[MAX_EVENTS];
+static int epollfd = -1;
 
 /**
  * Thread used to process events generated from the CMSG service listener functionality.
  */
 static void *
-cmsg_pthread_sl_event_thread (void *sl_info)
+cmsg_pthread_sl_event_thread (void *unused)
 {
-    const cmsg_sl_info *info = (const cmsg_sl_info *) sl_info;
-    int event_fd;
-    fd_set read_fds;
-    int maxfd;
-
-    pthread_cleanup_push ((void (*)(void *)) cmsg_pthread_sl_event_thread_cancelled,
-                          (void *) info);
-
-    event_fd = cmsg_service_listener_get_event_fd (info);
-    if (event_fd < 0)
-    {
-        syslog (LOG_ERR, "Failed to get socket for service listener.");
-        pthread_exit (NULL);
-    }
-
-    FD_ZERO (&read_fds);
-    FD_SET (event_fd, &read_fds);
-    maxfd = event_fd;
+    cmsg_sl_info *info;
+    int n;
+    int nfds;
 
     while (1)
     {
-        /* Explicitly set where the thread can be cancelled. This ensures no
-         * data can be leaked if the thread is cancelled while handling an event.
-         */
-        pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
-        select (maxfd + 1, &read_fds, NULL, NULL, NULL);
-        pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+        nfds = epoll_wait (epollfd, events, MAX_EVENTS, -1);
+        if (nfds == -1)
+        {
+            continue;
+        }
+        for (n = 0; n < nfds; n++)
+        {
+            /* Explicitly set where the thread can be cancelled. This ensures no
+             * sockets can be leaked if the thread is cancelled after accepting
+             * a connection. */
+            pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+            if (events[n].events & EPOLLIN)
+            {
+                info = events[n].data.ptr;
 
-        cmsg_service_listener_event_queue_process (info);
+                pthread_mutex_lock (&info->thread_mutex);
+                if (info->using_global_thread)
+                {
+                    cmsg_service_listener_event_queue_process (info);
+                }
+                pthread_mutex_unlock (&info->thread_mutex);
+            }
+            else
+            {
+                /* Sleep on error before re-trying in order to avoid a tight loop */
+                sleep (1);
+            }
+            pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+        }
     }
 
-    pthread_cleanup_pop (1);
     pthread_exit (NULL);
 }
 
+
+static bool
+_cmsg_pthread_service_listener_listen (cmsg_sl_info *info, const char *service_name,
+                                       cmsg_sl_event_handler_t handler, void *user_data)
+{
+    struct epoll_event ev;
+
+    /* Global thread data is to be setup. */
+    if (epollfd == -1)
+    {
+        epollfd = epoll_create1 (0);
+        if (epollfd == -1)
+        {
+            return CMSG_RET_ERR;
+        }
+    }
+
+    if (global_sl_accept_thread == -1)
+    {
+        if (pthread_create (&global_sl_accept_thread, NULL,
+                            cmsg_pthread_sl_event_thread, NULL) != 0)
+        {
+            global_sl_accept_thread = -1;
+            return CMSG_RET_ERR;
+        }
+        cmsg_pthread_setname (global_sl_accept_thread, "global", CMSG_ACCEPT_PREFIX);
+    }
+
+    if (global_sl_accept_count == MAX_EVENTS)
+    {
+        /* This should not happen in an actual release but during development.
+         * As more servers are added, the limit will need to be increased.
+         * Continue processing but the new server will fail to run. */
+        syslog (LOG_ALERT, "Maximum CMSG service listener thread limit has been reached!");
+    }
+
+    memset (&ev, 0, sizeof (struct epoll_event));
+    ev.events = EPOLLIN;
+    ev.data.ptr = info;
+    if (epoll_ctl (epollfd, EPOLL_CTL_ADD, cmsg_service_listener_get_event_fd (info), &ev)
+        == -1)
+    {
+        return CMSG_RET_ERR;
+    }
+
+    info->using_global_thread = true;
+
+    global_sl_accept_count++;
+
+    return CMSG_RET_OK;
+}
 
 /**
  * Create a new thread to run a service listener function.
@@ -497,27 +485,64 @@ cmsg_pthread_sl_event_thread (void *sl_info)
  * Note that this thread can be cancelled using 'pthread_cancel' and then should
  * be joined using 'pthread_join'.
  */
-bool
-cmsg_pthread_service_listener_listen (pthread_t *thread, const char *service_name,
+cmsg_sl_info *
+cmsg_pthread_service_listener_listen (const char *service_name,
                                       cmsg_sl_event_handler_t handler, void *user_data)
 {
     int ret = 0;
-    const cmsg_sl_info *info = NULL;
+    cmsg_sl_info *info = NULL;
 
     info = cmsg_service_listener_listen (service_name, handler, user_data);
     if (!info)
     {
         syslog (LOG_ERR, "Failed to initialise service listener functionality");
-        return false;
+        return NULL;
     }
 
-    ret = pthread_create (thread, NULL, cmsg_pthread_sl_event_thread, (void *) info);
+    pthread_mutex_lock (&global_sl_accept_lock);
+    pthread_mutex_lock (&info->thread_mutex);
+    ret = _cmsg_pthread_service_listener_listen (info, service_name, handler, user_data);
     if (ret != 0)
     {
         syslog (LOG_ERR, "Failed to start thread for service listener processing");
         cmsg_service_listener_unlisten (info);
-        return false;
+        return NULL;
     }
+    pthread_mutex_unlock (&info->thread_mutex);
+    pthread_mutex_unlock (&global_sl_accept_lock);
 
-    return true;
+    return info;
+}
+
+/**
+ * Shutdown the server accept thread.
+ *
+ * @param server - The CMSG server to shutdown the accept thread for.
+ */
+void
+cmsg_pthread_service_listener_unlisten (cmsg_sl_info *info)
+{
+    if (info && info->using_global_thread)
+    {
+        pthread_mutex_lock (&global_sl_accept_lock);
+
+        epoll_ctl (epollfd, EPOLL_CTL_DEL, cmsg_service_listener_get_event_fd (info), NULL);
+
+        pthread_mutex_lock (&info->thread_mutex);
+        info->using_global_thread = false;
+        pthread_mutex_unlock (&info->thread_mutex);
+        cmsg_service_listener_unlisten (info);
+
+        global_sl_accept_count--;
+        if (global_sl_accept_count == 0)
+        {
+            pthread_cancel (global_sl_accept_thread);
+            pthread_join (global_sl_accept_thread, NULL);
+
+            global_sl_accept_thread = -1;
+            close (epollfd);
+            epollfd = -1;
+        }
+        pthread_mutex_unlock (&global_sl_accept_lock);
+    }
 }

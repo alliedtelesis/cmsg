@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Functional tests for client <-> server RPC (two-way) communication.
  *
@@ -7,12 +8,16 @@
 #include <np.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/resource.h>
 #include <cmsg_pthread_helpers.h>
 #include "cmsg_functional_tests_api_auto.h"
 #include "cmsg_functional_tests_impl_auto.h"
 #include "setup.h"
 
 static bool notification_received;
+
+#define NUM_CLIENTS 1500
+#define REQ_FDS (NUM_CLIENTS * 2 + 200)
 
 #define NUM_CLIENT_THREADS 32
 #define NUM_SENT_MESSAGES 20
@@ -40,12 +45,11 @@ set_up (void)
  * is running and functioning as expected.
  */
 static void
-call_api (void)
+call_api_on_client (cmsg_client *client)
 {
     int ret = 0;
     cmsg_bool_msg send_msg = CMSG_BOOL_MSG_INIT;
     cmsg_bool_msg *recv_msg = NULL;
-    cmsg_client *client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg, test));
 
     CMSG_SET_FIELD_VALUE (&send_msg, value, true);
 
@@ -56,6 +60,18 @@ call_api (void)
     NP_ASSERT_TRUE (recv_msg->value);
 
     CMSG_FREE_RECV_MSG (recv_msg);
+}
+
+/**
+ * Create a temporary client to call a CMSG API
+ */
+static void
+call_api (void)
+{
+    cmsg_client *client = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg, test));
+
+    call_api_on_client (client);
+
     cmsg_destroy_client_and_transport (client);
 }
 
@@ -71,6 +87,71 @@ test_cmsg_pthread_server_init (void)
     cmsg_pthread_server_init (&server_thread, server);
 
     call_api ();
+
+    ret = pthread_cancel (server_thread);
+    NP_ASSERT_EQUAL (ret, 0);
+    ret = pthread_join (server_thread, NULL);
+    NP_ASSERT_EQUAL (ret, 0);
+
+    cmsg_destroy_server_and_transport (server);
+}
+
+/**
+ * Run an RPC test with a large number of clients using a server created using
+ * 'cmsg_pthread_server_init'.
+ *
+ * A bug exists in 'select()' which causes unreliable behaviour for sockets higher than
+ * the default open file limit of 1024. CMSG used to use select() for several things
+ * before the usages were refactored in CR-80868.
+ *
+ * This is a regression check for whether the server can handle more sockets than the
+ * default open file limit of 1024.
+ *
+ * Currently this test is skipped if the open file limit is not increased. This may require
+ * the tests to be run as the root user, as it requires certain capabilities. The limit is
+ * increased in run-unit-tests.py in buildsys, as it is much more complicated to make the
+ * tests themselves run with capabilities. Novaprova also uses Valgrind, which has issues
+ * running files with additional capability privileges.
+ */
+void
+test_cmsg_pthread_server_load (void)
+{
+    int ret = 0;
+    pthread_t server_thread;
+    cmsg_server *server = cmsg_create_server_unix_rpc (CMSG_SERVICE (cmsg, test));
+    cmsg_client *clients[NUM_CLIENTS] = { NULL };
+    struct rlimit rlim;
+    int i = 0;
+
+    // Only run this test if the open file limit is high enough
+    if (getrlimit (RLIMIT_NOFILE, &rlim) != 0 || rlim.rlim_cur < REQ_FDS)
+    {
+        NP_NOTAPPLICABLE;
+    }
+
+    np_syslog_match ("Number of FD events 32 has reached limit of 32", 0);
+    cmsg_pthread_server_init (&server_thread, server);
+
+    /*
+     * Make sure we can simultaneously handle 1500 clients. Each client creates a
+     * socket when connecting to the server, so by doing this we ensure that there are
+     * more than 1024 sockets open, which is the default maximum open file limit.
+     */
+    for (i = 0; i < NUM_CLIENTS; i++)
+    {
+        clients[i] = cmsg_create_client_unix (CMSG_DESCRIPTOR (cmsg, test));
+    }
+
+    for (i = 0; i < NUM_CLIENTS; i++)
+    {
+        call_api_on_client (clients[i]);
+    }
+
+    // Clean up
+    for (i = 0; i < NUM_CLIENTS; i++)
+    {
+        cmsg_destroy_client_and_transport (clients[i]);
+    }
 
     ret = pthread_cancel (server_thread);
     NP_ASSERT_EQUAL (ret, 0);

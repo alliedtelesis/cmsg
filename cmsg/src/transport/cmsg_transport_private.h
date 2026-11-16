@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2017, Allied Telesis Labs New Zealand, Ltd
  */
@@ -34,6 +35,12 @@
                 __LINE__, transport->parent_obj_id, transport->tport_id, ## __VA_ARGS__); \
     } while (0)
 
+#define CMSG_LOG_TRANSPORT_DEBUG(transport, msg, ...) \
+    do { \
+        syslog (LOG_DEBUG | LOG_LOCAL6, "CMSG(%d).tport.%s%s: " msg, \
+                __LINE__, transport->parent_obj_id, transport->tport_id, ## __VA_ARGS__); \
+    } while (0)
+
 struct cmsg_forwarding_server_data
 {
     const uint8_t *msg;
@@ -61,11 +68,19 @@ typedef union _cmsg_socket_address_u
     struct sockaddr_in6 in6;    // INET6 socket address, for TCP based transport over IPv6.
 } cmsg_socket_address;
 
+typedef union _cmsg_source_addr_u
+{
+    struct sockaddr generic;    // Generic socket address. Used for determining Address Family.
+    struct sockaddr_in in;
+    struct sockaddr_in6 in6;
+} cmsg_source_addr;
+
 typedef struct _cmsg_socket_s
 {
     int family;
-    char vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX];  // For VRF support, the device to bind to the socket
+    char bind_dev[CMSG_BIND_DEV_NAME_MAX];  // The device to bind to the socket
     cmsg_socket_address sockaddr;
+    cmsg_source_addr srcaddr;
 } cmsg_socket;
 
 typedef int (*cmsg_recv_func) (cmsg_transport *transport, int sock, void *buff, int len,
@@ -114,11 +129,13 @@ typedef union _cmsg_transport_config_u
 typedef enum _cmsg_transport_type_e
 {
     CMSG_TRANSPORT_LOOPBACK,
+    CMSG_TRANSPORT_ONEWAY_LOOPBACK,
     CMSG_TRANSPORT_RPC_TCP,
     CMSG_TRANSPORT_ONEWAY_TCP,
     CMSG_TRANSPORT_BROADCAST,
     CMSG_TRANSPORT_RPC_UNIX,
     CMSG_TRANSPORT_ONEWAY_UNIX,
+    CMSG_TRANSPORT_ONEWAY_MC_UDP,
     CMSG_TRANSPORT_FORWARDING,
 } cmsg_transport_type;
 
@@ -138,13 +155,16 @@ struct cmsg_transport
     uint32_t receive_timeout;
 
     // connect timeout in seconds
-    uint32_t connect_timeout;
+    struct timeval connect_timeout;
 
     // maximum time to wait peeking for a received header
     uint32_t receive_peek_timeout;
 
     // flag to tell error-level log to be suppressed to debug-level
     cmsg_bool_t suppress_errors;
+
+    // flag to perform pre-checking prior to connect
+    cmsg_bool_t perform_connection_pre_check;
 
     // The socket used by the transport
     int socket;
@@ -161,6 +181,7 @@ struct cmsg_transport
 
 void cmsg_transport_tcp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_tcp_init (cmsg_transport *transport);
+void cmsg_transport_oneway_udp_init (cmsg_transport *transport);
 void cmsg_transport_oneway_cpumail_init (cmsg_transport *transport);
 void cmsg_transport_loopback_init (cmsg_transport *transport);
 void cmsg_transport_tipc_broadcast_init (cmsg_transport *transport);
@@ -168,7 +189,8 @@ void cmsg_transport_rpc_unix_init (cmsg_transport *transport);
 void cmsg_transport_oneway_unix_init (cmsg_transport *transport);
 void cmsg_transport_forwarding_init (cmsg_transport *transport);
 
-int connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int timeout);
+int connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen,
+                struct timeval *timeout);
 ssize_t cmsg_transport_socket_send (int sockfd, const void *buf, size_t len, int flags);
 ssize_t cmsg_transport_socket_recv (int sockfd, void *buf, size_t len, int flags);
 
@@ -178,12 +200,16 @@ cmsg_status_code cmsg_transport_client_recv (cmsg_transport *transport,
 
 int32_t cmsg_transport_connect (cmsg_transport *transport);
 int32_t cmsg_transport_accept (cmsg_transport *transport);
-int32_t cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout);
+int32_t cmsg_transport_set_connect_timeout (cmsg_transport *transport,
+                                            struct timeval *timeout);
 int32_t cmsg_transport_set_send_timeout (cmsg_transport *transport, uint32_t timeout);
+uint32_t cmsg_transport_get_recv_peek_timeout (cmsg_transport *transport);
 int32_t cmsg_transport_set_recv_peek_timeout (cmsg_transport *transport, uint32_t timeout);
 int32_t cmsg_transport_apply_send_timeout (cmsg_transport *transport, int sockfd);
 int32_t cmsg_transport_apply_recv_timeout (cmsg_transport *transport, int sockfd);
 
+bool cmsg_transport_info_validate (const char *service,
+                                   const cmsg_transport_info *transport_info);
 cmsg_transport_info *cmsg_transport_info_create (const cmsg_transport *transport);
 void cmsg_transport_info_free (cmsg_transport_info *transport_info);
 cmsg_transport *cmsg_transport_info_to_transport (const cmsg_transport_info
@@ -226,6 +252,16 @@ cmsg_transport *cmsg_create_transport_tcp_ipv4 (const char *service_name,
 cmsg_transport *cmsg_create_transport_tcp_ipv6 (const char *service_name,
                                                 struct in6_addr *addr, uint32_t scope_id,
                                                 const char *vrf_bind_dev, bool oneway);
+
+cmsg_transport *cmsg_create_transport_mc_udp_ipv4 (const char *service_name,
+                                                   struct in_addr *addr,
+                                                   struct in_addr *src_addr,
+                                                   const char *vrf_bind_dev, bool oneway);
+cmsg_transport *cmsg_create_transport_mc_udp_ipv6 (const char *service_name,
+                                                   struct in6_addr *addr,
+                                                   struct in6_addr *src_addr,
+                                                   uint32_t scope_id,
+                                                   const char *vrf_bind_dev, bool oneway);
 
 int cmsg_transport_get_socket (cmsg_transport *transport);
 void cmsg_transport_socket_close (cmsg_transport *transport);

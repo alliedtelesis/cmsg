@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * @file cmsg_crypto.c
  *
@@ -7,13 +8,14 @@
 #include "cmsg_private.h"
 #include "cmsg_crypto.h"
 #include "cmsg_error.h"
+#include <limits.h>
 
-#define tracelog_openssl_error() \
+#define debug_openssl_error() \
     do { \
         int __e; \
         while ((__e = ERR_get_error ()) != 0) \
         { \
-            tracelog ("cmsg-openssl", "%s", ERR_error_string(__e, NULL)); \
+            CMSG_LOG_DEBUG ("[CRYPTO]%s", ERR_error_string(__e, NULL)); \
         } \
     } while (0)
 
@@ -45,7 +47,15 @@ typedef struct _cmsg_crypto_secure_header_s
 cmsg_crypto_sa *
 cmsg_crypto_sa_alloc (void)
 {
-    return CMSG_CALLOC (1, sizeof (cmsg_crypto_sa));
+    cmsg_crypto_sa *sa = CMSG_CALLOC (1, sizeof (cmsg_crypto_sa));
+
+    if (sa)
+    {
+        sa->ctx_in = EVP_CIPHER_CTX_new ();
+        sa->ctx_out = EVP_CIPHER_CTX_new ();
+    }
+
+    return sa;
 }
 
 /**
@@ -60,14 +70,8 @@ cmsg_crypto_sa_free (cmsg_crypto_sa *sa)
     if (sa)
     {
         EVP_PKEY_free (sa->remote_static);
-        if (sa->ctx_out_init)
-        {
-            EVP_CIPHER_CTX_cleanup (&sa->ctx_out);
-        }
-        if (sa->ctx_in_init)
-        {
-            EVP_CIPHER_CTX_cleanup (&sa->ctx_in);
-        }
+        EVP_CIPHER_CTX_free (sa->ctx_out);
+        EVP_CIPHER_CTX_free (sa->ctx_in);
 
         CMSG_FREE (sa);
     }
@@ -152,17 +156,17 @@ cmsg_crypto_encrypt (cmsg_crypto_sa *sa, void *inbuf, int length,
     }
 
     /* encrypt the data for the message */
-    if (EVP_EncryptInit_ex (&sa->ctx_out, EVP_aes_256_cbc (), NULL, sa->keydata, NULL) != 1)
+    if (EVP_EncryptInit_ex (sa->ctx_out, EVP_aes_256_cbc (), NULL, sa->keydata, NULL) != 1)
     {
-        tracelog_openssl_error ();
+        debug_openssl_error ();
         return -1;
     }
 
     out = outbuf;
     outbuf += sizeof (cmsg_crypto_secure_header);
-    if (EVP_EncryptUpdate (&sa->ctx_out, outbuf, &out_length, inbuf, length) == 1)
+    if (EVP_EncryptUpdate (sa->ctx_out, outbuf, &out_length, inbuf, length) == 1)
     {
-        if (EVP_EncryptFinal (&sa->ctx_out, outbuf + out_length, &final_length) == 1)
+        if (EVP_EncryptFinal (sa->ctx_out, outbuf + out_length, &final_length) == 1)
         {
             out_length += final_length + sizeof (cmsg_crypto_secure_header);
             cmsg_crypto_put32 (&out, &bytes_used, CMSG_CRYPTO_MAGIC);
@@ -171,7 +175,7 @@ cmsg_crypto_encrypt (cmsg_crypto_sa *sa, void *inbuf, int length,
         }
         else
         {
-            tracelog_openssl_error ();
+            debug_openssl_error ();
             out_length = -1;
         }
     }
@@ -238,28 +242,28 @@ cmsg_crypto_decrypt (cmsg_crypto_sa *sa, void *inbuf, int length, void *outbuf,
     if (type == CMSG_CRYPTO_TYPE_PAYLOAD)
     {
         /* decrypt the data for the message */
-        if (EVP_DecryptInit_ex (&sa->ctx_in, EVP_aes_256_cbc (), NULL, sa->keydata,
+        if (EVP_DecryptInit_ex (sa->ctx_in, EVP_aes_256_cbc (), NULL, sa->keydata,
                                 NULL) != 1)
         {
-            tracelog_openssl_error ();
+            debug_openssl_error ();
             return -1;
         }
 
-        if (EVP_DecryptUpdate (&sa->ctx_in, outbuf, &out_length, in, bytes_remaining) == 1)
+        if (EVP_DecryptUpdate (sa->ctx_in, outbuf, &out_length, in, bytes_remaining) == 1)
         {
-            if (EVP_DecryptFinal (&sa->ctx_in, outbuf + out_length, &final_length) == 1)
+            if (EVP_DecryptFinal (sa->ctx_in, outbuf + out_length, &final_length) == 1)
             {
                 out_length += final_length;
             }
             else
             {
-                tracelog_openssl_error ();
+                debug_openssl_error ();
                 out_length = -1;
             }
         }
         else
         {
-            tracelog_openssl_error ();
+            debug_openssl_error ();
             out_length = -1;
         }
     }
@@ -282,7 +286,10 @@ cmsg_crypto_parse_header (uint8_t *header)
 
     cmsg_crypto_get32_direct (header, &magic);
     cmsg_crypto_get32_direct (&header[4], &msg_length);
-    if (magic != CMSG_CRYPTO_MAGIC || msg_length == 0)
+    /* The length is returned as an int and passed to the transport receive
+     * functions as an int. No valid message is this large, so a length above
+     * INT_MAX means the header is corrupt or crafted. */
+    if (magic != CMSG_CRYPTO_MAGIC || msg_length == 0 || msg_length > INT_MAX)
     {
         return -1;
     }

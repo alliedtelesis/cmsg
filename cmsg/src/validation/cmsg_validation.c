@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * cmsg_validation.c
  *
@@ -10,7 +11,7 @@
 #include "cmsg_validation.h"
 #include <arpa/inet.h>
 #include <inttypes.h>
-#include <utility/utlstr.h>
+#include <ctype.h>
 #include "cmsg_ant_result.h"
 
 /**
@@ -176,22 +177,42 @@ cmsg_validate_mac_address (const char *input_string, const char *field_name,
                            const char *supplied_error_message,
                            char *err_str, uint32_t err_str_len)
 {
-    if (!utlstr_mac_address_validate (input_string))
+    int mac_address_str_len = sizeof ("aaaa.bbbb.cccc") - 1;    /* Subtract Null byte */
+    int i;
+
+    if (input_string && strlen (input_string) == mac_address_str_len)
     {
-        if (err_str)
+        for (i = 0; i < mac_address_str_len; i++)
         {
-            if (supplied_error_message)
+            /* The period should be the 4th and 9th characters */
+            if ((i == 4) || (i == 9))
             {
-                snprintf (err_str, err_str_len, supplied_error_message);
+                if (input_string[i] != '.')
+                {
+                    goto invalid;
+                }
             }
             else
             {
-                snprintf (err_str, err_str_len, "Field '%s' must be in MAC address format.",
-                          field_name);
+                if (!isxdigit ((int) input_string[i]))
+                {
+                    goto invalid;
+                }
             }
         }
-        return false;
+        return true;
     }
 
-    return true;
+  invalid:
+    if (supplied_error_message)
+    {
+        snprintf (err_str, err_str_len, supplied_error_message);
+    }
+    else
+    {
+        snprintf (err_str, err_str_len, "Field '%s' must be in MAC address format.",
+                  field_name);
+    }
+
+    return false;
 }

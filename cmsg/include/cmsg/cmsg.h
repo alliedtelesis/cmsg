@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
@@ -35,6 +36,8 @@ void cmsg_repeated_append_uint32 (uint32_t **msg_ptr_array, size_t *num_elems,
                                   uint32_t value, const char *file, int line);
 void cmsg_repeated_append_int32 (int32_t **msg_ptr_array, size_t *num_elems,
                                  int32_t value, const char *file, int line);
+void cmsg_repeated_append_uint64 (uint64_t **msg_ptr_array, size_t *num_elems,
+                                  uint64_t value, const char *file, int line);
 /* note - use CMSG_UPDATE_RECV_MSG_STRING_FIELD() instead of calling this directly */
 void cmsg_update_recv_msg_string_field (char **field, const char *new_val,
                                         const char *file, int line);
@@ -229,6 +232,10 @@ extern ProtobufCAllocator cmsg_memory_allocator;
     cmsg_repeated_append_int32 ((int32_t **) &((_name)->_field), &((_name)->n_##_field),  \
                                  (int32_t) _value, __FILE__, __LINE__)
 
+#define CMSG_REPEATED_APPEND_UINT64(_name, _field, _value)                                 \
+    cmsg_repeated_append_uint64 ((uint64_t **) &((_name)->_field), &((_name)->n_##_field),  \
+                                 (uint64_t) _value, __FILE__, __LINE__)
+
 /**
  * Helper macro to iterate over the pointers in a repeated field of a CMSG message
  * @param _name name of message ptr variable.
@@ -278,11 +285,16 @@ uint16_t cmsg_service_port_get (const char *name, const char *proto);
 
 const char *cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor);
 
+const char *cmsg_socket_path (void);
+
+uint16_t cmsg_namespace (void);
+
 int32_t cmsg_dump_msg_to_file (const ProtobufCMessage *msg, const char *file_name);
 ProtobufCMessage *cmsg_get_msg_from_file (const ProtobufCMessageDescriptor *desc,
                                           const char *file_name);
 
 const char *cmsg_enum_to_name (const ProtobufCEnumDescriptor *desc, int value);
+#define CMSG_ENUM_TO_NAME(_type,_value) cmsg_enum_to_name (CMSG_ENUM_DESCRIPTOR(_type), _value)
 
 ProtobufCMessage *cmsg_clone (const ProtobufCMessage *msg);
 

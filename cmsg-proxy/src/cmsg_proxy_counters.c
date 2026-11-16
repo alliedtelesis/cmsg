@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * CMSG proxy counters
  *
@@ -10,6 +11,7 @@
 #include "cmsg_proxy_mem.h"
 
 GHashTable *proxy_session_counter_table = NULL;
+counter_info proxy_counter;
 
 /**
  * Uninitialise all service-specific counter

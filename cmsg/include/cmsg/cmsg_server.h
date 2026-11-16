@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
@@ -41,6 +42,7 @@ typedef bool (*cmsg_validation_func) (const ProtobufCMessage *message,
 typedef struct
 {
     cmsg_validation_func validation_func;
+    char *eventwatch_notify;
 } cmsg_method_server_extensions;
 
 typedef struct
@@ -51,13 +53,19 @@ typedef struct
 
 typedef struct
 {
+    const char **eventwatch_notify_list;
+} cmsg_server_extensions;
+
+typedef struct
+{
     ProtobufCService base;
     const cmsg_impl_info *impl_info;
+    const cmsg_server_extensions *server_extensions;
 } cmsg_service;
 
 #define CMSG_SERVICE_BASE_INIT(_desc) { _desc, cmsg_server_invoke_impl, NULL }
 #define CMSG_SERVICE_INIT(service_name) \
-    { CMSG_SERVICE_BASE_INIT(&service_name##_descriptor), service_name##_impl_info }
+    { CMSG_SERVICE_BASE_INIT(&service_name##_descriptor), service_name##_impl_info, &service_name##_server_impl_extensions }
 
 typedef void (*cmsg_closure_func) (const ProtobufCMessage *send_msg, void *closure_data);
 
@@ -68,20 +76,6 @@ void cmsg_server_invoke_impl (ProtobufCService *service, unsigned method_index,
 typedef int32_t (*server_message_processor_f) (int socket,
                                                cmsg_server_request *server_request,
                                                cmsg_server *server, uint8_t *buffer_data);
-
-typedef struct _cmsg_server_accept_thread_info
-{
-    /* Thread used to accept any incoming connection attempts. */
-    pthread_t server_accept_thread;
-
-    /* Queue to store new accepted connection sockets. This is used to
-     * pass the new socket descriptors back to the server user. */
-    GAsyncQueue *accept_sd_queue;
-
-    /* An eventfd object to notify the server user that there is a new
-     * socket descriptor on the accept_sd_queue.  */
-    int accept_sd_eventfd;
-} cmsg_server_accept_thread_info;
 
 typedef struct _cmsg_server_s
 {
@@ -113,8 +107,7 @@ typedef struct _cmsg_server_s
     cmsg_bool_t queue_process_number;
     pthread_t self_thread_id;
 
-    fd_set accepted_fdset;
-    int accepted_fdmax;
+    GList *accepted_fds;    // Contains cmsg_fd_info
 
     // memory management
     // flag to tell the server whether or not the application wants to take ownership
@@ -130,7 +123,16 @@ typedef struct _cmsg_server_s
     // flag to tell error-level log to be suppressed to debug-level
     cmsg_bool_t suppress_errors;
 
-    cmsg_server_accept_thread_info *accept_thread_info;
+    /* Queue to store new accepted connection sockets. This is used to
+     * pass the new socket descriptors back to the server user. */
+    GAsyncQueue *accept_sd_queue;
+
+    /* An eventfd object to notify the server user that there is a new
+     * socket descriptor on the accept_sd_queue.  */
+    int accept_sd_eventfd;
+
+    /* Mutex to protect multithreaded use-after-free of the server by the accept thread. */
+    pthread_mutex_t accept_mutex;
 
     void *event_loop_data;
 
@@ -159,17 +161,25 @@ typedef struct _cmsg_server_s
     void *cntr_queue_errors;
 } cmsg_server;
 
+typedef struct _cmsg_fd_info_s
+{
+    int fd;
+    cmsg_server *parent;
+} cmsg_fd_info;
+
 typedef struct _cmsg_server_list_s
 {
     GList *list;
     pthread_mutex_t server_mutex;   // Used to protect list access.
+    int poll_fd;
 } cmsg_server_list;
 
 typedef struct _cmsg_server_thread_task_info_s
 {
     cmsg_server *server;
     int timeout;
-    bool running;
+    volatile bool running;
+    int poll_fd;
 } cmsg_server_thread_task_info;
 
 cmsg_server *cmsg_server_new (cmsg_transport *transport, const ProtobufCService *service);
@@ -178,9 +188,7 @@ void cmsg_server_destroy (cmsg_server *server);
 
 int cmsg_server_get_socket (cmsg_server *server);
 
-int32_t cmsg_server_thread_receive_poll (cmsg_server *server,
-                                         int32_t timeout_ms, fd_set *master_fdset,
-                                         int *fdmax);
+int32_t cmsg_server_thread_receive_poll (cmsg_server_thread_task_info *info);
 
 int32_t cmsg_server_receive_poll_list (cmsg_server_list *server_list, int32_t timeout_ms);
 
@@ -274,13 +282,27 @@ cmsg_server *cmsg_create_server_tcp_ipv6_oneway (const char *service_name,
                                                  uint32_t scope_id,
                                                  const char *vrf_bind_dev,
                                                  const ProtobufCService *service);
+cmsg_server *cmsg_create_server_udp_ipv4_oneway (const char *service_name,
+                                                 struct in_addr *addr,
+                                                 struct in_addr *src_addr,
+                                                 const char *vrf_bind_dev,
+                                                 const ProtobufCService *service);
+cmsg_server *cmsg_create_server_udp_ipv6_oneway (const char *service_name,
+                                                 struct in6_addr *addr, uint32_t scope_id,
+                                                 struct in6_addr *src_addr,
+                                                 const char *vrf_bind_dev,
+                                                 const ProtobufCService *service);
 cmsg_server *cmsg_create_server_tipc_broadcast (ProtobufCService *descriptor,
                                                 const char *service_name, int id);
 
 const cmsg_server *cmsg_server_from_service_get (const void *service);
+const char *cmsg_server_description_from_service_get (const void *service);
+bool cmsg_server_is_transport_broadcast_from_service (const void *service);
+int cmsg_peer_pid_from_service_get (const void *service);
 
 cmsg_server_thread_task_info *cmsg_server_thread_task_info_create (cmsg_server *server,
                                                                    int timeout);
+void cmsg_server_thread_task_info_free (cmsg_server_thread_task_info *info);
 void *cmsg_server_thread_task (void *_info);
 
 int32_t cmsg_server_crypto_enable (cmsg_server *server, crypto_sa_create_func_t create_func,

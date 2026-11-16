@@ -28,13 +28,13 @@ AC_CONFIG_FILES([Makefile
   cmsg-proxy/file_upload_protobuf.pc])
 
 PKG_CHECK_MODULES([GLIB],[glib-2.0])
-PKG_CHECK_MODULES([OOP],[liboop],[],[cmsg_prereq=no])
-PKG_CHECK_MODULES([GMEM_DIAG],[gmem_diag],[],[unittest_prereq=no])
+PKG_CHECK_MODULES([OOP],[liboop],[AC_DEFINE([HAVE_LIBOOP],[1],[liboop is available])],[cmsg_prereq=no])
+PKG_CHECK_MODULES([GMEM_DIAG],[gmem_diag],[AC_DEFINE([HAVE_GMEM_DIAG],[1],[Glib Memory Diagnostics are available])],[unittest_prereq=no])
 PKG_CHECK_MODULES([NOVAPROVA],[novaprova],[],[unittest_prereq=no])
-PKG_CHECK_MODULES([DEBUG_AWPLUS],[debug_awplus],[],[cmsg_prereq=no])
-PKG_CHECK_MODULES([UTILITY],[utility],[],[cmsg_prereq=no])
-PKG_CHECK_MODULES([HEALTHCHECK],[healthcheck],[],[cmsg_prereq=no])
+PKG_CHECK_MODULES([HEALTHCHECK],[healthcheck],[AC_DEFINE([HAVE_HEALTHCHECK],[1],[Healthcheck is available])],[cmsg_prereq=no])
+PKG_CHECK_MODULES([SIMPLE_SHM],[simple_shm],[AC_DEFINE([HAVE_SIMPLE_SHM],[1],[Simple Shared Memory is available])],[cmsg_prereq=no])
 PKG_CHECK_MODULES([OPENSSL],[openssl],[],[cmsg_prereq=no])
+PKG_CHECK_MODULES([EVENTWATCH],[eventwatch],[AC_DEFINE([HAVE_EVENTWATCH],[1],[Eventwatch is available])],[cmsg_prereq=no])
 AX_PTHREAD([],[unittest_prereq=no])
 
 AC_ARG_VAR(PROTOC_PATH, [  Path to the protoc compiler])
@@ -81,6 +81,23 @@ if test "x$enableval" = xyes ; then
 fi)
 AM_CONDITIONAL(HAVE_COUNTERD, test $HAVE_COUNTERD = 1)
 
+# --- Check if IPC message tracing is enabled
+HAVE_TRACE=0
+AC_ARG_ENABLE(tracing, [  --enable-tracing        Enable IPC message tracing],
+if test "x$enableval" = xyes ; then
+  HAVE_TRACE=1
+  AC_DEFINE(HAVE_TRACE, 1, [enable IPC message tracing])
+fi)
+AM_CONDITIONAL(HAVE_TRACE, test $HAVE_TRACE = 1)
+
+AC_ARG_ENABLE([pidfd], [AS_HELP_STRING([--with-pidfd], [Use pidfd or pidpoll in cmsg])])
+if test "${with_pidfd}" = "yes"; then
+  AC_DEFINE([HAVE_PIDFD],1,[pidfd])
+else
+  AC_DEFINE([HAVE_PIDPOLL],1,[pidpoll])
+fi
+AM_CONDITIONAL([HAVE_PIDFD],[test "$with_pidfd" = yes])
+
 gl_LD_VERSION_SCRIPT
 
 gl_VALGRIND_TESTS
@@ -116,4 +133,5 @@ AC_MSG_RESULT([
         protoc-cmsg-path:       ${PROTOC_CMSG_PATH}
         cmsg:                   ${BUILD_CMSG}
         counterd:               ${HAVE_COUNTERD}
+        tracing:                ${HAVE_TRACE}
 ])

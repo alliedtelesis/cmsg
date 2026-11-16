@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * configuration.c
  *
@@ -14,6 +15,23 @@
 #include "data.h"
 
 static cmsg_server *server = NULL;
+
+/**
+ * Use the peer pid from the service reply socket in preference to the pid the
+ * peer process thinks it has as it may be in a different namespace to us.
+ */
+static int
+get_peer_pid (const void *service, int old_pid)
+{
+    int pid;
+
+    pid = cmsg_peer_pid_from_service_get (service);
+    if (pid > 0)
+    {
+        return pid;
+    }
+    return old_pid;
+}
 
 /**
  * Configures the address information for the CMSG server running in the service listener
@@ -42,7 +60,6 @@ cmsg_sld_configuration_impl_add_host (const void *service, const cmsg_uint32 *re
 
     addr.s_addr = recv_msg->value;
 
-    cmsg_transport_tcp_cache_set (&addr, true);
     remote_sync_add_host (addr);
     cmsg_sld_configuration_server_add_hostSend (service);
 }
@@ -58,7 +75,6 @@ cmsg_sld_configuration_impl_delete_host (const void *service,
 
     addr.s_addr = recv_msg->ip_addr;
 
-    cmsg_transport_tcp_cache_set (&addr, false);
     remote_sync_delete_host (addr);
     data_remove_servers_by_addr (addr);
     cmsg_sld_configuration_server_delete_hostSend (service);
@@ -72,6 +88,13 @@ void
 cmsg_sld_configuration_impl_listen (const void *service,
                                     const cmsg_sld_listener_info *recv_msg)
 {
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->transport_info))
+    {
+        cmsg_sld_configuration_server_listenSend (service);
+        return;
+    }
+
+    ((cmsg_sld_listener_info *) recv_msg)->pid = get_peer_pid (service, recv_msg->pid);
     data_add_listener (recv_msg);
     cmsg_sld_configuration_server_listenSend (service);
 }
@@ -84,6 +107,13 @@ void
 cmsg_sld_configuration_impl_unlisten (const void *service,
                                       const cmsg_sld_listener_info *recv_msg)
 {
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->transport_info))
+    {
+        cmsg_sld_configuration_server_unlistenSend (service);
+        return;
+    }
+
+    ((cmsg_sld_listener_info *) recv_msg)->pid = get_peer_pid (service, recv_msg->pid);
     data_remove_listener (recv_msg);
     cmsg_sld_configuration_server_unlistenSend (service);
 }
@@ -96,16 +126,15 @@ void
 cmsg_sld_configuration_impl_add_server (const void *service,
                                         const cmsg_service_info *recv_msg)
 {
-    if (recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_UNIX &&
-        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->server_info))
     {
-        /* Ignore unsupported service types */
         cmsg_sld_configuration_server_add_serverSend (service);
         return;
     }
 
     /* We hold onto the message to store in the data hash table */
     cmsg_server_app_owns_current_msg_set (server);
+    ((cmsg_service_info *) recv_msg)->pid = get_peer_pid (service, recv_msg->pid);
     data_add_server ((cmsg_service_info *) recv_msg, true);
 
     cmsg_sld_configuration_server_add_serverSend (service);
@@ -119,14 +148,13 @@ void
 cmsg_sld_configuration_impl_remove_server (const void *service,
                                            const cmsg_service_info *recv_msg)
 {
-    if (recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_UNIX &&
-        recv_msg->server_info->type != CMSG_TRANSPORT_INFO_TYPE_TCP)
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->server_info))
     {
-        /* Ignore unsupported service types */
         cmsg_sld_configuration_server_remove_serverSend (service);
         return;
     }
 
+    ((cmsg_service_info *) recv_msg)->pid = get_peer_pid (service, recv_msg->pid);
     data_remove_server (recv_msg, true);
 
     cmsg_sld_configuration_server_remove_serverSend (service);

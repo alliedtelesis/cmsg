@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Functional tests for client <-> server communication with encryption.
  *
@@ -74,18 +75,18 @@ sa_derive (cmsg_crypto_sa *sa, const uint8_t *nonce)
     memcpy (sa->keydata, key, 32);
     sa->keysize = 32;
 
-    EVP_CIPHER_CTX_init (&sa->ctx_out);
+    EVP_CIPHER_CTX_init (sa->ctx_out);
     sa->ctx_out_init = TRUE;
     /* Initialise the AES256-CBC encryption */
-    if (!EVP_EncryptInit_ex (&sa->ctx_out, EVP_aes_256_cbc (), NULL, key, NULL))
+    if (!EVP_EncryptInit_ex (sa->ctx_out, EVP_aes_256_cbc (), NULL, key, NULL))
     {
         return -1;
     }
 
-    EVP_CIPHER_CTX_init (&sa->ctx_in);
+    EVP_CIPHER_CTX_init (sa->ctx_in);
     sa->ctx_in_init = TRUE;
     /* Initialise the AES256-CBC decryption */
-    if (!EVP_DecryptInit_ex (&sa->ctx_in, EVP_aes_256_cbc (), NULL, key, NULL))
+    if (!EVP_DecryptInit_ex (sa->ctx_in, EVP_aes_256_cbc (), NULL, key, NULL))
     {
         return -1;
     }

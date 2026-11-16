@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * A helper library for using the CMSG proxy http streaming functionality.
  *

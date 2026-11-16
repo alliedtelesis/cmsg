@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Unit tests for the remote sync functionality.
  *
@@ -5,6 +6,7 @@
  */
 
 #include <np.h>
+#include <stdint.h>
 #include "../remote_sync.h"
 #include "../remote_sync_impl_auto.h"
 #include "../remote_sync_api_auto.h"
@@ -20,6 +22,12 @@
  * using debug symbols.
  */
 #define USED __attribute__ ((used))
+
+struct remote_sync_data
+{
+    cmsg_client *client;
+    guint timer_id;
+};
 
 extern cmsg_server *remote_sync_server;
 extern GList *remote_sync_client_list;
@@ -88,7 +96,7 @@ sm_mock_cmsg_service_listener_remove_server (cmsg_server *server)
 }
 
 static void
-sm_mock_remote_sync_bulk_sync_subscriptions (cmsg_client *client)
+sm_mock_remote_sync_bulk_sync_subscriptions (struct remote_sync_data *remote)
 {
     /* Do nothing. */
 }
@@ -200,7 +208,7 @@ test_remote_sync_sl_event_handler (void)
     cmsg_transport *test_transport_1 = NULL;
     cmsg_transport *test_transport_2 = NULL;
     cmsg_transport *server_transport = NULL;
-    cmsg_client *client = NULL;
+    struct remote_sync_data *remote = NULL;
 
     server_transport = create_tcp_transport (1234);
     remote_sync_server = cmsg_server_create (server_transport, &test_service);
@@ -219,8 +227,8 @@ test_remote_sync_sl_event_handler (void)
 
     remote_sync_sl_event_handler (test_transport_2, false, NULL);
     NP_ASSERT_EQUAL (g_list_length (remote_sync_client_list), 1);
-    client = (cmsg_client *) remote_sync_client_list->data;
-    NP_ASSERT_TRUE (cmsg_transport_compare (client->_transport, test_transport_1));
+    remote = (struct remote_sync_data *) remote_sync_client_list->data;
+    NP_ASSERT_TRUE (cmsg_transport_compare (remote->client->_transport, test_transport_1));
 
     remote_sync_sl_event_handler (test_transport_1, false, NULL);
     NP_ASSERT_EQUAL (g_list_length (remote_sync_client_list), 0);
@@ -290,7 +298,7 @@ test_remote_sync_bulk_sync_subscriptions (void)
     cmsg_subscription_info sub_info_2 = CMSG_SUBSCRIPTION_INFO_INIT;
     cmsg_subscription_info sub_info_3 = CMSG_SUBSCRIPTION_INFO_INIT;
     cmsg_transport *transport = NULL;
-    cmsg_client *client = NULL;
+    struct remote_sync_data remote;
 
     CMSG_SET_FIELD_VALUE (&sub_info_1, remote_addr, 1111);
     CMSG_SET_FIELD_VALUE (&sub_info_2, remote_addr, 1111);
@@ -304,15 +312,16 @@ test_remote_sync_bulk_sync_subscriptions (void)
                                                     &sub_info_3);
 
     transport = create_tcp_transport (1111);
-    client = cmsg_client_new (transport, &test_descriptor);
+    remote.client = cmsg_client_new (transport, &test_descriptor);
+    remote.timer_id = 0;
 
     np_mock (data_get_remote_subscriptions, sm_mock_data_get_remote_subscriptions);
     np_mock (cmsg_api_invoke, sm_mock_cmsg_api_invoke);
-    remote_sync_bulk_sync_subscriptions (client);
+    remote_sync_bulk_sync_subscriptions (&remote);
 
     NP_ASSERT_EQUAL (g_list_length (remote_subscriptions_seen), 2);
 
-    cmsg_destroy_client_and_transport (client);
+    cmsg_destroy_client_and_transport (remote.client);
     g_list_free (mock_remote_subscriptions_list);
     g_list_free (remote_subscriptions_seen);
 }
@@ -455,4 +464,229 @@ test_remote_sync_subscription_removed_remote_host_match (void)
     cmsg_destroy_server_and_transport (remote_sync_server);
     remote_sync_server = NULL;
     cmsg_transport_destroy (test_transport);
+}
+
+static int data_add_local_subscription_called = 0;
+static const cmsg_subscription_info *data_add_local_subscription_last_info = NULL;
+static int data_remove_local_subscription_called = 0;
+
+static void
+sm_mock_data_add_local_subscription (const cmsg_subscription_info *info)
+{
+    data_add_local_subscription_called++;
+    data_add_local_subscription_last_info = info;
+}
+
+static void
+sm_mock_data_remove_local_subscription (const cmsg_subscription_info *info)
+{
+    data_remove_local_subscription_called++;
+}
+
+static void
+sm_mock_cmsg_server_send_response_subscription (const ProtobufCMessage *send_msg,
+                                                const void *service)
+{
+    /* Do nothing. */
+}
+
+/**
+ * Install mocks for everything the subscription implementations do once a
+ * message has been accepted, so that the tests below only observe whether the
+ * message was accepted or dropped.
+ */
+static void
+install_subscription_mocks (void)
+{
+    data_add_local_subscription_called = 0;
+    data_add_local_subscription_last_info = NULL;
+    data_remove_local_subscription_called = 0;
+
+    np_mock (data_add_local_subscription, sm_mock_data_add_local_subscription);
+    np_mock (data_remove_local_subscription, sm_mock_data_remove_local_subscription);
+    np_mock (cmsg_server_send_response, sm_mock_cmsg_server_send_response_subscription);
+}
+
+/**
+ * Build a TCP 'cmsg_transport_info' on the stack using the supplied address and
+ * port buffer lengths. Remote stack members are not trusted to send sane
+ * lengths, so tests need to be able to claim any length.
+ *
+ * @param transport_info - The 'cmsg_transport_info' to initialise.
+ * @param tcp_info - The 'cmsg_tcp_transport_info' to initialise.
+ * @param addr - The address buffer.
+ * @param addr_len - The length to claim for the address buffer.
+ * @param port - The port buffer.
+ * @param port_len - The length to claim for the port buffer.
+ */
+static void
+init_subscription_tcp_transport_info (cmsg_transport_info *transport_info,
+                                      cmsg_tcp_transport_info *tcp_info,
+                                      uint8_t *addr, uint32_t addr_len,
+                                      uint8_t *port, uint32_t port_len)
+{
+    CMSG_SET_FIELD_VALUE (tcp_info, ipv4, true);
+    CMSG_SET_FIELD_BYTES (tcp_info, addr, addr, addr_len);
+    CMSG_SET_FIELD_BYTES (tcp_info, port, port, port_len);
+
+    CMSG_SET_FIELD_VALUE (transport_info, type, CMSG_TRANSPORT_INFO_TYPE_TCP);
+    CMSG_SET_FIELD_ONEOF (transport_info, tcp_info, tcp_info,
+                          data, CMSG_TRANSPORT_INFO_DATA_TCP_INFO);
+}
+
+/**
+ * Baseline for the length tests below: a well formed subscription synced from
+ * a remote member is added.
+ */
+void
+test_cmsg_psd_remote_sync_impl_add_subscription_valid_lengths (void)
+{
+    cmsg_subscription_info info = CMSG_SUBSCRIPTION_INFO_INIT;
+    cmsg_transport_info transport_info = CMSG_TRANSPORT_INFO_INIT;
+    cmsg_tcp_transport_info tcp_info = CMSG_TCP_TRANSPORT_INFO_INIT;
+    uint8_t addr[sizeof (struct in_addr)] = { };
+    uint8_t port[sizeof (in_port_t)] = { };
+
+    install_subscription_mocks ();
+
+    init_subscription_tcp_transport_info (&transport_info, &tcp_info,
+                                          addr, sizeof (addr), port, sizeof (port));
+    CMSG_SET_FIELD_PTR (&info, service, "test_service");
+    CMSG_SET_FIELD_PTR (&info, method_name, "test_method");
+    CMSG_SET_FIELD_PTR (&info, transport_info, &transport_info);
+
+    cmsg_psd_remote_sync_impl_add_subscription (NULL, &info);
+
+    NP_ASSERT_EQUAL (data_add_local_subscription_called, 1);
+}
+
+/**
+ * A stack member claiming an address longer than the buffer it sent must be
+ * rejected. The daemon stores a copy of the message and later builds a
+ * transport from it, copying the claimed number of bytes into a fixed size
+ * socket address.
+ */
+void
+test_cmsg_psd_remote_sync_impl_add_subscription_addr_too_long (void)
+{
+    cmsg_subscription_info info = CMSG_SUBSCRIPTION_INFO_INIT;
+    cmsg_transport_info transport_info = CMSG_TRANSPORT_INFO_INIT;
+    cmsg_tcp_transport_info tcp_info = CMSG_TCP_TRANSPORT_INFO_INIT;
+    uint8_t addr[sizeof (struct in6_addr)] = { };
+    uint8_t port[sizeof (in_port_t)] = { };
+
+    install_subscription_mocks ();
+
+    init_subscription_tcp_transport_info (&transport_info, &tcp_info,
+                                          addr, sizeof (addr), port, sizeof (port));
+    CMSG_SET_FIELD_PTR (&info, service, "test_service");
+    CMSG_SET_FIELD_PTR (&info, method_name, "test_method");
+    CMSG_SET_FIELD_PTR (&info, transport_info, &transport_info);
+
+    np_syslog_match ("Invalid IPv4 address length", 0);
+
+    cmsg_psd_remote_sync_impl_add_subscription (NULL, &info);
+    NP_ASSERT_EQUAL (np_syslog_count (0), 1);
+
+    NP_ASSERT_EQUAL (data_add_local_subscription_called, 0);
+}
+
+/**
+ * A subscription synced from a member with no transport information at all
+ * must be dropped rather than dereferenced. Every field of
+ * 'cmsg_subscription_info' is optional, so a client can simply leave it out.
+ */
+void
+test_cmsg_psd_remote_sync_impl_add_subscription_no_transport_info (void)
+{
+    cmsg_subscription_info info = CMSG_SUBSCRIPTION_INFO_INIT;
+
+    install_subscription_mocks ();
+
+    CMSG_SET_FIELD_PTR (&info, service, "test_service");
+    CMSG_SET_FIELD_PTR (&info, method_name, "test_method");
+
+    np_syslog_match ("Missing transport info", 0);
+
+    cmsg_psd_remote_sync_impl_add_subscription (NULL, &info);
+    NP_ASSERT_EQUAL (np_syslog_count (0), 1);
+
+    NP_ASSERT_EQUAL (data_add_local_subscription_called, 0);
+}
+
+/**
+ * Removing a synced subscription compares the supplied transport against the
+ * stored subscriptions using the length the member claimed, so a bad length
+ * must be dropped before it reaches the data layer.
+ */
+void
+test_cmsg_psd_remote_sync_impl_remove_subscription_addr_too_long (void)
+{
+    cmsg_subscription_info info = CMSG_SUBSCRIPTION_INFO_INIT;
+    cmsg_transport_info transport_info = CMSG_TRANSPORT_INFO_INIT;
+    cmsg_tcp_transport_info tcp_info = CMSG_TCP_TRANSPORT_INFO_INIT;
+    uint8_t addr[sizeof (struct in6_addr)] = { };
+    uint8_t port[sizeof (in_port_t)] = { };
+
+    install_subscription_mocks ();
+
+    init_subscription_tcp_transport_info (&transport_info, &tcp_info,
+                                          addr, sizeof (addr), port, sizeof (port));
+    CMSG_SET_FIELD_PTR (&info, service, "test_service");
+    CMSG_SET_FIELD_PTR (&info, method_name, "test_method");
+    CMSG_SET_FIELD_PTR (&info, transport_info, &transport_info);
+
+    np_syslog_match ("Invalid IPv4 address length", 0);
+
+    cmsg_psd_remote_sync_impl_remove_subscription (NULL, &info);
+    NP_ASSERT_EQUAL (np_syslog_count (0), 1);
+
+    NP_ASSERT_EQUAL (data_remove_local_subscription_called, 0);
+}
+
+/**
+ * A bulk sync carrying a mix of well formed and too-long entries must add the
+ * well formed entries and drop only the too-long ones.
+ */
+void
+test_cmsg_psd_remote_sync_impl_bulk_sync_addr_too_long (void)
+{
+    cmsg_psd_bulk_sync_data bulk_sync_data = CMSG_PSD_BULK_SYNC_DATA_INIT;
+    cmsg_subscription_info bad_info = CMSG_SUBSCRIPTION_INFO_INIT;
+    cmsg_transport_info bad_transport_info = CMSG_TRANSPORT_INFO_INIT;
+    cmsg_tcp_transport_info bad_tcp_info = CMSG_TCP_TRANSPORT_INFO_INIT;
+    cmsg_subscription_info good_info = CMSG_SUBSCRIPTION_INFO_INIT;
+    cmsg_transport_info good_transport_info = CMSG_TRANSPORT_INFO_INIT;
+    cmsg_tcp_transport_info good_tcp_info = CMSG_TCP_TRANSPORT_INFO_INIT;
+    uint8_t long_addr[sizeof (struct in6_addr)] = { };
+    uint8_t addr[sizeof (struct in_addr)] = { };
+    uint8_t port[sizeof (in_port_t)] = { };
+    cmsg_subscription_info *entries[2] = { };
+
+    install_subscription_mocks ();
+
+    init_subscription_tcp_transport_info (&bad_transport_info, &bad_tcp_info,
+                                          long_addr, sizeof (long_addr),
+                                          port, sizeof (port));
+    CMSG_SET_FIELD_PTR (&bad_info, service, "test_service");
+    CMSG_SET_FIELD_PTR (&bad_info, method_name, "test_method");
+    CMSG_SET_FIELD_PTR (&bad_info, transport_info, &bad_transport_info);
+
+    init_subscription_tcp_transport_info (&good_transport_info, &good_tcp_info,
+                                          addr, sizeof (addr), port, sizeof (port));
+    CMSG_SET_FIELD_PTR (&good_info, service, "test_service");
+    CMSG_SET_FIELD_PTR (&good_info, method_name, "test_method");
+    CMSG_SET_FIELD_PTR (&good_info, transport_info, &good_transport_info);
+
+    entries[0] = &bad_info;
+    entries[1] = &good_info;
+    CMSG_SET_FIELD_REPEATED (&bulk_sync_data, data, entries, 2);
+
+    np_syslog_match ("Invalid IPv4 address length", 0);
+
+    cmsg_psd_remote_sync_impl_bulk_sync (NULL, &bulk_sync_data);
+    NP_ASSERT_EQUAL (np_syslog_count (0), 1);
+
+    NP_ASSERT_EQUAL (data_add_local_subscription_called, 1);
+    NP_ASSERT_PTR_EQUAL (data_add_local_subscription_last_info, &good_info);
 }

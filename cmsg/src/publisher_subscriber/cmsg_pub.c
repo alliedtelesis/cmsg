@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * cmsg_pub.c
  *
@@ -35,6 +36,10 @@ static const ProtobufCServiceDescriptor cmsg_psd_pub_descriptor = {
     NULL,
 };
 
+static cmsg_server_list *cmsg_servers = NULL;
+static pthread_t global_pub_receive_thread = -1;
+static pthread_mutex_t global_pub_receive_lock = PTHREAD_MUTEX_INITIALIZER;
+
 /**
  * Get the composite client for the subscribers of the given method, or
  * optionally create it first if it does not already exist.
@@ -46,7 +51,7 @@ static const ProtobufCServiceDescriptor cmsg_psd_pub_descriptor = {
  *
  * @returns A pointer to the composite client or NULL.
  */
-static cmsg_client *
+cmsg_client *
 cmsg_publisher_get_client_for_method (cmsg_publisher *publisher, const char *method_name,
                                       bool create)
 {
@@ -217,6 +222,11 @@ cmsg_publisher_add_subscriber (cmsg_publisher *publisher, const char *method_nam
     cmsg_transport *transport = NULL;
     cmsg_client *client = NULL;
 
+    if (!cmsg_transport_info_validate (method_name, transport_info))
+    {
+        return;
+    }
+
     comp_client = cmsg_publisher_get_client_for_method (publisher, method_name, true);
 
     transport = cmsg_transport_info_to_transport (transport_info);
@@ -241,6 +251,11 @@ cmsg_publisher_remove_subscriber (cmsg_publisher *publisher, const char *method_
     cmsg_transport *transport = NULL;
     cmsg_client *child_client = NULL;
     GList *list_entry = NULL;
+
+    if (!cmsg_transport_info_validate (method_name, transport_info))
+    {
+        return;
+    }
 
     comp_client = cmsg_publisher_get_client_for_method (publisher, method_name, false);
     if (comp_client)
@@ -377,7 +392,7 @@ cmsg_publisher_send_thread (void *arg)
 
 /**
  * Initialise the pthread structures used by a CMSG publisher. These are done
- * separately as there is no way to represent an unitialised value for these
+ * separately as there is no way to represent an uninitialised value for these
  * types (so care must be taken in the deinitialisation).
  */
 static int32_t
@@ -402,6 +417,77 @@ cmsg_publisher_init_pthread_structures (cmsg_publisher *publisher)
     }
 
     return CMSG_RET_OK;
+}
+
+/**
+ * Singular global thread to receive publisher updates for all publishers.
+ */
+static void *
+cmsg_publisher_receive_thread (void *arg)
+{
+    while (true)
+    {
+        cmsg_server_receive_poll_list (cmsg_servers, 100);
+    }
+
+    return NULL;
+}
+
+/**
+ * Add a publisher server to the global receive thread.
+ * Also creates the publisher thread and list on first call.
+ */
+static bool
+cmsg_publisher_add_update_server_to_processor (cmsg_server *server)
+{
+    pthread_mutex_lock (&global_pub_receive_lock);
+    if (!cmsg_servers)
+    {
+        cmsg_servers = cmsg_server_list_new ();
+        if (!cmsg_servers)
+        {
+            pthread_mutex_unlock (&global_pub_receive_lock);
+            return false;
+        }
+    }
+
+    if (global_pub_receive_thread == -1)
+    {
+        if (pthread_create (&global_pub_receive_thread, NULL,
+                            cmsg_publisher_receive_thread, NULL) != 0)
+        {
+            global_pub_receive_thread = -1;
+            pthread_mutex_unlock (&global_pub_receive_lock);
+            return false;
+        }
+        cmsg_pthread_setname (global_pub_receive_thread, "global", CMSG_PUBLISHER_PREFIX);
+    }
+
+    cmsg_server_list_add_server (cmsg_servers, server);
+    pthread_mutex_unlock (&global_pub_receive_lock);
+
+    return true;
+}
+
+/**
+ * Remove a publisher server from the global receive thread.
+ */
+static void
+cmsg_publisher_remove_update_server_from_processor (cmsg_server *server)
+{
+    pthread_mutex_lock (&global_pub_receive_lock);
+    cmsg_server_list_remove_server (cmsg_servers, server);
+
+    if (cmsg_server_list_is_empty (cmsg_servers))
+    {
+        pthread_cancel (global_pub_receive_thread);
+        pthread_join (global_pub_receive_thread, NULL);
+        global_pub_receive_thread = -1;
+
+        cmsg_server_list_destroy (cmsg_servers);
+        cmsg_servers = NULL;
+    }
+    pthread_mutex_unlock (&global_pub_receive_lock);
 }
 
 /**
@@ -467,14 +553,12 @@ cmsg_publisher_create (const ProtobufCServiceDescriptor *service)
     publisher->update_server->parent.object_type = CMSG_OBJ_TYPE_PUB;
     publisher->update_server->parent.object = publisher;
 
-    if (!cmsg_pthread_server_init (&publisher->update_thread, publisher->update_server))
+    if (!cmsg_publisher_add_update_server_to_processor (publisher->update_server))
     {
         CMSG_LOG_GEN_ERROR ("[%s] Unable to create publisher.", service_name);
         cmsg_publisher_destroy (publisher);
         return NULL;
     }
-
-    publisher->update_thread_running = true;
 
     publisher->send_queue = g_queue_new ();
     if (!publisher->send_queue)
@@ -524,12 +608,7 @@ cmsg_publisher_destroy (cmsg_publisher *publisher)
         publisher->send_thread_running = false;
     }
 
-    if (publisher->update_thread_running)
-    {
-        pthread_cancel (publisher->update_thread);
-        pthread_join (publisher->update_thread, NULL);
-        publisher->update_thread_running = false;
-    }
+    cmsg_publisher_remove_update_server_from_processor (publisher->update_server);
 
     if (publisher->subscribed_methods)
     {

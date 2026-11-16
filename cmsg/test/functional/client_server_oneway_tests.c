@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Functional tests for client <-> server one-way communication.
  *
@@ -81,16 +82,22 @@ run_client_server_tests (cmsg_transport_type type, int family)
 {
     cmsg_client *client = NULL;
 
-    server = create_server (type, family, &server_thread);
+    if (type != CMSG_TRANSPORT_ONEWAY_LOOPBACK)
+    {
+        server = create_server (type, family, &server_thread);
+    }
 
     client = create_client (type, family);
 
     _run_client_server_tests (client);
 
-    pthread_cancel (server_thread);
-    pthread_join (server_thread, NULL);
-    cmsg_destroy_server_and_transport (server);
-    server = NULL;
+    if (type != CMSG_TRANSPORT_ONEWAY_LOOPBACK)
+    {
+        pthread_cancel (server_thread);
+        pthread_join (server_thread, NULL);
+        cmsg_destroy_server_and_transport (server);
+        server = NULL;
+    }
     cmsg_destroy_client_and_transport (client);
 }
 
@@ -113,6 +120,17 @@ test_client_server_oneway_tcp6 (void)
 }
 
 /**
+ * Run the simple client <-> server test case with a UDP transport (IPv4).
+ */
+void
+test_client_server_oneway_udp (void)
+{
+    run_client_server_tests (CMSG_TRANSPORT_ONEWAY_MC_UDP, AF_INET);
+
+    // Not testing IPv6 UDP
+}
+
+/**
  * Run the simple client <-> server test case with a UNIX transport.
  */
 void
@@ -128,4 +146,13 @@ void
 test_client_server_oneway_tipc_broadcast (void)
 {
     //run_client_server_tests (CMSG_TRANSPORT_BROADCAST, AF_UNSPEC);
+}
+
+/**
+ * Run the simple client <-> server test case with a ONEWAY Loopback transport.
+ */
+void
+test_client_server_oneway_loopback (void)
+{
+    run_client_server_tests (CMSG_TRANSPORT_ONEWAY_LOOPBACK, AF_UNSPEC);
 }

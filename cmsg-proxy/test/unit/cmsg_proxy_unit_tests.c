@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
@@ -14,12 +15,12 @@
 #include "cmsg_proxy_unit_tests_api_auto.h"
 
 /* Number of nodes expected in the node tree */
-#define CMSG_PROXY_EXPECTED_NUM_NODES 30
+#define CMSG_PROXY_EXPECTED_NUM_NODES 40
 
 /* Number of URL/method pairs in the proto file */
-#define CMSG_PROXY_NUM_OPERATIONS 17
+#define CMSG_PROXY_NUM_OPERATIONS 23
 /* Number of distinct URLs in the proto file */
-#define CMSG_PROXY_NUM_DISTINCT_URLS 12
+#define CMSG_PROXY_NUM_DISTINCT_URLS 17
 
 /* Number of URL/method pairs containing "_url" as substring  */
 #define CMSG_PROXY_NUM_OPERATIONS_WITH_url 10
@@ -35,6 +36,26 @@
 #define CMSG_PROXY_NUM_OPERATIONS_WITH_field_a 2
 /* Number of distinct URLs with "{field_a}" as substring  */
 #define CMSG_PROXY_NUM_DISTINCT_URLS_WITH_field_a 2
+
+/* Number of URL/method pairs permitted for privilege level 14 */
+#define CMSG_PROXY_NUM_OPERATIONS_WITH_p14 5
+/* Number of distinct URLs permitted for privilege level 14 */
+#define CMSG_PROXY_NUM_DISTINCT_URLS_WITH_p14 4
+
+/* Number of URL/method pairs permitted for privilege level 1 */
+#define CMSG_PROXY_NUM_OPERATIONS_WITH_p1 0
+/* Number of distinct URLs permitted for privilege level 1 */
+#define CMSG_PROXY_NUM_DISTINCT_URLS_WITH_p1 0
+
+/* Number of URL/method pairs permitted for privilege level 7 and containing "_post" substring */
+#define CMSG_PROXY_NUM_OPERATIONS_WITH_p7_post 1
+/* Number of distinct URLs permitted for privilege level 7 and containing "_post" substring */
+#define CMSG_PROXY_NUM_DISTINCT_URLS_WITH_p7_post 1
+
+/* Number of URL/method pairs permitted for privilege level 14 when read-only privilege is set */
+#define CMSG_PROXY_NUM_OPERATIONS_WITH_readonly 12
+/* Number of distinct URLs permitted for privilege level 14 when read-only privilege is set */
+#define CMSG_PROXY_NUM_DISTINCT_URLS_WITH_readonly 11
 
 #define CMSG_PROXY_INDEX_BASEPATH_KEY "basepath"
 #define CMSG_PROXY_INDEX_PATHS_KEY "paths"
@@ -1216,7 +1237,7 @@ test_cmsg_proxy_index__api_prefix_in_basepath (void)
 
     basepath = json_object_get (json_obj, CMSG_PROXY_INDEX_BASEPATH_KEY);
     NP_ASSERT_NOT_NULL (basepath);
-    NP_ASSERT_STR_EQUAL (json_string_value (basepath), API_PREFIX);
+    NP_ASSERT_STR_EQUAL (json_string_value (basepath), CMSG_PROXY_API_PREFIX);
 
     json_decref (json_obj);
     cmsg_proxy_free_output_contents (&output);
@@ -1271,6 +1292,207 @@ test_cmsg_proxy_index__output_NULL_returns_error (void)
 
     http_ret = cmsg_proxy_index (NULL, NULL);
     NP_ASSERT_EQUAL (http_ret, HTTP_CODE_INTERNAL_SERVER_ERROR);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if invalid privilege query parameter is ignored, all operations are returned.
+ */
+void
+test_cmsg_proxy_index__privilege_bad (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+    cmsg_proxy_output output = { 0 };
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("privilege=16", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output.response_body, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS);
+
+    json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if privilege level is specified as a query parameter, only those permitted
+ * operations are returned.
+ */
+void
+test_cmsg_proxy_index__privilege_p14 (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+    cmsg_proxy_output output = { 0 };
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("privilege=14", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output.response_body, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS_WITH_p14);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_p14);
+
+    json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if privilege level is specified as a query parameter, only those permitted
+ * operations are returned.
+ */
+void
+test_cmsg_proxy_index__privilege_p1 (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+    cmsg_proxy_output output = { 0 };
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("privilege=1", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output.response_body, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS_WITH_p1);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_p1);
+
+    json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if both privilege level and search string are specified,* only those
+ * matching operations are returned.
+ */
+void
+test_cmsg_proxy_index__privilege_and_string (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+    cmsg_proxy_output output = { 0 };
+
+    setup_standard_test_tree ();
+
+    http_ret = cmsg_proxy_index ("privilege=7&search_string=_post", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output.response_body, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS_WITH_p7_post);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_p7_post);
+
+    json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Function Tested: cmsg_proxy_index ()
+ *
+ * Tests that if system-wide read-only privilege is set, only those permitted operations
+ * are returned.
+ */
+void
+test_cmsg_proxy_index__privilege_readonly_p14 (void)
+{
+    json_t *json_obj, *paths, *url, *methods;
+    int http_ret;
+    int operation_count = 0;
+    int i;
+    cmsg_proxy_output output = { 0 };
+
+    setup_standard_test_tree ();
+
+    cmsg_proxy_config_set_readonly_privilege (14);
+
+    http_ret = cmsg_proxy_index ("privilege=14", &output);
+    NP_ASSERT_NOT_NULL (output.response_body);
+    NP_ASSERT_EQUAL (http_ret, HTTP_CODE_OK);
+
+    json_obj = json_loads (output.response_body, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+
+    paths = json_object_get (json_obj, CMSG_PROXY_INDEX_PATHS_KEY);
+    NP_ASSERT_NOT_NULL (paths);
+    NP_ASSERT_EQUAL (json_array_size (paths), CMSG_PROXY_NUM_DISTINCT_URLS_WITH_readonly);
+
+    json_array_foreach (paths, i, url)
+    {
+        methods = json_object_get (url, CMSG_PROXY_INDEX_METHODS_KEY);
+        NP_ASSERT_NOT_NULL (methods);
+        operation_count += json_array_size (methods);
+    }
+    NP_ASSERT_EQUAL (operation_count, CMSG_PROXY_NUM_OPERATIONS_WITH_readonly);
+
+    json_decref (json_obj);
+    cmsg_proxy_free_output_contents (&output);
 }
 
 /**
@@ -2292,6 +2514,44 @@ test_cmsg_proxy_input_process_invalid_input (void)
     NP_ASSERT_STR_EQUAL (output.response_body, expected_output_response_body);
 
     CMSG_FREE_RECV_MSG (input_message);
+    cmsg_proxy_free_output_contents (&output);
+}
+
+/**
+ * Function Tested: cmsg_proxy_input_process()
+ *
+ * Tests that cmsg_proxy_input_process rejects unknown query parameters
+ * as invalid arguments.
+ */
+void
+test_cmsg_proxy_input_process_unknown_query_parameter (void)
+{
+    ProtobufCMessage *input_message = NULL;
+    cmsg_proxy_input input = { 0 };
+    cmsg_proxy_output output = { 0 };
+    cmsg_proxy_processing_info processing_info = { 0 };
+    json_t *json_obj = NULL;
+    json_t *error_code = NULL;
+
+    input.url = "/v1/test/query_param/AA/CC";
+    input.query_string = "unknown_key=ZZ";
+    input.http_verb = CMSG_HTTP_GET;
+
+    setup_standard_test_tree ();
+    cmsg_proxy_create_client (&cmsg_proxy_unit_tests_interface_descriptor);
+
+    input_message = cmsg_proxy_input_process (&input, &output, &processing_info);
+
+    NP_ASSERT_NULL (input_message);
+    NP_ASSERT_NOT_NULL (output.response_body);
+    NP_ASSERT_EQUAL (output.http_status, HTTP_CODE_BAD_REQUEST);
+
+    json_obj = json_loads (output.response_body, 0, NULL);
+    NP_ASSERT_NOT_NULL (json_obj);
+    error_code = json_object_get (json_obj, "code");
+    NP_ASSERT_STR_EQUAL (json_string_value (error_code), "ANT_CODE_INVALID_ARGUMENT");
+
+    json_decref (json_obj);
     cmsg_proxy_free_output_contents (&output);
 }
 

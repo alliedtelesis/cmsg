@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
@@ -22,15 +23,15 @@
  *                  timeout value for the socket type).
  */
 int
-connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int timeout)
+connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen,
+            struct timeval *timeout)
 {
     int flags;
     int n;
     int error;
     socklen_t len;
-    fd_set rset;
-    fd_set wset;
-    struct timeval tval;
+    struct pollfd pollfd = { 0 };
+    int timeout_ms = -1;
 
     error = 0;
     len = sizeof (error);
@@ -55,13 +56,15 @@ connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int time
         return 0;
     }
 
-    FD_ZERO (&rset);
-    FD_SET (sockfd, &rset);
-    wset = rset;
-    tval.tv_sec = timeout;
-    tval.tv_usec = 0;
+    pollfd.fd = sockfd;
+    pollfd.events = POLLIN | POLLOUT;
 
-    n = select (sockfd + 1, &rset, &wset, NULL, timeout ? &tval : NULL);
+    // Calculate timeout in ms. If it would overflow, leave the timeout as infinite
+    if ((timeout->tv_sec || timeout->tv_usec) && (timeout->tv_sec < INT_MAX / 1000))
+    {
+        timeout_ms = (timeout->tv_sec * 1000) + (timeout->tv_usec / 1000);
+    }
+    n = poll (&pollfd, 1, timeout_ms);
     if (n == 0)
     {
         fcntl (sockfd, F_SETFL, flags);
@@ -69,7 +72,7 @@ connect_nb (int sockfd, const struct sockaddr *addr, socklen_t addrlen, int time
         return -1;
     }
 
-    if (FD_ISSET (sockfd, &rset) || FD_ISSET (sockfd, &wset))
+    if ((pollfd.revents & POLLIN) || (pollfd.revents & POLLOUT))
     {
         if (getsockopt (sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
         {
@@ -278,6 +281,7 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
         }
 
     case CMSG_TRANSPORT_LOOPBACK:
+    case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
         {
             strncpy (tport->tport_id, ".lpb", CMSG_MAX_TPORT_ID_LEN);
             break;
@@ -294,6 +298,30 @@ cmsg_transport_write_id (cmsg_transport *tport, const char *parent_obj_id)
         {
             snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, "%s",
                       tport->config.socket.sockaddr.un.sun_path);
+            break;
+        }
+
+    case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+        {
+            char ip[INET6_ADDRSTRLEN] = { };
+            uint16_t port;
+            if (tport->config.socket.family == PF_INET6)
+            {
+                port = ntohs (tport->config.socket.sockaddr.in6.sin6_port);
+                inet_ntop (AF_INET6, &(tport->config.socket.sockaddr.in6.sin6_addr.s6_addr),
+                           ip, INET6_ADDRSTRLEN);
+                // ipv6 addresses are enclosed in [] in URLs due to ambiguity of :s.
+                snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".udp[[%s]:%u]", ip,
+                          port);
+            }
+            else
+            {
+                port = ntohs (tport->config.socket.sockaddr.in.sin_port);
+                inet_ntop (tport->config.socket.sockaddr.generic.sa_family,
+                           &(tport->config.socket.sockaddr.in.sin_addr), ip,
+                           INET6_ADDRSTRLEN);
+                snprintf (tport->tport_id, CMSG_MAX_TPORT_ID_LEN, ".udp[%s:%u]", ip, port);
+            }
             break;
         }
 
@@ -315,10 +343,12 @@ cmsg_transport_new (cmsg_transport_type type)
     memset (transport, 0, sizeof (cmsg_transport));
 
     transport->type = type;
-    transport->connect_timeout = CONNECT_TIMEOUT_DEFAULT;
+    transport->connect_timeout.tv_sec = CONNECT_TIMEOUT_DEFAULT;
+    transport->connect_timeout.tv_usec = 0;
     transport->send_timeout = SEND_TIMEOUT_DEFAULT;
     transport->receive_timeout = RECV_TIMEOUT_DEFAULT;
     transport->receive_peek_timeout = RECV_HEADER_PEEK_TIMEOUT_DEFAULT;
+    transport->perform_connection_pre_check = true;
 
     switch (type)
     {
@@ -328,11 +358,17 @@ cmsg_transport_new (cmsg_transport_type type)
     case CMSG_TRANSPORT_ONEWAY_TCP:
         cmsg_transport_oneway_tcp_init (transport);
         break;
+
+    case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+        cmsg_transport_oneway_udp_init (transport);
+        break;
+
     case CMSG_TRANSPORT_BROADCAST:
         cmsg_transport_tipc_broadcast_init (transport);
         break;
 
     case CMSG_TRANSPORT_LOOPBACK:
+    case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
         cmsg_transport_loopback_init (transport);
         break;
 
@@ -425,6 +461,13 @@ cmsg_transport_peek_for_header (cmsg_recv_func recv_wrapper, cmsg_transport *tra
                                 strerror (errno));
                     return CMSG_PEEK_CODE_CONNECTION_RESET;
                 }
+                else if (errno == EBADF)
+                {
+                    CMSG_DEBUG (CMSG_INFO,
+                                "[TRANSPORT] receive failed with %s (socket %d)",
+                                strerror (errno), socket);
+                    return CMSG_PEEK_CODE_CONNECTION_RESET;
+                }
                 else if (errno == EINTR)
                 {
                     // We were interrupted, this is transient so just try again without a delay.
@@ -497,7 +540,7 @@ _cmsg_transport_server_recv (cmsg_recv_func recv_wrapper, int socket,
                              uint8_t **recv_buffer, cmsg_header *processed_header,
                              int *nbytes)
 {
-    uint32_t dyn_len = 0;
+    int dyn_len = 0;
 
     CMSG_ASSERT_RETURN_VAL (peeked_header != NULL, CMSG_RET_ERR);
 
@@ -867,7 +910,7 @@ cmsg_transport_accept (cmsg_transport *transport)
 }
 
 int32_t
-cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout)
+cmsg_transport_set_connect_timeout (cmsg_transport *transport, struct timeval *timeout)
 {
     if (transport->type == CMSG_TRANSPORT_RPC_UNIX ||
         transport->type == CMSG_TRANSPORT_ONEWAY_UNIX)
@@ -876,7 +919,7 @@ cmsg_transport_set_connect_timeout (cmsg_transport *transport, uint32_t timeout)
         return -1;
     }
 
-    transport->connect_timeout = timeout;
+    transport->connect_timeout = *timeout;
 
     return 0;
 }
@@ -895,6 +938,12 @@ cmsg_transport_set_recv_peek_timeout (cmsg_transport *transport, uint32_t timeou
     transport->receive_peek_timeout = timeout;
 
     return 0;
+}
+
+uint32_t
+cmsg_transport_get_recv_peek_timeout (cmsg_transport *transport)
+{
+    return transport->receive_peek_timeout;
 }
 
 int32_t
@@ -937,6 +986,49 @@ cmsg_transport_apply_recv_timeout (cmsg_transport *transport, int sockfd)
     return 0;
 }
 
+
+/**
+ *  Compares two IP based transports
+ */
+static bool
+_cmsg_transport_ip_compare (const cmsg_transport *one, const cmsg_transport *two)
+{
+    if (one->config.socket.family != two->config.socket.family)
+    {
+        return false;
+    }
+    else if (one->config.socket.family == AF_INET)
+    {
+        if (one->config.socket.sockaddr.in.sin_addr.s_addr !=
+            two->config.socket.sockaddr.in.sin_addr.s_addr)
+        {
+            return false;
+        }
+    }
+    else if (one->config.socket.family == AF_INET6)
+    {
+        if (memcmp (&one->config.socket.sockaddr.in6.sin6_addr,
+                    &two->config.socket.sockaddr.in6.sin6_addr,
+                    sizeof (struct in6_addr)) != 0)
+        {
+            return false;
+        }
+    }
+    else
+    {
+        // Unsupported address to compare
+        return false;
+    }
+
+    if (one->config.socket.sockaddr.in.sin_port != two->config.socket.sockaddr.in.sin_port)
+    {
+        return false;
+    }
+
+    // All checks have shown to be the same so the entries are the same
+    return true;
+}
+
 bool
 cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
 {
@@ -946,19 +1038,7 @@ cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
         {
         case CMSG_TRANSPORT_RPC_TCP:
         case CMSG_TRANSPORT_ONEWAY_TCP:
-            if ((one->config.socket.family == two->config.socket.family) &&
-                ((one->config.socket.family == AF_INET &&
-                  one->config.socket.sockaddr.in.sin_addr.s_addr ==
-                  two->config.socket.sockaddr.in.sin_addr.s_addr) ||
-                 (one->config.socket.family == AF_INET6 &&
-                  memcmp (&one->config.socket.sockaddr.in6.sin6_addr,
-                          &two->config.socket.sockaddr.in6.sin6_addr,
-                          sizeof (struct in6_addr)) == 0)) &&
-                (one->config.socket.sockaddr.in.sin_port ==
-                 two->config.socket.sockaddr.in.sin_port))
-            {
-                return true;
-            }
+            return _cmsg_transport_ip_compare (one, two);
             break;
         case CMSG_TRANSPORT_RPC_UNIX:
         case CMSG_TRANSPORT_ONEWAY_UNIX:
@@ -971,6 +1051,11 @@ cmsg_transport_compare (const cmsg_transport *one, const cmsg_transport *two)
                 return true;
             }
             break;
+
+        case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+            return _cmsg_transport_ip_compare (one, two);
+            break;
+
         default:
             return false;
         }
@@ -1031,10 +1116,10 @@ cmsg_transport_tcp_info_create (const cmsg_transport *transport)
         CMSG_SET_FIELD_VALUE (tcp_info, scope_id,
                               transport->config.socket.sockaddr.in6.sin6_scope_id);
     }
-    if (transport->config.socket.vrf_bind_dev[0])
+    if (transport->config.socket.bind_dev[0])
     {
         CMSG_SET_FIELD_PTR (tcp_info, vrf_bind_dev,
-                            CMSG_STRDUP (transport->config.socket.vrf_bind_dev));
+                            CMSG_STRDUP (transport->config.socket.bind_dev));
     }
     return tcp_info;
 }
@@ -1166,13 +1251,116 @@ cmsg_transport_info_free (cmsg_transport_info *transport_info)
 }
 
 /**
+ * Validate the transport information received from another process or stack
+ * member before it is stored or converted into a transport. The lengths of the
+ * address and port buffers are chosen by the peer, but the functions that later
+ * read those buffers use a fixed length based on the address family. A buffer
+ * whose length does not match the family exactly would therefore be read out of
+ * bounds.
+ *
+ * @param service - The service the transport information relates to. Used for
+ *                  logging only.
+ * @param transport_info - The message to validate.
+ *
+ * @returns true if the transport information is safe to store and use,
+ *          false otherwise.
+ */
+bool
+cmsg_transport_info_validate (const char *service,
+                              const cmsg_transport_info *transport_info)
+{
+    const cmsg_tcp_transport_info *tcp_info = NULL;
+    const cmsg_unix_transport_info *unix_info = NULL;
+
+    if (!service)
+    {
+        syslog (LOG_ERR, "Missing service key");
+        return false;
+    }
+
+    if (!transport_info)
+    {
+        syslog (LOG_ERR, "%s: Missing transport info", service);
+        return false;
+    }
+
+    switch (transport_info->type)
+    {
+    case CMSG_TRANSPORT_INFO_TYPE_TCP:
+        if (transport_info->data_case != CMSG_TRANSPORT_INFO_DATA_TCP_INFO)
+        {
+            syslog (LOG_ERR, "%s: Transport type does not match data", service);
+            return false;
+        }
+
+        tcp_info = transport_info->tcp_info;
+
+        if (!tcp_info)
+        {
+            syslog (LOG_ERR, "%s: Missing TCP info", service);
+            return false;
+        }
+
+        if (tcp_info->ipv4)
+        {
+            if (tcp_info->addr.len != sizeof (struct in_addr))
+            {
+                syslog (LOG_ERR, "%s: Invalid IPv4 address length", service);
+                return false;
+            }
+        }
+        else if (tcp_info->addr.len != sizeof (struct in6_addr))
+        {
+            syslog (LOG_ERR, "%s: Invalid IPv6 address length", service);
+            return false;
+        }
+
+        if (tcp_info->port.len != sizeof (in_port_t))
+        {
+            syslog (LOG_ERR, "%s: Invalid TCP port length", service);
+            return false;
+        }
+
+        return true;
+
+    case CMSG_TRANSPORT_INFO_TYPE_UNIX:
+        if (transport_info->data_case != CMSG_TRANSPORT_INFO_DATA_UNIX_INFO)
+        {
+            syslog (LOG_ERR, "%s: Transport type does not match data", service);
+            return false;
+        }
+
+        unix_info = transport_info->unix_info;
+
+        if (!unix_info || !unix_info->path)
+        {
+            syslog (LOG_ERR, "%s: Missing UNIX path", service);
+            return false;
+        }
+
+        return true;
+
+    default:
+        /* Not set or undefined */
+        return false;
+    }
+}
+
+/**
  * Create a 'cmsg_transport' structure based on the input 'cmsg_transport_info'
  * message.
  *
- * @param transport_info - The 'cmsg_transport_info' message to build the transport
- *                         for.
+ * The address and port buffers are copied using the length implied by the
+ * address family rather than the length the message claims, so the caller must
+ * have passed the message through 'cmsg_transport_info_validate' before calling
+ * this. Messages that originate from another process or stack member are
+ * validated where they are received.
  *
- * @returns A pointer to the transport on success, NULL on failure.
+ * @param transport_info - The 'cmsg_transport_info' message to build the transport
+ *                         for. Must be valid.
+ *
+ * @returns A pointer to the transport on success, NULL if the transport type is
+ *          neither UNIX nor TCP.
  */
 cmsg_transport *
 cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
@@ -1192,16 +1380,14 @@ cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
 
         transport->config.socket.family = AF_UNIX;
         transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
-        snprintf (transport->config.socket.sockaddr.un.sun_path,
-                  sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
-                  transport_info->unix_info->path);
+        strncpy (transport->config.socket.sockaddr.un.sun_path,
+                 transport_info->unix_info->path,
+                 sizeof (transport->config.socket.sockaddr.un.sun_path) - 1);
     }
     else if (transport_info->type == CMSG_TRANSPORT_INFO_TYPE_TCP)
     {
         uint8_t *port = transport_info->tcp_info->port.data;
-        uint32_t port_len = transport_info->tcp_info->port.len;
         uint8_t *addr = transport_info->tcp_info->addr.data;
-        uint32_t addr_len = transport_info->tcp_info->addr.len;
 
         if (transport_info->one_way)
         {
@@ -1217,24 +1403,27 @@ cmsg_transport_info_to_transport (const cmsg_transport_info *transport_info)
             transport->config.socket.family = PF_INET;
             transport->config.socket.sockaddr.generic.sa_family = PF_INET;
             transport->config.socket.sockaddr.in.sin_family = AF_INET;
-            memcpy (&transport->config.socket.sockaddr.in.sin_port, port, port_len);
-            memcpy (&transport->config.socket.sockaddr.in.sin_addr.s_addr, addr, addr_len);
+            memcpy (&transport->config.socket.sockaddr.in.sin_port, port,
+                    sizeof (in_port_t));
+            memcpy (&transport->config.socket.sockaddr.in.sin_addr.s_addr, addr,
+                    sizeof (struct in_addr));
         }
         else
         {
             transport->config.socket.family = PF_INET6;
             transport->config.socket.sockaddr.generic.sa_family = PF_INET6;
-            memcpy (&transport->config.socket.sockaddr.in6.sin6_port, port, port_len);
+            memcpy (&transport->config.socket.sockaddr.in6.sin6_port, port,
+                    sizeof (in_port_t));
             memcpy (&transport->config.socket.sockaddr.in6.sin6_addr.s6_addr, addr,
-                    addr_len);
+                    sizeof (struct in6_addr));
             transport->config.socket.sockaddr.in6.sin6_scope_id =
                 transport_info->tcp_info->scope_id;
         }
         if (transport_info->tcp_info->vrf_bind_dev)
         {
-            strncpy (transport->config.socket.vrf_bind_dev,
+            strncpy (transport->config.socket.bind_dev,
                      transport_info->tcp_info->vrf_bind_dev, CMSG_BIND_DEV_NAME_MAX);
-            transport->config.socket.vrf_bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
+            transport->config.socket.bind_dev[CMSG_BIND_DEV_NAME_MAX - 1] = '\0';
         }
     }
 
@@ -1323,10 +1512,29 @@ cmsg_transport_info_copy (const cmsg_transport_info *transport_info)
      * to a new 'cmsg_transport_info' message. */
 
     transport = cmsg_transport_info_to_transport (transport_info);
+    if (!transport)
+    {
+        return NULL;
+    }
+
     copied_info = cmsg_transport_info_create (transport);
     cmsg_transport_destroy (transport);
 
     return copied_info;
+}
+
+/**
+ * Return the address family of this transport.
+ *
+ * @param transport - The transport to return the address family for.
+ *
+ * @returns The address family, for example AF_INET, AF_INET6 or AF_UNIX.
+ *          AF_UNSPEC for a transport that does not use a socket address.
+ */
+int
+cmsg_transport_af_get (const cmsg_transport *transport)
+{
+    return transport->config.socket.family;
 }
 
 /**

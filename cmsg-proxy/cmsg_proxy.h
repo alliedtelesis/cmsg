@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
@@ -8,6 +9,13 @@
 #include <cmsg/cmsg.h>
 #include <cmsg/cmsg_client.h>
 #include <cmsg/cmsg_server.h>
+
+/* This is the prefix that should be prepended to paths in the proto files to get the
+ * absolute path on the device.  It is returned in the indexing function, so should be
+ * updated if the API base is ever moved.  If the api is ever moved, the indexing API
+ * needs to continue to work at the original location.
+ */
+#define CMSG_PROXY_API_PREFIX   "/api"
 
 /* Standard HTTP/1.1 status codes */
 #define HTTP_CODE_CONTINUE                  100 /* Continue with request, only partial content transmitted */
@@ -79,6 +87,7 @@ typedef struct _cmsg_proxy_api_request_info
 {
     const char *api_request_ip_address;
     const char *api_request_username;
+    uint32_t api_request_privilege;
 } cmsg_proxy_api_request_info;
 
 typedef struct _cmsg_proxy_api_file_info
@@ -115,8 +124,8 @@ typedef struct _cmsg_proxy_input
     /* Information about the file uploaded with appweb. */
     cmsg_proxy_api_file_info file_info;
 
-    /* The connection structure */
-    void *connection;
+    /* Appweb stream sequence number */
+    uint64_t stream_seq_no;
 } cmsg_proxy_input;
 
 /* CMSG proxy output/response data */
@@ -149,14 +158,14 @@ typedef struct _cmsg_proxy_output
 
 typedef struct _cmsg_proxy_stream_response_data
 {
-    void *connection;
+    uint64_t stream_seq_no;
     char *data;
     size_t length;
 } cmsg_proxy_stream_response_data;
 
 typedef struct _cmsg_proxy_stream_header_data
 {
-    void *connection;
+    uint64_t stream_seq_no;
     cmsg_proxy_headers *headers;
 } cmsg_proxy_stream_header_data;
 
@@ -164,11 +173,10 @@ typedef int (*cmsg_api_func_ptr) ();
 typedef bool (*pre_api_http_check_callback) (cmsg_http_verb http_verb, char **message);
 typedef void (*cmsg_proxy_stream_response_send_func) (cmsg_proxy_stream_response_data
                                                       *data);
-typedef void (*cmsg_proxy_stream_response_close_func) (void *connection);
-typedef void (*cmsg_proxy_stream_conn_release_func) (void *connection);
+typedef void (*cmsg_proxy_stream_response_close_func) (uint64_t stream_seq_no);
 typedef void (*cmsg_proxy_stream_headers_set_func) (cmsg_proxy_stream_header_data *data);
-typedef void (*cmsg_proxy_stream_conn_abort_func) (void *connection);
-typedef bool (*cmsg_proxy_stream_conn_busy_func) (void *connection);
+typedef void (*cmsg_proxy_stream_conn_abort_func) (uint64_t stream_seq_no);
+typedef bool (*cmsg_proxy_stream_conn_busy_func) (uint64_t stream_seq_no);
 
 typedef struct _cmsg_proxy_web_socket_info
 {
@@ -205,6 +213,7 @@ void cmsg_proxy_init (void);
 void cmsg_proxy_deinit (void);
 void cmsg_proxy_free_output_contents (cmsg_proxy_output *output);
 void cmsg_proxy (const cmsg_proxy_input *input, cmsg_proxy_output *output);
+int cmsg_proxy_get_api_privilege (const char *url, cmsg_http_verb http_verb);
 void cmsg_proxy_set_pre_api_http_check_callback (pre_api_http_check_callback cb);
 
 void cmsg_proxy_passthrough_init (const char *library_path);
@@ -216,13 +225,11 @@ void cmsg_proxy_streaming_set_response_send_function (cmsg_proxy_stream_response
                                                       func);
 void cmsg_proxy_streaming_set_response_close_function (cmsg_proxy_stream_response_close_func
                                                        func);
-void cmsg_proxy_streaming_set_conn_release_function (cmsg_proxy_stream_conn_release_func
-                                                     func);
 void cmsg_proxy_streaming_set_headers_set_function (cmsg_proxy_stream_headers_set_func
                                                     func);
 void cmsg_proxy_streaming_set_conn_abort_function (cmsg_proxy_stream_conn_abort_func func);
 void cmsg_proxy_streaming_set_conn_busy_function (cmsg_proxy_stream_conn_busy_func func);
-void cmsg_proxy_streaming_conn_timeout (void *connection);
+void cmsg_proxy_streaming_conn_timeout (uint64_t stream_seq_no);
 void cmsg_proxy_streaming_free_stream_response_data (cmsg_proxy_stream_response_data *data);
 void cmsg_proxy_streaming_free_stream_header_data (cmsg_proxy_stream_header_data *data);
 

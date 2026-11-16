@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * @file cmsg_transport_unix.c
  *
@@ -13,6 +14,7 @@
 #include "cmsg_error.h"
 #include <sys/stat.h>
 
+#define EMFILE_ERROR_RATELIMIT 300  /* 5 minutes in seconds */
 /*
  * Create a UNIX socket connection.
  * Returns 0 on success or a negative integer on failure.
@@ -21,6 +23,8 @@ static int32_t
 cmsg_transport_unix_connect (cmsg_transport *transport)
 {
     int32_t ret;
+    const char *path;
+    struct sockaddr_un sock;
     struct sockaddr_un *addr;
     uint32_t addrlen;
 
@@ -36,6 +40,17 @@ cmsg_transport_unix_connect (cmsg_transport *transport)
 
     addr = (struct sockaddr_un *) &transport->config.socket.sockaddr.un;
     addrlen = sizeof (transport->config.socket.sockaddr.un);
+
+    /* Other processes may have a different path to the cmsg unix socket
+     * files. Make sure we use our path to the sockets */
+    path = cmsg_socket_path ();
+    if (strncmp (addr->sun_path, path, strlen (path)) != 0)
+    {
+        sock.sun_family = addr->sun_family;
+        snprintf (sock.sun_path, sizeof (sock.sun_path), "%s%s",
+                  path, strrchr (addr->sun_path, '/'));
+        addr = &sock;
+    }
 
     if (connect (transport->socket, (struct sockaddr *) addr, addrlen) < 0)
     {
@@ -121,17 +136,11 @@ int
 cmsg_transport_unix_recv (cmsg_transport *transport, int sock, void *buff, int len,
                           int flags)
 {
-    struct timeval timeout = { 1, 0 };
-    fd_set read_fds;
-    int maxfd;
+    struct pollfd pollfd = { sock, POLLIN, 0 };
 
-    FD_ZERO (&read_fds);
-    FD_SET (sock, &read_fds);
-    maxfd = sock;
-
-    /* Do select() on the socket to prevent it to go to usleep instantaneously in the loop
+    /* Do poll() on the socket to prevent it to go to usleep instantaneously in the loop
      * if the data is not yet available.*/
-    select (maxfd + 1, &read_fds, NULL, NULL, &timeout);
+    poll (&pollfd, 1, 1000);
 
     return cmsg_transport_socket_recv (sock, buff, len, flags);
 }
@@ -145,6 +154,10 @@ cmsg_transport_unix_server_accept (cmsg_transport *transport)
     int sock;
     struct sockaddr *addr;
     int listen_socket = transport->socket;
+    int error;
+    struct timespec now;
+    static time_t last_msg = 0;
+    static uint32_t err_count = 1;
 
     if (listen_socket < 0)
     {
@@ -159,8 +172,30 @@ cmsg_transport_unix_server_accept (cmsg_transport *transport)
 
     if (sock < 0)
     {
-        CMSG_LOG_TRANSPORT_ERROR (transport, "Accept failed. Error:%s", strerror (errno));
-        CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
+        error = errno;
+        /* Rate limit 'Too many open files' errors to 1 message per EMFILE_ERROR_RATELIMIT seconds */
+        if (error == EMFILE)
+        {
+            clock_gettime (CLOCK_MONOTONIC_RAW, &now);
+            if (now.tv_sec - last_msg > EMFILE_ERROR_RATELIMIT)
+            {
+                CMSG_LOG_TRANSPORT_ERROR (transport, "Accept failures: %u. Error:%s",
+                                          err_count, strerror (error));
+                CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
+                err_count = 1;
+                last_msg = now.tv_sec;
+            }
+            else
+            {
+                err_count++;
+            }
+        }
+        else
+        {
+            CMSG_LOG_TRANSPORT_ERROR (transport, "Accept failed. Error:%s",
+                                      strerror (error));
+            CMSG_DEBUG (CMSG_INFO, "[TRANSPORT] sock = %d\n", sock);
+        }
 
         return -1;
     }
@@ -274,7 +309,7 @@ cmsg_transport_unix_sun_path (const ProtobufCServiceDescriptor *descriptor)
     char *copy_str = NULL;
     char *iter;
 
-    CMSG_ASPRINTF (&copy_str, "/tmp/%s", descriptor->name);
+    CMSG_ASPRINTF (&copy_str, "%s/%s", cmsg_socket_path (), descriptor->name);
 
     /* Replace the '.' in the name with '_' */
     iter = copy_str;

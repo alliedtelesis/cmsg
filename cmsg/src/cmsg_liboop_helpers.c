@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * @file cmsg_liboop_helpers.c
  *
@@ -5,7 +6,7 @@
  *
  * Copyright 2020, Allied Telesis Labs New Zealand, Ltd
  */
-
+#ifdef HAVE_LIBOOP
 #include <oop_util.h>
 #include <gmodule.h>
 #include <sys/eventfd.h>
@@ -40,13 +41,12 @@ cmsg_liboop_server_accepted (int sd, void *data)
     cmsg_server *server = (cmsg_server *) data;
     eventfd_t value;
     int *newfd_ptr = NULL;
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
     oop_socket_hdl handle = NULL;
 
     /* clear notification */
-    TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
+    TEMP_FAILURE_RETRY (eventfd_read (server->accept_sd_eventfd, &value));
 
-    while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
+    while ((newfd_ptr = g_async_queue_try_pop (server->accept_sd_queue)))
     {
         handle = oop_socket_register (*newfd_ptr, cmsg_liboop_server_read, server);
         g_hash_table_insert (server->event_loop_data, GINT_TO_POINTER (*newfd_ptr), handle);
@@ -62,15 +62,14 @@ cmsg_liboop_server_accepted (int sd, void *data)
 static void
 cmsg_liboop_server_processing_start (cmsg_server *server)
 {
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
     oop_socket_hdl handle = NULL;
 
     server->event_loop_data = g_hash_table_new (g_direct_hash, g_direct_equal);
 
-    handle = oop_socket_register (info->accept_sd_eventfd, cmsg_liboop_server_accepted,
+    handle = oop_socket_register (server->accept_sd_eventfd, cmsg_liboop_server_accepted,
                                   server);
-    g_hash_table_insert (server->event_loop_data, GINT_TO_POINTER (info->accept_sd_eventfd),
-                         handle);
+    g_hash_table_insert (server->event_loop_data,
+                         GINT_TO_POINTER (server->accept_sd_eventfd), handle);
 }
 
 /**
@@ -88,7 +87,7 @@ static gboolean
 cmsg_liboop_clear_sockets (gpointer key, gpointer value, gpointer user_data)
 {
     cmsg_server *server = user_data;
-    int accept_eventfd = server->accept_thread_info->accept_sd_eventfd;
+    int accept_eventfd = server->accept_sd_eventfd;
     int sd = GPOINTER_TO_INT (key);
 
     oop_socket_deregister (value);
@@ -355,12 +354,48 @@ cmsg_liboop_tcp_oneway_server_init (const char *server_name, struct in_addr *add
 }
 
 /**
+ * Create and start processing a oneway TCP transport based CMSG server for the given
+ * CMSG service for the given stack node ID.
+ *
+ * @param server_name - The service name in the /etc/services file to get
+ *                      the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param scope_id - The interface index the IPv6 server is to operate on.
+ * @param service - The CMSG service.
+ *
+ * @returns Pointer to the 'cmsg_server' structure or NULL on failure.
+ */
+cmsg_server *
+cmsg_liboop_tcp_ipv6_oneway_server_init (const char *server_name, struct in6_addr *addr,
+                                         uint32_t scope_id, ProtobufCService *service)
+{
+    cmsg_server *server = NULL;
+
+    server =
+        cmsg_create_server_tcp_ipv6_oneway (server_name, addr, scope_id, NULL, service);
+    if (!server)
+    {
+        CMSG_LOG_GEN_ERROR ("Failed to initialize CMSG server for %s",
+                            cmsg_service_name_get (service->descriptor));
+        return NULL;
+    }
+
+    if (cmsg_liboop_server_init (server) != CMSG_RET_OK)
+    {
+        cmsg_destroy_server_and_transport (server);
+        server = NULL;
+    }
+
+    return server;
+}
+
+/**
  * Callback function for service listener events.
  */
 static void
 cmsg_liboop_sl_event_process (int sd, void *data)
 {
-    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+    cmsg_sl_info *info = (cmsg_sl_info *) data;
 
     if (!cmsg_service_listener_event_queue_process (info))
     {
@@ -384,7 +419,7 @@ const cmsg_sl_info *
 cmsg_liboop_service_listener_listen (const char *service_name,
                                      cmsg_sl_event_handler_t handler, void *user_data)
 {
-    const cmsg_sl_info *info = NULL;
+    cmsg_sl_info *info = NULL;
     oop_socket_hdl handle = NULL;
 
     info = cmsg_service_listener_listen (service_name, handler, user_data);
@@ -401,3 +436,4 @@ cmsg_liboop_service_listener_listen (const char *service_name,
 
     return info;
 }
+#endif /* HAVE_LIBOOP */

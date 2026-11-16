@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * main.c
  *
@@ -10,7 +11,9 @@
 #include <stdlib.h>
 #include <glib.h>
 #include <glib-unix.h>
+#ifdef HAVE_HEALTHCHECK
 #include <healthcheck.h>
+#endif
 #include "configuration.h"
 #include "data.h"
 #include "remote_sync.h"
@@ -18,6 +21,7 @@
 
 #define DEBUG_FILE "/tmp/cmsg_sld_debug.txt"
 
+#ifdef HAVE_HEALTHCHECK
 /**
  * Called when we receive data on our healthcheck socket
  */
@@ -47,6 +51,7 @@ cmsg_sld_healthcheck_init (void *unused)
 
     return TRUE;
 }
+#endif /* HAVE_HEALTHCHECK */
 
 /**
  * Handles SIGUSR1 indicating that the daemon should dump the current
@@ -122,8 +127,10 @@ main (int argc, char **argv)
     /* Avoid exiting upon receiving an unintentional SIGPIPE */
     signal (SIGPIPE, SIG_IGN);
 
+#ifdef HAVE_HEALTHCHECK
     /* register for healthchecking */
     g_timeout_add_seconds (1, cmsg_sld_healthcheck_init, NULL);
+#endif
 
     data_init ();
     configuration_server_init ();

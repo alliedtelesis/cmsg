@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * cmsg_sl_api.c
  *
@@ -15,17 +16,6 @@
 #include "cmsg_sl.h"
 #include "events_impl_auto.h"
 #include "transport/cmsg_transport_private.h"
-
-struct _cmsg_sl_info_s
-{
-    char *service_name;
-    cmsg_sl_event_handler_t handler;
-    uint32_t id;
-    void *user_data;
-    GAsyncQueue *queue;
-    int eventfd;
-    void *event_loop_data;
-};
 
 typedef struct _cmsg_sl_event
 {
@@ -72,7 +62,7 @@ cmsg_sl_get_client (void)
  * @returns The eventfd descriptor.
  */
 int
-cmsg_service_listener_get_event_fd (const cmsg_sl_info *info)
+cmsg_service_listener_get_event_fd (cmsg_sl_info *info)
 {
     return info->eventfd;
 }
@@ -85,7 +75,7 @@ cmsg_service_listener_get_event_fd (const cmsg_sl_info *info)
  * @returns true if the service listening should keep running, false otherwise.
  */
 bool
-cmsg_service_listener_event_queue_process (const cmsg_sl_info *info)
+cmsg_service_listener_event_queue_process (cmsg_sl_info *info)
 {
     cmsg_sl_event *event = NULL;
     eventfd_t value;
@@ -123,6 +113,18 @@ notify_listener (const cmsg_sld_server_event *recv_msg, bool added)
     cmsg_sl_event *event = NULL;
     const cmsg_transport_info *transport_info = NULL;
 
+    if (!recv_msg->service_info)
+    {
+        syslog (LOG_ERR, "Missing service info in server event");
+        return;
+    }
+
+    transport_info = recv_msg->service_info->server_info;
+    if (!cmsg_transport_info_validate (recv_msg->service_info->service, transport_info))
+    {
+        return;
+    }
+
     pthread_mutex_lock (&listener_list_mutex);
 
     for (list = g_list_first (listener_list); list; list = g_list_next (list))
@@ -134,8 +136,6 @@ notify_listener (const cmsg_sld_server_event *recv_msg, bool added)
             event = CMSG_MALLOC (sizeof (cmsg_sl_event));
             if (event)
             {
-                transport_info = recv_msg->service_info->server_info;
-
                 event->added = added;
                 event->transport = cmsg_transport_info_to_transport (transport_info);
                 g_async_queue_push (entry->queue, event);
@@ -184,8 +184,9 @@ event_server_init (void)
     transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
     snprintf (transport->config.socket.sockaddr.un.sun_path,
               sizeof (transport->config.socket.sockaddr.un.sun_path) - 1,
-              "/tmp/%s.%u", cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_sld, events)),
-              getpid ());
+              "%s/%s.%u.%u", cmsg_socket_path (),
+              cmsg_service_name_get (CMSG_DESCRIPTOR (cmsg_sld, events)),
+              cmsg_namespace (), getpid ());
 
     event_server = cmsg_server_new (transport, CMSG_SERVICE (cmsg_sld, events));
     cmsg_pthread_server_init (&event_server_thread, event_server);
@@ -300,6 +301,15 @@ cmsg_service_listener_info_create (const char *service_name,
         return NULL;
     }
 
+    if (pthread_mutex_init (&info->thread_mutex, NULL) != 0)
+    {
+        g_async_queue_unref (info->queue);
+        close (info->eventfd);
+        CMSG_FREE (info->service_name);
+        CMSG_FREE (info);
+        return NULL;
+    }
+
     info->handler = handler;
     info->user_data = user_data;
     info->id = id++;
@@ -332,7 +342,7 @@ cmsg_service_listener_info_destroy (cmsg_sl_info *info)
  *
  * @returns A pointer to the 'cmsg_sl_info' structure for the given service.
  */
-const cmsg_sl_info *
+cmsg_sl_info *
 cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t handler,
                               void *user_data)
 {
@@ -372,7 +382,7 @@ cmsg_service_listener_listen (const char *service_name, cmsg_sl_event_handler_t 
  * @param service_name - The service to unlisten from.
  */
 void
-cmsg_service_listener_unlisten (const cmsg_sl_info *info)
+cmsg_service_listener_unlisten (cmsg_sl_info *info)
 {
     pthread_mutex_lock (&add_remove_mutex);
     pthread_mutex_lock (&listener_list_mutex);
@@ -447,6 +457,8 @@ cmsg_service_listener_add_host (struct in_addr addr)
     cmsg_uint32 send_msg = CMSG_UINT32_INIT;
     int ret;
 
+    cmsg_transport_tcp_cache_set (&addr, true);
+
     client = cmsg_sl_get_client ();
     if (!client)
     {
@@ -476,6 +488,8 @@ cmsg_service_listener_delete_host (struct in_addr addr)
     cmsg_client *client = NULL;
     cmsg_sld_address_info send_msg = CMSG_SLD_ADDRESS_INFO_INIT;
     int ret;
+
+    cmsg_transport_tcp_cache_set (&addr, false);
 
     client = cmsg_sl_get_client ();
     if (!client)
@@ -568,12 +582,10 @@ cmsg_sl_listener_unix_wait_cb (const cmsg_transport *transport, bool added, void
 bool
 cmsg_service_listener_wait_for_unix_server (const char *service_name, long seconds)
 {
-    const cmsg_sl_info *info;
+    cmsg_sl_info *info;
     bool ret = false;
-    fd_set fds;
-    int select_rc;
-    struct timeval timeout;
-    struct timeval *_timeout = &timeout;
+    struct pollfd pollfd = { 0, POLLIN, 0 };
+    int poll_rc;
 
     info = cmsg_service_listener_listen (service_name, cmsg_sl_listener_unix_wait_cb, &ret);
     if (!info)
@@ -581,21 +593,9 @@ cmsg_service_listener_wait_for_unix_server (const char *service_name, long secon
         return false;
     }
 
-    if (seconds == -1)
-    {
-        _timeout = NULL;
-    }
-    else
-    {
-        timeout.tv_sec = seconds;
-        timeout.tv_usec = 0;
-    }
-
-    FD_ZERO (&fds);
-    FD_SET (info->eventfd, &fds);
-
-    select_rc = TEMP_FAILURE_RETRY (select (info->eventfd + 1, &fds, NULL, NULL, _timeout));
-    if (select_rc == 0 || select_rc == -1)
+    pollfd.fd = info->eventfd;
+    poll_rc = TEMP_FAILURE_RETRY (poll (&pollfd, 1, seconds == -1L ? -1L : seconds * 1000));
+    if (poll_rc == 0 || poll_rc == -1)
     {
         /* Timed out or failed. */
         cmsg_service_listener_unlisten (info);
@@ -645,7 +645,7 @@ bool
 cmsg_service_listener_wait_for_tcp_server (const char *service_name, struct in_addr *addr,
                                            int seconds)
 {
-    const cmsg_sl_info *info;
+    cmsg_sl_info *info;
     struct pollfd pfd = {
         .events = POLLIN,
     };
@@ -700,7 +700,7 @@ cmsg_service_listener_wait_for_tcp_server (const char *service_name, struct in_a
  * @param data - The data to set.
  */
 void
-cmsg_service_listener_event_loop_data_set (const cmsg_sl_info *info, void *data)
+cmsg_service_listener_event_loop_data_set (cmsg_sl_info *info, void *data)
 {
     cmsg_sl_info *_info = (cmsg_sl_info *) info;
     _info->event_loop_data = data;
@@ -714,7 +714,7 @@ cmsg_service_listener_event_loop_data_set (const cmsg_sl_info *info, void *data)
  * @returns The stored data.
  */
 void *
-cmsg_service_listener_event_loop_data_get (const cmsg_sl_info *info)
+cmsg_service_listener_event_loop_data_get (cmsg_sl_info *info)
 {
     return info->event_loop_data;
 }

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * cmsg_composite_client.c
  *
@@ -147,7 +148,8 @@ cmsg_composite_client_add_child (cmsg_client *_composite_client, cmsg_client *cl
      * we place them at the end of the child client list so that they are invoked last.
      * This ensures the performance gains of using a composite client (i.e. executing in
      * parallel) are retained. */
-    if (client->_transport->type == CMSG_TRANSPORT_LOOPBACK)
+    if (client->_transport->type == CMSG_TRANSPORT_LOOPBACK ||
+        client->_transport->type == CMSG_TRANSPORT_ONEWAY_LOOPBACK)
     {
         composite_client->child_clients = g_list_append (composite_client->child_clients,
                                                          client);

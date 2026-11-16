@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * configuration.c
  *
@@ -10,6 +11,7 @@
 #include "configuration_impl_auto.h"
 #include "remote_sync.h"
 #include "data.h"
+#include "transport/cmsg_transport_private.h"
 
 static cmsg_server *server = NULL;
 
@@ -35,6 +37,12 @@ void
 cmsg_psd_configuration_impl_add_subscription (const void *service,
                                               const cmsg_subscription_info *recv_msg)
 {
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->transport_info))
+    {
+        cmsg_psd_configuration_server_add_subscriptionSend (service);
+        return;
+    }
+
     if (data_add_subscription (recv_msg))
     {
         /* The memory of the message was stolen so do not free the message. */
@@ -50,6 +58,12 @@ void
 cmsg_psd_configuration_impl_remove_subscription (const void *service,
                                                  const cmsg_subscription_info *recv_msg)
 {
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->transport_info))
+    {
+        cmsg_psd_configuration_server_remove_subscriptionSend (service);
+        return;
+    }
+
     data_remove_subscription (recv_msg);
     cmsg_psd_configuration_server_remove_subscriptionSend (service);
 }
@@ -61,6 +75,12 @@ void
 cmsg_psd_configuration_impl_remove_subscriber (const void *service,
                                                const cmsg_service_info *recv_msg)
 {
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->server_info))
+    {
+        cmsg_psd_configuration_server_remove_subscriberSend (service);
+        return;
+    }
+
     data_remove_subscriber (recv_msg->service, recv_msg->server_info);
     cmsg_psd_configuration_server_remove_subscriberSend (service);
 }
@@ -74,6 +94,12 @@ cmsg_psd_configuration_impl_add_publisher (const void *service,
                                            const cmsg_service_info *recv_msg)
 {
     cmsg_subscription_methods send_msg = CMSG_SUBSCRIPTION_METHODS_INIT;
+
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->server_info))
+    {
+        cmsg_psd_configuration_server_add_publisherSend (service, &send_msg);
+        return;
+    }
 
     data_add_publisher (recv_msg->service, recv_msg->server_info);
 
@@ -90,6 +116,12 @@ void
 cmsg_psd_configuration_impl_remove_publisher (const void *service,
                                               const cmsg_service_info *recv_msg)
 {
+    if (!cmsg_transport_info_validate (recv_msg->service, recv_msg->server_info))
+    {
+        cmsg_psd_configuration_server_remove_publisherSend (service);
+        return;
+    }
+
     data_remove_publisher (recv_msg->service, recv_msg->server_info);
 
     cmsg_psd_configuration_server_remove_publisherSend (service);

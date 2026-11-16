@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * data.c
  *
@@ -21,7 +22,7 @@ typedef struct
 {
     GList *methods;
     cmsg_client *comp_client;   /* Client to publishers of this service */
-    const cmsg_sl_info *sl_info;
+    cmsg_sl_info *sl_info;
     GIOChannel *event_channel;  /* Listen to sld event notification */
     guint event_source_id;
 } service_data_entry;
@@ -116,7 +117,7 @@ _sl_event_handler (const cmsg_transport *transport, bool added, void *user_data)
 static gboolean
 _sl_event_process (GIOChannel *source, GIOCondition condition, gpointer data)
 {
-    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+    cmsg_sl_info *info = (cmsg_sl_info *) data;
     gboolean ret = G_SOURCE_CONTINUE;
 
     if (!cmsg_service_listener_event_queue_process (info))
@@ -455,7 +456,11 @@ data_remove_local_subscription (const cmsg_subscription_info *info)
             service_entry->methods = g_list_remove (service_entry->methods, method_entry);
             CMSG_FREE (method_entry->method_name);
             CMSG_FREE (method_entry);
-            destroy_service_entry = (g_list_length (service_entry->methods) == 0);
+            if (g_list_length (service_entry->methods) == 0 &&
+                cmsg_composite_client_num_children (service_entry->comp_client) == 0)
+            {
+                destroy_service_entry = true;
+            }
         }
     }
     if (destroy_service_entry)

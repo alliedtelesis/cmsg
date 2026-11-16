@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * cmsg_sub.c
  *
@@ -32,7 +33,8 @@ cmsg_sub_new (cmsg_transport *tcp_transport, const ProtobufCService *pub_service
     unix_transport->config.socket.sockaddr.un.sun_family = AF_UNIX;
     snprintf (unix_transport->config.socket.sockaddr.un.sun_path,
               sizeof (unix_transport->config.socket.sockaddr.un.sun_path) - 1,
-              "/tmp/%s.%u", pub_service->descriptor->name, getpid ());
+              "%s/%s.%u.%u", cmsg_socket_path (), pub_service->descriptor->name,
+              cmsg_namespace (), getpid ());
 
     subscriber->local_server = cmsg_server_new (unix_transport, pub_service);
     if (!subscriber->local_server)

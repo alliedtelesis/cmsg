@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Unit tests for the data functionality.
  *
@@ -5,6 +6,7 @@
  */
 
 #include <np.h>
+#include <stdint.h>
 #include "../data.h"
 #include "../process_watch.h"
 #include <cmsg/cmsg_private.h>

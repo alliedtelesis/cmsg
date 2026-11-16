@@ -33,7 +33,7 @@ libfile_upload_protobuf_la_CFLAGS  =
 ## Library for cmsg proxy configuration
 libcmsgproxyconfig_la_LDFLAGS = -version-info 1:0:0 # version:revision:age
 libcmsgproxyconfig_la_SOURCES = src/cmsg_proxy_config.c cmsg_proxy_config.h
-libcmsgproxyconfig_la_LIBADD = -lsimple_shm
+libcmsgproxyconfig_la_LIBADD = $(SIMPLE_SHM_LIBS)
 libcmsgproxyconfig_la_CFLAGS  = -include $(top_builddir)/config.h
 
 ## Library for using the cmsg proxy http streaming functionality
@@ -204,7 +204,7 @@ cmsg_proxy_functional_tests_CPPFLAGS  = -I$(top_srcdir) -I$(top_srcdir)/cmsg-pro
 cmsg_proxy_functional_tests_LDFLAGS = -static
 cmsg_proxy_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(GMEM_DIAG_LIBS) \
                                 -lcmsg -lprotobuf-c -lprotobuf2json-c \
-                                -ljansson libcmsgproxy.la -lpthread
+                                -ljansson libcmsgproxy.la libcmsgproxyconfig.la -lpthread
 if HAVE_COUNTERD
 cmsg_proxy_functional_tests_LDADD += -lcntr
 endif
@@ -238,7 +238,7 @@ cmsg_proxy_passthrough_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -
 cmsg_proxy_passthrough_functional_tests_CPPFLAGS  =-I$(top_srcdir) -I$(top_srcdir)/cmsg-proxy -I$(top_srcdir)/cmsg-proxy/src
 cmsg_proxy_passthrough_functional_tests_LDFLAGS = -static
 cmsg_proxy_passthrough_functional_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) \
-                                                  -lcmsg -lprotobuf-c libcmsgproxy.la
+                                                  -lcmsg -lprotobuf-c libcmsgproxy.la libcmsgproxyconfig.la
 if HAVE_COUNTERD
 cmsg_proxy_passthrough_functional_tests_LDADD += -lcntr
 endif

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
@@ -130,8 +131,9 @@ int32_t cmsg_client_connect (cmsg_client *client);
 int cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout);
 
 int cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout);
+int cmsg_client_get_receive_timeout (cmsg_client *client, uint32_t *timeout);
 
-int cmsg_client_set_connect_timeout (cmsg_client *client, uint32_t timeout);
+int cmsg_client_set_connect_timeout (cmsg_client *client, struct timeval *timeout);
 
 cmsg_status_code cmsg_client_response_receive (cmsg_client *client,
                                                ProtobufCMessage **message);
@@ -193,6 +195,10 @@ cmsg_queue_filter_type cmsg_client_queue_filter_lookup (cmsg_client *client,
 
 void cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable);
 
+void cmsg_client_perform_connection_pre_check (cmsg_client *client, cmsg_bool_t enable);
+
+char *cmsg_client_get_description_string (cmsg_client *client);
+
 int32_t cmsg_client_create_packet (cmsg_client *client, const char *method_name,
                                    const ProtobufCMessage *input, uint8_t **buffer_ptr,
                                    uint32_t *total_message_size_ptr);
@@ -202,6 +208,7 @@ cmsg_client *cmsg_create_client_unix_oneway (const ProtobufCServiceDescriptor *d
 int32_t cmsg_client_unix_server_ready (const ProtobufCServiceDescriptor *descriptor);
 
 cmsg_client *cmsg_create_client_loopback (ProtobufCService *service);
+cmsg_client *cmsg_create_client_loopback_oneway (ProtobufCService *service);
 
 void cmsg_destroy_client_and_transport (cmsg_client *client);
 
@@ -226,6 +233,21 @@ cmsg_client *cmsg_create_client_tcp_ipv6_oneway (const char *service_name,
                                                  const ProtobufCServiceDescriptor
                                                  *descriptor);
 
+cmsg_client *cmsg_create_client_mc_udp_ipv4_oneway (const char *service_name,
+                                                    struct in_addr *addr,
+                                                    struct in_addr *src_addr,
+                                                    const char *vrf_bind_dev,
+                                                    const ProtobufCServiceDescriptor
+                                                    *descriptor);
+
+cmsg_client *cmsg_create_client_mc_udp_ipv6_oneway (const char *service_name,
+                                                    struct in6_addr *addr,
+                                                    uint32_t scope_id,
+                                                    struct in6_addr *src_addr,
+                                                    const char *vrf_bind_dev,
+                                                    const ProtobufCServiceDescriptor
+                                                    *descriptor);
+
 cmsg_client *cmsg_create_client_tipc_broadcast (const ProtobufCServiceDescriptor
                                                 *descriptor, const char *service_name,
                                                 int lower_addr, int upper_addr);
@@ -248,6 +270,8 @@ typedef struct
 {
     const service_support_parameters *service_support;
     const char *response_filename;
+    uint32_t rpc_privilege;
+    uint32_t timeout;
 } cmsg_method_client_extensions;
 
 typedef struct

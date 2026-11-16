@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2020, Allied Telesis Labs New Zealand, Ltd
  */
@@ -26,9 +27,9 @@
 typedef struct _cmsg_crypto_sa
 {
     uint32_t id;
-    EVP_CIPHER_CTX ctx_out;
+    EVP_CIPHER_CTX *ctx_out;
     bool ctx_out_init;
-    EVP_CIPHER_CTX ctx_in;
+    EVP_CIPHER_CTX *ctx_in;
     bool ctx_in_init;
     EVP_PKEY *remote_static;
     bool server;

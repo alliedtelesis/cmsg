@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * @file cmsg_glib_helpers.c
  *
@@ -53,13 +54,12 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
     int *newfd_ptr = NULL;
     GSource *read_source;
     GIOChannel *read_channel = NULL;
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
     cmsg_glib_data *glib_data = server->event_loop_data;
 
     /* clear notification */
-    TEMP_FAILURE_RETRY (eventfd_read (info->accept_sd_eventfd, &value));
+    TEMP_FAILURE_RETRY (eventfd_read (server->accept_sd_eventfd, &value));
 
-    while ((newfd_ptr = g_async_queue_try_pop (info->accept_sd_queue)))
+    while ((newfd_ptr = g_async_queue_try_pop (server->accept_sd_queue)))
     {
         read_channel = g_io_channel_unix_new (*newfd_ptr);
         read_source = g_io_create_watch (read_channel, G_IO_IN);
@@ -86,7 +86,6 @@ cmsg_glib_server_accepted (GIOChannel *source, GIOCondition condition, gpointer 
 void
 _cmsg_glib_server_processing_start (cmsg_server *server, GMainContext *context)
 {
-    cmsg_server_accept_thread_info *info = server->accept_thread_info;
     GSource *source;
     GIOChannel *accept_channel = NULL;
     cmsg_glib_data *glib_data = CMSG_CALLOC (1, sizeof (cmsg_glib_data));
@@ -108,14 +107,14 @@ _cmsg_glib_server_processing_start (cmsg_server *server, GMainContext *context)
     }
     server->event_loop_data = glib_data;
 
-    accept_channel = g_io_channel_unix_new (info->accept_sd_eventfd);
+    accept_channel = g_io_channel_unix_new (server->accept_sd_eventfd);
     source = g_io_create_watch (accept_channel, G_IO_IN);
     g_io_channel_unref (accept_channel);
     g_source_set_callback (source, (GSourceFunc) cmsg_glib_server_accepted, server, NULL);
     g_source_attach (source, context);
     g_source_unref (source);
 
-    g_hash_table_insert (glib_data->sockets, GINT_TO_POINTER (info->accept_sd_eventfd),
+    g_hash_table_insert (glib_data->sockets, GINT_TO_POINTER (server->accept_sd_eventfd),
                          source);
 }
 
@@ -145,7 +144,7 @@ static gboolean
 cmsg_glib_clear_sockets (gpointer key, gpointer value, gpointer user_data)
 {
     cmsg_server *server = user_data;
-    int accept_eventfd = server->accept_thread_info->accept_sd_eventfd;
+    int accept_eventfd = server->accept_sd_eventfd;
     int sd = GPOINTER_TO_INT (key);
 
     g_source_destroy (value);
@@ -332,6 +331,21 @@ cmsg_glib_tcp_subscriber_init (const char *service_name, struct in_addr addr,
 cmsg_server *
 cmsg_glib_unix_server_init (ProtobufCService *service)
 {
+    return cmsg_glib_unix_server_init_with_context (service, g_main_context_default ());
+}
+
+/**
+ * Create and start processing a UNIX transport based CMSG server for the given
+ * CMSG service.
+ *
+ * @param service - The protobuf-c service the server is to implement.
+ * @param context - Pointer to the context the server should be added to.
+ *
+ * @returns Pointer to the CMSG server. NULL on failure.
+ */
+cmsg_server *
+cmsg_glib_unix_server_init_with_context (ProtobufCService *service, GMainContext *context)
+{
     cmsg_server *server = NULL;
 
     server = cmsg_create_server_unix_rpc (service);
@@ -342,7 +356,7 @@ cmsg_glib_unix_server_init (ProtobufCService *service)
         return NULL;
     }
 
-    if (cmsg_glib_server_init (server) != CMSG_RET_OK)
+    if (cmsg_glib_thread_server_init (server, context) != CMSG_RET_OK)
     {
         cmsg_destroy_server_and_transport (server);
         server = NULL;
@@ -397,6 +411,29 @@ cmsg_server *
 cmsg_glib_tcp_server_init_oneway (const char *service_name, struct in_addr *addr,
                                   ProtobufCService *service)
 {
+    return cmsg_glib_tcp_server_init_oneway_with_context (service_name, addr, service,
+                                                          g_main_context_default ());
+}
+
+/**
+ * Create and start processing a TCP transport based CMSG server for the given
+ * CMSG service.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to listen on (in network byte order).
+ * @param service - The CMSG service.
+ * @param context - Pointer to the context the server should be added to.
+ *
+ * @returns Pointer to a 'cmsg_server' structure.
+ *          NULL on failure.
+ */
+cmsg_server *
+cmsg_glib_tcp_server_init_oneway_with_context (const char *service_name,
+                                               struct in_addr *addr,
+                                               ProtobufCService *service,
+                                               GMainContext *context)
+{
     cmsg_server *server = NULL;
     int32_t ret;
 
@@ -408,7 +445,7 @@ cmsg_glib_tcp_server_init_oneway (const char *service_name, struct in_addr *addr
         return NULL;
     }
 
-    ret = cmsg_glib_server_init (server);
+    ret = cmsg_glib_thread_server_init (server, context);
     if (ret != CMSG_RET_OK)
     {
         cmsg_destroy_server_and_transport (server);
@@ -565,7 +602,7 @@ cmsg_glib_bcast_client_processing_start (cmsg_client *broadcast_client)
 static gboolean
 cmsg_glib_sl_event_process (GIOChannel *source, GIOCondition condition, gpointer data)
 {
-    const cmsg_sl_info *info = (const cmsg_sl_info *) data;
+    cmsg_sl_info *info = (cmsg_sl_info *) data;
     gboolean ret = G_SOURCE_CONTINUE;
 
     if (!cmsg_service_listener_event_queue_process (info))
@@ -590,12 +627,39 @@ void
 cmsg_glib_service_listener_listen (const char *service_name,
                                    cmsg_sl_event_handler_t handler, void *user_data)
 {
+    cmsg_glib_service_listener_listen_with_context (service_name, handler, user_data, NULL);
+}
+
+
+/**
+ * Begin listening for events for the given service, allowing the caller
+ * to specify the GMainContext.
+ *
+ * @param service_name - The service to listen for.
+ * @param func - The function to call when a server is added or removed
+ *               for the given service.
+ * @param user_data - Pointer to user supplied data that will be passed into the
+ *                    supplied handler function.
+ * @param context - Pointer to the context the listener should be added to.
+ * @returns The service listener subscription information.
+ */
+const cmsg_sl_info *
+cmsg_glib_service_listener_listen_with_context (const char *service_name,
+                                                cmsg_sl_event_handler_t handler,
+                                                void *user_data, GMainContext *context)
+{
     int event_fd;
     GIOChannel *event_channel = NULL;
-    const cmsg_sl_info *info = NULL;
+    GSource *source = NULL;
+    cmsg_sl_info *info = NULL;
 
     info = cmsg_service_listener_listen (service_name, handler, user_data);
     event_fd = cmsg_service_listener_get_event_fd (info);
     event_channel = g_io_channel_unix_new (event_fd);
-    g_io_add_watch (event_channel, G_IO_IN, cmsg_glib_sl_event_process, (void *) info);
+    source = g_io_create_watch (event_channel, G_IO_IN);
+    g_source_set_callback (source, (GSourceFunc) cmsg_glib_sl_event_process, (void *) info,
+                           NULL);
+    g_source_attach (source, context);
+
+    return info;
 }

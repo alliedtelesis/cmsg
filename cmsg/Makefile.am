@@ -1,5 +1,8 @@
 lib_LTLIBRARIES = libcmsg.la
 bin_PROGRAMS = cmsg cmsg_sld cmsg_psd
+if HAVE_TRACE
+bin_SCRIPTS = src/shell_application/cmsg_trace_replay.lua
+endif
 
 pkgconfiglibdir = $(libdir)/pkgconfig
 pkgconfiglib_DATA = cmsg.pc
@@ -37,6 +40,33 @@ src/file_response_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/file_response.p
 	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=disable_message_helpers:$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/file_response.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
 	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/file_response.proto
+
+src/privilege.pb-c.c \
+src/privilege.pb-c.h \
+src/privilege_types_auto.h \
+src/privilege_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/privilege.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=disable_message_helpers:$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/privilege.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/privilege.proto
+
+src/eventwatch_notify.pb-c.c \
+src/eventwatch_notify.pb-c.h \
+src/eventwatch_notify_types_auto.h \
+src/eventwatch_notify_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/eventwatch_notify.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=disable_message_helpers:$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/eventwatch_notify.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/eventwatch_notify.proto
+
+src/timeout.pb-c.c \
+src/timeout.pb-c.h \
+src/timeout_types_auto.h \
+src/timeout_validation_auto.h: $(PROTOC_PATH)$(EXEEXT) src/timeout.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-c=$(PROTOC_C_PATH) --c_out=disable_message_helpers:$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/timeout.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src \
+	--plugin=protoc-gen-cmsg=$(PROTOC_CMSG_PATH) --cmsg_out=$(top_srcdir)/cmsg/src $(top_srcdir)/cmsg/src/timeout.proto
 
 src/cmsg_api_auto.c \
 src/cmsg_api_auto.h \
@@ -132,6 +162,7 @@ libcmsg_la_SOURCES = \
 	src/transport/cmsg_transport_loopback.c \
 	src/transport/cmsg_transport_forwarding.c \
 	src/transport/cmsg_transport_tcp.c \
+	src/transport/cmsg_transport_udp.c \
 	src/transport/cmsg_transport_unix.c \
 	src/transport/cmsg_transport_tipc_broadcast.c \
 	src/transport/cmsg_transport.c \
@@ -165,10 +196,14 @@ libcmsg_la_SOURCES = \
 	src/publisher_subscriber/update.pb-c.c \
 	src/cmsg_protobuf-c.c
 
-libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(DEBUG_AWPLUS_LIBS) $(UTILITY_LIBS) -lprotobuf-c $(OOP_LIBS) $(OPENSSL_LIBS) -lsimple_shm
+libcmsg_la_LIBADD = $(GLIB_LIBS) $(GMEM_DIAG_LIBS) $(UTILITY_LIBS) -lprotobuf-c $(OOP_LIBS) $(OPENSSL_LIBS) $(SIMPLE_SHM_LIBS) $(EVENTWATCH_LIBS)
 
 if HAVE_COUNTERD
 libcmsg_la_LIBADD += -lcntr
+endif
+
+if HAVE_TRACE
+libcmsg_la_LIBADD += -lprotobuf2json-c
 endif
 
 libcmsg_la_CFLAGS = -Werror -Wall $(GLIB_CFLAGS) -include $(top_builddir)/config.h
@@ -213,7 +248,19 @@ libcmsg_la_HEADERS  = \
 	src/file_response.proto \
 	src/file_response.pb-c.h \
 	src/file_response_types_auto.h \
-	src/file_response_validation_auto.h
+	src/file_response_validation_auto.h \
+	src/privilege.proto \
+	src/privilege.pb-c.h \
+	src/privilege_types_auto.h \
+	src/privilege_validation_auto.h \
+	src/eventwatch_notify.proto \
+	src/eventwatch_notify.pb-c.h \
+	src/eventwatch_notify_types_auto.h \
+	src/eventwatch_notify_validation_auto.h \
+	src/timeout.proto \
+	src/timeout.pb-c.h \
+	src/timeout_types_auto.h \
+	src/timeout_validation_auto.h
 
 BUILT_SOURCES =  \
 	src/cmsg_api_auto.c \
@@ -281,14 +328,13 @@ CLEANFILES = $(BUILT_SOURCES)
 cmsg_SOURCES = src/shell_application/cmsg_shell_application.c
 cmsg_LDADD   = libcmsg.la $(GLIB_LIBS) -ldl -ljansson -lprotobuf2json-c -lprotobuf-c
 cmsg_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
-cmsg_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/src
+cmsg_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 
 cmsg_sld_SOURCES = \
 	src/service_listener/main.c \
 	src/service_listener/configuration.c \
 	src/service_listener/remote_sync.c \
 	src/service_listener/data.c \
-	src/service_listener/process_watch.c \
 	src/service_listener/configuration_impl_auto.c \
 	src/service_listener/configuration.pb-c.c \
 	src/service_listener/remote_sync_api_auto.c \
@@ -296,6 +342,10 @@ cmsg_sld_SOURCES = \
 	src/service_listener/remote_sync.pb-c.c \
 	src/service_listener/events_api_auto.c \
 	src/service_listener/events.pb-c.c
+if HAVE_PIDFD
+cmsg_sld_SOURCES += src/service_listener/process_watch.c
+endif
+
 cmsg_sld_LDADD   = libcmsg.la $(GLIB_LIBS) -lprotobuf-c $(HEALTHCHECK_LIBS)
 cmsg_sld_CFLAGS  = -Werror -Wall -include $(top_builddir)/config.h $(GLIB_CFLAGS)
 cmsg_sld_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
@@ -361,7 +411,7 @@ cmsg_unit_tests_SOURCES = \
 cmsg_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
 cmsg_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/src
 cmsg_unit_tests_LDFLAGS = -static
-cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
+cmsg_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) libcmsg.la -lprotobuf-c
 
 test/functional/cmsg_functional_tests_api_auto.c \
 test/functional/cmsg_functional_tests_api_auto.h \
@@ -408,7 +458,7 @@ cmsg_functional_tests_SOURCES = \
 cmsg_functional_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) $(PTHREAD_CFLAGS) -include $(top_builddir)/config.h
 cmsg_functional_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/include/cmsg -I$(top_builddir) -I$(top_srcdir)/cmsg/src
 cmsg_functional_tests_LDFLAGS = -static
-cmsg_functional_tests_LDADD   = $(PTHREAD_LIBS) $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
+cmsg_functional_tests_LDADD   = $(PTHREAD_LIBS) $(NOVAPROVA_LIBS) $(GLIB_LIBS) libcmsg.la -lprotobuf-c
 
 bin_PROGRAMS += cmsg_service_listener_unit_tests
 cmsg_service_listener_unit_tests_SOURCES = \
@@ -429,7 +479,7 @@ cmsg_service_listener_unit_tests_SOURCES = \
 cmsg_service_listener_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
 cmsg_service_listener_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 cmsg_service_listener_unit_tests_LDFLAGS = -static
-cmsg_service_listener_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
+cmsg_service_listener_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) libcmsg.la -lprotobuf-c
 
 bin_PROGRAMS += cmsg_publisher_subscriber_unit_tests
 cmsg_publisher_subscriber_unit_tests_SOURCES = \
@@ -449,5 +499,5 @@ cmsg_publisher_subscriber_unit_tests_SOURCES = \
 cmsg_publisher_subscriber_unit_tests_CFLAGS  = -Werror -Wall $(GLIB_CFLAGS) -g $(NOVAPROVA_CFLAGS) -include $(top_builddir)/config.h
 cmsg_publisher_subscriber_unit_tests_CPPFLAGS = -I$(top_srcdir)/cmsg/include/cmsg -I$(top_srcdir)/cmsg/include -I$(top_srcdir)/cmsg/src
 cmsg_publisher_subscriber_unit_tests_LDFLAGS = -static
-cmsg_publisher_subscriber_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) $(DEBUG_AWPLUS_LIBS) libcmsg.la -lprotobuf-c
+cmsg_publisher_subscriber_unit_tests_LDADD   = $(NOVAPROVA_LIBS) $(GLIB_LIBS) libcmsg.la -lprotobuf-c
 endif # BUILD_UNITTEST

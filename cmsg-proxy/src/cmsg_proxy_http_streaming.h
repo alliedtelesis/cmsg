@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * CMSG web socket functionality
  *
@@ -7,7 +8,7 @@
 #ifndef __CMSG_PROXY_WEB_SOCKETS_H_
 #define __CMSG_PROXY_WEB_SOCKETS_H_
 
-bool cmsg_proxy_streaming_create_conn (void *connection, json_t **input_json_obj,
+bool cmsg_proxy_streaming_create_conn (uint64_t stream_seq_no, json_t **input_json_obj,
                                        const ProtobufCMessageDescriptor
                                        *input_msg_descriptor,
                                        const ProtobufCMessageDescriptor

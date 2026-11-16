@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
@@ -64,6 +65,7 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
             client->invoke_recv = cmsg_client_invoke_recv;
             break;
         case CMSG_TRANSPORT_ONEWAY_TCP:
+        case CMSG_TRANSPORT_ONEWAY_MC_UDP:
         case CMSG_TRANSPORT_BROADCAST:
         case CMSG_TRANSPORT_ONEWAY_UNIX:
         case CMSG_TRANSPORT_FORWARDING:
@@ -73,6 +75,10 @@ cmsg_client_invoke_init (cmsg_client *client, cmsg_transport *transport)
         case CMSG_TRANSPORT_LOOPBACK:
             client->invoke_send = cmsg_client_invoke_send_direct;
             client->invoke_recv = cmsg_client_invoke_recv;
+            break;
+        case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
+            client->invoke_send = cmsg_client_invoke_send_direct;
+            client->invoke_recv = NULL;
             break;
         default:
             assert (false && "Unknown transport type");
@@ -686,7 +692,7 @@ cmsg_client_set_send_timeout (cmsg_client *client, uint32_t timeout)
  * @returns 0 on success or -1 on failure
  */
 int
-cmsg_client_set_connect_timeout (cmsg_client *client, uint32_t timeout)
+cmsg_client_set_connect_timeout (cmsg_client *client, struct timeval *timeout)
 {
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
@@ -706,6 +712,79 @@ cmsg_client_set_receive_timeout (cmsg_client *client, uint32_t timeout)
 
     return cmsg_transport_set_recv_peek_timeout (client->_transport, timeout);
 }
+
+/**
+ * Get the currently configured receive timeout for a cmsg client.
+ * @param timeout pointer to hold timeout in seconds
+ */
+int
+cmsg_client_get_receive_timeout (cmsg_client *client, uint32_t *timeout)
+{
+    CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
+
+    *timeout = cmsg_transport_get_recv_peek_timeout (client->_transport);
+
+    return CMSG_RET_OK;
+}
+
+/**
+ * Get a description of the Client transport, doesn't require the connection info.
+ */
+char *
+cmsg_client_get_description_string (cmsg_client *client)
+{
+    /* If the client is null, return a string signifying that.
+     */
+    if (!client)
+    {
+        return "Null";
+    }
+
+    /* Composite clients do not have a transport of their own
+     */
+    if (client->self.object_type == CMSG_OBJ_TYPE_COMPOSITE_CLIENT)
+    {
+        return "Composite";
+    }
+
+    /* Unknown case we haven't handled yet where the client doesn't
+     * have a transport in a way we expect.
+     */
+    if (!client->_transport)
+    {
+        return "None";
+    }
+
+    switch (client->_transport->type)
+    {
+    case CMSG_TRANSPORT_LOOPBACK:
+    case CMSG_TRANSPORT_ONEWAY_LOOPBACK:
+        return "Loopback";
+
+    case CMSG_TRANSPORT_RPC_TCP:
+        return "TCP-RPC";
+
+    case CMSG_TRANSPORT_ONEWAY_TCP:
+        return "TCP-One";
+
+    case CMSG_TRANSPORT_BROADCAST:
+        return "Broadcast";
+
+    case CMSG_TRANSPORT_RPC_UNIX:
+        return "Unix-RPC";
+
+    case CMSG_TRANSPORT_ONEWAY_UNIX:
+        return "Unix-One";
+
+    case CMSG_TRANSPORT_ONEWAY_MC_UDP:
+        return "UDP-MC";
+
+    case CMSG_TRANSPORT_FORWARDING:
+        return "Forward";
+    }
+    return "Unknown";
+}
+
 
 int32_t
 cmsg_client_invoke_recv (cmsg_client *client, uint32_t method_index,
@@ -1201,7 +1280,7 @@ cmsg_client_queue_process_all (cmsg_client *client)
 
     CMSG_ASSERT_RETURN_VAL (client != NULL, CMSG_RET_ERR);
 
-    clock_gettime (CLOCK_REALTIME, &time_to_wait);
+    clock_gettime (CLOCK_MONOTONIC_RAW, &time_to_wait);
 
     //if the we run do api calls and processing in different threads wait
     //for a signal from the api thread to start processing
@@ -1211,8 +1290,9 @@ cmsg_client_queue_process_all (cmsg_client *client)
         while (client->queue_process_count == 0)
         {
             time_to_wait.tv_sec++;
-            pthread_cond_timedwait (&client->queue_process_cond,
-                                    &client->queue_process_mutex, &time_to_wait);
+            pthread_cond_clockwait (&client->queue_process_cond,
+                                    &client->queue_process_mutex, CLOCK_MONOTONIC_RAW,
+                                    &time_to_wait);
         }
         pthread_mutex_unlock (&client->queue_process_mutex);
 
@@ -1650,6 +1730,16 @@ cmsg_client_suppress_error (cmsg_client *client, cmsg_bool_t enable)
     }
 }
 
+void
+cmsg_client_perform_connection_pre_check (cmsg_client *client, cmsg_bool_t enable)
+{
+    /* This flag is on the transport. */
+    if (client->_transport)
+    {
+        client->_transport->perform_connection_pre_check = enable;
+    }
+}
+
 /* Create a cmsg client and its transport over a UNIX socket */
 static cmsg_client *
 _cmsg_create_client_unix (const ProtobufCServiceDescriptor *descriptor,
@@ -1778,14 +1868,16 @@ cmsg_client_tipc_broadcast_set_destination (cmsg_client *client, int lower_addr,
  *
  * Returns NULL if failed to create anything - malloc problems.
  */
-cmsg_client *
-cmsg_create_client_loopback (ProtobufCService *service)
+static cmsg_client *
+_cmsg_create_client_loopback (ProtobufCService *service, bool oneway)
 {
     cmsg_transport *transport = NULL;
     cmsg_server *server = NULL;
     cmsg_client *client = NULL;
 
-    transport = cmsg_transport_new (CMSG_TRANSPORT_LOOPBACK);
+    transport =
+        cmsg_transport_new (oneway ? CMSG_TRANSPORT_ONEWAY_LOOPBACK :
+                            CMSG_TRANSPORT_LOOPBACK);
     if (transport == NULL)
     {
         CMSG_LOG_GEN_ERROR ("Could not create transport for loopback client\n");
@@ -1823,6 +1915,18 @@ cmsg_create_client_loopback (ProtobufCService *service)
     client->loopback_server = server;
 
     return client;
+}
+
+cmsg_client *
+cmsg_create_client_loopback (ProtobufCService *service)
+{
+    return _cmsg_create_client_loopback (service, false);
+}
+
+cmsg_client *
+cmsg_create_client_loopback_oneway (ProtobufCService *service)
+{
+    return _cmsg_create_client_loopback (service, true);
 }
 
 /**
@@ -2080,6 +2184,110 @@ cmsg_create_client_tcp_ipv6_oneway (const char *service_name, struct in6_addr *a
 }
 
 /**
+ * Helper function for creating a CMSG client using UDP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to connect to (in network byte order).
+ * @param src_addr - The IPv4 address (in network byte order) of the source interface.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param descriptor - The CMSG service descriptor for the service.
+ * @param oneway - Whether to make a one-way client, or a two-way (RPC) client.
+ */
+static cmsg_client *
+_cmsg_create_client_mc_udp_ipv4 (const char *service_name, struct in_addr *addr,
+                                 struct in_addr *src_addr, const char *vrf_bind_dev,
+                                 const ProtobufCServiceDescriptor *descriptor, bool oneway)
+{
+    cmsg_transport *transport;
+    cmsg_client *client;
+
+    transport =
+        cmsg_create_transport_mc_udp_ipv4 (service_name, addr, src_addr, vrf_bind_dev,
+                                           oneway);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    client = cmsg_client_new (transport, descriptor);
+    if (!client)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No UDP IPC client on %s", descriptor->name);
+        return NULL;
+    }
+
+    return client;
+}
+
+/**
+ * Create a oneway CMSG client using UDP over IPv4.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv4 address to connect to (in network byte order).
+ * @param src_addr - The IPv4 address (in network byte order) of the source interface.
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param descriptor - The CMSG service descriptor for the service.
+ */
+cmsg_client *
+cmsg_create_client_mc_udp_ipv4_oneway (const char *service_name, struct in_addr *addr,
+                                       struct in_addr *src_addr, const char *vrf_bind_dev,
+                                       const ProtobufCServiceDescriptor *descriptor)
+{
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    return _cmsg_create_client_mc_udp_ipv4 (service_name, addr, src_addr, vrf_bind_dev,
+                                            descriptor, true);
+}
+
+/**
+ * Create a oneway CMSG client using UDP over IPv6.
+ *
+ * @param service_name - The service name in the /etc/services file to get
+ *                       the port number.
+ * @param addr - The IPv6 address to connect to (in network byte order).
+ * @param src_addr - The IPv6 address (in network byte order) of the source interface.
+ * @param scope_id - IPv6 scope for the IPv6 address
+ * @param vrf_bind_dev - For VRF support, the device to bind to the socket (NULL if not relevant)
+ * @param descriptor - The CMSG service descriptor for the service.
+ */
+cmsg_client *
+cmsg_create_client_mc_udp_ipv6_oneway (const char *service_name, struct in6_addr *addr,
+                                       uint32_t scope_id, struct in6_addr *src_addr,
+                                       const char *vrf_bind_dev,
+                                       const ProtobufCServiceDescriptor *descriptor)
+{
+    cmsg_transport *transport;
+    cmsg_client *client;
+
+    CMSG_ASSERT_RETURN_VAL (service_name != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (addr != NULL, NULL);
+    CMSG_ASSERT_RETURN_VAL (descriptor != NULL, NULL);
+
+    transport =
+        cmsg_create_transport_mc_udp_ipv6 (service_name, addr, src_addr, scope_id,
+                                           vrf_bind_dev, true);
+    if (!transport)
+    {
+        return NULL;
+    }
+
+    client = cmsg_client_new (transport, descriptor);
+    if (!client)
+    {
+        cmsg_transport_destroy (transport);
+        CMSG_LOG_GEN_ERROR ("No UDP IPv6 IPC client on %s", descriptor->name);
+        return NULL;
+    }
+
+    return client;
+}
+
+/**
  * Check the passed in recv_msg pointer to see if it is NULL. If it is not NULL, set it to
  * NULL and log a client debug message.
  * @param client cmsg client that called the API
@@ -2224,6 +2432,7 @@ cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
     const cmsg_method_client_extensions *extensions =
         cmsg_desc->method_extensions[method_index];
     ProtobufCMessage *dummy = NULL;
+    uint32_t old_timeout = 0;
 
     /* test that the pointer to the client is valid before doing anything else */
     if (service == NULL)
@@ -2252,6 +2461,12 @@ cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
                 return CMSG_RET_OK;
             }
         }
+
+        if (extensions->timeout)
+        {
+            cmsg_client_get_receive_timeout (client, &old_timeout);
+            cmsg_client_set_receive_timeout (client, extensions->timeout);
+        }
     }
 
     if (!send_msg)
@@ -2270,6 +2485,11 @@ cmsg_api_invoke_real (cmsg_client *client, const cmsg_api_descriptor *cmsg_desc,
     /* Send! */
     service->invoke (service, method_index, send_msg, NULL, &closure_data);
     CMSG_FREE (dummy);
+
+    if (old_timeout)
+    {
+        cmsg_client_set_receive_timeout (client, old_timeout);
+    }
 
     return cmsg_api_process_closure_data (closure_data, recv_msg);
 }

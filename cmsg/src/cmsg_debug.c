@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * Functions for dumping the contents of protobuf messages in a user-readable way.
  * The initial implementation was based on protobuf2json code
@@ -10,7 +11,13 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <string.h>
+#include <time.h>
+#include <sys/stat.h>
 #include <protobuf-c/protobuf-c.h>
+#ifdef HAVE_TRACE
+#include <protobuf2json.h>
+#endif
 #include "cmsg_debug.h"
 
 /**
@@ -65,12 +72,6 @@ static void
 cmsg_dump_protobuf_value (FILE *fp, const ProtobufCFieldDescriptor *field_descriptor,
                           const void *protobuf_value, bool is_set, int indent)
 {
-    if (field_descriptor->flags & PROTOBUF_C_FIELD_FLAG_ONEOF)
-    {
-        fprintf (fp, "<oneof not supported>\n");
-        return;
-    }
-
     if (!is_set)
     {
         fprintf (fp, "<not-set>\n");
@@ -179,6 +180,14 @@ cmsg_dump_protobuf_msg (FILE *fp, const ProtobufCMessage *protobuf_message, int 
         {
             protobuf_c_boolean is_set = 0;
 
+            if (field_descriptor->flags & PROTOBUF_C_FIELD_FLAG_ONEOF)
+            {
+                if (*(uint32_t *) protobuf_value_quantifier != field_descriptor->id)
+                {
+                    fprintf (fp, "<not-this-one-of>\n");
+                    continue;
+                }
+            }
             if (field_descriptor->type == PROTOBUF_C_TYPE_MESSAGE ||
                 field_descriptor->type == PROTOBUF_C_TYPE_STRING)
             {
@@ -230,3 +239,166 @@ cmsg_dump_protobuf_msg (FILE *fp, const ProtobufCMessage *protobuf_message, int 
         }
     }
 }
+
+#ifdef HAVE_TRACE
+
+#define CMSG_TRACE_CONFIG "/flash/.configs/cmsg_trace"
+
+/**
+ * Convert a protobuf message plus trace metadata into a compact JSON string.
+ * The returned string must be freed by the caller.
+ */
+static char *
+cmsg_dump_protobuf_json (const ProtobufCMessage *input,
+                         const char *timestamp,
+                         const char *service_name, const char *method_name)
+{
+    json_t *trace_json = json_object ();
+    char *trace_json_string = NULL;
+
+    if (!trace_json)
+    {
+        return NULL;
+    }
+
+    json_object_set_new (trace_json, "timestamp", json_string (timestamp));
+    json_object_set_new (trace_json, "service", json_string (service_name));
+    json_object_set_new (trace_json, "method", json_string (method_name));
+
+    if (input)
+    {
+        char conversion_message[200] = { 0 };
+        json_t *msg_json = NULL;
+
+        if (protobuf2json_object ((ProtobufCMessage *) input, &msg_json,
+                                  conversion_message, sizeof (conversion_message)) < 0)
+        {
+            json_object_set_new (trace_json, "error", json_string (conversion_message));
+            json_object_set_new (trace_json, "msg", json_null ());
+        }
+        else
+        {
+            json_object_set_new (trace_json, "msg", msg_json);
+        }
+    }
+    else
+    {
+        json_object_set_new (trace_json, "msg", json_null ());
+    }
+
+    trace_json_string = json_dumps (trace_json, JSON_COMPACT);
+    json_decref (trace_json);
+
+    return trace_json_string;
+}
+
+/**
+ * Check whether tracing is enabled for the given service name by reading
+ * CMSG_TRACE_CONFIG. The file is only re-read when its mtime changes.
+ * Service names may appear as standalone lines or delimited by spaces, commas,
+ * tabs, or carriage-returns.
+ */
+static bool
+cmsg_trace_service_enabled (const char *service_name)
+{
+    static bool initialized = false;
+    static time_t last_mtime = 0;
+    static char config_buf[256];
+    struct stat st;
+    size_t name_len;
+    const char *p;
+
+    if (stat (CMSG_TRACE_CONFIG, &st) != 0)
+    {
+        initialized = false;
+        last_mtime = 0;
+        config_buf[0] = '\0';
+        return false;
+    }
+
+    if (!initialized || st.st_mtime != last_mtime)
+    {
+        FILE *fp = fopen (CMSG_TRACE_CONFIG, "r");
+        initialized = true;
+        last_mtime = st.st_mtime;
+        config_buf[0] = '\0';
+        if (fp)
+        {
+            size_t n = fread (config_buf, 1, sizeof (config_buf) - 1, fp);
+            config_buf[n] = '\0';
+            fclose (fp);
+        }
+    }
+
+    if (config_buf[0] == '\0')
+    {
+        return false;
+    }
+
+    /* Search for service_name as a whole token (delimited by space, comma, newline, tab, CR) */
+    name_len = strlen (service_name);
+    p = config_buf;
+    while ((p = strstr (p, service_name)) != NULL)
+    {
+        char before = (p == config_buf) ? '\0' : *(p - 1);
+        char after = *(p + name_len);
+        bool before_ok = (before == '\0' || before == ' ' || before == ',' ||
+                          before == '\n' || before == '\t' || before == '\r');
+        bool after_ok = (after == '\0' || after == ' ' || after == ',' ||
+                         after == '\n' || after == '\t' || after == '\r');
+        if (before_ok && after_ok)
+        {
+            return true;
+        }
+        p += name_len;
+    }
+
+    return false;
+}
+
+/**
+ * If the given service is listed in CMSG_TRACE_CONFIG, append a trace record
+ * for the IPC message to /tmp/<service_name>.cmsg_trace.txt.
+ *
+ * Trace records are emitted as one JSON object per line, for easy parsing:
+ * {"timestamp":"...","service":"...","method":"...","msg":{...}}
+ */
+void
+cmsg_trace_message (const char *service_name, const char *method_name,
+                    const ProtobufCMessage *input)
+{
+    char trace_path[256];
+    FILE *trace_fp;
+
+    if (!cmsg_trace_service_enabled (service_name))
+    {
+        return;
+    }
+
+    snprintf (trace_path, sizeof (trace_path), "/tmp/%s.cmsg_trace.txt", service_name);
+    trace_fp = fopen (trace_path, "a");
+    if (trace_fp)
+    {
+        struct timespec ts;
+        struct tm tm;
+        char timebuf[32];
+        char timestamp[48];
+        char *trace_json_string = NULL;
+
+        clock_gettime (CLOCK_REALTIME, &ts);
+        localtime_r (&ts.tv_sec, &tm);
+        strftime (timebuf, sizeof (timebuf), "%Y-%m-%dT%H:%M:%S", &tm);
+        snprintf (timestamp, sizeof (timestamp), "%s.%03ld", timebuf, ts.tv_nsec / 1000000);
+
+        trace_json_string = cmsg_dump_protobuf_json (input, timestamp,
+                                                     service_name, method_name);
+        if (trace_json_string)
+        {
+            fprintf (trace_fp, "%s\n", trace_json_string);
+            free (trace_json_string);
+        }
+        fclose (trace_fp);
+    }
+}
+
+#endif /* HAVE_TRACE */

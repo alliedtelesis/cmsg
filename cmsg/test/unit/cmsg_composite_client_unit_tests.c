@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Unit tests for cmsg_composite_client.c
  *
@@ -28,8 +29,11 @@ const ProtobufCServiceDescriptor dummy_service_descriptor = {
     .name = "dummy",
 };
 
-ProtobufCService dummy_service = {
-    .descriptor = &dummy_service_descriptor,
+cmsg_service dummy_service = {
+    .base = {
+             .descriptor = &dummy_service_descriptor,
+             },
+    .server_extensions = NULL,
 };
 
 #define LOOPBACK_ADDR_PREFIX    0x7f000000  /* 127.0.0.0 */
@@ -237,8 +241,10 @@ test_cmsg_composite_client_add_client__loopback_is_last (void)
                                                             &dummy_service_descriptor);
     cmsg_client *child_3 = cmsg_create_client_tcp_ipv4_rpc ("test", &addr3, NULL,
                                                             &dummy_service_descriptor);
-    cmsg_client *child_4 = cmsg_create_client_loopback (&dummy_service);
-    cmsg_client *child_5 = cmsg_create_client_loopback (&dummy_service);
+    cmsg_client *child_4 =
+        cmsg_create_client_loopback ((ProtobufCService *) &dummy_service);
+    cmsg_client *child_5 =
+        cmsg_create_client_loopback ((ProtobufCService *) &dummy_service);
     GList *child_clients = NULL;
     cmsg_client *list_child = NULL;
 

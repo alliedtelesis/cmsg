@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * cmsg_broadcast_client_conn_mgmt.c
  *
@@ -179,16 +180,16 @@ cmsg_broadcast_conn_mgmt_init (cmsg_broadcast_client *broadcast_client)
 {
     const char *service_name =
         cmsg_service_name_get (broadcast_client->base_client.base_client.descriptor);
+    cmsg_sl_info *sl_info;
 
-    if (!cmsg_pthread_service_listener_listen
-        (&broadcast_client->topology_thread, service_name, server_event_callback,
-         broadcast_client))
+    sl_info = cmsg_pthread_service_listener_listen (service_name, server_event_callback,
+                                                    broadcast_client);
+    if (!sl_info)
     {
         return CMSG_RET_ERR;
     }
 
-    cmsg_pthread_setname (broadcast_client->topology_thread,
-                          broadcast_client->service_entry_name, CMSG_BC_CLIENT_PREFIX);
+    broadcast_client->sl_info = sl_info;
 
     return CMSG_RET_OK;
 }
@@ -201,6 +202,5 @@ cmsg_broadcast_conn_mgmt_init (cmsg_broadcast_client *broadcast_client)
 void
 cmsg_broadcast_conn_mgmt_deinit (cmsg_broadcast_client *broadcast_client)
 {
-    pthread_cancel (broadcast_client->topology_thread);
-    pthread_join (broadcast_client->topology_thread, NULL);
+    cmsg_pthread_service_listener_unlisten (broadcast_client->sl_info);
 }

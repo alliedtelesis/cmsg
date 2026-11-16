@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2018, Allied Telesis Labs New Zealand, Ltd
  */
@@ -13,7 +14,7 @@
 typedef struct _cmsg_proxy_stream_connection
 {
     uint32_t id;
-    void *connection;
+    uint64_t stream_seq_no;
     const ProtobufCMessageDescriptor *output_msg_descriptor;
     bool in_use;
     bool to_delete;
@@ -40,7 +41,6 @@ static const char *cmsg_filename_header_format = "attachment; filename=\"%s\"";
 
 static cmsg_proxy_stream_response_send_func _stream_response_send = NULL;
 static cmsg_proxy_stream_response_close_func _stream_response_close = NULL;
-static cmsg_proxy_stream_conn_release_func _stream_conn_release = NULL;
 static cmsg_proxy_stream_headers_set_func _stream_headers_set = NULL;
 static cmsg_proxy_stream_conn_abort_func _stream_conn_abort = NULL;
 static cmsg_proxy_stream_conn_busy_func _stream_conn_busy = NULL;
@@ -74,18 +74,6 @@ cmsg_proxy_streaming_set_response_close_function (cmsg_proxy_stream_response_clo
                                                   func)
 {
     _stream_response_close = func;
-}
-
-/**
- * Set the function used to release the streaming connection.
- * This should be called once by the web server when initialising cmsg proxy.
- *
- * @param func - The function used to release the streaming connection.
- */
-void
-cmsg_proxy_streaming_set_conn_release_function (cmsg_proxy_stream_conn_release_func func)
-{
-    _stream_conn_release = func;
 }
 
 /**
@@ -140,23 +128,11 @@ stream_response_send (cmsg_proxy_stream_response_data *data)
  * Wrapper function to call '_stream_response_close' if the function pointer is set.
  */
 static void
-stream_response_close (void *connection)
+stream_response_close (uint64_t stream_seq_no)
 {
     if (_stream_response_close)
     {
-        _stream_response_close (connection);
-    }
-}
-
-/**
- * Wrapper function to call '_stream_conn_release' if the function pointer is set.
- */
-static void
-stream_conn_release (void *connection)
-{
-    if (_stream_conn_release)
-    {
-        _stream_conn_release (connection);
+        _stream_response_close (stream_seq_no);
     }
 }
 
@@ -176,11 +152,11 @@ stream_headers_set (cmsg_proxy_stream_header_data *data)
  * Wrapper function to call '_stream_conn_abort' if the function pointer is set.
  */
 static void
-stream_conn_abort (void *connection)
+stream_conn_abort (uint64_t stream_seq_no)
 {
     if (_stream_conn_abort)
     {
-        _stream_conn_abort (connection);
+        _stream_conn_abort (stream_seq_no);
     }
 }
 
@@ -188,11 +164,11 @@ stream_conn_abort (void *connection)
  * Wrapper function to call '_stream_conn_busy' if the function pointer is set.
  */
 static bool
-stream_conn_busy (void *connection)
+stream_conn_busy (uint64_t stream_seq_no)
 {
     if (_stream_conn_busy)
     {
-        return _stream_conn_busy (connection);
+        return _stream_conn_busy (stream_seq_no);
     }
 
     return false;
@@ -255,7 +231,6 @@ cmsg_proxy_streaming_delete_conn_info (cmsg_proxy_stream_connection *connection_
     {
         pthread_mutex_unlock (&connection_info->lock);
         pthread_mutex_destroy (&connection_info->lock);
-        stream_conn_release (connection_info->connection);
         CMSG_PROXY_FREE (connection_info);
     }
 }
@@ -273,7 +248,6 @@ cmsg_proxy_streaming_release_conn_info (cmsg_proxy_stream_connection *connection
     {
         pthread_mutex_unlock (&connection_info->lock);
         pthread_mutex_destroy (&connection_info->lock);
-        stream_conn_release (connection_info->connection);
         CMSG_PROXY_FREE (connection_info);
     }
     else
@@ -326,7 +300,7 @@ cmsg_proxy_streaming_generate_id (void)
  * store this along with the connection. Also set this ID value into the
  * input message so the IMPL can specify the stream connection to send on.
  *
- * @param connection - The HTTP connection
+ * @param stream_seq_no - appweb stream ID, needed to send response for streaming.
  * @param input_json_obj - The input json message to potentially put the ID into
  * @param input_msg_descriptor - The descriptor for the input message
  * @param output_msg_descriptor - The descriptor for the output message
@@ -335,7 +309,7 @@ cmsg_proxy_streaming_generate_id (void)
  * @returns true if streaming is required, or false if streaming is not required.
  */
 bool
-cmsg_proxy_streaming_create_conn (void *connection, json_t **input_json_obj,
+cmsg_proxy_streaming_create_conn (uint64_t stream_seq_no, json_t **input_json_obj,
                                   const ProtobufCMessageDescriptor *input_msg_descriptor,
                                   const ProtobufCMessageDescriptor *output_msg_descriptor,
                                   uint32_t *streaming_id)
@@ -364,7 +338,7 @@ cmsg_proxy_streaming_create_conn (void *connection, json_t **input_json_obj,
 
     connection_info->id = id;
     connection_info->output_msg_descriptor = output_msg_descriptor;
-    connection_info->connection = connection;
+    connection_info->stream_seq_no = stream_seq_no;
     connection_info->in_use = false;
     connection_info->to_delete = false;
     connection_info->headers_set = false;
@@ -471,10 +445,10 @@ cmsg_proxy_streaming_deinit (void)
  * Function to be called when a given connection has timed out and
  * subsequently ended.
  *
- * @param connection - The HTTP connection that has timed out
+ * @param stream_seq_no - The sequence number for the HTTP connection that has timed out
  */
 void
-cmsg_proxy_streaming_conn_timeout (void *connection)
+cmsg_proxy_streaming_conn_timeout (uint64_t stream_seq_no)
 {
     GList *iter;
     cmsg_proxy_stream_connection *connection_info = NULL;
@@ -483,7 +457,7 @@ cmsg_proxy_streaming_conn_timeout (void *connection)
     for (iter = stream_connections_list; iter; iter = g_list_next (iter))
     {
         connection_info = (cmsg_proxy_stream_connection *) iter->data;
-        if (connection_info->connection == connection)
+        if (connection_info->stream_seq_no == stream_seq_no)
         {
             cmsg_proxy_streaming_delete_conn_info (connection_info);
             stream_connections_list = g_list_delete_link (stream_connections_list, iter);
@@ -624,7 +598,7 @@ http_streaming_impl_send_stream_data (const void *service, const stream_data *re
     protobuf_c_message_free_unpacked (message, allocator);
 
     data = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_stream_response_data));
-    data->connection = connection_info->connection;
+    data->stream_seq_no = connection_info->stream_seq_no;
 
     /* Add a newline to the end of the text */
     if (CMSG_PROXY_ASPRINTF (&new_response_body, "%s\n", output.response_body) >= 0)
@@ -684,7 +658,7 @@ http_streaming_impl_send_stream_file_data (const void *service, const stream_dat
     }
 
     data = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_stream_response_data));
-    data->connection = connection_info->connection;
+    data->stream_seq_no = connection_info->stream_seq_no;
     data->length = recv_msg->message_data.len;
     data->data = CMSG_PROXY_CALLOC (1, recv_msg->message_data.len);
     if (data->data)
@@ -692,7 +666,7 @@ http_streaming_impl_send_stream_file_data (const void *service, const stream_dat
         memcpy (data->data, recv_msg->message_data.data, recv_msg->message_data.len);
     }
 
-    while (stream_conn_busy (connection_info->connection))
+    while (stream_conn_busy (connection_info->stream_seq_no))
     {
         usleep (1000);
     }
@@ -715,7 +689,7 @@ http_streaming_impl_close_stream_connection (const void *service, const stream_i
     connection_info = cmsg_proxy_streaming_lookup_conn_by_id (recv_msg->id);
     if (connection_info)
     {
-        stream_response_close (connection_info->connection);
+        stream_response_close (connection_info->stream_seq_no);
 
         pthread_mutex_lock (&stream_connections_mutex);
         stream_connections_list = g_list_remove (stream_connections_list, connection_info);
@@ -754,7 +728,7 @@ http_streaming_impl_set_stream_headers (const void *service,
     CMSG_SET_FIELD_VALUE (&send_msg, stream_found, true);
 
     data = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_stream_header_data));
-    data->connection = connection_info->connection;
+    data->stream_seq_no = connection_info->stream_seq_no;
     headers = CMSG_PROXY_CALLOC (1, sizeof (cmsg_proxy_headers));
 
     switch (recv_msg->type)
@@ -849,7 +823,7 @@ http_streaming_impl_abort_stream_connection (const void *service, const stream_i
 
     CMSG_SET_FIELD_VALUE (&send_msg, stream_found, true);
 
-    stream_conn_abort (connection_info->connection);
+    stream_conn_abort (connection_info->stream_seq_no);
 
     pthread_mutex_lock (&stream_connections_mutex);
     stream_connections_list = g_list_remove (stream_connections_list, connection_info);

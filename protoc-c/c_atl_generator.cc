@@ -27,6 +27,9 @@
 #include "validation.pb.h"
 #include "supported_service.pb.h"
 #include "file_response.pb.h"
+#include "privilege.pb.h"
+#include "eventwatch_notify.pb.h"
+#include "timeout.pb.h"
 
 namespace google {
 namespace protobuf {
@@ -66,12 +69,25 @@ AtlCodeGenerator::GenerateAtlApiServiceSupportCheck (const ServiceDescriptor* de
   printer->Outdent();
   printer->Print("};\n\n");
 
-  printer->Print(vars_, "static const cmsg_method_client_extensions $lcfullname$_api_service_support_extension");
-  printer->Print(" = \n{\n");
-  printer->Indent();
-  printer->Print(vars_, ".service_support = &$lcfullname$_api_service_support_check,\n");
-  printer->Outdent();
-  printer->Print("};\n\n");
+  // Check if there is any method that will share same service_support extension
+  bool share_extension = false;
+  for (int i = 0; i < descriptor_->method_count(); i++) {
+    const MethodDescriptor *method = descriptor_->method(i);
+    if (ApiMethodHasServiceSupportCheck(*method) &&
+        !ApiMethodHasOwnExtensions(*method)) {
+      share_extension = true;
+      break;
+    }
+  }
+
+  if (share_extension) {
+    printer->Print(vars_, "static const cmsg_method_client_extensions $lcfullname$_api_service_support_extension");
+    printer->Print(" = \n{\n");
+    printer->Indent();
+    printer->Print(vars_, ".service_support = &$lcfullname$_api_service_support_check,\n");
+    printer->Outdent();
+    printer->Print("};\n\n");
+  }
 }
 
 void AtlCodeGenerator::GenerateDescriptorDeclarations(io::Printer* printer)
@@ -236,15 +252,33 @@ void AtlCodeGenerator::GenerateAtlApiDefinitions(io::Printer* printer, bool forH
   }
 }
 
+bool AtlCodeGenerator::ApiMethodHasOwnExtensions(const MethodDescriptor &method)
+{
+  if (method.options().HasExtension(file_response) ||
+      method.options().HasExtension(rpc_privilege) ||
+      method.options().HasExtension(timeout)) {
+      return true;
+  }
+  return false;
+}
+
+bool AtlCodeGenerator::ApiMethodHasServiceSupportCheck(const MethodDescriptor &method)
+{
+  if (descriptor_->options().HasExtension(service_support_check) &&
+      !method.options().HasExtension(disable_service_support_check)) {
+    return true;
+  }
+  return false;
+}
+
 void AtlCodeGenerator::GenerateAtlApiMethodExtensionsPtr(const MethodDescriptor &method, io::Printer* printer)
 {
   string lcname = cmsg::CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  if (method.options().HasExtension(file_response)) {
-      printer->Print(vars_, "&$lcfullname$_api_$method$_file_extension");
-  } else if (descriptor_->options().HasExtension(service_support_check) &&
-             !method.options().HasExtension(disable_service_support_check)) {
+  if (ApiMethodHasOwnExtensions(method)) {
+    printer->Print(vars_, "&$lcfullname$_api_$method$_extension");
+  } else if (ApiMethodHasServiceSupportCheck(method)) {
     printer->Print(vars_, "&$lcfullname$_api_service_support_extension");
   } else {
     printer->Print("NULL");
@@ -254,19 +288,35 @@ void AtlCodeGenerator::GenerateAtlApiMethodExtensionsPtr(const MethodDescriptor 
 
 void AtlCodeGenerator::GenerateAtlApiMethodExtensions(const MethodDescriptor &method, io::Printer* printer)
 {
-    string lcname = cmsg::CamelToLower(method.name());
-    vars_["method"] = lcname;
+  string lcname = cmsg::CamelToLower(method.name());
+  vars_["method"] = lcname;
 
-    if (method.options().HasExtension(file_response)) {
-        FileResponseInfo info = method.options().GetExtension(file_response);
-        vars_["file_path"] = info.file_path();
-        printer->Print(vars_, "static const cmsg_method_client_extensions $lcfullname$_api_$method$_file_extension");
-        printer->Print(" = \n{\n");
-        printer->Indent();
-        printer->Print(vars_, ".response_filename = \"$file_path$\",\n");
-        printer->Outdent();
-        printer->Print("};\n\n");
-      }
+  // Return early if per-API extension is not required.
+  if (!ApiMethodHasOwnExtensions(method)) {
+    return;
+  }
+
+  printer->Print(vars_, "static const cmsg_method_client_extensions $lcfullname$_api_$method$_extension");
+  printer->Print(" = \n{\n");
+  printer->Indent();
+  if (method.options().HasExtension(file_response)) {
+    FileResponseInfo info = method.options().GetExtension(file_response);
+    vars_["file_path"] = info.file_path();
+    printer->Print(vars_, ".response_filename = \"$file_path$\",\n");
+  }
+  if (ApiMethodHasServiceSupportCheck(method)) {
+    printer->Print(vars_, ".service_support = &$lcfullname$_api_service_support_check,\n");
+  }
+  if (method.options().HasExtension(rpc_privilege)) {
+    vars_["rpc_privilege"] = SimpleItoa(method.options().GetExtension(rpc_privilege));
+    printer->Print(vars_, ".rpc_privilege = $rpc_privilege$,\n");
+  }
+  if (method.options().HasExtension(timeout)) {
+    vars_["timeout"] = SimpleItoa(method.options().GetExtension(timeout));
+    printer->Print(vars_, ".timeout = $timeout$,\n");
+  }
+  printer->Outdent();
+  printer->Print("};\n\n");
 }
 
 void AtlCodeGenerator::GenerateAtlApiDefinition(const MethodDescriptor &method, io::Printer* printer, bool forHeader)
@@ -352,13 +402,31 @@ void AtlCodeGenerator::GenerateAtlServerImplPtr(const MethodDescriptor &method, 
   }
 }
 
+bool AtlCodeGenerator::ServerMethodHasAutoValidation(const MethodDescriptor &method)
+{
+  if (method.options().HasExtension(auto_validation) &&
+      method.options().GetExtension(auto_validation)) {
+    return true;
+  }
+  return false;
+}
+
+bool AtlCodeGenerator::ServerMethodHasOwnExtensions(const MethodDescriptor &method)
+{
+   if (ServerMethodHasAutoValidation(method) ||
+       method.options().HasExtension(eventwatch_notify)) {
+    return true;
+  }
+
+  return false;
+}
+
 void AtlCodeGenerator::GenerateAtlServerMethodExtensionsPtr(const MethodDescriptor &method, io::Printer* printer)
 {
   string lcname = cmsg::CamelToLower(method.name());
   vars_["method"] = lcname;
 
-  if (method.options().HasExtension(auto_validation) &&
-      method.options().GetExtension(auto_validation))
+  if (ServerMethodHasOwnExtensions(method))
   {
     printer->Print(vars_, "&$lcfullname$_impl_$method$_extensions");
   } else {
@@ -372,15 +440,71 @@ void AtlCodeGenerator::GenerateAtlServerMethodExtensions(const MethodDescriptor 
     vars_["method"] = lcname;
     vars_["input_typename_lower"] = cmsg::FullNameToLower(method.input_type()->full_name());
 
-    if (method.options().HasExtension(auto_validation) &&
-        method.options().GetExtension(auto_validation)) {
-      printer->Print(vars_, "static const cmsg_method_server_extensions $lcfullname$_impl_$method$_extensions");
-      printer->Print(" = \n{\n");
-      printer->Indent();
-      printer->Print(vars_, ".validation_func = (cmsg_validation_func) $input_typename_lower$_validate,\n");
-      printer->Outdent();
-      printer->Print("};\n\n");
+    // Return early if per-API extension is not required.
+    if (!ServerMethodHasOwnExtensions(method))
+    {
+        return;
     }
+
+    printer->Print(vars_, "static const cmsg_method_server_extensions $lcfullname$_impl_$method$_extensions");
+    printer->Print(" = \n{\n");
+    printer->Indent();
+    if (ServerMethodHasAutoValidation(method)) {
+      printer->Print(vars_, ".validation_func = (cmsg_validation_func) $input_typename_lower$_validate,\n");
+    }
+    if (method.options().HasExtension(eventwatch_notify)) {
+      vars_["eventwatch_notify"] = method.options().GetExtension(eventwatch_notify);
+      printer->Print(vars_, ".eventwatch_notify = \"$eventwatch_notify$\",\n");
+    }
+    printer->Outdent();
+    printer->Print("};\n\n");
+}
+
+void AtlCodeGenerator::GenerateAtlServerExtensions(io::Printer* printer)
+{
+    std::unordered_set<string> feature_set;
+    const MethodDescriptor *method;
+
+    // Add each eventwatch_notify feature from method extensions (duplicates are not added)
+    for (int i = 0; i < descriptor_->method_count(); i++) {
+      method = descriptor_->method(i);
+      if (method->options().HasExtension(eventwatch_notify))
+      {
+          feature_set.insert(method->options().GetExtension(eventwatch_notify));
+      }
+    }
+
+    if (!feature_set.empty())
+    {
+        printer->Print(vars_, "static const char *$lcfullname$_server_impl_eventwatch_notify_list[]");
+        printer->Print(" = \n{\n");
+        printer->Indent();
+
+        // List of eventwatch_notify features
+        for (const auto& elem: feature_set) {
+            vars_["eventwatch_notify_list_elem"] = elem;
+            printer->Print(vars_, "\"$eventwatch_notify_list_elem$\",\n");
+        }
+
+        // List must end with NULL
+        printer->Print(vars_, "NULL,\n");
+        printer->Outdent();
+        printer->Print(vars_, "};\n\n");
+    }
+
+    printer->Print(vars_, "static const cmsg_server_extensions $lcfullname$_server_impl_extensions");
+    printer->Print(" = \n{\n");
+    printer->Indent();
+    if (!feature_set.empty())
+    {
+        printer->Print(vars_, ".eventwatch_notify_list = $lcfullname$_server_impl_eventwatch_notify_list,\n");
+    }
+    else
+    {
+        printer->Print(vars_, ".eventwatch_notify_list = NULL,\n");
+    }
+    printer->Outdent();
+    printer->Print("};\n\n");
 }
 
 //
@@ -394,6 +518,9 @@ void AtlCodeGenerator::GenerateAtlServerImplementation(io::Printer* printer)
     const MethodDescriptor *method = descriptor_->method(i);
     GenerateAtlServerMethodExtensions(*method, printer);
   }
+
+  // Server extensions
+  GenerateAtlServerExtensions(printer);
 
   // Impl pointers
   printer->Print(vars_, "static const cmsg_impl_info $lcfullname$_impl_info[] =\n");

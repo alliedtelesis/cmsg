@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * cmsg_pub_private.h
  *
@@ -9,12 +10,6 @@
 
 #include "cmsg_server.h"
 #include "cmsg_client.h"
-
-typedef struct
-{
-    char *method_name;
-    cmsg_client *comp_client;   /* Client to subscribers of this method */
-} subscribed_method_entry;
 
 struct cmsg_publisher
 {
@@ -38,8 +33,9 @@ struct cmsg_publisher
     bool send_thread_running;
 
     cmsg_server *update_server;
-    pthread_t update_thread;
-    bool update_thread_running;
 };
+
+cmsg_client *cmsg_publisher_get_client_for_method (struct cmsg_publisher *publisher,
+                                                   const char *method_name, bool create);
 
 #endif /* __CMSG_PUB_PRIVATE_H_ */

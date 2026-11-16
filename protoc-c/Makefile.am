@@ -20,6 +20,18 @@ file_response.pb.cc \
 file_response.pb.h: $(PROTOC_PATH)$(EXEEXT) ../cmsg/src/file_response.proto
 	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/cmsg/src/file_response.proto
 
+privilege.pb.cc \
+privilege.pb.h: $(PROTOC_PATH)$(EXEEXT) ../cmsg/src/privilege.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/cmsg/src/privilege.proto
+
+eventwatch_notify.pb.cc \
+eventwatch_notify.pb.h: $(PROTOC_PATH)$(EXEEXT) ../cmsg/src/eventwatch_notify.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/cmsg/src/eventwatch_notify.proto
+
+timeout.pb.cc \
+timeout.pb.h: $(PROTOC_PATH)$(EXEEXT) ../cmsg/src/timeout.proto
+	$(AM_V_GEN)$(PROTOC_PATH)$(EXEEXT) -I$(top_srcdir)/cmsg/src --cpp_out=$(top_srcdir)/protoc-c $(top_srcdir)/cmsg/src/timeout.proto
+
 protoc_gen_cmsg_SOURCES = \
 	google/api/http.pb.cc \
 	google/api/http.pb.h \
@@ -31,6 +43,12 @@ protoc_gen_cmsg_SOURCES = \
 	supported_service.pb.h \
 	file_response.pb.cc \
 	file_response.pb.h \
+	privilege.pb.cc \
+	privilege.pb.h \
+	eventwatch_notify.pb.cc \
+	eventwatch_notify.pb.h \
+	timeout.pb.cc \
+	timeout.pb.h \
 	c_atl_generator.cc \
 	c_atl_generator.h \
 	c_enum.cc \
@@ -68,5 +86,6 @@ protoc_gen_cmsg_CPPFLAGS = \
 
 BUILT_SOURCES = google/api/http.pb.cc google/api/http.pb.h google/api/annotations.pb.cc google/api/annotations.pb.h \
                 validation.pb.cc validation.pb.h supported_service.pb.cc supported_service.pb.h \
-                file_response.pb.cc file_response.pb.h
+                file_response.pb.cc file_response.pb.h privilege.pb.cc privilege.pb.h \
+                eventwatch_notify.pb.cc eventwatch_notify.pb.h timeout.pb.cc timeout.pb.h
 CLEANFILES = $(BUILT_SOURCES)

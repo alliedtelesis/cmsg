@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Copyright 2016, Allied Telesis Labs New Zealand, Ltd
  */
@@ -5,10 +6,16 @@
 #include "cmsg_private.h"
 #include "cmsg_error.h"
 #include "cmsg_protobuf-c.h"
+#ifdef HAVE_GMEM_DIAG
 #include <gmem_diag.h>
+#else
+#define g_mem_record_alloc(ptr, type, filename, line)
+#define g_mem_record_free(ptr, type, filename, line)
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <limits.h>
 
 #define CMSG_REPEATED_BLOCK_SIZE 64
 
@@ -177,6 +184,33 @@ cmsg_header_process (cmsg_header *header_received, cmsg_header *header_converted
         break;
     }
 
+    /*
+     * header_length covers the fixed header plus any TLV headers, so it can
+     * never be less than the fixed header.
+     */
+    if (header_converted->header_length < sizeof (cmsg_header))
+    {
+        CMSG_LOG_GEN_ERROR ("Processing header, header length %u is smaller than "
+                            "the minimum %zu", header_converted->header_length,
+                            sizeof (cmsg_header));
+        return CMSG_RET_ERR;
+    }
+
+    /*
+     * The receive buffer is sized from message_length + header_length, and
+     * that sum is passed to the transport receive functions as an int. No
+     * valid message is this large, so a sum above INT_MAX means the header is
+     * corrupt or crafted. This also rejects sums that wrap uint32.
+     */
+    if (header_converted->header_length > INT_MAX ||
+        header_converted->message_length > INT_MAX - header_converted->header_length)
+    {
+        CMSG_LOG_GEN_ERROR ("Processing header, message length %u and header length "
+                            "%u exceed INT_MAX", header_converted->message_length,
+                            header_converted->header_length);
+        return CMSG_RET_ERR;
+    }
+
     return CMSG_RET_OK;
 }
 
@@ -320,6 +354,40 @@ const char *
 cmsg_service_name_get (const ProtobufCServiceDescriptor *descriptor)
 {
     return descriptor->name;
+}
+
+const char *
+cmsg_socket_path (void)
+{
+    static const char *path = NULL;
+    if (!path)
+    {
+        path = getenv ("CMSG_SOCKET_PATH");
+    }
+    if (!path)
+    {
+        path = "/tmp";
+    }
+    return path;
+}
+
+uint16_t
+cmsg_namespace (void)
+{
+    static uint16_t ns = 0;
+    if (ns == 0)
+    {
+        /* Use 16 bits of the inode id of the mnt ns file
+         * in a similar way to ftok as the namespace id */
+        char *path = g_strdup_printf ("/proc/%d/ns/mnt", getpid ());
+        struct stat st = { 0 };
+        if (stat (path, &st) == 0)
+        {
+            ns = (uint16_t) st.st_ino;
+        }
+        free (path);
+    }
+    return ns;
 }
 
 void *
@@ -652,6 +720,36 @@ cmsg_repeated_append_int32 (int32_t **msg_ptr_array, size_t *num_elems,
     if ((*num_elems % CMSG_REPEATED_BLOCK_SIZE) == 0)
     {
         new_size = (*num_elems + CMSG_REPEATED_BLOCK_SIZE) * sizeof (int32_t);
+        new_array_ptr = cmsg_realloc (*msg_ptr_array, new_size, file, line);
+    }
+    else
+    {
+        /* We have previously allocated space we can use */
+        new_array_ptr = *msg_ptr_array;
+    }
+
+    if (new_array_ptr)
+    {
+        /* Add new element to array and increment number of elements */
+        new_array_ptr[(*num_elems)++] = value;
+        *msg_ptr_array = new_array_ptr;
+    }
+}
+
+void
+cmsg_repeated_append_uint64 (uint64_t **msg_ptr_array, size_t *num_elems,
+                             uint64_t value, const char *file, int line)
+{
+    uint64_t *new_array_ptr = NULL;
+    size_t new_size;
+
+    /* Optimization to reduce reallocations. Allocate a block of pointers
+     * and use until exhausted, rather than reallocating for every append.
+     * Allocate every time num_elems % allocation block size is 0.
+     */
+    if ((*num_elems % CMSG_REPEATED_BLOCK_SIZE) == 0)
+    {
+        new_size = (*num_elems + CMSG_REPEATED_BLOCK_SIZE) * sizeof (uint64_t);
         new_array_ptr = cmsg_realloc (*msg_ptr_array, new_size, file, line);
     }
     else

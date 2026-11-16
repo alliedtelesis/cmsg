@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /**
  * cmsg_shell_application.c
  *
@@ -16,12 +17,20 @@
 #include <glib.h>
 #include <protobuf2json.h>
 #include <arpa/inet.h>
-#include "cmsg.h"
-#include "cmsg_client.h"
+#include <cmsg/cmsg.h>
+#include <cmsg/cmsg_client.h>
+#include <cmsg/cmsg_pthread_helpers.h>
 #include "cmsg_protobuf-c.h"
 
 #define LIB_PATH "/usr/lib"
 #define MSG_BUF_LEN 200
+
+volatile sig_atomic_t stop = 0;
+void
+handle_sigint (int sig)
+{
+    stop = 1;
+}
 
 typedef int (*cmsg_api_func_ptr) ();
 
@@ -45,6 +54,9 @@ typedef struct program_args_s
     bool valid_ip_address;
     bool oneway;
     bool disable_error_logs;
+    bool list_methods;
+    uint32_t timeout;
+    bool monitor;
 } program_args;
 
 typedef struct pbc_descriptors_s
@@ -55,12 +67,14 @@ typedef struct pbc_descriptors_s
     int method_index;
 } pbc_descriptors;
 
-#define SHELL_OPTIONS    "a:f:hi:m:n:op:s:t:r:"
+#define SHELL_OPTIONS    "a:f:hi:lm:n:op:s:t:r:T:w"
 
 static struct option longopts[] = {
     { "api_name", required_argument, NULL, 'a' },
     { "file_name", required_argument, NULL, 'f' },
     { "help", no_argument, NULL, 'h' },
+    { "list_methods", no_argument, NULL, 'l' },
+    { "monitor", no_argument, NULL, 'w' },
     { "message_data", required_argument, NULL, 'm' },
     { "port_service_name", required_argument, NULL, 'n' },
     { "one_way", no_argument, NULL, 'o' },
@@ -69,6 +83,7 @@ static struct option longopts[] = {
     { "service_name", required_argument, NULL, 's' },
     { "transport_type", required_argument, NULL, 't' },
     { "ip_address", required_argument, NULL, 'r' },
+    { "timeout", required_argument, NULL, 'T' },
     { 0 }
 };
 
@@ -81,10 +96,13 @@ usage (void)
     fprintf (stderr,
              "Usage: cmsg [-t {unix|tcp}] | [-f FILE_NAME] | [-p PACKAGE_NAME] |\n"
              "            [-s CMSG_SERVICE_NAME] | [-a API_NAME] | [-m MESSAGE_DATA] |\n"
-             "            [-o] | [-n PORT_SERVICE_NAME]\n"
+             "            [-o] | [-n PORT_SERVICE_NAME] | [-T TIMEOUT]\n"
+             "       cmsg [-l] | [-f FILE_NAME] | [-p PACKAGE_NAME] | [-s CMSG_SERVICE_NAME]\n"
              "\n"
              "Options:\n"
              "  -h                      Display this message.\n"
+             "  -l                      List methods for a service.\n"
+             "  -w                      Monitor notifications.\n"
              "  -t TRANSPORT_TYPE       The type of transport to use for the cmsg client.\n"
              "  -f FILE_NAME            The name of the .proto file defining the service (do\n"
              "                          not include the '.proto' part).\n"
@@ -98,7 +116,8 @@ usage (void)
              "  -n PORT_SERVICE_NAME    The service name for the port specified in the /etc/services file\n"
              "                          (if using a TCP transport).\n"
              "  -r TCP_IP_ADDRESS       The IP address of the server to connect to (if using a\n"
-             "                          TCP transport). Currently this must be an IPv4 address.\n\n");
+             "                          TCP transport). Currently this must be an IPv4 address.\n"
+             "  -T TIMEOUT              Receive timeout in seconds (default: 100)\n\n");
 }
 
 /**
@@ -147,6 +166,8 @@ get_ipv4_address (program_args *args, const char *addr_string)
 static void
 program_args_init (program_args *args)
 {
+    const char *timeout_str;
+
     args->transport_type = TRANSPORT_TYPE_NONE;
     args->file_name = NULL;
     args->package_name = NULL;
@@ -157,6 +178,46 @@ program_args_init (program_args *args)
     args->oneway = false;
     args->valid_ip_address = false;
     args->disable_error_logs = false;
+    args->timeout = 0;
+    args->monitor = false;
+
+    /* Choose the default timeout if it's set via environment variable */
+    timeout_str = getenv ("CMSG_TIMEOUT");
+    if (timeout_str)
+    {
+        args->timeout = atoi (timeout_str);
+    }
+}
+
+/**
+ * Check that the user of the application has entered all of the required arguments
+ * to identify a particular CMSG service.
+ *
+ * @param args - The 'program_args' structure containing the parsed arguments.
+ *
+ * @returns true if all of the required arguments have been entered,
+ *          false otherwise.
+ */
+static bool
+check_service_input_arguments (program_args *args)
+{
+    if (args->file_name == NULL)
+    {
+        fprintf (stderr, "A file name must be supplied.\n");
+        return false;
+    }
+    if (args->package_name == NULL)
+    {
+        fprintf (stderr, "A package name must be supplied.\n");
+        return false;
+    }
+    if (args->service_name == NULL)
+    {
+        fprintf (stderr, "A service name must be supplied.\n");
+        return false;
+    }
+
+    return true;
 }
 
 /**
@@ -175,22 +236,11 @@ check_input_arguments (program_args *args)
         fprintf (stderr, "A transport type must be supplied.\n");
         return false;
     }
-    if (args->file_name == NULL)
+    if (!check_service_input_arguments (args))
     {
-        fprintf (stderr, "A file name must be supplied.\n");
         return false;
     }
-    if (args->package_name == NULL)
-    {
-        fprintf (stderr, "A package name must be supplied.\n");
-        return false;
-    }
-    if (args->service_name == NULL)
-    {
-        fprintf (stderr, "A service name must be supplied.\n");
-        return false;
-    }
-    if (args->api_name == NULL)
+    if (args->api_name == NULL && !args->monitor)
     {
         fprintf (stderr, "An api/rpc name must be supplied.\n");
         return false;
@@ -246,12 +296,18 @@ parse_input_arguments (int argc, char **argv, program_args *args)
         case 'a':
             args->api_name = optarg;
             break;
+        case 'w':
+            args->monitor = true;
+            break;
         case 'f':
             args->file_name = optarg;
             break;
         case 'h':
             usage ();
             exit (EXIT_SUCCESS);
+        case 'l':
+            args->list_methods = true;
+            break;
         case 'm':
             args->message_data = optarg;
             break;
@@ -276,6 +332,9 @@ parse_input_arguments (int argc, char **argv, program_args *args)
         case 'r':
             get_ipv4_address (args, optarg);
             break;
+        case 'T':
+            args->timeout = atoi (optarg);
+            break;
         case '?':
             /* getopt_long already printed an error message. */
             exit (EXIT_FAILURE);
@@ -287,7 +346,14 @@ parse_input_arguments (int argc, char **argv, program_args *args)
         }
     }
 
-    return check_input_arguments (args);
+    if (args->list_methods)
+    {
+        return check_service_input_arguments (args);
+    }
+    else
+    {
+        return check_input_arguments (args);
+    }
 }
 
 /**
@@ -325,6 +391,42 @@ load_library (const char *file_name)
 }
 
 /**
+ * Load the cmsg_service_descriptor from the dynamically loaded library.
+ *
+ * @param lib_handle - The handle returned from opening the library using dlopen().
+ * @param args - The 'program_args' structure containing the arguments entered
+ *               when calling the application.
+ * @param cmsg_service_descriptor - Pointer to hold the loaded service descriptor.
+ *
+ * @returns true if the descriptor was loaded.
+ *          false otherwise.
+ */
+static bool
+load_cmsg_service_descriptor (void *lib_handle, program_args *args,
+                              const cmsg_api_descriptor **cmsg_service_descriptor)
+{
+    char *symbol_name = NULL;
+
+    if (asprintf (&symbol_name, "%s_%s_cmsg_api_descriptor", args->package_name,
+                  args->service_name) < 0)
+    {
+        fprintf (stderr, "Unable to allocate memory.\n");
+        return false;
+    }
+
+    *cmsg_service_descriptor = dlsym (lib_handle, symbol_name);
+    if (*cmsg_service_descriptor == NULL)
+    {
+        fprintf (stderr, "Unable to locate service descriptor (symbol = %s).\n",
+                 symbol_name);
+        return false;
+    }
+    free (symbol_name);
+
+    return true;
+}
+
+/**
  * Find the protobuf-c descriptors and CMSG API function pointer inside the
  * dynamically loaded library.
  *
@@ -340,30 +442,17 @@ load_library (const char *file_name)
 static bool
 find_descriptors (void *lib_handle, program_args *args, pbc_descriptors *descriptors)
 {
-    char *symbol_name = NULL;
     int method_index;
     const cmsg_api_descriptor *cmsg_service_descriptor;
     const ProtobufCServiceDescriptor *service_descriptor;
 
-    if (asprintf (&symbol_name, "%s_%s_cmsg_api_descriptor", args->package_name,
-                  args->service_name) < 0)
+    if (!load_cmsg_service_descriptor (lib_handle, args, &cmsg_service_descriptor))
     {
-        fprintf (stderr, "Unable to allocate memory.\n");
         return false;
     }
-
-    cmsg_service_descriptor = dlsym (lib_handle, symbol_name);
-    if (cmsg_service_descriptor == NULL)
-    {
-        fprintf (stderr, "Unable to locate service descriptor (symbol = %s).\n",
-                 symbol_name);
-        return false;
-    }
-    free (symbol_name);
 
     descriptors->cmsg_service_descriptor = cmsg_service_descriptor;
     service_descriptor = cmsg_service_descriptor->service_desc;
-
     method_index =
         protobuf_c_service_descriptor_get_method_index_by_name (service_descriptor,
                                                                 args->api_name);
@@ -508,6 +597,12 @@ call_api (program_args *args, pbc_descriptors *descriptors,
         return false;
     }
 
+    /* Change the default receive timeout with the user-specified value */
+    if (args->timeout != 0)
+    {
+        cmsg_client_set_receive_timeout (client, args->timeout);
+    }
+
     cmsg_ret = cmsg_api_invoke (client, descriptors->cmsg_service_descriptor,
                                 descriptors->method_index,
                                 input_proto_message, output_proto_message);
@@ -531,7 +626,7 @@ call_api (program_args *args, pbc_descriptors *descriptors,
  *          false otherwise.
  */
 static bool
-convert_and_print_output (ProtobufCMessage *output_proto_message)
+convert_and_print_output (const char *root, ProtobufCMessage *output_proto_message)
 {
     char conversion_message[MSG_BUF_LEN] = { 0 };
     json_t *output_json = NULL;
@@ -542,6 +637,13 @@ convert_and_print_output (ProtobufCMessage *output_proto_message)
     {
         fprintf (stderr, "Error converting protobuf to JSON (%s).\n", conversion_message);
         return false;
+    }
+
+    if (root)
+    {
+        json_t *root_json = json_object ();
+        json_object_set_new (root_json, root, output_json);
+        output_json = root_json;
     }
 
     json_string = json_dumps (output_json, JSON_INDENT (4));
@@ -559,14 +661,210 @@ convert_and_print_output (ProtobufCMessage *output_proto_message)
     return true;
 }
 
+/**
+ * Handle API request passed in via the arguments and print result
+ *
+ * @param lib_handle - The handle returned from opening the library using dlopen().
+ * @param args - The 'program_args' structure containing the arguments entered
+ *               when calling the application.
+ *
+ * @returns - true on success or false on failure.
+ */
+bool
+handle_request (void *lib_handle, program_args *args)
+{
+    pbc_descriptors descriptors = { 0 };
+    ProtobufCMessage *input_proto_message = NULL;
+    ProtobufCMessage *output_proto_message = NULL;
+    bool ret = true;
+
+    if (!find_descriptors (lib_handle, args, &descriptors))
+    {
+        return false;
+    }
+
+    if (!convert_input (args->message_data, descriptors.input_msg_descriptor,
+                        &input_proto_message))
+    {
+        return false;
+    }
+
+    if (!call_api (args, &descriptors, input_proto_message, &output_proto_message))
+    {
+        return false;
+    }
+
+    if (output_proto_message && !convert_and_print_output (NULL, output_proto_message))
+    {
+        ret = false;
+    }
+
+    CMSG_FREE_RECV_MSG (output_proto_message);
+
+    return ret;
+}
+
+/**
+ * List methods for the service passed in via the arguments
+ *
+ * @param lib_handle - The handle returned from opening the library using dlopen().
+ * @param args - The 'program_args' structure containing the arguments entered
+ *               when calling the application.
+ *
+ * @returns - true on success or false on failure.
+ */
+bool
+list_methods (void *lib_handle, program_args *args)
+{
+    const cmsg_api_descriptor *cmsg_service_descriptor;
+    const ProtobufCServiceDescriptor *service_descriptor;
+    int method_index;
+
+    if (!load_cmsg_service_descriptor (lib_handle, args, &cmsg_service_descriptor))
+    {
+        return false;
+    }
+
+    service_descriptor = cmsg_service_descriptor->service_desc;
+    printf ("Methods for service '%s' - index: method (in, out):\n",
+            service_descriptor->name);
+
+    for (method_index = 0; method_index < service_descriptor->n_methods; method_index++)
+    {
+        printf ("%3d: %s (%s, %s)\n", method_index,
+                service_descriptor->methods[method_index].name,
+                CMSG_INPUT_MSG_DESCRIPTOR (service_descriptor, method_index)->name,
+                CMSG_OUTPUT_MSG_DESCRIPTOR (service_descriptor, method_index)->name);
+    }
+
+    return true;
+}
+
+/**
+ * Handler for published notifications
+ */
+static void
+monitor_invoke (ProtobufCService *service, unsigned method_index,
+                const ProtobufCMessage *input, ProtobufCClosure closure, void *closure_data)
+{
+    if (method_index < service->descriptor->n_methods)
+    {
+        const char *method = service->descriptor->methods[method_index].name;
+        convert_and_print_output (method, (ProtobufCMessage *) input);
+    }
+}
+
+/**
+ * Monitor notifications for the service passed in via the arguments
+ *
+ * @param lib_handle - The handle returned from opening the library using dlopen().
+ * @param args - The 'program_args' structure containing the arguments entered
+ *               when calling the application.
+ *
+ * @returns - true on success or false on failure.
+ */
+static bool
+monitor (void *lib_handle, program_args *args)
+{
+    bool local = args->transport_type == TRANSPORT_TYPE_UNIX;
+    const cmsg_api_descriptor *cmsg_descriptor;
+    pthread_t subscriber_processing_thread;
+    cmsg_subscriber *subscriber;
+    cmsg_server *server;
+    cmsg_service service_full = {
+        .base = {
+                 .invoke = monitor_invoke,
+                 },
+    };
+    ProtobufCService *service = &service_full.base;
+    int method_index;
+
+    /* Load the requested service descriptor */
+    if (!load_cmsg_service_descriptor (lib_handle, args, &cmsg_descriptor))
+    {
+        return false;
+    }
+    service->descriptor = cmsg_descriptor->service_desc;
+
+    /* Create the subscriber */
+    if (args->transport_type == TRANSPORT_TYPE_UNIX)
+    {
+        subscriber = cmsg_subscriber_create_unix (service);
+        server = subscriber ? cmsg_sub_unix_server_get (subscriber) : NULL;
+    }
+    else
+    {
+        subscriber =
+            cmsg_subscriber_create_tcp (args->port_service_name, args->tcp_ip_address, NULL,
+                                        service);
+        server = subscriber ? cmsg_sub_tcp_server_get (subscriber) : NULL;
+    }
+    if (!subscriber)
+    {
+        return false;
+    }
+
+    /* Subscribe to one or all events (locally if UNIX, remotely if TCP) */
+    if (args->api_name)
+    {
+        if (local)
+        {
+            cmsg_sub_subscribe_local (subscriber, args->api_name);
+        }
+        else
+        {
+            cmsg_sub_subscribe_remote (subscriber, args->api_name, args->tcp_ip_address);
+        }
+    }
+    else
+    {
+        for (method_index = 0; method_index < service->descriptor->n_methods;
+             method_index++)
+        {
+            if (local)
+            {
+                cmsg_sub_subscribe_local (subscriber,
+                                          service->descriptor->methods[method_index].name);
+            }
+            else
+            {
+                cmsg_sub_subscribe_remote (subscriber,
+                                           service->descriptor->methods[method_index].name,
+                                           args->tcp_ip_address);
+            }
+        }
+    }
+
+    /* Start the processing thread */
+    if (!cmsg_pthread_server_init (&subscriber_processing_thread, server))
+    {
+        fprintf (stderr, "Failed to start subscriber processing thread");
+        cmsg_subscriber_destroy (subscriber);
+        return false;
+    }
+
+    /* Wait for the user to cancel */
+    while (!stop)
+    {
+        pause ();
+    }
+
+    /* Cleanup */
+    pthread_cancel (subscriber_processing_thread);
+    pthread_join (subscriber_processing_thread, NULL);
+    cmsg_subscriber_destroy (subscriber);
+
+    return true;
+}
+
 int
 main (int argc, char **argv)
 {
+    bool ret;
     program_args args = { 0 };
-    pbc_descriptors descriptors = { 0 };
     static void *lib_handle = NULL;
-    ProtobufCMessage *input_proto_message = NULL;
-    ProtobufCMessage *output_proto_message = NULL;
+
+    signal (SIGINT, handle_sigint);
 
     if (!parse_input_arguments (argc, argv, &args))
     {
@@ -579,33 +877,25 @@ main (int argc, char **argv)
         exit (EXIT_FAILURE);
     }
 
-    if (!find_descriptors (lib_handle, &args, &descriptors))
+    if (args.list_methods)
     {
-        dlclose (lib_handle);
-        exit (EXIT_FAILURE);
+        ret = list_methods (lib_handle, &args);
+    }
+    else if (args.monitor)
+    {
+        ret = monitor (lib_handle, &args);
+    }
+    else
+    {
+        ret = handle_request (lib_handle, &args);
     }
 
-    if (!convert_input (args.message_data, descriptors.input_msg_descriptor,
-                        &input_proto_message))
-    {
-        dlclose (lib_handle);
-        exit (EXIT_FAILURE);
-    }
-
-    if (!call_api (&args, &descriptors, input_proto_message, &output_proto_message))
-    {
-        dlclose (lib_handle);
-        exit (EXIT_FAILURE);
-    }
-
-    if (output_proto_message && !convert_and_print_output (output_proto_message))
-    {
-        CMSG_FREE_RECV_MSG (output_proto_message);
-        dlclose (lib_handle);
-        exit (EXIT_FAILURE);
-    }
-
-    CMSG_FREE_RECV_MSG (output_proto_message);
     dlclose (lib_handle);
+
+    if (!ret)
+    {
+        exit (EXIT_FAILURE);
+    }
+
     return EXIT_SUCCESS;
 }
